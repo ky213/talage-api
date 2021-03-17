@@ -1,3 +1,5 @@
+/* eslint-disable guard-for-in */
+/* eslint-disable no-loop-func */
 /* eslint-disable brace-style */
 /* eslint-disable array-element-newline */
 /* eslint indent: 0 */
@@ -16,6 +18,7 @@ const Integration = require('../Integration.js');
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const util = require('util');
+const log = global.log;
 //const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -33,154 +36,25 @@ module.exports = class CompwestWC extends Integration {
     }
 
     /**
-     * Makes a request to Accident Fund to bind a policy.  This method is not intended to be called directly
-     *
-     * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
-     */
-   // async _bind() {
-        // Temporarily turn off bind
-        // throw serverHelper.internalError('Bind is currently disabled for this insurer');
-
-        // // May payment plans
-        // const payment_plans = {
-        //     '1': 'D1', // Annual
-        //     '2': 'D2', // Semi-Annual
-        //     '3': 'D4', // Quarterly
-        //     '4': 'D9' // 10 Pay
-        // };
-
-        // CompWest has us define our own Request ID
-        // this.request_id = this.generate_uuid();
-
-        // // Build the XML Request
-
-        // // <ACORD>
-        // const ACORD = builder.create('ACORD');
-        // ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyAddRqXSD.xsd');
-        // ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
-
-        // // <InsuranceSvcRq>
-        // const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        // InsuranceSvcRq.ele('RqUID', this.request_id);
-
-        // // <WorkCompPolicyAddRq>
-        // const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
-
-        // // <Producer>
-        // const Producer = WorkCompPolicyAddRq.ele('Producer');
-
-        // // <ItemIdInfo>
-        // const ItemIdInfo = Producer.ele('ItemIdInfo');
-        // ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
-        // // </ItemIdInfo>
-
-        // // <GeneralPartyInfo>
-        // let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
-
-        // // <NameInfo>
-        // let NameInfo = GeneralPartyInfo.ele('NameInfo');
-        // NameInfo.att('id', 'ProducerName');
-
-        // // <PersonName>
-        // const PersonName = NameInfo.ele('PersonName');
-        // PersonName.ele('Surname', this.app.agencyLocation.last_name);
-        // PersonName.ele('GivenName', this.app.agencyLocation.first_name);
-        // // </PersonName>
-        // // </NameInfo>
-        // // </GeneralPartyInfo>
-        // // </Producer>
-
-        // // <InsuredOrPrincipal>
-        // const InsuredOrPrincipal = WorkCompPolicyAddRq.ele('InsuredOrPrincipal');
-        // InsuredOrPrincipal.att('id', 'n0');
-
-        // // <GeneralPartyInfo>
-        // GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
-
-        // // <NameInfo>
-        // NameInfo = GeneralPartyInfo.ele('NameInfo');
-
-        // // <CommlName>
-        // const CommlName = NameInfo.ele('CommlName');
-        // CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
-        // // </CommlName>
-        // // </NameInfo>
-        // // </GeneralPartyInfo>
-        // // </InsureredOrPrincipal>
-
-        // // <CommlPolicy>
-        // const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
-        // CommlPolicy.ele('PolicyNumber', this.policy.json.number);
-
-        // // <PaymentOption>
-        // const PaymentOption = CommlPolicy.ele('PaymentOption');
-        // PaymentOption.ele('PaymentPlanCd', payment_plans[226]);
-        // // </PaymentOption>
-        // // </CommlPolicy>
-
-        // log.debug('Add additional insureds here');
-
-        // // Get the XML structure as a string
-        // const xml = ACORD.end({ pretty: true });
-
-        // // Determine which URL to use
-        // let host = '';
-        // if (this.insurer.useSandbox) {
-        //     host = 'npsv.afgroup.com';
-        // } else {
-        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ERROR: Binding not supported in production`);
-        //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        // }
-        // const path = '/TEST_DigitalAq/rest/getbindworkcompquote'; // Send the XML to the insurer
-
-        // let result = null;
-        // try {
-        //     result = await this.send_xml_request(host, path, xml, {
-        //         Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-        //         'Content-Type': 'application/xml'
-        //     });
-        // } catch (error) {
-        //     log.error(util.inspect(error) + __location);
-        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
-        //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        // }
-        // // Begin reducing the response
-        // const res = result.ACORD;
-        // let message_type = '';
-
-        // const status = res.SignonRs[0].Status[0].StatusCd[0];
-        // switch (status) {
-        //     case 'BOUND':
-        //     case 'REFERRED':
-        //         message_type = status + status.slice(1).toLowerCase();
-        //         this.log += `--------======= Quote ${message_type} =======--------`;
-        //         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
-        //         return message_type;
-        //     case 'ERRORED':
-        //     case 'SMARTEDITS':
-        //         this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
-        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        //     case 'UNAUTHENTICATED':
-        //     case 'UNAUTHORIZED':
-        //         message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
-        //         this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
-        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        //     default:
-        //         this.log += '--------======= Unexpected API Response =======--------';
-        //         this.log += util.inspect(res, false, null);
-        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
-        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        // }
-   // }
-
-    /**
      * Requests a quote from CompWest and returns. This method is not intended to be called directly.
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+        
+        // eslint-disable-next-line prefer-const
+        let guideWireAPI = true; //2021-07-01T00:00:00
+        const apiSwitchOverDateString = '2021-05-15T00:00:00-08'
+        const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
+
+        //check policy effectiv date to determine API to call.
+        if(this.policy.effective_date < apiSwitchOverDateDT){
+            guideWireAPI = false;
+        }
+        //prevent new API use in Production
+        if (!this.insurer.useSandbox) {
+            guideWireAPI = false;
+        }
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
@@ -196,7 +70,7 @@ module.exports = class CompwestWC extends Integration {
         const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
 
         // Define how legal entities are mapped for Employers
-        const entityMatrix = {
+        let entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
             'Limited Liability Company': 'LL',
@@ -204,6 +78,35 @@ module.exports = class CompwestWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
+        if(guideWireAPI === true){
+            //updates
+            // need to take corporation_type into account for 
+            // nonprofits.
+            entityMatrix = {
+                    Association: 'ASSOCIATION',
+                    Corporation: 'CORPORATION',
+                    'Limited Liability Company': 'LLC',
+                    'Limited Partnership': 'LLP',
+                    Partnership: 'PARTNERSHIP',
+                    'Sole Proprietorship': 'INDIVIDUAL'
+                }
+                // ASSOCIATION
+                // COMMONOWNERSHIP
+                // CORPORATION
+                // EXECUTORTRUSTEE
+                // GOVERNMENT
+                // INDIVIDUAL
+                // JOINTEMPLOYERS
+                // JOINTVENTURE
+                // LIMITEDPARTNERSHIP
+                // LLC
+                // LLP
+                // MULTIPLE
+                // NONPROFIT
+                // OTHER
+                // PARTNERSHIP
+                // TRUSTESTATE
+        }
 
         // CompWest has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -235,8 +138,10 @@ module.exports = class CompwestWC extends Integration {
 
         // <ACORD>
         const ACORD = builder.create('ACORD');
-        ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
-        ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        if(guideWireAPI === true){
+            ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
+            ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        }
 
         // <SignonRq>
         const SignonRq = ACORD.ele('SignonRq');
@@ -265,13 +170,20 @@ module.exports = class CompwestWC extends Integration {
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-
+        if(guideWireAPI === true){
+            const txnDate = moment();
+            WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
+        }
         // <Producer>
         const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
 
         // <ItemIdInfo>
         const ItemIdInfo = Producer.ele('ItemIdInfo');
-        ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
+        let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+        if(guideWireAPI === true){
+            agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
+        }
+        ItemIdInfo.ele('AgencyId', agencyCode);
         // </ItemIdInfo>
 
         // <GeneralPartyInfo>
@@ -456,6 +368,10 @@ module.exports = class CompwestWC extends Integration {
         // <WorkCompLineBusiness>
         const WorkCompLineBusiness = WorkCompPolicyQuoteInqRq.ele('WorkCompLineBusiness');
 
+       
+
+
+
         // Separate out the states
         const territories = this.app.business.getTerritories();
         territories.forEach((territory) => {
@@ -491,36 +407,147 @@ module.exports = class CompwestWC extends Integration {
                         WorkCompRateClass.ele('RatingClassificationSubCd', subCode);
                         WorkCompRateClass.ele('Exposure', activityCodes[activityCode]);
 
+                        // From AF : If we have a Classcode(RatingClassificationCd) and Classcode Indiator(RatingClassificationSubCd),
+                        // we don’t expect to see ClassCodeQuestions node within
                         // Handle class specific questions
-                        const code_index = location.territory + classCode + subCode;
-                        if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
-                            // <ClassCodeQuestions>
-                            const ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+                        //if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
+                        if(true){
+                            // Handle class specific questions
+                            const code_index = location.territory + classCode + subCode;
+                            if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
+                                // <ClassCodeQuestions>
+                                //const ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+                                //logic below may result in no classcode questions being added.
+                                let ClassCodeQuestions = null;
+                                // Loop through each question
+                                activity_codes_to_questions[code_index].forEach((question_id) => {
+                                    const question = this.questions[question_id];
+                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
+                                        return;
+                                    }
+                                    //const question_attributes = question.attributes;
+                                    const question_attributes = this.question_details[question_id].attributes;
+                                    // <ClassCodeQuestion>
+                                    let ClassCodeQuestion = null;
 
-                            // Loop through each question
-                            activity_codes_to_questions[code_index].forEach((question_id) => {
-                                const question = this.questions[question_id];
-                                if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
-                                    return;
-                                }
-                                const question_attributes = this.question_details[question_id].attributes;
+                                    //Determine QuestionCd or questionId
+                                    let addNode = false;
+                                    if(guideWireAPI === true){
+                                        //to loop up publicId in attributes based on classcode
+                                        let publicId = '';
+                                        if(question_attributes && !question_attributes.parentQuestionId
+                                            && question_attributes.classCodeList
+                                            && question_attributes.classCodeList.length > 0){
+                                            for(let i = 0; i < question_attributes.classCodeList.length; i++){
+                                                if(question_attributes.classCodeList[i].classCode === classCode){
+                                                    if(subCode === question_attributes.classCodeList[i].sub){
+                                                        publicId = question_attributes.classCodeList[i].PublicId;
+                                                        break;
+                                                    }
+                                                    else if(!subCode || !question_attributes.classCodeList[i].sub){
+                                                        publicId = question_attributes.classCodeList[i].PublicId;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else if(!question_attributes.parentQuestionId){
+                                            log.error(`AF - Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+                                        }
+                                        if(publicId){
+                                            if(!ClassCodeQuestions){
+                                                ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+                                            }
+                                            ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
+                                            ClassCodeQuestion.ele('QuestionId', publicId);
+                                            addNode = true;
+                                        }
+                                        else if(!question_attributes.parentQuestionId){
+                                            log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+                                        }
+                                    }
+                                    else if(question_attributes.code){
+                                        if(!ClassCodeQuestions){
+                                            ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+                                        }
+                                        ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
+                                        ClassCodeQuestion.ele('QuestionId', question_attributes.id);
+                                        ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
+                                        addNode = true;
+                                    }
+                                    // Determine how to send the answer
+                                    //TODO look at attributies.afQuestionType
+                                    if(addNode){
+                                       if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
+                                                || question_attributes.afQuestionType === "PercentageInput"){
+                                                    //if value is greater then zero "Y" for answer
+                                                try{
+                                                    let value = 0;
+                                                    if(question.answer){
+                                                        try{
+                                                            value = parseInt(question.answer,10);
+                                                        }
+                                                        catch(err){
+                                                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} bad input for numeric question QuestionId ${question.id} value ${question.answer} ` + __location)
+                                                        }
+                                                    }
+                                                    const responseYes = value > 0 ? 'Y' : 'N';
+                                                    ClassCodeQuestion.ele('ResponseInd', responseYes);
+                                                    if(responseYes === 'Y'){
+                                                        ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
+                                                    }
+                                                }
+                                                catch(err){
+                                                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} error creating PercentageAnswerValue node - ${err}` + __location )
 
-                                // <ClassCodeQuestion>
-                                const ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-                                ClassCodeQuestion.ele('QuestionId', question_attributes.id);
-                                ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
-
-                                // Determine how to send the answer
-                                if (question.type === 'Yes/No') {
-                                    ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-                                }
-                                else {
-                                    ClassCodeQuestion.ele('ResponseInd', question.answer);
-                                }
-                                // </ClassCodeQuestion>
-                            });
-                            // </ClassCodeQuestions>
-                        }
+                                                }
+                                        }
+                                        else if(question_attributes.afQuestionType === "OptionsOnYes"){
+                                            const answerBoolean = question.get_answer_as_boolean()
+                                            ClassCodeQuestion.ele('ResponseInd', answerBoolean ? 'Y' : 'N');
+                                            //find the child with the answers
+                                             if(answerBoolean){
+                                                log.debug("checking for OptionsOnYes childen")
+                                                const insurerParentQuestionId = this.question_details[question_id].insurerQuestionId;
+                                                for (const childQuestionId in this.questions) {
+                                                    const childTalageQuestion = this.questions[childQuestionId]
+                                                    const childInsurerQuestion = this.question_details[childQuestionId]
+                                                    if(childInsurerQuestion && childInsurerQuestion.attributes
+                                                        && childInsurerQuestion.attributes.optionList
+                                                        && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
+                                                        log.debug(`Processing OptionsOnYes child ${childQuestionId}` + __location)
+                                                        const optionList = childInsurerQuestion.attributes.optionList
+                                                        // eslint-disable-next-line prefer-const
+                                                        const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
+                                                        let childAnswerList = childQuestionAnswerStr.split(',');
+                                                        childAnswerList = childAnswerList.map(s => s.trim());
+                                                        log.debug("childAnswerList " + JSON.stringify(childAnswerList))
+                                                        log.debug("optionList " + JSON.stringify(optionList))
+                                                        if(childAnswerList.length > 0){
+                                                            for (let i = 0; i < childAnswerList.length; i++){
+                                                                log.debug("Search optionList for answer " + childAnswerList[i]);
+                                                                const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
+                                                                if(optionAnswer){
+                                                                    log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
+                                                                    // eslint-disable-next-line prefer-const
+                                                                    let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
+                                                                    childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
+                                                                    childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else if (question.type === 'Yes/No') {
+                                            ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+                                        }
+                                    }
+                                });
+                                // </ClassCodeQuestions>
+                            }
+                        }//have classcode and sub
                         // </WorkCompRateClass>
                     }
                 }
@@ -554,10 +581,7 @@ module.exports = class CompwestWC extends Integration {
         // </CommlCoverage>
 
         /* ---=== Begin Ineligibility and Statement Questions ===--- */
-
-        let QuestionAnswer = null;
-
-        // Make a list of embedded questions
+        // Make a list of embedded questions need by WC questions for Guidwire api.
         const embeddedQuestions = {};
         for (const questionId in this.questions) {
             if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
@@ -577,6 +601,8 @@ module.exports = class CompwestWC extends Integration {
             }
         }
 
+        
+
         // Create one section for each Ineligibility and Statement questions
         ['Ineligibility', 'Statement'].forEach((type) => {
             // <Ineligibility/Statement>
@@ -585,11 +611,16 @@ module.exports = class CompwestWC extends Integration {
             // Loop through each question
             for (const questionId in this.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
+
                     // Get the attributes for this question
                     const questionAttributes = this.question_details[questionId].attributes;
 
                     // If this is an embedded question, skip it
                     if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
+                        continue;
+                    }
+
+                     if (Object.prototype.hasOwnProperty.call(questionAttributes, 'hasParent') && questionAttributes.hasParent === true) {
                         continue;
                     }
 
@@ -603,20 +634,48 @@ module.exports = class CompwestWC extends Integration {
                         }
 
                         // <QuestionAnswer>
-                        QuestionAnswer = root_questions_element.ele('QuestionAnswer');
-                        QuestionAnswer.ele('QuestionCd', this.question_details[questionId].identifier.split('-')[1]);
-                        QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
-                        // If the answer to this question was true, and it has an embedded question, add the answer
-                        if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
-                            const embeddedQuestion = embeddedQuestions[this.question_details[questionId].identifier];
+                        //Detemine QuestionCd
+                        let questionCdValue = null;
+                        if(guideWireAPI === true){
+                            questionCdValue = this.question_details[questionId].attributes.questionCd;
+                        }
+                        else {
+                            questionCdValue = this.question_details[questionId].identifier.split('-')[1]
+                        }
+                        //handle old questions that did not get mapped or has effective date changed.
+                        if(questionCdValue){
+                            let QuestionAnswer = null;
+                            QuestionAnswer = root_questions_element.ele('QuestionAnswer');
+                            QuestionAnswer.ele('QuestionCd', questionCdValue);
+                            QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
-                            // If the answer was null, skip it
-                            if (embeddedQuestion.answer === null) {
-                                continue;
+                             if(guideWireAPI === true && answerBoolean){
+                                const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
+                                for (const childQuestionId in this.questions) {
+                                    const childTalageQuestion = this.questions[childQuestionId]
+                                    const childInsurerQuestion = this.question_details[childQuestionId]
+                                    if(childInsurerQuestion.attributes && childInsurerQuestion.attributes.hasParent && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
+                                        QuestionAnswer.ele('Explanation', childTalageQuestion.answer);
+                                        //Added node for child question
+                                        // eslint-disable-next-line prefer-const
+                                        let childQuestionAnswer = root_questions_element.ele('QuestionAnswer');
+                                        childQuestionAnswer.ele('QuestionCd', childInsurerQuestion.attributes.questionCd);
+                                        childQuestionAnswer.ele('Explanation', childTalageQuestion.answer);
+                                    }
+                                }
                             }
+                            else if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
+                                // If the answer to this question was true, and it has an embedded question, add the answer
+                                const embeddedQuestion = embeddedQuestions[this.question_details[questionId].identifier];
 
-                            QuestionAnswer.ele('Explanation', embeddedQuestion.answer);
+                                // If the answer was null, skip it
+                                if (embeddedQuestion.answer === null) {
+                                    continue;
+                                }
+
+                                QuestionAnswer.ele('Explanation', embeddedQuestion.answer);
+                            }
                         }
                         // </QuestionAnswer>
                     }
@@ -638,9 +697,22 @@ module.exports = class CompwestWC extends Integration {
         // Determine which URL to use
         let host = '';
         let path = '';
-        if (this.insurer.useSandbox) {
-            host = 'npsv.afgroup.com';
-            path = '/TEST_DigitalAq/rest/getworkcompquote';
+        if(guideWireAPI === true){
+            if (this.insurer.useSandbox) {
+                log.debug("AF sandbox Guidewire");
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
+            }
+            else {
+                log.debug("AF prod Guidewire");
+                // //TODO Change when Production URl is received
+                 host = 'psv.afgroup.com';
+                 path = '/DigitalAq/rest/getworkcompquote';
+            }
+        }
+        else if (this.insurer.useSandbox) {
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
         }
         else {
             host = 'psv.afgroup.com';
@@ -650,29 +722,72 @@ module.exports = class CompwestWC extends Integration {
         // Send the XML to the insurer
         let result = null;
         try {
+            log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} sending request ` + __location);
             result = await this.send_xml_request(host, path, xml, {
                 Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
                 'Content-Type': 'application/xml'
-            });
+            }, false, true);
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
             if(error.message.indexOf('timedout') > -1){
                 this.reasons.push(error)
-                //TODO change result to connection timeout vs error
             }
             else{
                 this.reasons.push(error)
             }
-            return this.return_result('error');
+            //return this.return_result('error');
         }
         // Begin reducing the response
-        let res = result.ACORD;
+        if(!result){
+            this.log += '--------======= Unexpected API Response - No response =======--------';
+            this.log += util.inspect(result, false, null);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Empty response from Insurer`)
+            this.reasons.push("Request Error: Empty response from Insurer")
+            return this.return_result('error');
+        }
+        if(!result.ACORD){
+            this.log += '--------======= Unexpected API Response - No Acord Tag =======--------';
+            this.log += util.inspect(result, false, null);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Unexpected response ${JSON.stringify(result)}`)
+            this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
+            return this.return_result('error');
+        }
+        const res = result.ACORD;
+        //log.debug("AF response " + JSON.stringify(res))
 
         // Check the status to determine what to do next
         let message_type = '';
-        const status = res.SignonRs[0].Status[0].StatusCd[0];
-        const statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length ? res.SignonRs[0].Status[0].StatusDesc[0].Desc[0] : "AFGroup/CompWest did not return an error description.";
+        let status = ''
+        let statusDescription = '';
+        //if(res.SignonRs[0] && res.SignonRs[0].Status[0]){
+            try{
+                status = res.SignonRs[0].Status[0].StatusCd[0];
+
+                try{
+                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc ? res.SignonRs[0].Status[0].StatusDesc[0].Desc : "";
+                }
+                catch(err){
+                    //do not log 
+                }
+                if(!statusDescription){
+                    statusDescription = '';
+                }
+                // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
+                //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
+                //     && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
+                // }
+                // else {
+                //     statusDescription = "AFGroup/CompWest did not return an error description.";
+                // }
+            }
+            catch(err){
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+            }
+        // }
+        // else {
+        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status: no res.SignonRs[0].Status[0] node`)
+        // }
         switch (status) {
             case 'DECLINE':
                 this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
@@ -720,18 +835,23 @@ module.exports = class CompwestWC extends Integration {
                 this.reasons.push(`${status} - Unexpected response code returned by API.`);
                 return this.return_result('error');
         }
-
+        let WorkCompPolicyAddRs = null;
         // Reduce the response further
-        res = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+        try{
+            WorkCompPolicyAddRs = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+        }
+        catch(err){
+            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
+        }
 
         if (status === 'QUOTED') {
             // Grab the file info
             try {
                 this.quote_letter = {
                     content_type: 'application/pdf',
-                    data: res['com.afg_Base64PDF'][0],
+                    data: WorkCompPolicyAddRs['com.afg_Base64PDF'][0],
                     file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
-                    length: res['com.afg_Base64PDF'][0].length
+                    length: WorkCompPolicyAddRs['com.afg_Base64PDF'][0].length
                 };
             } catch (err) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
@@ -740,11 +860,17 @@ module.exports = class CompwestWC extends Integration {
         }
 
         // Further reduce the response
-        res = res['com.afg_PDFContent'][0].CommlPolicy[0];
+        let resWorkCompPolicy = null;
+        try{
+            resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
+        }
+        catch(err){
+            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
+        }
 
         // Attempt to get the policy number
         try {
-            this.number = res.PolicyNumber[0];
+            this.number = resWorkCompPolicy.PolicyNumber[0];
         } catch (e) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
             return this.return_result('error');
@@ -753,7 +879,7 @@ module.exports = class CompwestWC extends Integration {
         // Get the amount of the quote
         if (status === 'QUOTED' || status === 'REFERRALNEEDED') {
             try {
-                this.amount = parseInt(res.CurrentTermAmt[0].Amt[0], 10);
+                this.amount = parseInt(resWorkCompPolicy.CurrentTermAmt[0].Amt[0], 10);
             } catch (e) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
                 return this.return_result('error');

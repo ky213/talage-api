@@ -1,47 +1,32 @@
+/* eslint-disable object-curly-newline */
 const axios = require('axios');
 const _ = require('lodash');
+const log = global.log;
 
-const getToken = async () => {
-    const uat = global.settings.GREAT_AMERICAN_UAT;
-    const uatId = global.settings.GREAT_AMERICAN_UAT_ID;
+const getToken = async (username, password) => {
 
     const options = {
         headers: {
-            Authorization: `Basic ${Buffer.from(`${uatId}:${uat}`).toString('base64')}`,
-            Accept: 'application/json',
+            Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+            Accept: 'application/json'
         }
     };
 
-    const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
-    const out = apiCall.data;
+    let out = null;
+    try{
+        const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
+        out = apiCall.data;
+    }
+    catch(err){
+        log.error(`Error getting token from Great American ${err} @ ${__location}`)
+    }
+
     if (!out.access_token) {
-        throw new Error(out);
+        log.error(`NO access token returned: ${JSON.stringify(out, null, 2)} @ ${__location}`);
+        throw new Error(`NO access token returned: ${JSON.stringify(out, null, 2)}`);
     }
     return out;
 };
-
-const getAppetite = async () => {
-    const token = await getToken();
-    const options = {
-        headers: {
-            Authorization: `Bearer ${token.access_token}`,
-            Accept: 'application/json',
-        }
-    };
-
-    const postData = { product: { product: 'WC' } }
-
-    const appetite = await axios.post(
-        'https://uat01.api.gaig.com/shop/api/newBusiness/appetite',
-        postData,
-        options);
-
-    const out = appetite.data;
-    if (_.get(out, 'product.data.classCodes'))
-        return out.product.data.classCodes;
-    else
-        throw new Error(out);
-}
 
 const getNcciFromClassCode = async (code, territory) => {
     const talageCode = await db.query(`
@@ -53,6 +38,7 @@ const getNcciFromClassCode = async (code, territory) => {
         WHERE
             inc.insurer = 26 AND inc.territory = '${territory}' AND ac.id = ${code}`);
     if (talageCode.length <= 0) {
+        log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
         throw new Error(`Code could not be found: ${code} / ${territory}`);
     }
     return talageCode[0].code;
@@ -68,8 +54,8 @@ const getNcciFromClassCode = async (code, territory) => {
  * @param {*} app 
  * @param {*} sessionId 
  */
-const getPricing = async (token, app, sessionId) => {
-    const appData = app.applicationDocData;
+const getPricing = async (token, integration, sessionId) => {
+    const appData = integration.app.applicationDocData;
 
     // Map our entity types to the entity types of Great America.
     let entityType;
@@ -104,6 +90,15 @@ const getPricing = async (token, app, sessionId) => {
             break;
     }
 
+    // Retrieve the primary contact.
+    let primaryContact;
+    let allPrimaryContacts = appData.contacts.filter(t => t.primary);
+    if (allPrimaryContacts.length > 0) {
+        primaryContact = allPrimaryContacts[0];
+    } else {
+        primaryContact = appData.contacts[0];
+    }
+
     const send = {
         newBusiness: {
             id: sessionId
@@ -118,12 +113,12 @@ const getPricing = async (token, app, sessionId) => {
             insuredStateCode: appData.mailingState,
             insuredZipCode: appData.mailingZipcode,
             insuredCountryCode: 'US',
-            insuredEmail: appData.contacts[0].email,
-            contactPhone: appData.contacts[0].phone,
-            contactName: `${appData.contacts[0].firstName} ${appData.contacts[0].lastName}`,
+            insuredEmail: primaryContact.email,
+            contactPhone: primaryContact.phone,
+            contactName: `${primaryContact.firstName} ${primaryContact.lastName}`,
             currentPolicyExpiration: '',
-            policyEffectiveDate: app.policies[0].effective_date.format('YYYY-MM-DD'),
-            policyExpirationDate: app.policies[0].expiration_date.format('YYYY-MM-DD'),
+            policyEffectiveDate: integration.policy.effective_date.format('YYYY-MM-DD'),
+            policyExpirationDate: integration.policy.expiration_date.format('YYYY-MM-DD'),
             includeBlanketWaiver: true,
             producerCode: 648783,
             locations: await Promise.all(appData.locations.map(async (location) => ({
@@ -232,6 +227,7 @@ const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
             if (question.answerType === 'SELECT') {
                 const gaOption = question.options.find(a => a.label === questionAnswers[question.questionId]);
                 if (!gaOption) {
+                    log.error(`Cannot find value for option: ${questionAnswers[question.questionId]} @ ${__location}`);
                     throw new Error(`Cannot find value for option: ${questionAnswers[question.questionId]}`);
                 }
                 answer = gaOption.optionId;
@@ -261,7 +257,6 @@ module.exports = {
     getSession,
     getQuote,
     getPricing,
-    getAppetite,
     getToken,
     injectAnswers
 }

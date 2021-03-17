@@ -14,16 +14,18 @@ var mongooseHistory = require('mongoose-history');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const opts = {toJSON: {virtuals: true}};
+const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 
-// const contactSchema = new Schema({
-//     email: {type: String, required: true},
-//     name: {type: String, required: false},
-//     phone: {type: String, required: false},
-//     title: {type: String, required: false},
-//     type: {type: String, required: false}
-// });
-
+const featureSchema = new Schema({
+    applicationOptOut: {type: Boolean, required: true, default: false},
+    enablePrimeAgency: {type: Boolean, required: true, default: false},
+    donotShowEmailAddress: {type: Boolean, required: true, default: false},
+    notifyTalage: {type: Boolean, required: true, default: false},
+    agencyNetworkQuoteEmails: {type: Boolean, required: true, default: false},
+    agencyNetworkDailyDigestEmail: {type: Boolean, required: true, default: false},
+    agencyPortalRequestToBind: {type: Boolean, required: true, default: false}
+}, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
     agencyNetworkUuidId: {type: String, required: [true, 'agencyNetworkUuidId required'], unique: true},
@@ -41,7 +43,7 @@ const AgencyNetworkSchema = new Schema({
     landing_page_content: {type: Schema.Types.Mixed},
     custom_emails: {type: Schema.Types.Mixed},
     phone: {type: String, required: false},
-    featureJson: {type: Schema.Types.Mixed},
+    featureJson: {type: featureSchema},
     additionalInfo: {type: Schema.Types.Mixed},
     insurerIds: [Number],
     active: {type: Boolean, default: true}
