@@ -488,10 +488,7 @@ module.exports = class AgencyNetworkBO{
         if(wheelHouseAgencyNetworkJSON && agencyNetworkJSON){
             // eslint-disable-next-line prefer-const
             let emailContentResult = {};
-            let emailTemplateJSON = {
-                "brandName": agencyNetworkJSON.name,
-                "emailBrand": agencyNetworkJSON.email_brand
-            };
+            let emailTemplateJSON = {};
             try{
                 emailContentResult.defaultEmailData = wheelHouseAgencyNetworkJSON.custom_emails[contentProperty];
                 if(agencyNetworkJSON.custom_emails[contentProperty]){
@@ -504,7 +501,9 @@ module.exports = class AgencyNetworkBO{
 
                         emailTemplateJSON = {
                             "message": message,
-                            "subject": subject
+                            "subject": subject,
+                            "brandName": agencyNetworkJSON.name,
+                            "emailBrand": agencyNetworkJSON.email_brand
                         }
                     }
                     catch(err){
@@ -519,6 +518,8 @@ module.exports = class AgencyNetworkBO{
                         emailTemplateJSON[property] = environmentSettings[property];
                     }
                 }
+
+
 
             }
             catch(err) {
