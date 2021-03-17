@@ -4,13 +4,12 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
+var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const tableName = 'clw_talage_insurer_industry_codes';
-module.exports = class InsurerIndustryCodeBO{
+module.exports = class InsurerActivityCodeBO{
 
     constructor(){
         this.id = 0;
@@ -27,13 +26,13 @@ module.exports = class InsurerIndustryCodeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty InsurerActivityCode object given`));
             }
 
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting InsurerActivityCode from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -45,7 +44,7 @@ module.exports = class InsurerIndustryCodeBO{
                     await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON);
                 }
                 else {
-                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location);
+                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
                 }
             }
             if(newDoc === true) {
@@ -120,22 +119,22 @@ module.exports = class InsurerIndustryCodeBO{
                 delete queryJSON.count;
             }
 
-            if(queryJSON.insurerIndustryCodeId && Array.isArray(queryJSON.insurerIndustryCodeId)){
-                query.insurerIndustryCodeId = {$in: queryJSON.insurerIndustryCodeId};
-                delete queryJSON.insurerIndustryCodeId;
+            if(queryJSON.insurerActivityCodeId && Array.isArray(queryJSON.insurerActivityCodeId)){
+                query.insurerActivityCodeId = {$in: queryJSON.insurerActivityCodeId};
+                delete queryJSON.insurerActivityCodeId;
             }
-            else if(queryJSON.insurerIndustryCodeId){
-                query.insurerIndustryCodeId = queryJSON.insurerIndustryCodeId;
-                delete queryJSON.insurerIndustryCodeId;
+            else if(queryJSON.insurerActivityCodeId){
+                query.insurerActivityCodeId = queryJSON.insurerActivityCodeId;
+                delete queryJSON.insurerActivityCodeId;
             }
 
-            if(queryJSON.talageIndustryCodeIdList && Array.isArray(queryJSON.talageIndustryCodeIdList)){
-                query.talageIndustryCodeIdList = {$in: queryJSON.talageIndustryCodeIdList};
-                delete queryJSON.talageIndustryCodeIdList;
+            if(queryJSON.talageActivityCodeIdList && Array.isArray(queryJSON.talageActivityCodeIdList)){
+                query.talageActivityCodeIdList = {$in: queryJSON.talageActivityCodeIdList};
+                delete queryJSON.talageActivityCodeIdList;
             }
-            else if(queryJSON.talageIndustryCodeIdList){
-                query.talageIndustryCodeIdList = queryJSON.talageIndustryCodeIdList;
-                delete queryJSON.talageIndustryCodeIdList;
+            else if(queryJSON.talageActivityCodeIdList){
+                query.talageActivityCodeIdList = queryJSON.talageActivityCodeIdList;
+                delete queryJSON.talageActivityCodeIdList;
             }
 
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
@@ -174,9 +173,9 @@ module.exports = class InsurerIndustryCodeBO{
             let docList = null;
             let queryRowCount = 0;
             try {
-                docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
+                docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
                 if (findCount){
-                    queryRowCount = await InsurerIndustryCode.countDocuments(query);
+                    queryRowCount = await InsurerActivityCode.countDocuments(query);
                 }
             }
             catch (err) {
@@ -211,12 +210,12 @@ module.exports = class InsurerIndustryCodeBO{
         return new Promise(async(resolve, reject) => {
             if (id) {
                 const query = {
-                    "insurerIndustryCodeId": id,
+                    "insurerActivityCodeId": id,
                     active: true
                 };
                 let docDB = null;
                 try {
-                    docDB = await InsurerIndustryCode.findOne(query, '-__v');
+                    docDB = await InsurerActivityCode.findOne(query, '-__v');
                 }
                 catch (err) {
                     log.error("Getting Agency error " + err + __location);
@@ -226,8 +225,8 @@ module.exports = class InsurerIndustryCodeBO{
                     resolve(docDB);
                 }
                 else if(docDB){
-                    const insurerIndustryCodeDoc = mongoUtils.objCleanup(docDB);
-                    resolve(insurerIndustryCodeDoc);
+                    const insurerActivityCodeDoc = mongoUtils.objCleanup(docDB);
+                    resolve(insurerActivityCodeDoc);
                 }
                 else {
                     resolve(null);
@@ -243,14 +242,14 @@ module.exports = class InsurerIndustryCodeBO{
         if (docId) {
             if (typeof newObjectJSON === "object") {
 
-                const query = {"insurerIndustryCodeId": docId};
-                let newinsurerIndustryCodeJSON = null;
+                const query = {"insurerActivityCodeId": docId};
+                let newinsurerActivityCodeJSON = null;
                 try {
                     const changeNotUpdateList = [
                         "active",
                         "id",
                         "systemId",
-                        "insurerIndustryCodeId"
+                        "insurerActivityCodeId"
                     ];
 
                     for (let i = 0; i < changeNotUpdateList.length; i++) {
@@ -261,11 +260,11 @@ module.exports = class InsurerIndustryCodeBO{
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
-                    await InsurerIndustryCode.updateOne(query, newObjectJSON);
-                    const newinsurerIndustryCode = await InsurerIndustryCode.findOne(query);
-                    //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});
+                    await InsurerActivityCode.updateOne(query, newObjectJSON);
+                    const newinsurerActivityCode = await InsurerActivityCode.findOne(query);
+                    //const newAgencyDoc = await InsurerActivityCode.findOneAndUpdate(query, newObjectJSON, {new: true});
 
-                    newinsurerIndustryCodeJSON = mongoUtils.objCleanup(newinsurerIndustryCode);
+                    newinsurerActivityCodeJSON = mongoUtils.objCleanup(newinsurerActivityCode);
                 }
                 catch (err) {
                     log.error(`Updating Application error appId: ${docId}` + err + __location);
@@ -273,7 +272,7 @@ module.exports = class InsurerIndustryCodeBO{
                 }
                 //
 
-                return newinsurerIndustryCodeJSON;
+                return newinsurerActivityCodeJSON;
             }
             else {
                 throw new Error(`no newObjectJSON supplied appId: ${docId}`)
@@ -300,14 +299,14 @@ module.exports = class InsurerIndustryCodeBO{
         }
         const newSystemId = await this.newMaxSystemId()
         newObjectJSON.systemId = newSystemId;
-        const insurerIndustryCode = new InsurerIndustryCode(newObjectJSON);
+        const insurerActivityCode = new InsurerActivityCode(newObjectJSON);
         //Insert a doc
-        await insurerIndustryCode.save().catch(function(err) {
+        await insurerActivityCode.save().catch(function(err) {
             log.error('Mongo insurer Save err ' + err + __location);
             throw err;
         });
         newObjectJSON.id = newSystemId;
-        return mongoUtils.objCleanup(insurerIndustryCode);
+        return mongoUtils.objCleanup(insurerActivityCode);
     }
 
     async newMaxSystemId(){
@@ -322,7 +321,7 @@ module.exports = class InsurerIndustryCodeBO{
             queryOptions.sort = {};
             queryOptions.sort.systemId = -1;
             queryOptions.limit = 1;
-            const docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions)
+            const docList = await InsurerActivityCode.find(query, queryProjection, queryOptions)
             if(docList && docList.length > 0){
                 for(let i = 0; i < docList.length; i++){
                     if(docList[i].systemId > maxId){
@@ -330,7 +329,6 @@ module.exports = class InsurerIndustryCodeBO{
                     }
                 }
             }
-
         }
         catch(err){
             log.error("Get max system id " + err + __location)
