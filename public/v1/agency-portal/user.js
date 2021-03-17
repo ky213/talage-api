@@ -406,7 +406,12 @@ async function createUser(req, res, next) {
 
         // Format the brands
         let brand = emailContentJSON.emailBrand;
-        brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        if(brand){
+            brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        }
+        else {
+            log.error(`Email Brand missing for agencyNetworkId ${agencyNetworkId} ` + __location);
+        }
         const portalurl = emailContentJSON.PORTAL_URL;
 
         // Prepare the email to send to the user
