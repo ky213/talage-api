@@ -806,7 +806,7 @@ module.exports = class CompwestWC extends Integration {
                 log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${statusDescription}` + __location);
                 this.reasons.push(`${status} - ${statusDescription}`);
                 // Send notification email if we get an E Mod error back from carrier
-                if (statusDescription.toLowerCase().includes("experience mod")) {
+                if (statusDescription && statusDescription.toLowerCase().includes("experience mod")) {
                     wcEmodEmail.sendEmodEmail(this.app.id);
                 }
                 return this.return_result('error');
@@ -815,7 +815,7 @@ module.exports = class CompwestWC extends Integration {
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${statusDescription}` + __location);
                 this.reasons.push(`${status} - ${statusDescription}`);
                 // Send notification email if we get an E Mod error back from carrier
-                if (statusDescription.toLowerCase().includes("experience mod")) {
+                if (statusDescription && statusDescription.toLowerCase().includes("experience mod")) {
                     wcEmodEmail.sendEmodEmail(this.app.id);
                 }
                 return this.return_result('referred');
