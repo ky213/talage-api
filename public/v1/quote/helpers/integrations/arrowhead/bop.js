@@ -110,14 +110,14 @@ module.exports = class LibertySBOP extends Integration {
                 state: applicationDocData.mailingState,
                 company: applicationDocData.businessName,
                 agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
+                effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
+                expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
                     stateOfDomicile: applicationDocData.mailingState,
                     naicsCode: this.industry_code.attributes.naics,
                     classCode: this.industry_code.code, 
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
                     sicCode: this.industry_code.attributes.sic, 
-                    effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
-                    expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                     state: applicationDocData.mailingState, 
                     quoteType: "NB"
                 },
@@ -146,6 +146,19 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(`${logPrefix}${e}`, __location);
         }
 
+        // TODO: Update question sheet, make this building-level question, not general question...
+        // If we have computer fraud general coverage, we inject it into every building-level coverage object
+        const generalCoverages = requestJSON.policy.bbopSet.coverages;
+        if (generalCoverages.hasOwnProperty('compf')) {
+            requestJSON.policy.bbopSet.locationList.forEach(location => {
+                location.buildingList.forEach(building => {
+                    building.coverages.compf = generalCoverages.compf;
+                });
+            });
+
+            delete generalCoverages.compf;
+        }
+
         // send the JSON request
 
         log.info("=================== QUOTE REQUEST ===================");
@@ -160,15 +173,17 @@ module.exports = class LibertySBOP extends Integration {
             "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
         }
         try {
+            // There is a problem with sending this request via this.send_json_request that should be resolved so we can take
+            // advantage of the logging done implicitly by this method...
             // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
             result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
         } catch(e) {
-            const errorMessage = 
-            log.error(`${logPrefix}Error sending request: ${e}.`);
+            const errorMessage = `${logPrefix}Error sending request: ${e}. `;
+            log.error(errorMessage + __location);
+            return this.client_error(errorMessage, __location);
         }
 
         // parse the error / response
-
         if (result.data.hasOwnProperty("error")) {
             log.info("=================== QUOTE ERROR ===================");
             log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
@@ -204,13 +219,28 @@ module.exports = class LibertySBOP extends Integration {
         log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         log.info("=================== QUOTE RESULT ===================");
 
+        // if a decision was provided, a quote likely wasn't
+        if (result.data.hasOwnProperty("decision")) {
+            const decision = result.data.decision;
+            const declineMessage = `Arrowhead application did not quote. Decision: "${decision}. "`;
+            let extraReasons = [];
+            if (result.data.hasOwnProperty("uwResults")) {
+                result.data.uwResults.forEach(reason => {
+                    extraReasons.push(reason.trim());
+                });
+            }
+
+            return this.client_declined(declineMessage, extraReasons);
+        }
+
         let quoteNumber = null;
-        let quoteProposalId = null;
         let premium = null;
-        const quoteLimits = {};
-        let quoteLetter = null;
-        const quoteMIMEType = null;
-        let policyStatus = null;
+        const quoteLimits = {}; 
+        let quoteLetter = null; // not provided by Arrowhead
+        const quoteMIMEType = null; // not provided by Arrowhead
+        let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
+
+        const res = result.data;
 
         // parse out the specific quote status
         try {
@@ -221,26 +251,37 @@ module.exports = class LibertySBOP extends Integration {
 
         // try to parse out quote number from response
         try {
-
+            quoteNumber = res.coreCommVs.policy.quoteId;
         } catch (e) {
-
+            log.warn(`${logPrefix}Quote number not provided, or the result structure has changed.` + __location);
         }
 
         // try to parse out the premium
         try {
-
+            premium = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].instecResponse.rc2.bopPremiumAdjusted;
         } catch (e) {
-            
+            log.warn(`${logPrefix}Premium not provided, or the result structure has changed.` + __location);
         }
 
-        // try to parse out the limit values
-        try {
+        // 1 Employers Liability Per Occurrence
+        // 2 Employers Liability Disease Per Employee
+        // 3 Employers Liability Disease Policy Limit
+        // 4 Each Occurrence
+        // 5 Damage to Rented Premises
+        // 6 Medical Expense
+        // 7 Personal & Advertising Injury
+        // 8 General Aggregate
+        // 9 Products & Completed Operations
+        // 10 Business Personal Property
+        // 11 Aggregate
 
-        } catch (e) {
-            
-        }
+        // For limits, we currently do not parse values from their response. Instead, we default to the following:
+        quoteLimits[4] = "1000000";
+        quoteLimits[11] = "2000000";
+        quoteLimits[9] = "2000000";
 
-        // send the client quoted/referred function 
+        // return quote result
+        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -329,6 +370,11 @@ module.exports = class LibertySBOP extends Integration {
             switch (id) {
                 case "eqpbrk":
                     bbopSet.coverages.eqpbrk = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "bitime":
+                    bbopSet.coverages.bitime = {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
@@ -480,6 +526,8 @@ module.exports = class LibertySBOP extends Integration {
             const uw = [];
             const pp = [];
             const bld = [];
+            const osigns = [];
+            const spoil = [];
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
@@ -507,10 +555,10 @@ module.exports = class LibertySBOP extends Integration {
                     case "yearBuilt":
                         building[id] = this.convertToInteger({id, answer});
                         break;
-                    case "uw.roofUpdates":
-                    case "uw.hvacUpdates":
-                    case "uw.plumbingUpdates":
-                    case "uw.electricalUpdates":
+                    case "uw.roofUpdates": // child
+                    case "uw.hvacUpdates": // child
+                    case "uw.plumbingUpdates": // child
+                    case "uw.electricalUpdates": // child
                         uw.push({id: id.replace("uw.", ""), answer});
                         break;
                     case "PP":
@@ -518,9 +566,9 @@ module.exports = class LibertySBOP extends Integration {
                             includeInd: this.convertToBoolean(answer)
                         };
                         break;
-                    case "PP.limit":
-                    case "PP.seasonalIncrease":
-                    case "PP.valuationInd":
+                    case "PP.limit": // child
+                    case "PP.seasonalIncrease": // child
+                    case "PP.valuationInd": // child
                         pp.push({id: id.replace("PP.", ""), answer});
                         break;
                     case "bld":
@@ -528,10 +576,30 @@ module.exports = class LibertySBOP extends Integration {
                             includeInd: this.convertToBoolean(answer)
                         };
                         break;
-                    case "bld.valuation":
-                    case "bld.limit":
-                    case "bld.automaticIncr":
+                    case "bld.valuation": // child
+                    case "bld.limit": // child 
+                    case "bld.automaticIncr": // child
                         bld.push({id: id.replace("bld.", ""), answer});
+                        break;
+                    case "osigns":
+                        building.coverages[id] = {
+                            includeInd: this.convertToBoolean(answer)
+                        };
+                        break;
+                    case "osigns.limit": // child
+                        osigns.push({id: id.replace("osigns.", ""), answer});
+                        break;
+                    case "spoil":
+                        building.coverages[id] = {
+                            includeInd: this.convertToBoolean(answer)
+                        }; 
+                        break;
+                    case "spoil.spoilageDescription": // child
+                    case "spoil.spoilageLimit": // child
+                    case "spoil.powerOutInd": // child
+                    case "spoil.refrigerationInd": // child
+                    case "spoil.breakContInd": // child
+                        spoil.push({id: id.replace("spoil.", ""), answer});
                         break;
                     default: 
                         log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
@@ -606,6 +674,56 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 });
             }
+
+            if (osigns.length > 0) {
+                if (!building.coverages.hasOwnProperty("osigns")) {
+                    building.coverages.osigns = {
+                        includeInd: true
+                    };
+                }
+
+                osigns.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "limit":
+                            building.coverages.osigns[id] = this.removeCharacters(['$', ','], answer);
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for osigns coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            break;
+                        }
+                });
+            }
+
+            if (spoil.length > 0) {
+                if (!building.coverages.hasOwnProperty("spoil")) {
+                    building.coverages.spoil = {
+                        includeInd: true
+                    };
+                }
+
+                spoil.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "spoilageDescription":
+                            building.coverages.spoil[id] = answer;
+                            break;
+                        case "spoilageLimit":
+                            building.coverages.spoil[id] = this.convertToInteger({id, answer});
+                            break;
+                        case "powerOutInd": 
+                            building.coverages.spoil[id] = this.convertToBoolean(answer);
+                            break;
+                        case "refrigerationInd": 
+                            building.coverages.spoil[id] = this.convertToBoolean(answer);
+                            break;
+                        case "breakContInd":
+                            building.coverages.spoil[id] = this.convertToBoolean(answer);
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for spoil coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            break;
+                    }
+                });
+            }
         }
     }
 
@@ -631,5 +749,13 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         return parsedAnswer;
+    }
+
+    removeCharacters(characters, value) {
+        characters.forEach(c => {
+            value = value.replace(c, "");
+        });
+
+        return value;
     }
 }
