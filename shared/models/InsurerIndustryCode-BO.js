@@ -151,6 +151,14 @@ module.exports = class InsurerIndustryCodeBO{
                 delete queryJSON.insurerId;
             }
 
+            if(queryJSON.description){
+                query.description = {
+                    "$regex": queryJSON.description,
+                    "$options": "i"
+                };
+                delete queryJSON.description;
+            }
+
             if (queryJSON) {
                 for (var key in queryJSON) {
                     if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
