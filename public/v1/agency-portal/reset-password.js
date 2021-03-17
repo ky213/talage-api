@@ -1,5 +1,3 @@
-'use strict';
-
 const crypt = global.requireShared('./services/crypt.js');
 const jwt = require('jsonwebtoken');
 //const request = require('request');
@@ -84,7 +82,12 @@ async function PostResetPassword(req, res, next){
             return false;
         }
         let brand = agencyNetworkEnvSettings.emailBrand.toLowerCase();
-        brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        if(brand){
+            brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        }
+        else {
+            log.error(`Email Brand missing for agencyNetworkId ${agencyNetworkId} ` + __location);
+        }
         const portalurl = agencyNetworkEnvSettings.PORTAL_URL;
 
 
