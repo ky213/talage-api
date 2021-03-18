@@ -1,5 +1,4 @@
-'use strict';
-
+/* eslint-disable prefer-const */
 const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
@@ -9,12 +8,14 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 
+const log = global.log;
 
 /**
  * AbandonQuote Task processor
@@ -79,21 +80,51 @@ var abandonquotetask = async function(){
     const oneHourAgo = new moment().subtract(1,'h').startOf('minute');
     const twoHourAgo = new moment().subtract(2,'h').startOf('minute');
 
+    //get list of agency network that get the quote emails
+    // eslint-disable-next-line prefer-const
+    let agencyNetworkIdList = [];
+    // eslint-disable-next-line prefer-const
+    let queryAgencyNetwork = {};
+    queryAgencyNetwork["featureJson.agencyNetworkQuoteEmails"] = true;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkList = await agencyNetworkBO.getList(queryAgencyNetwork).catch(function(err){
+        log.error(`Error get Agency Network list from DB. error:  ${err}` + __location);
+        return false;
+    });
+
+    if(agencyNetworkList && agencyNetworkList.length > 0){
+        for(let i = 0; i < agencyNetworkList.length; i++){
+            agencyNetworkIdList.push(agencyNetworkList[i].systemId);
+        }
+    }
+
 
     //appstatusId == 50 is quoted_referred 60 = quoted
 
-    const query = {
-        "agencyPortalCreated": false,
+    // eslint-disable-next-line prefer-const
+    let query = {
         "abandonedEmail": false,
         "gtAppStatusId": 40,
         "ltAppStatusId": 70,
         "searchenddate": oneHourAgo,
         "searchbegindate": twoHourAgo
     };
+    if(agencyNetworkIdList.length > 0){
+        let orList = [];
+        const or1 = {"agencyPortalCreated": false}
+        const or2 = {agencyNetworkId: {$in: agencyNetworkIdList}};
+        orList.push(or1);
+        orList.push(or2);
+        query.$or = orList;
+    }
+    else {
+        query.agencyPortalCreated = false;
+    }
+
     let appList = null;
     const applicationBO = new ApplicationBO();
     try{
-
+        log.debug("abandonquote query " + JSON.stringify(query))
         appList = await applicationBO.getList(query);
     }
     catch(err){
@@ -173,8 +204,23 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
     if(quoteList && quoteList.length > 0){
 
-        const agencyNetworkId = applicationDoc.agencyNetworkid;
         let error = null;
+        const agencyNetworkId = applicationDoc.agencyNetworkId;
+
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let agencyNetworkDB = {}
+        try{
+            agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId)
+        }
+        catch(err){
+            log.error("Error getting agencyBO " + err + __location);
+            error = true;
+
+        }
+        if(error){
+            return false;
+        }
+
         const agencyBO = new AgencyBO();
         let agencyJSON = {};
         try{
@@ -300,6 +346,21 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationDoc.applicationId}. Please follow-up manually.`);
             }
 
+
+            // need industry code description for agency and agencynetwork emails.
+            let industryCodeDesc = '';
+            const industryCodeBO = new IndustryCodeBO();
+            try{
+                const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
+                if(industryCodeJson){
+                    industryCodeDesc = industryCodeJson.description;
+                }
+            }
+            catch(err){
+                log.error("Error getting industryCodeBO " + err + __location);
+            }
+
+
             /* ---=== Email to Agency (not sent to Talage) ===--- */
 
             // Only send for non-Talage accounts that are not wholesale
@@ -317,20 +378,6 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 message = emailContentJSON.agencyMessage;
                 subject = emailContentJSON.agencySubject;
 
-                //already have quotesHTML from above
-                // need industry code description
-                let industryCodeDesc = '';
-                const industryCodeBO = new IndustryCodeBO();
-                try{
-                    const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
-                    if(industryCodeJson){
-                        industryCodeDesc = industryCodeJson.description;
-                    }
-                }
-                catch(err){
-                    log.error("Error getting industryCodeBO " + err + __location);
-                }
-
                 //  // Perform content message.replacements
                 message = message.replace(/{{Agent Login URL}}/g, insurerList[0].agent_login);
                 message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
@@ -346,7 +393,6 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 // Send the email
                 const keyData2 = {'applicationDoc': applicationDoc};
                 if(agencyLocationEmail){
-                    log.info(`Send agency location abandonquote email from ${emailContentJSON.emailBrand} to ${agencyLocationEmail} for application ${applicationDoc.applicationId} `)
                     emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
                     if(emailResp === false){
                         slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
@@ -354,6 +400,63 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 }
                 else {
                     log.error(`Abandon Quote no email address for application: ${applicationDoc.applicationId} ` + __location);
+                }
+            }
+
+            //Determine if Agency Network Email is required.
+            if(agencyNetworkDB
+                && agencyNetworkDB.featureJson
+                && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
+                && agencyNetworkDB.email){
+                try{
+                    const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
+                    log.debug('emailContentAgencyNetworkJSON: ' + JSON.stringify(emailContentAgencyNetworkJSON))
+                    if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){
+                        const portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
+
+                        // Format the full name and phone number
+                        const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
+                        let phone = '';
+                        if(customerContact.phone){
+                            phone = formatPhone(customerContact.phone);
+                        }
+
+                        message = emailContentAgencyNetworkJSON.message;
+                        subject = emailContentAgencyNetworkJSON.subject;
+
+                        //already have quotesHTML from above
+                        // need industry code description
+
+                        //  // Perform content message.replacements
+                        message = message.replace(/{{Agent Login URL}}/g, insurerList[0].agent_login);
+                        message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
+                        message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(stringFunctions.ucwords(emailContentAgencyNetworkJSON.emailBrand)));
+                        message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+                        message = message.replace(/{{Contact Email}}/g, customerEmail);
+                        message = message.replace(/{{Contact Name}}/g, fullName);
+                        message = message.replace(/{{Contact Phone}}/g, phone);
+                        message = message.replace(/{{Industry}}/g, industryCodeDesc);
+                        message = message.replace(/{{Quotes}}/g, quotesHTML);
+
+
+                        // Send the email
+                        const keyData2 = {'applicationDoc': applicationDoc};
+                        if(agencyNetworkDB.email){
+                            emailResp = await emailSvc.send(agencyNetworkDB.email, subject, message, keyData2,agencyNetworkId, emailContentAgencyNetworkJSON.emailBrand);
+                            if(emailResp === false){
+                                slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
+                            }
+                        }
+                        else {
+                            log.error(`Abandon Quote no email address for application: ${applicationDoc.applicationId} ` + __location);
+                        }
+                    }
+                    else {
+                        log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
+                    }
+                }
+                catch(err){
+                    log.error(`Sending Agency Network abandoned quote email ${err}` + __location);
                 }
             }
 

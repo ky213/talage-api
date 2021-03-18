@@ -9,12 +9,12 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
-module.exports = async function(agencyNetwork, userID, firstName, lastName, agencyName, slug, userEmail) {
+module.exports = async function(agencyNetworkId, userID, firstName, lastName, agencyName, slug, userEmail) {
     // Get the content of the email
     let error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
-    const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, "onboarding").catch(function(err){
-        log.error(`Unable to get email content for Onboarding. agency_network: ${db.escape(agencyNetwork)}.  error: ${err}` + __location);
+    const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId, "onboarding").catch(function(err){
+        log.error(`Unable to get email content for Onboarding. agency_network: ${db.escape(agencyNetworkId)}.  error: ${err}` + __location);
         error = true;
     });
     if(error){
@@ -35,7 +35,12 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
         const portalurl = emailContentJSON.PORTAL_URL;
         const appurl = emailContentJSON.APPLICATION_URL;
         let brand = brandraw;
-        brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        if(brand){
+            brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        }
+        else {
+            log.error(`Email Brand missing for agencyNetworkId ${agencyNetworkId} ` + __location);
+        }
 
         // Prepare the email to send to the user
         const emailData = {
@@ -52,7 +57,7 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
         };
 
 
-        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agencyNetwork, emailData.brand);
+        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agencyNetworkId, emailData.brand);
         if (emailResp === false) {
             const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;
             log.error(errorStr + __location);

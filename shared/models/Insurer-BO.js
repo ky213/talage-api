@@ -53,7 +53,10 @@ module.exports = class InsurerBO{
                 }
             }
             if(newDoc === true) {
-                const newDoc = await this.insertMongo(newObjectJSON);
+                newDoc = await this.insertMongo(newObjectJSON).catch((err) => {
+                    log.error("Insurer POST object error " + err + __location);
+                    reject(err);
+                });
                 this.id = newDoc.systemId;
                 this.mongoDoc = newDoc;
 
