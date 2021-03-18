@@ -144,11 +144,6 @@ module.exports = class IndustryCodeBO{
             // Run the query
             //log.debug("IndustryCodeBO getlist sql: " + sql);
             // Run the query
-            const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
-                reject(error);
-            });
             const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
                 rejected = true;
                 log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
@@ -173,6 +168,11 @@ module.exports = class IndustryCodeBO{
                     boList.push(industryCodeBO);
                 }
                 if(queryJSON && (queryJSON.count === "1" || queryJSON.count === "true")){
+                    const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
+                        rejected = true;
+                        log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
+                        reject(error);
+                    });
                     resolve({
                         rows: boList,
                         count: count[0] ? count[0]["count(*)"] : 0
