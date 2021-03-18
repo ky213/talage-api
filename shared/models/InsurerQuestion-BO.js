@@ -1,8 +1,4 @@
 /* eslint-disable prefer-const */
-'use strict';
-
-
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -12,11 +8,10 @@ const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_insurer_industry_codes';
-const skipCheckRequired = false;
 module.exports = class InsurerQuestionBO{
 
     constructor(){
-        this.id = 0;
+        this.id = null;
         this.mongoDoc = null;
     }
 
@@ -33,7 +28,7 @@ module.exports = class InsurerQuestionBO{
                 reject(new Error(`empty ${tableName} object given`));
             }
 
-            let newDoc = true;
+            let isNewDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
@@ -41,20 +36,18 @@ module.exports = class InsurerQuestionBO{
                     return;
                 });
                 if(dbDocJSON){
-                    newObjectJSON.systemId = dbDocJSON.systemId;
-                    newObjectJSON.insurerId = dbDocJSON.systemId;
-                    this.id = dbDocJSON.systemId;
-                    newDoc = false;
+                    this.id = dbDocJSON.insurerQuestionId;
+                    isNewDoc = false;
                     await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON)
                 }
                 else {
                     log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
                 }
             }
-            if(newDoc === true) {
-                const newDoc = await this.insertMongo(newObjectJSON);
-                this.id = newDoc.systemId;
-                this.mongoDoc = newDoc;
+            if(isNewDoc === true) {
+                const insertedDoc = await this.insertMongo(newObjectJSON);
+                this.id = insertedDoc.insurerQuestionId;
+                this.mongoDoc = insertedDoc;
 
             }
             else {
@@ -81,7 +74,7 @@ module.exports = class InsurerQuestionBO{
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {systemId: 1};
+            queryOptions.sort = {createdAt: 1};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
@@ -316,97 +309,14 @@ module.exports = class InsurerQuestionBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        const newSystemId = await this.newMaxSystemId()
-        newObjectJSON.systemId = newSystemId;
-        newObjectJSON.insurerId = newSystemId;
-        const insurer = new InsurerQuestion(newObjectJSON);
+        const insurerQuestion = new InsurerQuestion(newObjectJSON);
         //Insert a doc
-        await insurer.save().catch(function(err) {
+        await insurerQuestion.save().catch(function(err) {
             log.error('Mongo insurer Save err ' + err + __location);
             throw err;
         });
-        newObjectJSON.id = newSystemId;
-        return mongoUtils.objCleanup(insurer);
+        return mongoUtils.objCleanup(insurerQuestion);
     }
 
-    async newMaxSystemId(){
-        let maxId = 0;
-        try{
-
-            //small collection - get the collection and loop through it.
-            // TODO refactor to use mongo aggretation.
-            const query = {}
-            const queryProjection = {"systemId": 1}
-            var queryOptions = {lean:true};
-            queryOptions.sort = {};
-            queryOptions.sort.systemId = -1;
-            queryOptions.limit = 1;
-            const docList = await InsurerQuestion.find(query, queryProjection, queryOptions)
-            if(docList && docList.length > 0){
-                for(let i = 0; i < docList.length; i++){
-                    if(docList[i].systemId > maxId){
-                        maxId = docList[i].systemId + 1;
-                    }
-                }
-            }
-
-        }
-        catch(err){
-            log.error("Get max system id " + err + __location)
-            throw err;
-        }
-        log.debug("maxId: " + maxId + __location)
-        return maxId;
-    }
-
-    async getTerritories(insurerId){
-        let territoryArray = [];
-        let insurerPolicyTypeListJSON = {};
-        try{
-            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-            const query = {"insurerId": insurerId}
-            insurerPolicyTypeListJSON = await insurerPolicyTypeBO.getList(query)
-            if(insurerPolicyTypeListJSON){
-                for(const insurerPolicyTypeJSON of insurerPolicyTypeListJSON){
-                    if(insurerPolicyTypeJSON.territories && insurerPolicyTypeJSON.territories.length > 0){
-                        for(let i = 0; i < insurerPolicyTypeJSON.territories.length; i++){
-                            const ptTerritory = insurerPolicyTypeJSON.territories[i];
-                            if (territoryArray.indexOf(ptTerritory) === -1) {
-                                territoryArray.push(ptTerritory);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch(err){
-            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
-        }
-        if(territoryArray && territoryArray.length > 0){
-            return territoryArray.sort();
-        }
-        else {
-            return [];
-        }
-
-
-    }
-
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-
-    async getSelectionList(){
-        //TODO refactor to only return id, name and logo.
-        let insurerList = [];
-        try{
-            insurerList = await this.getList({});
-        }
-        catch(err){
-            log.error(`Insurer GetList error on select ` + err + __location);
-        }
-        return insurerList;
-    }
 
 }

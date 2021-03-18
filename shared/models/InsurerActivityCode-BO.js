@@ -12,7 +12,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 module.exports = class InsurerActivityCodeBO{
 
     constructor(){
-        this.id = 0;
+        this.id = null;
         this.mongoDoc = null;
     }
 
@@ -37,9 +37,7 @@ module.exports = class InsurerActivityCodeBO{
                     return;
                 });
                 if(dbDocJSON){
-                    newObjectJSON.systemId = dbDocJSON.systemId;
-                    newObjectJSON.insurerId = dbDocJSON.systemId;
-                    this.id = dbDocJSON.systemId;
+                    this.id = dbDocJSON.insurerActivityCodeId;
                     newDoc = false;
                     await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON);
                 }
@@ -49,7 +47,7 @@ module.exports = class InsurerActivityCodeBO{
             }
             if(newDoc === true) {
                 const insertedDoc = await this.insertMongo(newObjectJSON);
-                this.id = insertedDoc.systemId;
+                this.id = insertedDoc.insurerActivityCodeId;
                 this.mongoDoc = insertedDoc;
             }
             else {
@@ -76,7 +74,7 @@ module.exports = class InsurerActivityCodeBO{
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {systemId: 1};
+            queryOptions.sort = {createdAt: 1};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
@@ -249,6 +247,7 @@ module.exports = class InsurerActivityCodeBO{
                         "active",
                         "id",
                         "systemId",
+                        "createdAt",
                         "insurerActivityCodeId"
                     ];
 
@@ -297,15 +296,13 @@ module.exports = class InsurerActivityCodeBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        const newSystemId = await this.newMaxSystemId()
-        newObjectJSON.systemId = newSystemId;
+        
         const insurerActivityCode = new InsurerActivityCode(newObjectJSON);
         //Insert a doc
         await insurerActivityCode.save().catch(function(err) {
             log.error('Mongo insurer Save err ' + err + __location);
             throw err;
         });
-        newObjectJSON.id = newSystemId;
         return mongoUtils.objCleanup(insurerActivityCode);
     }
 
@@ -338,54 +335,5 @@ module.exports = class InsurerActivityCodeBO{
         return maxId;
     }
 
-    async getTerritories(insurerId){
-        let territoryArray = [];
-        let insurerPolicyTypeListJSON = {};
-        try{
-            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-            const query = {"insurerId": insurerId}
-            insurerPolicyTypeListJSON = await insurerPolicyTypeBO.getList(query)
-            if(insurerPolicyTypeListJSON){
-                for(const insurerPolicyTypeJSON of insurerPolicyTypeListJSON){
-                    if(insurerPolicyTypeJSON.territories && insurerPolicyTypeJSON.territories.length > 0){
-                        for(let i = 0; i < insurerPolicyTypeJSON.territories.length; i++){
-                            const ptTerritory = insurerPolicyTypeJSON.territories[i];
-                            if (territoryArray.indexOf(ptTerritory) === -1) {
-                                territoryArray.push(ptTerritory);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch(err){
-            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
-        }
-        if(territoryArray && territoryArray.length > 0){
-            return territoryArray.sort();
-        }
-        else {
-            return [];
-        }
-
-
-    }
-
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-
-    async getSelectionList(){
-        //TODO refactor to only return id, name and logo.
-        let insurerList = [];
-        try{
-            insurerList = await this.getList({});
-        }
-        catch(err){
-            log.error(`Insurer GetList error on select ` + err + __location);
-        }
-        return insurerList;
-    }
 
 }

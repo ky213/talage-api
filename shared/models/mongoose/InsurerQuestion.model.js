@@ -17,7 +17,7 @@ const opts = {toJSON: {virtuals: true}};
 
 const InsurerQuestionSchema = new Schema({
     insurerQuestionId: {type: String, required: [true, 'insurerQuestionId required'], unique: true},
-    systemId: {type: Number, unique: true},
+    systemId: {type: Number},
     insurerId: {type: Number},
     talageQuestionId: {type: Number},
     policyType: {type: String, required: false, default: null},
@@ -34,7 +34,7 @@ const InsurerQuestionSchema = new Schema({
 
 
 InsurerQuestionSchema.index({insurerId: 1, type: 1}); // Insure Index
-InsurerQuestionSchema.index({systemId: 1, type: 1});
+InsurerQuestionSchema.index({insurerQuestionId: 1, type: 1});
 
 // //***** Virtuals old field names ****************** */
 

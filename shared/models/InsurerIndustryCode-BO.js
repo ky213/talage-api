@@ -1,19 +1,17 @@
 /* eslint-disable prefer-const */
-'use strict';
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
 var InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_insurer_industry_codes';
 module.exports = class InsurerIndustryCodeBO{
 
     constructor(){
-        this.id = 0;
+        this.id = null;
         this.mongoDoc = null;
     }
 
@@ -38,11 +36,9 @@ module.exports = class InsurerIndustryCodeBO{
                     return;
                 });
                 if(dbDocJSON){
-                    newObjectJSON.systemId = dbDocJSON.systemId;
-                    newObjectJSON.insurerId = dbDocJSON.systemId;
-                    this.id = dbDocJSON.systemId;
+                    this.id = dbDocJSON.insurerIndustryCodeId;
                     newDoc = false;
-                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON);
+                    await this.updateMongo(dbDocJSON.insurerIndustryCodeId,newObjectJSON);
                 }
                 else {
                     log.error("Insurer PUT object not found " + newObjectJSON.id + __location);
@@ -50,7 +46,7 @@ module.exports = class InsurerIndustryCodeBO{
             }
             if(newDoc === true) {
                 const insertedDoc = await this.insertMongo(newObjectJSON);
-                this.id = insertedDoc.systemId;
+                this.id = insertedDoc.insurerIndustryCodeId;
                 this.mongoDoc = insertedDoc;
             }
             else {
@@ -77,7 +73,7 @@ module.exports = class InsurerIndustryCodeBO{
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {systemId: 1};
+            queryOptions.sort = {createdAt: 1};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
@@ -250,6 +246,7 @@ module.exports = class InsurerIndustryCodeBO{
                         "active",
                         "id",
                         "systemId",
+                        "createdAt",
                         "insurerIndustryCodeId"
                     ];
 
@@ -298,96 +295,14 @@ module.exports = class InsurerIndustryCodeBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        const newSystemId = await this.newMaxSystemId()
-        newObjectJSON.systemId = newSystemId;
+        
         const insurerIndustryCode = new InsurerIndustryCode(newObjectJSON);
         //Insert a doc
         await insurerIndustryCode.save().catch(function(err) {
             log.error('Mongo insurer Save err ' + err + __location);
             throw err;
         });
-        newObjectJSON.id = newSystemId;
         return mongoUtils.objCleanup(insurerIndustryCode);
-    }
-
-    async newMaxSystemId(){
-        let maxId = 0;
-        try{
-
-            //small collection - get the collection and loop through it.
-            // TODO refactor to use mongo aggretation.
-            const query = {}
-            const queryProjection = {"systemId": 1}
-            var queryOptions = {lean:true};
-            queryOptions.sort = {};
-            queryOptions.sort.systemId = -1;
-            queryOptions.limit = 1;
-            const docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions)
-            if(docList && docList.length > 0){
-                for(let i = 0; i < docList.length; i++){
-                    if(docList[i].systemId > maxId){
-                        maxId = docList[i].systemId + 1;
-                    }
-                }
-            }
-
-        }
-        catch(err){
-            log.error("Get max system id " + err + __location)
-            throw err;
-        }
-        log.debug("maxId: " + maxId + __location)
-        return maxId;
-    }
-
-    async getTerritories(insurerId){
-        let territoryArray = [];
-        let insurerPolicyTypeListJSON = {};
-        try{
-            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-            const query = {"insurerId": insurerId}
-            insurerPolicyTypeListJSON = await insurerPolicyTypeBO.getList(query)
-            if(insurerPolicyTypeListJSON){
-                for(const insurerPolicyTypeJSON of insurerPolicyTypeListJSON){
-                    if(insurerPolicyTypeJSON.territories && insurerPolicyTypeJSON.territories.length > 0){
-                        for(let i = 0; i < insurerPolicyTypeJSON.territories.length; i++){
-                            const ptTerritory = insurerPolicyTypeJSON.territories[i];
-                            if (territoryArray.indexOf(ptTerritory) === -1) {
-                                territoryArray.push(ptTerritory);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch(err){
-            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
-        }
-        if(territoryArray && territoryArray.length > 0){
-            return territoryArray.sort();
-        }
-        else {
-            return [];
-        }
-
-
-    }
-
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-
-    async getSelectionList(){
-        //TODO refactor to only return id, name and logo.
-        let insurerList = [];
-        try{
-            insurerList = await this.getList({});
-        }
-        catch(err){
-            log.error(`Insurer GetList error on select ` + err + __location);
-        }
-        return insurerList;
     }
 
 }
