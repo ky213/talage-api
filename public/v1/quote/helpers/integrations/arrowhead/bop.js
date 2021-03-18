@@ -294,9 +294,9 @@ module.exports = class LibertySBOP extends Integration {
         quoteLimits[11] = "2000000";
         quoteLimits[9] = "2000000";
 
-        if (res.hasOwnProperty("uwResults") && res.uwResults.length > 0) {
+        if (res.hasOwnProperty("warnings") && res.warnings.length > 0) {
             log.warn(`${logPrefix}Arrowhead reported the following warnings for this quote request:`);
-            res.uwResults.forEach((warning, i) => {
+            res.warnings.forEach((warning, i) => {
                 log.warn(`${i}: ${warning}`);
             });
         }
