@@ -121,9 +121,6 @@ module.exports = class ActivityCodeBO{
                     sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `
                     hasWhere = true;
                 }
-                if(queryJSON.include_insurers) {
-                    // TODO: HOW TO EDIT THE QUERY?
-                }
                 if(queryJSON.state) {
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
                     sqlWhere += ` state = ${db.escape(queryJSON.state)} `;
@@ -146,9 +143,9 @@ module.exports = class ActivityCodeBO{
             }
 
             // reverse the list to sort by id descending by default
-            const sqlGroup = " GROUP BY id order by id DESC";
+            const sqlOrder = " ORDER BY id DESC";
 
-            const sql = sqlSelect + sqlWhere + sqlGroup + sqlPaging;
+            const sql = sqlSelect + sqlWhere + sqlOrder + sqlPaging;
             // Run the query
             log.debug("ActivityCodeBO getlist sql: " + sql);
             const result = await db.query(sql).catch(function(error) {
