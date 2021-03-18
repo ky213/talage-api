@@ -1,8 +1,6 @@
 /* eslint-disable prefer-const */
 'use strict';
 
-
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -12,7 +10,6 @@ const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_insurer_industry_codes';
-const skipCheckRequired = false;
 module.exports = class InsurerIndustryCodeBO{
 
     constructor(){
@@ -45,17 +42,16 @@ module.exports = class InsurerIndustryCodeBO{
                     newObjectJSON.insurerId = dbDocJSON.systemId;
                     this.id = dbDocJSON.systemId;
                     newDoc = false;
-                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON)
+                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON);
                 }
                 else {
-                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
+                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location);
                 }
             }
             if(newDoc === true) {
-                const newDoc = await this.insertMongo(newObjectJSON);
-                this.id = newDoc.systemId;
-                this.mongoDoc = newDoc;
-
+                const insertedDoc = await this.insertMongo(newObjectJSON);
+                this.id = insertedDoc.systemId;
+                this.mongoDoc = insertedDoc;
             }
             else {
                 this.mongoDoc = this.getById(this.id);
@@ -149,6 +145,14 @@ module.exports = class InsurerIndustryCodeBO{
             else if(queryJSON.insurerId){
                 query.insurerId = queryJSON.insurerId;
                 delete queryJSON.insurerId;
+            }
+
+            if(queryJSON.description){
+                query.description = {
+                    "$regex": queryJSON.description,
+                    "$options": "i"
+                };
+                delete queryJSON.description;
             }
 
             if (queryJSON) {

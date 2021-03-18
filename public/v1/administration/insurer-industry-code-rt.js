@@ -181,6 +181,14 @@ async function update(req, res, next) {
         return next(new Error("no body"));
     }
 
+    // if there is no expirationDate or effectiveDate provided, default them
+    if(!req.body.hasOwnProperty("expirationDate")){
+        req.body.expirationDate = "2100-01-01";
+    }
+    if(!req.body.hasOwnProperty("effectiveDate")){
+        req.body.effectiveDate = "1980-01-01";
+    }
+
     const insurerIndustryCodBO = new InsurerIndustryCodBO();
     let error = null;
     const newJSON = await insurerIndustryCodBO.updateMongo(req.params.id, req.body).catch(function(err) {
@@ -193,7 +201,6 @@ async function update(req, res, next) {
 
     res.send(200, newJSON);
     return next();
-
 }
 
 exports.registerEndpoint = (server, basePath) => {

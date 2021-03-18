@@ -1,19 +1,15 @@
 /* eslint-disable prefer-const */
 'use strict';
 
-
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var InsurerQuestion = require('mongoose').model('InsurerQuestion');
+var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const tableName = 'clw_talage_insurer_industry_codes';
-const skipCheckRequired = false;
-module.exports = class InsurerQuestionBO{
+module.exports = class InsurerActivityCodeBO{
 
     constructor(){
         this.id = 0;
@@ -30,13 +26,13 @@ module.exports = class InsurerQuestionBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty InsurerActivityCode object given`));
             }
 
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting InsurerActivityCode from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -45,17 +41,16 @@ module.exports = class InsurerQuestionBO{
                     newObjectJSON.insurerId = dbDocJSON.systemId;
                     this.id = dbDocJSON.systemId;
                     newDoc = false;
-                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON)
+                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON);
                 }
                 else {
                     log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
                 }
             }
             if(newDoc === true) {
-                const newDoc = await this.insertMongo(newObjectJSON);
-                this.id = newDoc.systemId;
-                this.mongoDoc = newDoc;
-
+                const insertedDoc = await this.insertMongo(newObjectJSON);
+                this.id = insertedDoc.systemId;
+                this.mongoDoc = insertedDoc;
             }
             else {
                 this.mongoDoc = this.getById(this.id);
@@ -71,7 +66,7 @@ module.exports = class InsurerQuestionBO{
                 queryJSON = {};
             }
 
-            const queryProjection = {"__v": 0};
+            const queryProjection = {"__v": 0}
 
             let findCount = false;
 
@@ -86,10 +81,10 @@ module.exports = class InsurerQuestionBO{
                 var acs = 1;
                 if (queryJSON.desc) {
                     acs = -1;
-                    delete queryJSON.desc;
+                    delete queryJSON.desc
                 }
                 queryOptions.sort[queryJSON.sort] = acs;
-                delete queryJSON.sort;
+                delete queryJSON.sort
             }
             else {
                 // default to DESC on sent
@@ -99,7 +94,7 @@ module.exports = class InsurerQuestionBO{
             const queryLimit = 500;
             if (queryJSON.limit) {
                 var limitNum = parseInt(queryJSON.limit, 10);
-                delete queryJSON.limit;
+                delete queryJSON.limit
                 if (limitNum < queryLimit) {
                     queryOptions.limit = limitNum;
                 }
@@ -124,23 +119,24 @@ module.exports = class InsurerQuestionBO{
                 delete queryJSON.count;
             }
 
-            // insurerQuestionId
-            if(queryJSON.insurerQuestionId && Array.isArray(queryJSON.insurerQuestionId)){
-                query.insurerQuestionId = {$in: queryJSON.insurerQuestionId};
-                delete queryJSON.insurerQuestionId;
+            if(queryJSON.insurerActivityCodeId && Array.isArray(queryJSON.insurerActivityCodeId)){
+                query.insurerActivityCodeId = {$in: queryJSON.insurerActivityCodeId};
+                delete queryJSON.insurerActivityCodeId;
             }
-            else if(queryJSON.insurerQuestionId && typeof queryJSON.insurerQuestionId === "string"){
-                const idList = queryJSON.insurerQuestionId.split(",");
-                if(idList.length > 1){
-                    query.insurerQuestionId = {$in: idList};
-                }
-                else{
-                    query.insurerQuestionId = queryJSON.insurerQuestionId;
-                }
-                delete queryJSON.insurerQuestionId;
+            else if(queryJSON.insurerActivityCodeId){
+                query.insurerActivityCodeId = queryJSON.insurerActivityCodeId;
+                delete queryJSON.insurerActivityCodeId;
             }
 
-            // insurerId
+            if(queryJSON.talageActivityCodeIdList && Array.isArray(queryJSON.talageActivityCodeIdList)){
+                query.talageActivityCodeIdList = {$in: queryJSON.talageActivityCodeIdList};
+                delete queryJSON.talageActivityCodeIdList;
+            }
+            else if(queryJSON.talageActivityCodeIdList){
+                query.talageActivityCodeIdList = queryJSON.talageActivityCodeIdList;
+                delete queryJSON.talageActivityCodeIdList;
+            }
+
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
                 query.insurerId = {$in: queryJSON.insurerId};
                 delete queryJSON.insurerId;
@@ -150,28 +146,12 @@ module.exports = class InsurerQuestionBO{
                 delete queryJSON.insurerId;
             }
 
-            // talageQuestionId
-            if(queryJSON.talageQuestionId && Array.isArray(queryJSON.talageQuestionId)){
-                query.talageQuestionId = {$in: queryJSON.talageQuestionId};
-                delete queryJSON.talageQuestionId;
-            }
-            else if(queryJSON.talageQuestionId && typeof queryJSON.talageQuestionId === "string"){
-                const idList = queryJSON.talageQuestionId.split(",");
-                if(idList.length > 1){
-                    query.talageQuestionId = {$in: idList};
-                }
-                else{
-                    query.talageQuestionId = queryJSON.talageQuestionId;
-                }
-                delete queryJSON.talageQuestionId;
-            }
-
-            if(queryJSON.text){
-                query.text = {
-                    "$regex": queryJSON.text,
+            if(queryJSON.description){
+                query.description = {
+                    "$regex": queryJSON.description,
                     "$options": "i"
                 };
-                delete queryJSON.text;
+                delete queryJSON.description;
             }
 
             if (queryJSON) {
@@ -193,9 +173,9 @@ module.exports = class InsurerQuestionBO{
             let docList = null;
             let queryRowCount = 0;
             try {
-                docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
+                docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
                 if (findCount){
-                    queryRowCount = await InsurerQuestion.countDocuments(query);
+                    queryRowCount = await InsurerActivityCode.countDocuments(query);
                 }
             }
             catch (err) {
@@ -230,12 +210,12 @@ module.exports = class InsurerQuestionBO{
         return new Promise(async(resolve, reject) => {
             if (id) {
                 const query = {
-                    "insurerQuestionId": id,
+                    "insurerActivityCodeId": id,
                     active: true
                 };
                 let docDB = null;
                 try {
-                    docDB = await InsurerQuestion.findOne(query, '-__v');
+                    docDB = await InsurerActivityCode.findOne(query, '-__v');
                 }
                 catch (err) {
                     log.error("Getting Agency error " + err + __location);
@@ -245,8 +225,8 @@ module.exports = class InsurerQuestionBO{
                     resolve(docDB);
                 }
                 else if(docDB){
-                    const insurerQuestionDoc = mongoUtils.objCleanup(docDB);
-                    resolve(insurerQuestionDoc);
+                    const insurerActivityCodeDoc = mongoUtils.objCleanup(docDB);
+                    resolve(insurerActivityCodeDoc);
                 }
                 else {
                     resolve(null);
@@ -262,14 +242,14 @@ module.exports = class InsurerQuestionBO{
         if (docId) {
             if (typeof newObjectJSON === "object") {
 
-                const query = {"insurerQuestionId": docId};
-                let newInsurerQuestionJSON = null;
+                const query = {"insurerActivityCodeId": docId};
+                let newinsurerActivityCodeJSON = null;
                 try {
                     const changeNotUpdateList = [
                         "active",
                         "id",
                         "systemId",
-                        "insurerQuestionId"
+                        "insurerActivityCodeId"
                     ];
 
                     for (let i = 0; i < changeNotUpdateList.length; i++) {
@@ -279,11 +259,12 @@ module.exports = class InsurerQuestionBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
-                    await InsurerQuestion.updateOne(query, newObjectJSON);
-                    const newInsurerQuestion = await InsurerQuestion.findOne(query);
-                    //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});
 
-                    newInsurerQuestionJSON = mongoUtils.objCleanup(newInsurerQuestion);
+                    await InsurerActivityCode.updateOne(query, newObjectJSON);
+                    const newinsurerActivityCode = await InsurerActivityCode.findOne(query);
+                    //const newAgencyDoc = await InsurerActivityCode.findOneAndUpdate(query, newObjectJSON, {new: true});
+
+                    newinsurerActivityCodeJSON = mongoUtils.objCleanup(newinsurerActivityCode);
                 }
                 catch (err) {
                     log.error(`Updating Application error appId: ${docId}` + err + __location);
@@ -291,7 +272,7 @@ module.exports = class InsurerQuestionBO{
                 }
                 //
 
-                return newInsurerQuestionJSON;
+                return newinsurerActivityCodeJSON;
             }
             else {
                 throw new Error(`no newObjectJSON supplied appId: ${docId}`)
@@ -318,15 +299,14 @@ module.exports = class InsurerQuestionBO{
         }
         const newSystemId = await this.newMaxSystemId()
         newObjectJSON.systemId = newSystemId;
-        newObjectJSON.insurerId = newSystemId;
-        const insurer = new InsurerQuestion(newObjectJSON);
+        const insurerActivityCode = new InsurerActivityCode(newObjectJSON);
         //Insert a doc
-        await insurer.save().catch(function(err) {
+        await insurerActivityCode.save().catch(function(err) {
             log.error('Mongo insurer Save err ' + err + __location);
             throw err;
         });
         newObjectJSON.id = newSystemId;
-        return mongoUtils.objCleanup(insurer);
+        return mongoUtils.objCleanup(insurerActivityCode);
     }
 
     async newMaxSystemId(){
@@ -341,7 +321,7 @@ module.exports = class InsurerQuestionBO{
             queryOptions.sort = {};
             queryOptions.sort.systemId = -1;
             queryOptions.limit = 1;
-            const docList = await InsurerQuestion.find(query, queryProjection, queryOptions)
+            const docList = await InsurerActivityCode.find(query, queryProjection, queryOptions)
             if(docList && docList.length > 0){
                 for(let i = 0; i < docList.length; i++){
                     if(docList[i].systemId > maxId){
@@ -349,7 +329,6 @@ module.exports = class InsurerQuestionBO{
                     }
                 }
             }
-
         }
         catch(err){
             log.error("Get max system id " + err + __location)
