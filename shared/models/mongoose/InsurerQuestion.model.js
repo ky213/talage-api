@@ -28,6 +28,7 @@ const InsurerQuestionSchema = new Schema({
     attributes: {type: Schema.Types.Mixed},
     effectiveDate: {type: Date, required: true},
     expirationDate: {type: Date, required: true},
+    allTerritories: {type: Boolean, required: true, default: true},
     territoryList: [String],
     active: {type: Boolean, default: true}
 },opts)
