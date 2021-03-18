@@ -20,6 +20,7 @@ const moment = require('moment');
 const host = 'https://stag-api.nationalprograms.io';
 const path = '/Quote/v0.2-beta/CreateQuote';
 let logPrefix = "";
+const MAX_RETRY_ATTEMPTS = 10;
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -118,7 +119,9 @@ module.exports = class LibertySBOP extends Integration {
                     classCode: this.industry_code.code, 
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
                     sicCode: this.industry_code.attributes.sic, 
-                    state: applicationDocData.mailingState, 
+                    state: applicationDocData.mailingState,
+                    effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
+                    expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                     quoteType: "NB"
                 },
                 bbopSet: {
@@ -172,15 +175,33 @@ module.exports = class LibertySBOP extends Integration {
             "Accept": "application/json",
             "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
         }
-        try {
-            // There is a problem with sending this request via this.send_json_request that should be resolved so we can take
-            // advantage of the logging done implicitly by this method...
-            // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
-            result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
-        } catch(e) {
-            const errorMessage = `${logPrefix}Error sending request: ${e}. `;
-            log.error(errorMessage + __location);
-            return this.client_error(errorMessage, __location);
+
+        let calloutFailure = true;
+        let retryAttempts = 0;
+        while (calloutFailure) {
+            try {
+                // There is a problem with sending this request via this.send_json_request that should be resolved so we can take
+                // advantage of the logging done implicitly by this method...
+                // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
+                result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
+            } catch(e) {
+                const errorMessage = `${logPrefix}Error sending request: ${e}. `;
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
+            }
+
+            if (!result.data.hasOwnProperty("error") || result.data.error.code !== "CALLOUT_FAILURE") {
+                calloutFailure = false;
+            } else {
+                retryAttempts++;
+
+                if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+                    log.warn(`${logPrefix}Recieved a [500] CALLOUT_FAILURE, retrying quote request. Attempts: ${retryAttempts}/${MAX_RETRY_ATTEMPTS}`);
+                } else {
+                    log.error(`${logPrefix}Recieved a [500] CALLOUT_FAILURE, reached max retry attempts.`);
+                    break;
+                }
+            }
         }
 
         // parse the error / response
@@ -236,18 +257,11 @@ module.exports = class LibertySBOP extends Integration {
         let quoteNumber = null;
         let premium = null;
         const quoteLimits = {}; 
-        let quoteLetter = null; // not provided by Arrowhead
+        const quoteLetter = null; // not provided by Arrowhead
         const quoteMIMEType = null; // not provided by Arrowhead
         let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
 
         const res = result.data;
-
-        // parse out the specific quote status
-        try {
-
-        } catch (e) {
-            
-        }
 
         // try to parse out quote number from response
         try {
@@ -258,7 +272,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // try to parse out the premium
         try {
-            premium = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].instecResponse.rc2.bopPremiumAdjusted;
+            premium = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].instecResponse.rc2.bbopResponse.bopPremiumAdjusted;
         } catch (e) {
             log.warn(`${logPrefix}Premium not provided, or the result structure has changed.` + __location);
         }
@@ -279,6 +293,13 @@ module.exports = class LibertySBOP extends Integration {
         quoteLimits[4] = "1000000";
         quoteLimits[11] = "2000000";
         quoteLimits[9] = "2000000";
+
+        if (res.hasOwnProperty("uwResults") && res.uwResults.length > 0) {
+            log.warn(`${logPrefix}Arrowhead reported the following warnings for this quote request:`);
+            res.uwResults.forEach((warning, i) => {
+                log.warn(`${i}: ${warning}`);
+            });
+        }
 
         // return quote result
         return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
@@ -390,14 +411,6 @@ module.exports = class LibertySBOP extends Integration {
                 case "fixedPropDeductible":
                     bbopSet.fixedPropDeductible = this.convertToInteger({id, answer});
                     break;  
-                case "compf":
-                    bbopSet.coverages.compf = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
-                    break;
-                case "compf.limit":
-                    compf.push({id: id.replace("compf.", ""), answer}); 
-                    break;
                 case "cyber":
                     bbopSet.coverages.cyber = {
                         includeInd: this.convertToBoolean(answer)
@@ -443,26 +456,6 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     default: 
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for cyber coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
-                        break;
-                }
-            });
-        }
-
-        // hydrate compf with child question data, if any exist
-        if (compf.length > 0) {
-            if (!bbopSet.coverages.hasOwnProperty("compf")) {
-                bbopSet.coverages.compf = {
-                    includeInd: true
-                };
-            }
-
-            compf.forEach(({id, answer}) => {
-                switch (id) {
-                    case "limit":
-                        bbopSet.coverages.compf[id] = answer;
-                        break;
-                    default:
-                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for compf coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
                         break;
                 }
             });
@@ -528,6 +521,7 @@ module.exports = class LibertySBOP extends Integration {
             const bld = [];
             const osigns = [];
             const spoil = [];
+            const compf = [];
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
@@ -554,6 +548,14 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     case "yearBuilt":
                         building[id] = this.convertToInteger({id, answer});
+                        break;
+                    case "compf":
+                        building.coverages[id] = {
+                            includeInd: this.convertToBoolean(answer)
+                        };
+                        break;
+                    case "compf.limit":
+                        compf.push({id: id.replace("compf.", ""), answer}); 
                         break;
                     case "uw.roofUpdates": // child
                     case "uw.hvacUpdates": // child
@@ -720,6 +722,26 @@ module.exports = class LibertySBOP extends Integration {
                             break;
                         default:
                             log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for spoil coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            break;
+                    }
+                });
+            }
+
+            // hydrate compf with child question data, if any exist
+            if (compf.length > 0) {
+                if (!building.coverages.hasOwnProperty("compf")) {
+                    building.coverages.compf = {
+                        includeInd: true
+                    };
+                }
+
+                compf.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "limit":
+                            building.coverages.compf[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for compf coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
                             break;
                     }
                 });
