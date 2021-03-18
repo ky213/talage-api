@@ -103,9 +103,9 @@ async function updateSql(req, res, next) {
 // MONGO
 async function findAll(req, res, next) {
     let error = null;
-    const insurerIndustryCodBO = new InsurerIndustryCodeBO();
+    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
-    const rows = await insurerIndustryCodBO.getList(req.query).catch(function(err) {
+    const rows = await insurerIndustryCodeBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
         error = err;
     });
@@ -127,9 +127,9 @@ async function findOne(req, res, next) {
         return next(new Error("bad parameter"));
     }
     let error = null;
-    const insurerIndustryCodBO = new InsurerIndustryCodeBO();
+    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
     // Load the request data into it
-    const objectJSON = await insurerIndustryCodBO.getById(req.params.id).catch(function(err) {
+    const objectJSON = await insurerIndustryCodeBO.getById(req.params.id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -148,7 +148,7 @@ async function findOne(req, res, next) {
 }
 //add
 async function add(req, res, next) {
-    const insurerIndustryCodBO = new InsurerIndustryCodeBO();
+    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
     let error = null;
 
     // if there is no expirationDate or effectiveDate provided, default them
@@ -159,7 +159,7 @@ async function add(req, res, next) {
         req.body.effectiveDate = "1980-01-01";
     }
 
-    const objectJSON = await insurerIndustryCodBO.insertMongo(req.body).catch(function(err) {
+    const objectJSON = await insurerIndustryCodeBO.insertMongo(req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -189,9 +189,9 @@ async function update(req, res, next) {
         req.body.effectiveDate = "1980-01-01";
     }
 
-    const insurerIndustryCodBO = new InsurerIndustryCodeBO();
+    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
     let error = null;
-    const newJSON = await insurerIndustryCodBO.updateMongo(req.params.id, req.body).catch(function(err) {
+    const newJSON = await insurerIndustryCodeBO.updateMongo(req.params.id, req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
