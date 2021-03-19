@@ -130,7 +130,7 @@ function stringArraytoArray(dbString){
     }
 }
 
-async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territory, iqMongoList){
+async function insurerActivityCodeTerritoryQuestions(insurerActivityCodeIdList, territory, iqMongoList){
     if(insurerActivityCodeIdList && insurerActivityCodeIdList.length > 0){
         const sql = `SELECT distinct iq.id as insurerQuestionId
                     FROM clw_talage_insurer_ncci_code_questions AS ncq
@@ -224,7 +224,7 @@ async function runFunction() {
                     let insurerTerritoryQuestionList = [];
                     //for on territoryList
                     for(let j = 0; j < result[i].territoryList.length; j++){
-                        const insurerCodeTerritoryQuestionJSON = await insurerCodeTerritoryQuestions(result[i].insurerActivityCodeIdList, result[i].territoryList[j], iqMongoList);
+                        const insurerCodeTerritoryQuestionJSON = await insurerActivityCodeTerritoryQuestions(result[i].insurerActivityCodeIdList, result[i].territoryList[j], iqMongoList);
                         if(insurerCodeTerritoryQuestionJSON){
                             insurerTerritoryQuestionList.push(insurerCodeTerritoryQuestionJSON);
                         }
