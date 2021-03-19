@@ -104,8 +104,6 @@ module.exports = class AgencyNetworkBO{
     }
 
 
-
-
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
             if(!queryJSON){
@@ -294,7 +292,7 @@ module.exports = class AgencyNetworkBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
-                   // log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
+                    // log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
                     await AgencyNetworkModel.updateOne(query, newObjectJSON);
                     const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
                     newAgencyNetworkJSON = mongoUtils.objCleanup(newAgencyNetworkDoc);
@@ -520,7 +518,6 @@ module.exports = class AgencyNetworkBO{
                 }
 
 
-
             }
             catch(err) {
                 log.error("getEmailContent error: " + err + __location);
@@ -576,5 +573,39 @@ module.exports = class AgencyNetworkBO{
         }
     }
 
+    getIdToNameMap(){
+        return new Promise(async(resolve, reject) => {
+            // eslint-disable-next-line prefer-const
+            let map = {};
+            let rejected = false;
+            // Create the update query
+            const sql = `
+                select *  from ${tableName}  
+            `;
+            // Run the query
+            //log.debug("AgencyNetworkBO getlist sql: " + sql);
+            const result = await this.getList({}).catch(function(error) {
+                // Check if this was
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            if(result && result.length > 0){
+                for(let i = 0; i < result.length; i++){
+                    map[result[i].systemId] = result[i].name;
+                }
+                resolve(map);
+            }
+            else {
+                //Search so no hits ok.
+                resolve(map);
+            }
+
+
+        });
+    }
 
 }
