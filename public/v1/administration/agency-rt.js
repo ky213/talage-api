@@ -108,24 +108,41 @@ async function update(req, res, next) {
 
 }
 
-// async function deleteObject(req, res, next) {
-//     const id = req.params.id;
-//     if (!id) {
-//         return next(new Error("bad parameter"));
-//     }
-//     let error = null;
-//     const agencyBO = new AgencyBO();
-//     await agencyBO.deleteSoftById(id).catch(function(err) {
-//         log.error("agencyBO delete error " + err + __location);
-//         error = err;
-//     });
-//     if (error) {
-//         return next(error);
-//     }
-//     res.send(200, {"success": true});
-//     return next();
+async function deleteObject(req, res, next) {
+    const id = req.params.id;
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const agencyBO = new AgencyBO();
+    await agencyBO.deleteSoftById(id).catch(function(err) {
+        log.error("agencyBO delete error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    res.send(200, {"success": true});
+    return next();
+}
 
-// }
+async function activateObject(req, res, next) {
+    const id = req.params.id;
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const agencyBO = new AgencyBO();
+    await agencyBO.activateById(id).catch(function(err) {
+        log.error("agencyBO activate error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    res.send(200, {"success": true});
+    return next();
+}
 
 exports.registerEndpoint = (server, basePath) => {
 
@@ -133,6 +150,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('Get Agency Object', `${basePath}/agency/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post Agency Object', `${basePath}/agency`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Agency Object', `${basePath}/agency/:id`, update, 'administration', 'all');
-    // server.addDeleteAuthAdmin('Delete Agency  Object', `${basePath}/agency/:id`, deleteObject, 'administration', 'all');
+    server.addDeleteAuthAdmin('Delete Agency Object', `${basePath}/agency/:id`, deleteObject, 'administration', 'all');
+    server.addDeleteAuthAdmin('Activate Agency Object', `${basePath}/agency/activate/:id`, activateObject, 'administration', 'all');
 
 };

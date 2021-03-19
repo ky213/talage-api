@@ -251,10 +251,7 @@ module.exports = class AgencyBO {
     async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
-                const query = {
-                    "mysqlId": mysqlId,
-                    active: true
-                };
+                const query = {"mysqlId": mysqlId};
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
@@ -358,7 +355,7 @@ module.exports = class AgencyBO {
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {active: true};
+            let query = {};
             let error = null;
 
             var queryOptions = {};
@@ -680,6 +677,36 @@ module.exports = class AgencyBO {
 
                 resolve(true);
 
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    activateById(id, userId) {
+        return new Promise(async(resolve, reject) => {
+            //validate
+            if (id && id > 0) {
+                let agencyDoc = null;
+                try {
+                    const returnDoc = true;
+                    agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
+                    if(agencyDoc && agencyDoc.systemId){
+                        agencyDoc.active = true;
+                        agencyDoc.deletedAt = moment();
+                        if(userId){
+                            agencyDoc.deletedByUser = userId;
+                        }
+                        await agencyDoc.save();
+                    }
+                }
+                catch (err) {
+                    log.error(`Error marking active agencyDoc from mysqlId ${id}` + err + __location);
+                    reject(err);
+                }
+
+                resolve(true);
             }
             else {
                 reject(new Error('no id supplied'))
