@@ -280,8 +280,8 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
 
         let error = null;
         const agencyNetworkBO = new AgencyNetworkBO();
-        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkDB.agencyId, "daily_digest").catch(function(err){
-            log.error(`Unable to get email content for Daily Digest. agency ${agencyNetworkDB.agencyId} agency_network: ${db.escape(agencyNetworkId)}.  error: ${err}` + __location);
+        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId, "daily_digest").catch(function(err){
+            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetworkId)}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
