@@ -38,13 +38,17 @@ module.exports = class GreatAmericanWC extends Integration {
             code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))
         ));
 
-        const token = await GreatAmericanApi.getToken(this.username, this.password);
+        /** */
+        const context = {};
+        const token = await GreatAmericanApi.getToken(this);
 
-        const sessionCodes = codes.map(c => ({
+        let sessionCodes = codes.map(c => ({
             id: c.code,
             value: c.attributes.classIndustry
         }));
-        const session = await GreatAmericanApi.getSession(token, sessionCodes);
+        // GA only wants the first activity code passed to their API endpoint.
+        sessionCodes = [sessionCodes[0]];
+        const session = await GreatAmericanApi.getSession(this, token, sessionCodes);
         this.logApiCall('getSession', [sessionCodes], session);
 
         const questions = {};
@@ -70,7 +74,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // XXX: Temporarily hard-coding this question. Need to remove later.
         questions['generalEligibilityYearsOfExperience'] = '5';
         
-        let curAnswers = await GreatAmericanApi.injectAnswers(token, session, questions);
+        let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
@@ -81,7 +85,7 @@ module.exports = class GreatAmericanWC extends Integration {
             this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)  @ ${__location}`;
             let oldQuestionsAnswered = questionnaire.questionsAnswered;
 
-            curAnswers = await GreatAmericanApi.injectAnswers(token, curAnswers, questions);
+            curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
             this.logApiCall('injectAnswers', [curAnswers, questions], curAnswers);
             questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
