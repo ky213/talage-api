@@ -22,7 +22,7 @@ async function getToken(req, res, next) {
 
     //check for Agency Portal user access
     // Validate the passed-in user and key
-    if (req.body.user && req.body.password) {
+    if (req.body && req.body.user && req.body.password) {
         // Authenticate the information provided by the user
         const sql = `SELECT id, password FROM clw_talage_agency_portal_users WHERE clear_email = ${db.escape(req.body.user)} LIMIT 1;`;
         const result = await db.query(sql).catch(function(e) {

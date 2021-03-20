@@ -352,8 +352,11 @@ module.exports = class CnaWC extends Integration {
             delete commlPolicy.CommlPolicySupplement.PolicyTypeCd; //.value = "SPC";
             delete commlPolicy.CommlPolicySupplement.OtherSafetyProgramInd; //.value = false;
             delete commlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned']; //.NumUnits.value = 0;
-
-            commlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = this.get_years_in_business();
+            let yearsInBusiness = this.get_years_in_business();
+            if(yearsInBusiness < 1){
+                yearsInBusiness = 1
+            }
+            commlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = yearsInBusiness;
             commlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits = {};
 
             // NOTE: CNA has a bug on their side which requires NumLosses be 0 as a workaround

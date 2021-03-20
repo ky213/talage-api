@@ -1,6 +1,6 @@
 'use strict';
 
-const DatabaseObject = require('./DatabaseObject.js');
+
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 var AgencyNetworkModel = require('mongoose').model('AgencyNetwork');
@@ -11,23 +11,11 @@ const fileSvc = global.requireShared('services/filesvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const {'v4': uuidv4} = require('uuid');
+const tableName = 'agencyNetworks';
 
-const featureList = ["notifyTalage",
-    "applicationOptOut",
-    'donotShowEmailAddress'];
-
-const tableName = 'clw_talage_agency_networks'
-const skipCheckRequired = false;
 module.exports = class AgencyNetworkBO{
-
-    #dbTableORM = null;
-
-    doNotSnakeCase = ['additionalInfo'];
-
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
-        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
 
@@ -42,8 +30,6 @@ module.exports = class AgencyNetworkBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-           
-
             //logo processing
             if(newObjectJSON.headerLogoContent){
                 const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName).catch(function(err){
@@ -77,13 +63,14 @@ module.exports = class AgencyNetworkBO{
                     return;
                 });
                 if(dbDocJSON){
+                    this.id = dbDocJSON.systemId;
                     newObjectJSON.systemId = dbDocJSON.systemId;
                     newObjectJSON.agencyNetworkId = dbDocJSON.systemId;
                     newDoc = false;
                     await this.updateMongo(dbDocJSON.agencyNetworkUuidId,newObjectJSON)
                 }
                 else {
-                    log.error("AgencyNetwork PUT object not found " + newObjectJSON.id + __location)
+                    log.error("AgencyNetwork Update object not found " + newObjectJSON.id + __location)
                 }
             }
             if(newDoc === true) {
@@ -114,27 +101,6 @@ module.exports = class AgencyNetworkBO{
             throw err
         });
         return fileName;
-    }
-
-
-    loadFromIdMySql(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                //process featureList
-                this.fillInFeatureList(this.feature_json)
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
     }
 
 
@@ -326,7 +292,7 @@ module.exports = class AgencyNetworkBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
-                    log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
+                    // log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
                     await AgencyNetworkModel.updateOne(query, newObjectJSON);
                     const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
                     newAgencyNetworkJSON = mongoUtils.objCleanup(newAgencyNetworkDoc);
@@ -403,64 +369,6 @@ module.exports = class AgencyNetworkBO{
         }
         log.debug("maxId: " + maxId + __location)
         return maxId;
-    }
-
-
-    fillInFeatureList(featureJson){
-        if(featureJson){
-            for(let i = 0; i < featureList.length; i++){
-                const featureName = featureList[i];
-                if(!featureJson[featureName]){
-                    featureJson[featureName] = false;
-                }
-            }
-
-        }
-    }
-
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
     }
 
 
@@ -584,15 +492,21 @@ module.exports = class AgencyNetworkBO{
                 if(agencyNetworkJSON.custom_emails[contentProperty]){
                     emailContentResult.emailData = agencyNetworkJSON.custom_emails[contentProperty];
                 }
-                const message = emailContentResult.emailData && emailContentResult.emailData.message && emailContentResult.emailData.message !== "" ? emailContentResult.emailData.message : emailContentResult.defaultEmailData.message;
-                const subject = emailContentResult.emailData && emailContentResult.emailData.subject && emailContentResult.emailData.subject !== "" ? emailContentResult.emailData.subject : emailContentResult.defaultEmailData.subject;
+                if(emailContentResult.defaultEmailData || emailContentResult.emailData){
+                    try{
+                        const message = emailContentResult.emailData && emailContentResult.emailData.message && emailContentResult.emailData.message !== "" ? emailContentResult.emailData.message : emailContentResult.defaultEmailData.message;
+                        const subject = emailContentResult.emailData && emailContentResult.emailData.subject && emailContentResult.emailData.subject !== "" ? emailContentResult.emailData.subject : emailContentResult.defaultEmailData.subject;
 
-
-                emailTemplateJSON = {
-                    "brandName": agencyNetworkJSON.name,
-                    "emailBrand": agencyNetworkJSON.email_brand,
-                    "message": message,
-                    "subject": subject
+                        emailTemplateJSON = {
+                            "message": message,
+                            "subject": subject,
+                            "brandName": agencyNetworkJSON.name,
+                            "emailBrand": agencyNetworkJSON.email_brand
+                        }
+                    }
+                    catch(err){
+                        log.error("getEmailContent error: " + err + __location);
+                    }
                 }
 
                 const environmentSettings = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo, agencyNetworkId)
@@ -603,9 +517,10 @@ module.exports = class AgencyNetworkBO{
                     }
                 }
 
+
             }
             catch(err) {
-                log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
+                log.error("getEmailContent error: " + err + __location);
                 error = err;
             }
             if(error){
@@ -660,18 +575,17 @@ module.exports = class AgencyNetworkBO{
 
     getIdToNameMap(){
         return new Promise(async(resolve, reject) => {
-            const map = {};
+            // eslint-disable-next-line prefer-const
+            let map = {};
             let rejected = false;
             // Create the update query
             const sql = `
                 select *  from ${tableName}  
             `;
-
             // Run the query
             //log.debug("AgencyNetworkBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
+            const result = await this.getList({}).catch(function(error) {
                 // Check if this was
-
                 rejected = true;
                 log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
                 reject(error);
@@ -679,10 +593,9 @@ module.exports = class AgencyNetworkBO{
             if (rejected) {
                 return;
             }
-            const boList = [];
             if(result && result.length > 0){
                 for(let i = 0; i < result.length; i++){
-                    map[result[i].id] = result[i].name;
+                    map[result[i].systemId] = result[i].name;
                 }
                 resolve(map);
             }
@@ -693,225 +606,6 @@ module.exports = class AgencyNetworkBO{
 
 
         });
-
-    }
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "custom_emails": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "longtext"
-    },
-    "email": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "email_brand": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(10)"
-    },
-    "footer_logo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(250)"
-    },
-    "fname": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "help_text": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(300)"
-    },
-    "landing_page_content": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "longtext"
-    },
-    "lname": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "logo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(250)"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "phone": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "feature_json": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    constructor(tableName){
-        super(tableName, properties);
     }
 
 }

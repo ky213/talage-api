@@ -72,6 +72,12 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
+    own: {type: Boolean, required:false},
+    businessPersonalPropertyLimit: {type: Number, required:false},
+    buildingLimit: {type: Number, required:false},
+    constructionType:{type: String, required:false},
+    numStories:{type: Number, required:false},
+    yearBuilt: {type: Number, required:false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
     questions: [QuestionSchema]
 },opts);
@@ -79,7 +85,8 @@ const locationSchema = new Schema({
 locationSchema.virtual('locationId').
     get(function() {
         if(this._id){
-            return this._id;
+            // make sure the id is coming out as a string
+            return `${this._id}`;
         }
         else {
             return null;
@@ -123,7 +130,10 @@ const PolicySchema = new Schema({
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
     blanketWaiver: {type: Boolean, default: false}, // WC
-    waiverSubrogation: {type: Boolean, default: false}
+    waiverSubrogation: {type: Boolean, default: false},
+    currentInsuranceCarrier: {type: String, required: false},
+    currentPremium: {type: Number, required: false},
+    yearsWithCurrentInsurance: {type: Number, required: false}
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
@@ -210,9 +220,22 @@ const ApplicationSchema = new Schema({
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false}
-});
+}, opts);
 // NOTE:  EIN is not ever saved to database.
 
+// Virtual Functions to save in old fields
+ApplicationSchema.virtual('managementStructure').
+    get(function() {
+        if(this.management_structure){
+            return this.management_structure;
+        }
+        else {
+            return '';
+        }
+    }).
+    set(function(v){
+        this.management_structure = v;
+    });
 /********************************** */
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);

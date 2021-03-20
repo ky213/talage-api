@@ -15,7 +15,32 @@ const serverHelper = global.requireRootPath('server.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const emailsvc = global.requireShared('./services/emailsvc.js');
 
+async function sendEmailNotification(insurer){
+    const emailData = {
+        html: `
+            <p>
+                A new insurer was created with the following info:
+            </p>
+            <ul>
+                <li><b>Insurer Id</b>: ${insurer.insurerId}</li>
+                <li><b>Name</b>: ${insurer.name}</li>
+                <li><b>Slug</b>: ${insurer.slug}</li>
+            </ul>
+        `,
+        subject: 'New Insurer was created',
+        to: 'brian@talageins.com'
+    };
+
+    const emailResponse = await emailsvc.send(emailData.to, emailData.subject, emailData.html);
+    if(emailResponse === false){
+        log.error(`Failed to send the new Insurer email notification to ${emailData.to}.`);
+    }
+    else {
+        log.info(`New Insurer email notification was sent successfully to ${emailData.to}.`);
+    }
+}
 
 async function findAll(req, res, next) {
     let error = null;
@@ -71,8 +96,6 @@ async function findOne(req, res, next) {
 }
 //add
 async function add(req, res, next) {
-
-
     const insurerBO = new InsurerBO();
     let error = null;
     if(!req.body.slug && req.body.name){
@@ -89,9 +112,11 @@ async function add(req, res, next) {
     if (error) {
         return next(error);
     }
+
+    sendEmailNotification(insurerBO.mongoDoc);
+
     res.send(200, insurerBO.mongoDoc);
     return next();
-
 }
 
 

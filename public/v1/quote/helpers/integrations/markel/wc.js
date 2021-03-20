@@ -627,10 +627,22 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // Prepare limits
-        const markelLimits = mapCarrierLimits[this.app.policies[0].limits];
-        const limits = this.getBestLimits(carrierLimits);
+        //This may result in no limit being found. needs defaults
+        //Plus need to use best match.   Note: limits variable not used submission.
+        let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
 
-        if (!limits) {
+        const limits = this.getBestLimits(carrierLimits);
+        if (limits) {
+            const markelBestLimits = limits.join("/");
+            const markelLimitsSubmission = mapCarrierLimits[markelBestLimits];
+            if(markelLimitsSubmission){
+                markelLimits = markelLimitsSubmission;
+            }
+            else {
+                markelLimits = '100/500/100';
+            }
+        }
+        else {
             log.warn(`Appid: ${this.app.id} Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
             this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
@@ -654,8 +666,6 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        // Markel has us define our own Request ID
-        this.request_id = this.generate_uuid();
 
         const primaryAddress = this.app.business.locations[0];
 
@@ -1160,6 +1170,9 @@ module.exports = class MarkelWC extends Integration {
                 {"Owner Include": 'No'}
             ];
         }
+        if(!markelLimits){
+            log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
+        }
 
         const jsonRequest = {submissions: [
             {
@@ -1229,6 +1242,14 @@ module.exports = class MarkelWC extends Integration {
                     this.amount = response[rquIdKey].premium.totalPremium;
                 }
 
+                try {
+                    this.request_id = response[rquIdKey].applicationID;
+                    this.number = this.request_id;
+                }
+                catch (e) {
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote number.` + __location);
+                }
+
                 // Get the quote limits
                 if (response[rquIdKey].application["Policy Info"]) {
 
@@ -1241,6 +1262,7 @@ module.exports = class MarkelWC extends Integration {
                     }
                     return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }
+                
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');

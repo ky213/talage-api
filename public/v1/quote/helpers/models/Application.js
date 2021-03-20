@@ -232,28 +232,6 @@ module.exports = class Application {
             }
         }
 
-        // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-        if (
-            this.has_policy_type('WC') &&
-            (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') &&
-            this.business.mailing_state === 'NH'
-        ) {
-
-            // This is required
-            if (this.business && this.business.unincorporated_association === null) {
-                log.error('Missing required field: unincorporated_association');
-            }
-
-            // Validate
-            if (this.business && !validator.boolean(this.business.unincorporated_association)) {
-                log.error('Invalid value for unincorporated_association, please use a boolean value');
-            }
-
-            // If value is valid, convert to boolean
-            this.business.unincorporated_association = helper.convert_to_boolean(this.applicationDocData.unincorporated_association);
-        }
-
-
         /************** LOCATION DATA TRANSLATION ***************/
 
         const unemployment_number_states = [
@@ -964,19 +942,29 @@ module.exports = class Application {
                 await applicationBO.updateState(this.id, state)
 
                 //Prevent Abandon Quote email if Quote was triggered by Agency Portal
-                if(this.agencyPortalQuote){
-                    try{
-                        const docUpdate = {
-                            "abandonedEmail": true,
-                            "abandonedAppEmail": true
-                        };
-                        await applicationBO.updateMongo(this.applicationDocData.applicationId,docUpdate);
-                    }
-                    catch(err){
-                        log.error(`Error calling applicationBO.updateMongo for ${this.applicationDocData.applicationId} ` + err + __location)
-                        throw err;
-                    }
-                }
+                // Tracked in Application Doc.
+                // if(this.agencyPortalQuote){
+                //     try{
+                //         //Get AgencyNetwork check agencyNetworkQuoteEmails
+                //         // if true do not update "abandonedEmail": true,
+                //         const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+                //         const agencyNetworkBO = new AgencyNetworkBO();
+                //         const agencyNetworkDB = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId)
+                //         let abandonedEmailMark = true;
+                //         if(agencyNetworkDB && agencyNetworkDB.featureJson && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails){
+                //             abandonedEmailMark = false;
+                //         }
+                //         const docUpdate = {
+                //             "abandonedEmail": abandonedEmailMark,
+                //             "abandonedAppEmail": true
+                //         };
+                //         await applicationBO.updateMongo(this.applicationDocData.applicationId,docUpdate);
+                //     }
+                //     catch(err){
+                //         log.error(`Error calling applicationBO.updateMongo for ${this.applicationDocData.applicationId} ` + err + __location)
+                //         throw err;
+                //     }
+                // }
             }
             catch(err){
                 log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);

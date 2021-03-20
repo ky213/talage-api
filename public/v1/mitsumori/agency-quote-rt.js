@@ -72,17 +72,17 @@ function parseQuoteURL(url) {
     }
 
     const reservedPageSlugs = [
-        "congrats",
-        "reach-out",
-        "basic",
-        "policies",
-        "business-questions",
-        "locations",
-        "mailing-address",
-        "claims",
-        "officers",
-        "questions",
-        "quotes",
+        "_congrats",
+        "_reach-out",
+        "_basic",
+        "_policies",
+        "_business-questions",
+        "_locations",
+        "_mailing-address",
+        "_claims",
+        "_officers",
+        "_questions",
+        "_quotes",
         "404"
     ];
 
@@ -571,5 +571,5 @@ async function getAgency(req, res, next) {
 exports.registerEndpoint = (server, basePath) => {
     server.addGet("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
     server.addGet("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
-    server.addGetAuthQuoteApp("Get Quote App Agency Id", `${basePath}/agency`, getAgency);
+    server.addGet("Get Quote App Agency Id", `${basePath}/agency`, getAgency);
 };

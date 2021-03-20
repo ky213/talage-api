@@ -217,10 +217,17 @@ module.exports = class PieWC extends Integration {
                 state_object.code = territory;
 
                 // Experience Modifier
-                state_object.experienceModification = {};
-                state_object.experienceModification.factor = this.app.business.experience_modifier;
+                const experienceModification = {};
+                // Check if experience modifier exists and is a number
+                if (this.app.applicationDocData.experienceModifier && typeof this.app.applicationDocData.experienceModifier === 'number') {
+                    experienceModification.factor = this.app.applicationDocData.experienceModifier;
+                }
                 if (this.app.business.bureau_number) {
-                    state_object.experienceModification.riskId = this.app.business.bureau_number;
+                    experienceModification.riskId = this.app.business.bureau_number;
+                }
+                // Check if experienceModification has at least one property
+                if (Object.keys(experienceModification).length) {
+                    state_object.experienceModification = experienceModification;
                 }
 
                 // All of the locations in this state
@@ -315,10 +322,12 @@ module.exports = class PieWC extends Integration {
                     state_object.uian = unemployment_number;
                 }
 
-                // Waiver of Subrogation
-                state_object.blanketWaiver = false;
-
-                //
+                // Find Workers Comp policy
+                const workersCompPolicy = this.app.applicationDocData.policies.find(({policyType}) => policyType === 'WC');
+                // Check if blanket waiver exists in the workers comp policy
+                if (workersCompPolicy && Object.prototype.hasOwnProperty.call(workersCompPolicy, 'blanketWaiver')) {
+                    state_object.blanketWaiver = workersCompPolicy.blanketWaiver;
+                }
 
                 // Append the state into the states array
                 data.workersCompensation.legalEntities[0].states.push(state_object);

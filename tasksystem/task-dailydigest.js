@@ -9,6 +9,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 
@@ -93,6 +94,24 @@ var dailyDigestTask = async function(){
             }
         }
     }
+    // See if any AgencyNetworks need to get a DailyDigest email
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkList = await agencyNetworkBO.getList(query).catch(function(err){
+        log.error(`Error get Agency Network list from DB. error:  ${err}` + __location);
+        return false;
+    });
+
+    if(agencyNetworkList && agencyNetworkList.length > 0){
+        for(let i = 0; i < agencyNetworkList.length; i++){
+            const agencyNetworkDB = agencyNetworkList[i];
+
+            if(agencyNetworkDB && agencyNetworkDB.featureJson && agencyNetworkDB.featureJson.agencyNetworkDailyDigestEmail && agencyNetworkDB.email){
+                await processAgencyNetwork(agencyNetworkDB, yesterdayBegin, yesterdayEnd).catch(function(err){
+                    log.error("Error Agency Network Daily Digest error: " + JSON.stringify(agencyNetworkDB) + " error: " + err + __location);
+                })
+            }
+        }
+    }
 
     return;
 }
@@ -125,7 +144,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
         appList = await applicationBO.getList(query);
     }
     catch(err){
-        log.error("abandonquotetask getting appid list error " + err + __location);
+        log.error("dailydigest getting App list error " + err + __location);
         throw err;
     }
 
@@ -221,6 +240,122 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
     }
     else {
         log.info(`DailyDigest: No Activity for Agency Location: ${db.escape(agencyLocationDB.systemId)}.`)
+    }
+    return true;
+}
+
+
+/**
+ * Exposes processAgencyLocation for testing
+ *
+ * @param {string} agencyNetworkDB - from db query not full object.
+ * @returns {void}
+ */
+
+var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yesterdayEnd){
+
+    
+    const agencyNetworkId = agencyNetworkDB.agencyNetworkId;
+
+    const query = {
+        "agencyNetworkId": agencyNetworkId,
+        "searchenddate": yesterdayEnd,
+        "searchbegindate": yesterdayBegin
+    };
+    let appList = null;
+    const applicationBO = new ApplicationBO();
+
+    try{
+
+        appList = await applicationBO.getList(query);
+    }
+    catch(err){
+        log.error("dailydigest getting App list error " + err + __location);
+        throw err;
+    }
+
+
+    let appCount = 0;
+    if(appList && appList.length > 0){
+
+        let error = null;
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId, "daily_digest").catch(function(err){
+            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetworkId)}.  error: ${err}` + __location);
+            error = true;
+        });
+        if(error){
+            return false;
+        }
+
+        if(emailContentJSON && emailContentJSON.message){
+
+            let message = emailContentJSON.message;
+            let subject = emailContentJSON.subject;
+
+            if(!message){
+                log.error(`Daily Digest email content creation error: no message. agency_network: ${db.escape(agencyNetworkDB.agencyNetworkId)}.` + __location);
+                return false;
+            }
+            if(!subject){
+                log.error(`Daily Digest email content creation error: no subject. agency_network: ${db.escape(agencyNetworkDB.agencyNetworkId)}.` + __location);
+                return false;
+            }
+            // Link setup.
+            const portalLink = emailContentJSON.PORTAL_URL;
+
+            let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
+
+            appCount = appList.length;
+            for(let i = 0; i < appList.length; i++){
+                const applicationDoc = appList[i]
+                // eslint-disable-next-line prefer-const
+                //Get primary contact
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                const customerPhone = formatPhone(customerContact.phone);
+
+                let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
+                if(applicationDoc.solepro){
+                    wholesale = "SolePro"
+                }
+
+                applicationList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + customerContact.firstName + ' ' + customerContact.lastName + '</td><td>' + customerContact.email + '</td><td>' + customerPhone + '</td><td>' + wholesale + '</td></tr>';
+            }
+
+            applicationList += '</tbody></table><br>';
+
+            try{
+                message = message.replace(/{{Application List}}/g, applicationList);
+                message = message.replace(/{{Agency Portal Link}}/g, `<a href="${portalLink}" rel="noopener noreferrer" target="_blank">Agency Portal</a>`);
+                message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(emailContentJSON.emailBrand));
+                message = message.replace(/{{Number of Users}}/g, appCount + ' ' + (appCount > 1 ? 'users' : 'user'));
+                subject = subject.replace(/{{Brand}}/g, stringFunctions.ucwords(emailContentJSON.emailBrand), subject);
+            }
+            catch(e){
+                log.error(`Daily Digest email content creation error: ${e}` + __location);
+                return false;
+            }
+
+            if(agencyNetworkDB.email){
+                const keyData = {'agencyNetworkId': agencyNetworkDB.systemId};
+                // send email
+                const emailResp = await emailSvc.send(agencyNetworkDB.email, subject, message, keyData,agencyNetworkDB.agencyNetworkId,"");
+                if(emailResp === false){
+                    slack.send('#alerts', 'warning',`The system failed to send daily digest email for AgencyNetwork  #${agencyNetworkDB.systemId}.`);
+                }
+            }
+            else {
+                log.error("Dailydigest no email address for AgencyNetwork: " + JSON.stringify(agencyNetworkDB) + __location);
+            }
+
+        }
+        else {
+            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetworkDB.agencyNetworkId)} agency:  ${agencyNetworkDB.agencyId}.` + __location);
+            return false;
+        }
+    }
+    else {
+        log.info(`DailyDigest: No Activity for AgencyNetwork: ${db.escape(agencyNetworkDB.systemId)}.`)
     }
     return true;
 }

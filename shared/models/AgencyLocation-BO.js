@@ -250,11 +250,9 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false) {
+    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false) {
         return new Promise(async(resolve, reject) => {
-
-
-            const queryProjection = {"__v": 0}
+            let queryProjection = {"__v": 0}
 
             let findCount = false;
 
@@ -335,13 +333,37 @@ module.exports = class AgencyLocationBO{
                 }
             }
 
+            if(mainCollection) {
+                queryProjection = {
+                    agencyLocationId: 1,
+                    agencyId: 1,
+                    address: 1,
+                    systemId: 1,
+                    city: 1,
+                    state: 1,
+                    zipcode: 1,
+                    mysqlId: 1
+                };
+            }
+
 
             if (findCount === false) {
                 let docList = null;
                 try {
                     //log.debug("AgencyLocation GetList query " + JSON.stringify(query) + __location)
                     docList = await AgencyLocationMongooseModel.find(query,queryProjection, queryOptions);
-                    if((getAgencyName || loadChildren || addAgencyPrimaryLocation) && docList.length > 0){
+
+                    if(mainCollection){
+                        for(const doc of docList){
+                            if(doc.agencyId){
+                                const agencyJSON = await this.getAgencyJSON(doc.agencyId);
+                                if(agencyJSON){
+                                    doc.name = agencyJSON.name;
+                                }
+                            }
+                        }
+                    }
+                    else if((getAgencyName || loadChildren || addAgencyPrimaryLocation) && docList.length > 0){
                         //Get Agency Name -- potential change to one request to mongo and match lists.
                         // eslint-disable-next-line prefer-const
                         for(let doc of docList){
@@ -730,9 +752,6 @@ module.exports = class AgencyLocationBO{
         }
 
         const getAgencyName = true;
-        return this.getList(queryJSON, getAgencyName);
-
+        return this.getList(queryJSON, getAgencyName, false, false, true);
     }
-
-
 }

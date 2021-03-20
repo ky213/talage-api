@@ -51,9 +51,8 @@ module.exports = class Business {
         // WC Policies
         this.corporation_type = '';
         this.management_structure = '';
-        this.owners_included = true;
+        this.owners_included = false;
         this.owners = [];
-        this.unincorporated_association = null; // NH only, LLC or Corporation
     }
 
     /**
@@ -179,7 +178,17 @@ module.exports = class Business {
             log.error("Error getting industryCodeBO " + err + __location);
         }
 
-        this.owners_included = applicationDocJSON.ownersCovered;
+        //this.owners_included = applicationDocJSON.ownersCovered;
+        //looks in ApplicationDoc.owners array
+        if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0 ){
+            for (let i = 0; i < applicationDocJSON.owners.length; i++) {
+                if(applicationDocJSON.owners[i].include === true){
+                    this.owners_included = true;
+                    break;
+                }
+            }
+        }
+
         this.years_of_exp = applicationDocJSON.yearsOfExp;
         this.primary_territory = applicationDocJSON.mailingState;
         this.num_owners = applicationDocJSON.numOwners;

@@ -5,48 +5,48 @@
 "use strict";
 const serverHelper = require("../../../server.js");
 // const validator = global.requireShared("./helpers/validator.js");
-// const ApplicationBO = global.requireShared("models/Application-BO.js");
+ const ApplicationBO = global.requireShared("models/Application-BO.js");
 // const AgencyBO = global.requireShared('models/Agency-BO.js');
-// const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+ const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 // const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 // const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appId && req.query.page !== "basic") {
+    if (!req.query.page || !req.query.appId && req.query.page !== "_basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
-
+    // This endpoint recieves application Id, we should be able to utilize that to make this endpoint smart, i.e. agencyId for the application to determine policy limits
     const resources = {};
 
     switch(req.query.page) {
-        case "businessQuestions":
+        case "_business-questions":
             membershipTypes(resources);
             break;
-        case "basic":
-        case "basic-created":
+        case "_basic":
+        case "_basic-created":
             entityTypes(resources);
             break;
-        case "business":
+        case "_business":
             break;
-        case "claims":
+        case "_claims":
             policyTypes(resources);
             break;
-        case "locations":
+        case "_locations":
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
             break;
-        case "mailingAddress":
+        case "_mailing-address":
             territories(resources);
             break;
-        case "officers":
+        case "_officers":
             officerTitles(resources);
             break;
-        case "policies":
-            limitsSelectionAmounts(resources);
+        case "_policies":
+            await limitsSelectionAmounts(resources, req);
             deductibleAmounts(resources);
             policiesEnabled(resources);
             break;
@@ -82,26 +82,108 @@ const policyTypes = resources => {
     ];
 };
 
-const limitsSelectionAmounts = resources => {
-    resources.limitsSelectionAmounts = {
-        bop:
-        [
-            "$1,000,000 / $1,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $2,000,000"
+const limitsSelectionAmounts = async (resources, req) => {
+    let limits = {
+        bop: [
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/1000000",
+                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/2000000",
+                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
+                }
         ],
         gl: [
-            "$1,000,000 / $1,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $2,000,000"
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/1000000",
+                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/2000000",
+                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
+                }
         ],
         wc: [
-            "$100,000 / $500,000 / $100,000",
-            "$500,000 / $500,000 / $500,000",
-            "$500,000 / $1,000,000 / $500,000",
-            "$1,000,000 / $1,000,000 / $1,000,000"
+                {
+                    "key": "100000/500000/100000",
+                    "value": "$100,000 / $500,000 / $100,000"
+                },
+                {
+                    "key": "500000/500000/500000",
+                    "value": "$500,000 / $500,000 / $500,000"
+                },
+                {
+                    "key": "500000/1000000/500000",
+                    "value": "$500,000 / $1,000,000 / $500,000"
+                },
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                }
         ]
+    };
+        
+    let applicationDB = null;
+    const applicationBO = new ApplicationBO();
+    try{
+        applicationDB = await applicationBO.getById(req.query.appId);
     }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+    }
+    if(applicationDB && applicationDB.applicationId && applicationDB.hasOwnProperty('agencyId')){
+        const arrowHeadInsurerId = 27;
+        // TODO: make this smart logic where we don't do hardcoded check
+        // given an agency grab all of its locations
+        const agencyId = applicationDB.agencyId;
+        const agencyLocationBO = new AgencyLocationBO();
+        let locationList = null;
+        const query = {"agencyId": agencyId}
+        const getAgencyName = true;
+        const getChildren = true;
+        const useAgencyPrimeInsurers = true;
+        let error = null;
+        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+            log.error(`Could not get agency locations for agencyId ${agencyId} `+ err.message + __location);
+            error = err;
+        });
+        if(!error){
+            if(locationList && locationList.length > 0){
+                // for each location go through the list of insurers
+                for(let i = 0; i < locationList.length; i++){
+                    if(locationList[i].hasOwnProperty('insurers')){
+                        // grab all the insurers
+                        const locationInsurers = locationList[i].insurers;
+                        if(locationInsurers && locationInsurers.length > 0){
+                            // grab all the insurer ids
+                            const insurerIdList =  locationInsurers.map(insurerObj => insurerObj.insurerId);
+                            // are any of the insurer id equal 27
+                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
+                                limits['bop'] = [ {
+                                    "key": "1000000/1000000/1000000",
+                                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                                }];
+                                if(insurerIdList.length > 1){
+                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    resources.limitsSelectionAmounts = {...limits};
 }
 
 const deductibleAmounts = resources => {
@@ -133,10 +215,14 @@ const officerTitles = resources => {
     // TODO: pull from officer_titles table (sql db)
     resources.officerTitles =
     [
-        "VP-Treas",
-        "VP-Secy-Treas",
-        "VP-Secy",
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
         "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
         "Treasurer",
         "Secy-Treas",
         "Secretary",
@@ -147,13 +233,9 @@ const officerTitles = resources => {
         "Pres-Treas",
         "Pres-Secy-Treas",
         "Pres-Secy",
-        "Executive Vice President",
-        "Executive Secy-VP",
-        "Executive Secretary",
-        "Director",
-        "Chief Operating Officer",
-        "Chief Financial Officer",
-        "Chief Executive Officer"
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
     ];
 }
 
@@ -171,8 +253,11 @@ const entityTypes = resources => {
     resources.entityTypes =
     [
         "Association",
-        "Corporation",
-        "Limited Liability Company",
+        "Corporation (C-Corp)",
+        "Corporation (S-Corp)",
+        "Non Profit Corporation",
+        "Limited Liability Company (Member Managed)",
+        "Limited Liability Company (Manager Managed)",
         "Limited Partnership",
         "Partnership",
         "Sole Proprietorship",

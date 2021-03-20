@@ -14,6 +14,7 @@ const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
@@ -1069,10 +1070,20 @@ async function GetQuestions(req, res, next){
         questionSubjectArea = req.query.questionSubjectArea;
     }
 
+    let stateList = [];
+    if (req.query.stateList) {
+        stateList = req.query.stateList;
+    }
+
+    let locationId = null;
+    if(req.query.locationId) {
+        locationId = req.query.locationId;
+    }
+
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -1091,7 +1102,7 @@ async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
     log.debug("Bind request: " + JSON.stringify(req.body))
     // Check if binding is disabled
-    if (global.settings.DISABLE_BINDING === "YES" && req.body.markAsBound !== true) {
+    if (global.settings.DISABLE_BINDING === "YES" && req.body.markAsBound !== true && req.body.requestBind !== true) {
         return next(serverHelper.requestError('Binding is disabled'));
     }
 
@@ -1154,24 +1165,45 @@ async function bindQuote(req, res, next) {
     }
 
     try {
-        if (req.body.markAsBound !== true) {
+        if (req.body.markAsBound !== true && req.body.requestBind !== true) {
             //const insurerBO = new InsurerBO();
-
+            // API binding with Insures...
             const quoteBind = new QuoteBind();
             await quoteBind.load(quoteId);
             await quoteBind.bindPolicy();
         }
-
-        const quoteBO = new QuoteBO();
-
-        const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
-        if(bindResp){
-            await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
-            // Update Application-level quote metrics when we do a bind.
-        	await applicationBO.recalculateQuoteMetrics(applicationId);
+        if(req.body.requestBind){
+            const quoteBO = new QuoteBO();
+            let quoteDoc = null;
+            try {
+                quoteDoc = await quoteBO.getById(quoteId);
+            }
+            catch(err){
+                log.error("Error getting quote for bindQuote " + err + __location);
+            }
+            //setup quoteObj for applicationBO.processRequestToBind
+            let paymentPlanId = 1;
+            if(req.body.paymentPlanId){
+                paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
+            }
+            const quoteObj = {
+                quote: quoteDoc.mysqlId,
+                quoteId: quoteDoc.mysqlId,
+                paymentPlanId: paymentPlanId,
+                noCustomerEmail: true
+            }
+            await applicationBO.processRequestToBind(applicationId, quoteObj)
         }
-        
-        
+        else {
+            //Mark Quote Doc as bound.
+            const quoteBO = new QuoteBO()
+            const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+            if(bindResp){
+                await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
+                // Update Application-level quote metrics when we do a bind.
+                await applicationBO.recalculateQuoteMetrics(applicationId);
+            }
+        }
     }
 
     catch (err) {
@@ -1180,71 +1212,21 @@ async function bindQuote(req, res, next) {
         return next();
     }
 
-    // Send back the token
+    // Send back bound for both request, mark and API binds.
     res.send(200, {"bound": true});
 
     return next();
 }
 
 /**
- * GET returns resources Quote Engine needs
+ * Function that will return policy limits based on the agency
  *
- * @param {object} req - HTTP request object
- * @param {object} res - HTTP response object
- * @param {function} next - The next function to execute
+ * @param {String} agencyId - Id of agency for which we will send back policy limits
  *
- * @returns {void}
+ * @returns {Object} returns the policy limits object
  */
-async function GetResources(req, res, next){
-    const responseObj = {};
-    let rejected = false;
-    const sql = `select id, introtext from clw_content where id in (10,11)`
-    const result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_content error on select ` + error + __location);
-    });
-    if (!rejected) {
-        const legalArticles = {};
-        for(let i = 0; i < result.length; i++){
-            const dbRec = result[0];
-            legalArticles[dbRec.id] = dbRec
-        }
-        responseObj.legalArticles = legalArticles;
-    }
-    rejected = false;
-    const sql2 = `select abbr as type,description,heading, name from clw_talage_policy_types where abbr in ('BOP', 'GL', 'WC')`
-    const result2 = await db.query(sql2).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_talage_policy_types error on select ` + error + __location);
-    });
-    if (!rejected) {
-        responseObj.policyTypes = result2;
-    }
-
-    rejected = false;
-    const sql3 = `select abbr, name from clw_talage_territories`
-    const result3 = await db.query(sql3).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_talage_territories error on select ` + error + __location);
-    });
-    if (!rejected) {
-        responseObj.territories = result3;
-    }
-    rejected = false;
-    const sql4 = `SELECT officerTitle FROM \`officer_titles\``;
-    const result4 = await db.query(sql4).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`officer_titles error on select ` + error + __location);
-    });
-    if (!rejected) {
-        responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
-    }
-
-    responseObj.limits = {
+async function GetPolicyLimits(agencyId){
+    let limits = {
         "BOP": [
             {
                 "key": "1000000/1000000/1000000",
@@ -1292,7 +1274,116 @@ async function GetResources(req, res, next){
             }
         ]
     };
+    if(agencyId){
+        const arrowHeadInsurerId = 27;
+        // TODO: make this smart logic where we don't do hardcoded check
+        // given an agency grab all of its locations
+        const agencyLocationBO = new AgencyLocationBO();
+        let locationList = null;
+        const query = {"agencyId": agencyId}
+        const getAgencyName = true;
+        const getChildren = true;
+        const useAgencyPrimeInsurers = true;
+        let error = null;
+        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+            log.error(`Could not get agency locations for agencyId ${agencyId} `+ err.message + __location);
+            error = err;
+        });
+        if(!error){
+            if(locationList && locationList.length > 0){
+                // for each location go through the list of insurers
+                for(let i = 0; i < locationList.length; i++){
+                    if(locationList[i].hasOwnProperty('insurers')){
+                        // grab all the insurers
+                        const locationInsurers = locationList[i].insurers;
+                        if(locationInsurers && locationInsurers.length > 0){
+                            // grab all the insurer ids
+                            const insurerIdList =  locationInsurers.map(insurerObj => insurerObj.insurerId);
+                             // are any of the insurer id equal 27 (arrowHead)
+                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
+                                limits['BOP'] =[ {
+                                    "key": "1000000/1000000/1000000",
+                                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                                }];
+                                if(insurerIdList.length > 1){
+                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+    return limits   
+}
+/**
+ * GET returns resources Quote Engine needs
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetResources(req, res, next){
+    // Retrieve agencyId if it is avail
+    let agencyId = null;
+    if (req.query.agencyId) {
+        agencyId = req.query.agencyId;
+    }
+    const responseObj = {};
+    let rejected = false;
+    const sql = `select id, introtext from clw_content where id in (10,11)`
+    const result = await db.query(sql).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`clw_content error on select ` + error + __location);
+    });
+    if (!rejected) {
+        const legalArticles = {};
+        for(let i = 0; i < result.length; i++){
+            const dbRec = result[0];
+            legalArticles[dbRec.id] = dbRec
+        }
+        responseObj.legalArticles = legalArticles;
+    }
+    rejected = false;
+    const sql2 = `select abbr as type,description,heading, name from clw_talage_policy_types where abbr in ('BOP', 'GL', 'WC')`
+    const result2 = await db.query(sql2).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`clw_talage_policy_types error on select ` + error + __location);
+    });
+    if (!rejected) {
+        responseObj.policyTypes = result2;
+    }
 
+    rejected = false;
+    const sql3 = `select abbr, name from clw_talage_territories`
+    const result3 = await db.query(sql3).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`clw_talage_territories error on select ` + error + __location);
+    });
+    if (!rejected) {
+        responseObj.territories = result3;
+    }
+    rejected = false;
+    const sql4 = `SELECT officerTitle FROM \`officer_titles\``;
+    const result4 = await db.query(sql4).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`officer_titles error on select ` + error + __location);
+    });
+    if (!rejected) {
+        responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
+    }
+    // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
+    responseObj.limits = await GetPolicyLimits(agencyId);
+    
     responseObj.unemploymentNumberStates = [
         'CO',
         'HI',
@@ -1426,7 +1517,53 @@ async function GetAssociations(req, res, next){
 
 }
 
+async function GetInsurerPaymentPlanOptions(req, res, next) {
 
+    const id = stringFunctions.santizeNumber(req.query.insurerId, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
+    // Load the request data into it
+    const queryJSON = {};
+    queryJSON.insurer = id;
+    const insurerPaymentPlanList = await insurerPaymentPlanBO.getList(queryJSON).catch(function(err) {
+        log.error("admin insurercontact error: " + err + __location);
+        error = err;
+    })
+    if (error) {
+        return next(error);
+    }
+    // TODO: Review if this is this valid, if quote amount not returned set to zero this will result in an empty paymentOptionsList
+    const quoteAmount = req.query.quoteAmount ? req.query.quoteAmount : 0;
+    // Retrieve the payment plans and create the payment options object
+     const paymentOptions = [];
+     const paymentPlanModel = new PaymentPlanBO();
+     for (const insurerPaymentPlan of insurerPaymentPlanList) {
+         if (quoteAmount > insurerPaymentPlan.premium_threshold) {
+             try {
+                 const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                 paymentOptions.push({
+                     id: paymentPlan.id,
+                     name: paymentPlan.name,
+                     description: paymentPlan.description
+                 });
+             }
+             catch (error) {
+                 log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
+                 return null;
+             }
+         }
+     }
+    if (paymentOptions) {
+        if(paymentOptions.length === 0){
+            log.warn(`Not able to find any payment plans for insurerId ${id}. Please review and make sure not an issue.` + __location);
+        }
+        res.send(200, paymentOptions);
+        return next();
+    }
+}
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1437,6 +1574,8 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
 
+    server.addPutAuth('PUT requestBindQuote Application', `${basePath}/application/:id/requestbind`, bindQuote, 'applications', 'manage');
+
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
@@ -1446,4 +1585,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
+    server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
 };

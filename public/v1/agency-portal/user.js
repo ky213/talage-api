@@ -406,7 +406,12 @@ async function createUser(req, res, next) {
 
         // Format the brands
         let brand = emailContentJSON.emailBrand;
-        brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        if(brand){
+            brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        }
+        else {
+            log.error(`Email Brand missing for agencyNetworkId ${agencyNetworkId} ` + __location);
+        }
         const portalurl = emailContentJSON.PORTAL_URL;
 
         // Prepare the email to send to the user
@@ -669,6 +674,7 @@ async function updateUser(req, res, next) {
 
 
     // If this user is to be set as owner, remove the current owner (they will become a super administrator)
+    // Delete all other owners in case a state is reached where there was/is more than one (it's happened before)
     if (data.group === 1) {
         const removeOwnerSQL = `
 				UPDATE
@@ -677,8 +683,7 @@ async function updateUser(req, res, next) {
 					\`group\` = 2
 				WHERE
 					\`group\` = 1 AND
-					${where}
-				LIMIT 1;
+					${where};
 			`;
 
         // Run the query

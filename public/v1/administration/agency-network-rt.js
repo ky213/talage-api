@@ -5,7 +5,7 @@
 /* eslint-disable prefer-const */
 /* eslint-disable guard-for-in */
 /* eslint-disable require-jsdoc */
-'use strict';
+
 
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
@@ -56,6 +56,7 @@ async function findOne(req, res, next) {
     }
     // Send back a success response
     if (objectJSON) {
+        log.debug(`Agency Network returned: ${JSON.stringify(objectJSON)}` + __location)
         res.send(200, objectJSON);
         return next();
     }
@@ -69,17 +70,27 @@ async function findOne(req, res, next) {
 async function add(req, res, next) {
 
 
+    if(req.body && req.body.feature_json){
+        req.body.featureJson = req.body.feature_json
+    }
+
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
     await agencyNetworkBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agency network save error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
 
-    res.send(200, agencyNetworkBO.cleanJSON());
+    const newdoc = await agencyNetworkBO.getById(agencyNetworkBO.id).catch(function(err) {
+        log.error("agency network get error " + err + __location);
+        error = err;
+    });
+
+    res.send(200, newdoc);
+
     return next();
 
 }
@@ -92,18 +103,24 @@ async function update(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-
+    if(req.body.feature_json){
+        req.body.featureJson = req.body.feature_json
+    }
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
     await agencyNetworkBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agency network save error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
+    const newdoc = await agencyNetworkBO.getById(agencyNetworkBO.id).catch(function(err) {
+        log.error("agency network get error " + err + __location);
+        error = err;
+    });
 
-    res.send(200, agencyNetworkBO.cleanJSON());
+    res.send(200, newdoc);
     return next();
 
 }

@@ -197,7 +197,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.app.agencyLocation.agencyEmail || !this.app.agencyLocation.agencyPhone) {
-            this.log_error(`Agency ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
+            this.log_error(`Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
             return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
 
@@ -540,6 +540,12 @@ module.exports = class HiscoxGL extends Integration {
             return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, {result: result});
         }
         this.amount = premium;
+
+        // Get the quote link
+        const retrieveURL = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RetrieveURL");
+        if (retrieveURL) {
+            this.quoteLink = retrieveURL;
+        }
 
         // Always a $0 deductible
         this.deductible = 0;
