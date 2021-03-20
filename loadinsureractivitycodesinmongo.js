@@ -20,8 +20,7 @@ const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const crypt = global.requireShared('./services/crypt.js');
-
+const questionMigrationSvc = global.requireShared('/services/questionmigrationsvc.js');
 
 var mongoose = require('./mongoose');
 const colors = require('colors');
@@ -130,7 +129,7 @@ function stringArraytoArray(dbString){
     }
 }
 
-async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territory, iqMongoList){
+async function insurerActivityCodeTerritoryQuestions(insurerActivityCodeIdList, territory, iqMongoList){
     if(insurerActivityCodeIdList && insurerActivityCodeIdList.length > 0){
         const sql = `SELECT distinct iq.id as insurerQuestionId
                     FROM clw_talage_insurer_ncci_code_questions AS ncq
@@ -186,77 +185,7 @@ async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territor
  */
 async function runFunction() {
 
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-    const iqMongoList = await InsurerQuestionModel.find({}).catch(function(error) {
-        // Check if this was
-        log.error("error " + error);
-        process.exit(1);
-    });
-
-    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-    //load message model and get message list.
-    const sql = `SELECT  inc.insurer as 'insurerId',inc.code,inc.sub,inc.description
-                    ,inc.attributes ,inc.effectiveDate ,inc.expirationDate 
-                    ,GROUP_CONCAT(DISTINCT territory) AS territoryList
-                    ,GROUP_CONCAT(DISTINCT nca.code) AS talageActivityCodeIdList
-                    ,GROUP_CONCAT(DISTINCT inc.id) AS insurerActivityCodeIdList
-                FROM clw_talage_insurer_ncci_codes inc
-	                left join clw_talage_activity_code_associations AS nca ON nca.insurer_code = inc.id 
-                GROUP BY  inc.insurer, inc.code,inc.sub ,inc.description,inc.attributes ,inc.effectiveDate , inc.expirationDate
-                ORDER BY inc.insurer, inc.code, inc.sub, inc.description;`;
-
-    let result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        log.error("error " + error);
-        process.exit(1);
-    });
-    log.debug("Got MySql insurerActviityCode - result.length - " + result.length);
-    for(let i = 0; i < result.length; i++){
-        try {
-            result[i].territoryList = stringArraytoArray(result[i].territoryList);
-            result[i].talageActivityCodeIdList = stringArraytoArray(result[i].talageActivityCodeIdList);
-            if(result[i].attributes){
-                result[i].attributes = JSON.parse(result[i].attributes)
-            }
-            //get territory array for insurer
-            try{
-                if(result[i].territoryList && result[i].territoryList.length > 0 && result[i].insurerActivityCodeIdList){
-                    let insurerTerritoryQuestionList = [];
-                    //for on territoryList
-                    for(let j = 0; j < result[i].territoryList.length; j++){
-                        const insurerCodeTerritoryQuestionJSON = await insurerCodeTerritoryQuestions(result[i].insurerActivityCodeIdList, result[i].territoryList[j], iqMongoList);
-                        if(insurerCodeTerritoryQuestionJSON){
-                            insurerTerritoryQuestionList.push(insurerCodeTerritoryQuestionJSON);
-                        }
-                    }
-                    if(insurerTerritoryQuestionList.length > 0){
-                        result[i].insurerTerritoryQuestionList = insurerTerritoryQuestionList
-                        //log.debug("adding  insurerTerritoryQuestionList")
-                    }
-                }
-            }
-            catch(err){
-                log.error("Question group error " + err)
-                process.exit(1)
-            }
-
-            let insurerActivityCode = new InsurerActivityCodeModel(result[i]);
-            await insurerActivityCode.save().catch(function(err) {
-                log.error('Mongo insurerActivityCode Save err ' + err + __location);
-                process.exit(1);
-            });
-            if(insurerActivityCode.insurerTerritoryQuestionList.length > 0){
-                log.debug("has territoryquestions " + insurerActivityCode.insurerActivityCodeId)
-            }
-            if((i + 1) % 100 === 0){
-                log.debug(`processed ${i + 1} of ${result.length} `)
-            }
-        }
-        catch(err){
-            log.error("Updating insurerActivityCode List error " + err + __location);
-            process.exit(1);
-        }
-    }
+    await questionMigrationSvc.importActivityCodes();
     log.debug("Done!");
     process.exit(1);
 

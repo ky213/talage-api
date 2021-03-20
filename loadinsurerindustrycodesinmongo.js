@@ -5,7 +5,6 @@
 /* eslint-disable no-process-exit */
 /* eslint sort-keys: "off"*/
 
-'use strict';
 
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
@@ -19,6 +18,8 @@ global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleNam
 const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+const questionMigrationSvc = global.requireShared('/services/questionmigrationsvc.js');
 
 var mongoose = require('./mongoose');
 const colors = require('colors');
@@ -111,114 +112,6 @@ async function main() {
 
 }
 
-
-//mapping function
-function mapToMongooseJSON(sourceJSON, targetJSON, propMappings){
-    for(const sourceProp in sourceJSON){
-        //if(typeof sourceJSON[sourceProp] !== "object"){
-        if(propMappings[sourceProp]){
-            const appProp = propMappings[sourceProp]
-            targetJSON[appProp] = sourceJSON[sourceProp];
-        }
-        else {
-            //check if snake_case
-            // if(sourceProp.isSnakeCase()){
-            //     targetJSON[sourceProp.toCamelCase()] = sourceJSON[sourceProp];
-            // }
-            // else {
-            targetJSON[sourceProp] = sourceJSON[sourceProp];
-            // }
-        }
-
-        // }
-    }
-}
-
-function stringArraytoArray(dbString){
-    if(typeof dbString === 'object'){
-        return dbString;
-    }
-    else if(dbString && typeof dbString === 'string'){
-        return dbString.split(',')
-    }
-    else if(dbString){
-        log.debug(`dbstring type ${typeof dbString}`)
-        log.debug(`dbstring  ${dbString}`)
-        return [];
-    }
-    else {
-        return [];
-    }
-}
-const groupQuestionArray = key => array => array.reduce((objectsByKeyValue, obj) => {
-    const value = obj[key];
-    objectsByKeyValue[value] = (objectsByKeyValue[value] || []).concat(obj.insurerQuestionId);
-    return objectsByKeyValue;
-}, {});
-
-
-async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList, iqMongoList){
-    //const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-    if(insurerIndustryCodeIdList){
-        const sql = `SELECT distinct iic.territory, iq.id as insurerQuestionId
-            FROM clw_talage_insurer_industry_codes AS iic
-            inner JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON  iic.id = industryCodeMap.insurerIndustryCodeId
-            inner JOIN clw_talage_industry_codes AS ic ON industryCodeMap.talageIndustryCodeId = ic.id
-            inner JOIN clw_talage_industry_code_questions  AS icq ON icq.insurerIndustryCodeId = iic.id 
-            inner JOIN clw_talage_insurer_questions AS iq ON iq.question = icq.talageQuestionId
-            where iic.id in (${insurerIndustryCodeIdList})
-            order by iic.territory ;`;
-
-        let result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            log.error("error " + error);
-            process.exit(1);
-        });
-        if(result && result.length > 0){
-            const groupByTerritory = groupQuestionArray('territory')
-            const groupedQuestionList = groupByTerritory(result);
-            var territoryQuestionArray = [];
-            // eslint-disable-next-line guard-for-in
-            for (const tqObjectGrouped in groupedQuestionList) {
-                const iqsystemIdList = groupedQuestionList[tqObjectGrouped];
-                // get insurerQuestionId
-                if(iqsystemIdList && iqsystemIdList.length > 0){
-                    let insurerQuestionIdList = [];
-                    for (let j = 0; j < iqsystemIdList.length; j++) {
-                        const iqId = iqsystemIdList[j];
-                        const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
-                        if(iQFound){
-                            insurerQuestionIdList.push(iQFound.insurerQuestionId)
-                        }
-                    }
-                    if(insurerQuestionIdList.length){
-                        const territoryQuestionJSON = {
-                            territory: tqObjectGrouped,
-                            insurerQuestionIdList: insurerQuestionIdList
-                        }
-                        territoryQuestionArray.push(territoryQuestionJSON);
-                    }
-                }
-            }
-            //log.debug("groupedQuestions " + JSON.stringify(territoryQuestionArray))
-            if(territoryQuestionArray.length === 0){
-                log.debug("no questions " + sql)
-            }
-            return territoryQuestionArray
-        }
-        else {
-            //log.debug("no questions  returned " + sql)
-            return null;
-        }
-
-    }
-    else {
-        // log.debug("empty insurerIndustryCodeIdList")
-        return null
-    }
-}
-
-
 /**
  * runFunction
  *
@@ -226,97 +119,8 @@ async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList, iqMongoL
  */
 async function runFunction() {
 
-    const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-    const iqMongoList = await InsurerQuestionModel.find({}).catch(function(error) {
-        // Check if this was
-        log.error("error " + error);
-        process.exit(1);
-    });
+    await questionMigrationSvc.importInsurerIndustryCodes();
 
-
-    const sql = `SELECT  
-         iic.code,
-		 iic.type,
-		 iic.insurer as 'insurerId',
-		 iic.description,
-		 iic.attributes,
-		 iic.policyType as 'policyType',
-         iic.effectiveDate, 
-         iic.expirationDate ,
-         GROUP_CONCAT(DISTINCT iic.id) AS insurerIndustryCodeIdList,
-         GROUP_CONCAT(DISTINCT iic.territory) AS territoryList,
-         GROUP_CONCAT(DISTINCT ic.id) AS talageIndustryCodeIdList,
-         GROUP_CONCAT(DISTINCT icq.talageQuestionId) AS talageQuestionIdList,
-         GROUP_CONCAT(DISTINCT iq.id) AS insurerQuestionIdList
-        FROM clw_talage_insurer_industry_codes AS iic
-        Left JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON  iic.id = industryCodeMap.insurerIndustryCodeId
-        left JOIN clw_talage_industry_codes AS ic ON industryCodeMap.talageIndustryCodeId = ic.id
-        left JOIN clw_talage_industry_code_questions  AS icq ON icq.insurerIndustryCodeId = iic.id 
-        Left JOIN clw_talage_insurer_questions AS iq ON iq.question = icq.talageQuestionId
-        where industryCodeMap.talageIndustryCodeId
-        GROUP BY iic.insurer, iic.code,iic.policyType, iic.attributes;`;
-
-    let result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        log.error("error " + error);
-        process.exit(1);
-    });
-    log.debug("Got MySql insurerIndustryCode - result.length - " + result.length);
-    for(let i = 0; i < result.length; i++){
-        try {
-            result[i].territoryList = stringArraytoArray(result[i].territoryList);
-            result[i].talageIndustryCodeIdList = stringArraytoArray(result[i].talageIndustryCodeIdList);
-            result[i].talageQuestionIdList = stringArraytoArray(result[i].talageQuestionIdList);
-            result[i].insurerQuestionSystemIdList = stringArraytoArray(result[i].insurerQuestionIdList);
-            if(result[i].attributes){
-                result[i].attributes = JSON.parse(result[i].attributes)
-            }
-
-            try{
-                // get insurerQuestionId
-                if(result[i].insurerQuestionSystemIdList && result[i].insurerQuestionSystemIdList.length > 0){
-                    let insurerQuestionIdList = [];
-                    for (let j = 0; j < result[i].insurerQuestionSystemIdList.length; j++) {
-                        const iqId = result[i].insurerQuestionSystemIdList[j];
-                        const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
-                        if(iQFound){
-                            insurerQuestionIdList.push(iQFound.insurerQuestionId)
-                        }
-                    }
-                    result[i].insurerQuestionIdList = insurerQuestionIdList;
-
-                    //get territory array for insurer
-                    if(result[i].insurerIndustryCodeIdList){
-                        const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].insurerIndustryCodeIdList,iqMongoList);
-                        if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
-                            result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
-                        }
-                    }
-                    else {
-                        log.debug(`NO insurerIndustryCodeIdList for insurer: ${result[i].insurerId}`)
-                    }
-                }
-            }
-            catch(err){
-                log.error("Question group error " + err)
-                process.exit(1)
-            }
-
-            let insurerIndustryCode = new InsurerIndustryCodeModel(result[i]);
-            await insurerIndustryCode.save().catch(function(err) {
-                log.error('Mongo insurerIndustryCode Save err ' + err + __location);
-                process.exit(1);
-            });
-            if((i + 1) % 100 === 0){
-                log.debug(`processed ${i + 1} of ${result.length} `)
-            }
-        }
-        catch(err){
-            log.error("Updating insurerIndustryCode List error " + err + __location);
-            process.exit(1);
-        }
-    }
     log.debug("Done!");
     process.exit(1);
 
