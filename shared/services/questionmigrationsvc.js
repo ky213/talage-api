@@ -3,8 +3,6 @@
 /* eslint-disable require-jsdoc */
 
 
-
-
 function stringArraytoArray(dbString){
     if(typeof dbString === 'object'){
         return dbString;
@@ -57,24 +55,27 @@ async function importInsurerQuestions(insurerId) {
         return false;
     });
     log.info("importInsurerQuestions: Got MySql insurerQuestions - result.length - " + result.length);
-    const updateAbleProps = ['talageQuestionId','policyType','allTerritories','questionSubjectArea','effectiveDate','expirationDate']
+    const updateAbleProps = ['talageQuestionId','policyType','allTerritories','questionSubjectArea','effectiveDate','expirationDate', 'universal']
+    let updatedDocCount = 0;
+    let newDocCount = 0;
     for(let i = 0; i < result.length; i++){
         try {
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
             if(result[i].attributes){
                 result[i].attributes = JSON.parse(result[i].attributes)
             }
-            if(result[i].territoryList.length === 0){
+            if(!result[i].territoryList || result[i].territoryList.length === 0){
                 result[i].allTerritories = true;
             }
             const insurerQuestion = new InsurerQuestionModel(result[i]);
             //check if question is already in mongo. update/insert
             const query = {systemId: result[i].systemId}
-            const existingDoc = await InsurerQuestionModel.find(query);
+            const existingDoc = await InsurerQuestionModel.findOne(query);
             if(existingDoc){
+                log.debug(`Existing InsurerQuestion ${existingDoc.systemId} - ${existingDoc.insurerQuestionId}`)
                 //update file
                 let updateHit = false;
-                if(result[i].territoryList.length === 0){
+                if(result[i].territoryList && result[i].territoryList.length > 0){
                     updateHit = true;
                     existingDoc.territoryList = result[i].territoryList
                 }
@@ -86,17 +87,20 @@ async function importInsurerQuestions(insurerId) {
                     }
                 });
                 if(updateHit){
-                    await insurerQuestion.save().catch(function(err) {
+                    await existingDoc.save().catch(function(err) {
                         log.error('Mongo insurerQuestions Save err ' + err + __location);
                         return false;
                     });
+                    updatedDocCount++;
                 }
             }
             else {
+                log.debug(`New Question SystemId ${result[i].systemId}`)
                 await insurerQuestion.save().catch(function(err) {
                     log.error('Mongo insurerQuestions Save err ' + err + __location);
                     return false;
                 });
+                newDocCount++;
             }
 
             if((i + 1) % 100 === 0){
@@ -108,7 +112,8 @@ async function importInsurerQuestions(insurerId) {
             return false
         }
     }
-
+    log.debug(`Update Questions: ${updatedDocCount}`);
+    log.debug(`New Questions: ${newDocCount}`);
     return true;
 
 }
@@ -165,9 +170,9 @@ async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList, iqMongoL
                 }
             }
             //log.debug("groupedQuestions " + JSON.stringify(territoryQuestionArray))
-            if(territoryQuestionArray.length === 0){
-                log.debug("no questions " + sql)
-            }
+            // if(territoryQuestionArray.length === 0){
+            //     log.debug("no questions " + sql)
+            // }
             return territoryQuestionArray
         }
         else {
@@ -203,7 +208,7 @@ async function importInsurerIndustryCodes(insurerId) {
 		 iic.policyType as 'policyType',
          iic.effectiveDate, 
          iic.expirationDate ,
-         GROUP_CONCAT(DISTINCT iic.id) AS insurerIndustryCodeIdList,
+         GROUP_CONCAT(DISTINCT iic.id) AS oldSystemIdList,
          GROUP_CONCAT(DISTINCT iic.territory) AS territoryList,
          GROUP_CONCAT(DISTINCT ic.id) AS talageIndustryCodeIdList,
          GROUP_CONCAT(DISTINCT icq.talageQuestionId) AS talageQuestionIdList,
@@ -231,6 +236,8 @@ async function importInsurerIndustryCodes(insurerId) {
     });
     log.debug("Got MySql insurerIndustryCode - result.length - " + result.length);
     const updateAbleProps = ['attributes','effectiveDate','expirationDate','territoryList','talageIndustryCodeIdList','insurerQuestionIdList','insurerTerritoryQuestionList'];
+    let updatedDocCount = 0;
+    let newDocCount = 0;
     for(let i = 0; i < result.length; i++){
         try {
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
@@ -256,8 +263,8 @@ async function importInsurerIndustryCodes(insurerId) {
                     result[i].insurerQuestionIdList = insurerQuestionIdList;
 
                     //get territory array for insurer
-                    if(result[i].insurerIndustryCodeIdList){
-                        const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].insurerIndustryCodeIdList,iqMongoList);
+                    if(result[i].oldSystemIdList){
+                        const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].oldSystemIdList,iqMongoList);
                         if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
                             result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
                         }
@@ -271,16 +278,17 @@ async function importInsurerIndustryCodes(insurerId) {
                 log.error("Question group error " + err)
                 return false
             }
-
+            result[i].oldSystemIdList = stringArraytoArray(result[i].oldSystemIdList);
             let insurerIndustryCode = new InsurerIndustryCodeModel(result[i]);
             //TODO Determine if existing doc
             // by insurerId, policyType,type, code,
             const query = {
-                insurerId: insurerIndustryCode.systemId,
+                insurerId: insurerIndustryCode.insurerId,
                 policyType: insurerIndustryCode.policyType,
-                code: insurerIndustryCode.code
+                code: insurerIndustryCode.code,
+                oldSystemIdList: insurerIndustryCode.oldSystemIdList
             }
-            const existingDoc = await InsurerIndustryCodeModel.find(query);
+            const existingDoc = await InsurerIndustryCodeModel.findOne(query);
             if(existingDoc){
                 //update file
                 let updateHit = false;
@@ -292,10 +300,11 @@ async function importInsurerIndustryCodes(insurerId) {
                     }
                 });
                 if(updateHit){
-                    await insurerIndustryCode.save().catch(function(err) {
+                    await existingDoc.save().catch(function(err) {
                         log.error('Mongo insurerIndustryCode Save err ' + err + __location);
                         return false;
                     });
+                    updatedDocCount++;
                 }
             }
             else {
@@ -303,6 +312,7 @@ async function importInsurerIndustryCodes(insurerId) {
                     log.error('Mongo insurerIndustryCode Save err ' + err + __location);
                     return false;
                 });
+                newDocCount++;
             }
             if((i + 1) % 100 === 0){
                 log.debug(`processed ${i + 1} of ${result.length} `)
@@ -313,7 +323,9 @@ async function importInsurerIndustryCodes(insurerId) {
             return false;
         }
     }
-    log.debug("Done!");
+    log.debug("ImportInsurerIndustryCodes Done!");
+    log.debug(`Updated IndustryCodes: ${updatedDocCount}`);
+    log.debug(`New IndustryCodes: ${newDocCount}`);
     return true;
 
 }
@@ -350,7 +362,6 @@ async function insurerActivityCodeTerritoryQuestions(insurerActivityCodeIdList, 
                 return territoryQuestionJSON
             }
             else {
-                log.error(`no mongo question matches found `);
                 return null;
             }
 
@@ -368,8 +379,7 @@ async function insurerActivityCodeTerritoryQuestions(insurerActivityCodeIdList, 
 }
 
 
-
-async function importActivityIndustryCodes(insurerId) {
+async function importActivityCodes(insurerId) {
 
     const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     const iqMongoList = await InsurerQuestionModel.find({}).catch(function(error) {
@@ -384,13 +394,10 @@ async function importActivityIndustryCodes(insurerId) {
                     ,inc.attributes ,inc.effectiveDate ,inc.expirationDate 
                     ,GROUP_CONCAT(DISTINCT territory) AS territoryList
                     ,GROUP_CONCAT(DISTINCT nca.code) AS talageActivityCodeIdList
-                    ,GROUP_CONCAT(DISTINCT inc.id) AS insurerActivityCodeIdList
+                    ,GROUP_CONCAT(DISTINCT inc.id) AS oldSystemIdList
                 FROM clw_talage_insurer_ncci_codes inc
 	                left join clw_talage_activity_code_associations AS nca ON nca.insurer_code = inc.id 
-                GROUP BY  inc.insurer, inc.code,inc.sub ,inc.description,inc.attributes ,inc.effectiveDate , inc.expirationDate
-                ORDER BY inc.insurer, inc.code, inc.sub, inc.description;`;
-
-
+                `;
 
     if(insurerId > 0){
         sql += ` where inc.insurer = ${insurerId} 
@@ -407,6 +414,8 @@ async function importActivityIndustryCodes(insurerId) {
     });
     log.debug("Got MySql insurerActviityCode - result.length - " + result.length);
     const updateAbleProps = ['attributes','effectiveDate','expirationDate','territoryList','talageActivityCodeIdList','insurerQuestionIdList','insurerTerritoryQuestionList'];
+    let updatedDocCount = 0;
+    let newDocCount = 0;
     for(let i = 0; i < result.length; i++){
         try {
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
@@ -416,11 +425,11 @@ async function importActivityIndustryCodes(insurerId) {
             }
             //get territory array for insurer
             try{
-                if(result[i].territoryList && result[i].territoryList.length > 0 && result[i].insurerActivityCodeIdList){
+                if(result[i].territoryList && result[i].territoryList.length > 0 && result[i].oldSystemIdList){
                     let insurerTerritoryQuestionList = [];
                     //for on territoryList
                     for(let j = 0; j < result[i].territoryList.length; j++){
-                        const insurerCodeTerritoryQuestionJSON = await insurerActivityCodeTerritoryQuestions(result[i].insurerActivityCodeIdList, result[i].territoryList[j], iqMongoList);
+                        const insurerCodeTerritoryQuestionJSON = await insurerActivityCodeTerritoryQuestions(result[i].oldSystemIdList, result[i].territoryList[j], iqMongoList);
                         if(insurerCodeTerritoryQuestionJSON){
                             insurerTerritoryQuestionList.push(insurerCodeTerritoryQuestionJSON);
                         }
@@ -436,15 +445,17 @@ async function importActivityIndustryCodes(insurerId) {
                 return false
             }
 
+            result[i].oldSystemIdList = stringArraytoArray(result[i].oldSystemIdList);
             let insurerActivityCode = new InsurerActivityCodeModel(result[i]);
             //TODO Determine if existing doc
             // by insurerId,  code, sub
             const query = {
-                insurerId: insurerActivityCode.systemId,
+                insurerId: insurerActivityCode.insurerId,
                 code: insurerActivityCode.code,
-                sub: insurerActivityCode.sub
+                sub: insurerActivityCode.sub,
+                oldSystemIdList: insurerActivityCode.oldSystemIdList
             }
-            const existingDoc = await InsurerActivityCodeModel.find(query);
+            const existingDoc = await InsurerActivityCodeModel.findOne(query);
             if(existingDoc){
                 //update file
                 let updateHit = false;
@@ -456,10 +467,11 @@ async function importActivityIndustryCodes(insurerId) {
                     }
                 });
                 if(updateHit){
-                    await insurerActivityCode.save().catch(function(err) {
+                    await existingDoc.save().catch(function(err) {
                         log.error('Mongo insurerActivityCode Save err ' + err + __location);
                         return false;
                     });
+                    updatedDocCount++
                 }
             }
             else {
@@ -467,6 +479,7 @@ async function importActivityIndustryCodes(insurerId) {
                     log.error('Mongo insurerActivityCode Save err ' + err + __location);
                     return false;
                 });
+                newDocCount++;
             }
 
             // if(insurerActivityCode.insurerTerritoryQuestionList.length > 0){
@@ -481,7 +494,9 @@ async function importActivityIndustryCodes(insurerId) {
             return false;
         }
     }
-    log.debug("Done!");
+    log.debug("InsurerActivityCodes Import Done!");
+    log.debug(`Updated InsurerActivityCodes: ${updatedDocCount}`);
+    log.debug(`New InsurerActivtiyCodes: ${newDocCount}`);
     return true;
 
 }
@@ -490,5 +505,5 @@ async function importActivityIndustryCodes(insurerId) {
 module.exports = {
     importInsurerQuestions: importInsurerQuestions,
     importInsurerIndustryCodes: importInsurerIndustryCodes,
-    importActivityIndustryCodes: importActivityIndustryCodes
+    importActivityCodes: importActivityCodes
 };

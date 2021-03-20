@@ -20,7 +20,7 @@ const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const crypt = global.requireShared('./services/crypt.js');
+const questionMigrationSvc = global.requireShared('/services/questionmigrationsvc.js');
 
 
 var mongoose = require('./mongoose');
@@ -115,46 +115,6 @@ async function main() {
 
 }
 
-
-//mapping function
-function mapToMongooseJSON(sourceJSON, targetJSON, propMappings){
-    for(const sourceProp in sourceJSON){
-        //if(typeof sourceJSON[sourceProp] !== "object"){
-        if(propMappings[sourceProp]){
-            const appProp = propMappings[sourceProp]
-            targetJSON[appProp] = sourceJSON[sourceProp];
-        }
-        else {
-            //check if snake_case
-            // if(sourceProp.isSnakeCase()){
-            //     targetJSON[sourceProp.toCamelCase()] = sourceJSON[sourceProp];
-            // }
-            // else {
-            targetJSON[sourceProp] = sourceJSON[sourceProp];
-            // }
-        }
-
-        // }
-    }
-}
-
-function stringArraytoArray(dbString){
-    if(typeof dbString === 'object'){
-        return dbString;
-    }
-    else if(dbString && typeof dbString === 'string'){
-        return dbString.split(',')
-    }
-    else if(dbString){
-        log.debug(`dbstring type ${typeof dbString}`)
-        log.debug(`dbstring  ${dbString}`)
-        return [];
-    }
-    else {
-        return [];
-    }
-}
-
 /**
  * runFunction
  *
@@ -162,51 +122,8 @@ function stringArraytoArray(dbString){
  */
 async function runFunction() {
 
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-    //load message model and get message list.
-    const sql = `select iq.id as 'systemId',
-        iq.question as talageQuestionId,
-        iq.insurer as insurerId,
-        iq.policy_type as 'policyType',
-        iq.universal,
-        iq.text,
-        iq.identifier,
-        iq.created as 'createdAt',
-        iq.modified as 'updatedAt',
-        iq.questionSubjectArea,
-        iq.effectiveDate,
-        iq.expirationDate,
-        GROUP_CONCAT(DISTINCT t.territory) AS territoryList
-        from clw_talage_insurer_questions AS iq
-        left join clw_talage_insurer_question_territories t on iq.id = t.insurer_question
-        group by iq.id;`;
+    await questionMigrationSvc.importInsurerQuestions();
 
-    const result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        log.error("error");
-        process.exit(1);
-    });
-    log.debug("Got MySql insurerQuestions - result.length - " + result.length);
-    for(let i = 0; i < result.length; i++){
-        try {
-            result[i].territoryList = stringArraytoArray(result[i].territoryList);
-            if(result[i].attributes){
-                result[i].attributes = JSON.parse(result[i].attributes)
-            }
-            let insurerQuestion = new InsurerQuestionModel(result[i]);
-            await insurerQuestion.save().catch(function(err) {
-                log.error('Mongo insurerQuestions Save err ' + err + __location);
-                process.exit(1);
-            });
-            if((i + 1) % 100 === 0){
-                log.debug(`processed ${i + 1} of ${result.length} `)
-            }
-        }
-        catch(err){
-            log.error("Updating insurerQuestions List error " + err + __location);
-            process.exit(1);
-        }
-    }
     log.debug("Done!");
     process.exit(1);
 

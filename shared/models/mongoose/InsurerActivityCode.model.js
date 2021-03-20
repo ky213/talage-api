@@ -35,13 +35,15 @@ const InsurerActivityCodeSchema = new Schema({
     territoryList: [String],
     insurerQuestionIdList: [String],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
+    oldSystemIdList: [Number],
     active: {type: Boolean, default: true}
 },opts)
 
 
-InsurerActivityCodeSchema.index({insurerId: 1, type: 1}); // Insure Index
-InsurerActivityCodeSchema.index({territoryList: 1, type: 1}); // Insure Index
-InsurerActivityCodeSchema.index({talageActivityCodeIdList: 1, type: 1}); // Insure Index
+InsurerActivityCodeSchema.index({insurerId: 1}); // Insurer Index
+InsurerActivityCodeSchema.index({insurerId: 1, code: 1, sub: 1});
+InsurerActivityCodeSchema.index({territoryList: 1});
+InsurerActivityCodeSchema.index({talageActivityCodeIdList: 1});
 
 
 // //***** Virtuals old field names ****************** */

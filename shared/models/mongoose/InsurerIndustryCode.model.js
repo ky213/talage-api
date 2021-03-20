@@ -38,11 +38,13 @@ const InsurerIndustryCodeSchema = new Schema({
     insurerQuestionIdList: [String],
     insurerQuestionSystemIdList: [Number],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
+    oldSystemIdList: [Number],
     active: {type: Boolean, default: true}
 },opts)
 
 
-InsurerIndustryCodeSchema.index({insurerId: 1, type: 1}); // Insure Index
+//InsurerIndustryCodeSchema.index({insurerId: 1}); // Insure Index
+//InsurerIndustryCodeSchema.index({insurerId: 1, policyType: 1, code: 1});
 
 // //***** Virtuals old field names ****************** */
 
