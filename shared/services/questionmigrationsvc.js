@@ -210,14 +210,10 @@ async function importInsurerIndustryCodes(insurerId) {
          iic.expirationDate ,
          GROUP_CONCAT(DISTINCT iic.id) AS oldSystemIdList,
          GROUP_CONCAT(DISTINCT iic.territory) AS territoryList,
-         GROUP_CONCAT(DISTINCT ic.id) AS talageIndustryCodeIdList,
-         GROUP_CONCAT(DISTINCT icq.talageQuestionId) AS talageQuestionIdList,
-         GROUP_CONCAT(DISTINCT iq.id) AS insurerQuestionIdList
+         GROUP_CONCAT(DISTINCT ic.id) AS talageIndustryCodeIdList
         FROM clw_talage_insurer_industry_codes AS iic
         Left JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON  iic.id = industryCodeMap.insurerIndustryCodeId
         left JOIN clw_talage_industry_codes AS ic ON industryCodeMap.talageIndustryCodeId = ic.id
-        left JOIN clw_talage_industry_code_questions  AS icq ON icq.insurerIndustryCodeId = iic.id 
-        Left JOIN clw_talage_insurer_questions AS iq ON iq.question = icq.talageQuestionId
         `;
 
     if(insurerId > 0){
@@ -242,8 +238,8 @@ async function importInsurerIndustryCodes(insurerId) {
         try {
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
             result[i].talageIndustryCodeIdList = stringArraytoArray(result[i].talageIndustryCodeIdList);
-            result[i].talageQuestionIdList = stringArraytoArray(result[i].talageQuestionIdList);
-            result[i].insurerQuestionSystemIdList = stringArraytoArray(result[i].insurerQuestionIdList);
+            //result[i].talageQuestionIdList = stringArraytoArray(result[i].talageQuestionIdList);
+            //result[i].insurerQuestionSystemIdList = stringArraytoArray(result[i].insurerQuestionIdList);
             if(result[i].attributes){
                 result[i].attributes = JSON.parse(result[i].attributes)
             }
