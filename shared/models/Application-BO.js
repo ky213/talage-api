@@ -37,9 +37,6 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const {'v4': uuidv4} = require('uuid');
 const log = global.log;
 
-//const {loggers} = require('winston');
-// const { debug } = require('request');
-// const { loggers } = require('winston');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 

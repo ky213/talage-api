@@ -736,21 +736,45 @@ module.exports = class Integration {
      */
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
-            const sql = `
+            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                const insurerQuestionQuery = {
+                    talageQuestionId: {$in: talageQuestionIdList},
+                    questionSubjectArea: questionSubjectArea,
+                    active: true
+                }
+                // eslint-disable-next-line prefer-const
+                let insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+                if(insurerQuestionList){
+                    for(const insurerQuestion of insurerQuestionList){
+                        //backwards compatible with mySql table column names
+                        insurerQuestion.question = insurerQuestion.talageQuestionId
+                    }
+                    return insurerQuestionList;
+                }
+                else {
+                    log.dbug("Integrations no insurers questions " + __location);
+                    return [];
+                }
+
+            }
+            else {
+                const sql = `
                     SELECT id, question, universal, identifier, attributes FROM clw_talage_insurer_questions
                     WHERE
                         insurer = ${this.insurer.id} 
                         AND questionSubjectArea = '${questionSubjectArea}'
                         AND question IN (${talageQuestionIdList.join(',')});
                 `;
-            let results = null;
-            try {
-                results = await db.query(sql);
+                let results = null;
+                try {
+                    results = await db.query(sql);
+                }
+                catch (error) {
+                    throw error;
+                }
+                return results;
             }
-            catch (error) {
-                throw error;
-            }
-            return results;
         }
         else {
             return [];
@@ -787,22 +811,48 @@ module.exports = class Integration {
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
-                const results = await db.query(sql).catch(function(error) {
-                    reject(error);
-                });
-
-                // Convert this into an object for easy reference
-                const identifiers = {};
-                results.forEach((result) => {
-                    identifiers[result.question] = result.identifier;
-                    if (result.universal) {
-                        this.universal_questions.push(result.question);
+                if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                    const insurerQuestionQuery = {
+                        talageQuestionId: {$in: question_ids},
+                        insurerId: this.insurer.id,
+                        active: true
                     }
-                });
+                    const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+                    if(insurerQuestionList){
+                        const identifiers = {};
+                        for(const insurerQuestion of insurerQuestionList){
+                            identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
+                            if (insurerQuestion.universal) {
+                                this.universal_questions.push(insurerQuestion.talageQuestionId);
+                            }
+                        }
+                        log.debug("Adding indentifiers " + JSON.stringify(identifiers))
+                        fulfill(identifiers);
+                    }
+                    else {
+                        fulfill({});
+                    }
 
-                // Return the mapping
-                fulfill(identifiers);
+                }
+                else {
+                    const sql = `SELECT question, universal, identifier FROM clw_talage_insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                    const results = await db.query(sql).catch(function(error) {
+                        reject(error);
+                    });
+
+                    // Convert this into an object for easy reference
+                    const identifiers = {};
+                    results.forEach((result) => {
+                        identifiers[result.question] = result.identifier;
+                        if (result.universal) {
+                            this.universal_questions.push(result.question);
+                        }
+                    });
+
+                    // Return the mapping
+                    fulfill(identifiers);
+                }
             }
             else {
                 fulfill({});
@@ -1051,13 +1101,35 @@ module.exports = class Integration {
                 fulfill(this.client_autodeclined_out_of_appetite());
                 return;
             }
+            // if mongo pull insurer's Questions 
+            let insurerQuestionList = null;
+            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                const insurerQuestionQuery = {
+                    insurerId: this.insurer.id,
+                    policyType: this.policy.type,
+                    active: true
+                }
+                insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
 
+            }
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
             for (const question_id in this.app.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
                     try{
                         const question = this.app.questions[question_id];
-                        if (question.insurers && question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){
+                        if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                            if(insurerQuestionList){
+                                const iqHit = insurerQuestionList.find((iq) => iq.talageQuestionId === parseInt(question.id,10));
+                                if(iqHit){
+                                    this.questions[question_id] = question;
+                                }
+                            }
+                            else {
+                                log.debug(`No insurer question for ${this.insurer.id}-${this.policy.type}` + __location)
+                            }
+                        }
+                        else if (question.insurers && question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){
                             this.questions[question_id] = question;
                         }
                     }
@@ -1066,7 +1138,6 @@ module.exports = class Integration {
                     }
                 }
             }
-
 
             // Get the insurer question identifiers
             let stop = false;
@@ -2132,7 +2203,7 @@ module.exports = class Integration {
                 this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
                 log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
                 if(codes.length && codes.length > Object.keys(wcCodes).length){
-                    log.error(`BAD MAPPING multiple insures ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
+                    log.error(`BAD MAPPING multiple insurer ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
                 }
 
                 fulfill(false);

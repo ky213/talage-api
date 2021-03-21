@@ -1,25 +1,30 @@
 'use strict';
 
-
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const moment = require('moment');
+const moment_timezone = require('moment-timezone');
 const {debug} = require('request');
 
-
-const tableName = 'clw_talage_industry_codes'
+const tableName = 'clw_talage_insurer_questions';
 const skipCheckRequired = false;
-module.exports = class IndustryCodeBO{
+module.exports = class InsurerQuestionMySqlBO{
 
     #dbTableORM = null;
+
+    allowNulls = ["question"];
+
+    // eslint-disable-next-line array-element-newline
+    doNotSnakeCase = ['questionSubjectArea','effectiveDate','expirationDate'];
 
     constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        this.#dbTableORM.allowNulls = this.allowNulls;
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
-
 
     /**
 	 * Save Model
@@ -54,7 +59,6 @@ module.exports = class IndustryCodeBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             //MongoDB
-
 
             resolve(true);
 
@@ -99,95 +103,49 @@ module.exports = class IndustryCodeBO{
         return new Promise(async(resolve, reject) => {
             let rejected = false;
             // Create the update query
-            const sqlSelect = `
-                SELECT * FROM ${tableName}  
-            `;
-            const sqlCount = `
-                SELECT count(*) FROM ${tableName}  
-            `;
-            let sqlWhere = "";
-            let sqlPaging = "";
+            let sql = `
+                    select *  from ${tableName}  
+                `;
             if(queryJSON){
                 let hasWhere = false;
-                if(queryJSON.industryCodeId){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-
-                    let queryIdList = queryJSON.industryCodeId;
-                    if(Array.isArray(queryJSON.industryCodeId)){
-                        queryIdList = queryJSON.industryCodeId.join(",");
-                    }
-
-                    sqlWhere += ` id IN (${queryIdList}) `;
-                }
-                if(queryJSON.activityCode) {
-                    // map from the mapping table
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` id IN (SELECT industryCodeId 
-                                        FROM clw_talage_industry_code_associations 
-                                        WHERE activityCodeId = ${db.escape(queryJSON.activityCode)}) `;
+                if(queryJSON.question){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` question = ${db.escape(queryJSON.question)} `
                     hasWhere = true;
-                }
-                if(queryJSON.description){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `
-                    hasWhere = true;
-                }
-
-                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 20;
-                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
-                if(limit && page) {
-                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
-                    // offset by page number * max rows, so we go that many rows
-                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
                 }
             }
             // Run the query
-            //log.debug("IndustryCodeBO getlist sql: " + sql);
-            // Run the query
-            const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
+            log.debug("InsurerQuestionMySqlBO getlist sql: " + sql);
+            const result = await db.query(sql).catch(function(error) {
+                // Check if this was
+
                 rejected = true;
-                log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
                 reject(error);
             });
-
             if (rejected) {
                 return;
             }
             const boList = [];
             if(result && result.length > 0){
                 for(let i = 0; i < result.length; i++){
-                    const industryCodeBO = new IndustryCodeBO();
-                    await industryCodeBO.#dbTableORM.decryptFields(result[i]);
-                    await industryCodeBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await industryCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                    const insurerQuestionBO = new InsurerQuestionMySqlBO();
+                    await insurerQuestionBO.#dbTableORM.decryptFields(result[i]);
+                    await insurerQuestionBO.#dbTableORM.convertJSONColumns(result[i]);
+                    const resp = await insurerQuestionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
                     if(!resp){
                         log.debug("Bad BO load" + __location)
                     }
-                    boList.push(industryCodeBO);
+                    boList.push(insurerQuestionBO);
                 }
-                if(queryJSON && (queryJSON.count === "1" || queryJSON.count === "true")){
-                    const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
-                        rejected = true;
-                        log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
-                        reject(error);
-                    });
-                    resolve({
-                        rows: boList,
-                        count: count[0] ? count[0]["count(*)"] : 0
-                    });
-                }
-                else{
-                    resolve(boList);
-                }
+                resolve(boList);
             }
             else {
                 //Search so no hits ok.
                 resolve([]);
             }
-
-
         });
     }
 
@@ -200,10 +158,11 @@ module.exports = class IndustryCodeBO{
                     reject(err);
                     return;
                 });
+                this.updateProperty();
                 resolve(this.#dbTableORM.cleanJSON());
             }
             else {
-                reject(new Error('no id supplied ' + id))
+                reject(new Error('no id supplied'))
             }
         });
     }
@@ -253,19 +212,17 @@ module.exports = class IndustryCodeBO{
         return true;
     }
 
-
     // ***************************
     //    For administration site
     //
     // *************************
-
     async getSelectionList(){
 
         let rejected = false;
         const responseLandingPageJSON = {};
         const reject = false;
         const sql = `select id, name, logo  
-            from clw_talage_industry_codes
+            from clw_talage_insurer_questions
             where state > 0
             order by name`
         const result = await db.query(sql).catch(function(error) {
@@ -279,9 +236,7 @@ module.exports = class IndustryCodeBO{
         else {
             return [];
         }
-
     }
-
 }
 
 const properties = {
@@ -294,25 +249,7 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "featured": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "category": {
+    "question": {
         "default": null,
         "encrypted": false,
         "hashed": false,
@@ -321,59 +258,86 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "description": {
+    "insurer": {
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
+    },
+    "policy_type": {
+        "default": "WC",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(3)"
+    },
+    "universal": {
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
+    },
+    "questionSubjectArea": {
+        "default": "general",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
+    },
+    "text": {
         "default": "",
         "encrypted": false,
         "hashed": false,
         "required": true,
         "rules": null,
         "type": "string",
-        "dbType": "varchar(100)"
+        "dbType": "varchar(500)"
     },
-    "cgl": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "sic": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "smallint(4) unsigned"
-    },
-    "naics": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(6) unsigned"
-    },
-    "iso": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "hiscox": {
+    "identifier": {
         "default": null,
         "encrypted": false,
         "hashed": false,
         "required": false,
         "rules": null,
         "type": "string",
-        "dbType": "varchar(3)"
+        "dbType": "varchar(60)"
+    },
+    "attributes": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
+    },
+    "effectiveDate": {
+        "default": "1980-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
+    },
+    "expirationDate": {
+        "default": "2100-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     },
     "created": {
         "default": null,
@@ -384,15 +348,6 @@ const properties = {
         "type": "timestamp",
         "dbType": "timestamp"
     },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
     "modified": {
         "default": null,
         "encrypted": false,
@@ -401,58 +356,11 @@ const properties = {
         "rules": null,
         "type": "timestamp",
         "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
     }
 }
 
 class DbTableOrm extends DatabaseObject {
-
     constructor(tableName){
         super(tableName, properties);
     }
-
 }
