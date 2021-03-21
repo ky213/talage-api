@@ -238,36 +238,20 @@ async function importInsurerIndustryCodes(insurerId) {
         try {
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
             result[i].talageIndustryCodeIdList = stringArraytoArray(result[i].talageIndustryCodeIdList);
-            //result[i].talageQuestionIdList = stringArraytoArray(result[i].talageQuestionIdList);
-            //result[i].insurerQuestionSystemIdList = stringArraytoArray(result[i].insurerQuestionIdList);
             if(result[i].attributes){
                 result[i].attributes = JSON.parse(result[i].attributes)
             }
 
             try{
-                // get insurerQuestionId
-                if(result[i].insurerQuestionSystemIdList && result[i].insurerQuestionSystemIdList.length > 0){
-                    // eslint-disable-next-line prefer-const
-                    let insurerQuestionIdList = [];
-                    for (let j = 0; j < result[i].insurerQuestionSystemIdList.length; j++) {
-                        const iqId = result[i].insurerQuestionSystemIdList[j];
-                        const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
-                        if(iQFound){
-                            insurerQuestionIdList.push(iQFound.insurerQuestionId)
-                        }
+                //get territory array for insurer
+                if(result[i].oldSystemIdList){
+                    const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].oldSystemIdList,iqMongoList);
+                    if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
+                        result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
                     }
-                    result[i].insurerQuestionIdList = insurerQuestionIdList;
-
-                    //get territory array for insurer
-                    if(result[i].oldSystemIdList){
-                        const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].oldSystemIdList,iqMongoList);
-                        if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
-                            result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
-                        }
-                    }
-                    else {
-                        log.debug(`NO insurerIndustryCodeIdList for insurer: ${result[i].insurerId}`)
-                    }
+                }
+                else {
+                    log.debug(`NO insurerIndustryCodeIdList for insurer: ${result[i].insurerId}`)
                 }
             }
             catch(err){
