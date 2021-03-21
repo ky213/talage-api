@@ -684,7 +684,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     const endSqlSelect = moment();
     const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
-    log.info(`Mysql Missing Question process duration: ${diff2} milliseconds`);
+    log.info(`Missing Question process duration: ${diff2} milliseconds`);
 
     log.debug("Cleanup questions " + __location);
     // Let's do some cleanup and get a list of question IDs
@@ -852,6 +852,9 @@ exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeS
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
 async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = false){
+    if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
+        return [];
+    }
     //refactor for Mongo...
     const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
     let error = null;
