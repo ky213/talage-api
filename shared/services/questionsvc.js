@@ -5,10 +5,6 @@ const helper = global.requireShared('./helpers/helper.js');
 const log = global.log;
 
 
-
-//const util = require('util');
-//const serverHelper = global.requireRootPath('server.js');
-
 /**
  * @param {array} activityCodeStringArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
@@ -27,10 +23,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, questionSubjectArea: ${questionSubjectArea}, return_hidden: ${return_hidden}, stateList:  ${JSON.stringify(stateList)}` + __location)
     let error = false;
     let sql = '';
+
     /*
      * Validate Activity Codes
      */
-
     // Convert activity code strings to ints
     let activityCodeArray = activityCodeStringArray.map(activityCode => parseInt(activityCode, 10));
 
@@ -134,7 +130,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         const mongoPolicyEffectiveDateQuery = {
             policyType: policyTypeJSON.type.toUpperCase(),
             effectiveDate: {$lte: policyEffectiveDate},
-            expirationDate: {$gte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate}
         }
         mongoPolicyExpirationList.push(mongoPolicyEffectiveDateQuery);
 
@@ -237,6 +233,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Mongo
     const policyEffectiveDate = uniquePolicyEffectiveDateList[0];
     if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+        // eslint-disable-next-line prefer-const
         let insurerQuestionQuery = {
             insurerId: {$in: insurerArray},
             universal: true,
@@ -247,11 +244,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         // eslint-disable-next-line prefer-const
         let orParamList = [];
         mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
-            orParamList.push(mongoPolicyEffectiveDateQuery)    
+            orParamList.push(mongoPolicyEffectiveDateQuery)
         });
         insurerQuestionQuery.$or = orParamList;
 
-       // log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
+        // log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
 
         const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
         //need territory filter
@@ -264,7 +261,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             for(const insurerQuestion of insurerQuestionList){
                 if(insurerQuestion.talageQuestionId){
                     let add = false;
-                    
                     if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0){
                         const territoryHit = insurerQuestion.territoryList.some((iqt) => territories.includes(iqt))
                         if(territoryHit){
@@ -436,7 +432,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                             }
                         }
                     }
-                    if(addStandardQuestions && insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0 ){
+                    if(addStandardQuestions && insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
                         insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
                     }
 
@@ -464,12 +460,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 orParamList2.push(territoryCheck)
                 orParamList2.push(territoryNullCheck)
                 orParamList2.push(territoryLengthCheck)
-                
+
                 const orParamExprDate = []
                 mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
-                    orParamExprDate.push(mongoPolicyEffectiveDateQuery)    
+                    orParamExprDate.push(mongoPolicyEffectiveDateQuery)
                 });
-                insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}] ;
+                insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
                 insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
@@ -588,7 +584,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     universal: false,
                     //policyType: {$in: policyTypes},
                     questionSubjectArea: questionSubjectArea,
-                   // effectiveDate: {$lt: now},
+                    // effectiveDate: {$lt: now},
                     //expirationDate: {$gt: now},
                     active: true
                 }
@@ -602,9 +598,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 orParamList2.push(territoryLengthCheck)
                 const orParamExprDate = []
                 mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
-                    orParamExprDate.push(mongoPolicyEffectiveDateQuery)    
+                    orParamExprDate.push(mongoPolicyEffectiveDateQuery)
                 });
-                insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}] ;
+                insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
                 insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)

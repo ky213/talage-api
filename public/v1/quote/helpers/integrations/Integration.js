@@ -743,7 +743,6 @@ module.exports = class Integration {
                     questionSubjectArea: questionSubjectArea,
                     active: true
                 }
-                log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
                 // eslint-disable-next-line prefer-const
                 let insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
                 if(insurerQuestionList){
@@ -751,7 +750,6 @@ module.exports = class Integration {
                         //backwards compatible with mySql table column names
                         insurerQuestion.question = insurerQuestion.talageQuestionId
                     }
-                    log.debug(`Getting ${insurerQuestionList.length} insurer questions from Mongo ` + __location);
                     return insurerQuestionList;
                 }
                 else {
@@ -1124,7 +1122,6 @@ module.exports = class Integration {
                             if(insurerQuestionList){
                                 const iqHit = insurerQuestionList.find((iq) => iq.talageQuestionId === parseInt(question.id,10));
                                 if(iqHit){
-                                    log.debug(`adding mongo question ` + __location)
                                     this.questions[question_id] = question;
                                 }
                             }
@@ -1142,7 +1139,6 @@ module.exports = class Integration {
                 }
             }
 
-            log.debug(`Integration questions ${JSON.stringify(this.questions)}`)
             // Get the insurer question identifiers
             let stop = false;
             this.question_details = await this.get_question_details().catch((error) => {
@@ -2207,7 +2203,7 @@ module.exports = class Integration {
                 this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
                 log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
                 if(codes.length && codes.length > Object.keys(wcCodes).length){
-                    log.error(`BAD MAPPING multiple insures ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
+                    log.error(`BAD MAPPING multiple insurer ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
                 }
 
                 fulfill(false);
