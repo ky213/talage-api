@@ -741,7 +741,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         return question.id;
     });
     log.debug("Getting answers questions " + __location);
-    if (question_ids) {
+    if (question_ids && question_ids.length > 0) {
         // Get the answers to the questions
         sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
         const answers = await db.queryReadonly(sql).catch(function(err) {
