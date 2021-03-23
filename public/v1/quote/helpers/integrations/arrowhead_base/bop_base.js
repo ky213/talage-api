@@ -209,9 +209,9 @@ module.exports = class LibertySBOP extends Integration {
 
         // send the JSON request
 
-        log.info("=================== QUOTE REQUEST ===================");
-        log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
-        log.info("=================== QUOTE REQUEST ===================");
+        // log.info("=================== QUOTE REQUEST ===================");
+        // log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
+        // log.info("=================== QUOTE REQUEST ===================");
 
         let result = null;
         const headers = {
@@ -230,9 +230,9 @@ module.exports = class LibertySBOP extends Integration {
         // parse the error / response
 
         if (result.data.hasOwnProperty("error")) {
-            log.info("=================== QUOTE ERROR ===================");
-            log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
-            log.info("=================== QUOTE ERROR ===================");
+            // log.info("=================== QUOTE ERROR ===================");
+            // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
+            // log.info("=================== QUOTE ERROR ===================");
             const error = result.data.error;
             let errorMessage = "";
 
@@ -260,9 +260,9 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // handle successful quote
-        log.info("=================== QUOTE RESULT ===================");
-        log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
-        log.info("=================== QUOTE RESULT ===================");
+        // log.info("=================== QUOTE RESULT ===================");
+        // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
+        // log.info("=================== QUOTE RESULT ===================");
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -599,9 +599,9 @@ module.exports = class ChubbGL extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({ pretty: true });
 
-        log.debug("=================== QUOTE REQUEST ===================");
-        log.debug(`${logPrefix}\n${xml}`);
-        log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug(`${logPrefix}\n${xml}`);
+        // log.debug("=================== QUOTE REQUEST ===================");
 
         // Build the authorization header
         const headers = { Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}` };
@@ -633,9 +633,9 @@ module.exports = class ChubbGL extends Integration {
         }
 
         if (res.Status[0].StatusCd[0] !== '0') {
-            log.error("=================== QUOTE ERROR ===================");
-            log.error(`${logPrefix}\n${JSON.stringify(res, null, 4)}`);
-            log.error("=================== QUOTE ERROR ===================");
+            // log.error("=================== QUOTE ERROR ===================");
+            // log.error(`${logPrefix}\n${JSON.stringify(res, null, 4)}`);
+            // log.error("=================== QUOTE ERROR ===================");
         }
 
         let errorMessage = `${logPrefix}`;
@@ -651,9 +651,9 @@ module.exports = class ChubbGL extends Integration {
                 log.error(errorMessage + __location);
                 return this.client_error(errorMessage, __location);
             case '0':
-                log.debug("=================== QUOTE RESULT ===================");
-                log.debug(`${logPrefix}\n ${JSON.stringify(result, null, 4)}`);
-                log.debug("=================== QUOTE RESULT ===================");
+                // log.debug("=================== QUOTE RESULT ===================");
+                // log.debug(`${logPrefix}\n ${JSON.stringify(result, null, 4)}`);
+                // log.debug("=================== QUOTE RESULT ===================");
 
                 // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
