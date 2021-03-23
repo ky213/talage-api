@@ -45,43 +45,45 @@ async function getInsurerLogos(req, res, next){
  */
 async function postInsurerLogo(req, res, next){
     // Sanitize the file path
-    let name = '';
-    if(req.body && Object.prototype.hasOwnProperty.call(req.body, 'name')){
-        name = req.body.name.replace(/[^a-zA-Z0-9-_/.]/g, '');
-    }
+    // let name = '';
+    // if(req.body && Object.prototype.hasOwnProperty.call(req.body, 'name')){
+    //     name = req.body.name;
+    // }
 
     // Make sure a file name was provided
-    if(!name){
+    // if(Buffer.from(req.body.data, 'base64').toString('base64') !== req.body.data){
+    //     //convert to base64
+    //     const buff = Buffer.from(req.body.data);
+    //     req.body.data = buff.toString('base64');
+    // }
+
+    // // Conver to base64
+    // const fileBuffer = Buffer.from(req.body.data, 'base64');
+
+    // // Make sure the data is valid
+    // if(fileBuffer.toString('base64') !== req.body.data){
+    //     const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
+    //     log.warn("File Service PUT: " + errorMsg + __location);
+    //     return next(serverHelper.requestError(errorMsg));
+    // }
+
+    if(!req.body.name){
         const errorMsg = 'You must specify a file name';
         log.warn("File Service POST: " + errorMsg + __location);
         return next(serverHelper.requestError(errorMsg));
     }
 
     // Make sure file data was provided
-    if(!Object.prototype.hasOwnProperty.call(req.body, 'data')){
+    if(!req.body.data){
         const errorMsg = 'You must provide file data';
         log.warn("File Service POST: " + errorMsg + __location);
         return next(serverHelper.requestError(errorMsg));
     }
-
-    if(Buffer.from(req.body.data, 'base64').toString('base64') !== req.body.data){
-        //convert to base64
-        const buff = Buffer.from(req.body.data);
-        req.body.data = buff.toString('base64');
-    }
-
-    // Conver to base64
-    const fileBuffer = Buffer.from(req.body.data, 'base64');
-
-    // Make sure the data is valid
-    if(fileBuffer.toString('base64') !== req.body.data){
-        const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
-        log.warn("File Service PUT: " + errorMsg + __location);
-        return next(serverHelper.requestError(errorMsg));
-    }
-
+    const fileType = req.body.type ? req.body.type : null;
+    const logoData =  req.body.data.substring(req.body.data.indexOf(',') + 1);
+    
     // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure
-    fileSvc.PutFile(`insurers/${name}`, req.body.data, req.body.type).then((data) => {
+    await fileSvc.PutFile(`insurers/${req.body.name}`, logoData, fileType).then((data) => {
         res.send(200, data);
         next();
     }).catch((err) => {
