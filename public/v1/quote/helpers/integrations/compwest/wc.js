@@ -761,29 +761,34 @@ module.exports = class CompwestWC extends Integration {
         let status = ''
         let statusDescription = '';
         //if(res.SignonRs[0] && res.SignonRs[0].Status[0]){
-            try{
-                status = res.SignonRs[0].Status[0].StatusCd[0];
+        try{
+            status = res.SignonRs[0].Status[0].StatusCd[0];
 
-                try{
-                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc ? res.SignonRs[0].Status[0].StatusDesc[0].Desc : "";
+            try{
+                if(res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc){
+                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc.toString();
                 }
-                catch(err){
-                    //do not log 
-                }
-                if(!statusDescription){
-                    statusDescription = '';
-                }
-                // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
-                //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
-                //     && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
-                // }
-                // else {
-                //     statusDescription = "AFGroup/CompWest did not return an error description.";
-                // }
+                //statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc ? res.SignonRs[0].Status[0].StatusDesc[0].Desc : "";
             }
             catch(err){
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+                log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Unable to process  res.SignonRs[0].Status[0].StatusDesc[0].Desc ${err}` + __location);
             }
+            
+            // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
+            //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
+            //     && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
+            // }
+            // else {
+            //     statusDescription = "AFGroup/CompWest did not return an error description.";
+            // }
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+        }
+        if(typeof statusDescription !== 'string'){
+            log.debug(`CompWest WC statusDescription response typeof ${typeof statusDescription} value: ` + statusDescription + __location);
+            statusDescription = '';
+        }
         // }
         // else {
         //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status: no res.SignonRs[0].Status[0] node`)
@@ -806,8 +811,13 @@ module.exports = class CompwestWC extends Integration {
                 log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${statusDescription}` + __location);
                 this.reasons.push(`${status} - ${statusDescription}`);
                 // Send notification email if we get an E Mod error back from carrier
-                if (statusDescription && statusDescription.toLowerCase().includes("experience mod")) {
-                    wcEmodEmail.sendEmodEmail(this.app.id);
+                try{
+                      if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
+                        wcEmodEmail.sendEmodEmail(this.app.id);
+                    }
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
                 }
                 return this.return_result('error');
             case 'SMARTEDITS':
@@ -815,8 +825,13 @@ module.exports = class CompwestWC extends Integration {
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${statusDescription}` + __location);
                 this.reasons.push(`${status} - ${statusDescription}`);
                 // Send notification email if we get an E Mod error back from carrier
-                if (statusDescription && statusDescription.toLowerCase().includes("experience mod")) {
-                    wcEmodEmail.sendEmodEmail(this.app.id);
+                try{
+                     if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
+                        wcEmodEmail.sendEmodEmail(this.app.id);
+                    }
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
                 }
                 return this.return_result('referred');
             case 'REFERRALNEEDED':
