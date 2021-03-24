@@ -68,18 +68,28 @@ async function postInsurerLogo(req, res, next){
     // }
 
     if(!req.body.name){
-        const errorMsg = 'You must specify a file name';
+        const errorMsg = 'Error uploading logo missing logo name';
         log.warn("File Service POST: " + errorMsg + __location);
         return next(serverHelper.requestError(errorMsg));
     }
 
     // Make sure file data was provided
     if(!req.body.data){
-        const errorMsg = 'You must provide file data';
+        const errorMsg = 'Error uploading logo missing data.';
         log.warn("File Service POST: " + errorMsg + __location);
         return next(serverHelper.requestError(errorMsg));
     }
     const fileType = req.body.type ? req.body.type : null;
+    
+    // Ensure correct extention type
+    const extension = req.body.data.substring(11, req.body.data.indexOf(';'));
+    if (!['gif',
+        'jpeg',
+        'png'].includes(extension)) {
+        log.info(`Wrong extention type for the logo upload extention type: ${extension}` + __location);
+        next(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
+    }
+
     const logoData =  req.body.data.substring(req.body.data.indexOf(',') + 1);
     
     // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure
