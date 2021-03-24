@@ -238,6 +238,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerId: {$in: insurerArray},
             universal: true,
             policyType: {$in: policyTypes},
+            questionSubjectArea: questionSubjectArea,
             active: true
         }
 
