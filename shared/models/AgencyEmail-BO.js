@@ -1,7 +1,5 @@
 'use strict';
 
-const { query } = require('winston');
-
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 var AgencyEmail = require('mongoose').model('AgencyEmail');
