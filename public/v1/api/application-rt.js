@@ -881,7 +881,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: 'https://img.talageins.com/' + insurer.logo,
+                    logo: global.settings.IMAGE_URL + insurer.logo,
                     name: insurer.name,
                     rating: insurer.rating
                 },

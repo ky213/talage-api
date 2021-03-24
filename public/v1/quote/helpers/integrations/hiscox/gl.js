@@ -8,7 +8,6 @@
 const Integration = require("../Integration.js");
 const moment = require("moment");
 const momentTimezone = require("moment-timezone");
-// const {ConsoleTransportOptions} = require('winston/lib/winston/transports');
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 // const util = require('util');
 const xmlToObj = require("xml2js").parseString;
