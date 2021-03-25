@@ -1,10 +1,7 @@
 /* eslint-disable prefer-const */
 /* eslint-disable no-catch-shadow */
-/**
- * Defines a single industry code
- */
 
-'use strict';
+
 const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
@@ -12,7 +9,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const get_questions = global.requireShared('./helpers/getQuestions.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 
-const htmlentities = require('html-entities').Html5Entities;
+const status = global.requireShared('./models/application-businesslogic/status.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
@@ -29,7 +26,8 @@ const {
     validateClaims,
     validateActivityCodes
 } = require('./applicationValidator.js');
-const helper = global.requireShared('./helpers/helper.js');
+
+//const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
@@ -461,7 +459,7 @@ module.exports = class Application {
     get_insurers() {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
-        return new Promise(async(fulfill, reject) => {
+        return new Promise(async(fulfill) => {
             // Get a list of desired insurers
             let desired_insurers = [];
             this.policies.forEach((policy) => {
@@ -600,8 +598,6 @@ module.exports = class Application {
         // Generate quotes for each policy type
         const fs = require('fs');
         const quote_promises = [];
-        const policyTypeReferred = {};
-        const policyTypeQuoted = {};
 
         if(this.policies && this.policies.length === 0){
             log.error(`No policies for Application ${this.id} ` + __location)
@@ -696,38 +692,32 @@ module.exports = class Application {
             return;
         }
 
-        const quoteBO = new QuoteBO();
+
+        // Update the application quote metrics
+        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.applicationId);
+
+        // Update the application Status
+        // Update the application quote progress to "complete"
+        try{
+            await applicationBO.updateProgress(this.applicationDocData.applicationId, "complete");
+        }
+        catch(err){
+            log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
+        }
+
+        // Update the application status
+        await status.updateApplicationStatus(this.applicationDocData.applicationId);
 
         // Get the quotes from the database
+        const quoteBO = new QuoteBO();
         let quoteList = null;
         try {
-            const query = {"mysqlId": quoteIDs}
+            const query = {"applicationId": this.applicationDocData.applicationId}
             quoteList = await quoteBO.getList(query);
         }
         catch (error) {
-            log.error(`Could not retrieve quotes from the database for application ${this.id} ${__location}`);
-            return;
+            log.error(`Could not retrieve quotes from the database for application ${this.applicationDocData.applicationId} ${__location}`);
         }
-
-
-        // Determine the type of policy quoted for the application state
-        quoteList.forEach((quote) => {
-            // Determine the result of this quote
-            if (quote.amount) {
-                // Quote
-                policyTypeQuoted[quote.policyType] = true;
-            }
-            else if (quote.status === 'referred') {
-                // Referred
-                policyTypeReferred[quote.policyType] = true;
-            }
-        });
-
-        // Update the application quote metrics
-        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.uuid, quoteList);
-
-        // Update the application state
-        await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
         // Send a notification to Slack about this application
         try{
@@ -903,71 +893,6 @@ module.exports = class Application {
             }
             else {
                 slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
-            }
-        }
-    }
-
-    /**
-	 * Updates the state of the application as follows:
-	 *   1 - New Application (no change, this is default)
-	 *   12 - Referred (Application did not receive quotes and had at least one referral per policy type)
-	 *   13 - Quoted (Application received at least one quote per policy type)
-	 *
-	 * @param {int} numPolicyTypesRequested - The number of policy types requested in the application
-	 * @param {int} numPolicyTypesQuoted - The number of policy types that got quotes
-	 * @param {int} numPolicyTypesReferred - THe number of policy types that referred
-	 * @return {void}
-	 */
-    async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
-        // Determine the application status
-        let state = 1; // new record State.
-        let appStatusId = 15; // Quoting
-        let appStatusDesc = "quoting"
-        if (numPolicyTypesRequested === numPolicyTypesQuoted) {
-            state = 13; // Quoted
-            appStatusId = 60;
-            appStatusDesc = "quoted";
-
-        }
-        else if (numPolicyTypesRequested === numPolicyTypesReferred) {
-            state = 12; // Referred
-            appStatusId = 40;
-            appStatusDesc = "referred";
-        }
-        if(state > 1){
-            const applicationBO = new ApplicationBO();
-            try{
-                await applicationBO.updateStatus(this.id, appStatusDesc, appStatusId);
-                await applicationBO.updateProgress(this.id, "complete");
-                await applicationBO.updateState(this.id, state)
-
-                //Prevent Abandon Quote email if Quote was triggered by Agency Portal
-                // Tracked in Application Doc.
-                // if(this.agencyPortalQuote){
-                //     try{
-                //         //Get AgencyNetwork check agencyNetworkQuoteEmails
-                //         // if true do not update "abandonedEmail": true,
-                //         const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-                //         const agencyNetworkBO = new AgencyNetworkBO();
-                //         const agencyNetworkDB = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId)
-                //         let abandonedEmailMark = true;
-                //         if(agencyNetworkDB && agencyNetworkDB.featureJson && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails){
-                //             abandonedEmailMark = false;
-                //         }
-                //         const docUpdate = {
-                //             "abandonedEmail": abandonedEmailMark,
-                //             "abandonedAppEmail": true
-                //         };
-                //         await applicationBO.updateMongo(this.applicationDocData.applicationId,docUpdate);
-                //     }
-                //     catch(err){
-                //         log.error(`Error calling applicationBO.updateMongo for ${this.applicationDocData.applicationId} ` + err + __location)
-                //         throw err;
-                //     }
-                // }
-            }
-            catch(err){
-                log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
             }
         }
     }

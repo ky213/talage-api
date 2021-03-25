@@ -37,15 +37,15 @@ async function updateApplicationStatus(application, timeout) {
     const ApplicationBO = global.requireShared('./models/Application-BO.js');
     const QuoteBO = global.requireShared('./models/Quote-BO.js');
     const applicationBO = new ApplicationBO();
-    let ApplicationDoc = null;
+    let applicationDocJson = null;
     if(typeof application === "object"){
         // if the doc is passed just use it as is
-        ApplicationDoc = application;
+        applicationDocJson = application;
     }
     else{
         // Get the application
         try{
-            ApplicationDoc = await applicationBO.loadfromMongoBymysqlId(application)
+            applicationDocJson = await applicationBO.getById(application)
         }
         catch(err){
             log.error(`Could not retrieve application ${application} ${__location}`);
@@ -57,7 +57,7 @@ async function updateApplicationStatus(application, timeout) {
     const quoteBO = new QuoteBO();
     let quoteDocJsonList = null;
     try {
-        quoteDocJsonList = await quoteBO.getByApplicationId(ApplicationDoc.applicationId);
+        quoteDocJsonList = await quoteBO.getByApplicationId(applicationDocJson.applicationId);
 
         // if we get undefined back, set it to empty
         if(!quoteDocJsonList){
@@ -65,28 +65,29 @@ async function updateApplicationStatus(application, timeout) {
         }
     }
     catch (error) {
-        log.error(`Could not get quotes for application ${ApplicationDoc.applicationId} ${__location}`);
+        log.error(`Could not get quotes for application ${applicationDocJson.applicationId} ${__location}`);
         return;
     }
 
     // Get the new application status
     let applicationStatus = '';
-    switch (ApplicationDoc.agencyNetworkId) {
+    switch (applicationDocJson.agencyNetworkId) {
         default:
-            applicationStatus = getGenericApplicationStatus(ApplicationDoc, quoteDocJsonList, timeout);
+            applicationStatus = getGenericApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
             break;
         // Accident Fund
         case 2:
-            applicationStatus = getAccidentFundApplicationStatus(ApplicationDoc, quoteDocJsonList, timeout);
+            applicationStatus = getAccidentFundApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
             break;
     }
 
     // Set the new application status
     try {
-        await applicationBO.updateStatus(ApplicationDoc.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        //TODO change to applicationId
+        await applicationBO.updateStatus(applicationDocJson.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
     catch (err) {
-        log.error(`Error update appication status appId = ${ApplicationDoc.mysqlId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
+        log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
 }
 
