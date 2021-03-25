@@ -95,7 +95,8 @@ async function postInsurerLogo(req, res, next){
     const name = `${req.body.name}-${uuidv4().substring(24)}.${extension}`
     // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure
     await fileSvc.PutFile(`insurers/${name}`, logoData, fileType).then(() => {
-        res.send(200, `${global.settings.IMAGE_URL}/${name}`);
+        const sanitizedName = name.replace(/[^a-zA-Z0-9-_/.]/g, '');
+        res.send(200, `${global.settings.IMAGE_URL}/${sanitizedName}`);
         next();
     }).catch((err) => {
         log.error("File Service HTTP Put: " + err + __location);
