@@ -93,8 +93,9 @@ async function postInsurerLogo(req, res, next){
     const logoData =  req.body.data.substring(req.body.data.indexOf(',') + 1);
     // add uuid -- cloudfront caches content for 24 hrs, by adding uuid prevents same name (old) images from being served from cache
     const name = `${req.body.name}-${uuidv4().substring(24)}.${extension}`
-    // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure
+    // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure (Don't know if this comment still valid)
     await fileSvc.PutFile(`insurers/${name}`, logoData, fileType).then(() => {
+        // sanitize the name here before sending back (when sending to the file service no need because it is sanitized within the upload function)
         const sanitizedName = name.replace(/[^a-zA-Z0-9-_/.]/g, '');
         res.send(200, `${global.settings.IMAGE_URL}/${sanitizedName}`);
         next();
