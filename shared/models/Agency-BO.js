@@ -251,7 +251,10 @@ module.exports = class AgencyBO {
     async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
-                const query = {"mysqlId": mysqlId};
+                const query = {
+                    "mysqlId": mysqlId,
+                    active: true
+                };
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
@@ -282,6 +285,26 @@ module.exports = class AgencyBO {
                     resolve(null);
                 }
 
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    async getAgencyByMysqlId(mysqlId) {
+        return new Promise(async(resolve, reject) => {
+            if (mysqlId) {
+                const query = {mysqlId: mysqlId};
+                let docDB = null;
+                try {
+                    docDB = await AgencyModel.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                resolve(docDB);
             }
             else {
                 reject(new Error('no id supplied'))
@@ -689,8 +712,7 @@ module.exports = class AgencyBO {
             if (id && id > 0) {
                 let agencyDoc = null;
                 try {
-                    const returnDoc = true;
-                    agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
+                    agencyDoc = await this.getAgencyByMysqlId(id);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = true;
                         await agencyDoc.save();
