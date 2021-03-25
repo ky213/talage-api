@@ -1,7 +1,7 @@
 'use strict';
 const fileSvc = global.requireShared('services/filesvc.js');
 const serverHelper = require('../../../server.js');
-
+const {'v4': uuidv4} = require('uuid');
 /**
  * Responds to get requests for the list of insurer logos
  *
@@ -91,9 +91,10 @@ async function postInsurerLogo(req, res, next){
     }
 
     const logoData =  req.body.data.substring(req.body.data.indexOf(',') + 1);
-    
+    // add uuid -- cloudfront caches content for 24 hrs, by adding uuid prevents same name (old) images from being served from cache
+    const name = `${req.body.name}-${uuidv4().substring(24)}.${extension}`
     // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure
-    await fileSvc.PutFile(`insurers/${req.body.name}`, logoData, fileType).then((data) => {
+    await fileSvc.PutFile(`insurers/${name}`, logoData, fileType).then((data) => {
         res.send(200, data);
         next();
     }).catch((err) => {
