@@ -142,6 +142,13 @@ async function createQuoteSummary(quote) {
                 }
             }
             // Return the quote summary
+            let logoUrl = '';
+            if(insurer.logo && insurer.logo.startsWith('images')){
+                logoUrl = global.settings.IMAGE_URL + insurer.logo.replace('images','');
+            }
+            else {
+                logoUrl = global.settings.IMAGE_URL + insurer.logo
+            }
             return {
                 id: quote.mysqlId,
                 policy_type: quote.policyType,
@@ -151,7 +158,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: global.settings.IMAGE_URL + insurer.logo,
+                    logo: logoUrl,
                     name: insurer.name,
                     rating: insurer.rating
                 },

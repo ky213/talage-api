@@ -658,9 +658,9 @@ module.exports = class ChubbBOP extends Integration {
         // Build the authorization header
         const headers = {Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}`};
 
-        log.debug("=================== QUOTE REQUEST ===================");
-        log.debug(`${logPrefix}\n${xml}`);
-        log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug(`${logPrefix}\n${xml}`);
+        // log.debug("=================== QUOTE REQUEST ===================");
 
         let result = null;
         try {
@@ -676,9 +676,9 @@ module.exports = class ChubbBOP extends Integration {
         let additionalInfo = null;
 
         if (res.Status[0].StatusCd[0] !== '0') {
-            log.error("=================== QUOTE ERROR ===================");
-            log.error(`${logPrefix}\n${JSON.stringify(res.Status[0], null, 4)}`);
-            log.error("=================== QUOTE ERROR ===================");
+            // log.error("=================== QUOTE ERROR ===================");
+            // log.error(`${logPrefix}\n${JSON.stringify(res.Status[0], null, 4)}`);
+            // log.error("=================== QUOTE ERROR ===================");
         }
 
         let errorMessage = `${logPrefix}`;
@@ -697,9 +697,9 @@ module.exports = class ChubbBOP extends Integration {
                 // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
 
-                log.debug("=================== QUOTE RESULT ===================");
-                log.debug(`${logPrefix}\n${JSON.stringify(BOPPolicyQuoteInqRs, null, 4)}`);
-                log.debug("=================== QUOTE RESULT ===================");
+                // log.debug("=================== QUOTE RESULT ===================");
+                // log.debug(`${logPrefix}\n${JSON.stringify(BOPPolicyQuoteInqRs, null, 4)}`);
+                // log.debug("=================== QUOTE RESULT ===================");
 
                 let MsgStatusCd = null;
                 try {
