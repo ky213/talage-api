@@ -20,7 +20,7 @@ const tracker = global.requireShared('/helpers/tracker.js');
  *
  * @returns {void}
  */
-exports.PutFile = function(s3Key, fileContent) {
+exports.PutFile = function(s3Key, fileContent, contentType = null) {
     return new Promise(async function(resolve, reject) {
 
         // Sanitize the file path
@@ -46,13 +46,23 @@ exports.PutFile = function(s3Key, fileContent) {
                 log.error("File Service PUT: " + errorMsg + __location);
                 reject(errorMsg);
             }
-
-            // Call out to S3
-            global.s3.putObject({
+            // if content type provided then set that as well
+            const params = {
                 'Body': fileBuffer,
                 'Bucket': global.settings.S3_BUCKET,
                 'Key': s3Path
-            }, function(err) {
+            };
+            if (contentType){
+                params['ContentType'] = contentType;
+            }
+            console.log(`contentType ${contentType}`);
+            global.s3.putObject(params, function(err) {
+            // Call out to S3
+            // global.s3.putObject({
+            //     'Body': fileBuffer,
+            //     'Bucket': global.settings.S3_BUCKET,
+            //     'Key': s3Path
+            // }, function(err) {
                 if (err) {
                     log.error(`File Service PUT:  ${global.settings.S3_BUCKET}/${s3Path} error:` + err.message + __location);
                     reject(err.message);
