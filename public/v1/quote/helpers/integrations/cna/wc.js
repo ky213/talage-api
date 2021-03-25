@@ -430,9 +430,9 @@ module.exports = class CnaWC extends Integration {
                 log.error(`There was an error parsing the error object: ${e}.`);
             }
 
-            log.debug("=================== QUOTE ERROR ===================");
-            log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
-            log.debug("=================== QUOTE ERROR ===================");
+            // log.debug("=================== QUOTE ERROR ===================");
+            // log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
+            // log.debug("=================== QUOTE ERROR ===================");
             
             this.reasons.push(JSON.stringify(errorJSON));
 
