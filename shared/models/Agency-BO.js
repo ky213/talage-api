@@ -683,7 +683,7 @@ module.exports = class AgencyBO {
         });
     }
 
-    activateById(id, userId) {
+    activateById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
@@ -693,9 +693,6 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = true;
-                        if(userId){
-                            agencyDoc.deletedByUser = userId;
-                        }
                         await agencyDoc.save();
                     }
                 }
