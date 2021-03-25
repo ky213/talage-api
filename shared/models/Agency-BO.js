@@ -663,7 +663,6 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = false;
-                        agencyDoc.deletedAt = moment();
                         if(userId){
                             agencyDoc.deletedByUser = userId;
                         }
@@ -694,7 +693,6 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = true;
-                        agencyDoc.deletedAt = moment();
                         if(userId){
                             agencyDoc.deletedByUser = userId;
                         }

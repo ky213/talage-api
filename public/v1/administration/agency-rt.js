@@ -151,6 +151,6 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAdmin('Post Agency Object', `${basePath}/agency`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Agency Object', `${basePath}/agency/:id`, update, 'administration', 'all');
     server.addDeleteAuthAdmin('Delete Agency Object', `${basePath}/agency/:id`, deleteObject, 'administration', 'all');
-    server.addDeleteAuthAdmin('Activate Agency Object', `${basePath}/agency/activate/:id`, activateObject, 'administration', 'all');
+    server.addPutAuthAdmin('Activate Agency Object', `${basePath}/agency/activate/:id`, activateObject, 'administration', 'all');
 
 };
