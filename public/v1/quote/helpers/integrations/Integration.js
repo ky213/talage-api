@@ -706,9 +706,16 @@ module.exports = class Integration {
         try {
             results.forEach((result) => {
                 try{
+                    let attributeJSON = '';
+                    if (typeof result.attributes === 'object'){
+                        attributeJSON = result.attributes;
+                    }
+                    else if (typeof result.attributes === 'string'){
+                        attributeJSON = result.attributes ? JSON.parse(result.attributes) : ''
+                    }
                     question_details[result.question] = {
                         insurerQuestionId: result.id,
-                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                        attributes: attributeJSON,
                         identifier: result.identifier,
                         universal: result.universal
                     };
