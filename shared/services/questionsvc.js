@@ -43,12 +43,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             error = err.message;
         });
         if (activity_code_result && activity_code_result.length !== activityCodeArray.length) {
-            log.warn('Bad Request: Invalid Activity Code(s)');
-            error = 'One or more of the activity codes supplied is invalid';
+            log.warn('GetQuestions - Invalid Activity Code(s)' + __location);
+            //error = 'One or more of the activity codes supplied is invalid';
         }
-        if (error) {
-            return false;
-        }
+        //Might be old Activity codes from copied application.
+        // no need to stop.  Activity Code question logic will get no hits.
+        // that is OK.
+        // if (error) {
+        //     return false;
+        // }
     }
 
     /*
@@ -66,11 +69,14 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         });
         if (industry_code_result && industry_code_result.length !== 1) {
             log.warn('Bad Request: Invalid Industry Code');
-            error = 'The industry code supplied is invalid';
+            // error = 'The industry code supplied is invalid';
         }
-        if (error) {
-            return false;
-        }
+        //might be old industry code from copied application.
+        // not worth stopping over.
+        // especially if WC applications.
+        // if (error) {
+        //     return false;
+        // }
     }
     let territories = [];
     if(stateList.length > 0){
@@ -105,7 +111,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         }
         else {
             log.warn('Bad Request: Zip Code');
-            return false;
+            //return false;
         }
     }
 
@@ -555,7 +561,8 @@ exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCode
 
     const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden, stateList);
 
-    if(!questions){
+    if(!questions || questions === false){
+        log.debug('GetQuestionsForFrontend no questions ')
         return false;
     }
     for(const question in questions){
