@@ -2539,7 +2539,7 @@ module.exports = class ApplicationModel {
         try {
             //log.debug("insurerArray: " + insurerArray);
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
-            if(getQuestionsResult && getQuestionsResult.length === 0){
+            if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
                 log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
             }
@@ -2612,7 +2612,7 @@ module.exports = class ApplicationModel {
             log.error("Error call in question service " + err + __location);
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
-        if (!getQuestionsResult) {
+        if (!getQuestionsResult || getQuestionsResult === false) {
             log.error("No questions returned from question service " + __location);
             throw new Error('An error occured while retrieving application questions.');
         }
