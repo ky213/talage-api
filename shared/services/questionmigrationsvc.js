@@ -32,6 +32,7 @@ async function importInsurerQuestions(insurerId) {
         iq.universal,
         iq.text,
         iq.identifier,
+        iq.attributes,
         iq.created as 'createdAt',
         iq.modified as 'updatedAt',
         iq.questionSubjectArea,
@@ -55,7 +56,7 @@ async function importInsurerQuestions(insurerId) {
         return false;
     });
     log.info("importInsurerQuestions: Got MySql insurerQuestions - result.length - " + result.length);
-    const updateAbleProps = ['talageQuestionId','policyType','allTerritories','questionSubjectArea','effectiveDate','expirationDate', 'universal']
+    const updateAbleProps = ['talageQuestionId','policyType','allTerritories','questionSubjectArea','effectiveDate','expirationDate', 'universal', 'attributes','identifier']
     let updatedDocCount = 0;
     let newDocCount = 0;
     for(let i = 0; i < result.length; i++){
