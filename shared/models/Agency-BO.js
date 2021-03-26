@@ -358,7 +358,7 @@ module.exports = class AgencyBO {
     }
 
 
-    getList(queryJSON, getAgencyNetwork = false) {
+    getList(queryJSON, getAgencyNetwork = false, noActiveCheck = false) {
         return new Promise(async(resolve, reject) => {
 
             let agencyNetworkList = null;
@@ -378,7 +378,7 @@ module.exports = class AgencyBO {
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {};
+            let query = noActiveCheck ? {} : {active:true};
             let error = null;
 
             var queryOptions = {};

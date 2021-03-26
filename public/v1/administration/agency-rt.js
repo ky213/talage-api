@@ -20,8 +20,9 @@ const getAgencyNetworkName = true;
 async function findAll(req, res, next) {
     let error = null;
     const agencyBO = new AgencyBO();
-    
-    const rows = await agencyBO.getList(req.query, getAgencyNetworkName).catch(function(err) {
+
+    const noActiveStatusCheck = true;
+    const rows = await agencyBO.getList(req.query, getAgencyNetworkName, noActiveStatusCheck).catch(function(err) {
         log.error("admin agency error: " + err + __location);
         error = err;
     })
