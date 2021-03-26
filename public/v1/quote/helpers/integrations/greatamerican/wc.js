@@ -38,8 +38,6 @@ module.exports = class GreatAmericanWC extends Integration {
             code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))
         ));
 
-        /** */
-        const context = {};
         const token = await GreatAmericanApi.getToken(this);
 
         let sessionCodes = codes.map(c => ({
