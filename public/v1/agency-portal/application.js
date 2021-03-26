@@ -1088,11 +1088,13 @@ async function GetQuestions(req, res, next){
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
         log.info("Error getting questions " + err + __location);
-        return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+        res.send(200, []);
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
     }
 
     if(!getQuestionsResult){
-        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+        res.send(200, []);
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 
     res.send(200, getQuestionsResult);
