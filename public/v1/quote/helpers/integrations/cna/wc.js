@@ -163,9 +163,11 @@ module.exports = class CnaWC extends Integration {
             agencyId = this.app.agencyLocation.insurers[this.insurer.id].agency_id.split("-");
         }
         catch (e) {
+            log.error(`CNA: There was an error splitting the agency_id for insurer ${this.insurer.id}. ${e}.` + __location);
             return this.client_error(`CNA: There was an error splitting the agency_id for insurer ${this.insurer.id}. ${e}.`);
         }
         if (!Array.isArray(agencyId) || agencyId.length !== 2) {
+            log.error(`CNA: Could not generate branch code and contract number from Agency ID ${this.app.agencyLocation.agencyId}.` + __location);
             return this.client_error(`CNA: Could not generate branch code and contract number from Agency ID ${this.app.agencyLocation.agencyId}.`);
         }
 
@@ -196,6 +198,7 @@ module.exports = class CnaWC extends Integration {
                     */
 
                     // in the event CNA starts using national NCCI codes, replace this line below with the commented out code above...
+                    log.error(`CNA: Unable to locate a CNA activity code for Talage activity code ${activityCode.id}.` + __location);
                     return this.client_error(`CNA: Unable to locate a CNA activity code for Talage activity code ${activityCode.id}.`);
                 }
                 // set the activity code's NCCI code to either the insurer-specific Activity Code, or the national NCCI code
@@ -250,7 +253,8 @@ module.exports = class CnaWC extends Integration {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = `${contractNumber}-${branchCode}`;
         }
         catch (err) {
-            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
+            log.error(`CNA WC JSON processing error ${err}` + __location)
+            return this.client_error(`CNA WC JSON processing error ${err} `);
         }
 
         try {
@@ -297,7 +301,8 @@ module.exports = class CnaWC extends Integration {
 
         }
         catch (err) {
-            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
+            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} `);
         }
        
         try {
@@ -333,7 +338,8 @@ module.exports = class CnaWC extends Integration {
 
         }
         catch (err) {
-            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
+            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} `);
         }
 
         try {
@@ -398,7 +404,8 @@ module.exports = class CnaWC extends Integration {
 
         }
         catch (err) {
-            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
+            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} `);
         }
 
         // =================================================================
@@ -478,6 +485,7 @@ module.exports = class CnaWC extends Integration {
             case "error":
             case "login_error":
             case "general failure":
+                log.error(`CNA WC response ${response.MsgStatus.MsgStatusDesc.value} ` + __location);
                 return this.client_error(`CNA: ${response.MsgStatus.MsgStatusDesc.value}`);
             case "rejected": 
                 return this.client_declined(`CNA: ${response.MsgStatus.MsgStatusDesc.value}`);
@@ -571,10 +579,12 @@ module.exports = class CnaWC extends Integration {
                     case "notquotednotbound":
                         return this.client_declined(`CNA: Application was not quoted or bound.`);
                     default: 
+                        log.error(`CNA: Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}` + __location);
                         return this.client_error(`CNA: Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}`);
                 } // end inner switch
                 break;
             default: 
+                log.error(`CNA: Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".` + __location);
                 return this.client_error(`CNA: Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".`);
         } // end outer switch
 
@@ -588,6 +598,7 @@ module.exports = class CnaWC extends Integration {
             }
         }
         else {
+            log.error(`CNA: Response doesn't include a policy status code.` + __location);
             return this.client_error(`CNA: Response doesn't include a policy status code.`);
         }
     }
@@ -738,6 +749,7 @@ module.exports = class CnaWC extends Integration {
                 answer = this.determine_question_answer(questionArray[i]);
             }
             catch (error) {
+                log.debug(`CNA WC Could not determine the answer for one of the questions ${JSON.stringify(questionArray[i])}` + __location)
                 return this.client_error('Could not determine the answer for one of the questions', __location, JSON.stringify(questionArray[i]));
             }
 
