@@ -706,9 +706,16 @@ module.exports = class Integration {
         try {
             results.forEach((result) => {
                 try{
+                    let attributeJSON = '';
+                    if (typeof result.attributes === 'object'){
+                        attributeJSON = result.attributes;
+                    }
+                    else if (typeof result.attributes === 'string'){
+                        attributeJSON = result.attributes ? JSON.parse(result.attributes) : ''
+                    }
                     question_details[result.question] = {
                         insurerQuestionId: result.id,
-                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                        attributes: attributeJSON,
                         identifier: result.identifier,
                         universal: result.universal
                     };
@@ -827,7 +834,6 @@ module.exports = class Integration {
                                 this.universal_questions.push(insurerQuestion.talageQuestionId);
                             }
                         }
-                        log.debug("Adding indentifiers " + JSON.stringify(identifiers))
                         fulfill(identifiers);
                     }
                     else {
@@ -1309,13 +1315,16 @@ module.exports = class Integration {
             const insurerQuestion = insurerQuestionList.find((iq) => iq.question === applicationQuestion.questionId);
             if (insurerQuestion && !applicationQuestion.hidden) {
                 let insurerQuestionAttributes = null;
-                if (insurerQuestion.attributes) {
+                if (insurerQuestion.attributes && typeof insurerQuestion.attributes === 'string') {
                     try {
                         insurerQuestionAttributes = JSON.parse(insurerQuestion.attributes);
                     }
-                    catch (error) {
-                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Could not parse attributes for insurer question ${insurerQuestion.identifier}`);
+                    catch (err) {
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Could not parse attributes for insurer question ${insurerQuestion.identifier} error: ${err}` + __location);
                     }
+                }
+                else{
+                    insurerQuestionAttributes = insurerQuestion.attributes;
                 }
                 applicationQuestion.insurerQuestionIdentifier = insurerQuestion.identifier;
                 applicationQuestion.insurerQuestionAttributes = insurerQuestionAttributes;

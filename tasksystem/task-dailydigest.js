@@ -254,7 +254,6 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
 var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yesterdayEnd){
 
-    
     const agencyNetworkId = agencyNetworkDB.agencyNetworkId;
 
     const query = {

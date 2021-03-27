@@ -21,7 +21,6 @@ const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
-const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
@@ -1039,18 +1038,6 @@ async function runQuotes(application) {
     catch (error) {
         log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
     }
-
-    // Update the application quote progress to "complete"
-    const applicationBO = new ApplicationBO();
-    try {
-        await applicationBO.updateProgress(application.id, "complete");
-    }
-    catch (err) {
-        log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);
-    }
-
-    // Update the application status
-    await status.updateApplicationStatus(application.id);
 }
 
 async function GetQuestions(req, res, next){
@@ -1228,6 +1215,7 @@ async function bindQuote(req, res, next) {
  * @returns {Object} returns the policy limits object
  */
 async function GetPolicyLimits(agencyId){
+    // eslint-disable-next-line prefer-const
     let limits = {
         "BOP": [
             {
@@ -1288,7 +1276,7 @@ async function GetPolicyLimits(agencyId){
         const useAgencyPrimeInsurers = true;
         let error = null;
         locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-            log.error(`Could not get agency locations for agencyId ${agencyId} `+ err.message + __location);
+            log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
             error = err;
         });
         if(!error){
@@ -1300,10 +1288,10 @@ async function GetPolicyLimits(agencyId){
                         const locationInsurers = locationList[i].insurers;
                         if(locationInsurers && locationInsurers.length > 0){
                             // grab all the insurer ids
-                            const insurerIdList =  locationInsurers.map(insurerObj => insurerObj.insurerId);
-                             // are any of the insurer id equal 27 (arrowHead)
+                            const insurerIdList = locationInsurers.map(insurerObj => insurerObj.insurerId);
+                            // are any of the insurer id equal 27 (arrowHead)
                             if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
-                                limits['BOP'] =[ {
+                                limits['BOP'] = [{
                                     "key": "1000000/1000000/1000000",
                                     "value": "$1,000,000 / $1,000,000 / $1,000,000"
                                 }];
@@ -1317,10 +1305,11 @@ async function GetPolicyLimits(agencyId){
                 }
             }
         }
-        
+
     }
-    return limits   
+    return limits;
 }
+
 /**
  * GET returns resources Quote Engine needs
  *
@@ -1385,7 +1374,7 @@ async function GetResources(req, res, next){
     }
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
     responseObj.limits = await GetPolicyLimits(agencyId);
-    
+
     responseObj.unemploymentNumberStates = [
         'CO',
         'HI',
@@ -1413,7 +1402,6 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
@@ -1540,24 +1528,25 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
     // TODO: Review if this is this valid, if quote amount not returned set to zero this will result in an empty paymentOptionsList
     const quoteAmount = req.query.quoteAmount ? req.query.quoteAmount : 0;
     // Retrieve the payment plans and create the payment options object
-     const paymentOptions = [];
-     const paymentPlanModel = new PaymentPlanBO();
-     for (const insurerPaymentPlan of insurerPaymentPlanList) {
-         if (quoteAmount > insurerPaymentPlan.premium_threshold) {
-             try {
-                 const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
-                 paymentOptions.push({
-                     id: paymentPlan.id,
-                     name: paymentPlan.name,
-                     description: paymentPlan.description
-                 });
-             }
-             catch (error) {
-                 log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
-                 return null;
-             }
-         }
-     }
+    const paymentOptions = [];
+    const paymentPlanModel = new PaymentPlanBO();
+    for (const insurerPaymentPlan of insurerPaymentPlanList) {
+        if (quoteAmount > insurerPaymentPlan.premium_threshold) {
+            try {
+                const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                paymentOptions.push({
+                    id: paymentPlan.id,
+                    name: paymentPlan.name,
+                    description: paymentPlan.description
+                });
+            }
+            catch (err) {
+                log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + err + __location);
+                res.send(500, []);
+                return next();
+            }
+        }
+    }
     if (paymentOptions) {
         if(paymentOptions.length === 0){
             log.warn(`Not able to find any payment plans for insurerId ${id}. Please review and make sure not an issue.` + __location);
