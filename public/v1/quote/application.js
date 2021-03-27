@@ -7,7 +7,6 @@
 const Application = require('./helpers/models/Application.js');
 const serverHelper = require('../../../server.js');
 const jwt = require('jsonwebtoken');
-const status = global.requireShared('./models/application-businesslogic/status.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
@@ -181,17 +180,6 @@ async function runQuotes(application) {
         log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
     }
 
-    // Update the application quote progress to "complete"
-    const applicationBO = new ApplicationBO();
-    try{
-        await applicationBO.updateProgress(application.id, "complete");
-    }
-    catch(err){
-        log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);
-    }
-
-    // Update the application status
-    await status.updateApplicationStatus(application.id);
 }
 
 /* -----==== Endpoints ====-----*/

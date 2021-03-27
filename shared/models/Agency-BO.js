@@ -292,6 +292,26 @@ module.exports = class AgencyBO {
         });
     }
 
+    async getAgencyByMysqlId(mysqlId) {
+        return new Promise(async(resolve, reject) => {
+            if (mysqlId) {
+                const query = {mysqlId: mysqlId};
+                let docDB = null;
+                try {
+                    docDB = await AgencyModel.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                resolve(docDB);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
 
     async getbySlug(slug, returnMongooseModel = false, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
@@ -338,7 +358,7 @@ module.exports = class AgencyBO {
     }
 
 
-    getList(queryJSON, getAgencyNetwork = false) {
+    getList(queryJSON, getAgencyNetwork = false, noActiveCheck = false) {
         return new Promise(async(resolve, reject) => {
 
             let agencyNetworkList = null;
@@ -358,7 +378,7 @@ module.exports = class AgencyBO {
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {active: true};
+            let query = noActiveCheck ? {} : {active:true};
             let error = null;
 
             var queryOptions = {};
@@ -666,7 +686,6 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = false;
-                        agencyDoc.deletedAt = moment();
                         if(userId){
                             agencyDoc.deletedByUser = userId;
                         }
@@ -680,6 +699,31 @@ module.exports = class AgencyBO {
 
                 resolve(true);
 
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    activateById(id) {
+        return new Promise(async(resolve, reject) => {
+            //validate
+            if (id && id > 0) {
+                let agencyDoc = null;
+                try {
+                    agencyDoc = await this.getAgencyByMysqlId(id);
+                    if(agencyDoc && agencyDoc.systemId){
+                        agencyDoc.active = true;
+                        await agencyDoc.save();
+                    }
+                }
+                catch (err) {
+                    log.error(`Error marking active agencyDoc from mysqlId ${id}` + err + __location);
+                    reject(err);
+                }
+
+                resolve(true);
             }
             else {
                 reject(new Error('no id supplied'))

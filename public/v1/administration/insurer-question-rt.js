@@ -199,6 +199,10 @@ async function add(req, res, next) {
         req.body.effectiveDate = "1980-01-01";
     }
 
+    if(req.body && req.body.attributes && typeof req.body.attributes === 'string'){
+        req.body.attributes = JSON.parse(req.body.attributes);
+    }
+
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
     const objectJSON = await insurerQuestionBO.insertMongo(req.body).catch(function(err) {
@@ -244,6 +248,9 @@ async function update(req, res, next) {
     }
 
     log.debug(JSON.stringify(req.body));
+    if(req.body && req.body.attributes && typeof req.body.attributes === 'string'){
+        req.body.attributes = JSON.parse(req.body.attributes);
+    }
     const newJSON = await insurerQuestionBO.updateMongo(id, req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
