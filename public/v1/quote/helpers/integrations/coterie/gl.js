@@ -37,11 +37,12 @@ module.exports = class CompwestWC extends Integration {
                 "zip": location.zipcode
             }
             if(this.policy.type.toUpperCase() === 'BOP'){
+                //log.debug(`this.policy ${JSON.stringify()}`)
                 if(location.businessPersonalPropertyLimit){
                     subLoc.bppLimit = location.businessPersonalPropertyLimit
                 }
                 else {
-                    subLoc.bppLimit = this.bopCoverage;
+                    subLoc.bppLimit = this.policy.bopCoverage;
                 }
                 if(location.buildingLimit){
                     subLoc.buildingLimit = location.buildingLimit;
@@ -65,11 +66,6 @@ module.exports = class CompwestWC extends Integration {
         log.debug('this.policy.limits ' + this.policy.limits + __location)
         const requestedLimits = this.getSplitLimits(this.policy.limits);
         log.debug('requestedLimits ' + requestedLimits + __location)
-        // for(let i = 0; i < requestedLimits.length; i++){
-        //     if(requestedLimits[i] !== "NaN"){
-        //         this.limits[i.toString()] = parseInt(requestedLimits[i],10);
-        //     }
-        // }
         this.limits[4] = parseInt(requestedLimits[0],10);
         this.limits[8] = parseInt(requestedLimits[3],10);
         this.limits[9] = parseInt(requestedLimits[4],10);
@@ -79,8 +75,8 @@ module.exports = class CompwestWC extends Integration {
             "applicationTypes": policyTypeArray,
             "grossAnnualSales": appDoc.grossSalesAmt,
             "glLimit": requestedLimits[0],
-            "glAggregateLimit": requestedLimits[1],
-            "glAggregatePcoLimit": requestedLimits[2],
+            "glAggregateLimit": requestedLimits[3],
+            "glAggregatePcoLimit": requestedLimits[4],
             "policyStartDate": this.policy.expiration_date.toISOString(),
             "policyEndDate": this.policy.expiration_date.toISOString(),
             "zip": appDoc.mailingZipcode,
@@ -124,6 +120,17 @@ module.exports = class CompwestWC extends Integration {
         if(totalPayRoll > 0){
             submissionJSON.annualPayroll = totalPayRoll;
         }
+        if(appDoc.founded){
+            try{
+                var now = moment();
+                submissionJSON.businessAgeInMonths = now.diff(appDoc.founded, 'months');
+            }
+            catch(err){
+                log.error(`Coterie API: Appid: ${this.app.id} businessAgeInMonths error ${err} ` + __location);
+            }
+            //
+        }
+
 
         //Claims
         if(appDoc.claims && appDoc.claims.length > 0){
@@ -131,7 +138,7 @@ module.exports = class CompwestWC extends Integration {
             appDoc.claims.forEach((claim) => {
                 if(claim.policyType.toUpperCase() === this.policy.type.toUpperCase()){
                     const claimJson = {
-                        "description": "Event: " + claim.eventDate.toISOString(),
+                        "description": "Event: " + claim.eventDate,
                         "amount": claim.amountPaid
                     }
                     claimsArray.push(claimJson)
