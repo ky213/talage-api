@@ -706,11 +706,12 @@ module.exports = class Integration {
         // Convert this into an object for easy reference
         const question_details = {};
         try {
+
             results.forEach((result) => {
                 try{
                     question_details[result.question] = {
                         insurerQuestionId: result.id,
-                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                        attributes: result.attributes ? result.attributes : '',
                         identifier: result.identifier,
                         universal: result.universal
                     };
@@ -769,6 +770,18 @@ module.exports = class Integration {
                 let results = null;
                 try {
                     results = await db.query(sql);
+                    //Fix attributes convert to JSON.
+                    results.forEach((result) => {
+                        try{
+                            if(result.attributes && typeof result.attributes === 'string'){
+                                result.attributes = JSON.parse(result.attributes)
+                            }
+                        }
+                        catch(err){
+                            log.error(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: unable to parse clw_talage_insurer_questions attributes ${result.attributes} ${err}` + __location);
+                            result.attributes = '';
+                        }
+                    });
                 }
                 catch (error) {
                     throw error;
