@@ -820,6 +820,9 @@ module.exports = class Integration {
                     let insurerQuestionList = null;
                     try{
                         insurerQuestionList = await InsurerQuestionModel.find(query);
+                        if(insurerQuestionList && insurerQuestionList.length === 0){
+                            log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
+                        }
                     }
                     catch(err){
                         throw err
@@ -854,6 +857,7 @@ module.exports = class Integration {
                 }
             }
             else {
+                log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No question_ids ${JSON.stringify(this.questions)}` + __location);
                 fulfill({});
             }
         });
@@ -1126,16 +1130,41 @@ module.exports = class Integration {
             }
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
+            let insurerQuestionList = null;
+            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                const query = {
+                    "insurerId": this.insurer.id,
+                    "policyType": this.policy.type
+                }
+                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                try{
+                    insurerQuestionList = await InsurerQuestionModel.find(query);
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
+                }
+            }
             for (const question_id in this.app.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
                     try{
                         const question = this.app.questions[question_id];
-                        if (question.insurers && question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){
-                            this.questions[question_id] = question;
+                        if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                            if(insurerQuestionList){
+                                const iQFound = insurerQuestionList.find((iq) => iq.talageQuestionId === parseInt(question_id,10));
+                                if(iQFound){
+                                    this.questions[question_id] = question;
+                                }
+                            }
+                        }
+                        else {
+                            // eslint-disable-next-line no-lonely-if
+                            if (question.insurers && question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){ 
+                                this.questions[question_id] = question;
+                            }
                         }
                     }
                     catch(err){
-                        log.error(`error get question ${question_id} for ${this.insurer.id}-${this.policy.type} ` + __location)
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error get question ${question_id} for ${this.insurer.id}-${this.policy.type} ` + __location)
                     }
                 }
             }
