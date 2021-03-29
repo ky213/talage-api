@@ -83,8 +83,8 @@ async function createQuoteSummary(quote) {
                     limits[limit.description] = `${quoteLimit.amount}`;
                 }
                 catch (error) {
-                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
-                    return null;
+                    log.error(`Could not get limits for ${quote.insurerId} limit type ${quoteLimit.limitId}:` + error + __location);
+                    //return null;
                 }
             }
 

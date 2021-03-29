@@ -1,7 +1,8 @@
 /* eslint-disable prefer-const */
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
 const moment = require('moment');
-const util = require('util');
+const axios = require('axios');
 const log = global.log;
 //const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
@@ -19,6 +20,7 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
 
+        log.debug('Coterie GL Quote starting ' + __location)
         const appDoc = this.app.applicationDocData;
 
         // product array
@@ -41,7 +43,9 @@ module.exports = class CompwestWC extends Integration {
                 else {
                     subLoc.bppLimit = this.bopCoverage;
                 }
-                subLoc.buildingLimit = location.buildingLimit
+                if(location.buildingLimit){
+                    subLoc.buildingLimit = location.buildingLimit;
+                }
             }
             locationArray.push(subLoc)
         });
@@ -56,9 +60,19 @@ module.exports = class CompwestWC extends Integration {
         //look up coterie industry Code from InsurerIndustryCode Doc attributes.
         let coterieIndustryId = 0;
         if(this.insurerIndustryCode && this.insurerIndustryCode.attributes){
-            coterieIndustryId = this.insurerIndustryCode.attributes["Coterie ID"]
+            coterieIndustryId = parseInt(this.insurerIndustryCode.attributes["Coterie ID"],10);
         }
+        log.debug('this.policy.limits ' + this.policy.limits + __location)
         const requestedLimits = this.getSplitLimits(this.policy.limits);
+        log.debug('requestedLimits ' + requestedLimits + __location)
+        // for(let i = 0; i < requestedLimits.length; i++){
+        //     if(requestedLimits[i] !== "NaN"){
+        //         this.limits[i.toString()] = parseInt(requestedLimits[i],10);
+        //     }
+        // }
+        this.limits[4] = parseInt(requestedLimits[0],10);
+        this.limits[8] = parseInt(requestedLimits[3],10);
+        this.limits[9] = parseInt(requestedLimits[4],10);
 
         let submissionJSON = {
             "metadata": appDoc.applicationId,
@@ -67,7 +81,7 @@ module.exports = class CompwestWC extends Integration {
             "glLimit": requestedLimits[0],
             "glAggregateLimit": requestedLimits[1],
             "glAggregatePcoLimit": requestedLimits[2],
-            "policyStartDate": this.policy.expiration_datetoISOString(),
+            "policyStartDate": this.policy.expiration_date.toISOString(),
             "policyEndDate": this.policy.expiration_date.toISOString(),
             "zip": appDoc.mailingZipcode,
             "numEmployees": this.get_total_employees(),
@@ -84,11 +98,24 @@ module.exports = class CompwestWC extends Integration {
             "mailingAddressZip": appDoc.mailingZipcode,
             "locations": locationArray
         }
-
-        if(this.policy.type.toUpperCase() === 'BOP'){
+        let coterieDeductible = 0;
+        if(this.policy.deductible >= 0){
             //submissionJSON.bppDeductible = appDoc.policies[].deductible
-            submissionJSON.bppDeductible = this.policy.deductible;
-            // what is "propertyDamageLiabilityDeductible"
+            coterieDeductible = 5000;
+            coterieDeductible = this.policy.deductible;
+            if(coterieDeductible > 1000 && coterieDeductible < 2501){
+                coterieDeductible = 2500
+            }
+            else if (coterieDeductible > 2500) {
+                coterieDeductible = 5000
+            }
+            if(this.policy.type.toUpperCase() === 'BOP'){
+                submissionJSON.bppDeductible = coterieDeductible;
+            }
+            else {
+                submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
+            }
+            // what is "propertyDamageLiabilityDeductible" Assuming GL Deductible.
             //"propertyDamageLiabilityDeductible": 500,
         }
 
@@ -115,28 +142,112 @@ module.exports = class CompwestWC extends Integration {
             }
         }
 
+        log.debug(`Coterie ${this.policy.type.toUpperCase()} Quote submission JSON \n ${JSON.stringify(submissionJSON)} \n ` + __location)
 
-
-        //When additional Insurered is collected.
-        // "endorsements" : {"additionalInsureds" : [
-        //         {
-        //             "name" : "Company A",
-        //             "address" : "7817 Cooper Rd Suite A, Cincinnati OH 45242",
-        //             "email" : "contact@company-a.io",
-        //             "description" : ""
-        //         }
-        //     ]}
-
-
-
+        const publicKey = this.app.agencyLocation.insurers[this.insurer.id].agency_id
         //call API
+        let host = null;
+        let path = '/v1/commercial/quotes/bindable';
+        if (this.insurer.useSandbox) {
+            host = 'https://api-sandbox.coterieinsurance.com';
+            //path = '/v1/commercial/quotes/bindable';
+        }
+        else {
+            host = 'https://api.coterieinsurance.com';
+            //path = '/v1/commercial/quotes/bindable';
+        }
+        const urlFQN = host + path;
+        const requestOptions = {
+            headers: {
+                Authorization: `token ${publicKey}`,
+                "Content-Type": 'application/json'
+            },
+            timeout: 60000
+        };
+        //log.debug("Coterie requeste options " + JSON.stringify(requestOptions) + __location)
+        this.log += `--------======= Sending to Coterie =======--------<br><br>`;
+        this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
+        this.log += `URL: ${host}${path}<br><br>`;
+        this.log += `<pre>${JSON.stringify(submissionJSON, null, 2)}</pre><br><br>`;
+        this.log += `--------======= End =======--------<br><br>`;
+
+        let apiResponse = null;
+        let quoteResponse = null;
+        //const error = null;
+        try{
+            apiResponse = await axios.post(urlFQN, JSON.stringify(submissionJSON), requestOptions);
+            if(apiResponse && apiResponse.data){
+                quoteResponse = apiResponse.data;
+            }
+        }
+        catch(err){
+            log.error(`Coterie API: Appid: ${this.app.id} API call error: ${err}  ` + __location)
+            this.reasons.push(`Coterie API Error: ${err}`);
+            this.log += `--------======= Coterie Request Error =======--------<br><br>`;
+            this.log += err;
+            this.log += `--------======= End =======--------<br><br>`;
+        }
+        if(quoteResponse){
+            log.debug(`Coterie API: Appid: ${this.app.id} response \n ${JSON.stringify(quoteResponse)} \n ` + __location)
 
 
-        //deal with results.
-
-
-        return this.return_result('error');
+            this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br>`;
+            this.log += `<pre>${JSON.stringify(quoteResponse, null, 2)}</pre><br><br>`;
+            this.log += `--------======= End =======--------<br><br>`;
+            let isReferred = false;
+            this.quoteResponseJSON = quoteResponse;
+            if(quoteResponse.isSuccess){
+                if(quoteResponse.quote){
+                    const quote = quoteResponse.quote
+                    this.amount = quote.premium;
+                    this.request_id = quote.externalId;
+                    this.quoteLink = quote.applicationUrl;
+                    if(this.policy.type.toUpperCase() === 'BOP'){
+                        this.deductible = coterieDeductible;
+                    }
+                    isReferred = quote.isEstimate;
+                    if(quote.quotes && quote.quotes.length > 0){
+                        const quoteDetail = quote.quotes[0];
+                        this.number = quoteDetail.applicationId;
+                    }
+                    if(isReferred){
+                        return this.return_result('referred_with_price');
+                    }
+                    else {
+                        return this.return_result('quoted');
+                    }
+                }
+                else {
+                    log.error(`Coterie API: Appid: ${this.app.id} unknown successful response ${JSON.stringify(quoteResponse)}`)
+                    return this.return_result('error');
+                }
+            }
+            else if(quoteResponse.errors){
+                quoteResponse.errors.forEach((error) => {
+                    this.reasons.push(error);
+                });
+                return this.return_result('declined');
+            }
+            else {
+                log.error(`Coterie API: Appid: ${this.app.id} unknown unsuccessful reason ${JSON.stringify(quoteResponse)}`)
+                this.reasons.push("Decline: unknown reason")
+                return this.return_result('declined');
+            }
+        }
+        else {
+            this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br>`;
+            try{
+                if(apiResponse){
+                    this.log += `<pre>Status Code ${apiResponse.status}</pre><br><br>`;
+                    this.log += `<pre>Status Text ${apiResponse.statusText}</pre><br><br>`;
+                    //this.log += `<pre>${JSON.stringify(apiResponse.data, null, 2)}</pre><br><br>`;
+                }
+            }
+            catch(err){
+                log.error(`Unable to parse error response from Coterie ${this.app.id} ${apiResponse} ` + __location)
+            }
+            return this.return_result('error');
+        }
 
     }
-
 }

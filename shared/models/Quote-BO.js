@@ -79,15 +79,17 @@ module.exports = class QuoteBO {
                 log.debug(`${tableName} saved id ` + quoteID);
                 quoteJSON.mysqlId = quoteID;
             }
-
+            //check limits
+            for (let i = 0; i < quoteJSON.limits.length; i++){
+                const limitJSON = quoteJSON.limits[i];
+                if(!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN"){
+                    log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
+                    limitJSON.amount = 0;
+                }
+            }
             //mongo save.
+            //log.debug("quoteJSON " + JSON.stringify(quoteJSON))
             try{
-                // eslint-disable-next-line no-unused-vars
-                const ApplicationBO = global.requireShared('models/Application-BO.js');
-                const applicationBO = new ApplicationBO();
-                //Get ApplicationID.
-                const applicationData = await applicationBO.loadfromMongoBymysqlId(quoteJSON.mysqlAppId);
-                quoteJSON.applicationId = applicationData.applicationId;
                 const quote = new Quote(quoteJSON);
                 await quote.save().catch(function(err){
                     log.error('Mongo Quote Save err ' + err + __location);
@@ -97,20 +99,20 @@ module.exports = class QuoteBO {
                 log.error("Error saving Mongo quote " + err + __location);
             }
 
-            //limit save
-            if(quoteJSON.limits && quoteJSON.limits.length > 0){
-                const limitValues = [];
-                for (let i = 0; i < quoteJSON.limits.length; i++){
-                    const limitJSON = quoteJSON.limits[i];
-                    limitValues.push(`(${quoteID}, ${limitJSON.limitId}, ${limitJSON.amount})`);
-                }
-                const quoteLimitBO = new QuoteLimitBO();
-                // eslint-disable-next-line array-element-newline
-                const limitcolumns = ['quote', 'limit', 'amount']
-                await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
-                    log.error(`Error quoteLimitBO.insertByColumnValue  for appId: ${quoteJSON.mysqlAppId}` + err + __location);
-                });
-            }
+            // //limit save
+            // if(quoteJSON.limits && quoteJSON.limits.length > 0){
+            //     const limitValues = [];
+            //     for (let i = 0; i < quoteJSON.limits.length; i++){
+            //         const limitJSON = quoteJSON.limits[i];
+            //         limitValues.push(`(${quoteID}, ${limitJSON.limitId}, ${limitJSON.amount})`);
+            //     }
+            //     const quoteLimitBO = new QuoteLimitBO();
+            //     // eslint-disable-next-line array-element-newline
+            //     const limitcolumns = ['quote', 'limit', 'amount']
+            //     await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
+            //         log.error(`Error quoteLimitBO.insertByColumnValue  for appId: ${quoteJSON.mysqlAppId}` + err + __location);
+            //     });
+            // }
             resolve(quoteID);
         });
     }
