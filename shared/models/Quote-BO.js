@@ -80,11 +80,13 @@ module.exports = class QuoteBO {
                 quoteJSON.mysqlId = quoteID;
             }
             //check limits
-            for (let i = 0; i < quoteJSON.limits.length; i++){
-                const limitJSON = quoteJSON.limits[i];
-                if(!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN"){
-                    log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
-                    limitJSON.amount = 0;
+            if(quoteJSON.limits && quoteJSON.limits.length > 0){
+                for (let i = 0; i < quoteJSON.limits.length; i++){
+                    const limitJSON = quoteJSON.limits[i];
+                    if(!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN"){
+                        log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
+                        limitJSON.amount = 0;
+                    }
                 }
             }
             //mongo save.
