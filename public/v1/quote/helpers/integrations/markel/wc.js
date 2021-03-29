@@ -1222,7 +1222,7 @@ module.exports = class MarkelWC extends Integration {
         ]}
 
         // let unansweredQ = null;
-        let declinedReasons = null;
+        // let declinedReasons = null;
         let response = null;
         try {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
