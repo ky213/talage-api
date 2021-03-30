@@ -46,9 +46,9 @@ async function getResources(req, res, next){
             officerTitles(resources);
             break;
         case "_policies":
-            await limitsSelectionAmounts(resources, req);
+            await limitsSelectionAmounts(resources, req.query.appId);
             deductibleAmounts(resources);
-            await policiesEnabled(resources, req);
+            await policiesEnabled(resources, req.query.appId);
             break;
     }
 
@@ -57,7 +57,7 @@ async function getResources(req, res, next){
 const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];
 }
-const policiesEnabled = async (resources, req) => {
+const policiesEnabled = async (resources, appId) => {
     // defaultEnabledPolicies is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
     const defaultEnabledPolicies = [
         "BOP",
@@ -68,7 +68,7 @@ const policiesEnabled = async (resources, req) => {
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
-        applicationDB = await applicationBO.getById(req.query.appId);
+        applicationDB = await applicationBO.getById(appId);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
@@ -87,7 +87,6 @@ const policiesEnabled = async (resources, req) => {
             log.error(`Could not get agency locations for agencyId ${agencyId} `+ err.message + __location);
             error = err;
         });
-        // console.log(JSON.stringify(locationList));
         if(!error){
             if(locationList && locationList.length > 0){
                 // for each location go through the list of insurers
@@ -135,7 +134,7 @@ const policyTypes = resources => {
     ];
 };
 
-const limitsSelectionAmounts = async (resources, req) => {
+const limitsSelectionAmounts = async (resources, appId) => {
     let limits = {
         bop: [
                 {
@@ -188,7 +187,7 @@ const limitsSelectionAmounts = async (resources, req) => {
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
-        applicationDB = await applicationBO.getById(req.query.appId);
+        applicationDB = await applicationBO.getById(appId);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
