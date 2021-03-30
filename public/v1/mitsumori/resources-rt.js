@@ -58,7 +58,7 @@ const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];
 }
 const policiesEnabled = async (resources, req) => {
-    // defaultPolices is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
+    // defaultEnabledPolicies is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
     const defaultEnabledPolicies = [
         "BOP",
         "GL",
@@ -91,9 +91,7 @@ const policiesEnabled = async (resources, req) => {
         if(!error){
             if(locationList && locationList.length > 0){
                 // for each location go through the list of insurers
-                 // for each location go through the list of insurers
-                 for(let i = 0; i < locationList.length; i++){
-
+                for(let i = 0; i < locationList.length; i++){
                     if(locationList[i].hasOwnProperty('insurers')){
                         // grab all the insurers
                         const locationInsurers = locationList[i].insurers;
@@ -101,7 +99,7 @@ const policiesEnabled = async (resources, req) => {
                         for(let j = 0; j < locationInsurers.length; j++){
                             const insurer = locationInsurers[j];
                             if(insurer.hasOwnProperty('policyTypeInfo'))
-                            // for each possible policy type determine if enabled
+                            // for each default enabled policy type determine if policy is enabled for this insurer 
                             for( const pt of defaultEnabledPolicies){
                                 if(insurer.policyTypeInfo[pt] && insurer.policyTypeInfo[pt].enabled === true){
                                     enabledPoliciesSet.add(pt);
