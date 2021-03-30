@@ -70,6 +70,7 @@ module.exports = class CompwestWC extends Integration {
         this.limits[8] = parseInt(requestedLimits[3],10);
         this.limits[9] = parseInt(requestedLimits[4],10);
 
+        //leave out policyEnddate per coterie - Defaults to yearly.
         let submissionJSON = {
             "metadata": appDoc.applicationId,
             "applicationTypes": policyTypeArray,
@@ -78,7 +79,7 @@ module.exports = class CompwestWC extends Integration {
             "glAggregateLimit": requestedLimits[3],
             "glAggregatePcoLimit": requestedLimits[4],
             "policyStartDate": this.policy.expiration_date.toISOString(),
-            "policyEndDate": this.policy.expiration_date.toISOString(),
+            //"policyEndDate": this.policy.expiration_date.toISOString(),
             "zip": appDoc.mailingZipcode,
             "numEmployees": this.get_total_employees(),
             "industryId": coterieIndustryId,
