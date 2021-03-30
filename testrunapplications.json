@@ -159,5 +159,10 @@
     "description": "Travelers WC QA Talage Construction -Heating and Air-Conditioning Contractor NV",
     "sourceAppId": 12576,
     "requiresNewEin": false
-  }   
+},
+	{
+    "description": "BTIS GL NV Handyman -Handyman NV",
+    "sourceAppId": 13405,
+    "requiresNewEin": false
+  }    
 ]
