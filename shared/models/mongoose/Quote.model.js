@@ -42,6 +42,7 @@ const QuoteSchema = new Schema({
     reasons: {type: String},
     quoteLetter: {type: String},
     quoteTimeSeconds: {type: Number},
+    quoteResponseJSON: {type: Schema.Types.Mixed},
     writer: {type: String},
     limits: [QouteLimitSchema],
     quoteLink: {type: String},

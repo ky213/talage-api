@@ -46,9 +46,9 @@ async function getResources(req, res, next){
             officerTitles(resources);
             break;
         case "_policies":
-            await limitsSelectionAmounts(resources, req);
+            await limitsSelectionAmounts(resources, req.query.appId);
             deductibleAmounts(resources);
-            policiesEnabled(resources);
+            await policiesEnabled(resources, req.query.appId);
             break;
     }
 
@@ -57,12 +57,64 @@ async function getResources(req, res, next){
 const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];
 }
-const policiesEnabled = resources => {
-    resources.policiesEnabled = [
+const policiesEnabled = async (resources, appId) => {
+    // defaultEnabledPolicies is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
+    const defaultEnabledPolicies = [
         "BOP",
         "GL",
         "WC"
     ];
+    const enabledPoliciesSet = new Set();
+    let applicationDB = null;
+    const applicationBO = new ApplicationBO();
+    try{
+        applicationDB = await applicationBO.getById(appId);
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+    }
+    if(applicationDB && applicationDB.applicationId && applicationDB.hasOwnProperty('agencyId')){
+        // given an agency grab all of its locations
+        const agencyId = applicationDB.agencyId;
+        const agencyLocationBO = new AgencyLocationBO();
+        let locationList = null;
+        const query = {"agencyId": agencyId}
+        const getAgencyName = true;
+        const getChildren = true;
+        const useAgencyPrimeInsurers = true;
+        let error = null;
+        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+            log.error(`Could not get agency locations for agencyId ${agencyId} `+ err.message + __location);
+            error = err;
+        });
+        if(!error){
+            if(locationList && locationList.length > 0){
+                // for each location go through the list of insurers
+                for(let i = 0; i < locationList.length; i++){
+                    if(locationList[i].hasOwnProperty('insurers')){
+                        // grab all the insurers
+                        const locationInsurers = locationList[i].insurers;
+                        // for each insurer go through the list of policy type object
+                        for(let j = 0; j < locationInsurers.length; j++){
+                            const insurer = locationInsurers[j];
+                            if(insurer.hasOwnProperty('policyTypeInfo'))
+                            // for each default enabled policy type determine if policy is enabled for this insurer 
+                            for( const pt of defaultEnabledPolicies){
+                                if(insurer.policyTypeInfo[pt] && insurer.policyTypeInfo[pt].enabled === true){
+                                    enabledPoliciesSet.add(pt);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let enabledPoliciesArray = null;
+    if(enabledPoliciesSet.size > 0){
+        enabledPoliciesArray = Array.from(enabledPoliciesSet);
+    }
+    resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 }
 
 const policyTypes = resources => {
@@ -82,7 +134,7 @@ const policyTypes = resources => {
     ];
 };
 
-const limitsSelectionAmounts = async (resources, req) => {
+const limitsSelectionAmounts = async (resources, appId) => {
     let limits = {
         bop: [
                 {
@@ -135,7 +187,7 @@ const limitsSelectionAmounts = async (resources, req) => {
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
-        applicationDB = await applicationBO.getById(req.query.appId);
+        applicationDB = await applicationBO.getById(appId);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
