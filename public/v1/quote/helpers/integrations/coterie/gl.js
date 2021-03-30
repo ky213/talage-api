@@ -78,7 +78,7 @@ module.exports = class CompwestWC extends Integration {
             "glLimit": requestedLimits[0],
             "glAggregateLimit": requestedLimits[3],
             "glAggregatePcoLimit": requestedLimits[4],
-            "policyStartDate": this.policy.expiration_date.toISOString(),
+            "policyStartDate": this.policy.effective_date.toISOString(),
             //"policyEndDate": this.policy.expiration_date.toISOString(),
             "zip": appDoc.mailingZipcode,
             "numEmployees": this.get_total_employees(),
