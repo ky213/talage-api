@@ -1222,7 +1222,7 @@ module.exports = class MarkelWC extends Integration {
         ]}
 
         // let unansweredQ = null;
-        let declinedReasons = null;
+        // let declinedReasons = null;
         let response = null;
         try {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
@@ -1262,7 +1262,6 @@ module.exports = class MarkelWC extends Integration {
                     }
                     return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }
-                
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');
@@ -1277,31 +1276,33 @@ module.exports = class MarkelWC extends Integration {
         }
 
         //Check reasons for DECLINED
-        if (response[rquIdKey].errors) {
-            //Unanswered Questions - This is never referenced? - SF
-            // if (response[rquIdKey]) {
-            //     unansweredQ = response[rquIdKey].errors[0].UnansweredQuestions;
-            // }
-            //Declined Reasons
-            if (response[rquIdKey].errors[1]) {
-                declinedReasons = response[rquIdKey].errors[1].DeclineReasons;
-            }
-            else if (response[rquIdKey].errors[0] && typeof response[rquIdKey].errors[0] === 'string') {
-                this.reasons.push(`Markel  Error ${response[rquIdKey].errors[0]}`);
-            }
-            else {
-                for(const errorNode of response[rquIdKey].errors){
-                    this.reasons.push(`Markel  Error ${JSON.stringify(errorNode)}`);
-                }
-                return this.return_result('error');
-            }
-        }
-
         if (response[rquIdKey].underwritingDecisionCode === 'DECLINED') {
-            this.reasons.push(declinedReasons);
+            if(response[rquIdKey].errors && response[rquIdKey].errors.length > 0){
+                response[rquIdKey].errors.forEach((error) => {
+                    if(error.DeclineReasons && error.DeclineReasons.length > 0){
+                        error.DeclineReasons.forEach((declineReason) => {
+                            this.reasons.push(declineReason);
+                        });
+                    }
+                });
+            }
             return this.return_result('declined');
         }
-        this.reasons.push(`Markel Error unknown for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
+        else if (response[rquIdKey].errors) {
+            response[rquIdKey].errors.forEach((error) => {
+                if(typeof error === 'string'){
+                    this.reasons.push(`Markel Error ${error}`);
+                }
+                else {
+                    this.reasons.push(`Markel Error ${JSON.stringify(error)}`);
+                }
+
+            });
+        }
+        else {
+            this.reasons.push(`Markel Error unknown for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
+        }
+
         return this.return_result('error');
 
     }

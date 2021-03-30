@@ -237,6 +237,10 @@ async function importInsurerIndustryCodes(insurerId) {
     let newDocCount = 0;
     for(let i = 0; i < result.length; i++){
         try {
+            //Liberty mutual "gl" policyType fix.
+            if(result[i].policyType === "gl"){
+                result[i].policyType = "GL";
+            }
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
             result[i].talageIndustryCodeIdList = stringArraytoArray(result[i].talageIndustryCodeIdList);
             if(result[i].attributes){

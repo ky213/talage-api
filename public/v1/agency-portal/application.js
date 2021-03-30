@@ -1032,12 +1032,15 @@ async function requote(req, res, next) {
  */
 async function runQuotes(application) {
     log.debug('running quotes' + __location)
-    try {
-        await application.run_quotes();
-    }
-    catch (error) {
-        log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
-    }
+
+    await application.run_quotes();
+
+    // try {
+    //     await application.run_quotes();
+    // }
+    // catch (error) {
+    //     log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
+    // }
 }
 
 async function GetQuestions(req, res, next){
