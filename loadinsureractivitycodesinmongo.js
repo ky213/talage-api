@@ -61,6 +61,8 @@ async function main() {
     console.log(colors.green.bold('-'.padEnd(80, '-')));
     // eslint-disable-next-line no-console
     console.log(Date());
+    
+    console.log(colors.yellow('\nScript usage includes optional param insurerId: node <path-to-script>/loadinsureractivitycodesinmongo.js <insurerId>\n'));
 
     // Load the settings from a .env file - Settings are loaded first
     if (!globalSettings.load()) {
@@ -112,72 +114,6 @@ async function main() {
 
 }
 
-function stringArraytoArray(dbString){
-    if(typeof dbString === 'object'){
-        return dbString;
-    }
-    else if(dbString && typeof dbString === 'string'){
-        return dbString.split(',')
-    }
-    else if(dbString){
-        log.debug(`dbstring type ${typeof dbString}`)
-        log.debug(`dbstring  ${dbString}`)
-        return [];
-    }
-    else {
-        return [];
-    }
-}
-
-async function insurerActivityCodeTerritoryQuestions(insurerActivityCodeIdList, territory, iqMongoList){
-    if(insurerActivityCodeIdList && insurerActivityCodeIdList.length > 0){
-        const sql = `SELECT distinct iq.id as insurerQuestionId
-                    FROM clw_talage_insurer_ncci_code_questions AS ncq
-                    INNER JOIN clw_talage_insurer_questions AS iq ON ncq.question = iq.question
-                    WHERE ncq.ncci_code in (${insurerActivityCodeIdList}) ;`;
-
-        let result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            log.error("error " + error);
-            process.exit(1);
-        });
-        if(result && result.length > 0){
-            let territoryQuestionArray = [];
-            for(let i = 0; i < result.length; i++){
-                if(result[i].insurerQuestionId){
-                    const iqId = result[i].insurerQuestionId;
-                    const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
-                    if(iQFound){
-                        territoryQuestionArray.push(iQFound.insurerQuestionId)
-                    }
-                }
-            }
-            if(territoryQuestionArray.length > 0){
-                const territoryQuestionJSON = {
-                    territory: territory,
-                    insurerQuestionIdList: territoryQuestionArray
-                };
-                return territoryQuestionJSON
-            }
-            else {
-                log.error(`no mongo question matches found `);
-                return null;
-            }
-
-        }
-        // else {
-        //     log.debug("no questions  returned " + sql)
-        //     return null;
-        // }
-
-    }
-    else {
-        log.debug("empty insurerActivityCodeIdList")
-        return null
-    }
-}
-
-
 /**
  * runFunction
  *
@@ -185,7 +121,18 @@ async function insurerActivityCodeTerritoryQuestions(insurerActivityCodeIdList, 
  */
 async function runFunction() {
 
-    await questionMigrationSvc.importActivityCodes();
+    let insurerId = null;
+    if (process.argv[2]) {
+        insurerId = parseInt(process.argv[2]);
+        if (isNaN(insurerId)) {
+            // if we're explicitly loading an insurer and the script param isn't valid, we should exit instead
+            // of falling back to loading for all insurers
+            logLocalErrorMessage(`Could not parse passed-in Insurer ID: ${process.argv[2]}, result is NaN. Exiting.`);
+            process.exit(-1);
+        }
+    }
+
+    await questionMigrationSvc.importActivityCodes(insurerId);
     log.debug("Done!");
     process.exit(1);
 

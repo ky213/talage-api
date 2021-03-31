@@ -18,6 +18,7 @@ const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-B
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+const LimitsBO = global.requireShared('models/Limits-BO.js');
 
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
@@ -1558,6 +1559,41 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
         return next();
     }
 }
+
+async function GetQuoteLimits(req, res, next){
+    if (!req.query || !req.query.quoteId) {
+        log.warn(`Missing quote id. ${__location}`)
+        return next(serverHelper.requestError("Missing Id."));
+    }
+    let id = req.query.quoteId;
+    let error = null;
+    const quoteModel = new QuoteBO();
+    let quote = null;
+    quote = await quoteModel.getById(id).catch(function(err) {
+        log.error(`Error no quote found for quote id: ${id}. ` + err + __location)
+        error = err;
+    });
+
+    if(error){
+        return next(error);
+    }
+    // Retrieve the limits and create the limits object
+    const limits = {};
+    const limitsModel = new LimitsBO();
+    for (const quoteLimit of quote.limits) {
+        try {
+            const limit = await limitsModel.getById(quoteLimit.limitId);
+            // NOTE: frontend expects a string.
+            limits[limit.description] = `${quoteLimit.amount}`;
+        }
+        catch (error) {
+            log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+        }
+    }
+    res.send(200, {limits: limits});
+    return next();
+
+}
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1580,4 +1616,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
+    server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits)
 };
