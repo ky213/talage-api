@@ -244,41 +244,64 @@ module.exports = class Integration {
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
         const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
-
-        const sql = `
-            SELECT inc.code, inc.sub, inc.attributes
-            FROM clw_talage_insurer_ncci_codes AS inc 
-            LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
-            WHERE
-                inc.state = 1
-                AND inc.insurer = ${insurerId}
-                AND inc.territory = '${territory}'
-                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)
-                AND aca.code = ${activityCode};
-        `;
-        let result = null;
-        try {
-            result = await db.query(sql);
+        if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            const activityCodeQuery = {
+                insurerId: this.insurer.id,
+                talageActivityCodeIdList: parseInt(activityCode,10),
+                territoryList: territory,
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
+            }
+            let insurerActivityCode = {attributes: {}};
+            try{
+                insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery)
+            }
+            catch(err){
+                log.warn(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+            }
+            return insurerActivityCode;
         }
-        catch (error) {
-            return null;
-        }
-        // Return if no results
-        if (result.length === 0) {
-            return null;
-        }
-        // Parse the attributes if they exist (non-fatal)
-        if (result[0].attributes) {
+        else {
+            const sql = `
+                SELECT inc.code, inc.sub, inc.attributes
+                FROM clw_talage_insurer_ncci_codes AS inc 
+                LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
+                WHERE
+                    inc.state = 1
+                    AND inc.insurer = ${insurerId}
+                    AND inc.territory = '${territory}'
+                    AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)
+                    AND aca.code = ${activityCode};
+            `;
+            let result = null;
             try {
-                result[0].attributes = JSON.parse(result[0].attributes);
+                result = await db.query(sql);
             }
             catch (error) {
-                // continue. We may not need the attributes column
-                log.error('JSON.parse(result[0].attributes) ' + error + __location);
-                result[0].attributes = {};
+                return null;
             }
+            // Return if no results
+            if (result.length === 0) {
+                return null;
+            }
+            // Parse the attributes if they exist (non-fatal)
+            if (result[0].attributes) {
+                try {
+                    result[0].attributes = JSON.parse(result[0].attributes);
+                }
+                catch (error) {
+                    // continue. We may not need the attributes column
+                    log.error('JSON.parse(result[0].attributes) ' + error + __location);
+                    result[0].attributes = {};
+                }
+            }
+            return result[0];
+
         }
-        return result[0];
+
+      
     }
 
     /**
@@ -560,24 +583,62 @@ module.exports = class Integration {
                 reject(new Error('No activity codes'));
                 return;
             }
-
-            // Loop over every location and build the WHERE clause of our query
             const where_chunks = [];
+            // eslint-disable-next-line prefer-const
+            let mongoCodeFilterArray = {}
             this.app.business.locations.forEach((location) => {
                 // And then every activity code in a location
                 location.activity_codes.forEach((activity_code) => {
                     where_chunks.push(`(inc.\`code\` = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(0, 4)}' AND inc.sub = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6)}' AND inc.territory = '${location.territory}')`);
+                    const mongoCodeFilter = {
+                        code: this.insurer_wc_codes[location.territory + activity_code.id].substring(0, 4),
+                        sub: this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6),
+                        territoryList: location.territory
+                    }
+                    mongoCodeFilterArray.push(mongoCodeFilter)
+
                 });
             });
+            // if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+            //     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            //     const activityCodeQuery = {
+            //         insurerId: this.insurer.id,
+            //         $or: mongoCodeFilterArray,
+            //         active: true
+            //     }
 
+            //     const relationships = {};
+            //     try{
+            //         const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery);
+            //         if (insurerActivityCodeList) {
+            //             insurerActivityCodeList.forEach((insurerActivityCode) => {
+            //                 //relationships[result.territoryList[0] + result.code] = result.questions.split(',');
+            //                 if(insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length > 0){
+            //                     insurerActivityCode.insurerTerritoryQuestionList.forEach((tq) => {
+            //                          //get InsureQuestions
+        
+            //                          //relationships[tq.territory + insurerActivityCode.code + insurerActivityCode.sub] = tq.questions.split(',');
+            //                     });
+            //                 }
+            //             });
+            //         }
+            //     }
+            //     catch(err){
+            //         reject(err);
+            //     }
+
+            //     fulfill(relationships);
+            // }
+            // else {
+            // Loop over every location and build the WHERE clause of our query
             // Build the SQL query
             const sql = `
-				SELECT inc.territory, CONCAT(inc.\`code\`, inc.sub) AS class_code, GROUP_CONCAT(incq.question) AS questions
-				FROM clw_talage_insurer_ncci_code_questions AS incq
-				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
-				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
-				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
-			`;
+                SELECT inc.territory, CONCAT(inc.\`code\`, inc.sub) AS class_code, GROUP_CONCAT(incq.question) AS questions
+                FROM clw_talage_insurer_ncci_code_questions AS incq
+                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
+                LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
+                WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
+            `;
             const results = await db.query(sql).catch(function(error) {
                 reject(error);
             });
@@ -592,6 +653,7 @@ module.exports = class Integration {
 
             // Return the result
             fulfill(relationships);
+        //  }
         });
     }
 
