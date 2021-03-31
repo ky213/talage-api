@@ -2298,7 +2298,7 @@ module.exports = class Integration {
                                 }
                                 else if (requiresInsurerActivityClassCodes){
                                     reasons.push("Insurer activity class codes were not found for all activities in the application.");
-                                    log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. ${location.territory} ${activity_code.id} ` + __location);
+                                    log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. ${location.territory} ${activity_code.id} query ${JSON.stringify(activityCodeQuery)} ` + __location);
                                     missingMap = true;
                                 }
                             }
