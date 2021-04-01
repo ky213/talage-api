@@ -1,3 +1,6 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
+/* eslint-disable object-curly-spacing */
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = require('../../../server.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
@@ -83,13 +86,14 @@ const getGeography = async(where) => {
         territories[t._id], t.count
     ]).filter(t => t[0]); // This filter removes undefined entries.
 }
-
+//default report to America/Los_Angeles (Talage HQ)
+// TODO get user's timezone.
 const getMonthlyTrends = async(where) => {
     const monthlyTrends = await Application.aggregate([
         {$match: where},
         {$project: {
-            creationMonth: {$month: '$createdAt'},
-            creationYear: {$year: '$createdAt'}
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}}
         }},
         {$group: {
             _id: {

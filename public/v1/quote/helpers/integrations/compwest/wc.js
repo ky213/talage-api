@@ -41,7 +41,7 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
-        
+
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
         const apiSwitchOverDateString = '2021-05-15T00:00:00-08'
@@ -80,7 +80,7 @@ module.exports = class CompwestWC extends Integration {
         };
         if(guideWireAPI === true){
             //updates
-            // need to take corporation_type into account for 
+            // need to take corporation_type into account for
             // nonprofits.
             entityMatrix = {
                     Association: 'ASSOCIATION',
@@ -111,8 +111,7 @@ module.exports = class CompwestWC extends Integration {
         // CompWest has us define our own Request ID
         this.request_id = this.generate_uuid();
 
-        // Get the activity code to question relationships
-        const activity_codes_to_questions = await this.get_activity_codes_to_questions_relationships();
+
         // Check if this is within a core state, if not, more checking needs to be done
         if (!afCoreStates.includes(this.app.business.primary_territory) && !cwCoreStates.includes(this.app.business.primary_territory)) {
             // If this wasn't the Talage agency, start over as the Talage agency
@@ -307,7 +306,6 @@ module.exports = class CompwestWC extends Integration {
         }
         // <CommlPolicySupplement>
         // </CommlPolicy>
-
         this.app.business.locations.forEach((location, index) => {
             // <Location>
             const Location = WorkCompPolicyQuoteInqRq.ele('Location');
@@ -368,21 +366,21 @@ module.exports = class CompwestWC extends Integration {
         // <WorkCompLineBusiness>
         const WorkCompLineBusiness = WorkCompPolicyQuoteInqRq.ele('WorkCompLineBusiness');
 
-       
-
-
-
         // Separate out the states
         const territories = this.app.business.getTerritories();
-        territories.forEach((territory) => {
+        for(let t = 0; t < territories.length; t++){
+            //territories.forEach((territory) => {
+            const territory = territories[t];
             // <WorkCompRateState>
             const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-            log.info(`TO DO: Appid: ${this.app.id}  Determine what we are doing on <com.afg_WorkSafeCredit> - Michigan Only - AF needs to get these rules to us`);
+            //db queries below.
+            for(let index = 0; index < this.app.business.locations.length; index++){
+                //this.app.business.locations.forEach((location, index) => {
+                const location = this.app.business.locations[index];
 
-            this.app.business.locations.forEach((location, index) => {
                 // Make sure this location is in the current territory, if not, skip it
                 if (location.territory !== territory) {
-                    return;
+                    continue;
                 }
 
                 // <WorkCompLocInfo>
@@ -412,149 +410,102 @@ module.exports = class CompwestWC extends Integration {
                         // Handle class specific questions
                         //if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
                         if(true){
-                            // Handle class specific questions
-                            const code_index = location.territory + classCode + subCode;
-                            if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
-                                // <ClassCodeQuestions>
-                                //const ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
-                                //logic below may result in no classcode questions being added.
-                                let ClassCodeQuestions = null;
-                                // Loop through each question
-                                activity_codes_to_questions[code_index].forEach((question_id) => {
-                                    const question = this.questions[question_id];
-                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
-                                        return;
+                            // eslint-disable-next-line prefer-const
+                            let ClassCodeQuestions = null;
+                            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+                                //get insurerActivityCode doc.
+                                     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+                                    const activityCodeQuery = {
+                                        insurerId: this.insurer.id,
+                                        code: classCode,
+                                        sub: subCode,
+                                        territoryList: location.territory,
+                                        active: true
                                     }
-                                    //const question_attributes = question.attributes;
-                                    const question_attributes = this.question_details[question_id].attributes;
-                                    // <ClassCodeQuestion>
-                                    let ClassCodeQuestion = null;
+                                    try{
+                                        const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
+                                        // eslint-disable-next-line prefer-const
+                                        let talageQuestionList = [];
+                                        let insurerQuestionIdList = [];
+                                        if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
+                                            insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
+                                        }
+                                        if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
+                                            //override
+                                            insurerQuestionIdList = [];
+                                            const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
+                                            if(territoryQuestion){
+                                                territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
+                                                    if(!insurerQuestionIdList.includes(insurerQuestionId)){
+                                                        insurerQuestionIdList.push(insurerQuestionId);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                        //get insurerQuestions
+                                        if(insurerQuestionIdList.length > 0){
+                                             const query = {
+                                                "insurerId": this.insurer.id,
+                                                "insurerQuestionId": {$in: insurerQuestionIdList}
+                                            }
+                                            const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                            let insurerQuestionList = null;
+                                            try{
+                                                insurerQuestionList = await InsurerQuestionModel.find(query);
+                                            }
+                                            catch(err){
+                                                throw err
+                                            }
+                                            insurerQuestionList.forEach((insurerQuestion) => {
+                                                talageQuestionList.push(insurerQuestion.talageQuestionId);
+                                            });
+                                        }
 
-                                    //Determine QuestionCd or questionId
-                                    let addNode = false;
-                                    if(guideWireAPI === true){
-                                        //to loop up publicId in attributes based on classcode
-                                        let publicId = '';
-                                        if(question_attributes && !question_attributes.parentQuestionId
-                                            && question_attributes.classCodeList
-                                            && question_attributes.classCodeList.length > 0){
-                                            for(let i = 0; i < question_attributes.classCodeList.length; i++){
-                                                if(question_attributes.classCodeList[i].classCode === classCode){
-                                                    if(subCode === question_attributes.classCodeList[i].sub){
-                                                        publicId = question_attributes.classCodeList[i].PublicId;
-                                                        break;
-                                                    }
-                                                    else if(!subCode || !question_attributes.classCodeList[i].sub){
-                                                        publicId = question_attributes.classCodeList[i].PublicId;
-                                                        break;
-                                                    }
-                                                }
+                                        talageQuestionList.forEach((talageQuestionId) => {
+                                            const question = this.questions[talageQuestionId];
+                                            if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
+                                                log.error(`did not talageQuestionId ${talageQuestionId} in ${JSON.stringify(this.question_details)} `)
+                                                return;
                                             }
-                                        }
-                                        else if(!question_attributes.parentQuestionId){
-                                            log.error(`AF - Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
-                                        }
-                                        if(publicId){
-                                            if(!ClassCodeQuestions){
-                                                ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
-                                            }
-                                            ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-                                            ClassCodeQuestion.ele('QuestionId', publicId);
-                                            addNode = true;
-                                        }
-                                        else if(!question_attributes.parentQuestionId){
-                                            log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
-                                        }
-                                    }
-                                    else if(question_attributes.code){
-                                        if(!ClassCodeQuestions){
-                                            ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
-                                        }
-                                        ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-                                        ClassCodeQuestion.ele('QuestionId', question_attributes.id);
-                                        ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
-                                        addNode = true;
-                                    }
-                                    // Determine how to send the answer
-                                    //TODO look at attributies.afQuestionType
-                                    if(addNode){
-                                       if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
-                                                || question_attributes.afQuestionType === "PercentageInput"){
-                                                    //if value is greater then zero "Y" for answer
-                                                try{
-                                                    let value = 0;
-                                                    if(question.answer){
-                                                        try{
-                                                            value = parseInt(question.answer,10);
-                                                        }
-                                                        catch(err){
-                                                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} bad input for numeric question QuestionId ${question.id} value ${question.answer} ` + __location)
-                                                        }
-                                                    }
-                                                    const responseYes = value > 0 ? 'Y' : 'N';
-                                                    ClassCodeQuestion.ele('ResponseInd', responseYes);
-                                                    if(responseYes === 'Y'){
-                                                        ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
-                                                    }
-                                                }
-                                                catch(err){
-                                                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} error creating PercentageAnswerValue node - ${err}` + __location )
+                                            //const question_attributes = question.attributes;
+                                            const question_attributes = this.question_details[talageQuestionId].attributes;
+                                            log.debug(`Compwest WC calling processActivtyCodeQuestion`);
+                                            this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
+                                                classCode, subCode, talageQuestionId, question, question_attributes);
 
-                                                }
-                                        }
-                                        else if(question_attributes.afQuestionType === "OptionsOnYes"){
-                                            const answerBoolean = question.get_answer_as_boolean()
-                                            ClassCodeQuestion.ele('ResponseInd', answerBoolean ? 'Y' : 'N');
-                                            //find the child with the answers
-                                             if(answerBoolean){
-                                                log.debug("checking for OptionsOnYes childen")
-                                                const insurerParentQuestionId = this.question_details[question_id].insurerQuestionId;
-                                                for (const childQuestionId in this.questions) {
-                                                    const childTalageQuestion = this.questions[childQuestionId]
-                                                    const childInsurerQuestion = this.question_details[childQuestionId]
-                                                    if(childInsurerQuestion && childInsurerQuestion.attributes
-                                                        && childInsurerQuestion.attributes.optionList
-                                                        && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
-                                                        log.debug(`Processing OptionsOnYes child ${childQuestionId}` + __location)
-                                                        const optionList = childInsurerQuestion.attributes.optionList
-                                                        // eslint-disable-next-line prefer-const
-                                                        const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
-                                                        let childAnswerList = childQuestionAnswerStr.split(',');
-                                                        childAnswerList = childAnswerList.map(s => s.trim());
-                                                        log.debug("childAnswerList " + JSON.stringify(childAnswerList))
-                                                        log.debug("optionList " + JSON.stringify(optionList))
-                                                        if(childAnswerList.length > 0){
-                                                            for (let i = 0; i < childAnswerList.length; i++){
-                                                                log.debug("Search optionList for answer " + childAnswerList[i]);
-                                                                const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
-                                                                if(optionAnswer){
-                                                                    log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
-                                                                    // eslint-disable-next-line prefer-const
-                                                                    let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
-                                                                    childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
-                                                                    childQuestionAnswer.ele('OtherOptionResponse',"Y");
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else if (question.type === 'Yes/No') {
-                                            ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-                                        }
+                                        });
                                     }
-                                });
-                                // </ClassCodeQuestions>
+                                    catch(err){
+                                        log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
+                                    }
+                            }
+                            else {
+                                // eslint-disable-next-line no-shadow
+                                const activity_codes_to_questions = await this.get_activity_codes_to_questions_relationships();
+                                const code_index = location.territory + classCode + subCode;
+                                if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
+                                    // Loop through each question
+                                    activity_codes_to_questions[code_index].forEach((question_id) => {
+                                        const question = this.questions[question_id];
+                                        if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
+                                            return;
+                                        }
+                                        //const question_attributes = question.attributes;
+                                        const question_attributes = this.question_details[question_id].attributes;
+                                        this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
+                                            classCode, subCode, question_id, question, question_attributes);
+                                    });
+                                }
+
                             }
                         }//have classcode and sub
                         // </WorkCompRateClass>
                     }
                 }
                 // </WorkCompLocInfo>
-            });
+            }
             // </WorkCompRateState>
-        });
+        }
 
         // <CommlCoverage>
         const CommlCoverage = WorkCompLineBusiness.ele('CommlCoverage');
@@ -601,7 +552,6 @@ module.exports = class CompwestWC extends Integration {
             }
         }
 
-        
 
         // Create one section for each Ineligibility and Statement questions
         ['Ineligibility', 'Statement'].forEach((type) => {
@@ -773,7 +723,7 @@ module.exports = class CompwestWC extends Integration {
             catch(err){
                 log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Unable to process  res.SignonRs[0].Status[0].StatusDesc[0].Desc ${err}` + __location);
             }
-            
+
             // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
             //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
             //     && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
@@ -908,5 +858,126 @@ module.exports = class CompwestWC extends Integration {
 
         // Send the result of the request
         return this.return_result(status);
+    }
+
+
+    processActivtyCodeQuestion(ClassCodeQuestions, guideWireAPI, WorkCompRateClass, classCode, subCode, question_id, question, question_attributes){
+
+    let ClassCodeQuestion = null;
+    //Determine QuestionCd or questionId
+    let addNode = false;
+    if(guideWireAPI === true){
+        //to loop up publicId in attributes based on classcode
+        let publicId = '';
+        if(question_attributes && !question_attributes.parentQuestionId
+            && question_attributes.classCodeList
+            && question_attributes.classCodeList.length > 0){
+            for(let i = 0; i < question_attributes.classCodeList.length; i++){
+                if(question_attributes.classCodeList[i].classCode === classCode){
+                    if(subCode === question_attributes.classCodeList[i].sub){
+                        publicId = question_attributes.classCodeList[i].PublicId;
+                        break;
+                    }
+                    else if(!subCode || !question_attributes.classCodeList[i].sub){
+                        publicId = question_attributes.classCodeList[i].PublicId;
+                        break;
+                    }
+                }
+            }
+        }
+        else if(!question_attributes.parentQuestionId){
+            log.error(`AF - Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+        }
+        if(publicId){
+            if(!ClassCodeQuestions){
+                ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+            }
+            ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
+            ClassCodeQuestion.ele('QuestionId', publicId);
+            addNode = true;
+        }
+        else if(!question_attributes.parentQuestionId){
+            log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+        }
+    }
+    else if(question_attributes.code){
+        if(!ClassCodeQuestions){
+            ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+        }
+        ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
+        ClassCodeQuestion.ele('QuestionId', question_attributes.id);
+        ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
+        addNode = true;
+    }
+    // Determine how to send the answer
+    //TODO look at attributies.afQuestionType
+    if(addNode){
+        if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
+                || question_attributes.afQuestionType === "PercentageInput"){
+                    //if value is greater then zero "Y" for answer
+                try{
+                    let value = 0;
+                    if(question.answer){
+                        try{
+                            value = parseInt(question.answer,10);
+                        }
+                        catch(err){
+                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} bad input for numeric question QuestionId ${question.id} value ${question.answer} ` + __location)
+                        }
+                    }
+                    const responseYes = value > 0 ? 'Y' : 'N';
+                    ClassCodeQuestion.ele('ResponseInd', responseYes);
+                    if(responseYes === 'Y'){
+                        ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
+                    }
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} error creating PercentageAnswerValue node - ${err}` + __location)
+
+                }
+        }
+        else if(question_attributes.afQuestionType === "OptionsOnYes"){
+            const answerBoolean = question.get_answer_as_boolean()
+            ClassCodeQuestion.ele('ResponseInd', answerBoolean ? 'Y' : 'N');
+            //find the child with the answers
+                if(answerBoolean){
+                log.debug("checking for OptionsOnYes childen")
+                const insurerParentQuestionId = this.question_details[question_id].insurerQuestionId;
+                for (const childQuestionId in this.questions) {
+                    const childTalageQuestion = this.questions[childQuestionId]
+                    const childInsurerQuestion = this.question_details[childQuestionId]
+                    if(childInsurerQuestion && childInsurerQuestion.attributes
+                        && childInsurerQuestion.attributes.optionList
+                        && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
+                        log.debug(`Processing OptionsOnYes child ${childQuestionId}` + __location)
+                        const optionList = childInsurerQuestion.attributes.optionList
+                        // eslint-disable-next-line prefer-const
+                        const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
+                        let childAnswerList = childQuestionAnswerStr.split(',');
+                        childAnswerList = childAnswerList.map(s => s.trim());
+                        log.debug("childAnswerList " + JSON.stringify(childAnswerList))
+                        log.debug("optionList " + JSON.stringify(optionList))
+                        if(childAnswerList.length > 0){
+                            for (let i = 0; i < childAnswerList.length; i++){
+                                log.debug("Search optionList for answer " + childAnswerList[i]);
+                                const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
+                                if(optionAnswer){
+                                    log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
+                                    // eslint-disable-next-line prefer-const
+                                    let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
+                                    childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
+                                    childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else if (question.type === 'Yes/No') {
+            ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+        }
+
+        }
     }
 };
