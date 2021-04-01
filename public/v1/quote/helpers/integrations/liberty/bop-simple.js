@@ -80,11 +80,7 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(errorMessage, __location);
         }
 
-        const simpleBOPQuestions = applicationDocData.questions.filter(q => q.attributes.simpleBOP);
-
-        // DEBUG - REMOVE
-        console.log(simpleBOPQuestions.length);
-        // DEBUG - REMOVE
+        const simpleBOPQuestions = applicationDocData.questions.filter(q => q.insurerQuestionAttributes.simpleBOP);
 
         // Assign the closest supported limit for Per Occ
         // NOTE: Currently this is not included in the request and defaulted on LM's side
@@ -260,9 +256,9 @@ module.exports = class LibertySBOP extends Integration {
 
         // Add the questions
         for (const applicationQuestion of simpleBOPQuestions) {
-            if (applicationQuestion.insurerQuestionAttributes && applicationQuestion.insurerQuestionAttributes.ACORDCd) {
+            if (applicationQuestion.insurerQuestionAttributes.simpleBOP.ACORDCd) {
                 const QuestionAnswer = Policy.ele('QuestionAnswer');
-                QuestionAnswer.ele('QuestionCd', applicationQuestion.insurerQuestionAttributes.ACORDCd);
+                QuestionAnswer.ele('QuestionCd', applicationQuestion.insurerQuestionAttributes.simpleBOP.ACORDCd);
                 QuestionAnswer.ele('YesNoCd', applicationQuestion.answerValue.toUpperCase());
             }
             else {

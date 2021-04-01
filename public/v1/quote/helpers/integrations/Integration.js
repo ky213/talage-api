@@ -1419,6 +1419,8 @@ module.exports = class Integration {
                     try {
                         if(typeof insurerQuestion.attributes === 'string'){
                             insurerQuestionAttributes = JSON.parse(insurerQuestion.attributes);
+                        } else {
+                            insurerQuestionAttributes = insurerQuestion.attributes;
                         }
                     }
                     catch (error) {
