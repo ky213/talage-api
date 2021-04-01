@@ -167,6 +167,11 @@ module.exports = class LibertySBOP extends Integration {
         // log.info("=================== QUOTE REQUEST ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
         // log.info("=================== QUOTE REQUEST ===================");
+        this.log += `--------======= Sending to Arrowhead =======--------<br><br>`;
+        this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
+        this.log += `URL: ${host}${path}<br><br>`;
+        this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
+        this.log += `--------======= End =======--------<br><br>`;
 
         let result = null;
         const headers = {
@@ -209,13 +214,20 @@ module.exports = class LibertySBOP extends Integration {
             // log.info("=================== QUOTE ERROR ===================");
             // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
             // log.info("=================== QUOTE ERROR ===================");
+            this.reasons.push(`Coterie API Error: ${result.data}`);
+            this.log += `--------======= Arrowhead Request Error =======--------<br><br>`;
+            this.log += err;
+
             const error = result.data.error;
             let errorMessage = "";
 
             if (error.statusCode && error.code) {
                 errorMessage += `[${error.statusCode}] ${error.code}: `;
             } else {
-                return this.client_error(errorMessage + "An error occurred, please review the logs.", __location);
+                errorMessage += "An error occurred, please review the logs. ";
+                this.log += errorMessage;
+                this.log += `--------======= End =======--------<br><br>`;
+                return this.client_error(errorMessage, __location);
             }
 
             const additionalDetails = [];
@@ -231,6 +243,8 @@ module.exports = class LibertySBOP extends Integration {
                 errorMessage += `No details were provided, please review the logs.`;
             }
 
+            this.log += errorMessage;
+            this.log += `--------======= End =======--------<br><br>`;
             log.error(errorMessage, __location);
             return this.client_error(errorMessage, __location, additionalDetails.length > 0 ? additionalDetails : null);
         }
@@ -239,6 +253,9 @@ module.exports = class LibertySBOP extends Integration {
         // log.info("=================== QUOTE RESULT ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         // log.info("=================== QUOTE RESULT ===================");
+        this.log += `--------======= ${logPrefix}  =======--------<br><br>`;
+        this.log += `<pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
+        this.log += `--------======= End =======--------<br><br>`;
 
         // if a decision was provided, a quote likely wasn't
         if (result.data.hasOwnProperty("decision")) {

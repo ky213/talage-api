@@ -81,7 +81,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // follow-up questions until all of the questions are answered.
         while (questionnaire.questionsAsked !== questionnaire.questionsAnswered) {
             this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)  @ ${__location}`;
-            let oldQuestionsAnswered = questionnaire.questionsAnswered;
+            const oldQuestionsAnswered = questionnaire.questionsAnswered;
 
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
             this.logApiCall('injectAnswers', [curAnswers, questions], curAnswers);

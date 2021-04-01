@@ -62,6 +62,8 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(Date());
 
+    console.log(colors.yellow('\nScript usage includes optional param insurerId: node <path-to-script>/loadinsurerindustrycodesinmongo.js <insurerId>\n'));
+
     // Load the settings from a .env file - Settings are loaded first
     if (!globalSettings.load()) {
         logLocalErrorMessage('Error loading variables. Stopping.');
@@ -119,7 +121,18 @@ async function main() {
  */
 async function runFunction() {
 
-    await questionMigrationSvc.importInsurerIndustryCodes();
+    let insurerId = null;
+    if (process.argv[2]) {
+        insurerId = parseInt(process.argv[2]);
+        if (isNaN(insurerId)) {
+            // if we're explicitly loading an insurer and the script param isn't valid, we should exit instead
+            // of falling back to loading for all insurers
+            logLocalErrorMessage(`Could not parse passed-in Insurer ID: ${process.argv[2]}, result is NaN. Exiting.`);
+            process.exit(-1);
+        }
+    }
+
+    await questionMigrationSvc.importInsurerIndustryCodes(insurerId);
 
     log.debug("Done!");
     process.exit(1);
