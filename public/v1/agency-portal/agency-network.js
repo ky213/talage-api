@@ -345,9 +345,66 @@ async function getAgencyNetworkLogo (req,res, next){
     return next();
 
 }
+
+/**
+ * Retrieves the agency network feature json given an agency network id
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyNetworkFeatures(req, res, next) {
+    let error = false;
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    const agencyNetworkId = req.authentication.agencyNetworkId;
+    if (agencyNetworkId) {
+        // agency network user.
+        // check request matches rights.
+        if (agencyNetworkId !== id) {
+            res.send(403);
+            return next(serverHelper.forbiddenError('Do Not have Permissions'));
+        }
+    }
+    else {
+        // agency user. lookup agency network
+        const agency_network = req.authentication.agencyNetworkId
+        if (agency_network !== id) {
+            res.send(403);
+            return next(serverHelper.forbiddenError('Do Not have Permissions'));
+        }
+    }
+
+    let agencyNetworkBO = new AgencyNetworkBO();
+
+    const agencyNetworkJSON = await agencyNetworkBO.getById(id).catch(function(err) {
+        log.error("agencyNetworkBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    // Send back a success response
+    if (agencyNetworkJSON && agencyNetworkJSON.hasOwnProperty('feature_json')) {
+        res.send(200, {'featureJson': agencyNetworkJSON.feature_json});
+        return next();
+    }
+    else {
+        log.debug(`No object returned from getByID ${id} ` + __location)
+        res.send(404);
+        return next(serverHelper.notFoundError('No Feature Information found for for Agency Network'));
+    }
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get Landing Page Logo', `${basePath}/agency-network/logo`, getAgencyNetworkLogo);
     server.addGetAuth('Get AgencyNetwork', `${basePath}/agency-network/:id`, getAgencyNetwork, 'agencies', 'view');
     server.addPutAuth('PUT AgencyNetwork', `${basePath}/agency-network/:id`, updateAgencyNetwork, 'agencies', 'manage');
+    server.addGetAuth('Get AgencyNetwork Features',`${basePath}/agency-network/features/:id`, getAgencyNetworkFeatures,'agencies', 'view')
     server.addGetAuth('Get AgencyNetworkInsurers', `${basePath}/agency-network/insurers-list/:id`, getAgencyNetworkInsurersList, 'agencies', 'view');
 };
