@@ -27,7 +27,7 @@ async function findAllSql(req, res, next) {
         return next(error);
     }
     if (rows) {
-        res.send(200, rows);
+        res.send(200, {rows});
         return next();
     }
     else {
