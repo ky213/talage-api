@@ -182,11 +182,12 @@ module.exports = class BtisGL extends Integration {
          * or default to $1500
          */
         let deductibleId = BTIS_DEDUCTIBLE_IDS[500];
-
+        let requestDeductible = 1500;
         // If deductibles other than $500 are allowed, check the deductible and return the appropriate BTIS ID
         if (DEDUCTIBLE_TERRITORIES.includes(this.app.business.primary_territory)) {
             if(BTIS_DEDUCTIBLE_IDS[this.policy.deductible]){
                 deductibleId = BTIS_DEDUCTIBLE_IDS[this.policy.deductible];
+                requestDeductible = this.policy.deductible;
             }
             else{
                 // Default to 1500 deductible
@@ -439,57 +440,95 @@ module.exports = class BtisGL extends Integration {
                 return this.return_result('autodeclined');
             }
         }
+        //BTIS put each potential carrier in it own Property
+        // With Multi-Carrier we will just to the lowest quote back.
+        // but it will come in the that carriers node.
+        // For backward compatible clearspring should be checked last.
+        // eslint-disable-next-line array-element-newline
+        const carrierNodeList = ["cna", "hiscox", "cbic", "clearspring", "victory"];
+        let lowestQuote = 999999;
+        let gotQuote = false;
+        let gotRefferal = false;
+        let gotSuccessFalse = false;
+        for(let i = 0; i < carrierNodeList.length; i++){
+            const currentCarrier = carrierNodeList[i]
+            // clearspring - The result can be under either clearspring or victory, checking for success
+            if (quoteResult[currentCarrier] && quoteResult[currentCarrier].success === true) {
+                let makeItTheQuote = false;
+                const quoteInfo = quoteResult[currentCarrier];
 
-        // The result can be under either clearspring or victory, checking for success
-        if (quoteResult.clearspring && quoteResult.clearspring.success === true || quoteResult.victory && quoteResult.victory.success === true) {
+                // Get the quote amount
+                if(quoteInfo.quote && quoteInfo.quote.results
+                    && quoteInfo.quote.results.total_premium
+                    & quoteInfo.quote.results.total_premium < lowestQuote){
+                    this.amount = quoteInfo.quote.results.total_premium;
+                    lowestQuote = quoteInfo.quote.results.total_premium;
+                    makeItTheQuote = true;
+                }
+                else{
+                    log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
+                    this.reasons.push('A quote was generated but our API was unable to isolate it.');
+                    //return this.return_error('error');
+                }
+                if(makeItTheQuote){
+                    //Get the quote link
+                    this.quoteLink = quoteInfo.bridge_url ? quoteInfo.bridge_url : null;
 
-            const product = quoteResult.clearspring ? 'clearspring' : 'victory';
-            const quoteInfo = quoteResult[product];
-
-            // Get the quote amount
-            if(quoteInfo.quote && quoteInfo.quote.results && quoteInfo.quote.results.total_premium){
-                this.amount = quoteInfo.quote.results.total_premium;
+                    // Get the quote limits
+                    if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
+                        const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');
+                        const limitsArray = limitsString.replace(/,/g, "").split('/');
+                        this.limits = {
+                            '4': parseInt(limitsArray[0],10),
+                            '8': parseInt(limitsArray[1],10),
+                            '9': parseInt(limitsArray[2],10)
+                        }
+                        this.limits[4] = parseInt(limitsArray[0],10);
+                        this.limits[8] = parseInt(limitsArray[1],10);
+                        this.limits[9] = parseInt(limitsArray[2],10);
+                        this.limits[12] = requestDeductible;
+                    }
+                    else{
+                        log.error('BTIS GL Integration Error: Quote structure changed. Unable to find limits. ' + __location);
+                        this.reasons.push('Quote structure changed. Unable to find limits.');
+                    }
+                    // Return the quote
+                    gotQuote = true;
+                    //TODO once fully on multi carrier API we can break out of the loop after an success === true
+                }
+              //  return this.return_result('referred_with_price');
             }
-            else{
-                log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
-                this.reasons.push('A quote was generated but our API was unable to isolate it.');
-                return this.return_error('error');
-            }
-
-            //Get the quote link
-            this.quoteLink = quoteInfo.ratingdetailsId ? quoteInfo.ratingdetailsId : null;
-
-            // Get the quote limits
-            if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
-                const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');
-                const limitsArray = limitsString.split('/');
-                this.limits = {
-                    '4': limitsArray[0],
-                    '8': limitsArray[1],
-                    '9': limitsArray[2]
+            // Checking for referral with reasons
+            else if(quoteResult[currentCarrier] && quoteResult[currentCarrier].success === false && gotQuote === false){
+                const declinedInfo = quoteResult[currentCarrier];
+                if(declinedInfo.referral_reasons){
+                    declinedInfo.referral_reasons.forEach((reason) => {
+                        this.reasons.push(reason);
+                    });
+                    gotRefferal = true
+                }
+                else if(gotRefferal === false) {
+                    gotSuccessFalse = true;
                 }
             }
-            else{
-                log.error('BTIS GL Integration Error: Quote structure changed. Unable to find limits. ' + __location);
-                this.reasons.push('Quote structure changed. Unable to find limits.');
-            }
+            //error is not processed Until we understand how it works in multicarrier response.
 
-            // Return the quote
+        }
+        if(gotQuote){
             return this.return_result('referred_with_price');
         }
-        // Checking for referral with reasons
-        if(quoteResult.clearspring && quoteResult.clearspring.success === false || quoteResult.victory && quoteResult.victory.success === false){
-            const product = quoteResult.clearspring ? 'clearspring' : 'victory';
-            const declinedInfo = quoteResult[product];
-
-            declinedInfo.referral_reasons.forEach((reason) => {
-                this.reasons.push(reason);
-            });
+        else if(gotRefferal){
             return this.return_result('referred');
         }
-
-        // If we made it this far, they declined
-        this.reasons.push(`BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
-        return this.return_result('declined');
+        else if(gotSuccessFalse){
+            //return this.return_result('referred');
+            return this.return_result('declined');
+        }
+        else{
+            //
+            // If we made it this far, they declined
+            this.reasons.push(`BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
+            return this.return_result('declined');
+        }
     }
 }
