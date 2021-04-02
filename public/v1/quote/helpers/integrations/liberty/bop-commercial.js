@@ -66,18 +66,18 @@ module.exports = class LibertySBOP extends Integration {
     async _insurer_quote() {
 
         const applicationDocData = this.app.applicationDocData;
-        const bopPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
+        const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
         const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
 
-        if (!bopPolicy) {
+        if (!BOPPolicy) {
             const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
             log.error(`${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
-        if (!(bopPolicy.coverage > 0)) {
+        if (!(BOPPolicy.coverage > 0)) {
             const errorMessage = `${logPrefix}No BPP Coverage was supplied for the Simple BOP Policy.`;
-            log.error(`${errorMessage} ${JSON.stringify(sbopPolicy)} ` + __location)
+            log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
             return this.client_error(errorMessage, __location);
         }
 
@@ -85,10 +85,10 @@ module.exports = class LibertySBOP extends Integration {
 
         // Assign the closest supported limit for Per Occ
         // NOTE: Currently this is not included in the request and defaulted on LM's side
-        const limit = this.getSupportedLimit(bopPolicy.limits);
+        const limit = this.getSupportedLimit(BOPPolicy.limits);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
-        const deductible = this.getSupportedDeductible(bopPolicy.deductible);
+        const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
         const fireDamage = "1000000"; // we do not store this data currently
         const prodCompOperations = "2000000"; // we do not store this data currently
         const medicalExpenseLimit = "15000"; // we do not store this data currently
@@ -107,429 +107,368 @@ module.exports = class LibertySBOP extends Integration {
         
         const ACORD = builder.create('ACORD', {'encoding': 'UTF-8'});
 
-// {/* <ACORD>
-//     <SignonRq>
-//         <SignonPswd>
-//             <CustId>
-//                 <CustLoginId>YourOrg</CustLoginId>
-//             </CustId>
-//         </SignonPswd>
-//         <ClientDt>2021-04-01T12:00:00.000-04:00</ClientDt>
-//         <CustLangPref>English</CustLangPref>
-//         <ClientApp>
-//             <Org>YourOrg</Org>
-//             <Name>YourOrg</Name>
-//             <Version>2.0</Version>
-//         </ClientApp>
-//     </SignonRq>
-//     <InsuranceSvcRq>
-//         <RqUID>C4A112CD-3382-43DF-B200-10340F3511B4</RqUID>
-//         <PolicyRq>
-//             <RqUID>C4A112CD-3382-43DF-B200-lkrtegfcgjk11C6</RqUID>
-//             <TransactionRequestDt>2021-04-01T12:00:00.000-04:00</TransactionRequestDt>
-//             <TransactionEffectiveDt>2021-04-01</TransactionEffectiveDt>
-//             <CurCd>USD</CurCd>
-//             <BusinessPurposeTypeCd>NBQ</BusinessPurposeTypeCd>
-//             <SourceSystem id="a4934abd">
-//                 <SourceSystemCd>RAMP</SourceSystemCd>
-//             </SourceSystem>
-//             <Producer>
-//                 <ProducerInfo>
-//                     <ContractNumber SourceSystemRef="a4934abd">4689905</ContractNumber>
-//                 </ProducerInfo>
-//             </Producer>
-//             <Producer>
-//                 <Surname>CONSUMER</Surname>
-//                 <GivenName>JOHNATHAN</GivenName>
-//                 <NIPRId>123456</NIPRId>
-//                 <ProducerRoleCd>Agent</ProducerRoleCd>
-//             </Producer>
-//             <InsuredOrPrincipal>
-//                 <GeneralPartyInfo>
-//                     <NameInfo>
-//                         <CommlName>
-//                             <CommercialName>BOP SAMPLE XML</CommercialName>
-//                         </CommlName>
-//                         <LegalEntityCd>CP</LegalEntityCd>
-//                         <TaxIdentity>
-//                             <TaxIdTypeCd>FEIN</TaxIdTypeCd>
-//                             <TaxId>435839454</TaxId>
-//                         </TaxIdentity>
-//                     </NameInfo>
-//                     <Addr>
-//                         <Addr1>1 Penman Lane</Addr1>
-//                         <City>Bountiful</City>
-//                         <StateProvCd>UT</StateProvCd>
-//                         <PostalCode>84010</PostalCode>
-//                     </Addr>
-//                     <Communications>
-//                         <PhoneInfo>
-//                             <PhoneTypeCd>Phone</PhoneTypeCd>
-//                             <PhoneNumber>+1-530-6616044</PhoneNumber>
-//                         </PhoneInfo>
-//                     </Communications>
-//                 </GeneralPartyInfo>
-//                 <InsuredOrPrincipalInfo>
-//                     <InsuredOrPrincipalRoleCd>FNI</InsuredOrPrincipalRoleCd>
-//                     <BusinessInfo>
-//                         <BusinessStartDt>2015</BusinessStartDt>
-//                         <OperationsDesc>Operations Desc</OperationsDesc>
-//                     </BusinessInfo>
-//                 </InsuredOrPrincipalInfo>
-//             </InsuredOrPrincipal>
-//             <Policy>
-//                 <MiscParty>
-//                     <MiscPartyInfo>
-//                         <MiscPartyRoleCd>PrimaryContact</MiscPartyRoleCd>
-//                     </MiscPartyInfo>
-//                     <GeneralPartyInfo>
-//                         <NameInfo>
-//                             <CommlName>
-//                                 <CommercialName>Test Commercial Name</CommercialName>
-//                             </CommlName>
-//                         </NameInfo>
-//                         <Communications>
-//                             <PhoneInfo>
-//                                 <PhoneTypeCd>Phone</PhoneTypeCd>
-//                                 <PhoneNumber>+1-315-4568453</PhoneNumber>
-//                             </PhoneInfo>
-//                         </Communications>
-//                     </GeneralPartyInfo>
-//                 </MiscParty>
-//                 <LOBCd>BOP</LOBCd>
-//                 <ControllingStateProvCd>UT</ControllingStateProvCd>
-//                 <ContractTerm>
-//                     <EffectiveDt>2021-04-01</EffectiveDt>
-//                 </ContractTerm>
-//                 <PolicySupplement>
-//                     <NumEmployees>5</NumEmployees>
-//                     <AnnualSalesAmt>
-//                         <Amt>250000</Amt>
-//                     </AnnualSalesAmt>
-//                 </PolicySupplement>
-//                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>EPL03</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured have professional liability coverage currently in force with another carrier? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL77</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are any of the operations seasonal? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP36</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there an employee on premises during all hours of operations? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP59</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Was insurance coverage in force for the same exposures for the prior policy period? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL20</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                     <!-- Please provide details of prior coverage -->
-//                     <Explanation>Prior Coverage detail goes here</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Are there any other business interests or activities of the named insured that are not identified or scheduled on this policy? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>GENRL53</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                     <Explanation>No details.</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Is other business a separate legal entity insured elsewhere? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL31</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Please provide details regarding other business interests or activities of the named insured that are not Insured. Depended on LMGENRL31 -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL17</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                     <Explanation>Explanation</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Is this policy written on a short term basis to have an expiration date concurrent with another policy? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL24</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- During the last five years (ten in RI), has any applicant been indicted for or convicted of any degree of the crime of fraud, bribery, arson or any other arson-related crime? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>GENRL08</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has insured been non-renewed or cancelled during the past three years for any of the following reasons? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>GENRL06</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                     <Explanation>No</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Has this policy been aligned with this insured's other account for billing purposes? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL21</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!--  Does the applicant have any subsidiaries or is the applicant a subsidiary of another entity? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL95</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                     <!-- Please provide details regarding the subsidiary relationship. -->
-//                     <Explanation>This will be defaulted by Rule to No Details</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Are any professional services provided to animals used or bred for: racing, show, circus, rodeos or any other entertainment purposes? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP34</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are background checks obtained (including all state sex offender registries) on all staff and/or volunteers who interact with students? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL81</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are proper risk transfers in place (insured is listed as AI, Hold Harmless language in favor of the insured, limits carried are at or above what the insured carries)? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL82</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does applicant perform any repairing or renting of ladders or scaffolding? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP32</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the applicant offer any extra curricular activities (i.e. fields trips, special events, etc.)? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL80</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured do development or hosting of websites? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>HOME23</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured do development or hosting of websites? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>HOME23</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has there ever been a citation issued by an Alcoholic beverage commission or other  government regulator for any location that sells and/or serves alcoholic beverages? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>RESTA08</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured and/or employees serve alcohol? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL99</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured utilize a third party to provide and/or serve alcohol? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL100</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured do computer programming for a fee? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL96</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured sell used and/or refurbished goods or equipment? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL13</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Any sale of any type of motorized conveyance including ATVs, motorbikes, or scooters? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>AGLIA69</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured sell any products under their own name?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>CGL18</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured rent or lease equipment to others? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>CGL25</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are bank accounts reconciled by someone not authorized to deposit or withdraw? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>CRIM03</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are all officers and employees required to take annual vacations of at least five consecutive business days? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>CRIM06</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does Insured own any autos that are titled in the name of the business? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMAUTOB08</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are any services provided other than those that are typical to a Day Spa? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP24</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there an audit computed on the insured? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP25</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Do the operations of the applicant involve any jobsite or project management? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP30</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does Applicant's business include installation or repair of restaurant furniture/equipment?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP35</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are any services provided other than those typical to a beauty salon or barber shop? Typical services include hair cutting, styling, coloring, permanents, eyebrow waxing, and manicures/pedicures? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL14</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is the insured involved in the manufacturing, mixing, relabeling or repackaging of products? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL103</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Any 3D printing operations? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL69</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Any operations involving pet rescue, adoptions or shelters for which the insured does not have a risk transfer to a separate organization? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL74</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are all employees serving alcohol properly trained? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>RESTA07</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <AnyLossesAccidentsConvictionsInd>0</AnyLossesAccidentsConvictionsInd>
-//                 <PolicyExt>
-//                     <com.libertymutual.ci_BusinessClassDesc>Business Class Description</com.libertymutual.ci_BusinessClassDesc>
-//                     <com.libertymutual.ci_BusinessClassId>01234</com.libertymutual.ci_BusinessClassId>
-//                 </PolicyExt>
-//             </Policy>
-//             <Location id="Wc3a968def7d94ae0acdabc4d95c34a86W">
-//                 <Addr>
-//                     <Addr1>1 Penman Lane</Addr1>
-//                     <City>Bountiful</City>
-//                     <StateProvCd>UT</StateProvCd>
-//                     <PostalCode>84010</PostalCode>
-//                 </Addr>
-//             </Location>
-//             <BOPLineBusiness>
-//                 <LOBCd>BOP</LOBCd>
-//                 <PropertyInfo>
-//                     <CommlPropertyInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
-//                         <SubjectInsuranceCd>BPP</SubjectInsuranceCd>
-//                         <ClassCd>88573</ClassCd>
-//                         <Coverage>
-//                             <CoverageCd>BPP</CoverageCd>
-//                             <Limit>
-//                                 <FormatCurrencyAmt>
-//                                     <Amt>250000</Amt>
-//                                 </FormatCurrencyAmt>
-//                                 <LimitAppliesToCd>Coverage</LimitAppliesToCd>
-//                             </Limit>
-//                         </Coverage>
-//                     </CommlPropertyInfo>
-//                     <CommlPropertyInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
-//                         <SubjectInsuranceCd>BLDG</SubjectInsuranceCd>
-//                         <ClassCd>88573</ClassCd>
-//                         <Coverage>
-//                             <CoverageCd>BLDG</CoverageCd>
-//                             <Limit>
-//                                 <FormatCurrencyAmt>
-//                                     <Amt>160000</Amt>
-//                                 </FormatCurrencyAmt>
-//                                 <LimitAppliesToCd>Coverage</LimitAppliesToCd>
-//                             </Limit>
-//                         </Coverage>
-//                     </CommlPropertyInfo>
-//                 </PropertyInfo>
-//                 <LiabilityInfo>
-//                     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
-//                         <ClassCd>88573</ClassCd>
-//                         <Coverage>
-//                             <CoverageCd>BAPRL</CoverageCd>
-//                             <Option>
-//                                 <OptionCd>PartTime</OptionCd>
-//                                 <OptionTypeCd>Num1</OptionTypeCd>
-//                                 <OptionValue>2</OptionValue>
-//                             </Option>
-//                             <Option>
-//                                 <OptionCd>FullTime</OptionCd>
-//                                 <OptionTypeCd>Num1</OptionTypeCd>
-//                                 <OptionValue>1</OptionValue>
-//                             </Option>
-//                         </Coverage>
-//                         <Coverage>
-//                             <CoverageCd>BEPRL</CoverageCd>
-//                             <Option>
-//                                 <OptionCd>PartTime</OptionCd>
-//                                 <OptionTypeCd>Num1</OptionTypeCd>
-//                                 <OptionValue>2</OptionValue>
-//                             </Option>
-//                             <Option>
-//                                 <OptionCd>FullTime</OptionCd>
-//                                 <OptionTypeCd>Num1</OptionTypeCd>
-//                                 <OptionValue>0</OptionValue>
-//                             </Option>
-//                         </Coverage>
-//                         <Coverage>
-//                             <CoverageCd>MNPL</CoverageCd>
-//                             <Option>
-//                                 <OptionCd>EMPL</OptionCd>
-//                                 <OptionTypeCd>Num1</OptionTypeCd>
-//                                 <OptionValue>1</OptionValue>
-//                             </Option>
-//                         </Coverage>
-//                     </GeneralLiabilityClassification>
-//                 </LiabilityInfo>
-//                 <!-- Does the applicant have any subsidiaries or is the applicant a subsidiary of another entity? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>GENRL34</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                     <!-- Please provide details regarding the subsidiary relationship. -->
-//                     <Explanation>Explanation</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Is the business an employee leasing, labor leasing, labor contractor, PEO, temporary worker staffing or employment agency firm? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL65</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are any operations open 24 hours a day?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>BOP39</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are non-owned autos (i.e., employees' personal autos) used either daily or weekly in the course of the insured's business?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>GARAG12</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are employees required to carry their own personal auto coverage with minimum limits requirements of $300,000 CSL or $100,000/$300,000 split limits? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMAUTOB07</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does Insured provide delivery service? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>RESTA04</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//             </BOPLineBusiness>
+        // <ACORD>
+        //     <SignonRq>
+        //         <SignonPswd>
+        //             <CustId>
+        //                 <CustLoginId>YourOrg</CustLoginId>
+        //             </CustId>
+        //         </SignonPswd>
+        //         <ClientDt>2021-04-01T12:00:00.000-04:00</ClientDt>
+        //         <CustLangPref>English</CustLangPref>
+        //         <ClientApp>
+        //             <Org>YourOrg</Org>
+        //             <Name>YourOrg</Name>
+        //             <Version>2.0</Version>
+        //         </ClientApp>
+        //   </SignonRq>
+
+        const SignonRq = ACORD.ele('SignonRq');
+        const SignonPswd = SignonRq.ele('SignonPswd');
+        const CustId = SignonPswd.ele('CustId');
+        CustId.ele('CustLoginId', this.username);
+        SignonRq.ele('ClientDt', moment().local().format());
+        SignonRq.ele('CustLangPref', 'English');
+        const ClientApp = SignonRq.ele('ClientApp');
+        ClientApp.ele('Org', "Talage Insurance");
+        ClientApp.ele('Name', "Talage");
+        ClientApp.ele('Version', "1.0");
+
+        //     <InsuranceSvcRq>
+        //         <RqUID>C4A112CD-3382-43DF-B200-10340F3511B4</RqUID>
+        //         <PolicyRq>
+
+        const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
+        InsuranceSvcRq.ele('RqUID', this.generate_uuid());
+        const PolicyRq = InsuranceSvcRq.ele('PolicyRq');
+
+        //             <RqUID>C4A112CD-3382-43DF-B200-lkrtegfcgjk11C6</RqUID>
+        //             <TransactionRequestDt>2021-04-01T12:00:00.000-04:00</TransactionRequestDt>
+        //             <TransactionEffectiveDt>2021-04-01</TransactionEffectiveDt>
+        //             <CurCd>USD</CurCd>
+        //             <BusinessPurposeTypeCd>NBQ</BusinessPurposeTypeCd>
+        //             <SourceSystem id="a4934abd">
+        //                 <SourceSystemCd>RAMP</SourceSystemCd>
+        //             </SourceSystem>
+        //             <Producer>
+        //                 <ProducerInfo>
+        //                     <ContractNumber SourceSystemRef="a4934abd">4689905</ContractNumber>
+        //                 </ProducerInfo>
+        //             </Producer>
+
+        // OPTIONAL AGENT INFORMATION LATER - required for API bind once LM implements for Simple BOP
+        //             <Producer>
+        //                 <Surname>CONSUMER</Surname>
+        //                 <GivenName>JOHNATHAN</GivenName>
+        //                 <NIPRId>123456</NIPRId>
+        //                 <ProducerRoleCd>Agent</ProducerRoleCd>
+        //             </Producer>
+
+        const PolicyRq = InsuranceSvcRq.ele('PolicyRq');
+        PolicyRq.ele('RqUID', UUID);
+        PolicyRq.ele('TransactionRequestDt', moment().local().format());
+        PolicyRq.ele('TransactionEffectiveDt', moment().local().format('YYYY-MM-DD'));
+        PolicyRq.ele('CurCd', 'USD');
+        PolicyRq.ele('BusinessPurposeTypeCd', 'NBQ'); // this is what Liberty Mutual Expects
+        const SourceSystem = PolicyRq.ele('SourceSystem').att('id', 'Talage');
+        SourceSystem.ele('SourceSystemCd', 'RAMP'); // this is what Liberty Mutual Expects
+        const Producer = PolicyRq.ele('Producer');
+        const ProducerInfo = Producer.ele('ProducerInfo');
+        ProducerInfo.ele('ContractNumber', this.insurer.useSandbox ? '4689905' : this.app.agencyLocation.insurers[this.insurer.id].agency_id).att('SourceSystemRef', 'Talage');
+
+        //             <InsuredOrPrincipal>
+
+        const InsuredOrPrincipal = PolicyRq.ele('InsuredOrPrincipal');
+
+        //                 <GeneralPartyInfo>
+        //                     <NameInfo>
+        //                         <CommlName>
+        //                             <CommercialName>BOP SAMPLE XML</CommercialName>
+        //                         </CommlName>
+        //                         <LegalEntityCd>CP</LegalEntityCd>
+        //                         <TaxIdentity>
+        //                             <TaxIdTypeCd>FEIN</TaxIdTypeCd>
+        //                             <TaxId>435839454</TaxId>
+        //                         </TaxIdentity>
+        //                     </NameInfo>
+        //                     <Addr>
+        //                         <Addr1>1 Penman Lane</Addr1>
+        //                         <City>Bountiful</City>
+        //                         <StateProvCd>UT</StateProvCd>
+        //                         <PostalCode>84010</PostalCode>
+        //                     </Addr>
+        //                     <Communications>
+        //                         <PhoneInfo>
+        //                             <PhoneTypeCd>Phone</PhoneTypeCd>
+        //                             <PhoneNumber>+1-530-6616044</PhoneNumber>
+        //                         </PhoneInfo>
+        //                     </Communications>
+        //                 </GeneralPartyInfo>
+
+        const GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
+        const NameInfo = GeneralPartyInfo.ele('NameInfo');
+        const CommlName = NameInfo.ele('CommlName');
+        CommlName.ele('CommercialName', null);
+        NameInfo.ele('LegalEntityCd', null);
+        const TaxIdentity = NameInfo.ele('TaxIdentity');
+        TaxIdentity.ele('TaxIdTypeCd', null);
+        TaxIdentity.ele('TaxId', null);
+        const Addr = GeneralPartyInfo.ele('Addr');
+        Addr.ele('Addr1', null);
+        Addr.ele('City', null);
+        Addr.ele('StateProvCd', null);
+        Addr.ele('PostalCode', null);
+        const Communications = GeneralPartyInfo.ele('Communications');
+        const PhoneInfo = Communications.ele('PhoneInfo');
+        PhoneInfo.ele('PhoneTypeCd', null);
+        PhoneInfo.ele('PhoneNumber', null);
+
+        //                 <InsuredOrPrincipalInfo>
+        //                     <InsuredOrPrincipalRoleCd>FNI</InsuredOrPrincipalRoleCd>
+        //                     <BusinessInfo>
+        //                         <BusinessStartDt>2015</BusinessStartDt>
+        //                         <OperationsDesc>Operations Desc</OperationsDesc>
+        //                     </BusinessInfo>
+        //                 </InsuredOrPrincipalInfo>
+        //             </InsuredOrPrincipal>
+
+        const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
+        InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
+        const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
+        BusinessInfo.ele('BusinessStartDt', null);
+        BusinessInfo.ele('OperationsDesc', null); 
+
+    //             <Policy>
+
+        const Policy = PolicyRq.ele('Policy');
+
+        //                 <MiscParty>
+        //                     <MiscPartyInfo>
+        //                         <MiscPartyRoleCd>PrimaryContact</MiscPartyRoleCd>
+        //                     </MiscPartyInfo>
+        //                     <GeneralPartyInfo>
+        //                         <NameInfo>
+        //                             <CommlName>
+        //                                 <CommercialName>Test Commercial Name</CommercialName>
+        //                             </CommlName>
+        //                         </NameInfo>
+        //                         <Communications>
+        //                             <PhoneInfo>
+        //                                 <PhoneTypeCd>Phone</PhoneTypeCd>
+        //                                 <PhoneNumber>+1-315-4568453</PhoneNumber>
+        //                             </PhoneInfo>
+        //                         </Communications>
+        //                     </GeneralPartyInfo>
+        //                 </MiscParty>
+
+        const MiscParty = Policy.ele('MiscParty');
+        const MiscPartyInfo = MiscParty.ele('MiscPartyInfo');
+        MiscPartyInfo.ele('MiscPartyRoleCd', "PrimaryContact");
+        const GeneralPartyInfoSub = MiscParty.ele('GeneralPartyInfo');
+        const NameInfoSub = GeneralPartyInfoSub.ele('NameInfo');
+        const CommlNameSub = NameInfoSub.ele('CommlName');
+        CommlNameSub.ele('CommercialName', null);
+        const CommunicationsSub = GeneralPartyInfoSub.ele('Communications');
+        const PhoneInfoSub = CommunicationsSub.ele('PhoneInfo');
+        PhoneInfoSub.ele('PhoneTypeCd', 'Phone');
+        PhoneInfoSub.ele('PhoneNumber', null);
+
+        //                 <LOBCd>BOP</LOBCd>
+        //                 <ControllingStateProvCd>UT</ControllingStateProvCd>
+        //                 <ContractTerm>
+        //                     <EffectiveDt>2021-04-01</EffectiveDt>
+        //                 </ContractTerm>
+        //                 <PolicySupplement>
+        //                     <NumEmployees>5</NumEmployees>
+        //                     <AnnualSalesAmt>
+        //                         <Amt>250000</Amt>
+        //                     </AnnualSalesAmt>
+        //                 </PolicySupplement>
+
+        Policy.ele('LOBCd', 'BOP');
+        Policy.ele('ControllingStateProvCd', null);
+        const ContractTerm = Policy.ele('ContractTerm');
+        ContractTerm.ele('EffectiveDt', null);
+        const PolicySupplement = Policy.ele('PolicySupplement');
+        PolicySupplement.ele('NumEmployees', null);
+        const AnnualSalesAmt = PolicySupplement.ele('AnnualSalesAmt');
+        AnnualSalesAmt.ele('Amt', null);
+
+        //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
+        //                 <QuestionAnswer>
+        //                     <QuestionCd>EPL03</QuestionCd>
+        //                     <YesNoCd>NO</YesNoCd>
+        //                 </QuestionAnswer>
+
+        //                 <QuestionAnswer>
+        //                     <QuestionCd>LMGENRL20</QuestionCd>
+        //                     <YesNoCd>NO</YesNoCd>
+        //                     <!-- Please provide details of prior coverage -->
+        //                     <Explanation>Prior Coverage detail goes here</Explanation>
+        //                 </QuestionAnswer>
+
+        const policyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.ACORDValue === "Policy");
+        const UWQ1 = policyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1");
+
+        // if we have UWQ1 question, and it's answered yes, we look for and add the explanation question as well
+        if (UWQ1) {
+            const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
+            UWQ1QuestionAnswer.ele('QuestionCd', UWQ1.insurerQuestionAttributes.ACORDCd);
+            UWQ1QuestionAnswer.ele('YesNoCd', UWQ1.answerValue.toUpperCase());
+
+            if (UWQ1.answerValue.toLowerCase() === "yes") {
+                const explanation = policyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1_Explanation");
+
+                if (explanation) {
+                    UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
+                } else {
+                    log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
+                }
+            }
+        }
+
+        // for each policy question (that's not UWQ1 related), add it to XML
+        policyQuestions.filter(q => q.insurerQuestionIdentifier !== "UWQ1" || q.insurerQuestionIdentifier !== "UWQ1_Explanation").forEach(question => {
+            const QuestionAnswer = Policy.ele('QuestionAnswer');
+            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+
+            if (question.insurerQuestionAttributes.ACORDPath && question.insurerQuestionAttributes.ACORDPath.toLowerCase().includes('explanation')) {
+                // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
+                QuestionAnswer.ele('Explanation', question.answerValue);
+            } else {
+                QuestionAnswer.ele('YesNoCd', question.answerValue);
+            }
+        });
+        
+        //                 <AnyLossesAccidentsConvictionsInd>0</AnyLossesAccidentsConvictionsInd>
+
+        Policy.ele('AnyLossesAccidentsConvictionsInd', applicationDocData.claims.length);
+
+        //                 <PolicyExt>
+        //                     <com.libertymutual.ci_BusinessClassDesc>Business Class Description</com.libertymutual.ci_BusinessClassDesc>
+        //                     <com.libertymutual.ci_BusinessClassId>01234</com.libertymutual.ci_BusinessClassId>
+        //                 </PolicyExt>
+        //             </Policy>
+
+        const PolicyExt = Policy.ele('PolicyExt');
+        PolicyExt.ele('com.libertymutual.ci_BusinessClassDesc', this.industry_code.description);
+        PolicyExt.ele('com.libertymutual.ci_BusinessClassId', this.industry_code.code);
+
+        //             <Location id="Wc3a968def7d94ae0acdabc4d95c34a86W">
+        //                 <Addr>
+        //                     <Addr1>1 Penman Lane</Addr1>
+        //                     <City>Bountiful</City>
+        //                     <StateProvCd>UT</StateProvCd>
+        //                     <PostalCode>84010</PostalCode>
+        //                 </Addr>
+        //             </Location>
+
+        applicationDocData.locations.forEach((location, index) => {
+            const Location = PolicyRq.ele('Location').att('id', `L${index}`);
+            const subAddr = Location.ele('Addr');
+            subAddr.ele('Addr1', location.address);
+            subAddr.ele('City', location.city);
+            subAddr.ele('StateProvCd', location.state);
+            subAddr.ele('PostalCode', location.zipcode);
+        });
+
+        //             <BOPLineBusiness>
+        //                 <LOBCd>BOP</LOBCd>
+
+        const BOPLineBusiness = PolicyRq.ele('PropertyInfo');
+        BOPLineBusiness.ele('LOBCd', 'BOP');
+
+        //                 <PropertyInfo>
+        //                     <CommlPropertyInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
+        //                         <SubjectInsuranceCd>BPP</SubjectInsuranceCd>
+        //                         <ClassCd>88573</ClassCd>
+        //                         <Coverage>
+        //                             <CoverageCd>BPP</CoverageCd>
+        //                             <Limit>
+        //                                 <FormatCurrencyAmt>
+        //                                     <Amt>250000</Amt>
+        //                                 </FormatCurrencyAmt>
+        //                                 <LimitAppliesToCd>Coverage</LimitAppliesToCd>
+        //                             </Limit>
+        //                         </Coverage>
+        //                     </CommlPropertyInfo>
+        //                 </PropertyInfo>
+
+        const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+        for (let i = 0; i < applicationDocData.locations.length; i++) {
+            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
+            CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
+            CommlPropertyInfo.ele('ClassCd', this.industry_code.code);
+            const Coverage = CommlPropertyInfo.ele('Coverage');
+            Coverage.ele('CoverageCd', 'BPP');
+            const Limit = Coverage.ele('Limit');
+            const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
+            FormatCurrencyAmt.ele('Amt', BOPPolicy.coverage);
+            Limit.ele('LimitAppliesToCd', 'PerOcc');
+        }
+
+        //                 <LiabilityInfo>
+        //                     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
+        //                         <ClassCd>88573</ClassCd>
+        //                         <Coverage>
+        //                             <CoverageCd>BAPRL</CoverageCd>
+        //                             <Option>
+        //                                 <OptionCd>PartTime</OptionCd>
+        //                                 <OptionTypeCd>Num1</OptionTypeCd>
+        //                                 <OptionValue>2</OptionValue>
+        //                             </Option>
+        //                             <Option>
+        //                                 <OptionCd>FullTime</OptionCd>
+        //                                 <OptionTypeCd>Num1</OptionTypeCd>
+        //                                 <OptionValue>1</OptionValue>
+        //                             </Option>
+        //                         </Coverage>
+        //                     </GeneralLiabilityClassification>
+        //                 </LiabilityInfo>
+
+        const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
+        applicationDocData.locations.forEach((location, index) => {
+            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
+            GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
+            const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
+            innerCoverage.ele('CoverageCd', 'CGL');
+            const PTOption = innerCoverage.ele('Option');
+            PTOption.ele('OptionCd', 'PartTime');
+            PTOption.ele('OptionValue', location.part_time_employees);
+            const FTOption = innerCoverage.ele('Option');
+            FTOption.ele('OptionCd', 'FullTime');
+            FTOption.ele('OptionValue', location.full_time_employees);
+        });
+
+        //                 <!-- Does the applicant have any subsidiaries or is the applicant a subsidiary of another entity? -->
+        //                 <QuestionAnswer>
+        //                     <QuestionCd>GENRL34</QuestionCd>
+        //                     <YesNoCd>NO</YesNoCd>
+        //                     <!-- Please provide details regarding the subsidiary relationship. -->
+        //                     <Explanation>Explanation</Explanation>
+        //                 </QuestionAnswer>
+        //                 <!-- Is the business an employee leasing, labor leasing, labor contractor, PEO, temporary worker staffing or employment agency firm? -->
+        //                 <QuestionAnswer>
+        //                     <QuestionCd>LMGENRL65</QuestionCd>
+        //                     <YesNoCd>NO</YesNoCd>
+        //                 </QuestionAnswer>
+        //             </BOPLineBusiness>
+
+        const BOPLineBusinessQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.ACORDValue === "BOPLineBusiness");
+
+        // for each policy question (that's not UWQ1 related), add it to XML
+        BOPLineBusinessQuestions.forEach(question => {
+            const QuestionAnswer = BOPLineBusiness.ele('QuestionAnswer');
+            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+
+            if (question.insurerQuestionAttributes.ACORDPath && question.insurerQuestionAttributes.ACORDPath.toLowerCase().includes('explanation')) {
+                // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
+                QuestionAnswer.ele('Explanation', question.answerValue);
+            } else {
+                QuestionAnswer.ele('YesNoCd', question.answerValue);
+            }
+        });
+
 //             <LocationUWInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
 //                 <InterestCd>TENANT</InterestCd>
 //                 <Construction>

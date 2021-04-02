@@ -13,6 +13,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
 const LibertyBOPSimple = require('./bop-simple.js');
+const LibertyBOPCommercial = require('./bop-commercial.js');
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -36,8 +37,16 @@ module.exports = class LibertySBOP extends Integration {
 	async _insurer_quote() {
 
         const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy);
+        const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
+
+        let quoteResponses = [];
+        quoteResponses.push(BOPSimple.quote());
+        quoteResponses.push(BOPCommercial.quote());
+
+        quoteResponses = await Promise.all(quoteResponses);
         
-        return BOPSimple.quote();
+        // just return the first quote response, we don't care about this information
+        return quoteResponses[0];
 
     }
      
