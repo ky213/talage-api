@@ -115,6 +115,7 @@ module.exports = class CompwestWC extends Integration {
             // what is "propertyDamageLiabilityDeductible" Assuming GL Deductible.
             //"propertyDamageLiabilityDeductible": 500,
         }
+        this.limits[12] = coterieDeductible;
 
         //we might not have payroll if just GL or BOP
         const totalPayRoll = this.get_total_payroll()

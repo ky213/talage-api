@@ -87,6 +87,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
         const deductible = this.getSupportedDeductible(sbopPolicy.deductible);
+        this.limits[12] = deductible;
         const fireDamage = "1000000"; // we do not store this data currently
         const prodCompOperations = "2000000"; // we do not store this data currently
         const medicalExpenseLimit = "15000"; // we do not store this data currently
