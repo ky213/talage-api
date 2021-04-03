@@ -685,7 +685,7 @@ module.exports = class LibertyGL extends Integration{
 					});
 
 					limit_set.forEach((limit_obj) => {
-						const limit = limit_obj.FormatCurrencyAmt[0].Amt[0];
+						const limit = parseInt(limit_obj.FormatCurrencyAmt[0].Amt[0],10);
 						switch(limit_obj.LimitAppliesToCd[0]){
 							case 'Aggregate':
 								this.limits[8] = limit;

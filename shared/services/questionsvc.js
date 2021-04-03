@@ -20,7 +20,7 @@ const log = global.log;
  */
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false, stateList = []) {
 
-    log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, questionSubjectArea: ${questionSubjectArea}, return_hidden: ${return_hidden}, stateList:  ${JSON.stringify(stateList)}` + __location)
+    log.info(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, questionSubjectArea: ${questionSubjectArea}, return_hidden: ${return_hidden}, stateList:  ${JSON.stringify(stateList)}` + __location)
     let error = false;
     let sql = '';
 
@@ -228,44 +228,49 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         insurerQuestionQuery.$or = orParamList;
 
         // log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
+        try{
 
-        const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
-        //need territory filter
-        //territoryList: {$in: territories},
+            const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+            //need territory filter
+            //territoryList: {$in: territories},
 
-        if(insurerQuestionList){
-            // eslint-disable-next-line prefer-const
-            let talageQuestionIdArray = [];
-            let noTerritoryHitCount = 0;
-            for(const insurerQuestion of insurerQuestionList){
-                if(insurerQuestion.talageQuestionId){
-                    let add = false;
-                    if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0){
-                        const territoryHit = insurerQuestion.territoryList.some((iqt) => territories.includes(iqt))
-                        if(territoryHit){
+            if(insurerQuestionList){
+                // eslint-disable-next-line prefer-const
+                let talageQuestionIdArray = [];
+                let noTerritoryHitCount = 0;
+                for(const insurerQuestion of insurerQuestionList){
+                    if(insurerQuestion.talageQuestionId){
+                        let add = false;
+                        if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0){
+                            const territoryHit = insurerQuestion.territoryList.some((iqt) => territories.includes(iqt))
+                            if(territoryHit){
+                                add = true;
+                            }
+                        }
+                        else {
                             add = true;
+                            noTerritoryHitCount++;
+                        }
+                        if(add && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
+                            talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
                         }
                     }
-                    else {
-                        add = true;
-                        noTerritoryHitCount++;
-                    }
-                    if(add && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
-                        talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
-                    }
+                }
+                log.debug("NO territoryList hit count " + noTerritoryHitCount + __location);
+                log.debug("Number of Universal Talage Questions " + talageQuestionIdArray.length + __location);
+                if(talageQuestionIdArray.length > 0) {
+                    log.debug(`talageQuestionIdArray.length ${talageQuestionIdArray.length} `)
+                    const universal_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
+                    log.debug(`Adding ${universal_questions.length} Mongo universal questions ` + __location)
+                    questions = questions.concat(universal_questions);
+                }
+                else {
+                    log.debug(`No universal questions for `)
                 }
             }
-            log.debug("NO territoryList hit count " + noTerritoryHitCount + __location);
-            log.debug("Number of Universal Talage Questions " + talageQuestionIdArray.length + __location);
-            if(talageQuestionIdArray.length > 0) {
-                log.debug(`talageQuestionIdArray.length ${talageQuestionIdArray.length} `)
-                const universal_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
-                log.debug(`Adding ${universal_questions.length} Mongo universal questions ` + __location)
-                questions = questions.concat(universal_questions);
-            }
-            else {
-                log.debug(`No universal questions for `)
-            }
+        }
+        catch(err){
+            log.error(`Error loading Universal Questions from Mongo ${err}` + __location)
         }
     }
     else {
