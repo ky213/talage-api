@@ -523,13 +523,13 @@ module.exports = class LibertyWC extends Integration {
                             coverageBlock.Limit.forEach((limit) => {
                                 switch (limit.LimitAppliesToCd[0]) {
                                     case 'BIEachOcc':
-                                        this.limits[1] = limit.FormatCurrencyAmt[0].Amt[0];
+                                        this.limits[1] = parseInt(limit.FormatCurrencyAmt[0].Amt[0],10);
                                         break;
                                     case 'DisEachEmpl':
-                                        this.limits[2] = limit.FormatCurrencyAmt[0].Amt[0];
+                                        this.limits[2] = parseInt(limit.FormatCurrencyAmt[0].Amt[0],10);
                                         break;
                                     case 'DisPol':
-                                        this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
+                                        this.limits[3] = parseInt(limit.FormatCurrencyAmt[0].Amt[0],10);
                                         break;
                                     default:
                                         log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
