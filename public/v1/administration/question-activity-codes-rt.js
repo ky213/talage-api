@@ -16,6 +16,7 @@ async function getQuestionActivityCodes(req, res, next){
         return next(serverHelper.requestError('Bad Request: No question provided'));
     }
 
+    //TODO Need to use Mongo Tables based on global.settings.USE_MONGO_QUESTIONS flag
     // Define a query to get a list of activity codes, given a question
     const qActivityCodeSQL = `
             SELECT DISTINCT

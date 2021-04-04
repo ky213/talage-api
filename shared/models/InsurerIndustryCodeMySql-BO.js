@@ -1,11 +1,10 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-const {debug} = require('request');
+
 
 const tableName = 'clw_talage_insurer_industry_codes'
 const skipCheckRequired = false;
