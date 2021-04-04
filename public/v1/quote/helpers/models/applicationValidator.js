@@ -166,16 +166,13 @@ const validateBusiness = (applicationDocData) => {
         throw new Error('Missing required field: businessName');
     }
 
+
     /**
      * Number of Owners (conditionally required)
      * 0 < numOwners <= 99
+     * Not all GL and BOP carriers require number of business owner or owner info (Coterie)
+     * Agency Portal does not collect number of owners
      */
-    if(!applicationDocData.numOwners && applicationDocData.owners.length === 0){
-
-        // Depend on insurer and policyType.
-        // reject decision should be in insurer integration file.  as of 11/14/2020 only Acuity and BTIS are using numOwners
-        log.warn(`You must specify the number of owners in the business applicationId: ${applicationDocData.applicationId}` + __location);
-    }
     if(applicationDocData.numOwners){
         if (isNaN(applicationDocData.numOwners)) {
             log.error('Number of owners in the business must be a number' + __location);

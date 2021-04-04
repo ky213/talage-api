@@ -21,6 +21,7 @@ const requiredVariables = [
     'ENV',
     // Public URLs
     'SITE_URL',
+    'IMAGE_URL',
     // Internal Credentials
     'AUTH_SECRET_KEY',
     'ENCRYPTION_KEY',

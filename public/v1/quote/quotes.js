@@ -83,8 +83,8 @@ async function createQuoteSummary(quote) {
                     limits[limit.description] = `${quoteLimit.amount}`;
                 }
                 catch (error) {
-                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
-                    return null;
+                    log.error(`Could not get limits for ${quote.insurerId} limit type ${quoteLimit.limitId}:` + error + __location);
+                    //return null;
                 }
             }
 
@@ -142,6 +142,13 @@ async function createQuoteSummary(quote) {
                 }
             }
             // Return the quote summary
+            let logoUrl = '';
+            if(insurer.logo && insurer.logo.startsWith('images')){
+                logoUrl = global.settings.IMAGE_URL + insurer.logo.replace('images','');
+            }
+            else {
+                logoUrl = global.settings.IMAGE_URL + insurer.logo
+            }
             return {
                 id: quote.mysqlId,
                 policy_type: quote.policyType,
@@ -151,7 +158,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: 'https://img.talageins.com/' + insurer.logo,
+                    logo: logoUrl,
                     name: insurer.name,
                     rating: insurer.rating
                 },

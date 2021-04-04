@@ -32,6 +32,7 @@ module.exports = class Policy {
 
         // BOP Only - Does not match Quote App UI
         this.coverage_lapse_non_payment = null;
+        this.bopCoverage = 0;
 
         // GL Only
         this.deductible = 0;
@@ -66,6 +67,7 @@ module.exports = class Policy {
         this.coverage_lapse_non_payment = policyJSON.coverage_lapse_non_payment;
         this.add_terrorism_coverage = policyJSON.addTerrorismCoverage;
         this.deductible = policyJSON.deductible;
+        this.bopCoverage = policyJSON.coverage;
         this.effective_date = policyJSON.effectiveDate;
         this.expiration_date = policyJSON.expirationDate;
         this.limits = this.formatLimits(policyJSON.limits);

@@ -11,7 +11,6 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
-const status = global.requireShared('./models/application-businesslogic/status.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const ApiAuth = require("./auth-api-rt.js");
 const fileSvc = global.requireShared('./services/filesvc.js');
@@ -656,18 +655,6 @@ async function runQuotes(application) {
     catch (error) {
         log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
     }
-
-    // Update the application quote progress to "complete"
-    const applicationBO = new ApplicationBO();
-    try {
-        await applicationBO.updateProgress(application.id, "complete");
-    }
-    catch (err) {
-        log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);
-    }
-
-    // Update the application status
-    await status.updateApplicationStatus(application.id);
 }
 
 
@@ -881,7 +868,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: 'https://img.talageins.com/' + insurer.logo,
+                    logo: global.settings.IMAGE_URL + insurer.logo,
                     name: insurer.name,
                     rating: insurer.rating
                 },
@@ -1030,7 +1017,7 @@ async function bindQuote(req, res, next) {
                 quoteId: quoteId,
                 paymentPlanId: paymentPlanId
             };
-            const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON);
+            await applicationBO.processRequestToBind(applicationId,quoteJSON);
         }
         catch(err){
             log.error(`Bind request error app ${applicationId} error ${err}` + __location)

@@ -37,9 +37,6 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const {'v4': uuidv4} = require('uuid');
 const log = global.log;
 
-//const {loggers} = require('winston');
-// const { debug } = require('request');
-// const { loggers } = require('winston');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -1323,8 +1320,13 @@ module.exports = class ApplicationModel {
                 }
 
                 updateStatusJson.updatedAt = new Date();
-
-                const query = {"mysqlId": id};
+                let query = {};
+                if(validator.isUuid(id)){
+                    query = {"applicationId": id};
+                }
+                else {
+                    query = {"mysqlId": id};
+                }
                 await ApplicationMongooseModel.updateOne(query, updateStatusJson);
             }
             catch (error) {
@@ -1342,7 +1344,13 @@ module.exports = class ApplicationModel {
         try {
             const updateStatusJson = {progress: progress}
             updateStatusJson.updatedAt = new Date();
-            const query = {"mysqlId": id};
+            let query = {};
+            if(validator.isUuid(id)){
+                query = {"applicationId": id};
+            }
+            else {
+                query = {"mysqlId": id};
+            }
             await ApplicationMongooseModel.updateOne(query, updateStatusJson);
         }
         catch (error) {
@@ -1351,26 +1359,7 @@ module.exports = class ApplicationModel {
         return true;
     }
 
-    async updateState(id, newState) {
-        //mongo update.....
-        try {
-            const updateStatusJson = {processStateOld: newState}
-            updateStatusJson.updatedAt = new Date();
-            const query = {
-                "mysqlId": id,
-                processStateOld: {$lt: newState}
-            };
-            await ApplicationMongooseModel.updateOne(query, updateStatusJson);
-        }
-        catch (error) {
-            log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
-        }
-        return true;
-    }
-
-
     async getProgress(id) {
-        //TODO move to Mongo Find
         let appDoc = null;
         try {
             appDoc = await this.getById(id)

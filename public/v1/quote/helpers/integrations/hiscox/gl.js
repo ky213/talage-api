@@ -8,7 +8,6 @@
 const Integration = require("../Integration.js");
 const moment = require("moment");
 const momentTimezone = require("moment-timezone");
-// const {ConsoleTransportOptions} = require('winston/lib/winston/transports');
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 // const util = require('util');
 const xmlToObj = require("xml2js").parseString;
@@ -550,7 +549,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Always a $0 deductible
         this.deductible = 0;
-
+        this.limits[12] = 0;
         // Get the request ID (optional)
         const requestId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RqUID");
         if (!requestId) {

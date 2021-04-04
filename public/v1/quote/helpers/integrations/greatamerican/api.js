@@ -3,21 +3,29 @@ const axios = require('axios');
 const _ = require('lodash');
 const log = global.log;
 
-const getToken = async (username, password) => {
+const getApiUrl = (integration) => {
+    if (integration.insurer.useSandbox) {
+        return 'https://uat01.api.gaig.com';
+    }
+    return 'https://uat01.api.gaig.com';
+}
+
+const getToken = async (integration, username, password) => {
 
     const options = {
         headers: {
-            Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+            Authorization: `Basic ${Buffer.from(`${integration.username}:${integration.password}`).toString('base64')}`,
             Accept: 'application/json'
         }
     };
 
     let out = null;
     try{
-        const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
+        const apiCall = await axios.post(`${getApiUrl(integration)}/oauth/accesstoken?grant_type=client_credentials`, null, options);
         out = apiCall.data;
     }
     catch(err){
+        //console.log(err);
         log.error(`Error getting token from Great American ${err} @ ${__location}`)
     }
 
@@ -29,7 +37,26 @@ const getToken = async (username, password) => {
 };
 
 const getNcciFromClassCode = async (code, territory) => {
-    const talageCode = await db.query(`
+    if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+        const activityCodeQuery = {
+            insurerId: 26,
+            talageActivityCodeIdList: code,
+            territoryList: territory,
+            active: true
+        }
+
+        const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery)
+        if(insurerActivityCode){
+            return insurerActivityCode.code
+        }
+        else{
+            log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
+            throw new Error(`Code could not be found: ${code} / ${territory}`);
+        }
+    }
+    else {
+        const talageCode = await db.query(`
         SELECT
             inc.code
         FROM clw_talage_activity_codes AS ac
@@ -37,12 +64,15 @@ const getNcciFromClassCode = async (code, territory) => {
         LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
         WHERE
             inc.insurer = 26 AND inc.territory = '${territory}' AND ac.id = ${code}`);
-    if (talageCode.length <= 0) {
-        log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
-        throw new Error(`Code could not be found: ${code} / ${territory}`);
+        if (talageCode.length <= 0) {
+            log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
+            throw new Error(`Code could not be found: ${code} / ${territory}`);
+        }
+        return talageCode[0].code;
     }
-    return talageCode[0].code;
+
 }
+
 
 /**
  * If you answered all of the questions from Great American in a question
@@ -137,7 +167,7 @@ const getPricing = async (token, integration, sessionId) => {
         }
     };
     const apiCall = await axios
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/pricing', send, {
+        .post(`${getApiUrl(integration)}/shop/api/newBusiness/pricing`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
                 Accept: 'application/json',
@@ -146,14 +176,14 @@ const getPricing = async (token, integration, sessionId) => {
     return apiCall.data;
 }
 
-const getQuote = async (token, sessionId) => {
+const getQuote = async (integration, token, sessionId) => {
     const send = {
         newBusiness: {
             id: sessionId
         }
     };
     const apiCall = await axios
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/submit', send, {
+        .post(`${getApiUrl(integration)}/shop/api/newBusiness/submit`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
                 Accept: 'application/json',
@@ -165,11 +195,10 @@ const getQuote = async (token, sessionId) => {
 /**
  * Starts a new question session with Great American.
  * 
- * @param {*} token 
  * @param {*} businessTypes An array of business types. Each entry should be in the format of:
  *    { id: ncciCode, value: 'GraphicDesign' }
  */
-const getSession = async (token, businessTypes) => {
+const getSession = async (integration, token, businessTypes) => {
     const uat = global.settings.GREAT_AMERICAN_UAT;
     const uatId = global.settings.GREAT_AMERICAN_UAT_ID;
 
@@ -189,7 +218,7 @@ const getSession = async (token, businessTypes) => {
         }
     };
     const apiCall = await axios
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/eligibility', send, {
+        .post(`${getApiUrl(integration)}/shop/api/newBusiness/eligibility`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
                 Accept: 'application/json',
@@ -207,7 +236,7 @@ const getSession = async (token, businessTypes) => {
  * @param {*} questionAnswers An object (key-value pair) where the key is the
  *   question ID and the value is the answer to the question.
  */
-const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
+const injectAnswers = async (integration, token, fullQuestionSession, questionAnswers) => {
     const questionSession = _.cloneDeep(fullQuestionSession);
     const answerSession = _.get(questionSession, 'riskSelection.data.answerSession');
     const allGroups = _.get(answerSession, 'questionnaire.groups');
@@ -244,7 +273,7 @@ const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
     };
 
     const appetite = await axios
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/eligibility', newEligibilityParameters, {
+        .post(`${getApiUrl(integration)}/shop/api/newBusiness/eligibility`, newEligibilityParameters, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
                 Accept: 'application/json',

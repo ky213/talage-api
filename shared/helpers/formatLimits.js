@@ -13,3 +13,14 @@ exports.getLimitsAsDollarAmounts = function(limitsString){
     });
     return limitsArray;
 }
+
+/**
+ * Takes in a limits string and returns array of amounts
+ *
+ * @param {string} limitsString - String conatining limits (ex. '100000020000001000000')
+ * @return {array} - The individual limits (ex. ['1000000', '2000000', '1000000'])
+ */
+exports.getLimitsAsAmounts = function(limitsString){
+    const limitsArray = limitsString.match(/[1-9]+0*/g);
+    return limitsArray;
+}

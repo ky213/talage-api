@@ -3,7 +3,7 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const tableName = 'clw_talage_activity_codes';
 const skipCheckRequired = false;
 module.exports = class ActivityCodeBO{
@@ -96,42 +96,68 @@ module.exports = class ActivityCodeBO{
             // Create the update query
             let hasWhere = false;
             let stateSet = false;
-            let sql = `
-                    select * from ${tableName}  
-                `;
+            const sqlSelect = `
+                SELECT * FROM ${tableName}  
+            `;
+            const sqlCount = `
+                SELECT count(*) FROM ${tableName}  
+            `;
+            let sqlWhere = "";
+            let sqlPaging = "";
             if(queryJSON){
-                if(queryJSON.include_insurers) {
-                    // TODO: HOW TO EDIT THE QUERY?
+                if(queryJSON.activityCodeId){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+
+                    let queryIdList = queryJSON.activityCodeId;
+                    if(Array.isArray(queryJSON.activityCodeId)){
+                        queryIdList = queryJSON.activityCodeId.join(",");
+                    }
+
+                    sqlWhere += ` id IN (${queryIdList}) `;
+                    hasWhere = true;
+                }
+                if(queryJSON.description){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `
+                    hasWhere = true;
                 }
                 if(queryJSON.state) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` state = ${db.escape(queryJSON.state)} `;
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` state = ${db.escape(queryJSON.state)} `;
                     stateSet = true;
                     hasWhere = true;
+                }
+                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 20;
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                if(limit && page) {
+                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
+                    // offset by page number * max rows, so we go that many rows
+                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
                 }
             }
 
             if(!stateSet) {
-                sql += hasWhere ? " AND " : " WHERE ";
-                sql += ` state >= 0 `;
+                sqlWhere += hasWhere ? " AND " : " WHERE ";
+                sqlWhere += ` state >= 0 `;
                 hasWhere = true;
             }
 
             // reverse the list to sort by id descending by default
-            sql += " GROUP BY id order by id DESC"
+            const sqlOrder = " ORDER BY id DESC";
 
+            const sql = sqlSelect + sqlWhere + sqlOrder + sqlPaging;
             // Run the query
             log.debug("ActivityCodeBO getlist sql: " + sql);
             const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
                 rejected = true;
                 log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
                 reject(error);
             });
+
             if (rejected) {
                 return;
             }
+
             const boList = [];
             if(result && result.length > 0){
                 for(let i = 0; i < result.length; i++){
@@ -146,7 +172,20 @@ module.exports = class ActivityCodeBO{
                     }
                     boList.push(activityCodeBO);
                 }
-                resolve(boList);
+                if(queryJSON && (queryJSON.count === "1" || queryJSON.count === "true")){
+                    const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
+                        rejected = true;
+                        log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
+                        reject(error);
+                    });
+                    resolve({
+                        rows: boList,
+                        count: count[0] ? count[0]["count(*)"] : 0
+                    });
+                }
+                else{
+                    resolve(boList);
+                }
             }
             else {
                 //Search so no hits ok.
