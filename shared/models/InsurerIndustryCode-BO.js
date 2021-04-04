@@ -7,7 +7,7 @@ var InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const tableName = 'clw_talage_insurer_industry_codes';
+const tableName = 'InsurerIndustryCode';
 module.exports = class InsurerIndustryCodeBO{
 
     constructor(){
