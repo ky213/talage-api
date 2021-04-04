@@ -466,7 +466,7 @@ module.exports = class CompwestWC extends Integration {
                                         talageQuestionList.forEach((talageQuestionId) => {
                                             const question = this.questions[talageQuestionId];
                                             if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
-                                                log.error(`did not talageQuestionId ${talageQuestionId} in ${JSON.stringify(this.question_details)} `)
+                                                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
                                                 return;
                                             }
                                             //const question_attributes = question.attributes;
