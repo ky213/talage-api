@@ -1,7 +1,7 @@
 /* eslint-disable guard-for-in */
 
 const moment = require('moment');
-const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
+
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -101,20 +101,6 @@ module.exports = class QuoteBO {
                 log.error("Error saving Mongo quote " + err + __location);
             }
 
-            // //limit save
-            // if(quoteJSON.limits && quoteJSON.limits.length > 0){
-            //     const limitValues = [];
-            //     for (let i = 0; i < quoteJSON.limits.length; i++){
-            //         const limitJSON = quoteJSON.limits[i];
-            //         limitValues.push(`(${quoteID}, ${limitJSON.limitId}, ${limitJSON.amount})`);
-            //     }
-            //     const quoteLimitBO = new QuoteLimitBO();
-            //     // eslint-disable-next-line array-element-newline
-            //     const limitcolumns = ['quote', 'limit', 'amount']
-            //     await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
-            //         log.error(`Error quoteLimitBO.insertByColumnValue  for appId: ${quoteJSON.mysqlAppId}` + err + __location);
-            //     });
-            // }
             resolve(quoteID);
         });
     }
