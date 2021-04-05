@@ -161,7 +161,7 @@ module.exports = class Application {
             this.questions = questionJSON
         }
 
-        // TODO: Eventually, this will need to take place on the applicationDocData, not the model data
+        //: Eventually, this will need to take place on the applicationDocData, not the model data
         try {
             await this.translate();
         }
@@ -405,7 +405,7 @@ module.exports = class Application {
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
-            throw e;
+            //throw e;
         }
         // Grab the answers the user provided to our questions and reset the question object
         const user_questions = this.questions;

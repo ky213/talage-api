@@ -82,6 +82,8 @@ exports.load = () => {
     // Default to not use questions cached in Redis
     variables.USE_REDIS_QUESTION_CACHE = "NO";
     variables.REDIS_QUESTION_CACHE_JOB_COUNT = 3;
+    //Default to use InsurerQuestions Gen 2
+    variables.USE_MONGO_QUESTIONS = "YES";
 
 
     if (fs.existsSync('local.env')){

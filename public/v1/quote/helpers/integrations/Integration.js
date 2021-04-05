@@ -573,6 +573,9 @@ module.exports = class Integration {
 
     /**
      * Retrieves the relationship between questions and activity codes
+     * Insurer questions Gen 1
+     * not ported to Gen2
+     * Only called by Compwest WC
      *
      * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
      */

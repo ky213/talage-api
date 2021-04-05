@@ -630,7 +630,6 @@ module.exports = class MarkelWC extends Integration {
         //This may result in no limit being found. needs defaults
         //Plus need to use best match.   Note: limits variable not used submission.
         let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
-
         const limits = this.getBestLimits(carrierLimits);
         if (limits) {
             const markelBestLimits = limits.join("/");
@@ -1256,9 +1255,9 @@ module.exports = class MarkelWC extends Integration {
                     const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
                     const limitsArray = limitsString.split('/');
                     const quotelimits = {
-                        '1': limitsArray[0],
-                        '2': limitsArray[1],
-                        '3': limitsArray[2]
+                        '1': parseInt(limitsArray[0],10) * 1000,
+                        '2': parseInt(limitsArray[1],10) * 1000,
+                        '3': parseInt(limitsArray[2],10) * 1000
                     }
                     return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }

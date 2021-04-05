@@ -98,7 +98,7 @@ module.exports = class CompwestWC extends Integration {
         let coterieDeductible = 0;
         if(this.policy.deductible >= 0){
             //submissionJSON.bppDeductible = appDoc.policies[].deductible
-            coterieDeductible = 5000;
+            coterieDeductible = 500;
             coterieDeductible = this.policy.deductible;
             if(coterieDeductible > 1000 && coterieDeductible < 2501){
                 coterieDeductible = 2500
@@ -109,12 +109,14 @@ module.exports = class CompwestWC extends Integration {
             if(this.policy.type.toUpperCase() === 'BOP'){
                 submissionJSON.bppDeductible = coterieDeductible;
             }
-            else {
-                submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
-            }
+            // else {
+            //     submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
+            // }
+            submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
             // what is "propertyDamageLiabilityDeductible" Assuming GL Deductible.
             //"propertyDamageLiabilityDeductible": 500,
         }
+        this.limits[12] = coterieDeductible;
 
         //we might not have payroll if just GL or BOP
         const totalPayRoll = this.get_total_payroll()
@@ -134,8 +136,8 @@ module.exports = class CompwestWC extends Integration {
 
 
         //Claims
+        let claimsArray = [];
         if(appDoc.claims && appDoc.claims.length > 0){
-            let claimsArray = [];
             appDoc.claims.forEach((claim) => {
                 if(claim.policyType.toUpperCase() === this.policy.type.toUpperCase()){
                     const claimJson = {
@@ -145,10 +147,8 @@ module.exports = class CompwestWC extends Integration {
                     claimsArray.push(claimJson)
                 }
             });
-            if(claimsArray.length > 0){
-                submissionJSON.previousLosses = claimsArray
-            }
         }
+        submissionJSON.previousLosses = claimsArray
 
         log.debug(`Coterie ${this.policy.type.toUpperCase()} Quote submission JSON \n ${JSON.stringify(submissionJSON)} \n ` + __location)
 

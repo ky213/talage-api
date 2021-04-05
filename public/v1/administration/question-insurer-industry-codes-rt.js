@@ -15,7 +15,7 @@ async function getQuestionInsurerIndustryCodes(req, res, next){
     if(!req.query || !req.query.talageQuestionId){
         return next(serverHelper.requestError('Bad Request: No talageQuestionId provided'));
     }
-
+    // TODO Need use mongo collections based on global.settings.USE_MONGO_QUESTIONS Flag
     // Define a query to get a list of activity codes, given a talageQuestionId
     // TODO: id might be used instead of code
     const qIndustryCodeSQL = `
