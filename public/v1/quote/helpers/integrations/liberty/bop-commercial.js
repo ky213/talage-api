@@ -59,7 +59,21 @@ const policyQuestionSpecialCases = [
 
 // these are special case questions that require specific details for inclusion in the request
 const locationQuestionSpecialCases = [
-
+    'UWQ5333', // GrossReceipts
+    'UWQ5332', // GrossReceipts
+    'UWQ5323', // GrossReceipts
+    'UWQ5308', // GrossReceipts
+    'UWQ172', // LocationUWInfoExt
+    'UWQ172_Amount', // LocationUWInfoExt
+    'CP64', // BldgImprovements/BldgImprovementExt
+    'BOP8', // BldgImprovements
+    'BOP58', // GrossReceipts
+    'BOP56', // GrossReceipts, child of BOP55
+    'BOP55', // GrossReceipts
+    'BOP55_Amount', // GrossReceipts
+    'BOP186', // BldgImprovements
+    'BOP185', // BldgImprovements
+    'BOP17' // BldgOccupancy/BldgOccupancyExt,
 ];
 
 // An association list tying the Talage entity list (left) to the codes used by this insurer (right)
@@ -346,13 +360,12 @@ module.exports = class LibertySBOP extends Integration {
         const specialPolicyQuestions = allPolicyQuestions.filter(q => policyQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
 
         let PolicySupplementExt = null;
-        let GrossReceipts = null;
         specialPolicyQuestions.forEach(question => {
             switch (question.insurerQuestionIdentifier) {
                 case "UWQ5042":
-                    GrossReceipts = Policy.ele('GrossReceipts');
-                    GrossReceipts.ele('OperationsCd', 'OUTSIDEUS');
-                    GrossReceipts.ele('RevenuePct', question.answerValue);
+                    const UWQ5042GrossReceipts = Policy.ele('GrossReceipts');
+                    UWQ5042GrossReceipts.ele('OperationsCd', 'OUTSIDEUS');
+                    UWQ5042GrossReceipts.ele('RevenuePct', question.answerValue);
                     break;
                 case "UWQ2":
                     if (!PolicySupplementExt) {
@@ -415,6 +428,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "BOP191":
                     // handled in BOP2
+                    break;
                 default: 
                     log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
                     break;
@@ -563,343 +577,185 @@ module.exports = class LibertySBOP extends Integration {
             }
         });
 
-        // const QuestionAnswers = 
+        //             <LocationUWInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
+        //                 <InterestCd>TENANT</InterestCd>
+        //                 <Construction>
+        //                     <ConstructionCd>MNC</ConstructionCd>
+        //                     <YearBuilt>2015</YearBuilt>
+        //                     <NumStories>1</NumStories>
+        //                     <BldgArea>
+        //                         <NumUnits>1000</NumUnits>
+        //                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
+        //                     </BldgArea>
+        //                     <RoofingMaterial>
+        //                         <RoofMaterialCd>ASPHS</RoofMaterialCd>
+        //                         <com.libertymutual.ci_RoofMaterialResistanceCd>WR</com.libertymutual.ci_RoofMaterialResistanceCd>
+        //                     </RoofingMaterial>
+        //                 </Construction>
+        //                 <BldgProtection>
+        //                     <ProtectionDeviceBurglarCd>PCFC</ProtectionDeviceBurglarCd>
+        //                 </BldgProtection>
+        //                 <BldgOccupancy>
+        //                     <AreaOccupied>
+        //                         <NumUnits>1000</NumUnits>
+        //                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
+        //                     </AreaOccupied>
+        //                     <AreaOccupiedByOthers>
+        //                         <NumUnits>0</NumUnits>
+        //                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
+        //                     </AreaOccupiedByOthers>
+        //                     <AreaUnoccupied>
+        //                         <NumUnits>0</NumUnits>
+        //                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
+        //                     </AreaUnoccupied>
+        //                     <BldgOccupancyExt>
+        //                         <com.libertymutual.ci_UnoccupiedAreasConditionText>Text</com.libertymutual.ci_UnoccupiedAreasConditionText>
+        //                     </BldgOccupancyExt>
+        //                 </BldgOccupancy>
+        //                 <GrossReceipts>
+        //                     <OperationsCd>TOTAL</OperationsCd>
+        //                     <AnnualGrossReceiptsAmt>
+        //                         <Amt>250000</Amt>
+        //                     </AnnualGrossReceiptsAmt>
+        //                 </GrossReceipts>
+        //                 <!-- What are the insured's sales from any installation, excluding delivery, generated from this location? -->
+        //                 <GrossReceipts>
+        //                     <OperationsCd>INSTALLATION</OperationsCd>
+        //                     <AnnualGrossReceiptsAmt>
+        //                         <Amt>15000</Amt>
+        //                     </AnnualGrossReceiptsAmt>
+        //                 </GrossReceipts>
+        //                 <!-- <LocationUWInfoExt> -->
+        //                 <!-- Number of deep fat fryers -->
+        //                 <com.libertymutual.ci_DeepFatFryersCountCd>0</com.libertymutual.ci_DeepFatFryersCountCd>
+        //                 <!-- </LocationUWInfoExt>   -->
+        //             </LocationUWInfo>
+        //         </PolicyRq>
+        //     </InsuranceSvcRq>
+        // </ACORD> */}
 
-        // TODO: Create a list of questions that have special cases (non YesNo questions)
-        //       Filter those out and create generic questions
-        //       Then, walk over each special case question with case statement creating appropriate question value
-        //       - Could be GrossReceipts, could be specific single element, etc.
+        applicationDocData.locations.forEach((location, index) => {
+            const LocationUWInfo = PolicyRq.ele('LocationUWInfo').att('LocationRef', `L${index}`);
+            const allLocationQuestions = location.questions;
+            const standardLocationQuestions = allLocationQuestions.filter(q => !locationQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
+            const specialLocationQuestions = allLocationQuestions.filter(q => locationQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
 
-//             <LocationUWInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
-//                 <InterestCd>TENANT</InterestCd>
-//                 <Construction>
-//                     <ConstructionCd>MNC</ConstructionCd>
-//                     <YearBuilt>2015</YearBuilt>
-//                     <NumStories>1</NumStories>
-//                     <BldgArea>
-//                         <NumUnits>1000</NumUnits>
-//                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
-//                     </BldgArea>
-//                     <RoofingMaterial>
-//                         <RoofMaterialCd>ASPHS</RoofMaterialCd>
-//                         <com.libertymutual.ci_RoofMaterialResistanceCd>WR</com.libertymutual.ci_RoofMaterialResistanceCd>
-//                     </RoofingMaterial>
-//                 </Construction>
-//                 <BldgProtection>
-//                     <ProtectionDeviceBurglarCd>PCFC</ProtectionDeviceBurglarCd>
-//                 </BldgProtection>
-//                 <BldgOccupancy>
-//                     <AreaOccupied>
-//                         <NumUnits>1000</NumUnits>
-//                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
-//                     </AreaOccupied>
-//                     <AreaOccupiedByOthers>
-//                         <NumUnits>0</NumUnits>
-//                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
-//                     </AreaOccupiedByOthers>
-//                     <AreaUnoccupied>
-//                         <NumUnits>0</NumUnits>
-//                         <UnitMeasurementCd>SquareFeet</UnitMeasurementCd>
-//                     </AreaUnoccupied>
-//                     <BldgOccupancyExt>
-//                         <com.libertymutual.ci_UnoccupiedAreasConditionText>Text</com.libertymutual.ci_UnoccupiedAreasConditionText>
-//                     </BldgOccupancyExt>
-//                 </BldgOccupancy>
-//                 <GrossReceipts>
-//                     <OperationsCd>TOTAL</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>250000</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- What are the insured`s total sales from firearms and ammunition at this location? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>AMMFIRE</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>0</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- What are the total sales transacted from this location on the insured`s web site? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>INTERNET</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>40000</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- What are the insured's sales from any installation, excluding delivery, generated from this location? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>INSTALLATION</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>15000</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- What percentage of total receipts are from sales of furniture? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>FURNITURE</OperationsCd>
-//                     <RevenuePct>55</RevenuePct>
-//                 </GrossReceipts>
-//                 <!-- What are the insured`s sales from adult materials at this location?? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>ADULT</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>0</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- What are the insured`s sales at this location from directly imported merchandise from manufacturers or distributors not domiciled in the United States?? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>IMPORTS</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>0</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- Is any of the space leased to tenants used for business operations that do not qualify for coverage on the Commercial Protector (BOP) (e.g. manufacturing, metal working or welding, restaurants or other operations with commercial cooking exposures, spray painting, autobody work, woodworking, storage/manufacturing of flammables, or growing, processing, storing or dispensing marijuana)?  -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP07</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has heating integrity been verified by a licensed heating contractor in the last 5 years? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP10</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has electrical integrity been verified by a licensed electrical contractor in the last 5 years? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP11</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has roofing integrity been verified by a licensed roofing contractor in the last 5 years? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP21</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                     <Explanation>No Details.</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Has plumbing integrity been verified by a licensed plumbing contractor in the last 5 years? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP18</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is the named insured included as an additional insured on the tenants general liability policy? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL11</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are check-cashing services provided? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP92</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are the majority of internet sales from this location (over 50%) generated from inventory stored on the insured's premises? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP31</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Do the operations of the risk include home care services of any kind? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP62</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the applicant do any compounding or mixing of drugs? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP08</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is the extinguishing system serviced at least on a semi-annual basis by a licensed contractor? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL78</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is the insured involved in the manufacturing, mixing, relabeling or repackaging of products? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>BOP02</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there involvement in any real estate development or speculation? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP37</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- The majority of menu items (at least 75%) are baked (in oven and/or microwave) or heated on the stove top. -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL79</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Do the applicant's business practices include all of the following: background checks for all employees, implementation of appropriate drug distribution tracking procedures, storage and handling of prescription narcotics that meet the operating state's requirements? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP63</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there a UL 300 fixed extinguishing system with automatic fuel cutoff protecting all cooking surfaces? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL98</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are the hoods, ductwork and flues cleaned by an outside service at least quarterly? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL97</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are flammables used in the operations at this location?  -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>GENRL41</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does insured sell any motorized watercraft at this location? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>AGLIA71</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured sell second hand or used materials or merchandise? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>HOME20</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>0</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- Does the insured sell second hand or used materials or merchandise? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>HOME20</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there any of the following types of cooking operations at this location: frying, grilling, broiling, barbequing or other cooking that produces grease laden vapors? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP09</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does your Business Personal Property Limit include any equipment valued over $500,000 per item(i.e. - Magnetic Resonance Imaging - MRI,X-Ray equipment,Ultra Sound technology,etc.)? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP12</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the applicant clean and disinfect all instruments and equipment according to the manufacturers instructions? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP13</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Do any of the other building tenants engage in operations that have significant fire hazards (i.e. commercial cooking (frying or grilling), spray painting, woodworking, welding or heavy manufacturing, etc.)? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP17</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                     <Explanation>No Details.</Explanation>
-//                 </QuestionAnswer>
-//                 <!-- Does the insured have professional liability coverage in place for all medical and non-medical professional services they provide with limits that are equal to or greater than those requested on this application? Note: Operations involving Cryotherapy are not eligible.? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP19</QuestionCd>
-//                     <YesNoCd>YES</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does insured rent or lease any equipment such as skis, snowboards, bicycles or similar equipment? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP20</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there a contract for semi-annual inspection and maintenance of the extinguishing system, hood, filters, and ducts? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP23</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there a donut fryer at this location? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP28</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the rental agreement with storage unit customers contain restrictions concerning the storage of hazardous goods? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP57</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the applicant's premises have security protection i.e. locked gate with electronic key pad?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP58</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does the insureds operations involve growing, storing, selling, dispensing, or otherwise providing access to medically-prescribed marijuana? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP64</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has applicant been closed by the board of health in the last three years? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP66</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Have there been any sinkhole claims on this location? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP90</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are there any visible signs of sinkhole activity or damage at this location? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP91</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is any of the space leased to tenants used for business operations that do not qualify for coverage on the Commercial Protector (e.g. manufacturing, metal working or welding, spray painting, autobody work, woodworking, storage/manufacturing of flammables, or growing, processing, storing or dispensing marijuana)? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP96</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is any of the space leased to tenants used for business operations that do not qualify for coverage on the Commercial Protector (e.g. manufacturing, metal working or welding, spray painting, autobody work, woodworking, storage/manufacturing of flammables)?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP97</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are customers' vehicles stored on applicant's premises overnight? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGARAG01</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are customers required to proof-read prior to printing? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL05</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are more than 10% of the gross annual receipts generated from assembly of bicycles or other sports equipment?? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL06</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are any receipts derived from the sale of LPG (do not include receipts generated from the sale of small pre-filled propane containers or the sale or exchange of empty propane receptacles)? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL16</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Has the operations undergone lead abatement? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL6</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Does glass make up more than 50% of the exterior construction?-->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL64</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is more than 15% of this building (maximum of 7,500 square feet) occupied by other tenants that are not offices, but have property exposures similar to those contemplated for the BOP, such as eligible Retail, Wholesale or Service classifications? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL84</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Is there a greenhouse present at this location? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMGENRL92</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- Are there any habitational exposures in this building? -->
-//                 <QuestionAnswer>
-//                     <QuestionCd>LMBOP75</QuestionCd>
-//                     <YesNoCd>NO</YesNoCd>
-//                 </QuestionAnswer>
-//                 <!-- What are the insured's sales from any installation, service, or repair work generated from this location? -->
-//                 <GrossReceipts>
-//                     <OperationsCd>SVCIN</OperationsCd>
-//                     <AnnualGrossReceiptsAmt>
-//                         <Amt>0</Amt>
-//                     </AnnualGrossReceiptsAmt>
-//                 </GrossReceipts>
-//                 <!-- <LocationUWInfoExt> -->
-//                 <!-- Number of deep fat fryers -->
-//                 <com.libertymutual.ci_DeepFatFryersCountCd>0</com.libertymutual.ci_DeepFatFryersCountCd>
-//                 <!-- </LocationUWInfoExt>   -->
-//             </LocationUWInfo>
-//         </PolicyRq>
-//     </InsuranceSvcRq>
-// </ACORD> */}
+            let LocationUWInfoExt = null;
+            let BldgImprovements = null;
+            let BldgImprovementExt = null;
+            let BldgOccupancy = null;
+            let BldgOccupancyExt = null;
+            // handle special case questions first
+            specialLocationQuestions.forEach(question => {
+                switch (question.insurerQuestionIdentifier) {
+                    case "UWQ5333":
+                        const UWQ5333GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                        UWQ5333GrossReceipts.ele('OperationsCd', 'INTERNET');
+                        const UWQ5333AnnualGrossReceiptsAmt = UWQ5333GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                        UWQ5333AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                        break;
+                    case "UWQ5332":
+                        const UWQ5332GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                        UWQ5332GrossReceipts.ele('OperationsCd', 'AMMFIRE');
+                        const UWQ5332AnnualGrossReceiptsAmt = UWQ5332GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                        UWQ5332AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                        break;
+                    case "UWQ5323":
+                        const UWQ5323GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                        UWQ5323GrossReceipts.ele('OperationsCd', 'IMPORTS');
+                        const UWQ5323AnnualGrossReceiptsAmt = UWQ5323GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                        UWQ5323AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                        break;
+                    case "UWQ5308":
+                        const UWQ5308GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                        UWQ5308GrossReceipts.ele('OperationsCd', 'ADULT');
+                        const UWQ5308AnnualGrossReceiptsAmt = UWQ5308GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                        UWQ5308AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                        break;
+                    case "UWQ172":
+                        // handled in UWQ172_Amount
+                        break;
+                    case "UWQ172_Amount":
+                        if (!LocationUWInfoExt) {
+                            LocationUWInfoExt = LocationUWInfo.ele('LocationUWInfoExt');
+                        }
+                        LocationUWInfoExt.ele('com.libertymutual.ci_DeepFatFryersCountCd', question.answerValue);
+                        break;
+                    case "CP64":
+                        if (!BldgImprovements) {
+                            BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                        }
+                        if (!BldgImprovementExt) {
+                            BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
+                        }
+                        BldgImprovementExt.ele('com.libertymutual.ci_ResidentialOccupancyPct', question.answerValue);
+                        break;
+                    case "BOP8":
+                    case "BOP186":
+                    case "BOP185":
+                        if (!BldgImprovements) {
+                            BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                        }
+                        const qId = question.insurerQuestionIdentifier;
+                        if (qId === 'BOP8') {
+                            BldgImprovementExt.ele('WiringImprovementYear', question.answerValue);
+                        } else if (qId === 'BOP186') {
+                            BldgImprovementExt.ele('PlumbingImprovementYear', question.answerValue);
+                        } else { // if BOP185
+                            BldgImprovementExt.ele('HeatingImprovementYear', question.answerValue);
+                        }
+                        break;
+                    case "BOP58":
+                        const BOP58GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                        BOP58GrossReceipts.ele('OperationsCd', 'INSTALLATION');
+                        const BOP58AnnualGrossReceiptsAmt = BOP58GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                        BOP58AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                        break;
+                    case "BOP56":
+                        // handled in BOP55_Amount
+                        break;
+                    case "BOP55":
+                        // handled in BOP55_Amount
+                        break;
+                    case "BOP55_Amount":
+                        const BOP55GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                        BOP55GrossReceipts.ele('OperationsCd', 'SVCIN');
+                        const BOP55AnnualGrossReceiptsAmt = BOP55GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                        BOP55AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+
+                        const BOP56 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP56");
+                        if (BOP56) {
+                            BOP55GrossReceipts.ele('ProductDesc', BOP56.answerValue);
+                        }
+                        break;
+                    case "BOP17":
+                        if (!BldgOccupancy) {
+                            BldgOccupancy = LocationUWInfo.ele('BldgOccupancy');
+                        }
+                        if (!BldgOccupancyExt) {
+                            BldgOccupancyExt = BldgImprovements.ele('BldgOccupancyExt');
+                        }
+                        BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
+                        break;
+                    default: 
+                        log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
+                        break;
+                }
+            });
+
+            // then create general questions
+            standardLocationQuestions.forEach(question => {
+                const QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
+                QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+
+                if (question.insurerQuestionAttributes.ACORDPath && question.insurerQuestionAttributes.ACORDPath.toLowerCase().includes('explanation')) {
+                    // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
+                    QuestionAnswer.ele('Explanation', question.answerValue);
+                } else {
+                    QuestionAnswer.ele('YesNoCd', question.answerValue);
+                }
+            });
+        });
 
         // -------------- SEND XML REQUEST ----------------
 
