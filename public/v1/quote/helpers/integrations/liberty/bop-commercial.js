@@ -13,6 +13,19 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
 
+/*
+QUESTION SPECIAL CASES:
+BOP8 (ignored)
+    Question: "Wiring Year"
+    Case: Year Built is > 24 years in the past and either Building limit > 0 or Business Personal Property limit > 500,000
+BOP186 (ignored)
+    Question: "Plumbing Year"
+    Case: Year Built is > 24 years in the past and either Building limit > 0 or Business Personal Property limit > 500,000
+BOP185 (ignored)
+    Question: "Heating Year"
+    Case: Year Built is > 24 years in the past and either Building limit > 0 or Business Personal Property limit > 500,000
+*/
+
 // The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM
 const supportedLimits = [
     300000,
@@ -27,6 +40,26 @@ const supportedDeductables = [
     1000,
     2500,
     5000
+];
+
+// NOTE: There are currently no special case questions for BOPLineBusiness questions
+
+// these are special case questions that require specific details for inclusion in the request
+const policyQuestionSpecialCases = [
+    'UWQ5042', // GrossReceipts
+    'UWQ1',
+    'UWQ1_Explanation',
+    'GLO202', // Not Included in Request(?)
+    'UWQ2', // PolicySupplementExt
+    'BOP24', // PolicySupplementExt
+    'BOP23', // PolicySupplementExt
+    'BOP2', // PolicySupplementExt
+    'BOP191' // PolicySupplementExt
+];
+
+// these are special case questions that require specific details for inclusion in the request
+const locationQuestionSpecialCases = [
+
 ];
 
 // An association list tying the Talage entity list (left) to the codes used by this insurer (right)
@@ -82,6 +115,7 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         const commercialBOPQuestions = applicationDocData.questions.filter(q => q.insurerQuestionAttributes.commercialBOP);
+        const requestUUID = this.generate_uuid();
 
         // Assign the closest supported limit for Per Occ
         // NOTE: Currently this is not included in the request and defaulted on LM's side
@@ -139,7 +173,7 @@ module.exports = class LibertySBOP extends Integration {
         //         <PolicyRq>
 
         const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        InsuranceSvcRq.ele('RqUID', this.generate_uuid());
+        InsuranceSvcRq.ele('RqUID', requestUUID);
         const PolicyRq = InsuranceSvcRq.ele('PolicyRq');
 
         //             <RqUID>C4A112CD-3382-43DF-B200-lkrtegfcgjk11C6</RqUID>
@@ -165,7 +199,7 @@ module.exports = class LibertySBOP extends Integration {
         //             </Producer>
 
         const PolicyRq = InsuranceSvcRq.ele('PolicyRq');
-        PolicyRq.ele('RqUID', UUID);
+        PolicyRq.ele('RqUID', requestUUID);
         PolicyRq.ele('TransactionRequestDt', moment().local().format());
         PolicyRq.ele('TransactionEffectiveDt', moment().local().format('YYYY-MM-DD'));
         PolicyRq.ele('CurCd', 'USD');
@@ -208,20 +242,20 @@ module.exports = class LibertySBOP extends Integration {
         const GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
         const NameInfo = GeneralPartyInfo.ele('NameInfo');
         const CommlName = NameInfo.ele('CommlName');
-        CommlName.ele('CommercialName', null);
-        NameInfo.ele('LegalEntityCd', null);
+        CommlName.ele('CommercialName', applicationDocData.businessName);
+        NameInfo.ele('LegalEntityCd', entityMatrix[applicationDocData.entityType]);
         const TaxIdentity = NameInfo.ele('TaxIdentity');
-        TaxIdentity.ele('TaxIdTypeCd', null);
-        TaxIdentity.ele('TaxId', null);
+        TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+        TaxIdentity.ele('TaxId', applicationDocData.ein);
         const Addr = GeneralPartyInfo.ele('Addr');
-        Addr.ele('Addr1', null);
-        Addr.ele('City', null);
-        Addr.ele('StateProvCd', null);
-        Addr.ele('PostalCode', null);
+        Addr.ele('Addr1', applicationDocData.mailingAddress);
+        Addr.ele('City', applicationDocData.mailingCity);
+        Addr.ele('StateProvCd', applicationDocData.mailingState);
+        Addr.ele('PostalCode', applicationDocData.mailingZipcode);
         const Communications = GeneralPartyInfo.ele('Communications');
         const PhoneInfo = Communications.ele('PhoneInfo');
-        PhoneInfo.ele('PhoneTypeCd', null);
-        PhoneInfo.ele('PhoneNumber', null);
+        PhoneInfo.ele('PhoneTypeCd', 'Phone');
+        PhoneInfo.ele('PhoneNumber', formattedPhone);
 
         //                 <InsuredOrPrincipalInfo>
         //                     <InsuredOrPrincipalRoleCd>FNI</InsuredOrPrincipalRoleCd>
@@ -235,8 +269,8 @@ module.exports = class LibertySBOP extends Integration {
         const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
-        BusinessInfo.ele('BusinessStartDt', null);
-        BusinessInfo.ele('OperationsDesc', null); 
+        BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
+        BusinessInfo.ele('OperationsDesc', 'N/A'); // NOTE: See if this is acceptable, or if we need to add a question 
 
     //             <Policy>
 
@@ -267,11 +301,11 @@ module.exports = class LibertySBOP extends Integration {
         const GeneralPartyInfoSub = MiscParty.ele('GeneralPartyInfo');
         const NameInfoSub = GeneralPartyInfoSub.ele('NameInfo');
         const CommlNameSub = NameInfoSub.ele('CommlName');
-        CommlNameSub.ele('CommercialName', null);
+        CommlNameSub.ele('CommercialName', applicationDocData.businessName);
         const CommunicationsSub = GeneralPartyInfoSub.ele('Communications');
         const PhoneInfoSub = CommunicationsSub.ele('PhoneInfo');
         PhoneInfoSub.ele('PhoneTypeCd', 'Phone');
-        PhoneInfoSub.ele('PhoneNumber', null);
+        PhoneInfoSub.ele('PhoneNumber', formattedPhone);
 
         //                 <LOBCd>BOP</LOBCd>
         //                 <ControllingStateProvCd>UT</ControllingStateProvCd>
@@ -286,13 +320,13 @@ module.exports = class LibertySBOP extends Integration {
         //                 </PolicySupplement>
 
         Policy.ele('LOBCd', 'BOP');
-        Policy.ele('ControllingStateProvCd', null);
+        Policy.ele('ControllingStateProvCd', applicationDocData.mailingState);
         const ContractTerm = Policy.ele('ContractTerm');
-        ContractTerm.ele('EffectiveDt', null);
+        ContractTerm.ele('EffectiveDt', moment(BOPPolicy.effectiveDate).format('YYYY-MM-DD'));
         const PolicySupplement = Policy.ele('PolicySupplement');
-        PolicySupplement.ele('NumEmployees', null);
+        PolicySupplement.ele('NumEmployees', this.get_total_employees());
         const AnnualSalesAmt = PolicySupplement.ele('AnnualSalesAmt');
-        AnnualSalesAmt.ele('Amt', null);
+        AnnualSalesAmt.ele('Amt', applicationDocData.grossSalesAmt);
 
         //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
         //                 <QuestionAnswer>
@@ -307,28 +341,88 @@ module.exports = class LibertySBOP extends Integration {
         //                     <Explanation>Prior Coverage detail goes here</Explanation>
         //                 </QuestionAnswer>
 
-        const policyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.ACORDValue === "Policy");
-        const UWQ1 = policyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1");
+        const allPolicyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.ACORDValue === "Policy");
+        const standardPolicyQuestions = allPolicyQuestions.filter(q => !policyQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
+        const specialPolicyQuestions = allPolicyQuestions.filter(q => policyQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
 
-        // if we have UWQ1 question, and it's answered yes, we look for and add the explanation question as well
-        if (UWQ1) {
-            const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
-            UWQ1QuestionAnswer.ele('QuestionCd', UWQ1.insurerQuestionAttributes.ACORDCd);
-            UWQ1QuestionAnswer.ele('YesNoCd', UWQ1.answerValue.toUpperCase());
+        let PolicySupplementExt = null;
+        let GrossReceipts = null;
+        specialPolicyQuestions.forEach(question => {
+            switch (question.insurerQuestionIdentifier) {
+                case "UWQ5042":
+                    GrossReceipts = Policy.ele('GrossReceipts');
+                    GrossReceipts.ele('OperationsCd', 'OUTSIDEUS');
+                    GrossReceipts.ele('RevenuePct', question.answerValue);
+                    break;
+                case "UWQ2":
+                    if (!PolicySupplementExt) {
+                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                    }
+                    PolicySupplementExt.ele('com.libertymutual.ci_NonRenewalOrCancellationOtherReasonText', question.answerValue);
+                    break;
+                case "UWQ1":
+                    const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
+                    UWQ1QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+                    UWQ1QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
 
-            if (UWQ1.answerValue.toLowerCase() === "yes") {
-                const explanation = policyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1_Explanation");
+                    if (question.answerValue.toLowerCase() === "yes") {
+                        const explanation = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1_Explanation");
 
-                if (explanation) {
-                    UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
-                } else {
-                    log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
-                }
+                        if (explanation) {
+                            UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
+                        } else {
+                            log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
+                        }
+                    }
+                    break;
+                case "UWQ1_Explanation":
+                    // handled in UWQ1
+                    break;
+                case "GLO202":
+                    // Question dock shows "N/A UI only, so currently not including in request"
+                    break;
+                case "BOP24":
+                    if (!PolicySupplementExt) {
+                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                    }                    
+                    PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', question.answerValue);
+                    break;
+                case "BOP23":
+                    if (!PolicySupplementExt) {
+                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                    }
+                    PolicySupplementExt.ele('com.libertymutual.ci_TypeEquipLeasedRentedText', question.answerValue);
+                    break;
+                case "BOP2":
+                    if (!PolicySupplementExt) {
+                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                    }
+
+                    let yearsOfExp = parseInt(question.answerValue);
+                    if (isNaN(yearsOfExp)) {
+                        yearsOfExp = 0;
+                    }
+
+                    PolicySupplementExt.ele('com.libertymutual.ci_NumYrsManagementExperience', yearsOfExp);
+
+                    if (yearsOfExp < 3) {
+                        const BOP191 = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "BOP191");
+
+                        if (BOP191) {
+                            PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperienceText', BOP191.answerValue);
+                        }
+                    }
+                    break;
+                case "BOP191":
+                    // handled in BOP2
+                default: 
+                    log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
+                    break;
             }
-        }
+        });
 
         // for each policy question (that's not UWQ1 related), add it to XML
-        policyQuestions.filter(q => q.insurerQuestionIdentifier !== "UWQ1" || q.insurerQuestionIdentifier !== "UWQ1_Explanation").forEach(question => {
+        standardPolicyQuestions.forEach(question => {
             const QuestionAnswer = Policy.ele('QuestionAnswer');
             QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
 
@@ -468,6 +562,13 @@ module.exports = class LibertySBOP extends Integration {
                 QuestionAnswer.ele('YesNoCd', question.answerValue);
             }
         });
+
+        // const QuestionAnswers = 
+
+        // TODO: Create a list of questions that have special cases (non YesNo questions)
+        //       Filter those out and create generic questions
+        //       Then, walk over each special case question with case statement creating appropriate question value
+        //       - Could be GrossReceipts, could be specific single element, etc.
 
 //             <LocationUWInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
 //                 <InterestCd>TENANT</InterestCd>
