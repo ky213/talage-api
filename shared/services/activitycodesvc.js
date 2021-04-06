@@ -8,7 +8,7 @@ async function GetActivityCodes(territory,industry_code){
     let addCode2Redis = false;
     let activityIdList = [];
     const redisKey = "activity-code-industrycode-" + territory + "-" + industry_code.toString();
-    // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YES"){
+    // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YESNO"){
     //     const start = moment();
     //     let redisCacheCodes = null;
     //     const resp = await global.redisSvc.getKeyValue(redisKey);
@@ -44,27 +44,25 @@ async function GetActivityCodes(territory,industry_code){
         }
         let insurerActivityCodeList = null;
         try{
-            insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
+            //insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
+            const pipeLine =  [
+                    {$match: {territoryList: territory, active: true}},
+                    {"$unwind": "$talageActivityCodeIdList" } ,
+                    {$group:{_id : null, uniqueTalageActivityCodes : {$addToSet : "$talageActivityCodeIdList"}}}
+                    ]
+            insurerActivityCodeList = await InsurerActivityCodeModel.aggregate(pipeLine)
+            if(insurerActivityCodeList[0] && insurerActivityCodeList[0].uniqueTalageActivityCodes && insurerActivityCodeList[0].uniqueTalageActivityCodes.length >0){
+                activityIdList = insurerActivityCodeList[0].uniqueTalageActivityCodes;
+            }
+            
         }
         catch(err){
             log.warn(`Appid: ${this.app.id} Error ActivityCodeSvc.GetActivityCodes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
         }
         
-        const endMongoFind = moment();
-        var diffFind = endMongoFind.diff(start, 'milliseconds', true);
-        log.info(`Mongo Insurer Activity Code by Territory Find ${territory} count ${insurerActivityCodeList.length} duration: ${diffFind} milliseconds` + __location);
-        
-        if(insurerActivityCodeList){
-            log.debug(`insurerActivityCodeList.length ${insurerActivityCodeList.length}`)
-            insurerActivityCodeList.forEach((insurerActivityCode) => {
-                if(insurerActivityCode.talageActivityCodeIdList && insurerActivityCode.talageActivityCodeIdList.length > 0){
-                    utility.addArrayToArray(activityIdList,insurerActivityCode.talageActivityCodeIdList);
-                }
-            });
-        }
         const endMongo = moment();
         var diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${insurerActivityCodeList.length} duration: ${diff} milliseconds` + __location);
+        log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
     }
     else {
         const sql_insurer_territory_activity_codes = `
@@ -119,7 +117,7 @@ async function GetActivityCodes(territory,industry_code){
                     delete code.alternate_names;
                 }
             });
-            // log.info(`Returning ${codes.length} Activity Codes`);
+            log.info(`Returning ${codes.length} Activity Codes` + __location);
             // if(addCode2Redis){
             //     try{
             //         //const ttlSeconds = 3600;
@@ -162,7 +160,7 @@ async function GetActivityCodes(territory,industry_code){
 //             const industryCodeId = industryCodeList[i].industryCodeId;
 //             for(let j=0; j < territoryBOList.length; j++){
 //                 try{
-//                     await GetActivityCodes(industryCodeId)
+//                     await GetActivityCodes(territoryBOList[j].abbr, industryCodeId)
 //                 }
 //                 catch(err){
 //                     log.error(`Error Setting industry code questions cache industryCodeId ${industryCodeId} for Redis ${err}` + __location)
@@ -230,4 +228,7 @@ async function GetActivityCodes(territory,industry_code){
 
 // }
 
-module.exports = {GetActivityCodes: GetActivityCodes}
+module.exports = {
+    GetActivityCodes: GetActivityCodes
+    //UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
+        }
