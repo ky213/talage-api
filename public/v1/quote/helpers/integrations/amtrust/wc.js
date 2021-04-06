@@ -378,16 +378,18 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Create the additional information request
+        let additionalInformationRequestData = {};
+        if(this.app.business && this.app.business.owners[0] && this.app.business.locations[0]){
+            additionalInformationRequestData = {"AdditionalInsureds": [{
+                "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
+                "TaxId": fein,
+                "State": this.app.business.locations[0].state_abbr,
+                "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+                "DbaName": this.app.business.dba,
+                "AdditionalLocations": this.getAdditionalLocationList()
+            }]};
 
-        const additionalInformationRequestData = {"AdditionalInsureds": [{
-            "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-            "TaxId": fein,
-            "State": this.app.business.locations[0].state_abbr,
-            "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
-            "DbaName": this.app.business.dba,
-            "AdditionalLocations": this.getAdditionalLocationList()
-        }]};
-
+        }
         // console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
 
         // =========================================================================================================
