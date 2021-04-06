@@ -247,7 +247,13 @@ module.exports = class CompwestWC extends Integration {
         Addr.ele('City', this.app.business.mailing_city);
         Addr.ele('StateProvCd', this.app.business.mailing_territory);
         Addr.ele('PostalCode', this.app.business.mailing_zip);
-        Addr.ele('CountryCd', 'USA');
+
+        if(guideWireAPI === true){
+            Addr.ele('CountryCd', 'US');
+        }
+        else {
+            Addr.ele('CountryCd', 'USA');
+        }
         // </Addr>
 
         // <Communications>
