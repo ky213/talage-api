@@ -337,9 +337,10 @@ module.exports = class CompwestWC extends Integration {
                 const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
                 // <NameInfo>
                 const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
-                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                const CommlNameAddInfo = DBANameInfo.ele('CommlName')
+                CommlNameAddInfo.ele('CommercialName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
                 //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
-                DBANameInfo.ele('Type',"Company");
+                CommlNameAddInfo.ele('Type',"Company");
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
                 DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);
