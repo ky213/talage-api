@@ -12,7 +12,7 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
-const ApiAuth = require("./auth-api-rt.js");
+const tokenSvc = global.requireShared('./services/tokensvc.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
@@ -179,7 +179,7 @@ async function applicationSave(req, res, next) {
             // update JWT
             if(responseAppDoc && req.userTokenData && req.userTokenData.quoteApp){
                 try{
-                    const newToken = await ApiAuth.createApplicationToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.createApplicationToken(req, responseAppDoc.applicationId)
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -193,7 +193,7 @@ async function applicationSave(req, res, next) {
                 //API request do create newtoken
                 // add application to Redis for JWT
                 try{
-                    const newToken = await ApiAuth.AddApplicationToToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.AddApplicationToToken(req, responseAppDoc.applicationId)
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -210,6 +210,9 @@ async function applicationSave(req, res, next) {
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
+
+    // if they ask for a new token (refreshToken: "please") or... true
+    // set up and attach a refreshed token.
 
     if (responseAppDoc) {
         res.send(200, responseAppDoc);
