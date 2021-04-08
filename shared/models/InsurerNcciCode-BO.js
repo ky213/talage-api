@@ -134,12 +134,28 @@ module.exports = class InsurerNcciCodeBO{
                  }
                  hasWhere = true;
 
-                 const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
+                 // set a hard limit of 5000
+                 let queryLimit = 5000;
+                 if (queryJSON.limit) {
+                     let desiredLimit = queryLimit;
+                     try{
+                         desiredLimit = parseInt(stringFunctions.santizeNumber(queryJSON.limit, true), 10);
+                     }
+                     catch {
+                         log.error(`Error parsing limit:  ${queryJSON.limit}` + __location);
+                     }
+
+                     if (desiredLimit < queryLimit) {
+                         queryLimit = desiredLimit;
+                     }
+                 }
+                 sql += ` LIMIT ${db.escape(queryLimit)} `;
+
+                 // if page is not provided, do not offset
                  const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
-                 if(limit && page) {
-                     sql += ` LIMIT ${db.escape(limit)} `;
+                 if(page) {
                      // offset by page number * max rows, so we go that many rows
-                     sql += ` OFFSET ${db.escape((page - 1) * limit)}`;
+                     sql += ` OFFSET ${db.escape((page - 1) * queryLimit)}`;
                  }
              }
 

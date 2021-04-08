@@ -105,7 +105,7 @@ module.exports = class InsurerIndustryCodeBO{
                 SELECT count(*) FROM ${tableName}  
             `;
             let sqlWhere = "";
-            let sqlPaging = "";
+            let sqlLimit = "";
             if(queryJSON){
                 let hasWhere = false;
                 if(queryJSON.description){
@@ -136,12 +136,28 @@ module.exports = class InsurerIndustryCodeBO{
                     hasWhere = true;
                 }
 
-                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
+                // set a hard limit of 5000
+                let queryLimit = 5000;
+                if (queryJSON.limit) {
+                    let desiredLimit = queryLimit;
+                    try{
+                        desiredLimit = parseInt(stringFunctions.santizeNumber(queryJSON.limit, true), 10);
+                    }
+                    catch {
+                        log.error(`Error parsing limit:  ${queryJSON.limit}` + __location);
+                    }
+
+                    if (desiredLimit < queryLimit) {
+                        queryLimit = desiredLimit;
+                    }
+                }
+                sqlLimit += ` LIMIT ${db.escape(queryLimit)} `;
+
+                // if page is not provided, do not offset
                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
-                if(limit && page) {
-                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
+                if(page) {
                     // offset by page number * max rows, so we go that many rows
-                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
+                    sqlLimit += ` OFFSET ${db.escape((page - 1) * queryLimit)}`;
                 }
             }
             // Run the query
@@ -150,9 +166,9 @@ module.exports = class InsurerIndustryCodeBO{
                 log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
                 reject(error);
             });
-            const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
+            const result = await db.query(sqlSelect + sqlWhere + sqlLimit).catch(function(error) {
                 rejected = true;
-                log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
+                log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlLimit}  error ` + error + __location)
                 reject(error);
             });
             if (rejected) {
