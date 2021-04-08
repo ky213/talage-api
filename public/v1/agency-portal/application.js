@@ -41,7 +41,6 @@ var Message = require('mongoose').model('Message');
  * @returns {void}
  */
 async function getApplication(req, res, next) {
-    console.log('inside of getApplication');
     let error = false;
 
     // Check for data
@@ -241,7 +240,6 @@ async function getApplication(req, res, next) {
     return next();
 }
 async function getApplicationDoc(req, res ,next){
-    console.log('getApplicationDoc')
     let appId = null;
     if(req.params.id) {
         appId = req.params.id;
@@ -1665,7 +1663,6 @@ async function getApplicationNotes(req, res, next){
 }
 
 async function saveApplicationNotes(req, res, next){
-    console.log(req);
     if (!req.body || typeof req.body !== 'object') {
         log.error('Bad Request: No data received ' + __location);
         return next(serverHelper.requestError('Bad Request: No data received'));
