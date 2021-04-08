@@ -18,7 +18,7 @@ var mongooseHistory = require('mongoose-history');
 
 const ApplicationNotesCollectionSchema = new Schema({
     applicationNotesCollectionId: {type: String, required: [true, 'applicationNotesCollectionId required'], unique: true},
-    applicationId: {type: String, required: [true, 'applicationId required']},
+    applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
     applicationNotesJSON: {type: Schema.Types.Mixed, required: false},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
