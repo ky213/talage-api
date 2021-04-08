@@ -20,10 +20,10 @@ module.exports = class ApplicationNotesCollectionBO{
     saveModel(newObjectJSON, userId){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty applicationNotesCollection object given`));
+                reject(new Error(`Empty applicationNotesCollection object given`));
             }
             if(!newObjectJSON.applicationId){
-                reject(new Error(`No application id provided`));
+                reject(new Error(`No application id provided for to save notes`));
             }
             if(!userId){
                 reject(new Error(`No user id.`));
@@ -32,7 +32,7 @@ module.exports = class ApplicationNotesCollectionBO{
             
             if(newObjectJSON.applicationId){
                 const dbDocJSON = await this.getById(newObjectJSON.applicationId).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting applicationNotesCollection from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -55,13 +55,14 @@ module.exports = class ApplicationNotesCollectionBO{
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
 	 */
     async insertMongo(newObjectJSON){
+        console.log(newObjectJSON);
         if (!newObjectJSON) {
-            throw new Error("no data supplied");
+            throw new Error("No data supplied");
         }
         const applicationNotesCollection = new ApplicationNotesCollectionMongooseModel(newObjectJSON);
         //Insert a doc
         await applicationNotesCollection.save().catch(function(err) {
-            log.error('Mongo Application Save err ' + err + __location);
+            log.error('Mongo Application Notes Save err ' + err + __location);
             throw err;
         });
         return mongoUtils.objCleanup(applicationNotesCollection);       
@@ -130,7 +131,7 @@ module.exports = class ApplicationNotesCollectionBO{
                         applicationNotesCollectionDoc = mongoUtils.objCleanup(docDB);
                     }
                 } catch (err) {
-                    log.error(`Getting Application Notes Collection ${id}` + err + __location)
+                    log.error(`Getting Application Notes Collection ${id}` + err + __location);
                     reject(err);
                 }
                 resolve(applicationNotesCollectionDoc);
