@@ -19,7 +19,7 @@ const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
-
+const ApplicationNotesCollectionBO = global.requireShared('models/ApplicationNotesCollection-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const jwt = require('jsonwebtoken');
@@ -41,6 +41,7 @@ var Message = require('mongoose').model('Message');
  * @returns {void}
  */
 async function getApplication(req, res, next) {
+    console.log('inside of getApplication');
     let error = false;
 
     // Check for data
@@ -240,6 +241,7 @@ async function getApplication(req, res, next) {
     return next();
 }
 async function getApplicationDoc(req, res ,next){
+    console.log('getApplicationDoc')
     let appId = null;
     if(req.params.id) {
         appId = req.params.id;
@@ -1594,6 +1596,161 @@ async function GetQuoteLimits(req, res, next){
     return next();
 
 }
+
+async function getApplicationNotes(req, res, next){
+
+    console.log('inside of getApplicationNotes');
+
+    // Check for data
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    // Make sure basic elements are present
+    if (!req.query.applicationId) {
+        log.error('Bad Request: Missing ID ' + __location);
+        return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+    }
+
+    const id = req.query.applicationId;
+
+    // Get the agents that we are permitted to view
+    let error = false;
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error);
+    }
+
+    const applicationBO = new ApplicationBO();
+    //get application and valid agency
+    let passedAgencyCheck = false;
+    try{
+        const applicationDB = await applicationBO.loadfromMongoByAppId(req.query.applicationId);
+        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+            passedAgencyCheck = true;
+        }
+        if(!applicationDB){
+            return next(serverHelper.requestError('Not Found'));
+        }
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(passedAgencyCheck === false){
+        log.info('Forbidden: User is not authorized for this agency' + __location);
+        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+    }
+    const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
+    let applicationNotesJSON = null;
+    try{
+        log.debug(`Getting app id  ${id} from mongo` + __location)
+        let applicationNotesDBDoc = null;
+        applicationNotesDBDoc = await applicationNotesCollectionBO.getByAppId(id);
+        if(applicationNotesDBDoc){
+            applicationNotesJSON = JSON.parse(JSON.stringify(applicationNotesDBDoc))
+        }
+    }
+    catch(err){
+        log.error("Error Getting application notes doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    // Return the response
+    res.send(200, {applicationNotesCollection: applicationNotesJSON});
+    return next();
+}
+
+async function saveApplicationNotes(req, res, next){
+    console.log(req);
+    if (!req.body || typeof req.body !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    if (!req.body.applicationId) {
+        log.error('Bad Request: Missing applicationId ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing applicationId'));
+    }
+
+    //get user's agency List
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    const applicationBO = new ApplicationBO();
+    //get application and valid agency
+    let passedAgencyCheck = false;
+    try{
+        const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+            passedAgencyCheck = true;
+        }
+        if(!applicationDB){
+            return next(serverHelper.requestError('Not Found'));
+        }
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(passedAgencyCheck === false){
+        log.info('Forbidden: User is not authorized for this agency' + __location);
+        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+    }
+    
+
+
+    let responseAppDoc = null;
+    let userId = null;
+    try{
+        userId = req.authentication.userID;
+    }
+    catch(err){
+        log.error("Error gettign userID " + err + __location);
+    }
+
+
+    try{
+        const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
+        if(req.body.applicationNotesCollectionId){
+            log.debug("App Doc UPDATE.....")
+            //update
+            req.body.agencyPortalModifiedUser = userId
+            responseAppDoc = await applicationNotesCollectionBO.updateMongo(req.body.applicationId, req.body);
+        }
+        else {
+            //insert.
+            log.debug("App Doc INSERT.....")
+            req.body.agencyPortalCreatedUser = userId
+            responseAppDoc = await applicationNotesCollectionBO.insertMongo(req.body);
+        }
+    }
+    catch(err){
+        //mongoose parse errors will end up there.
+        log.error("Error saving application " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
+    }
+
+    if(responseAppDoc){
+        res.send(200, responseAppDoc);
+        return next();
+    }
+    else{
+        res.send(500, "No updated document");
+        return next(serverHelper.internalError("No updated document"));
+    }
+}
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1617,4 +1774,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits)
+    server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
+    server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
+    server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
 };

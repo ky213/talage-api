@@ -37,4 +37,4 @@ ApplicationNotesCollectionSchema.pre('validate', function(next) {
 });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('Application', ApplicationNotesCollectionSchema);
+mongoose.model('ApplicationNotesCollection', ApplicationNotesCollectionSchema);

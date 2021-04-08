@@ -2,15 +2,14 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var ApplicationNotesCollectionModel = require('mongoose').model('ApplicationNotesCollection');
+// Mongoose Models
+const ApplicationNotesCollectionMongooseModel = require('mongoose').model('ApplicationNotesCollection');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class ApplicationNotesCollectionBO{
-    #dbTableORM = null;
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
     }
  /**
 	 * Save Model
@@ -19,65 +18,25 @@ module.exports = class ApplicationNotesCollectionBO{
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
 	 */
     // Use SaveMessage
-    saveModel(newObjectJSON){
-        return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
-            }
-            await this.cleanupInput(newObjectJSON);
-            if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            resolve(true);
-
+    async insertMongo(newObjectJSON){
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const applicationNotesCollection = new ApplicationNotesCollectionMongooseModel(newObjectJSON);
+        //Insert a doc
+        await applicationNotesCollection.save().catch(function(err) {
+            log.error('Mongo Application Save err ' + err + __location);
+            throw err;
         });
-    }
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
+        this.id = applicationNotesCollection.applicationNotesCollectionId;
+        return mongoUtils.objCleanup(applicationNotesCollection);       
     }
       /**
        * Get By AppId
@@ -90,7 +49,7 @@ module.exports = class ApplicationNotesCollectionBO{
                 };
                 let applicationNotesCollectionDoc = null;
                 try {
-                    const docDB  = await  ApplicationNotesCollectionModel.findOne(query, '-__v');
+                    const docDB  = await  ApplicationNotesCollectionMongooseModel.findOne(query, '-__v');
                     if(docDB){
                         applicationNotesCollectionDoc = mongoUtils.objCleanup(docDB);
                     }
@@ -117,7 +76,7 @@ module.exports = class ApplicationNotesCollectionBO{
                 };
                 let applicationNotesCollectionDoc = null;
                 try {
-                    const docDB  = await  ApplicationNotesCollectionModel.findOne(query, '-__v');
+                    const docDB  = await  ApplicationNotesCollectionMongooseModel.findOne(query, '-__v');
                     if(docDB){
                         applicationNotesCollectionDoc = mongoUtils.objCleanup(docDB);
                     }
