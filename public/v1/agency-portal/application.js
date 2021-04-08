@@ -1599,8 +1599,6 @@ async function GetQuoteLimits(req, res, next){
 
 async function getApplicationNotes(req, res, next){
 
-    console.log('inside of getApplicationNotes');
-
     // Check for data
     if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
         log.error('Bad Request: No data received ' + __location);
@@ -1709,9 +1707,7 @@ async function saveApplicationNotes(req, res, next){
         return next(serverHelper.forbiddenError('You are not authorized for this agency'));
     }
     
-
-
-    let responseAppDoc = null;
+    let responseAppNotesDoc = null;
     let userId = null;
     try{
         userId = req.authentication.userID;
@@ -1727,13 +1723,13 @@ async function saveApplicationNotes(req, res, next){
             log.debug("App Doc UPDATE.....")
             //update
             req.body.agencyPortalModifiedUser = userId
-            responseAppDoc = await applicationNotesCollectionBO.updateMongo(req.body.applicationId, req.body);
+            responseAppNotesDoc = await applicationNotesCollectionBO.updateMongo(req.body.applicationNotesCollectionId, req.body);
         }
         else {
             //insert.
             log.debug("App Doc INSERT.....")
             req.body.agencyPortalCreatedUser = userId
-            responseAppDoc = await applicationNotesCollectionBO.insertMongo(req.body);
+            responseAppNotesDoc = await applicationNotesCollectionBO.insertMongo(req.body);
         }
     }
     catch(err){
@@ -1742,13 +1738,14 @@ async function saveApplicationNotes(req, res, next){
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
 
-    if(responseAppDoc){
-        res.send(200, responseAppDoc);
+    if(responseAppNotesDoc){
+        const resposeAppNotesJSON = JSON.parse(JSON.stringify(responseAppNotesDoc));
+        res.send(200, resposeAppNotesJSON);
         return next();
     }
     else{
-        res.send(500, "No updated document");
-        return next(serverHelper.internalError("No updated document"));
+       // res.send(500, "No updated document");
+        return next(serverHelper.internalError(new Error('No updated document')));
     }
 }
 exports.registerEndpoint = (server, basePath) => {

@@ -11,13 +11,11 @@ module.exports = class ApplicationNotesCollectionBO{
     constructor(){
         this.id = 0;
     }
- /**
-	 * Save Model
-     *
+    /**
+	 * Insert Model
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
 	 */
-    // Use SaveMessage
     async insertMongo(newObjectJSON){
         if (!newObjectJSON) {
             throw new Error("no data supplied");
@@ -38,8 +36,57 @@ module.exports = class ApplicationNotesCollectionBO{
         this.id = applicationNotesCollection.applicationNotesCollectionId;
         return mongoUtils.objCleanup(applicationNotesCollection);       
     }
-      /**
-       * Get By AppId
+    /**
+	 * Update Model
+     * @param {docId} -- applicationNotesCollectionId
+	 * @param {object} newObjectJSON - newObjectJSON JSON
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
+	 */
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"applicationNotesCollectionId": docId};
+                let newApplicationNotesCollection = null;
+                try {
+                    const changeNotUpdateList = [
+                        "applicationNotesCollectionId",
+                        "applicationId",
+                        "agencyPortalCreatedUser",
+                        ]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await ApplicationNotesCollectionMongooseModel.updateOne(query, newObjectJSON);
+                    const newAgencyLocationDoc = await ApplicationNotesCollectionMongooseModel.findOne(query);
+
+                    newApplicationNotesCollection = mongoUtils.objCleanup(newAgencyLocationDoc);
+                }
+                catch (err) {
+                    log.error(`Updating application notes error for id: ${docId}` + err + __location);
+                    throw err;
+                }
+
+                return newApplicationNotesCollection;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied applicationNotes: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no applicationNotesCollection id supplied')
+        }
+
+    }    
+      /** Get Model By Application Id
+         * @param {id} -- applicationId
+         * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
        */
       getByAppId(id) {
           return new Promise(async (resolve, reject) =>{
@@ -65,8 +112,9 @@ module.exports = class ApplicationNotesCollectionBO{
           });
       }
 
-      /**
-       * Get By ApplicationCollectionId
+      /** Get By ApplicationCollectionId
+         * @param {id} -- ApplicationCollectionId
+         * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
        */
       getById(id){
         return new Promise(async (resolve, reject) =>{
