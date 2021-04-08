@@ -1712,22 +1712,10 @@ async function saveApplicationNotes(req, res, next){
     catch(err){
         log.error("Error gettign userID " + err + __location);
     }
-
-
     try{
         const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
-        if(req.body.applicationNotesCollectionId){
-            log.debug("App Doc UPDATE.....")
-            //update
-            req.body.agencyPortalModifiedUser = userId
-            responseAppNotesDoc = await applicationNotesCollectionBO.updateMongo(req.body.applicationNotesCollectionId, req.body);
-        }
-        else {
-            //insert.
-            log.debug("App Doc INSERT.....")
-            req.body.agencyPortalCreatedUser = userId
-            responseAppNotesDoc = await applicationNotesCollectionBO.insertMongo(req.body);
-        }
+        log.debug('Saving App Notes Doc');
+        responseAppNotesDoc = await applicationNotesCollectionBO.saveModel(req.body, userId);
     }
     catch(err){
         //mongoose parse errors will end up there.
