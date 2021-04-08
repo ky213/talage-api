@@ -117,7 +117,7 @@ module.exports = class ApplicationNotesCollectionBO{
          * @param {id} -- applicationId
          * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
        */
-      getByAppId(id) {
+      getById(id) {
           return new Promise(async (resolve, reject) =>{
             if(id){
                 const query = {

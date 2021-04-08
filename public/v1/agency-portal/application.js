@@ -1647,7 +1647,7 @@ async function getApplicationNotes(req, res, next){
     try{
         log.debug(`Getting app id  ${id} from mongo` + __location)
         let applicationNotesDBDoc = null;
-        applicationNotesDBDoc = await applicationNotesCollectionBO.getByAppId(id);
+        applicationNotesDBDoc = await applicationNotesCollectionBO.getById(id);
         if(applicationNotesDBDoc){
             applicationNotesJSON = JSON.parse(JSON.stringify(applicationNotesDBDoc))
         }
