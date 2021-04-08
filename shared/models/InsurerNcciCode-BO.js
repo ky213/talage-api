@@ -134,8 +134,8 @@ module.exports = class InsurerNcciCodeBO{
                  }
                  hasWhere = true;
 
-                 const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 5000;
-                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                 const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
+                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
                  if(limit && page) {
                      sql += ` LIMIT ${db.escape(limit)} `;
                      // offset by page number * max rows, so we go that many rows
