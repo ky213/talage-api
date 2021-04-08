@@ -7,11 +7,14 @@
  * @return {array} - The formatted limits (ex. ['1,000,000', '2,000,000', '1,000,000'])
  */
 exports.getLimitsAsDollarAmounts = function(limitsString){
-    const limitsArray = limitsString.match(/[1-9]+0*/g);
-    limitsArray.forEach((limit, index) => {
-        limitsArray[index] = limit.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    });
-    return limitsArray;
+    if(limitsString) {
+        const limitsArray = limitsString.match(/[1-9]+0*/g);
+        limitsArray.forEach((limit, index) => {
+            limitsArray[index] = limit.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        });
+        return limitsArray;
+    }
+    return [];
 }
 
 /**
