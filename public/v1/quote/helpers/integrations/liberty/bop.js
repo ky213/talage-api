@@ -36,12 +36,12 @@ module.exports = class LibertySBOP extends Integration {
 	 */
 	async _insurer_quote() {
 
-        const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy);
-        const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
-
         // liberty can have multiple insurer industry codes tied to a single talage industry code
         // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
         await this._getLibertyIndustryCodes();
+
+        const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy);
+        const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
 
         let quoteResponses = [];
         quoteResponses.push(BOPSimple.quote());
