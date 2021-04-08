@@ -127,8 +127,10 @@ module.exports = class ActivityCodeBO{
                     stateSet = true;
                     hasWhere = true;
                 }
-                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 20;
-                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                //GetList is used by more the ADmin.
+                //This logic for the admin should be in the route code. - Brian
+                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
                 if(limit && page) {
                     sqlPaging += ` LIMIT ${db.escape(limit)} `;
                     // offset by page number * max rows, so we go that many rows
