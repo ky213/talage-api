@@ -1605,8 +1605,8 @@ async function getApplicationNotes(req, res, next){
 
     // Make sure basic elements are present
     if (!req.query.applicationId) {
-        log.error('Bad Request: Missing ID ' + __location);
-        return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+        log.error('Bad Request: Missing application id ' + __location);
+        return next(serverHelper.requestError('Bad Request: You must supply an application id'));
     }
 
     const id = req.query.applicationId;
@@ -1645,7 +1645,7 @@ async function getApplicationNotes(req, res, next){
     const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
     let applicationNotesJSON = null;
     try{
-        log.debug(`Getting app id  ${id} from mongo` + __location)
+        log.debug(`Getting app notes using app id  ${id} from mongo` + __location)
         let applicationNotesDBDoc = null;
         applicationNotesDBDoc = await applicationNotesCollectionBO.getById(id);
         if(applicationNotesDBDoc){
@@ -1714,12 +1714,12 @@ async function saveApplicationNotes(req, res, next){
     }
     try{
         const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
-        log.debug('Saving App Notes Doc');
+        log.debug('Saving app notes doc');
         responseAppNotesDoc = await applicationNotesCollectionBO.saveModel(req.body, userId);
     }
     catch(err){
         //mongoose parse errors will end up there.
-        log.error("Error saving application " + err + __location)
+        log.error("Error saving application notes " + err + __location)
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
 
