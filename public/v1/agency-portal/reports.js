@@ -9,6 +9,7 @@ const _ = require('lodash');
 const moment = require('moment');
 
 const Application = mongoose.model('Application');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const Quote = mongoose.model('Quote');
 
 // eslint-disable-next-line valid-jsdoc
@@ -241,45 +242,61 @@ async function getReports(req) {
     // Filter out any agencies with do_not_report value set to true
     if (req.authentication.isAgencyNetworkUser) {
         try {
-            const agencyBO = new AgencyBO();
-            const donotReportQuery = {doNotReport: true};
-            const noReportAgencyList = await agencyBO.getList(donotReportQuery);
-            if(noReportAgencyList && noReportAgencyList.length > 0){
-                // eslint-disable-next-line prefer-const
-                let donotReportAgencyIdArray = []
-                for(const agencyJSON of noReportAgencyList){
-                    donotReportAgencyIdArray.push(agencyJSON.systemId);
-                }
-                if (donotReportAgencyIdArray.length > 0) {
-                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
-                    //where.agency = { $nin: donotReportAgencyIdArray };
-                    //need to remove values from Agents array.
-                    // eslint-disable-next-line no-unused-vars
-                    agents = agents.filter(function(value, index, arr){
-                        return donotReportAgencyIdArray.indexOf(value) === -1;
-                    });
-                }
-                where.agencyId = {$in: agents};
-                //check for all
-                if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
-                    if(where.agencyId){
-                        delete where.agencyId;
-                    }
-
-                    if(donotReportAgencyIdArray.length > 0){
-                        where.agencyId = {$nin: donotReportAgencyIdArray};
-                    }
-                }
-            }
-            else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+            if(req.query.agencyid || req.query.agencylocationid){
                 if(where.agencyId){
-                    delete where.agencyId;
+                    delete where.agencyId
+                }
+                if(req.query.agencylocationid){
+                    const agencyLocationId = parseInt(req.query.agencylocationid,10);
+                    where.agencyLocationId = agencyLocationId;
+                }
+                else if(req.query.agencyid){
+                    const agencyId = parseInt(req.query.agencyid,10);
+                    where.agencyId = agencyId;
                 }
             }
             else {
-                where.agencyNetworkId = agencyNetworkId
+                const agencyBO = new AgencyBO();
+                const donotReportQuery = {doNotReport: true};
+                const noReportAgencyList = await agencyBO.getList(donotReportQuery);
+                if(noReportAgencyList && noReportAgencyList.length > 0){
+                    // eslint-disable-next-line prefer-const
+                    let donotReportAgencyIdArray = []
+                    for(const agencyJSON of noReportAgencyList){
+                        donotReportAgencyIdArray.push(agencyJSON.systemId);
+                    }
+                    if (donotReportAgencyIdArray.length > 0) {
+                        log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
+                        //where.agency = { $nin: donotReportAgencyIdArray };
+                        //need to remove values from Agents array.
+                        // eslint-disable-next-line no-unused-vars
+                        agents = agents.filter(function(value, index, arr){
+                            return donotReportAgencyIdArray.indexOf(value) === -1;
+                        });
+                    }
+                    where.agencyId = {$in: agents};
+                    //check for all
+                    if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                        if(where.agencyId){
+                            delete where.agencyId;
+                        }
+
+                        if(donotReportAgencyIdArray.length > 0){
+                            where.agencyId = {$nin: donotReportAgencyIdArray};
+                        }
+                    }
+                }
+                else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                    if(where.agencyId){
+                        delete where.agencyId;
+                    }
+                }
+                else {
+                    where.agencyNetworkId = agencyNetworkId
+                }
             }
             log.debug("Report AgencyNetwork User where " + JSON.stringify(where) + __location)
+
         }
         catch(err) {
             log.error(`Report Dashboard error getting donotReport list ` + err + __location)
@@ -294,10 +311,23 @@ async function getReports(req) {
         else {
             where.agencyId = {$in: agents};
         }
+
+        if(req.query.agencylocationid){
+            const agencyLocationId = parseInt(req.query.agencylocationid,10);
+            where.agencyLocationId = agencyLocationId;
+        }
     }
+    if(req.query.referrer){
+        where.referrer = req.query.referrer;
+    }
+
     //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     if (initialRequest) {
+        //get list of agencyIds for agencyNetwork.
+        //get list of agencyLocations
+        //get list of agencyLandingpages.
+
         return {
             minDate: await getMinDate(where),
             hasApplications: await hasApplications(where) ? 1 : 0
