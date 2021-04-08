@@ -1725,7 +1725,7 @@ async function saveApplicationNotes(req, res, next){
 
     if(responseAppNotesDoc){
         const resposeAppNotesJSON = JSON.parse(JSON.stringify(responseAppNotesDoc));
-        res.send(200, resposeAppNotesJSON);
+        res.send(200, {applicationNotesCollection: resposeAppNotesJSON});
         return next();
     }
     else{
