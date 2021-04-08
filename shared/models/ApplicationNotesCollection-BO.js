@@ -141,32 +141,4 @@ module.exports = class ApplicationNotesCollectionBO{
           });
       }
 
-      /** Get By ApplicationCollectionId
-         * @param {id} -- ApplicationCollectionId
-         * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
-       */
-      getById(id){
-        return new Promise(async (resolve, reject) =>{
-            if(id){
-                const query = {
-                    'applicationId': id
-                };
-                let applicationNotesCollectionDoc = null;
-                try {
-                    const docDB  = await  ApplicationNotesCollectionMongooseModel.findOne(query, '-__v');
-                    if(docDB){
-                        applicationNotesCollectionDoc = mongoUtils.objCleanup(docDB);
-                    }
-                } catch (err) {
-                    log.error(`Getting Application Notes Collection ${id}` + err + __location)
-                    reject(err);
-                }
-                resolve(applicationNotesCollectionDoc);
-            }else {
-                reject(new Error('no id supplied'));
-            }
-
-          });      
-      }
-
 }
