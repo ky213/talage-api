@@ -50,6 +50,21 @@ module.exports = class ChubbBOP extends Integration {
 
         const applicationDocData = this.app.applicationDocData;
         const logPrefix = `Chubb BOP (Appid: ${applicationDocData.mysqlId}): `;
+        let chubbClassCode = this.industry_code.cgl
+        //use Chubb Attributes for cgl and iso(classcode) if present
+        if(this.insurerIndustryCode.attributes){
+            if(this.insurerIndustryCode.attributes.cgl){
+                this.industry_code.cgl = this.insurerIndustryCode.attributes.cgl
+            }
+
+            if(this.insurerIndustryCode.attributes.class_code_id){
+                chubbClassCode = this.insurerIndustryCode.attributes.class_code_id
+            }
+        }
+
+
+
+
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
@@ -57,7 +72,7 @@ module.exports = class ChubbBOP extends Integration {
             log.error(declinedMessage + __location)
             return this.client_autodeclined(declinedMessage);
         }
-        if (!this.industry_code.iso) {
+        if (!chubbClassCode) {
             const declinedMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id} `;
             log.error(declinedMessage + __location)
             return this.client_autodeclined(declinedMessage);
@@ -413,7 +428,7 @@ module.exports = class ChubbBOP extends Integration {
         const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
         GeneralLiabilityClassification.att('id', this.generate_uuid());
         GeneralLiabilityClassification.att('LocationRef', 'L1');
-        GeneralLiabilityClassification.ele('ClassCd', this.industry_code.iso);
+        GeneralLiabilityClassification.ele('ClassCd', chubbClassCode);
         GeneralLiabilityClassification.ele('ClassCdDesc', this.app.business.industry_code_description);
         GeneralLiabilityClassification.ele('ClassIdentifier', this.industry_code.attributes.class_code_id);
         GeneralLiabilityClassification.ele('Segment', this.industry_code.attributes.segment);
@@ -551,7 +566,7 @@ module.exports = class ChubbBOP extends Integration {
         const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
         CommlPropertyInfo.att('id', this.generate_uuid());
         CommlPropertyInfo.att('LocationRef', 'L1');
-        CommlPropertyInfo.ele('ClassCd', this.industry_code.iso);
+        CommlPropertyInfo.ele('ClassCd', chubbClassCode);
         CommlPropertyInfo.ele('ClassCdDesc', this.app.business.industry_code_description);
         CommlPropertyInfo.ele('Segment', this.industry_code.attributes.segment);
         CommlPropertyInfo.ele('FloorArea', this.get_total_square_footage());
