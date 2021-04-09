@@ -2,17 +2,18 @@
 /* eslint-disable no-extra-parens */
 'use strict';
 const auth = require('./helpers/auth-agencyportal.js');
-const crypt = global.requireShared('./services/crypt.js');
 const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const moment = require('moment');
 const serverHelper = require('../../../server.js');
-const {LexModelBuildingService} = require('aws-sdk');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
+const mongoose = require('mongoose');
+const Quote = mongoose.model('Quote');
 
 /**
  * Validates the parameters for the applications call
@@ -21,6 +22,7 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
  * @return {boolean} true or false for if the parameters are valid
  */
 function validateParameters(parent, expectedParameters){
+
     if (!parent){
         log.error('Bad Request: Missing all parameters' + __location);
         return false;
@@ -297,56 +299,116 @@ async function getApplications(req, res, next){
     const startDateMoment = moment(req.params.startDate).utc();
     const endDateMoment = moment(req.params.endDate).utc();
 
-
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
     const query = {"active": true};
+    if(startDateMoment){
+        query.searchbegindate = startDateMoment.toISOString();
+    }
+    if(endDateMoment){
+        query.searchenddate = endDateMoment.toISOString();
+    }
     const orClauseArray = [];
 
-    // Filter out any agencies with do_not_report value set to true
-    try{
+    if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
+        log.debug("Insurer Search")
+        try{
+            //insurer search
+            const searchWords = req.params.searchText.split(" ");
+            const insurerText = searchWords[0].substring(2);
+            req.params.searchText = '';
+            if(searchWords.length > 1){
+                //reset searchtext to remove insurer
 
-        if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = agencyNetwork;
-            const agencyBO = new AgencyBO();
-            // eslint-disable-next-line prefer-const
-            let agencyQuery = {
-                doNotReport: false,
-                agencyNetworkId: agencyNetwork
+                searchWords.forEach((searchWord,index) => {
+                    if(index > 0){
+                        req.params.searchText += ' ' + searchWord;
+                    }
+                })
+                req.params.searchText = req.params.searchText.trim();
             }
-            if(req.params.searchText){
-                agencyQuery.name = req.params.searchText + "%"
-            }
-            const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
-                log.error("Agency List load error " + err + __location);
-                error = err;
-            });
-            if (agencyList && agencyList.length > 0) {
-                // eslint-disable-next-line prefer-const
-                let agencyIdArray = [];
-                for (const agency of agencyList) {
-                    agencyIdArray.push(agency.systemId);
+            log.debug("New searchText " + req.params.searchText + __location)
+            let insurerId = 0;
+            //if string (insure name)
+            if(isNaN(insurerText)){
+                const insurerBO = new InsurerBO();
+                // eslint-disable-next-line object-property-newline
+                const queryInsurer = {$or: [{"name": {"$regex": insurerText,"$options": "i"}}, {slug: insurerText}]}
+                const insurerList = await insurerBO.getList(queryInsurer);
+                if(insurerList && insurerList.length){
+                    insurerId = insurerList[0].insurerId
                 }
-                const agencyListFilter = {agencyId: {$in: agencyIdArray}};
-                orClauseArray.push(agencyListFilter);
             }
             else {
-                log.warn("Application Search no agencies found " + __location);
+                insurerId = parseInt(insurerText,10)
+            }
+            if(insurerId > 0){
+                //create match
+                // eslint-disable-next-line prefer-const
+                let matchClause = {
+                    active: true,
+                    insurerId: insurerId
+                }
+                if(startDateMoment && startDateMoment.isValid() && endDateMoment && endDateMoment.isValid()){
+                    matchClause.createdAt = {
+                        $gte: startDateMoment.toDate(),
+                        $lte: endDateMoment.toDate()
+                    }
+                }
+                else if(startDateMoment && startDateMoment.isValid()){
+                    matchClause.createdAt = {
+                        $gte: startDateMoment.toDate()
+                    }
+                }
+                else if(endDateMoment && endDateMoment.isValid()){
+                    matchClause.createdAt = {
+                        $lte: endDateMoment.toDate()
+                    }
+                }
+                log.debug('Insurer match clause ' + JSON.stringify(matchClause))
+                const applicationIdJSONList = await Quote.aggregate([
+                    {$match: matchClause},
+                    {$group: {
+                        _id: {
+                            applicationId: '$applicationId'
+                        },
+                        count: {$sum: 1}
+                    }},
+                    {"$replaceRoot": {
+                        "newRoot": {
+                            "$mergeObjects": [{"count": "$count"}, "$_id"]
+                        }
+                    }},
+                    {$project: {
+                        applicationId: 1
+                    }}
+                ])
+                if(applicationIdJSONList && applicationIdJSONList.length > 0){
+                    log.debug('adding insurer application ids ' + __location)
+                    // eslint-disable-next-line prefer-const
+                    let applicationIdArray = []
+                    applicationIdJSONList.forEach((applicationIdJSON) => {
+                        applicationIdArray.push(applicationIdJSON.applicationId);
+                    });
+                    query.applicationId = {$in: applicationIdArray};
+                }
+                else {
+                    log.debug(`no quote hits for insurer ${insurerId} ` + __location);
+                    // match sure no applications go back
+                    query.applicationId = "asdf";
+                }
+            }
+            else {
+                // match sure no applications go back
+                query.applicationId = "asdf";
             }
         }
-        else {
-            query.agencyId = agents[0];
-            if(query.agencyId === 12){
-                query.solepro = true;
-            }
+        catch(err){
+            log.error(`application search on Insurer error ${err}` + __location)
         }
-        if(req.params.searchApplicationStatus){
-            query.status = req.params.searchApplicationStatus;
-        }
+
     }
-    catch(err){
-        log.error("AP get App list error " + err + __location);
-    }
+
 
     // ================================================================================
     // Build the Mongo $OR array
@@ -356,8 +418,9 @@ async function getApplications(req, res, next){
     if (req.params.searchText && req.params.searchText.length > 0){
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
-        }
 
+            //remove ProductType code if it is a standalone word.
+        }
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
         let industryCodeQuery = {};
@@ -406,21 +469,59 @@ async function getApplications(req, res, next){
         }
 
     }
+    //agency search has to be after insurer search
+
+    // Filter out any agencies with do_not_report value set to true
+    try{
+
+        if(req.authentication.isAgencyNetworkUser){
+            query.agencyNetworkId = agencyNetwork;
+            const agencyBO = new AgencyBO();
+            // eslint-disable-next-line prefer-const
+            let agencyQuery = {
+                doNotReport: false,
+                agencyNetworkId: agencyNetwork
+            }
+            if(req.params.searchText){
+                agencyQuery.name = req.params.searchText + "%"
+            }
+            const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
+                log.error("Agency List load error " + err + __location);
+                error = err;
+            });
+            if (agencyList && agencyList.length > 0) {
+                // eslint-disable-next-line prefer-const
+                let agencyIdArray = [];
+                for (const agency of agencyList) {
+                    agencyIdArray.push(agency.systemId);
+                }
+                const agencyListFilter = {agencyId: {$in: agencyIdArray}};
+                orClauseArray.push(agencyListFilter);
+            }
+            else {
+                log.warn("Application Search no agencies found " + __location);
+            }
+        }
+        else {
+            query.agencyId = agents[0];
+            if(query.agencyId === 12){
+                query.solepro = true;
+            }
+        }
+        if(req.params.searchApplicationStatus){
+            query.status = req.params.searchApplicationStatus;
+        }
+    }
+    catch(err){
+        log.error("AP get App list error " + err + __location);
+    }
+
+
     // Add a application status search clause if requested
     if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
         const status = {status: req.params.searchApplicationStatus}
         orClauseArray.push(status);
     }
-
-    // ================================================================================
-
-    if(startDateMoment){
-        query.searchbegindate = startDateMoment.toISOString();
-    }
-    if(endDateMoment){
-        query.searchenddate = endDateMoment.toISOString();
-    }
-
 
     // eslint-disable-next-line prefer-const
     let requestParms = JSON.parse(JSON.stringify(req.params));
