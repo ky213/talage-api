@@ -50,6 +50,21 @@ module.exports = class ChubbBOP extends Integration {
 
         const applicationDocData = this.app.applicationDocData;
         const logPrefix = `Chubb BOP (Appid: ${applicationDocData.mysqlId}): `;
+        let chubbClassCode = this.industry_code.cgl
+        //use Chubb Attributes for cgl and iso(classcode) if present
+        if(this.insurerIndustryCode.attributes){
+            if(this.insurerIndustryCode.attributes.cgl){
+                this.industry_code.cgl = this.insurerIndustryCode.attributes.cgl
+            }
+
+            if(this.insurerIndustryCode.attributes.class_code_id){
+                chubbClassCode = this.insurerIndustryCode.attributes.class_code_id
+            }
+        }
+
+
+
+
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
@@ -57,7 +72,7 @@ module.exports = class ChubbBOP extends Integration {
             log.error(declinedMessage + __location)
             return this.client_autodeclined(declinedMessage);
         }
-        if (!this.industry_code.iso) {
+        if (!chubbClassCode) {
             const declinedMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id} `;
             log.error(declinedMessage + __location)
             return this.client_autodeclined(declinedMessage);
@@ -95,17 +110,16 @@ module.exports = class ChubbBOP extends Integration {
         // Get a token from their auth server
         let tokenResponse = null;
         try {
-            tokenResponse = await this.send_json_request(
-                host,
+            tokenResponse = await this.send_json_request(host,
                 '/api/v1/tokens',
                 null,
                 {
                     App_ID: '84b45546-f66d-4da7-abbc-e54a100caabf',
                     App_Key: `|M*O49d\\7)H0o8X.]HZ89eS&`
                 },
-                'POST'
-            );
-        } catch (e) {
+                'POST')
+        }
+        catch (e) {
             log.error(`${logPrefix}Error Authenticating: ${e.message} ${__location}`);
             return this.client_error(`${logPrefix}Error Authenticating: ${e.message}`, __location);
         }
@@ -414,7 +428,7 @@ module.exports = class ChubbBOP extends Integration {
         const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
         GeneralLiabilityClassification.att('id', this.generate_uuid());
         GeneralLiabilityClassification.att('LocationRef', 'L1');
-        GeneralLiabilityClassification.ele('ClassCd', this.industry_code.iso);
+        GeneralLiabilityClassification.ele('ClassCd', chubbClassCode);
         GeneralLiabilityClassification.ele('ClassCdDesc', this.app.business.industry_code_description);
         GeneralLiabilityClassification.ele('ClassIdentifier', this.industry_code.attributes.class_code_id);
         GeneralLiabilityClassification.ele('Segment', this.industry_code.attributes.segment);
@@ -552,7 +566,7 @@ module.exports = class ChubbBOP extends Integration {
         const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
         CommlPropertyInfo.att('id', this.generate_uuid());
         CommlPropertyInfo.att('LocationRef', 'L1');
-        CommlPropertyInfo.ele('ClassCd', this.industry_code.iso);
+        CommlPropertyInfo.ele('ClassCd', chubbClassCode);
         CommlPropertyInfo.ele('ClassCdDesc', this.app.business.industry_code_description);
         CommlPropertyInfo.ele('Segment', this.industry_code.attributes.segment);
         CommlPropertyInfo.ele('FloorArea', this.get_total_square_footage());
@@ -599,7 +613,8 @@ module.exports = class ChubbBOP extends Integration {
         let question_identifiers = null;
         try {
             question_identifiers = await this.get_question_identifiers();
-        } catch (e) {
+        }
+        catch (e) {
             const errorMessage = `${logPrefix}Error in get_question_identifiers(): ${e} `;
             log.error(errorMessage + __location)
             return this.client_error(errorMessage, __location);
@@ -665,7 +680,8 @@ module.exports = class ChubbBOP extends Integration {
         let result = null;
         try {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
-        } catch (e) {
+        }
+        catch (e) {
             const errorMessage = `${logPrefix}Error sending XML quote request: ${e} `;
             log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
@@ -704,7 +720,8 @@ module.exports = class ChubbBOP extends Integration {
                 let MsgStatusCd = null;
                 try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                } catch (e) {
+                }
+                catch (e) {
                     errorMessage += `Error parsing MsgStatusCd response property: ${e} `;
                     log.error(errorMessage + __location);
                     return this.client_error(errorMessage, __location);
@@ -719,7 +736,8 @@ module.exports = class ChubbBOP extends Integration {
                     errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
                         errorMessage += additionalInfo;
-                    } else {
+                    }
+                    else {
                         errorMessage += `Quote structure changed. Unable to parse error message. `;
                     }
                     log.error(errorMessage + __location);
@@ -727,7 +745,7 @@ module.exports = class ChubbBOP extends Integration {
                 }
 
                 let quoteNumber = null;
-                const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
+                //const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
                 let premium = null;
                 const quoteLimits = {};
                 const quoteLetter = null; // Chubb BOP doesn't currently return a quote letter
@@ -736,21 +754,23 @@ module.exports = class ChubbBOP extends Integration {
                 // Attempt to get the quote number
                 try {
                     quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-                } catch (e) {
+                }
+                catch (e) {
                     log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ` + __location);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
                 try {
                     premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
-
                     try {
                         premium = parseInt(premium, 10);
-                    } catch (e) {
+                    }
+                    catch (e) {
                         premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
                         log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}.`);
                     }
-                } catch (e) {
+                }
+                catch (e) {
                     log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
                 }
 
@@ -784,14 +804,16 @@ module.exports = class ChubbBOP extends Integration {
                         quoteLimits[7] = 1000000;
                         quoteLimits[9] = 2000000;
                     });
-                } catch (e) {
+                }
+                catch (e) {
                     log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
                 }
 
                 // Send the result of the request
                 if (MsgStatusCd === 'Referral') {
                     return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
-                } else {
+                }
+                else {
                     return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
                 }
             default:
