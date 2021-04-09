@@ -73,8 +73,54 @@ const locationQuestionSpecialCases = [
     'BOP55_Amount', // GrossReceipts
     'BOP186', // BldgImprovements
     'BOP185', // BldgImprovements
-    'BOP17' // BldgOccupancy/BldgOccupancyExt,
+    'BOP17', // BldgOccupancy/BldgOccupancyExt,
+    'BOP17_YesNo', // internal question only
+    'BOP17_AreaOccupiedByOthers', // BldgOccupancy
+    'BOP17_AreaUnoccupied', // BldgOccupancy
+    'LMBOP_Interest', // InterestCd
+    'LMBOP_Construction', // Construction/ConstructionCd
+    'LMBOP_RoofConstruction', // Construction/RoofingMaterial/com.libertymutual.ci_RoofMaterialResistanceCd
+    'LMBOP_RoofType', // Construction/RoofingMaterial/RoofingMaterialCd
+    'LMBOP_YearBuilt', // Construction/YearBuilt
+    'LMBOP_NumStores', // Construction/NumStories
+    'LMBOP_AlarmType', // BldgProtection/ProtectionDeviceBurglarCd
+    'UWQ6003' // QuestionAnswer
 ];
+
+const constructionMatrix = {
+    "Frame": "F",
+    "Joisted Masongry": "JM",
+    "Non Combustible": "NC",
+    "Masonry Non Combustible": "MNC",
+    "Fire Resistive": "R"
+};
+
+const roofConstructionMatrix = {
+    "Asphalt Shingles": "ASPHS",
+    "Built Up (with gravel)": "TARGRB",
+    "Built Up Without Gravel (Smooth Surface)": "BLTXGRVL",
+    "Clay or Concrete Tile": "CLAYCONC",
+    "Foam (sprayed on)": "FOAM",
+    "Metal": "METL",
+    "Modified Bitumen": "MODBITUMEN",
+    "Single Ply Membrane (ballasted with smooth stone or paving blocks)": "MEMSINGLEBALL",
+    "Single Ply Membrane (EPDM, Rubber)": "SPMSEPDMRUBB",
+    "Single Ply Membrane (PVC, TPO)": "SPMSPVCTPO",
+    "Wood Shingles/Shakes": "WOODSS",
+    "Unknown": "UNKNOWN"
+};
+
+const roofTypeMatrix = {
+    "Other than Wind Tolerant": "OT",
+    "Wind Resistant": "WR"
+};
+
+const alarmTypeMatrix = {
+    "Central Station Without Keys": "CEN",
+    "Local": "LO",
+    "Police/Fire Connected": "PCFC",
+    "None": "NO" 
+};
 
 // An association list tying the Talage entity list (left) to the codes used by this insurer (right)
 const entityMatrix = {
@@ -112,8 +158,9 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
-        console.log("IN COMMERCIAL BOP CLASS");
-        console.log(JSON.stringify(this.industry_code, null, 4));
+        // liberty can have multiple insurer industry codes tied to a single talage industry code
+        // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
+        await this._getLibertyIndustryCodes();
 
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
@@ -215,7 +262,6 @@ module.exports = class LibertySBOP extends Integration {
         //                 <ProducerRoleCd>Agent</ProducerRoleCd>
         //             </Producer>
 
-        const PolicyRq = InsuranceSvcRq.ele('PolicyRq');
         PolicyRq.ele('RqUID', requestUUID);
         PolicyRq.ele('TransactionRequestDt', moment().local().format());
         PolicyRq.ele('TransactionEffectiveDt', moment().local().format('YYYY-MM-DD'));
@@ -358,7 +404,7 @@ module.exports = class LibertySBOP extends Integration {
         //                     <Explanation>Prior Coverage detail goes here</Explanation>
         //                 </QuestionAnswer>
 
-        const allPolicyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.ACORDValue === "Policy");
+        const allPolicyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.commercialBOP.ACORDValue === "Policy");
         const standardPolicyQuestions = allPolicyQuestions.filter(q => !policyQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
         const specialPolicyQuestions = allPolicyQuestions.filter(q => policyQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
 
@@ -378,7 +424,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "UWQ1":
                     const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
-                    UWQ1QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+                    UWQ1QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
                     UWQ1QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
 
                     if (question.answerValue.toLowerCase() === "yes") {
@@ -441,9 +487,9 @@ module.exports = class LibertySBOP extends Integration {
         // for each policy question (that's not UWQ1 related), add it to XML
         standardPolicyQuestions.forEach(question => {
             const QuestionAnswer = Policy.ele('QuestionAnswer');
-            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
 
-            if (question.insurerQuestionAttributes.ACORDPath && question.insurerQuestionAttributes.ACORDPath.toLowerCase().includes('explanation')) {
+            if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
                 // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
                 QuestionAnswer.ele('Explanation', question.answerValue);
             } else {
@@ -490,6 +536,16 @@ module.exports = class LibertySBOP extends Integration {
         BOPLineBusiness.ele('LOBCd', 'BOP');
 
         //                 <PropertyInfo>
+        //                     <Coverage>
+        //                         <CoverageCd>PropDed</CoverageCd>
+        //                         <Deductible>
+        //                             <FormatCurrencyAmt>
+        //                                 <Amt>500</Amt>
+        //                             </FormatCurrencyAmt>
+        //                             <DeductibleTypeCd>"FL"</DeductibleTypeCd>
+        //                             <DeductibleAppliesToCd>"Coverage"</DeductibleAppliesToCd>
+        //                         </Deductible>
+        //                     </Coverage>
         //                     <CommlPropertyInfo LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
         //                         <SubjectInsuranceCd>BPP</SubjectInsuranceCd>
         //                         <ClassCd>88573</ClassCd>
@@ -515,7 +571,7 @@ module.exports = class LibertySBOP extends Integration {
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
             FormatCurrencyAmt.ele('Amt', BOPPolicy.coverage);
-            Limit.ele('LimitAppliesToCd', 'PerOcc');
+            Limit.ele('LimitAppliesToCd', 'Coverage');
         }
 
         //                 <LiabilityInfo>
@@ -565,14 +621,14 @@ module.exports = class LibertySBOP extends Integration {
         //                 </QuestionAnswer>
         //             </BOPLineBusiness>
 
-        const BOPLineBusinessQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.ACORDValue === "BOPLineBusiness");
+        const BOPLineBusinessQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.commercialBOP.ACORDValue === "BOPLineBusiness");
 
-        // for each policy question (that's not UWQ1 related), add it to XML
+        // for each policy question, add it to XML
         BOPLineBusinessQuestions.forEach(question => {
             const QuestionAnswer = BOPLineBusiness.ele('QuestionAnswer');
-            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
 
-            if (question.insurerQuestionAttributes.ACORDPath && question.insurerQuestionAttributes.ACORDPath.toLowerCase().includes('explanation')) {
+            if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
                 // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
                 QuestionAnswer.ele('Explanation', question.answerValue);
             } else {
@@ -642,12 +698,37 @@ module.exports = class LibertySBOP extends Integration {
             const allLocationQuestions = location.questions;
             const standardLocationQuestions = allLocationQuestions.filter(q => !locationQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
             const specialLocationQuestions = allLocationQuestions.filter(q => locationQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
+            const yearBuiltQuestion = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "LMBOP_YearBuilt");
+
+            let yearBuilt = null;
+            if (yearBuiltQuestion) {
+                if (!isNaN(parseInt(yearBuiltQuestion.answerValue))) {
+                    yearBuilt = parseInt(yearBuiltQuestion.answerValue);
+                }
+            }
+
+            const BldgProtection = LocationUWInfo.ele('BldgProtection');
+            const Construction = LocationUWInfo.ele('Construction');
+            const RoofingMaterial = Construction.ele('RoofingMaterial');
+            const BldgOccupancy = LocationUWInfo.ele('BldgOccupancy');
+            const AreaOccupied = BldgOccupancy.ele('AreaOccupied');
+            const BldgArea = Construction.ele('BldgArea');
+
+            // Bldg Area (autofill)
+            BldgArea.ele('NumUnits', location.square_footage);
+            BldgArea.ele('UnitMeasurementCd', 'SquareFeet');
+
+            // Gross Revenue (autofill)
+            const AnnualGrossReceipts = LocationUWInfo.ele('GrossReceipts');
+            AnnualGrossReceipts.ele('OperationsCd', 'TOTAL');
+            const AGRAnnualGrossReceiptsAmt = AnnualGrossReceipts.ele('AnnualGrossReceiptsAmt');
+            AGRAnnualGrossReceiptsAmt.ele('Amt', applicationDocData.grossSalesAmt);
 
             let LocationUWInfoExt = null;
             let BldgImprovements = null;
             let BldgImprovementExt = null;
-            let BldgOccupancy = null;
             let BldgOccupancyExt = null;
+
             // handle special case questions first
             specialLocationQuestions.forEach(question => {
                 switch (question.insurerQuestionIdentifier) {
@@ -696,16 +777,22 @@ module.exports = class LibertySBOP extends Integration {
                     case "BOP8":
                     case "BOP186":
                     case "BOP185":
-                        if (!BldgImprovements) {
-                            BldgImprovements = LocationUWInfo.ele('BldgImprovements');
-                        }
-                        const qId = question.insurerQuestionIdentifier;
-                        if (qId === 'BOP8') {
-                            BldgImprovementExt.ele('WiringImprovementYear', question.answerValue);
-                        } else if (qId === 'BOP186') {
-                            BldgImprovementExt.ele('PlumbingImprovementYear', question.answerValue);
-                        } else { // if BOP185
-                            BldgImprovementExt.ele('HeatingImprovementYear', question.answerValue);
+                        // only provide these questions if year built was over 24 years ago
+                        if (!yearBuilt || (yearBuilt - moment().year() > 24)) {
+                            if (!BldgImprovements) {
+                                BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                            }
+                            if (!BldgImprovementExt) {
+                                BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
+                            }
+                            const qId = question.insurerQuestionIdentifier;
+                            if (qId === 'BOP8') {
+                                BldgImprovementExt.ele('WiringImprovementYear', question.answerValue);
+                            } else if (qId === 'BOP186') {
+                                BldgImprovementExt.ele('PlumbingImprovementYear', question.answerValue);
+                            } else { // if BOP185
+                                BldgImprovementExt.ele('HeatingImprovementYear', question.answerValue);
+                            }
                         }
                         break;
                     case "BOP58":
@@ -715,8 +802,6 @@ module.exports = class LibertySBOP extends Integration {
                         BOP58AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
                         break;
                     case "BOP56":
-                        // handled in BOP55_Amount
-                        break;
                     case "BOP55":
                         // handled in BOP55_Amount
                         break;
@@ -731,14 +816,78 @@ module.exports = class LibertySBOP extends Integration {
                             BOP55GrossReceipts.ele('ProductDesc', BOP56.answerValue);
                         }
                         break;
+                    case "BOP17_YesNo":
+                        if (question.answerValue.toLowerCase() === "no") {
+                            const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
+                            const BOP17_AreaUnoccupied = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                            const BOP17 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17");
+
+                            let occupiedByOther = 0;
+                            let unoccupied = 0;
+
+                            if (BOP17_AreaOccupiedByOther) {
+                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue);
+                                const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
+                                AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
+                                AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
+                                
+                            }
+
+                            if (BOP17_AreaUnoccupied) {
+                                unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue);
+                                const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
+                                AreaUnoccupied.ele('NumUnits', unoccupied);
+                                AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                            }
+
+                            if (BOP17) {
+                                if (!BldgOccupancyExt) {
+                                    BldgOccupancyExt = BldgOccupancy.ele('BldgOccupancyExt');
+                                }
+                                BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
+                            }
+
+                            const occupied = location.square_footage - (occupiedByOther + unoccupied);
+                            AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
+                            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        } else {
+                            AreaOccupied.ele('NumUnits', location.square_footage);
+                            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        }
+                        break;
                     case "BOP17":
-                        if (!BldgOccupancy) {
-                            BldgOccupancy = LocationUWInfo.ele('BldgOccupancy');
+                    case "BOP17_AreaOccupiedByOther":
+                    case "BOP17_AreaUnoccupied":
+                        // handled in BOP17_YesNo
+                        break;
+                    case "LMBOP_Interest":
+                        LocationUWInfo.ele('InterestCd', question.answerValue);
+                        break;
+                    case "LMBOP_Construction":
+                        Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
+                        break;
+                    case "LMBOP_RoofConstruction":
+                        RoofingMaterial.ele('com.libertymutual.ci_RoofMaterialResistanceCd', roofConstructionMatrix[question.answerValue.trim()]);
+                        break;
+                    case "LMBOP_RoofType":
+                        RoofingMaterial.ele('RoofingMaterialCd', roofTypeMatrix[question.answerValue.trim()]);
+                        break;
+                    case "LMBOP_YearBuilt":
+                        Construction.ele('YearBuilt', question.answerValue);
+                        break;
+                    case "LMBOP_NumStories":
+                        Construction.ele('NumStories', question.answerValue);
+                        break;
+                    case "LMBOP_AlarmType":
+                        BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[question.answerValue.trim()]);
+                        break;
+                    case "UWQ6003":
+                        // only provide answer to this question if year built is over 24 years ago 
+                        if (!yearBuilt || (yearBuilt - moment().year() > 24)) {
+                            const UWQ6003QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
+                            UWQ6003QuestionAnswer.ele('QuestionCode', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
+                            UWQ6003QuestionAnswer.ele('YesNoCd', question.answerValue);
                         }
-                        if (!BldgOccupancyExt) {
-                            BldgOccupancyExt = BldgImprovements.ele('BldgOccupancyExt');
-                        }
-                        BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
                         break;
                     default: 
                         log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
@@ -746,12 +895,14 @@ module.exports = class LibertySBOP extends Integration {
                 }
             });
 
+            // 'LMBOP_RoofType' // Construction/RoofingMaterial/RoofingMaterialCd
+
             // then create general questions
             standardLocationQuestions.forEach(question => {
                 const QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
-                QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.ACORDCd);
+                QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
 
-                if (question.insurerQuestionAttributes.ACORDPath && question.insurerQuestionAttributes.ACORDPath.toLowerCase().includes('explanation')) {
+                if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
                     // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
                     QuestionAnswer.ele('Explanation', question.answerValue);
                 } else {
@@ -765,9 +916,9 @@ module.exports = class LibertySBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        // log.debug("=================== QUOTE REQUEST ===================");
-        // log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
-        // log.debug("=================== QUOTE REQUEST ===================");
+        log.debug("=================== QUOTE REQUEST ===================");
+        log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
+        log.debug("=================== QUOTE REQUEST ===================");
 
         // Determine which URL to use
         const host = 'ci-policyquoteapi.libertymutual.com';
@@ -1013,6 +1164,57 @@ module.exports = class LibertySBOP extends Integration {
             log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
+    }
+
+    async _getLibertyIndustryCodes() {
+
+        const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+        const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+        const applicationDocData = this.app.applicationDocData;
+
+        const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `
+
+        // eslint-disable-next-line prefer-const
+        const industryQuery = {
+            insurerId: this.insurer.id,
+            talageIndustryCodeIdList: applicationDocData.industryCode,
+            territoryList: applicationDocData.mailingState,
+            effectiveDate: {$lte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate},
+            active: true
+        }
+
+        // eslint-disable-next-line prefer-const
+        const orParamList = [];
+        const policyTypeCheck = {policyType: this.policyTypeFilter};
+        const policyTypeNullCheck = {policyType: null}
+        orParamList.push(policyTypeCheck)
+        orParamList.push(policyTypeNullCheck)
+        industryQuery.$or = orParamList;
+
+        // eslint-disable-next-line prefer-const
+        let insurerIndustryCodeList = null;
+        try {
+            insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
+        } catch (e) {
+            log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.`);
+            return;
+        }
+
+        if (insurerIndustryCodeList && insurerIndustryCodeList.length > 0) {
+            this.industry_code = insurerIndustryCodeList;
+        } else {
+            log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.`);
+            this.industry_code = [this.industry_code];
+        }
+
+        this.industry_code = this.industry_code.find(ic => ic.attributes.commercialBOP);
+        if (!this.industry_code) {
+            const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
+            log.error(`${errorMessage} ${JSON.stringify(sbopPolicy)} ` + __location)
+            return this.client_error(errorMessage, __location);
+        }
+
     }
 
     getSupportedLimit(limits) {

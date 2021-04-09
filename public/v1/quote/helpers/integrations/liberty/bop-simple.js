@@ -65,22 +65,26 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
+        // liberty can have multiple insurer industry codes tied to a single talage industry code
+        // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
+        await this._getLibertyIndustryCodes();
+
         console.log("IN SIMPLE BOP CLASS");
         console.log(JSON.stringify(this.industry_code, null, 4));
 
         const applicationDocData = this.app.applicationDocData;
-        const sbopPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); 
-        const logPrefix = `Liberty Mutual SBOP (Appid: ${applicationDocData.mysqlId}): `
+        const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); 
+        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.mysqlId}): `
 
-        if (!sbopPolicy) {
+        if (!SBOPPolicy) {
             const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
             log.error(`${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
-        if (!(sbopPolicy.coverage > 0)) {
+        if (!(SBOPPolicy.coverage > 0)) {
             const errorMessage = `${logPrefix}No BPP Coverage was supplied for the Simple BOP Policy.`;
-            log.error(`${errorMessage} ${JSON.stringify(sbopPolicy)} ` + __location)
+            log.error(`${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location)
             return this.client_error(errorMessage, __location);
         }
 
@@ -88,10 +92,10 @@ module.exports = class LibertySBOP extends Integration {
 
         // Assign the closest supported limit for Per Occ
         // NOTE: Currently this is not included in the request and defaulted on LM's side
-        const limit = this.getSupportedLimit(sbopPolicy.limits);
+        const limit = this.getSupportedLimit(SBOPPolicy.limits);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
-        const deductible = this.getSupportedDeductible(sbopPolicy.deductible);
+        const deductible = this.getSupportedDeductible(SBOPPolicy.deductible);
         const fireDamage = "1000000"; // we do not store this data currently
         const prodCompOperations = "2000000"; // we do not store this data currently
         const medicalExpenseLimit = "15000"; // we do not store this data currently
@@ -255,7 +259,7 @@ module.exports = class LibertySBOP extends Integration {
         Policy.ele('LOBCd', 'BOP');
         Policy.ele('ControllingStateProvCd', applicationDocData.mailingState);
         const ContractTerm = Policy.ele('ContractTerm');
-        ContractTerm.ele('EffectiveDt', moment(sbopPolicy.effectiveDate).format('YYYY-MM-DD'));
+        ContractTerm.ele('EffectiveDt', moment(SBOPPolicy.effectiveDate).format('YYYY-MM-DD'));
         // ContractTerm.ele('ExpirationDt', ...) is defaulted to 12 months from EffectiveDt by Liberty Mutual, not including
 
         // Add the questions
@@ -328,7 +332,7 @@ module.exports = class LibertySBOP extends Integration {
             Coverage.ele('CoverageCd', 'BPP');
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            FormatCurrencyAmt.ele('Amt', sbopPolicy.coverage);
+            FormatCurrencyAmt.ele('Amt', SBOPPolicy.coverage);
             Limit.ele('LimitAppliesToCd', 'PerOcc');
         }
 
@@ -623,6 +627,57 @@ module.exports = class LibertySBOP extends Integration {
             log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
+    }
+
+    async _getLibertyIndustryCodes() {
+
+        const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+        const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+        const applicationDocData = this.app.applicationDocData;
+
+        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.mysqlId}): `
+
+        // eslint-disable-next-line prefer-const
+        const industryQuery = {
+            insurerId: this.insurer.id,
+            talageIndustryCodeIdList: applicationDocData.industryCode,
+            territoryList: applicationDocData.mailingState,
+            effectiveDate: {$lte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate},
+            active: true
+        }
+
+        // eslint-disable-next-line prefer-const
+        const orParamList = [];
+        const policyTypeCheck = {policyType: this.policyTypeFilter};
+        const policyTypeNullCheck = {policyType: null}
+        orParamList.push(policyTypeCheck)
+        orParamList.push(policyTypeNullCheck)
+        industryQuery.$or = orParamList;
+
+        // eslint-disable-next-line prefer-const
+        let insurerIndustryCodeList = null;
+        try {
+            insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
+        } catch (e) {
+            log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.`);
+            return;
+        }
+
+        if (insurerIndustryCodeList && insurerIndustryCodeList.length > 0) {
+            this.industry_code = insurerIndustryCodeList;
+        } else {
+            log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.`);
+            this.industry_code = [this.industry_code];
+        }
+
+        this.industry_code = this.industry_code.find(ic => ic.attributes.simpleBOP);
+        if (!this.industry_code) {
+            const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
+            log.error(`${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location)
+            return this.client_error(errorMessage, __location);
+        }
+
     }
 
     getSupportedLimit(limits) {
