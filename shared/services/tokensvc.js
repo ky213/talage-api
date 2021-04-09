@@ -1,6 +1,48 @@
 const tracker = global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
+const {'v4': uuidv4} = require('uuid');
 const moment = require('moment');
+
+// 1 hour
+const ttlSeconds = 3600;
+// 30 minutes - 2 entries max
+const refreshThresholdSeconds = 1300;
+
+/**
+ * Create new JWT with a redis entry under that key
+ *
+ * @param {object} payload - Payload data to be signed with the jwt
+ * @param {object} additionalPayload - Payload data to be added after the signing of the jwt
+ *
+ * @returns {object} userJwt - Returns the raw jwt
+ */
+exports.createNewToken = async function(payload, additionalPayload) {
+    const jwtPayload = JSON.parse(JSON.stringify(payload));
+    jwtPayload.ranValue1 = uuidv4().toString();
+    jwtPayload.createdAt = moment();
+
+    // Generate and return a token
+    const jwt = require('jsonwebtoken');
+    const userJwt = jwt.sign(jwtPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'});
+
+    let redisPayload = jwtPayload;
+    // add the additional payload after generating the token
+    if(additionalPayload){
+        redisPayload = Object.assign(jwtPayload, additionalPayload);
+    }
+
+    try{
+        const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(redisPayload), ttlSeconds);
+        if(redisResponse && redisResponse.saved){
+            log.debug("Saved JWT to Redis " + __location);
+        }
+    }
+    catch(err){
+        log.error("Error save JWT to Redis JWT " + err + __location);
+    }
+
+    return userJwt;
+}
 
 /**
  * Create new JWT with ApplicationId added to payload.
@@ -11,24 +53,10 @@ const moment = require('moment');
  * @returns {object} res - Returns an authorization token
  */
 exports.createApplicationToken = async function(req, applicationId) {
-    // eslint-disable-next-line prefer-const
-    let payload = req.userTokenData;
+    const payload = req.userTokenData;
     payload.applicationId = applicationId;
-    payload.createdAt = moment();
-    const jwt = require('jsonwebtoken');
-    const userJwt = jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'});
-    const token = `Bearer ${userJwt}`;
-
-    try{
-        const ttlSeconds = 3600;
-        const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(payload), ttlSeconds);
-        if(redisResponse && redisResponse.saved){
-            log.debug("Saved JWT to Redis " + __location);
-        }
-    }
-    catch(err){
-        log.error("Error save JWT to Redis JWT " + err + __location);
-    }
+    const rawJwt = await this.createNewToken(payload);
+    const token = `Bearer ${rawJwt}`;
 
     return token;
 }
@@ -48,7 +76,7 @@ exports.addApplicationToToken = async function(req, applicationId) {
     if(req.jwtToken){
         let userTokenData = {};
         try{
-            const redisResponse = await global.redisSvc.getKeyValue(req.jwtToken)
+            const redisResponse = await global.redisSvc.getKeyValue(req.jwtToken);
             if(redisResponse && redisResponse.found && redisResponse.value){
                 userTokenData = JSON.parse(redisResponse.value);
             }
@@ -64,7 +92,6 @@ exports.addApplicationToToken = async function(req, applicationId) {
             userTokenData.applications.push(applicationId);
             userTokenData.updatedAt = moment();
             try{
-                const ttlSeconds = 3600;
                 const redisResponse = await global.redisSvc.storeKeyValue(req.jwtToken, JSON.stringify(userTokenData), ttlSeconds);
                 if(redisResponse && redisResponse.saved){
                     log.debug("Update Redis JWT for new application " + __location);
@@ -79,7 +106,7 @@ exports.addApplicationToToken = async function(req, applicationId) {
         }
     }
     else {
-        log.error("Missing req.jwtToken " + __location)
+        log.error("Missing req.jwtToken " + __location);
     }
 
     return true;
@@ -88,11 +115,23 @@ exports.addApplicationToToken = async function(req, applicationId) {
 /**
  * Copy the redis data and create a new access token (key)
  *
- * @param {object} token - The existing token
+ * @param {object} req - The request to extract the token from
  *
  * @returns {object} - Returns an authorization token
  */
-exports.refreshToken = async function(token) {
-    // us the token to look up redis data, create a new token and copy it to that location
+exports.refreshToken = async function(req) {
+    const redisResponse = await global.redisSvc.getKeyValue(req.jwtToken);
+    if(redisResponse && redisResponse.found && redisResponse.value){
+        const userTokenData = JSON.parse(redisResponse.value);
+        const duration = moment.duration(moment().diff(moment(userTokenData.createdAt)));
+        const seconds = duration.asSeconds();
 
+        // check created date and make sure we exceed the threshold
+        if(seconds > refreshThresholdSeconds){
+            // TODO: the optional data needs to be separated from the token data, for now use all the data to generate the token
+            const userToken = await this.createNewToken(userTokenData);
+            return `Bearer ${userToken}`;
+        }
+    }
+    return null;
 }

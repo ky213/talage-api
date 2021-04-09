@@ -63,7 +63,6 @@ async function applicationSave(req, res, next) {
         req.body.applicationId = req.body.uuid;
     }
 
-
     const applicationBO = new ApplicationBO();
 
     //Insert checks
@@ -118,7 +117,7 @@ async function applicationSave(req, res, next) {
     else {
         //get application and valid agency
         // check JWT has access to this application.
-        const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+        const rightsToApp = isAuthForApplication(req, req.body.applicationId);
         if(rightsToApp !== true){
             return next(serverHelper.forbiddenError(`Not Authorized`));
         }
@@ -132,9 +131,14 @@ async function applicationSave(req, res, next) {
             log.error("Error checking application doc " + err + __location);
             return next(serverHelper.requestError(`Bad Request: check error ${err}`));
         }
-
     }
 
+    // TODO: should the name be more ambiguous or is this a good name?
+    let refreshToken = false;
+    if(req.body.refreshToken){
+        refreshToken = true;
+        delete req.body.refreshToken;
+    }
 
     let responseAppDoc = null;
     try {
@@ -179,7 +183,7 @@ async function applicationSave(req, res, next) {
             // update JWT
             if(responseAppDoc && req.userTokenData && req.userTokenData.quoteApp){
                 try{
-                    const newToken = await tokenSvc.createApplicationToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.createApplicationToken(req, responseAppDoc.applicationId);
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -193,7 +197,7 @@ async function applicationSave(req, res, next) {
                 //API request do create newtoken
                 // add application to Redis for JWT
                 try{
-                    const newToken = await tokenSvc.AddApplicationToToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.addApplicationToToken(req, responseAppDoc.applicationId);
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -213,6 +217,12 @@ async function applicationSave(req, res, next) {
 
     // if they ask for a new token (refreshToken: "please") or... true
     // set up and attach a refreshed token.
+    if(refreshToken){
+        const newToken = await tokenSvc.refreshToken(req);
+        if(newToken){
+            responseAppDoc.token = newToken;
+        }
+    }
 
     if (responseAppDoc) {
         res.send(200, responseAppDoc);
