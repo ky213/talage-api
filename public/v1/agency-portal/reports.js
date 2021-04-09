@@ -256,7 +256,7 @@ const getReferredList = async(where) => {
         }},
         {"$replaceRoot": {
             "newRoot": {
-                "$mergeObjects": [{ "count": "$count" }, "$_id" ]
+                "$mergeObjects": [{ "count": "$count" }, "$_id"]
             }
         }},
         {$project: {
@@ -414,7 +414,7 @@ async function getReports(req) {
         }
     }
 
-    log.debug("Where " + JSON.stringify(where))
+    //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     if (initialRequest) {
         //get list of agencyIds for agencyNetwork.
