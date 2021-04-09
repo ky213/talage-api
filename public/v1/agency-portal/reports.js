@@ -1,14 +1,15 @@
+/* eslint-disable prefer-const */
 /* eslint-disable object-curly-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable object-curly-spacing */
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = require('../../../server.js');
-const AgencyBO = global.requireShared('models/Agency-BO.js');
 const mongoose = require('mongoose');
 const _ = require('lodash');
 const moment = require('moment');
 
 const Application = mongoose.model('Application');
+const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const Quote = mongoose.model('Quote');
 
@@ -184,6 +185,65 @@ const getPremium = async(where) => {
     };
 }
 
+const getAgencyList = async(where) => {
+    const agencyBO = new AgencyBO()
+    let agencyQuery = {};
+    if(where.agencyNetworkId){
+        agencyQuery.agencyNetworkId = where.agencyNetworkId
+    }
+    if(where.agencyId){
+        agencyQuery.systemId = where.agencyId
+    }
+    const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
+        log.error(`Report agencyList error ${err}`)
+    });
+    if(agencyList && agencyList.length > 0){
+        let agencyDisplayList = [];
+        agencyList.forEach((agencyDoc) => {
+            const displayJSON = {
+                agencyId: agencyDoc.systemId,
+                name: agencyDoc.name
+            }
+            agencyDisplayList.push(displayJSON);
+        })
+        return agencyDisplayList;
+    }
+    else {
+        return [];
+    }
+}
+
+const getAgencyLocationList = async(where) => {
+    const agencyLocationBO = new AgencyLocationBO()
+    const agencyLocQuery = {
+        agencyId: where.agencyId
+    }
+    log.debug("agencyLocQuery " + JSON.stringify(agencyLocQuery))
+    const agencyLocList = await agencyLocationBO.getList(agencyLocQuery).catch(err => {
+        log.error(`Report getAgencyLocationList error ${err}`)
+    });
+
+    if(agencyLocList && agencyLocList.length > 0){
+        let agencyLocDisplayList = [];
+        agencyLocList.forEach((agencyLocDoc) => {
+            let name = agencyLocDoc.name;
+            if(!name){
+                name = `${agencyLocDoc.address} ${agencyLocDoc.city}, ${agencyLocDoc.state} ${agencyLocDoc.zipcode}`;
+            }
+            const displayJSON = {
+                agencyId: agencyLocDoc.agencyId,
+                agencyLocationId: agencyLocDoc.systemId,
+                name: name
+            }
+            agencyLocDisplayList.push(displayJSON);
+        })
+        return agencyLocDisplayList;
+    }
+    else {
+        return [];
+    }
+}
+
 //---------------------------------------------------------------------------//
 // getReports - REST API endpoint for Agency Portal dashboard.
 //---------------------------------------------------------------------------//
@@ -321,7 +381,7 @@ async function getReports(req) {
         where.referrer = req.query.referrer;
     }
 
-    //log.debug("Where " + JSON.stringify(where))
+    log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     if (initialRequest) {
         //get list of agencyIds for agencyNetwork.
@@ -330,7 +390,9 @@ async function getReports(req) {
 
         return {
             minDate: await getMinDate(where),
-            hasApplications: await hasApplications(where) ? 1 : 0
+            hasApplications: await hasApplications(where) ? 1 : 0,
+            "agencyList": await getAgencyList(where),
+            "agencyLocationList": await getAgencyLocationList(where)
         };
     }
     else {

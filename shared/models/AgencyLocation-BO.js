@@ -398,7 +398,6 @@ module.exports = class AgencyLocationBO{
                     return;
                 }
 
-
                 resolve(mongoUtils.objListCleanup(docList));
                 return;
             }
