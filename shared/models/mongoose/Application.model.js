@@ -96,6 +96,11 @@ locationSchema.virtual('locationId').
         this._id = v;
     });
 
+locationSchema.virtual('territory').
+    get(function() {
+        return this.state;
+    });
+
 const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
