@@ -583,7 +583,6 @@ module.exports = class Integration {
             //                 if(insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length > 0){
             //                     insurerActivityCode.insurerTerritoryQuestionList.forEach((tq) => {
             //                          //get InsureQuestions
-        
             //                          //relationships[tq.territory + insurerActivityCode.code + insurerActivityCode.sub] = tq.questions.split(',');
             //                     });
             //                 }
@@ -1415,7 +1414,7 @@ module.exports = class Integration {
             log.error(`Unable to encrypt log. AppId ${appId} Insurer: ${insurerName}Proceeding anyway. ` + err + __location);
         });
 
-                const columns = [
+        const columns = [
             'application',
             'insurer',
             'log',
@@ -2409,11 +2408,11 @@ module.exports = class Integration {
                 }
                 // eslint-disable-next-line prefer-const
                 try{
-                    const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
+                    const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery).lean()
                     if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
                         const insurerIndustryCode = insurerIndustryCodeList[0];
                         this.insurerIndustryCode = insurerIndustryCode;
-                        this.industry_code = insurerIndustryCode;
+                        this.industry_code = JSON.parse(JSON.stringify(insurerIndustryCode));
                     }
                     else {
                         this.industry_code = null;
