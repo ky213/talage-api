@@ -473,17 +473,18 @@ module.exports = class AcuityGL extends Integration {
         // </CommlCoverage>
         // Exposures
 
-        for (let i = 0; i < this.app.business.locations.length; i++) {
-            const location = this.app.business.locations[i];
+
+        const appDoc = this.app.applicationDocData
+        for (let i = 0; i < appDoc.locations.length; i++) {
+            const location = appDoc.locations[i];
 
             const cobPayrollList = [];
-            for (const activityCode of location.activity_codes) {
+            for (const activityCode of location.activityPayrollList){
                 // Skip activity codes we shouldn't include in payroll
-                if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
-                    continue;
+                if (unreportedPayrollActivityCodes.includes(activityCode.ncciCode)) {
+                    return;
                 }
-
-                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.territory, activityCode.id);
+                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.ncciCode);
                 if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
                     const cglCode = acuityActivityCode.attributes.assocGLClass;
                     let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
@@ -494,17 +495,33 @@ module.exports = class AcuityGL extends Integration {
                         };
                         cobPayrollList.push(cobPayroll);
                     }
-                    cobPayroll.payroll += activityCode.payroll;
+                    //loop through EmployeeType payroll
+                    if(activityCode.employeeTypeList && activityCode.employeeTypeList.length > 0){
+                        activityCode.employeeTypeList.forEach((employeTypePayroll) => {
+                            cobPayroll.payroll += employeTypePayroll.employeeTypePayroll;
+                        });
+                    }
+                    else {
+                        cobPayroll.payroll += activityCode.payroll;
+                    }
+                }
+                else {
+                    log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.ncciCode}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
                 }
             }
             // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
-            for (const cobPayroll of cobPayrollList) {
-                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-                GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
-                GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
-                // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
-                GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
-                GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
+            if(cobPayrollList.length > 0){
+                for (const cobPayroll of cobPayrollList) {
+                    const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+                    GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
+                    GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
+                    // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
+                    GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
+                    GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
+                }
+            }
+            else {
+                log.error(`Acuity GL (application ${this.app.id}): application issue no payroll. Application will fail at Acuity` + __location);
             }
         }
 

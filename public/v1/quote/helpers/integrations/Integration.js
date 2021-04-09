@@ -243,65 +243,29 @@ module.exports = class Integration {
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
-        const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
-        if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-            const activityCodeQuery = {
-                insurerId: this.insurer.id,
-                talageActivityCodeIdList: parseInt(activityCode,10),
-                territoryList: territory,
-                effectiveDate: {$lte: policyEffectiveDate},
-                expirationDate: {$gte: policyEffectiveDate},
-                active: true
-            }
-            let insurerActivityCode = {attributes: {}};
-            try{
-                insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery)
-            }
-            catch(err){
-                log.warn(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-            }
-            return insurerActivityCode;
-        }
-        else {
-            const sql = `
-                SELECT inc.code, inc.sub, inc.attributes
-                FROM clw_talage_insurer_ncci_codes AS inc 
-                LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
-                WHERE
-                    inc.state = 1
-                    AND inc.insurer = ${insurerId}
-                    AND inc.territory = '${territory}'
-                    AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)
-                    AND aca.code = ${activityCode};
-            `;
-            let result = null;
-            try {
-                result = await db.query(sql);
-            }
-            catch (error) {
-                return null;
-            }
-            // Return if no results
-            if (result.length === 0) {
-                return null;
-            }
-            // Parse the attributes if they exist (non-fatal)
-            if (result[0].attributes) {
-                try {
-                    result[0].attributes = JSON.parse(result[0].attributes);
-                }
-                catch (error) {
-                    // continue. We may not need the attributes column
-                    log.error('JSON.parse(result[0].attributes) ' + error + __location);
-                    result[0].attributes = {};
-                }
-            }
-            return result[0];
 
+        const policyEffectiveDate = moment(this.policy.effective_date);
+        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+        const activityCodeQuery = {
+            insurerId: insurerId,
+            talageActivityCodeIdList: parseInt(activityCode,10),
+            territoryList: territory,
+            effectiveDate: {$lte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate},
+            active: true
         }
+        let insurerActivityCode = {attributes: {}};
+        try{
+            insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
+            if(!insurerActivityCode){
+                insurerActivityCode = {attributes: {}};
+            }
+        }
+        catch(err){
+            log.warn(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+        }
+        return insurerActivityCode;
 
-      
     }
 
     /**
