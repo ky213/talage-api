@@ -244,6 +244,36 @@ const getAgencyLocationList = async(where) => {
     }
 }
 
+const getReferredList = async(where) => {
+    const pipline = [
+        {$match: where},
+        {$group: {
+            _id: {
+                referrer: '$referrer',
+                agencyId: '$agencyId'
+            },
+            count: {$sum: 1}
+        }},
+        {"$replaceRoot": {
+            "newRoot": {
+                "$mergeObjects": [{ "count": "$count" }, "$_id" ]
+            }
+        }},
+        {$project: {
+            agencyId: 1,
+            referrer: 1
+
+        }}
+    ];
+    const referrerList = await Application.aggregate(pipline);
+    referrerList.forEach((referrerJson) => {
+        if(!referrerJson.referrer){
+            referrerJson.referrer = "AgencyPortal";
+        }
+    });
+    return referrerList;
+}
+
 //---------------------------------------------------------------------------//
 // getReports - REST API endpoint for Agency Portal dashboard.
 //---------------------------------------------------------------------------//
@@ -379,6 +409,9 @@ async function getReports(req) {
     }
     if(req.query.referrer){
         where.referrer = req.query.referrer;
+        if(where.referrer === 'AgencyPortal'){
+            where.referrer = null;
+        }
     }
 
     log.debug("Where " + JSON.stringify(where))
@@ -392,7 +425,8 @@ async function getReports(req) {
             minDate: await getMinDate(where),
             hasApplications: await hasApplications(where) ? 1 : 0,
             "agencyList": await getAgencyList(where),
-            "agencyLocationList": await getAgencyLocationList(where)
+            "agencyLocationList": await getAgencyLocationList(where),
+            "referrerList": await getReferredList(where)
         };
     }
     else {
