@@ -65,6 +65,9 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
+        console.log("IN SIMPLE BOP CLASS");
+        console.log(JSON.stringify(this.industry_code, null, 4));
+
         const applicationDocData = this.app.applicationDocData;
         const sbopPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); 
         const logPrefix = `Liberty Mutual SBOP (Appid: ${applicationDocData.mysqlId}): `

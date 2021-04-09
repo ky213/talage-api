@@ -40,6 +40,9 @@ module.exports = class LibertySBOP extends Integration {
         // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
         await this._getLibertyIndustryCodes();
 
+        console.log("IN BASE BOP CLASS");
+        console.log(JSON.stringify(this.industry_code, null, 4));
+
         const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy);
         const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
 

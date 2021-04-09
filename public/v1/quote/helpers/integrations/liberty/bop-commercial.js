@@ -112,6 +112,9 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
+        console.log("IN COMMERCIAL BOP CLASS");
+        console.log(JSON.stringify(this.industry_code, null, 4));
+
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
         const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
