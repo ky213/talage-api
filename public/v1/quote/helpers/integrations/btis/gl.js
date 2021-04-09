@@ -460,10 +460,12 @@ module.exports = class BtisGL extends Integration {
                 // Get the quote amount
                 if(quoteInfo.quote && quoteInfo.quote.results
                     && quoteInfo.quote.results.total_premium
-                    & quoteInfo.quote.results.total_premium < lowestQuote){
-                    this.amount = quoteInfo.quote.results.total_premium;
-                    lowestQuote = quoteInfo.quote.results.total_premium;
-                    makeItTheQuote = true;
+                    ){
+                        if(parseInt(quoteInfo.quote.results.total_premium,10) < lowestQuote){
+                            this.amount = parseInt(quoteInfo.quote.results.total_premium,10);
+                            lowestQuote = quoteInfo.quote.results.total_premium;
+                            makeItTheQuote = true;
+                        }
                 }
                 else{
                     log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
@@ -473,7 +475,7 @@ module.exports = class BtisGL extends Integration {
                 if(makeItTheQuote){
                     //Get the quote link
                     this.quoteLink = quoteInfo.bridge_url ? quoteInfo.bridge_url : null;
-
+                    gotQuote = true;
                     // Get the quote limits
                     if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
                         const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');
@@ -493,8 +495,8 @@ module.exports = class BtisGL extends Integration {
                         this.reasons.push('Quote structure changed. Unable to find limits.');
                     }
                     // Return the quote
-                    gotQuote = true;
                     //TODO once fully on multi carrier API we can break out of the loop after an success === true
+                    break;
                 }
               //  return this.return_result('referred_with_price');
             }
