@@ -2102,6 +2102,11 @@ module.exports = class ApplicationModel {
                 query["policies.policyType"] = queryJSON.policies.policyType;
                 delete queryJSON.policies
             }
+            if(queryJSON.applicationId){
+                //query.policies = {};
+                query.applicationId = queryJSON.applicationId;
+                delete queryJSON.applicationId
+            }
 
 
             if (queryJSON) {

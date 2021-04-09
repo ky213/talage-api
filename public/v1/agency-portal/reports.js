@@ -1,14 +1,16 @@
+/* eslint-disable prefer-const */
 /* eslint-disable object-curly-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable object-curly-spacing */
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = require('../../../server.js');
-const AgencyBO = global.requireShared('models/Agency-BO.js');
 const mongoose = require('mongoose');
 const _ = require('lodash');
 const moment = require('moment');
 
 const Application = mongoose.model('Application');
+const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const Quote = mongoose.model('Quote');
 
 // eslint-disable-next-line valid-jsdoc
@@ -183,6 +185,95 @@ const getPremium = async(where) => {
     };
 }
 
+const getAgencyList = async(where) => {
+    const agencyBO = new AgencyBO()
+    let agencyQuery = {};
+    if(where.agencyNetworkId){
+        agencyQuery.agencyNetworkId = where.agencyNetworkId
+    }
+    if(where.agencyId){
+        agencyQuery.systemId = where.agencyId
+    }
+    const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
+        log.error(`Report agencyList error ${err}`)
+    });
+    if(agencyList && agencyList.length > 0){
+        let agencyDisplayList = [];
+        agencyList.forEach((agencyDoc) => {
+            const displayJSON = {
+                agencyId: agencyDoc.systemId,
+                name: agencyDoc.name
+            }
+            agencyDisplayList.push(displayJSON);
+        })
+        return agencyDisplayList;
+    }
+    else {
+        return [];
+    }
+}
+
+const getAgencyLocationList = async(where) => {
+    const agencyLocationBO = new AgencyLocationBO()
+    const agencyLocQuery = {
+        agencyId: where.agencyId
+    }
+    log.debug("agencyLocQuery " + JSON.stringify(agencyLocQuery))
+    const agencyLocList = await agencyLocationBO.getList(agencyLocQuery).catch(err => {
+        log.error(`Report getAgencyLocationList error ${err}`)
+    });
+
+    if(agencyLocList && agencyLocList.length > 0){
+        let agencyLocDisplayList = [];
+        agencyLocList.forEach((agencyLocDoc) => {
+            let name = agencyLocDoc.name;
+            if(!name){
+                name = `${agencyLocDoc.address} ${agencyLocDoc.city}, ${agencyLocDoc.state} ${agencyLocDoc.zipcode}`;
+            }
+            const displayJSON = {
+                agencyId: agencyLocDoc.agencyId,
+                agencyLocationId: agencyLocDoc.systemId,
+                name: name
+            }
+            agencyLocDisplayList.push(displayJSON);
+        })
+        return agencyLocDisplayList;
+    }
+    else {
+        return [];
+    }
+}
+
+const getReferredList = async(where) => {
+    const pipline = [
+        {$match: where},
+        {$group: {
+            _id: {
+                referrer: '$referrer',
+                agencyId: '$agencyId'
+            },
+            count: {$sum: 1}
+        }},
+        {"$replaceRoot": {
+            "newRoot": {
+                "$mergeObjects": [{ "count": "$count" }, "$_id"]
+            }
+        }},
+        {$project: {
+            agencyId: 1,
+            referrer: 1
+
+        }}
+    ];
+    const referrerList = await Application.aggregate(pipline);
+    referrerList.forEach((referrerJson) => {
+        if(!referrerJson.referrer){
+            referrerJson.referrer = "AgencyPortal";
+        }
+    });
+    return referrerList;
+}
+
 //---------------------------------------------------------------------------//
 // getReports - REST API endpoint for Agency Portal dashboard.
 //---------------------------------------------------------------------------//
@@ -241,45 +332,61 @@ async function getReports(req) {
     // Filter out any agencies with do_not_report value set to true
     if (req.authentication.isAgencyNetworkUser) {
         try {
-            const agencyBO = new AgencyBO();
-            const donotReportQuery = {doNotReport: true};
-            const noReportAgencyList = await agencyBO.getList(donotReportQuery);
-            if(noReportAgencyList && noReportAgencyList.length > 0){
-                // eslint-disable-next-line prefer-const
-                let donotReportAgencyIdArray = []
-                for(const agencyJSON of noReportAgencyList){
-                    donotReportAgencyIdArray.push(agencyJSON.systemId);
-                }
-                if (donotReportAgencyIdArray.length > 0) {
-                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
-                    //where.agency = { $nin: donotReportAgencyIdArray };
-                    //need to remove values from Agents array.
-                    // eslint-disable-next-line no-unused-vars
-                    agents = agents.filter(function(value, index, arr){
-                        return donotReportAgencyIdArray.indexOf(value) === -1;
-                    });
-                }
-                where.agencyId = {$in: agents};
-                //check for all
-                if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
-                    if(where.agencyId){
-                        delete where.agencyId;
-                    }
-
-                    if(donotReportAgencyIdArray.length > 0){
-                        where.agencyId = {$nin: donotReportAgencyIdArray};
-                    }
-                }
-            }
-            else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+            if(req.query.agencyid || req.query.agencylocationid){
                 if(where.agencyId){
-                    delete where.agencyId;
+                    delete where.agencyId
+                }
+                if(req.query.agencylocationid){
+                    const agencyLocationId = parseInt(req.query.agencylocationid,10);
+                    where.agencyLocationId = agencyLocationId;
+                }
+                else if(req.query.agencyid){
+                    const agencyId = parseInt(req.query.agencyid,10);
+                    where.agencyId = agencyId;
                 }
             }
             else {
-                where.agencyNetworkId = agencyNetworkId
+                const agencyBO = new AgencyBO();
+                const donotReportQuery = {doNotReport: true};
+                const noReportAgencyList = await agencyBO.getList(donotReportQuery);
+                if(noReportAgencyList && noReportAgencyList.length > 0){
+                    // eslint-disable-next-line prefer-const
+                    let donotReportAgencyIdArray = []
+                    for(const agencyJSON of noReportAgencyList){
+                        donotReportAgencyIdArray.push(agencyJSON.systemId);
+                    }
+                    if (donotReportAgencyIdArray.length > 0) {
+                        log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
+                        //where.agency = { $nin: donotReportAgencyIdArray };
+                        //need to remove values from Agents array.
+                        // eslint-disable-next-line no-unused-vars
+                        agents = agents.filter(function(value, index, arr){
+                            return donotReportAgencyIdArray.indexOf(value) === -1;
+                        });
+                    }
+                    where.agencyId = {$in: agents};
+                    //check for all
+                    if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                        if(where.agencyId){
+                            delete where.agencyId;
+                        }
+
+                        if(donotReportAgencyIdArray.length > 0){
+                            where.agencyId = {$nin: donotReportAgencyIdArray};
+                        }
+                    }
+                }
+                else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                    if(where.agencyId){
+                        delete where.agencyId;
+                    }
+                }
+                else {
+                    where.agencyNetworkId = agencyNetworkId
+                }
             }
             log.debug("Report AgencyNetwork User where " + JSON.stringify(where) + __location)
+
         }
         catch(err) {
             log.error(`Report Dashboard error getting donotReport list ` + err + __location)
@@ -294,13 +401,32 @@ async function getReports(req) {
         else {
             where.agencyId = {$in: agents};
         }
+
+        if(req.query.agencylocationid){
+            const agencyLocationId = parseInt(req.query.agencylocationid,10);
+            where.agencyLocationId = agencyLocationId;
+        }
     }
+    if(req.query.referrer){
+        where.referrer = req.query.referrer;
+        if(where.referrer === 'AgencyPortal'){
+            where.referrer = null;
+        }
+    }
+
     //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     if (initialRequest) {
+        //get list of agencyIds for agencyNetwork.
+        //get list of agencyLocations
+        //get list of agencyLandingpages.
+
         return {
             minDate: await getMinDate(where),
-            hasApplications: await hasApplications(where) ? 1 : 0
+            hasApplications: await hasApplications(where) ? 1 : 0,
+            "agencyList": await getAgencyList(where),
+            "agencyLocationList": await getAgencyLocationList(where),
+            "referrerList": await getReferredList(where)
         };
     }
     else {
