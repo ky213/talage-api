@@ -47,6 +47,7 @@ const QuoteSchema = new Schema({
     limits: [QouteLimitSchema],
     quoteLink: {type: String},
     additionalInfo: {type: Schema.Types.Mixed},
+    handledByTalage: {type: Boolean, default: false},
     active: {type: Boolean, default: true}
 })
 
