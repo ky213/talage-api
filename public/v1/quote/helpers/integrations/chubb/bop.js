@@ -62,10 +62,6 @@ module.exports = class ChubbBOP extends Integration {
             }
         }
 
-
-
-
-
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
             const declinedMessage = `${logPrefix}CGL not set for Industry Code ${this.industry_code.id} `;
