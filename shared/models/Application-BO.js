@@ -1856,7 +1856,7 @@ module.exports = class ApplicationModel {
                 delete queryJSON.ltAppStatusId;
             }
             else if (queryJSON.gtAppStatusId) {
-                query.appStatusId = {$gt: parseInt(queryJSON.minid, 10)};
+                query.appStatusId = {$gt: parseInt(queryJSON.gtAppStatusId, 10)};
                 delete queryJSON.gtAppStatusId;
             }
 
@@ -2174,7 +2174,9 @@ module.exports = class ApplicationModel {
                         mailingAddress: 1,
                         mailingCity: 1,
                         mailingState: 1,
-                        mailingZipcode: 1
+                        mailingZipcode: 1,
+                        handledByTalage: 1,
+                        policies: 1
 
                     };
                     if(requestParms.format === 'csv'){
@@ -2184,7 +2186,7 @@ module.exports = class ApplicationModel {
                     // log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
-                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
+                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
@@ -2219,6 +2221,17 @@ module.exports = class ApplicationModel {
                                 if(industryCodeJson){
                                     application.industry = industryCodeJson.description;
                                 }
+                            }
+                            //bring policyType to property on top level.
+                            if(application.policies.length > 0){
+                                let policyTypesString = "";
+                                application.policies.forEach((policy) => {
+                                    if(policyTypesString.length > 0){
+                                        policyTypesString += ","
+                                    }
+                                    policyTypesString += policy.policyType;
+                                });
+                                application.policyTypes = policyTypesString;
                             }
                         }
                     }

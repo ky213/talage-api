@@ -1539,6 +1539,11 @@ module.exports = class Integration {
                 }
             }
         }
+        const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
+        //We only need one AL insurer to be set to notifyTalage to send it to Slack.
+        if(notifiyTalageTest === true){
+            quoteJSON.handledByTalage = true;
+        }
         //QuoteBO
         const quoteBO = new QuoteBO();
         const quoteID = await quoteBO.saveIntegrationQuote(quoteJSON, columns, values).catch(function(err){

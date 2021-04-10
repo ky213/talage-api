@@ -118,7 +118,8 @@ module.exports = class ChubbGL extends Integration {
 
         try {
             tokenResponse = await this.send_json_request(host, '/api/v1/tokens', null, creds, 'POST');
-        }catch (error) {
+        }
+        catch (error) {
             const errorMessage = `${logPrefix}Error sending token request: ${error}.`;
             log.error(errorMessage);
             return this.client_error(errorMessage, __location);
@@ -556,7 +557,8 @@ module.exports = class ChubbGL extends Integration {
         let question_identifiers = null;
         try {
             question_identifiers = await this.get_question_identifiers();
-        } catch (err) {
+        }
+        catch (err) {
             const errorMessage = `${logPrefix}Error getting question identifies: ${err}`;
             log.error(errorMessage);
             return this.client_error(errorMessage, __location);
@@ -642,7 +644,7 @@ module.exports = class ChubbGL extends Integration {
         if (!res.Status || !res.Status[0].StatusCd) {
             const errorMessage = `${logPrefix}Unknown result structure, no Status or StatusCd: cannot determine result.`;
             log.error(errorMessage);
-            return this.client_error(errorMessage, __location);      
+            return this.client_error(errorMessage, __location);
         }
 
         if (res.Status[0].StatusCd[0] !== '0') {
@@ -676,7 +678,8 @@ module.exports = class ChubbGL extends Integration {
                 let MsgStatusCd = null;
                 try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                } catch(e) {
+                }
+                catch(e) {
                     errorMessage += `Error parsing MsgStatusCd response property: ${e} `;
                     log.error(errorMessage + __location);
                     return this.client_error(errorMessage, __location);
@@ -691,7 +694,8 @@ module.exports = class ChubbGL extends Integration {
                     errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
                         errorMessage += additionalInfo;
-                    } else {
+                    }
+                    else {
                         errorMessage += `Quote structure changed. Unable to parse error message. `;
                     }
                     log.error(errorMessage + __location);
@@ -699,7 +703,7 @@ module.exports = class ChubbGL extends Integration {
                 }
 
                 let quoteNumber = null;
-                const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
+                //const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
                 let premium = null;
                 const quoteLimits = {};
                 const quoteLetter = null; // Chubb BOP doesn't currently return a quote letter
@@ -719,11 +723,13 @@ module.exports = class ChubbGL extends Integration {
 
                     try {
                         premium = parseInt(premium, 10);
-                    } catch (e) {
+                    }
+                    catch (e) {
                         premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
                         log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}.`);
                     }
-                } catch (e) {
+                }
+                catch (e) {
                     log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
                 }
 
@@ -758,14 +764,16 @@ module.exports = class ChubbGL extends Integration {
                         quoteLimits[7] = 1000000;
                         quoteLimits[9] = 2000000;
                     });
-                } catch (e) {
+                }
+                catch (e) {
                     log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
                 }
-                
+
                 // Send the result of the request
                 if (MsgStatusCd === 'Referral') {
                     return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
-                } else {
+                }
+                else {
                     return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
                 }
 
