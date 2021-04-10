@@ -408,6 +408,11 @@ async function getApplications(req, res, next){
         }
 
     }
+    if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+        query.handledByTalage = true;
+        req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
+        req.params.searchText = req.params.searchText.replace("handledbytalage", "").trim();
+    }
 
 
     // ================================================================================
