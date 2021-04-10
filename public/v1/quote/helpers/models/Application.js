@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable prefer-const */
 /* eslint-disable no-catch-shadow */
 
@@ -714,6 +715,23 @@ module.exports = class Application {
         try {
             const query = {"applicationId": this.applicationDocData.applicationId}
             quoteList = await quoteBO.getList(query);
+            //if a quote is marked handedByTalage  mark the application as handedByTalage and wholesale = true
+            let isHandledByTalage = false
+            quoteList.forEach((quoteDoc) => {
+                if(quoteDoc.handedByTalage){
+                    isHandledByTalage = quoteDoc.handledByTalage;
+                }
+            });
+            if(isHandledByTalage){
+                // eslint-disable-next-line object-curly-newline
+                const appUpdateJSON = {handledByTalage: true};
+                try{
+                    await applicationBO.updateMongo(this.applicationDocData.applicationId, appUpdateJSON);
+                }
+                catch(err){
+                    log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
+                }
+            }
         }
         catch (error) {
             log.error(`Could not retrieve quotes from the database for application ${this.applicationDocData.applicationId} ${__location}`);
@@ -743,18 +761,23 @@ module.exports = class Application {
             if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
             }
+            //quote Docs are marked with handledByTalage
+            if(quoteDoc.handedByTalage){
+                notifiyTalage = quoteDoc.handedByTalage;
+            }
+
             //Notify Talage logic Agencylocation ->insures
-            try{
-                const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
-                //We only need one AL insurer to be set to notifyTalage to send it to Slack.
-                if(notifiyTalageTest === true){
-                    notifiyTalage = notifiyTalageTest;
-                    log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
-                }
-            }
-            catch(err){
-                log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
-            }
+            // try{
+            //     const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
+            //     //We only need one AL insurer to be set to notifyTalage to send it to Slack.
+            //     if(notifiyTalageTest === true){
+            //         notifiyTalage = notifiyTalageTest;
+            //         log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
+            //     }
+            // }
+            // catch(err){
+            //     log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
+            // }
         });
         log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
