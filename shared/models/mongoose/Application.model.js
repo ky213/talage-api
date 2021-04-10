@@ -224,7 +224,8 @@ const ApplicationSchema = new Schema({
     active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
-    metrics: {type: ApplicationMetricsSchema, required: false}
+    metrics: {type: ApplicationMetricsSchema, required: false},
+    handledByTalage: {type: Boolean, default: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 

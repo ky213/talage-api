@@ -1856,7 +1856,7 @@ module.exports = class ApplicationModel {
                 delete queryJSON.ltAppStatusId;
             }
             else if (queryJSON.gtAppStatusId) {
-                query.appStatusId = {$gt: parseInt(queryJSON.minid, 10)};
+                query.appStatusId = {$gt: parseInt(queryJSON.gtAppStatusId, 10)};
                 delete queryJSON.gtAppStatusId;
             }
 
@@ -2174,7 +2174,8 @@ module.exports = class ApplicationModel {
                         mailingAddress: 1,
                         mailingCity: 1,
                         mailingState: 1,
-                        mailingZipcode: 1
+                        mailingZipcode: 1,
+                        handledByTalage: 1
 
                     };
                     if(requestParms.format === 'csv'){
