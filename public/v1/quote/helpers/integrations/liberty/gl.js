@@ -292,54 +292,26 @@ module.exports = class LibertyGL extends Integration{
                                 const question_attributes = {};
                                 let had_error = false;
 								// Get the question attributes
-                                if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                                    const query = {
-                                            "insurerId": this.insurer.id,
-                                            "policyType": this.policy.type,
-                                            "talageQuestionId": {$in: Object.keys(this.questions)}
-                                    }
-                                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                                    const insurerQuestionList = await InsurerQuestionModel.find(query).catch((error) => {
-                                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
-                                        this.reasons.push('System error - Unable to get question attributes');
-                                        had_error = true;
-                                    });
-                                    if(had_error){
-                                        fulfill(this.return_result('error'));
-                                        return;
-                                    }
-                                    insurerQuestionList.forEach((insurerQuestion) => {
-                                        if(insurerQuestion.attributes){
-                                            question_attributes[insurerQuestion.talageQuestionId] = insurerQuestion.attributes;
-                                        }
-                                    });
+                                const query = {
+                                        "insurerId": this.insurer.id,
+                                        "policyType": this.policy.type,
+                                        "talageQuestionId": {$in: Object.keys(this.questions)}
                                 }
-                                else {
-                                    const sql = `SELECT question, attributes FROM #__insurer_questions WHERE insurer = ${db.escape(this.insurer.id)} AND policy_type = ${db.escape(this.policy.type)} AND question IN (${Object.keys(this.questions)});`;
-                                    const raw_question_attributes = await db.query(sql).catch((error) => {
-                                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
-                                        this.reasons.push('System error - Unable to get question attributes');
-                                        had_error = true;
-                                    });
-                                    if(had_error){
-                                        fulfill(this.return_result('error'));
-                                        return;
-                                    }
-
-                                    // Make sure each question ID is an integer
-                                    const appId = this.app.id
-                                    raw_question_attributes.forEach(function(data){
-                                        data.question = parseInt(data.question, 10);
-                                        if(data.attributes){
-                                            try{
-                                                question_attributes[data.question] = JSON.parse(data.attributes);
-                                            }
-                                            catch(error){
-                                                log.warn(`Appid: ${appId} Liberty GL encountered a question with invalid JSON in the attributes column (Question ID ${data.question}).` + __location);
-                                            }
-                                        }
-                                    });
+                                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                const insurerQuestionList = await InsurerQuestionModel.find(query).catch((error) => {
+                                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
+                                    this.reasons.push('System error - Unable to get question attributes');
+                                    had_error = true;
+                                });
+                                if(had_error){
+                                    fulfill(this.return_result('error'));
+                                    return;
                                 }
+                                insurerQuestionList.forEach((insurerQuestion) => {
+                                    if(insurerQuestion.attributes){
+                                        question_attributes[insurerQuestion.talageQuestionId] = insurerQuestion.attributes;
+                                    }
+                                });
 
 								for(const question_id in this.questions){
 									if(Object.prototype.hasOwnProperty.call(this.questions, question_id)){

@@ -37,38 +37,22 @@ const getToken = async (integration, username, password) => {
 };
 
 const getNcciFromClassCode = async (code, territory) => {
-    if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-        const activityCodeQuery = {
-            insurerId: 26,
-            talageActivityCodeIdList: code,
-            territoryList: territory,
-            active: true
-        }
 
-        const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery)
-        if(insurerActivityCode){
-            return insurerActivityCode.code
-        }
-        else{
-            log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
-            throw new Error(`Code could not be found: ${code} / ${territory}`);
-        }
+    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+    const activityCodeQuery = {
+        insurerId: 26,
+        talageActivityCodeIdList: code,
+        territoryList: territory,
+        active: true
     }
-    else {
-        const talageCode = await db.query(`
-        SELECT
-            inc.code
-        FROM clw_talage_activity_codes AS ac
-        LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
-        LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
-        WHERE
-            inc.insurer = 26 AND inc.territory = '${territory}' AND ac.id = ${code}`);
-        if (talageCode.length <= 0) {
-            log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
-            throw new Error(`Code could not be found: ${code} / ${territory}`);
-        }
-        return talageCode[0].code;
+
+    const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery)
+    if(insurerActivityCode){
+        return insurerActivityCode.code
+    }
+    else{
+        log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
+        throw new Error(`Code could not be found: ${code} / ${territory}`);
     }
 
 }
