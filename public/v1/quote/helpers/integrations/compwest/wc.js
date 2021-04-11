@@ -421,92 +421,72 @@ module.exports = class CompwestWC extends Integration {
                         if(true){
                             // eslint-disable-next-line prefer-const
                             let ClassCodeQuestions = null;
-                            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                                //get insurerActivityCode doc.
-                                     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-                                    const activityCodeQuery = {
-                                        insurerId: this.insurer.id,
-                                        code: classCode,
-                                        sub: subCode,
-                                        territoryList: location.territory,
-                                        active: true
-                                    }
-                                    try{
-                                        const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
-                                        // eslint-disable-next-line prefer-const
-                                        let talageQuestionList = [];
-                                        let insurerQuestionIdList = [];
-                                        if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
-                                            insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
-                                        }
-                                        if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
-                                            //override
-                                            insurerQuestionIdList = [];
-                                            const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
-                                            if(territoryQuestion){
-                                                territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
-                                                    if(!insurerQuestionIdList.includes(insurerQuestionId)){
-                                                        insurerQuestionIdList.push(insurerQuestionId);
-                                                    }
-                                                });
+                            //get insurerActivityCode doc.
+                            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+                            const activityCodeQuery = {
+                                insurerId: this.insurer.id,
+                                code: classCode,
+                                sub: subCode,
+                                territoryList: location.territory,
+                                active: true
+                            }
+                            try{
+                                const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
+                                // eslint-disable-next-line prefer-const
+                                let talageQuestionList = [];
+                                let insurerQuestionIdList = [];
+                                if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
+                                    insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
+                                }
+                                if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
+                                    //override
+                                    insurerQuestionIdList = [];
+                                    const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
+                                    if(territoryQuestion){
+                                        territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
+                                            if(!insurerQuestionIdList.includes(insurerQuestionId)){
+                                                insurerQuestionIdList.push(insurerQuestionId);
                                             }
-                                        }
-                                        //get insurerQuestions
-                                        if(insurerQuestionIdList.length > 0){
-                                             const query = {
-                                                "insurerId": this.insurer.id,
-                                                "insurerQuestionId": {$in: insurerQuestionIdList}
-                                            }
-                                            const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                                            let insurerQuestionList = null;
-                                            try{
-                                                insurerQuestionList = await InsurerQuestionModel.find(query);
-                                            }
-                                            catch(err){
-                                                throw err
-                                            }
-                                            insurerQuestionList.forEach((insurerQuestion) => {
-                                                talageQuestionList.push(insurerQuestion.talageQuestionId);
-                                            });
-                                        }
-
-                                        talageQuestionList.forEach((talageQuestionId) => {
-                                            const question = this.questions[talageQuestionId];
-                                            if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
-                                                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
-                                                return;
-                                            }
-                                            //const question_attributes = question.attributes;
-                                            const question_attributes = this.question_details[talageQuestionId].attributes;
-                                            log.debug(`Compwest WC calling processActivtyCodeQuestion`);
-                                            this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
-                                                classCode, subCode, talageQuestionId, question, question_attributes);
-
                                         });
                                     }
-                                    catch(err){
-                                        log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
+                                }
+                                //get insurerQuestions
+                                if(insurerQuestionIdList.length > 0){
+                                        const query = {
+                                        "insurerId": this.insurer.id,
+                                        "insurerQuestionId": {$in: insurerQuestionIdList}
                                     }
-                            }
-                            else {
-                                // eslint-disable-next-line no-shadow
-                                const activity_codes_to_questions = await this.get_activity_codes_to_questions_relationships();
-                                const code_index = location.territory + classCode + subCode;
-                                if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
-                                    // Loop through each question
-                                    activity_codes_to_questions[code_index].forEach((question_id) => {
-                                        const question = this.questions[question_id];
-                                        if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
-                                            return;
-                                        }
-                                        //const question_attributes = question.attributes;
-                                        const question_attributes = this.question_details[question_id].attributes;
-                                        this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
-                                            classCode, subCode, question_id, question, question_attributes);
+                                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                    let insurerQuestionList = null;
+                                    try{
+                                        insurerQuestionList = await InsurerQuestionModel.find(query);
+                                    }
+                                    catch(err){
+                                        throw err
+                                    }
+                                    insurerQuestionList.forEach((insurerQuestion) => {
+                                        talageQuestionList.push(insurerQuestion.talageQuestionId);
                                     });
                                 }
 
+                                talageQuestionList.forEach((talageQuestionId) => {
+                                    const question = this.questions[talageQuestionId];
+                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
+                                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
+                                        return;
+                                    }
+                                    //const question_attributes = question.attributes;
+                                    const question_attributes = this.question_details[talageQuestionId].attributes;
+                                    log.debug(`Compwest WC calling processActivtyCodeQuestion`);
+                                    this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
+                                        classCode, subCode, talageQuestionId, question, question_attributes);
+
+                                });
                             }
+                            catch(err){
+                                log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
+                            }
+                            
                         }//have classcode and sub
                         // </WorkCompRateClass>
                     }
