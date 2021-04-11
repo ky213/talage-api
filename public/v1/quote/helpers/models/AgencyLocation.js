@@ -68,11 +68,12 @@ module.exports = class AgencyLocation {
             let alTerritoyList = null;
 
             let agencyLocation = null;
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = true;
+            
             try{
-                const agencyLocationBO = new AgencyLocationBO();
-                const getChildren = true;
                 const addAgencyPrimaryLocation = true;
-                agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation );
+                agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation);
                 if(agencyLocation.insurers){
                     alInsurerList = agencyLocation.insurers;
                 }
@@ -132,10 +133,36 @@ module.exports = class AgencyLocation {
             this.wholesale = Boolean(agencyInfo.wholesale);
 
             // Extract the insurer info
-            for (const insurerIndex in alInsurerList) {
-                if (Object.prototype.hasOwnProperty.call(alInsurerList, insurerIndex)) {
-                    const insurer = alInsurerList[insurerIndex];
-                    // Decrypt the agent's information
+            let talageAgencyLocation = null
+            for (const insurer of alInsurerList) {
+                //if agency is using talageWholeSale with the insurer.
+                //user talage's main location (agencyLocation systemId: 1)
+                if(insurer.talageWholesale){
+                    if(!talageAgencyLocation){
+                        const talageAgencyLocationSystemId = 1;
+                        talageAgencyLocation = await agencyLocationBO.getById(talageAgencyLocationSystemId, getChildren);
+                    }
+                    //Find correct insurer
+                    const talageInsurer = talageAgencyLocation.insurers.find((ti) => ti.insurerId === insurer.insurerId);
+                    if(talageInsurer){
+                        if(talageInsurer.agencyId){
+                            insurer.agency_id = talageInsurer.agencyId;
+                            insurer.agencyId = talageInsurer.agencyId;
+                        }
+                        if(talageInsurer.insurerId){
+                            insurer.id = talageInsurer.insurerId;
+                        }
+                        if(talageInsurer.agentId){
+                            insurer.agent_id = talageInsurer.agentId;
+                            insurer.agentId = talageInsurer.agentId;
+                        }
+                        log.info(`Agency ${agencyLocation.agencyId} using Talage Wholesale for insurerId ${insurer.insurerId}`);
+                    }
+                    else {
+                        log.error(`Agency ${agencyLocation.agencyId} could not retrieve Talage Wholesale for insurerId ${insurer.insurerId}`);
+                    }
+                }
+                else {
                     if(insurer.agencyId){
                         insurer.agency_id = insurer.agencyId;
                     }
@@ -147,21 +174,19 @@ module.exports = class AgencyLocation {
                     }
 
                     if (!insurer.agency_id) {
-                        log.error(`Agency missing Agency ID in configuration. ${JSON.stringify(insurer)}` + __location);
+                        log.error(`Agency ${agencyLocation.agencyId} missing Agency ID in configuration. ${JSON.stringify(insurer)}` + __location);
                         //Do not stop quote because one insurer is miss configured.
                         //return;
                     }
 
-                    // Only decrypt agent_id setting if the insurer has enabled the field
                     if (insurer.enable_agent_id) {
                         if (!insurer.agent_id) {
-                            log.error(`Agency missing Agent ID in configuration.  ${JSON.stringify(insurer)}` + __location);
+                            log.error(`Agency ${agencyLocation.agencyId} missing Agent ID in configuration.  ${JSON.stringify(insurer)}` + __location);
                             //Do not stop quote because one insurer is miss configured.
-                            // return;
                         }
                     }
-                    this.insurers[insurer.id] = insurer;
                 }
+                this.insurers[insurer.id] = insurer;
             }
 
 
@@ -280,25 +305,13 @@ module.exports = class AgencyLocation {
         //  const insurerIdTest = insureId.toString;
         let notifyTalage = false;
         if(this.insurers){
-            if(this.insurers[insureId] && this.insurers[insureId].policyTypeInfo){
-                try{
-                    if(this.insurers[insureId].policyTypeInfo.notifyTalage === true){
-                        notifyTalage = true;
-                    }
-                }
-                catch(e){
-                    log.error(`Error getting notifyTalage from agencyLocation ${this.id} insureid ${insureId} ` + e + __location);
-                }
-            }
-            else if(this.insurers[insureId] && !this.insurers[insureId].policyTypeInfo){
-                log.error(`Quote Agency Location no policyTypeInfo for insurer ${insureId} in shouldNotifyTalage ` + __location);
+            if(this.insurers[insureId] && this.insurers[insureId].talageWholesale === true){
+                notifyTalage = true;
             }
         }
         else {
             log.error("Quote Agency Location no insurers in shouldNotifyTalage " + __location);
         }
         return notifyTalage;
-
-
     }
 };

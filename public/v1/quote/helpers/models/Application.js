@@ -765,19 +765,6 @@ module.exports = class Application {
             if(quoteDoc.handedByTalage){
                 notifiyTalage = quoteDoc.handedByTalage;
             }
-
-            //Notify Talage logic Agencylocation ->insures
-            // try{
-            //     const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
-            //     //We only need one AL insurer to be set to notifyTalage to send it to Slack.
-            //     if(notifiyTalageTest === true){
-            //         notifiyTalage = notifiyTalageTest;
-            //         log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
-            //     }
-            // }
-            // catch(err){
-            //     log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
-            // }
         });
         log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
