@@ -70,7 +70,8 @@ module.exports = function() {
     require('./shared/models/mongoose/Agency.model');
     require('./shared/models/mongoose/AgencyLocation.model');
     require('./shared/models/mongoose/AgencyLandingPage.model');
-
+    require('./shared/models/mongoose/ApplicationNotesCollection.model');
+    
     require('./shared/models/mongoose/Insurer.model');
     require('./shared/models/mongoose/InsurerPolicyType.model');
     require('./shared/models/mongoose/InsurerIndustryCode.model');
