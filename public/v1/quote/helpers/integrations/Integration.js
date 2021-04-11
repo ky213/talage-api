@@ -1539,10 +1539,12 @@ module.exports = class Integration {
                 }
             }
         }
+        //shouldNotifyTalage is based on talageWholesale Setting
         const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
         //We only need one AL insurer to be set to notifyTalage to send it to Slack.
         if(notifiyTalageTest === true){
             quoteJSON.handledByTalage = true;
+            quoteJSON.talageWholesale = true;
         }
         //QuoteBO
         const quoteBO = new QuoteBO();

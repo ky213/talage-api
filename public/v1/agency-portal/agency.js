@@ -505,7 +505,6 @@ async function postAgency(req, res, next) {
     const agencyId = agencyBO.id;
 
     // Create Insurers array:
-    // Defaults to WC being enbled only.
     const insurerArray = [];
     if(useAgencyPrime === false){
         for (const insurerID in agencyIds) {
@@ -520,6 +519,7 @@ async function postAgency(req, res, next) {
                     const insurerAL = {
                         "insurerId": insurerIdInt,
                         "agencyId": agencyIds[insurerID],
+                        talageWholesale: false,
                         "policyTypeInfo": {
                             "notifyTalage": false
                         }
