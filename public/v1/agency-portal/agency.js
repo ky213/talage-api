@@ -315,9 +315,9 @@ async function postAgency(req, res, next) {
 
     let insurers = [];
     if(useAgencyPrime === false){
-        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1) {
-            log.warn('agencyIds are required');
-            return next(serverHelper.requestError('You must enter at least one Agency ID'));
+        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || (Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1)){
+            log.warn('agencyId or Talage Wholesale are required');
+            return next(serverHelper.requestError('You must enter at least one Agency ID or Talage Wholesale'));
         }
 
 
@@ -417,7 +417,7 @@ async function postAgency(req, res, next) {
     const territories = req.body.territories;
     const agencyIds = req.body.agencyIds;
     const agentIds = req.body.agentIds;
-
+    const talageWholesaleJson = req.body.talageWholesale;
 
     // Make sure we don't already have an user tied to this email address
     const emailHash = await crypt.hash(email);
@@ -505,9 +505,9 @@ async function postAgency(req, res, next) {
     const agencyId = agencyBO.id;
 
     // Create Insurers array:
-    // Defaults to WC being enbled only.
     const insurerArray = [];
     if(useAgencyPrime === false){
+        //regular
         for (const insurerID in agencyIds) {
             const insurerIdInt = parseInt(insurerID, 10)
             // Do not default to WC only.
@@ -516,10 +516,10 @@ async function postAgency(req, res, next) {
             try{
                 const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
                 if(insurerJSON){
-                //insurerDB.policyTypes = insurerPtDBList;
                     const insurerAL = {
                         "insurerId": insurerIdInt,
                         "agencyId": agencyIds[insurerID],
+                        talageWholesale: false,
                         "policyTypeInfo": {
                             "notifyTalage": false
                         }
@@ -534,6 +534,43 @@ async function postAgency(req, res, next) {
                         }
                         if (agentIds[insurerID]) {
                             insurerAL.agentId = agentIds[insurerID];
+                        }
+                    }
+                    else {
+                        log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
+                    }
+                    insurerArray.push(insurerAL);
+                }
+                else {
+                    log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
+                }
+            }
+            catch(err){
+                log.error(`Create Agency add agency location insurer ` + err + __location)
+            }
+        }
+        //talage wholesale
+        for (const insurerID in talageWholesaleJson) {
+            const insurerIdInt = parseInt(insurerID, 10)
+            // Do not default to WC only.
+            // base it on the insurer setup.
+            //Find insurer in insurelist
+            try{
+                const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
+                if(insurerJSON){
+                    //insurerDB.policyTypes = insurerPtDBList;
+                    const insurerAL = {
+                        "insurerId": insurerIdInt,
+                        talageWholesale: true,
+                        policyTypeInfo: {}
+                    };
+                    if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
+                        for(const insurerPolicyType of insurerJSON.policyTypes){
+                            insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
+                                "enabled": true,
+                                "useAcord": false,
+                                "acordInfo": {"sendToEmail": ""}
+                            }
                         }
                     }
                     else {
@@ -564,7 +601,7 @@ async function postAgency(req, res, next) {
         territories: territories,
         additionalInfo: {territories: territories}
     }
-
+    log.verbose(JSON.stringify(newAgencyLocationJSON))
     const agencyLocationBO = new AgencyLocationBO();
     await agencyLocationBO.saveModel(newAgencyLocationJSON).catch(function(err) {
         log.error("Add Agency - agencyLocationBO.save error " + err + __location);
