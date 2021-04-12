@@ -82,7 +82,7 @@ const locationQuestionSpecialCases = [
     'LMBOP_RoofConstruction', // Construction/RoofingMaterial/com.libertymutual.ci_RoofMaterialResistanceCd
     'LMBOP_RoofType', // Construction/RoofingMaterial/RoofingMaterialCd
     'LMBOP_YearBuilt', // Construction/YearBuilt
-    'LMBOP_NumStores', // Construction/NumStories
+    'LMBOP_NumStories', // Construction/NumStories
     'LMBOP_AlarmType', // BldgProtection/ProtectionDeviceBurglarCd
     'UWQ6003' // QuestionAnswer
 ];
@@ -230,7 +230,7 @@ module.exports = class LibertySBOP extends Integration {
         const ClientApp = SignonRq.ele('ClientApp');
         ClientApp.ele('Org', "Talage Insurance");
         ClientApp.ele('Name', "Talage");
-        ClientApp.ele('Version', "1.0");
+        ClientApp.ele('Version', "2.0");
 
         //     <InsuranceSvcRq>
         //         <RqUID>C4A112CD-3382-43DF-B200-10340F3511B4</RqUID>
@@ -254,7 +254,7 @@ module.exports = class LibertySBOP extends Integration {
         //                 </ProducerInfo>
         //             </Producer>
 
-        // OPTIONAL AGENT INFORMATION LATER - required for API bind once LM implements for Simple BOP
+        // OPTIONAL AGENT INFORMATION LATER - required for API bind once LM implements for BOP
         //             <Producer>
         //                 <Surname>CONSUMER</Surname>
         //                 <GivenName>JOHNATHAN</GivenName>
@@ -418,7 +418,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "UWQ2":
                     if (!PolicySupplementExt) {
-                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                     }
                     PolicySupplementExt.ele('com.libertymutual.ci_NonRenewalOrCancellationOtherReasonText', question.answerValue);
                     break;
@@ -445,19 +445,19 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "BOP24":
                     if (!PolicySupplementExt) {
-                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                     }                    
                     PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', question.answerValue);
                     break;
                 case "BOP23":
                     if (!PolicySupplementExt) {
-                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                     }
                     PolicySupplementExt.ele('com.libertymutual.ci_TypeEquipLeasedRentedText', question.answerValue);
                     break;
                 case "BOP2":
                     if (!PolicySupplementExt) {
-                        PolicySupplementExt = Policy.ele('PolicySupplementExt');
+                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                     }
 
                     let yearsOfExp = parseInt(question.answerValue);
@@ -532,7 +532,7 @@ module.exports = class LibertySBOP extends Integration {
         //             <BOPLineBusiness>
         //                 <LOBCd>BOP</LOBCd>
 
-        const BOPLineBusiness = PolicyRq.ele('PropertyInfo');
+        const BOPLineBusiness = PolicyRq.ele('BOPLineBusiness');
         BOPLineBusiness.ele('LOBCd', 'BOP');
 
         //                 <PropertyInfo>
@@ -601,9 +601,11 @@ module.exports = class LibertySBOP extends Integration {
             innerCoverage.ele('CoverageCd', 'CGL');
             const PTOption = innerCoverage.ele('Option');
             PTOption.ele('OptionCd', 'PartTime');
+            PTOption.ele('OptionTypeCd', 'Num1');
             PTOption.ele('OptionValue', location.part_time_employees);
             const FTOption = innerCoverage.ele('Option');
             FTOption.ele('OptionCd', 'FullTime');
+            FTOption.ele('OptionTypeCd', 'Num1');
             FTOption.ele('OptionValue', location.full_time_employees);
         });
 
@@ -895,11 +897,13 @@ module.exports = class LibertySBOP extends Integration {
                 }
             });
 
-            // 'LMBOP_RoofType' // Construction/RoofingMaterial/RoofingMaterialCd
-
             // then create general questions
             standardLocationQuestions.forEach(question => {
                 const QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
+
+                if (question.insurerQuestionAttributes.commercialBOP.ACORDCd === 'N/A') {
+                    console.log(JSON.stringify(question, null, 4));
+                }
                 QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
 
                 if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
@@ -967,9 +971,9 @@ module.exports = class LibertySBOP extends Integration {
         switch (objPath.MsgStatusCd[0].toLowerCase()) {
             case "error":
                 // NOTE: Insurer "error" is considered a "decline" within Wheelhouse.
-                // log.error("=================== QUOTE ERROR ===================");
-                // log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
-                // log.error("=================== QUOTE ERROR ===================");
+                log.error("=================== QUOTE ERROR ===================");
+                log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
+                log.error("=================== QUOTE ERROR ===================");
                 // normal error structure, build an error message
                 let additionalReasons = null;
                 let errorMessage = `${logPrefix}`;

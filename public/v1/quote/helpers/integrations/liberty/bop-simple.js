@@ -69,9 +69,6 @@ module.exports = class LibertySBOP extends Integration {
         // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
         await this._getLibertyIndustryCodes();
 
-        console.log("IN SIMPLE BOP CLASS");
-        console.log(JSON.stringify(this.industry_code, null, 4));
-
         const applicationDocData = this.app.applicationDocData;
         const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); 
         const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.mysqlId}): `
