@@ -6,7 +6,7 @@
 
 // Regular expressions for validating certain things
 const positive_integer = /^[1-9]\d*$/;
-const zip = /^("|')?[0-9]{5}("|')?$/;
+const zip = /^("|')?[0-9]{5}([0-9]{4})?("|')?$/;
 const bureau_number_CA = /[0-9]{2}-[0-9]{2}-[0-9]{2}/;
 const bureau_number_not_CA = /[0-9]{9}/;
 const business_name = /^[a-zA-Z0-9'’.&+|, \-\(\)]*$/;
