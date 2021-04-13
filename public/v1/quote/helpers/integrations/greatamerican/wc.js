@@ -101,6 +101,7 @@ module.exports = class GreatAmericanWC extends Integration {
             log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
         });
         if(error){
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request Error: ${error}`);
             return this.return_result('error');
         }
         this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
