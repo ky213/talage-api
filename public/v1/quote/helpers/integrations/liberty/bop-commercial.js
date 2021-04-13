@@ -314,7 +314,7 @@ module.exports = class LibertySBOP extends Integration {
         Addr.ele('Addr1', applicationDocData.mailingAddress);
         Addr.ele('City', applicationDocData.mailingCity);
         Addr.ele('StateProvCd', applicationDocData.mailingState);
-        Addr.ele('PostalCode', applicationDocData.mailingZipcode);
+        Addr.ele('PostalCode', applicationDocData.mailingZipcode.substring(0, 5));
         const Communications = GeneralPartyInfo.ele('Communications');
         const PhoneInfo = Communications.ele('PhoneInfo');
         PhoneInfo.ele('PhoneTypeCd', 'Phone');
@@ -526,7 +526,7 @@ module.exports = class LibertySBOP extends Integration {
             subAddr.ele('Addr1', location.address);
             subAddr.ele('City', location.city);
             subAddr.ele('StateProvCd', location.state);
-            subAddr.ele('PostalCode', location.zipcode);
+            subAddr.ele('PostalCode', location.zipcode.substring(0, 5));
         });
 
         //             <BOPLineBusiness>
@@ -780,7 +780,7 @@ module.exports = class LibertySBOP extends Integration {
                     case "BOP186":
                     case "BOP185":
                         // only provide these questions if year built was over 24 years ago
-                        if (!yearBuilt || (yearBuilt - moment().year() > 24)) {
+                        if (!yearBuilt || moment().year() - yearBuilt > 24) {
                             if (!BldgImprovements) {
                                 BldgImprovements = LocationUWInfo.ele('BldgImprovements');
                             }
@@ -885,7 +885,7 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     case "UWQ6003":
                         // only provide answer to this question if year built is over 24 years ago 
-                        if (!yearBuilt || (yearBuilt - moment().year() > 24)) {
+                        if (!yearBuilt || moment().year() - yearBuilt > 24) {
                             const UWQ6003QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
                             UWQ6003QuestionAnswer.ele('QuestionCode', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
                             UWQ6003QuestionAnswer.ele('YesNoCd', question.answerValue);
