@@ -893,8 +893,12 @@ async function createQuoteSummary(quote) {
                 }
             }
             let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
-            if(insurerLogoUrl.includes('imagesimages')){
-                insurerLogoUrl = insurerLogoUrl.replace('imagesimages','images')
+            // checking below to see if images path inserted twice, the IMAGE_URL ends with /images and the insurer.logos starts with images/
+            // the following check should fix the double images path issue
+            if(insurerLogoUrl.includes("imagesimages")){
+                insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
+            }else if (insurerLogoUrl.includes("images/images")){
+                insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
             }
             return {
                 id: quote.mysqlId,
