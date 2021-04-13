@@ -900,6 +900,7 @@ async function createQuoteSummary(quote) {
             }else if (insurerLogoUrl.includes("images/images")){
                 insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
             }
+            // Return the quote summary
             return {
                 id: quote.mysqlId,
                 policy_type: quote.policyType,
