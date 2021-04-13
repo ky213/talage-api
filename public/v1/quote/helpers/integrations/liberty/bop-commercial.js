@@ -562,6 +562,13 @@ module.exports = class LibertySBOP extends Integration {
         //                 </PropertyInfo>
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+        const DeductibleCoverage = PropertyInfo.ele('Coverage');
+        DeductibleCoverage.ele('CoverageCd', 'PropDed');
+        const Deductible = DeductibleCoverage.ele('Deductible');
+        const DeductibleFormatCurrencyAmt = Deductible.ele('FormatCurrencyAmt');
+        DeductibleFormatCurrencyAmt.ele('Amt', deductible); // TODO: Check this
+        Deductible.ele('DeductibleTypeCd', 'FL'); // TODO: check this
+        Deductible.ele('DeductibleAppliesToCd', 'Coverage');
         for (let i = 0; i < applicationDocData.locations.length; i++) {
             const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
             CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
@@ -863,7 +870,7 @@ module.exports = class LibertySBOP extends Integration {
                         // handled in BOP17_YesNo
                         break;
                     case "LMBOP_Interest":
-                        LocationUWInfo.ele('InterestCd', question.answerValue);
+                        LocationUWInfo.ele('InterestCd', question.answerValue.trim().toUpperCase());
                         break;
                     case "LMBOP_Construction":
                         Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
