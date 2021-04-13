@@ -95,7 +95,14 @@ module.exports = class GreatAmericanWC extends Integration {
                 return this.return_result('declined');
             }
         }
-        const quote = await GreatAmericanApi.getPricing(token, this, curAnswers.newBusiness.id);
+        let error = null
+        const quote = await GreatAmericanApi.getPricing(token, this, curAnswers.newBusiness.id).catch((err) => {
+            error = err;
+            log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
+        });
+        if(error){
+            return this.return_result('error');
+        }
         this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
 
         if (_.get(quote, 'rating.data.policy.id')) {
