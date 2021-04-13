@@ -468,7 +468,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
                 return this.client_declined(errorMessage, additionalReasons);
             case "successwithinfo":
-                log.debug(`${logPrefix}Quote returned with status Sucess With Info.` + __location);
+                log.debug(`${logPrefix}Quote returned with status Sucess With Info. ` + __location);
                 break;
             case "successnopremium":
                 let reason = null;
@@ -479,11 +479,11 @@ module.exports = class LibertySBOP extends Integration {
                 }
                 log.warn(`${logPrefix}Quote was bridged to eCLIQ successfully but no premium was provided.`);
                 if (reason) {
-                    log.warn(`${logPrefix}Reason for no premium: ${reason}` + __location);
+                    log.warn(`${logPrefix}Reason for no premium: ${reason} ` + __location);
                 }
                 break;
             default:
-                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}. Continuing...` + __location);
+                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}, continuing. ` + __location);
         }
 
         // PARSE SUCCESSFUL PAYLOAD
@@ -516,20 +516,28 @@ module.exports = class LibertySBOP extends Integration {
 
         // set quote values from response object, if provided
         if (!policy.QuoteInfo || !policy.QuoteInfo[0].CompanysQuoteNumber) {
-            log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed.` + __location);
+            log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed. ` + __location);
         }
         else {
-            quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
-            premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
+            if (policy.QuoteInfo[0].CompanysQuoteNumber) {
+                quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
+            } else {
+                log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ` + __location);
+            }
+            if (policy.QuoteInfo[0].InsuredFullToBePaidAmt) {
+                premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
+            } else {
+                log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
+            }
         }
         if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd) {
-            log.error(`${logPrefix}Policy status not provided, or the result structure has changed.` + __location);
+            log.error(`${logPrefix}Policy status not provided, or the result structure has changed. ` + __location);
         }
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
         }
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
-            log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed.` + __location);
+            log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
         else {
             quoteProposalId = policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId'];
@@ -542,7 +550,7 @@ module.exports = class LibertySBOP extends Integration {
             !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification ||
             !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage
         ) {
-            log.error(`${logPrefix}Liability Limits not provided, or result structure has changed.` + __location);
+            log.error(`${logPrefix}Liability Limits not provided, or result structure has changed. ` + __location);
         }
         else {
             // limits exist, set them
@@ -597,7 +605,7 @@ module.exports = class LibertySBOP extends Integration {
             const end = quoteResult.indexOf("</BinData>");
 
             if (start === 8 || end === -1) {
-                log.warn(`${logPrefix}Quote Proposal Letter not provided, or quote result structure has changed.` + __location);
+                log.warn(`${logPrefix}Quote Proposal Letter not provided, or quote result structure has changed. ` + __location);
             }
             else {
                 quoteLetter = quoteResult.substring(start, end);
@@ -696,7 +704,7 @@ module.exports = class LibertySBOP extends Integration {
             limitInt = parseInt(limit, 10);
         }
         catch (e) {
-            log.warn(`Error parsing limit: ${e}. Leaving value as-is.` + __location);
+            log.warn(`Error parsing limit: ${e}. Leaving value as-is. ` + __location);
             return limit;
         }
 
