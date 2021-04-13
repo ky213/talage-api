@@ -327,7 +327,7 @@ const validateContacts = async(applicationDocData) => {
  * @param {string} applicationDocData - The applicationDocData
  * @returns {void}
  */
-const validateLocations = async(applicationDocData) => {
+const validateLocations = (applicationDocData) => {
     if (applicationDocData.locations.length === 0) {
         throw new Error('At least 1 location must be provided');
     }
@@ -389,8 +389,8 @@ const validateLocations = async(applicationDocData) => {
         // Validate zip
         if (location.zipcode) {
             if (!validator.isZip(location.zipcode)) {
-                log.error('Invalid formatting for location: mailing_zip. Expected 5 digit format. actual zip: ' + location.zipcode + __location)
-                throw new Error('Invalid formatting for location: zip. Expected 5 digit format');
+                log.error('Invalid formatting for location: mailing_zip. Expected 5 or 9 digit format. actual zip: ' + location.zipcode + __location)
+                throw new Error('Invalid formatting for location: zip. Expected 5 or 9 digit format');
             }
         }
         else {
