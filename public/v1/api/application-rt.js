@@ -805,7 +805,6 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-
     switch (quote.aggregatedStatus) {
         case 'declined':
             // Return a declined quote summary
@@ -893,7 +892,10 @@ async function createQuoteSummary(quote) {
                     log.error('file get error: no file content' + __location);
                 }
             }
-            // Return the quote summary
+            let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
+            if(insurerLogoUrl.includes('imagesimages')){
+                insurerLogoUrl = insurerLogoUrl.replace('imagesimages','images')
+            }
             return {
                 id: quote.mysqlId,
                 policy_type: quote.policyType,
@@ -903,7 +905,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: global.settings.IMAGE_URL + insurer.logo,
+                    logo: insurerLogoUrl,
                     name: insurer.name,
                     rating: insurer.rating
                 },
