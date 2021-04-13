@@ -310,7 +310,7 @@ async function getApplications(req, res, next){
     }
     const orClauseArray = [];
 
-    if(req.params.searchText && req.params.searchText.startsWith("i:")){
+    if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
         log.debug("Insurer Search")
         try{
             //insurer search
@@ -332,7 +332,8 @@ async function getApplications(req, res, next){
             //if string (insure name)
             if(isNaN(insurerText)){
                 const insurerBO = new InsurerBO();
-                const queryInsurer = {"name": insurerText}
+                // eslint-disable-next-line object-property-newline
+                const queryInsurer = {$or: [{"name": {"$regex": insurerText,"$options": "i"}}, {slug: insurerText}]}
                 const insurerList = await insurerBO.getList(queryInsurer);
                 if(insurerList && insurerList.length){
                     insurerId = insurerList[0].insurerId
@@ -397,11 +398,20 @@ async function getApplications(req, res, next){
                     query.applicationId = "asdf";
                 }
             }
+            else {
+                // match sure no applications go back
+                query.applicationId = "asdf";
+            }
         }
         catch(err){
             log.error(`application search on Insurer error ${err}` + __location)
         }
 
+    }
+    if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+        query.handledByTalage = true;
+        req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
+        req.params.searchText = req.params.searchText.replace("handledbytalage", "").trim();
     }
 
 

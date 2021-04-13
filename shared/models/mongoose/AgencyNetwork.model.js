@@ -22,6 +22,7 @@ const featureSchema = new Schema({
     enablePrimeAgency: {type: Boolean, required: true, default: false},
     donotShowEmailAddress: {type: Boolean, required: true, default: false},
     notifyTalage: {type: Boolean, required: true, default: false},
+    talageWholesale: {type: Boolean, required: true, default: false},
     agencyNetworkQuoteEmails: {type: Boolean, required: true, default: false},
     agencyNetworkDailyDigestEmail: {type: Boolean, required: true, default: false},
     agencyPortalRequestToBind: {type: Boolean, required: true, default: false}

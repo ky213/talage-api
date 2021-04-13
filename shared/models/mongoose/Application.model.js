@@ -35,14 +35,16 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
-    ncciCode: {type: Number, required: true},
+    activityCodeId: {type: Number, required: true},
+    ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
 })
 
 const ActivtyCodePayrollSchema = new Schema({
-    ncciCode: {type: Number, required: true},
+    activityCodeId: {type: Number, required: true},
+    ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false}
 });
@@ -224,7 +226,8 @@ const ApplicationSchema = new Schema({
     active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
-    metrics: {type: ApplicationMetricsSchema, required: false}
+    metrics: {type: ApplicationMetricsSchema, required: false},
+    handledByTalage: {type: Boolean, default: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 
@@ -330,17 +333,25 @@ mongoose.model('Application', ApplicationSchema);
  * @returns {void}
  */
 function populateActivityCodePayroll(schema) {
+    log.debug(`in populateActivityCodePayroll ` + __location)
     const application = schema.getUpdate();
     if (application.hasOwnProperty("locations")) {
         const activityCodesPayrollSumList = [];
         for (const location of application.locations) {
             for (const activityCode of location.activityPayrollList) {
                 // Find the entry for this activity code
-                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.activityCodeId === activityCode.activityCodeId);
+                if(!activityCodePayrollSum){
+                    activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                    if(activityCodePayrollSum){
+                        activityCodePayrollSum.activityCodeId = activityCodePayrollSum.ncciCode;
+                    }
+                }
                 if (!activityCodePayrollSum) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
-                        ncciCode: activityCode.ncciCode,
+                        activityCodeId: activityCode.activityCodeId,
+                        ncciCode: activityCode.activityCodeId,
                         payroll: 0
                     };
                     activityCodesPayrollSumList.push(activityCodePayrollSum);

@@ -206,7 +206,7 @@ async function add(req, res, next) {
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
     const objectJSON = await insurerQuestionBO.insertMongo(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerQuestionBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -252,7 +252,7 @@ async function update(req, res, next) {
         req.body.attributes = JSON.parse(req.body.attributes);
     }
     const newJSON = await insurerQuestionBO.updateMongo(id, req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerQuestionBO load error " + err + __location);
         error = err;
     });
     if (error) {

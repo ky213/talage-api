@@ -37,22 +37,6 @@ async function getLandingPages(req, res, next){
         return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
     }
 
-    // Build a query that will return only the needed information for landing pages table for all of the landing pages
-    // const landingPageSQL = `
-    // 		SELECT
-    // 			id,
-    // 			hits,
-    // 			name,
-    // 			slug,
-    // 			\`primary\`
-    // 		FROM clw_talage_agency_landing_pages
-    // 		WHERE agency = ${} AND state > 0;
-    // 	`;
-    // // Run the query
-    // const landingPages = await db.query(landingPageSQL).catch(function(err){
-    //     log.error(err.message);
-    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    // });
     let landingPages = [];
     try{
         const agencyId = parseInt(agent, 10);

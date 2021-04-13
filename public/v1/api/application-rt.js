@@ -145,23 +145,45 @@ async function applicationSave(req, res, next) {
         const updateMysql = true;
 
         // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
+        // WHERE IS THE IF LOGIC???? This simple creates and sets activitycodes  - BP
+        //get location part_time_employees and full_time_employees from location payroll data.
         const activityCodes = [];
+        let fteCount = 0;
+        let pteCount = 0;
         if (req.body.locations && req.body.locations.length) {
             req.body.locations.forEach((location) => {
                 location.activityPayrollList.forEach((activityCode) => {
-                    const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
+                    //check if using new JSON
+                    if(!activityCode.activtyCodeId){
+                        activityCode.activtyCodeId = activityCode.ncciCode;
+                    }
+                    const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
                     if (foundCode) {
                         foundCode.payroll += parseInt(activityCode.payroll, 10);
                     }
                     else {
                         // eslint-disable-next-line prefer-const
                         let newActivityCode = {};
+                        newActivityCode.activityCodeId = activityCode.activityCodeId;
                         newActivityCode.ncciCode = activityCode.ncciCode;
-                        newActivityCode.payroll = parseInt(activityCode.payroll,
-                            10);
+                        newActivityCode.payroll = parseInt(activityCode.payroll,10);
                         activityCodes.push(newActivityCode);
                     }
+                    activityCode.employeeTypeList((employeeType) => {
+                        if(employeeType.employeeType === 'Full Time'){
+                            fteCount += employeeType.employeeType;
+                        }
+                        else if(employeeType.employeeType === 'Full Time'){
+                            pteCount += employeeType.employeeType;
+                        }
+                    });
                 });
+                if(!location.full_time_employees){
+                    location.full_time_employees = fteCount;
+                }
+                if(!location.part_time_employees){
+                    location.part_time_employees = pteCount;
+                }
             });
         }
         req.body.activityCodes = activityCodes;
@@ -274,6 +296,7 @@ async function applicationLocationSave(req, res, next) {
     try {
         if(applicationDB){
             const reqLocation = req.body.location
+
             //check
             if(reqLocation.locationId){
                 if(req.body.delete === true){
@@ -293,6 +316,11 @@ async function applicationLocationSave(req, res, next) {
                                     locationDB[locationProp] = reqLocation[locationProp];
                                 }
                             }
+                            locationDB.activityPayrollList.forEach((activityPayrollList) => {
+                                if(!activityPayrollList.activityCodeId){
+                                    activityPayrollList.activityCodeId = activityPayrollList.ncciCode;
+                                }
+                            });
                         }
                     }
                 }
@@ -304,6 +332,13 @@ async function applicationLocationSave(req, res, next) {
                 }
                 if(!reqLocation.activityPayrollList){
                     reqLocation.activityPayrollList = []
+                }
+                else {
+                    reqLocation.activityPayrollList.forEach((activityPayrollList) => {
+                        if(!activityPayrollList.activityCodeId){
+                            activityPayrollList.activityCodeId = activityPayrollList.ncciCode;
+                        }
+                    });
                 }
                 applicationDB.locations.push(reqLocation)
             }
@@ -490,7 +525,7 @@ async function validate(req, res, next) {
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
     const applicationDB = await applicationBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("applicationBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -589,7 +624,7 @@ async function startQuoting(req, res, next) {
 
     //Get app and check status
     const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("applicationBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -732,7 +767,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     try{
                         // eslint-disable-next-line prefer-const
                         let activityPayroll = location.activityPayrollList[j];
-                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
                         activityPayroll.description = activtyCodeJSON.description;
                         //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
@@ -752,7 +787,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                     }
                     catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
+                        log.error(`Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
                     }
                 }
             }
