@@ -239,7 +239,7 @@ module.exports = class Integration {
      *
      * @param {number} insurerId - The insurer ID
      * @param {string} territory - The 2 character territory code
-     * @param {number} activityCode - The 4 digit Talage activity code
+     * @param {number} activityCode - The Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {

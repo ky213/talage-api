@@ -48,7 +48,7 @@ async function findOne(req, res, next) {
     const agencyNetworkBO = new AgencyNetworkBO();
     // Load the request data into it
     const objectJSON = await agencyNetworkBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agencyNetworkBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {

@@ -479,12 +479,17 @@ module.exports = class AcuityGL extends Integration {
             const location = appDoc.locations[i];
 
             const cobPayrollList = [];
-            for (const activityCode of location.activityPayrollList){
+            // eslint-disable-next-line prefer-const
+            for (let activityCode of location.activityPayrollList){
+                //check for new application doc
+                if(!activityCode.activityCodeId){
+                    activityCode.activityCodeId = activityCode.ncciCode;
+                }
                 // Skip activity codes we shouldn't include in payroll
-                if (unreportedPayrollActivityCodes.includes(activityCode.ncciCode)) {
+                if (unreportedPayrollActivityCodes.includes(activityCode.activityCodeId)) {
                     return;
                 }
-                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.ncciCode);
+                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.activityCodeId);
                 if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
                     const cglCode = acuityActivityCode.attributes.assocGLClass;
                     let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
@@ -506,7 +511,7 @@ module.exports = class AcuityGL extends Integration {
                     }
                 }
                 else {
-                    log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.ncciCode}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
+                    log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.activityCodeId}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
                 }
             }
             // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
