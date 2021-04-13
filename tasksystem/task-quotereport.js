@@ -90,6 +90,10 @@ var quoteReportTask = async function(){
         return false;
     }
 
+    // send email
+    // Production email goes to quotereport.
+    // non production Brian so we can test it.
+    const toEmail = global.settings.ENV === 'production' ? 'quotereport@talageins.com' : 'brian@talageins.com';
 
     if(quoteList && quoteList.length > 0){
         let lastAppDoc = null;
@@ -209,13 +213,6 @@ var quoteReportTask = async function(){
         if(csvData){
             var b = Buffer.from(csvData);
             const csvContent = b.toString('base64');
-            // send email
-            // Production email goes to Adam.
-            // non production Brian so we can test it.
-            let toEmail = 'adam@talageins.com';
-            if(global.settings.ENV !== 'production'){
-                toEmail = 'brian@talageins.com';
-            }
             const attachmentJson = {
                 'content': csvContent,
                 'filename': 'quotes.csv',
@@ -234,15 +231,9 @@ var quoteReportTask = async function(){
             log.error("Quote Report JSON to CSV error: csvData empty file: " + __location);
             return;
         }
-
-
     }
     else {
         log.info("Quote Report: No quotes to report ");
-        let toEmail = 'adam@talageins.com';
-        if(global.settings.ENV !== 'production'){
-            toEmail = 'brian@talageins.com';
-        }
         const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
