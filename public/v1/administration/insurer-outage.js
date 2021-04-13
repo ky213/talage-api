@@ -45,7 +45,7 @@ async function findOne(req, res, next) {
     const insurerOutageBO = new InsurerOutageBO();
     // Load the request data into it
     const outageJSON = await insurerOutageBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerOutageBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -106,7 +106,7 @@ async function add(req, res, next) {
     const insurerOutageBO = new InsurerOutageBO();
     let error = null;
     await insurerOutageBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerOutageBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -126,7 +126,7 @@ async function deleteObject(req, res, next) {
     let error = null;
     const insurerOutageBO = new InsurerOutageBO();
     await insurerOutageBO.deleteSoftById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerOutageBO load error " + err + __location);
         error = err;
     });
     if (error) {

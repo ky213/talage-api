@@ -46,7 +46,15 @@ module.exports = class ACORD{
         const application = new applicationBO();
 
         try {
-            this.applicationDoc = await application.getMongoDocbyMysqlId(this.applicationId);
+            if(this.applicationId > 0){
+                log.debug(`Getting app using mysql Id  ${this.applicationId} from mongo` + __location)
+                this.applicationDoc = await application.loadfromMongoBymysqlId(this.applicationId);
+            }
+            else {
+                log.debug(`Getting app using app Id  ${this.applicationId} from mongo` + __location)
+                this.applicationDoc =  await application.getfromMongoByAppId(this.applicationId);
+            }
+            // this.applicationDoc = await application.getMongoDocbyMysqlId(this.applicationId);
         }
         catch (err) {
             log.error(`Failed getting application with ID: ${this.applicationId}` + err + __location);
@@ -82,11 +90,14 @@ module.exports = class ACORD{
                 const activityCode = new activityCodeBO();
                 for(const code of this.applicationDoc.activityCodes){
                     try {
-                        const newCode = await activityCode.getById(code.ncciCode);
+                        if(!code.activityCodeId){
+                            code.activityCodeId = code.ncciCode;
+                        }
+                        const newCode = await activityCode.getById(code.activityCodeId);
                         code.description = newCode.description;
                     }
                     catch (err) {
-                        log.error(`Failed getting activity code with ID: ${code.ncciCode}` + err + __location);
+                        log.error(`Failed getting activity code with ID: ${code.activityCodeId}` + err + __location);
                     }
                 }
                 this.activityCodeList = this.applicationDoc.activityCodes;
@@ -574,12 +585,16 @@ module.exports = class ACORD{
             for(const location of locationsInStateList){
                 const locationNumber = this.applicationDoc.locations.indexOf(location) + 1;
                 for(const activity of location.activityPayrollList){
+                    if(!activity.activityCodeId){
+                        activity.activityCodeId = activity.ncciCode
+                    }
+
                     const currentLetter = String.fromCharCode(pdfKey);
                     statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
-                    statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = activity.ncciCode;
-                    const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.ncciCode === activity.ncciCode)
+                    statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = activity.activityCodeId;
+                    const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId)
                     if(activityCodeWithDescriptionObj){
-                        statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = this.activityCodeList.find(code => code.ncciCode === activity.ncciCode).description;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId).description;
                     }
                     statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
                     statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;

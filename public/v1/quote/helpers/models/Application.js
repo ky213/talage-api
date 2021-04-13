@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable prefer-const */
 /* eslint-disable no-catch-shadow */
 
@@ -63,8 +64,7 @@ module.exports = class Application {
 
         // ID
         //TODO detect ID type integer or uuid
-        this.id = parseInt(data.id, 10);
-
+        this.id = data.id;
         if(data.insurerId){
             this.quoteInsurerId = parseInt(data.insurerId,10);
         }
@@ -79,13 +79,23 @@ module.exports = class Application {
         let applicationBO = new ApplicationBO();
 
         try {
-            //TODO uuid check...
-            this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
+            //getById does uuid vs integer check...
+            this.applicationDocData = await applicationBO.getById(data.id);
             log.debug("Quote Application added applicationData")
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
             throw err;
+        }
+        if(!this.applicationDocData){
+            throw new Error(`Failed to load application ${data.id} `)
+        }
+        if(this.applicationDocData.mysqlId > 0){
+            this.id = this.applicationDocData.mysqlId;
+        }
+        else {
+            log.error(`bad appDoc ${JSON.stringify(this.applicationDocData)} ` + __location);
+            throw new Error(`Bad application doc: ${data.id} `)
         }
 
         //age check - add override Age parameter to allow requoting.
@@ -714,6 +724,23 @@ module.exports = class Application {
         try {
             const query = {"applicationId": this.applicationDocData.applicationId}
             quoteList = await quoteBO.getList(query);
+            //if a quote is marked handedByTalage  mark the application as handedByTalage and wholesale = true
+            let isHandledByTalage = false
+            quoteList.forEach((quoteDoc) => {
+                if(quoteDoc.handedByTalage){
+                    isHandledByTalage = quoteDoc.handledByTalage;
+                }
+            });
+            if(isHandledByTalage){
+                // eslint-disable-next-line object-curly-newline
+                const appUpdateJSON = {handledByTalage: true};
+                try{
+                    await applicationBO.updateMongo(this.applicationDocData.applicationId, appUpdateJSON);
+                }
+                catch(err){
+                    log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
+                }
+            }
         }
         catch (error) {
             log.error(`Could not retrieve quotes from the database for application ${this.applicationDocData.applicationId} ${__location}`);
@@ -743,17 +770,9 @@ module.exports = class Application {
             if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
             }
-            //Notify Talage logic Agencylocation ->insures
-            try{
-                const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
-                //We only need one AL insurer to be set to notifyTalage to send it to Slack.
-                if(notifiyTalageTest === true){
-                    notifiyTalage = notifiyTalageTest;
-                    log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
-                }
-            }
-            catch(err){
-                log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
+            //quote Docs are marked with handledByTalage
+            if(quoteDoc.handedByTalage){
+                notifiyTalage = quoteDoc.handedByTalage;
             }
         });
         log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)

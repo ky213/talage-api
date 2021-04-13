@@ -115,7 +115,7 @@ async function findOne(req, res, next) {
     const agencyPortalUserBO = new AgencyPortalUserBO();
     // Load the request data into it
     const userJSON = await agencyPortalUserBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agencyPortalUserBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -186,7 +186,7 @@ async function add(req, res, next) {
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
         await agencyPortalUserBO.saveModel(insertJSON).catch(function(err) {
-            log.error("Location load error " + err + __location);
+            log.error("agencyPortalUserBO load error " + err + __location);
             error = err;
         });
         if (error) {
@@ -240,7 +240,7 @@ async function update(req, res, next) {
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
         await agencyPortalUserBO.saveModel(updateJSON).catch(function(err) {
-            log.error("Location load error " + err + __location);
+            log.error("agencyPortalUserBO load error " + err + __location);
             error = err;
         });
         if (error) {
@@ -267,7 +267,7 @@ async function deleteObject(req, res, next) {
     let error = null;
     const agencyPortalUserBO = new AgencyPortalUserBO();
     await agencyPortalUserBO.deleteSoftById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agencyPortalUserBO load error " + err + __location);
         error = err;
     });
     if (error) {

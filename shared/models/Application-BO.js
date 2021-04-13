@@ -654,6 +654,7 @@ module.exports = class ApplicationModel {
                     }
                     const activityPayrollJSON = {};
                     activityPayrollJSON.ncciCode = activity_code.id;
+                    activityPayrollJSON.activityCodeId = activity_code.id;
                     activityPayrollJSON.payroll = activity_code.payroll;
                     activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
@@ -692,6 +693,7 @@ module.exports = class ApplicationModel {
                             }
                             else {
                                 const activityPayrollJSON = {
+                                    activityCodeId: applicationJSON.owner_payroll.activity_code,
                                     ncciCode: applicationJSON.owner_payroll.activity_code,
                                     ownerPayRoll: applicationJSON.owner_payroll.payroll
                                 };
@@ -1856,7 +1858,7 @@ module.exports = class ApplicationModel {
                 delete queryJSON.ltAppStatusId;
             }
             else if (queryJSON.gtAppStatusId) {
-                query.appStatusId = {$gt: parseInt(queryJSON.minid, 10)};
+                query.appStatusId = {$gt: parseInt(queryJSON.gtAppStatusId, 10)};
                 delete queryJSON.gtAppStatusId;
             }
 
@@ -2102,6 +2104,11 @@ module.exports = class ApplicationModel {
                 query["policies.policyType"] = queryJSON.policies.policyType;
                 delete queryJSON.policies
             }
+            if(queryJSON.applicationId){
+                //query.policies = {};
+                query.applicationId = queryJSON.applicationId;
+                delete queryJSON.applicationId
+            }
 
 
             if (queryJSON) {
@@ -2169,7 +2176,9 @@ module.exports = class ApplicationModel {
                         mailingAddress: 1,
                         mailingCity: 1,
                         mailingState: 1,
-                        mailingZipcode: 1
+                        mailingZipcode: 1,
+                        handledByTalage: 1,
+                        policies: 1
 
                     };
                     if(requestParms.format === 'csv'){
@@ -2179,7 +2188,7 @@ module.exports = class ApplicationModel {
                     //log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
-                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
+                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
@@ -2215,6 +2224,17 @@ module.exports = class ApplicationModel {
                                     application.industry = industryCodeJson.description;
                                 }
                             }
+                            //bring policyType to property on top level.
+                            if(application.policies.length > 0){
+                                let policyTypesString = "";
+                                application.policies.forEach((policy) => {
+                                    if(policyTypesString.length > 0){
+                                        policyTypesString += ","
+                                    }
+                                    policyTypesString += policy.policyType;
+                                });
+                                application.policyTypes = policyTypesString;
+                            }
                         }
                     }
                 }
@@ -2248,6 +2268,7 @@ module.exports = class ApplicationModel {
     }
 
     getById(id) {
+        log.debug(`appBO id ${id} ` + __location)
         if(validator.isUuid(id)){
             return this.getfromMongoByAppId(id)
         }
@@ -2334,7 +2355,7 @@ module.exports = class ApplicationModel {
             if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId && forceDBQuery === false) {
                 resolve(this.#applicationMongooseDB);
             }
-            else if (mysqlId) {
+            else if (mysqlId > 0) {
                 const query = {
                     "mysqlId": mysqlId,
                     active: true
@@ -2363,7 +2384,7 @@ module.exports = class ApplicationModel {
 
             }
             else {
-                reject(new Error('no id supplied'))
+                reject(new Error('no id supplied ' + mysqlId))
             }
         });
     }
@@ -2466,7 +2487,12 @@ module.exports = class ApplicationModel {
         let activityCodeArray = [];
         if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
             for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+                if(applicationDocDB.activityCodes[i].activityCodeId){
+                    activityCodeArray.push(applicationDocDB.activityCodes[i].activityCodeId);
+                }
+                else {
+                    activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+                }
             }
 
         }

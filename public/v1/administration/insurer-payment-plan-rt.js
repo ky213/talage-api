@@ -116,7 +116,7 @@ async function deleteObject(req, res, next) {
     let error = null;
     const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
     await insurerPaymentPlanBO.deleteById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerPaymentPlanBO load error " + err + __location);
         error = err;
     });
     if (error) {

@@ -78,7 +78,7 @@ async function findOne(req, res, next) {
     const agencyLocationBO = new AgencyLocationBO();
     // Load the request data into it
     const agencyLocationJSON = await agencyLocationBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agencyLocationBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {

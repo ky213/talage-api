@@ -45,7 +45,7 @@ async function findOne(req, res, next) {
     const territoryBO = new TerritoryBO();
     // Load the request data into it
     const territoryJSON = await territoryBO.getByAbbr(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("territoryBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {
@@ -104,7 +104,7 @@ async function update(req, res, next) {
     const updateRecord = false;
     const territoryBO = new TerritoryBO();
     await territoryBO.saveModel(req.body, updateRecord).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("territoryBO load error " + err + __location);
         error = err;
     });
     if (error) {

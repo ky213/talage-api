@@ -239,7 +239,7 @@ module.exports = class Integration {
      *
      * @param {number} insurerId - The insurer ID
      * @param {string} territory - The 2 character territory code
-     * @param {number} activityCode - The 4 digit Talage activity code
+     * @param {number} activityCode - The Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
@@ -536,95 +536,6 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves the relationship between questions and activity codes
-     * Insurer questions Gen 1
-     * not ported to Gen2
-     * Only called by Compwest WC
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
-     */
-    get_activity_codes_to_questions_relationships() {
-        return new Promise(async(fulfill, reject) => {
-            // Only proceed if we have activity codes
-            if (!this.insurer_wc_codes) {
-                reject(new Error('No activity codes'));
-                return;
-            }
-            const where_chunks = [];
-            // eslint-disable-next-line prefer-const
-            let mongoCodeFilterArray = {}
-            this.app.business.locations.forEach((location) => {
-                // And then every activity code in a location
-                location.activity_codes.forEach((activity_code) => {
-                    where_chunks.push(`(inc.\`code\` = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(0, 4)}' AND inc.sub = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6)}' AND inc.territory = '${location.territory}')`);
-                    const mongoCodeFilter = {
-                        code: this.insurer_wc_codes[location.territory + activity_code.id].substring(0, 4),
-                        sub: this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6),
-                        territoryList: location.territory
-                    }
-                    mongoCodeFilterArray.push(mongoCodeFilter)
-
-                });
-            });
-            // if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-            //     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-            //     const activityCodeQuery = {
-            //         insurerId: this.insurer.id,
-            //         $or: mongoCodeFilterArray,
-            //         active: true
-            //     }
-
-            //     const relationships = {};
-            //     try{
-            //         const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery);
-            //         if (insurerActivityCodeList) {
-            //             insurerActivityCodeList.forEach((insurerActivityCode) => {
-            //                 //relationships[result.territoryList[0] + result.code] = result.questions.split(',');
-            //                 if(insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length > 0){
-            //                     insurerActivityCode.insurerTerritoryQuestionList.forEach((tq) => {
-            //                          //get InsureQuestions
-        
-            //                          //relationships[tq.territory + insurerActivityCode.code + insurerActivityCode.sub] = tq.questions.split(',');
-            //                     });
-            //                 }
-            //             });
-            //         }
-            //     }
-            //     catch(err){
-            //         reject(err);
-            //     }
-
-            //     fulfill(relationships);
-            // }
-            // else {
-            // Loop over every location and build the WHERE clause of our query
-            // Build the SQL query
-            const sql = `
-                SELECT inc.territory, CONCAT(inc.\`code\`, inc.sub) AS class_code, GROUP_CONCAT(incq.question) AS questions
-                FROM clw_talage_insurer_ncci_code_questions AS incq
-                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
-                LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
-                WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
-            `;
-            const results = await db.query(sql).catch(function(error) {
-                reject(error);
-            });
-
-            // Convert this into an object for easy reference
-            const relationships = {};
-            if (results) {
-                results.forEach((result) => {
-                    relationships[result.territory + result.class_code] = result.questions.split(',');
-                });
-            }
-
-            // Return the result
-            fulfill(relationships);
-        //  }
-        });
-    }
-
-    /**
      * Determines the best limits available from the carrier. If no limits are suitable, returns false.
      *
      * @param {array} carrierLimits - A list of limits supported by the carrier
@@ -768,55 +679,24 @@ module.exports = class Integration {
      */
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
-            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                const query = {
-                    "insurerId": this.insurer.id,
-                    "questionSubjectArea": questionSubjectArea,
-                    "talageQuestionId": {$in: talageQuestionIdList}
-                }
-                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                let insurerQuestionList = null;
-                try{
-                    insurerQuestionList = await InsurerQuestionModel.find(query);
-                }
-                catch(err){
-                    throw err
-                }
-                insurerQuestionList.forEach((insurerQuestion) => {
-                    insurerQuestion.question = insurerQuestion.talageQuestionId;
-                    insurerQuestion.id = insurerQuestion.insurerQuestionId;
-                });
-                return insurerQuestionList;
+            const query = {
+                "insurerId": this.insurer.id,
+                "questionSubjectArea": questionSubjectArea,
+                "talageQuestionId": {$in: talageQuestionIdList}
             }
-            else {
-                const sql = `
-                        SELECT id, question, universal, identifier, attributes FROM clw_talage_insurer_questions
-                        WHERE
-                            insurer = ${this.insurer.id} 
-                            AND questionSubjectArea = '${questionSubjectArea}'
-                            AND question IN (${talageQuestionIdList.join(',')});
-                    `;
-                let results = null;
-                try {
-                    results = await db.query(sql);
-                    //Fix attributes convert to JSON.
-                    results.forEach((result) => {
-                        try{
-                            if(result.attributes && typeof result.attributes === 'string'){
-                                result.attributes = JSON.parse(result.attributes)
-                            }
-                        }
-                        catch(err){
-                            log.error(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: unable to parse clw_talage_insurer_questions attributes ${result.attributes} ${err}` + __location);
-                            result.attributes = '';
-                        }
-                    });
-                }
-                catch (error) {
-                    throw error;
-                }
-                return results;
+            const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+            let insurerQuestionList = null;
+            try{
+                insurerQuestionList = await InsurerQuestionModel.find(query);
             }
+            catch(err){
+                throw err
+            }
+            insurerQuestionList.forEach((insurerQuestion) => {
+                insurerQuestion.question = insurerQuestion.talageQuestionId;
+                insurerQuestion.id = insurerQuestion.insurerQuestionId;
+            });
+            return insurerQuestionList;
         }
         else {
             return [];
@@ -848,55 +728,36 @@ module.exports = class Integration {
      */
     get_question_identifiers() {
         // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
-        return new Promise(async(fulfill, reject) => {
+        return new Promise(async(fulfill) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                    const query = {
-                        "insurerId": this.insurer.id,
-                        "talageQuestionId": {$in: question_ids}
-                    }
-                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                    let insurerQuestionList = null;
-                    try{
-                        insurerQuestionList = await InsurerQuestionModel.find(query);
-                        if(insurerQuestionList && insurerQuestionList.length === 0){
-                            log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
-                        }
-                    }
-                    catch(err){
-                        throw err
-                    }
-                    const identifiers = {};
-                    insurerQuestionList.forEach((insurerQuestion) => {
-                        identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
-                        if (insurerQuestion.universal) {
-                            this.universal_questions.push(insurerQuestion.talageQuestionId);
-                        }
-                    });
-                    // Return the mapping
-                    fulfill(identifiers);
+                const query = {
+                    "insurerId": this.insurer.id,
+                    "talageQuestionId": {$in: question_ids}
                 }
-                else {
-                    const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
-                    const results = await db.query(sql).catch(function(error) {
-                        reject(error);
-                    });
-
-                    // Convert this into an object for easy reference
-                    const identifiers = {};
-                    results.forEach((result) => {
-                        identifiers[result.question] = result.identifier;
-                        if (result.universal) {
-                            this.universal_questions.push(result.question);
-                        }
-                    });
-
-                    // Return the mapping
-                    fulfill(identifiers);
+                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                let insurerQuestionList = null;
+                try{
+                    insurerQuestionList = await InsurerQuestionModel.find(query);
+                    if(insurerQuestionList && insurerQuestionList.length === 0){
+                        log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
+                    }
                 }
+                catch(err){
+                    throw err
+                }
+                const identifiers = {};
+                insurerQuestionList.forEach((insurerQuestion) => {
+                    identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
+                    if (insurerQuestion.universal) {
+                        this.universal_questions.push(insurerQuestion.talageQuestionId);
+                    }
+                });
+                // Return the mapping
+                fulfill(identifiers);
+
             }
             else {
                 log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No question_ids ${JSON.stringify(this.questions)}` + __location);
@@ -1173,34 +1034,24 @@ module.exports = class Integration {
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
             let insurerQuestionList = null;
-            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                const query = {
-                    "insurerId": this.insurer.id,
-                    "policyType": this.policy.type
-                }
-                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                try{
-                    insurerQuestionList = await InsurerQuestionModel.find(query);
-                }
-                catch(err){
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
-                }
+            const query = {
+                "insurerId": this.insurer.id,
+                "policyType": this.policy.type
+            }
+            const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+            try{
+                insurerQuestionList = await InsurerQuestionModel.find(query);
+            }
+            catch(err){
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
             }
             for (const question_id in this.app.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
                     try{
                         const question = this.app.questions[question_id];
-                        if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                            if(insurerQuestionList){
-                                const iQFound = insurerQuestionList.find((iq) => iq.talageQuestionId === parseInt(question_id,10));
-                                if(iQFound){
-                                    this.questions[question_id] = question;
-                                }
-                            }
-                        }
-                        else {
-                            // eslint-disable-next-line no-lonely-if
-                            if (question.insurers && question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){ 
+                        if(insurerQuestionList){
+                            const iQFound = insurerQuestionList.find((iq) => iq.talageQuestionId === parseInt(question_id,10));
+                            if(iQFound){
                                 this.questions[question_id] = question;
                             }
                         }
@@ -1417,7 +1268,7 @@ module.exports = class Integration {
             log.error(`Unable to encrypt log. AppId ${appId} Insurer: ${insurerName}Proceeding anyway. ` + err + __location);
         });
 
-                const columns = [
+        const columns = [
             'application',
             'insurer',
             'log',
@@ -1541,6 +1392,13 @@ module.exports = class Integration {
                     quoteJSON.limits.push(limitJSON);
                 }
             }
+        }
+        //shouldNotifyTalage is based on talageWholesale Setting
+        const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
+        //We only need one AL insurer to be set to notifyTalage to send it to Slack.
+        if(notifiyTalageTest === true){
+            quoteJSON.handledByTalage = true;
+            quoteJSON.talageWholesale = true;
         }
         //QuoteBO
         const quoteBO = new QuoteBO();
@@ -2219,165 +2077,70 @@ module.exports = class Integration {
 	 */
     _insurer_supports_activity_codes() {
         return new Promise(async(fulfill) => {
-            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-
-                // eslint-disable-next-line prefer-const
-                let territoryList = []
-                // eslint-disable-next-line prefer-const
-                let activityCodeArray = [];
-                this.app.business.locations.forEach(function(location) {
-                    location.activity_codes.forEach(function(activity_code) {
-                        if(!activityCodeArray.includes(activity_code.id)){
-                            activityCodeArray.push(activity_code.id)
-                        }
-                        if(!territoryList.includes(activity_code.id)){
-                            territoryList.push(location.territory)
-                        }
-                    });
-                });
-                let fullFillValue = false;
-                const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-                const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
-                const activityCodeQuery = {
-                    insurerId: this.insurer.id,
-                    talageActivityCodeIdList: {$in: activityCodeArray},
-                    territoryList: {$in: territoryList},
-                    effectiveDate: {$lte: policyEffectiveDate},
-                    expirationDate: {$gte: policyEffectiveDate},
-                    active: true
-                }
-                try{
-                    const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
-                    let missingMap = false;
-                    const appId = this.app.id;
-                    const insurerId = this.insurer.id;
-                    const requiresInsurerActivityClassCodes = this.requiresInsurerActivityClassCodes
-                    // eslint-disable-next-line prefer-const
-                    let reasons = this.reasons;
-                    // eslint-disable-next-line prefer-const
-                    let insurer_wc_codes = this.insurer_wc_codes
-                    //backward compatible populate this.insurer_wc_codes
-                    this.app.business.locations.forEach(function(location) {
-                        location.activity_codes.forEach(function(activity_code) {
-                        //find making insurerActivityCodeList doc
-                            try{
-                                const insurerActivityCode = insurerActivityCodeList.find((iac) => iac.talageActivityCodeIdList.includes(activity_code.id) && iac.territoryList.includes(location.territory));
-                                if(insurerActivityCode){
-                                    insurer_wc_codes[location.territory + activity_code.id] = insurerActivityCode.code + (insurerActivityCode.sub ? insurerActivityCode.sub : '');
-                                }
-                                else if (requiresInsurerActivityClassCodes){
-                                    reasons.push("Insurer activity class codes were not found for all activities in the application.");
-                                    log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. ${location.territory} ${activity_code.id} query ${JSON.stringify(activityCodeQuery)} ` + __location);
-                                    missingMap = true;
-                                }
-                            }
-                            catch(err){
-                                log.error(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes error ${err}` + __location);
-                            }
-                        });
-                    });
-                    if(missingMap === false){
-                        fullFillValue = true;
+            // eslint-disable-next-line prefer-const
+            let territoryList = []
+            // eslint-disable-next-line prefer-const
+            let activityCodeArray = [];
+            this.app.business.locations.forEach(function(location) {
+                location.activity_codes.forEach(function(activity_code) {
+                    if(!activityCodeArray.includes(activity_code.id)){
+                        activityCodeArray.push(activity_code.id)
                     }
-                }
-                catch(err){
-                    log.warn(`Appid: ${this.app.id} Error checking ActivtyCodes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-                    fullFillValue = false;
-                }
-                fulfill(fullFillValue);
-
+                    if(!territoryList.includes(activity_code.id)){
+                        territoryList.push(location.territory)
+                    }
+                });
+            });
+            let fullFillValue = false;
+            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const activityCodeQuery = {
+                insurerId: this.insurer.id,
+                talageActivityCodeIdList: {$in: activityCodeArray},
+                territoryList: {$in: territoryList},
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
             }
-            else {
-                // Get all of the WC Codes with their ID and territory, removing duplicates
-                const wcCodes = {};
-                let hasActivityCodes = false;
-                this.app.business.locations.forEach(function(location) {
-                    location.activity_codes.forEach(function(activity_code) {
-                        // Check if this code already existed
-                        if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
-                            wcCodes[`${location.state}${activity_code.id}`] = {
-                                id: activity_code.id,
-                                territory: location.territory
-                            };
-                            hasActivityCodes = true;
-                        }
-                    });
-                });
-                if(hasActivityCodes === false) {
-                    if(this.requiresInsurerActivityClassCodes){
-                        log.warn(`Integration Missing Activity codes Appid ${this.app.id} locations ${JSON.stringify(this.app.business.locations)}` + __location);
-                    }
-                    fulfill(false);
-                    return;
-                }
-                // Build some WHERE statements from those codes
-                const whereCombinations = Object.values(wcCodes).map(function(codeObj) {
-                    return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
-                });
-
-                const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
-
-                // Query the database to get the corresponding codes
-                let hadError = false;
-                const sql = `
-                SELECT
-                    ac.id,
-                    inc.state,
-                    inc.territory,
-                    inc.code,
-                    inc.sub,
-                    inc.result
-                FROM clw_talage_activity_codes AS ac
-                LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
-                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
-                WHERE
-                    inc.insurer = ${this.insurer.id} 
-                    AND (${whereCombinations.join(' OR ')})
-                    AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate);
-                `;
+            try{
+                const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
+                let missingMap = false;
                 const appId = this.app.id;
                 const insurerId = this.insurer.id;
-                const codes = await db.query(sql).catch((error) => {
-                    log.error(`AppId: ${appId} InsurerId: ${insurerId} Could not retrieve industry codes: ${error} ${__location}`);
-                    hadError = true;
+                const requiresInsurerActivityClassCodes = this.requiresInsurerActivityClassCodes
+                // eslint-disable-next-line prefer-const
+                let reasons = this.reasons;
+                // eslint-disable-next-line prefer-const
+                let insurer_wc_codes = this.insurer_wc_codes
+                //backward compatible populate this.insurer_wc_codes
+                this.app.business.locations.forEach(function(location) {
+                    location.activity_codes.forEach(function(activity_code) {
+                    //find making insurerActivityCodeList doc
+                        try{
+                            const insurerActivityCode = insurerActivityCodeList.find((iac) => iac.talageActivityCodeIdList.includes(activity_code.id) && iac.territoryList.includes(location.territory));
+                            if(insurerActivityCode){
+                                insurer_wc_codes[location.territory + activity_code.id] = insurerActivityCode.code + (insurerActivityCode.sub ? insurerActivityCode.sub : '');
+                            }
+                            else if (requiresInsurerActivityClassCodes){
+                                reasons.push("Insurer activity class codes were not found for all activities in the application.");
+                                log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. ${location.territory} ${activity_code.id} query ${JSON.stringify(activityCodeQuery)} ` + __location);
+                                missingMap = true;
+                            }
+                        }
+                        catch(err){
+                            log.error(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes error ${err}` + __location);
+                        }
+                    });
                 });
-                if (hadError) {
-                    // Query error
-                    fulfill(false);
-                    return;
+                if(missingMap === false){
+                    fullFillValue = true;
                 }
-
-                // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer or a bad mapping.)
-                if (this.requiresInsurerActivityClassCodes && (!codes.length || Object.keys(wcCodes).length !== codes.length)) {
-                    this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
-                    log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
-                    if(codes.length && codes.length > Object.keys(wcCodes).length){
-                        log.error(`BAD MAPPING multiple insures ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
-                    }
-
-                    fulfill(false);
-                    return;
-                }
-
-                // Load the codes locally
-                codes.forEach((code) => {
-                    if (code.result === 0) {
-                        hadError = true;
-                        return;
-                    }
-                    if (code.state) {
-                        this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
-                        return;
-                    }
-                    hadError = true;
-                });
-                if (hadError) {
-                    fulfill(false);
-                    return;
-                }
-
-                fulfill(true);
             }
+            catch(err){
+                log.warn(`Appid: ${this.app.id} Error checking ActivtyCodes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                fullFillValue = false;
+            }
+            fulfill(fullFillValue);
         });
     }
 
@@ -2388,122 +2151,51 @@ module.exports = class Integration {
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
-            if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-                const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-                const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            // eslint-disable-next-line prefer-const
+            let industryQuery = {
+                insurerId: this.insurer.id,
+                talageIndustryCodeIdList: this.app.applicationDocData.industryCode,
+                territoryList: this.app.applicationDocData.mailingState,
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
+            }
+            if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
                 // eslint-disable-next-line prefer-const
-                let industryQuery = {
-                    insurerId: this.insurer.id,
-                    talageIndustryCodeIdList: this.app.applicationDocData.industryCode,
-                    territoryList: this.app.applicationDocData.mailingState,
-                    effectiveDate: {$lte: policyEffectiveDate},
-                    expirationDate: {$gte: policyEffectiveDate},
-                    active: true
+                let orParamList = [];
+                const policyTypeCheck = {policyType: this.policyTypeFilter};
+                const policyTypeNullCheck = {policyType: null}
+                orParamList.push(policyTypeCheck)
+                orParamList.push(policyTypeNullCheck)
+                industryQuery.$or = orParamList;
+            }
+            // eslint-disable-next-line prefer-const
+            try{
+                const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery).lean()
+                if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
+                    const insurerIndustryCode = insurerIndustryCodeList[0];
+                    this.insurerIndustryCode = insurerIndustryCode;
+                    this.industry_code = JSON.parse(JSON.stringify(insurerIndustryCode));
                 }
-                if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
-                    // eslint-disable-next-line prefer-const
-                    let orParamList = [];
-                    const policyTypeCheck = {policyType: this.policyTypeFilter};
-                    const policyTypeNullCheck = {policyType: null}
-                    orParamList.push(policyTypeCheck)
-                    orParamList.push(policyTypeNullCheck)
-                    industryQuery.$or = orParamList;
-                }
-                // eslint-disable-next-line prefer-const
-                try{
-                    const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
-                    if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
-                        const insurerIndustryCode = insurerIndustryCodeList[0];
-                        this.insurerIndustryCode = insurerIndustryCode;
-                        this.industry_code = insurerIndustryCode;
-                    }
-                    else {
-                        this.industry_code = null;
-                        if (this.requiresInsurerIndustryCodes) {
-                            this.reasons.push("An insurer industry class code was not found for the given industry and territory.");
-                            log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query ${JSON.stringify(industryQuery)} ` + __location);
-                            fulfill(false);
-                            return;
-                        }
-                    }
-                    // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
-                    const sql = `
-                        SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
-                        FROM clw_talage_industry_codes AS ic 
-                        WHERE ic.id = ${this.app.applicationDocData.industryCode};
-                    `;
-                    let hadError = false;
-                    const result = await db.query(sql).catch((error) => {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
-                        hadError = true;
-                    });
-                    if (hadError) {
-                        // Query error
+                else {
+                    this.industry_code = null;
+                    if (this.requiresInsurerIndustryCodes) {
+                        this.reasons.push("An insurer industry class code was not found for the given industry and territory.");
+                        log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query ${JSON.stringify(industryQuery)} ` + __location);
                         fulfill(false);
                         return;
                     }
-                    //process attributes from mysql clw_talage_industry_codes
-                    //backward compatible with old multi-table query.
-                    if(this.industry_code){
-                        const industryCodeDB = result[0];
-                        // eslint-disable-next-line guard-for-in
-                        for(const prop in industryCodeDB){
-                            this.insurerIndustryCode[prop] = industryCodeDB[prop];
-                            this.industry_code[prop] = industryCodeDB[prop];
-                        }
-                    }
-                    else {
-                        this.industry_code = result[0];
-
-                        // If there are attributes, parse them for later use
-                        if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
-                            try {
-                                this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-                            }
-                            catch (error) {
-                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
-                                this.industry_code.attributes = {};
-                            }
-                        }
-                        else {
-                            if (this.requiresInsurerIndustryCodes) {
-                                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-                            }
-                            this.industry_code.attributes = {};
-                        }
-                        this.insurerIndustryCode = this.industry_code;
-                    }
-                    fulfill(true);
                 }
-                catch(err){
-                    log.warn(`Appid: ${this.app.id} Error checking Industry_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState} error: ${err}` + __location);
-                    fulfill(false)
-                }
-                return;
-            }
-            else {
-                // append policy type if integration intends to use it
-                let policyTypeWhere = '';
-                if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
-                    policyTypeWhere = ` AND iic.policyType = '${this.policyTypeFilter}' `;
-                }
-
-                const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
-
-                // Query the database to see if this insurer supports this industry code
-                let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.code, iic.description, iic.attributes 
-                            FROM clw_talage_industry_codes AS ic 
-                            INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-                            INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-                            WHERE
-                                ic.id = ${this.app.applicationDocData.industryCode}
-                                AND iic.insurer = ${this.insurer.id} 
-                                AND iic.territory = '${this.app.applicationDocData.mailingState}'
-                                AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
-                                ${policyTypeWhere}
-                                LIMIT 1;`
+                // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
+                const sql = `
+                    SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
+                    FROM clw_talage_industry_codes AS ic 
+                    WHERE ic.id = ${this.app.applicationDocData.industryCode};
+                `;
                 let hadError = false;
-                let result = await db.query(sql).catch((error) => {
+                const result = await db.query(sql).catch((error) => {
                     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
                     hadError = true;
                 });
@@ -2512,52 +2204,44 @@ module.exports = class Integration {
                     fulfill(false);
                     return;
                 }
-                if (!result || !result.length) {
-                    if (this.requiresInsurerIndustryCodes) {
-                        this.reasons.push("An insurer industry class code was not found for the given industry and territory.");
-                        log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
-                        fulfill(false);
-                        return;
-                    }
-                    // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
-                    sql = `
-                        SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
-                        FROM clw_talage_industry_codes AS ic 
-                        WHERE ic.id = ${this.app.applicationDocData.industryCode};
-                    `;
-                    hadError = false;
-                    result = await db.query(sql).catch((error) => {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
-                        hadError = true;
-                    });
-                    if (hadError) {
-                        // Query error
-                        fulfill(false);
-                        return;
-                    }
-                }
-
-                this.industry_code = result[0];
-
-                // If there are attributes, parse them for later use
-                if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
-                    try {
-                        this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-                    }
-                    catch (error) {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
-                        this.industry_code.attributes = {};
+                //process attributes from mysql clw_talage_industry_codes
+                //backward compatible with old multi-table query.
+                if(this.industry_code){
+                    const industryCodeDB = result[0];
+                    // eslint-disable-next-line guard-for-in
+                    for(const prop in industryCodeDB){
+                        this.insurerIndustryCode[prop] = industryCodeDB[prop];
+                        this.industry_code[prop] = industryCodeDB[prop];
                     }
                 }
                 else {
-                    if (this.requiresInsurerIndustryCodes) {
-                        log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-                    }
-                    this.industry_code.attributes = {};
-                }
+                    this.industry_code = result[0];
 
+                    // If there are attributes, parse them for later use
+                    if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
+                        try {
+                            this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
+                        }
+                        catch (error) {
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
+                            this.industry_code.attributes = {};
+                        }
+                    }
+                    else {
+                        if (this.requiresInsurerIndustryCodes) {
+                            log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                        }
+                        this.industry_code.attributes = {};
+                    }
+                    this.insurerIndustryCode = this.industry_code;
+                }
                 fulfill(true);
             }
+            catch(err){
+                log.warn(`Appid: ${this.app.id} Error checking Industry_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState} error: ${err}` + __location);
+                fulfill(false)
+            }
+            return;
         });
     }
 };

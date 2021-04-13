@@ -159,7 +159,10 @@ var quoteReportTask = async function(){
                     for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
                         const activityCodeBO = new ActivityCodeBO();
                         try{
-                            const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].ncciCode)
+                            if(!lastAppDoc.activityCodes[j].activityCodeId){
+                                lastAppDoc.activityCodes[j].activityCodeId = lastAppDoc.activityCodes[j].ncciCode
+                            }
+                            const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].activityCodeId)
                             newRow["activitycode" + j] = activityCodeJSON.description;
                         }
                         catch(err){

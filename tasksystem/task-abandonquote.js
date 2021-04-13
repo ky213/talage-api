@@ -315,8 +315,7 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 const quoteResult = quoteDoc.apiResult.indexOf('_') ? quoteDoc.apiResult.substr(stringFunctions.ucwords(quoteDoc.apiResult), 0, quoteDoc.apiResult.indexOf('_')) : stringFunctions.ucwords(quoteDoc.apiResult);
                 const quoteNumber = quoteDoc.quoteNumber ? quoteDoc.quoteNumber : "No Quote Number";
                 // Write a row of the table
-                //TODO get ENV IMAGE_URL
-                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${insurer.name}\" src=\"https://img.talageins.com/${insurer.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td align=\"center\">${quoteNumber}</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">$` + stringFunctions.number_format(quoteDoc.amount) + `</td></tr>`;
+                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${insurer.name}\" src=\"${global.settings.IMAGE_URL}/${stringFunctions.trimString(insurer.logo, 'images/')}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td align=\"center\">${quoteNumber}</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">$` + stringFunctions.number_format(quoteDoc.amount) + `</td></tr>`;
             }
             quotesHTML += '</table></div><br>';
 
