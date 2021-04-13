@@ -836,9 +836,22 @@ module.exports = class Integration {
      */
     get_total_full_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(loc => {
-            total += loc.full_time_employees;
+        let totalLocLevel = 0;
+        this.app.applicationDocData.locations.forEach(loc => {
+            totalLocLevel += loc.full_time_employees;
+            loc.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Full Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
         });
+        //handle if old style
+        if(total === 0){
+            total = totalLocLevel;
+        }
         return total;
     }
 
@@ -849,9 +862,22 @@ module.exports = class Integration {
      */
     get_total_part_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(loc => {
-            total += loc.part_time_employees;
+        let totalLocLevel = 0;
+        this.app.applicationDocData.locations.forEach(loc => {
+            totalLocLevel += loc.part_time_employees;
+            loc.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Part Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
         });
+        //handle if old style
+        if(total === 0){
+            total = totalLocLevel;
+        }
         return total;
     }
 
