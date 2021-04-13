@@ -192,9 +192,9 @@ module.exports = class LibertySBOP extends Integration {
         const medicalExpenseLimit = "15000"; // we do not store this data currently
         const ECAggregateLimit = "1000000/2000000"; // we do not store this data currently
 
-        let phone = applicationDocData.contacts.find(c => c.primary).phone;
+        let phone = applicationDocData.contacts.find(c => c.primary).phone.toString();
         // fall back to outside phone IFF we cannot find primary contact phone
-        phone = phone ? phone : applicationDocData.phone;
+        phone = phone ? phone : applicationDocData.phone.toString();
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // used for implicit question NBOP11: any losses or claims in the past 3 years?
@@ -566,8 +566,8 @@ module.exports = class LibertySBOP extends Integration {
         DeductibleCoverage.ele('CoverageCd', 'PropDed');
         const Deductible = DeductibleCoverage.ele('Deductible');
         const DeductibleFormatCurrencyAmt = Deductible.ele('FormatCurrencyAmt');
-        DeductibleFormatCurrencyAmt.ele('Amt', deductible); // TODO: Check this
-        Deductible.ele('DeductibleTypeCd', 'FL'); // TODO: check this
+        DeductibleFormatCurrencyAmt.ele('Amt', deductible);
+        Deductible.ele('DeductibleTypeCd', 'BPP');
         Deductible.ele('DeductibleAppliesToCd', 'Coverage');
         for (let i = 0; i < applicationDocData.locations.length; i++) {
             const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
