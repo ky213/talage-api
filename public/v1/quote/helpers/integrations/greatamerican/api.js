@@ -143,7 +143,7 @@ const getPricing = async (token, integration, sessionId) => {
                 state: location.state,
                 zip: location.zipcode,
                 classCodes: await Promise.all(location.activityPayrollList.map(async (code) => ({
-                    classCode: await getNcciFromClassCode(code.ncciCode, location.state),
+                    classCode: await getNcciFromClassCode(code.activtyCodeId, location.state),
                     payroll: code.payroll,
                     numberOfEmployees: _.sum(code.employeeTypeList.map(t => t.employeeTypeCount))
                 })))

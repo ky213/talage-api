@@ -64,8 +64,7 @@ module.exports = class Application {
 
         // ID
         //TODO detect ID type integer or uuid
-        this.id = parseInt(data.id, 10);
-
+        this.id = data.id;
         if(data.insurerId){
             this.quoteInsurerId = parseInt(data.insurerId,10);
         }
@@ -80,13 +79,23 @@ module.exports = class Application {
         let applicationBO = new ApplicationBO();
 
         try {
-            //TODO uuid check...
-            this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
+            //getById does uuid vs integer check...
+            this.applicationDocData = await applicationBO.getById(data.id);
             log.debug("Quote Application added applicationData")
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
             throw err;
+        }
+        if(!this.applicationDocData){
+            throw new Error(`Failed to load application ${data.id} `)
+        }
+        if(this.applicationDocData.mysqlId > 0){
+            this.id = this.applicationDocData.mysqlId;
+        }
+        else {
+            log.error(`bad appDoc ${JSON.stringify(this.applicationDocData)} ` + __location);
+            throw new Error(`Bad application doc: ${data.id} `)
         }
 
         //age check - add override Age parameter to allow requoting.
