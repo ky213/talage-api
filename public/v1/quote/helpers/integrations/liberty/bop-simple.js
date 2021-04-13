@@ -213,7 +213,7 @@ module.exports = class LibertySBOP extends Integration {
         Addr.ele('Addr1', applicationDocData.mailingAddress);
         Addr.ele('City', applicationDocData.mailingCity);
         Addr.ele('StateProvCd', applicationDocData.mailingState);
-        Addr.ele('PostalCode', applicationDocData.mailingZipcode);
+        Addr.ele('PostalCode', applicationDocData.mailingZipcode.substring(0, 5));
         const Communications = GeneralPartyInfo.ele('Communications');
         const PhoneInfo = Communications.ele('PhoneInfo');
         PhoneInfo.ele('PhoneTypeCd', 'Phone');
@@ -295,7 +295,7 @@ module.exports = class LibertySBOP extends Integration {
             subAddr.ele('Addr1', location.address);
             subAddr.ele('City', location.city);
             subAddr.ele('StateProvCd', location.state);
-            subAddr.ele('PostalCode', location.zipcode);
+            subAddr.ele('PostalCode', location.zipcode.substring(0, 5));
         });
 
         // <BOPLineBusiness>
@@ -514,6 +514,16 @@ module.exports = class LibertySBOP extends Integration {
         result = result.ACORD.InsuranceSvcRs[0].PolicyRs[0];
         const policy = result.Policy[0];
 
+        if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd) {
+            log.error(`${logPrefix}Policy status not provided, or the result structure has changed. ` + __location);
+        }
+        else {
+            policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
+            if (policyStatus.toLowerCase() ===  "reject") {
+                return this.client_declined(`${logPrefix}Application was rejected.`);
+            }
+        }
+
         // set quote values from response object, if provided
         if (!policy.QuoteInfo || !policy.QuoteInfo[0].CompanysQuoteNumber) {
             log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed. ` + __location);
@@ -530,12 +540,7 @@ module.exports = class LibertySBOP extends Integration {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
-        if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd) {
-            log.error(`${logPrefix}Policy status not provided, or the result structure has changed. ` + __location);
-        }
-        else {
-            policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
-        }
+
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
             log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
@@ -619,8 +624,6 @@ module.exports = class LibertySBOP extends Integration {
                     return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType);
                 case "refer":
                     return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType);
-                case "reject":
-                    return this.client_declined(`${logPrefix}Application was rejected.`);
                 default:
                     const errorMessage = `${logPrefix}Insurer response error: unknown policyStatus - ${policyStatus} `;
                     log.error(errorMessage + __location);
