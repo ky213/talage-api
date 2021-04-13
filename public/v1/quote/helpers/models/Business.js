@@ -158,7 +158,7 @@ module.exports = class Business {
             this.zip = applicationDocJSON.mailingZipcode;
             this.mailing_zip = applicationDocJSON.mailingZipcode;
             if(this.mailing_zip.length > 5){
-                this.mailing_zip.length = this.mailing_zip.length.substring(0,4);
+                this.mailing_zip.length = this.mailing_zip.substring(0,4);
             }
             this.mailing_territory = applicationDocJSON.mailingState;
             this.mailing_state_abbr = applicationDocJSON.mailingState;
