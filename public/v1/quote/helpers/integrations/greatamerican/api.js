@@ -113,6 +113,16 @@ const getPricing = async (token, integration, sessionId) => {
         primaryContact = appData.contacts[0];
     }
 
+    //correct activitycodeId vs ncciCode.
+    appData.locations.forEach((location) => {
+        location.activityPayrollList.forEach((payroll) => {
+            if(!payroll.activtyCodeId){
+                payroll.activtyCodeId = payroll.ncciCode;
+            }
+        });
+    });
+
+
     const send = {
         newBusiness: {
             id: sessionId
