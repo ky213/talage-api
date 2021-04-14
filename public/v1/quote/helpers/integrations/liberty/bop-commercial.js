@@ -166,16 +166,27 @@ module.exports = class LibertySBOP extends Integration {
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
         const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
 
+        // if there's no BOP policy
         if (!BOPPolicy) {
             const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
             log.error(`${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
+        // if there's no coverage captured for this BOP policy
         if (!(BOPPolicy.coverage > 0)) {
-            const errorMessage = `${logPrefix}No BPP Coverage was supplied for the Simple BOP Policy.`;
+            const errorMessage = `${logPrefix}No BOP Coverage was supplied for the Commercial BOP Policy.`;
             log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
             return this.client_error(errorMessage, __location);
+        }
+
+        // if there's no Building Personal Property limit provided for each location
+        for (const { businessPersonalPropertyLimit } of applicationDocData.locations) {
+            if (!businessPersonalPropertyLimit) {
+                const errorMessage = `${logPrefix}One or more locations has no BPP Limit for the Commercial BOP Policy.`;
+                log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
+                return this.client_error(errorMessage, __location);
+            }
         }
 
         const commercialBOPQuestions = applicationDocData.questions.filter(q => q.insurerQuestionAttributes.commercialBOP);
@@ -569,7 +580,7 @@ module.exports = class LibertySBOP extends Integration {
         DeductibleFormatCurrencyAmt.ele('Amt', deductible);
         Deductible.ele('DeductibleTypeCd', 'BPP');
         Deductible.ele('DeductibleAppliesToCd', 'Coverage');
-        for (let i = 0; i < applicationDocData.locations.length; i++) {
+        applicationDocData.locations.forEach((location, i) => {
             const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
             CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
             CommlPropertyInfo.ele('ClassCd', this.industry_code.code);
@@ -577,9 +588,9 @@ module.exports = class LibertySBOP extends Integration {
             Coverage.ele('CoverageCd', 'BPP');
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            FormatCurrencyAmt.ele('Amt', BOPPolicy.coverage);
+            FormatCurrencyAmt.ele('Amt', location.businessPersonalPropertyLimit);
             Limit.ele('LimitAppliesToCd', 'Coverage');
-        }
+        });
 
         //                 <LiabilityInfo>
         //                     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
@@ -605,7 +616,7 @@ module.exports = class LibertySBOP extends Integration {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
             const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
-            innerCoverage.ele('CoverageCd', 'CGL');
+            innerCoverage.ele('CoverageCd', 'BOP');
             const PTOption = innerCoverage.ele('Option');
             PTOption.ele('OptionCd', 'PartTime');
             PTOption.ele('OptionTypeCd', 'Num1');
