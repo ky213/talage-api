@@ -201,10 +201,16 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(errorMessage, __location);
         }
 
-        // if there's no Building Personal Property limit provided for each location
-        for (const { businessPersonalPropertyLimit } of applicationDocData.locations) {
-            if (!businessPersonalPropertyLimit) {
-                const errorMessage = `${logPrefix}One or more locations has no BPP Limit for the Commercial BOP Policy.`;
+        // if there's no Business Personal Property limit or Building Limit provided for each location
+        for (const { businessPersonalPropertyLimit, buildingLimit } of applicationDocData.locations) {
+            if (typeof businessPersonalPropertyLimit !== "number") {
+                const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit for the Commercial BOP Policy.`;
+                log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
+                return this.client_error(errorMessage, __location);
+            }
+
+            if (typeof buildingLimit !== "number") {
+                const errorMessage = `${logPrefix}One or more location has no Building Limit for the Commercial BOP Policy.`;
                 log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
                 return this.client_error(errorMessage, __location);
             }
@@ -610,6 +616,8 @@ module.exports = class LibertySBOP extends Integration {
         //                 </PropertyInfo>
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+
+        // deductible
         const DeductibleCoverage = PropertyInfo.ele('Coverage');
         DeductibleCoverage.ele('CoverageCd', 'PropDed');
         const Deductible = DeductibleCoverage.ele('Deductible');
@@ -617,16 +625,27 @@ module.exports = class LibertySBOP extends Integration {
         DeductibleFormatCurrencyAmt.ele('Amt', deductible);
         Deductible.ele('DeductibleTypeCd', 'BPP');
         Deductible.ele('DeductibleAppliesToCd', 'Coverage');
+
         applicationDocData.locations.forEach((location, i) => {
             const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
-            CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
             CommlPropertyInfo.ele('ClassCd', this.industry_code.code);
-            const Coverage = CommlPropertyInfo.ele('Coverage');
-            Coverage.ele('CoverageCd', 'BPP');
-            const Limit = Coverage.ele('Limit');
-            const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            FormatCurrencyAmt.ele('Amt', location.businessPersonalPropertyLimit);
-            Limit.ele('LimitAppliesToCd', 'Coverage');
+
+            // Business Personal Property Limit
+            CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
+            const BPPCoverage = CommlPropertyInfo.ele('Coverage');
+            BPPCoverage.ele('CoverageCd', 'BPP');
+            const BPPLimit = BPPCoverage.ele('Limit');
+            const BPPFormatCurrencyAmt = BPPLimit.ele('FormatCurrencyAmt');
+            BPPFormatCurrencyAmt.ele('Amt', location.businessPersonalPropertyLimit);
+            BPPLimit.ele('LimitAppliesToCd', 'Coverage');
+
+            // Building Limit
+            CommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
+            const BLDGCoverage = CommlPropertyInfo.ele('Coverage');
+            const BLDGLimit = BLDGCoverage.ele('Limit');
+            const BLDGFormatCurrencyAmt = BLDGLimit.ele('FormatCurrencyAmt');
+            BLDGFormatCurrencyAmt.ele('Amt', location.buildingLimit);
+            BLDGLimit.ele('LimitAppliesToCd', 'Coverage');
         });
 
         //                 <LiabilityInfo>
