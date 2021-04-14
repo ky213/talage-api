@@ -144,7 +144,13 @@ module.exports = class GreatAmericanWC extends Integration {
                 questions['claimsLosses4years'] = "5 or more losses";
             }
         });
-
+        //PolicyQuestions
+        this.app.applicationDocData.policies.forEach((policy) => {
+            if(policy.policyType === "WC"){
+                //Q: Prior Insurance?
+                questions['scheduleRatingPriorInsurance'] = policy.coverageLapse ? "No" : "Yes";
+            }
+        });
 
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
