@@ -137,6 +137,27 @@ const entityMatrix = {
     'Trust - Non-Profit': 'TR'
 };
 
+// These are loss types for claims. Currently we dont have a mechanism of providing this with each claim
+const lossCauseCodeMatrix = {
+    "Fire": "BFIRE",
+    "Water": "BWATR",
+    "Hail": "BHAIL",
+    "Vandalism": "BVAND",
+    "Collapse": "BCOLL",
+    "WINDSTORM": "BWIND",
+    "Theft/Burglary": "BTHFT",
+    "Food Spoilage": "SPOIL",
+    "Inland Marine": "BIM",
+    "Slip/Fall - Inside": "BSLPI",
+    "Slip/Fall - Outside": "BSLPO",
+    "Products": "BPROD",
+    "Personal Injury": "BPINJ",
+    "Property Damage": "BPRDM",
+    "Professional Liability / Errors and Omissions": "BPROF",
+    "Employee Practices": "BEMPR",
+    "Other": "BOTHR"
+}
+
 module.exports = class LibertySBOP extends Integration {
 
     /**
@@ -401,6 +422,22 @@ module.exports = class LibertySBOP extends Integration {
         PolicySupplement.ele('NumEmployees', this.get_total_employees());
         const AnnualSalesAmt = PolicySupplement.ele('AnnualSalesAmt');
         AnnualSalesAmt.ele('Amt', applicationDocData.grossSalesAmt);
+
+        // Loss structure not provided in example
+
+        // if there are no claims, this won't execute
+        applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
+            const Loss = Policy.ele('Loss');
+            Loss.ele('LOBCd', claim.policyType);
+            const TotalPaidAmt = Loss.ele('TotalPaidAmt');
+            TotalPaidAmt.ele('Amt', claim.amountPaid);
+            const ReservedAmt = Loss.ele('ReservedAmt');
+            ReservedAmt.ele('Amt', claim.amountReserved !== null ? claim.amountReserved : 0);
+            Loss.ele('ClaimStatusCd', claim.open ? "Open" : "Closed");
+            Loss.ele('LossDt', moment(claim.eventDate).format('YYYY-MM-DD'));
+            Loss.ele('LossDesc', "No Description Provided.");
+            Loss.ele('LossCauseCd', 'BOTHR'); // defaulting value, we do not collect this information
+        });
 
         //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
         //                 <QuestionAnswer>
