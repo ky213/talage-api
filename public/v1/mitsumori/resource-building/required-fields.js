@@ -3,9 +3,17 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 
 // basic starting points for policy requirements
 // the requirement is only needed if it is NOT ALWAYS required
-const bopRequirements = ["officer", "officer.officerTitle"];
-const glRequirements = ["officer"];
-const wcRequirements = [];
+const bopRequirements = {
+    officer: {officerTitle: {}},
+    grossSalesAmt: {}
+};
+
+const glRequirements = {
+    officer: {},
+    grossSalesAmt: {}
+};
+
+const wcRequirements = {grossSalesAmt: {}};
 
 exports.requiredFields = async(resources, appId) => {
     let applicationDB = null;
@@ -18,7 +26,7 @@ exports.requiredFields = async(resources, appId) => {
     }
 
     if(applicationDB && applicationDB.hasOwnProperty('policies')){
-        let requiredFields = [];
+        let requiredFields = {};
         for(const policyData of applicationDB.policies){
             // if the policyType is not defined for any reason, just skip it
             if(!policyData.policyType){
@@ -27,19 +35,25 @@ exports.requiredFields = async(resources, appId) => {
 
             switch(policyData.policyType.toUpperCase()){
                 case "WC":
-                    requiredFields = combineArrays(requiredFields, wcRequirements);
+                    requiredFields = {
+                        ...requiredFields,
+                        ...wcRequirements
+                    };
                     break;
                 case "GL":
-                    requiredFields = combineArrays(requiredFields, glRequirements);
+                    requiredFields = {
+                        ...requiredFields,
+                        ...glRequirements
+                    };
                     break;
                 case "BOP":
-                    requiredFields = combineArrays(requiredFields, bopRequirements);
+                    requiredFields = {
+                        ...requiredFields,
+                        ...bopRequirements
+                    };
                     break;
             }
         }
         resources.requiredAppFields = requiredFields;
     }
 };
-
-// use a set to de-duplicate the data
-const combineArrays = (a1, a2) => [...new Set([...a1 ,...a2])];
