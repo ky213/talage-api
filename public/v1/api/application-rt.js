@@ -169,11 +169,11 @@ async function applicationSave(req, res, next) {
                         newActivityCode.payroll = parseInt(activityCode.payroll,10);
                         activityCodes.push(newActivityCode);
                     }
-                    activityCode.employeeTypeList((employeeType) => {
+                    activityCode.employeeTypeList.forEach((employeeType) => {
                         if(employeeType.employeeType === 'Full Time'){
                             fteCount += employeeType.employeeType;
                         }
-                        else if(employeeType.employeeType === 'Full Time'){
+                        else if(employeeType.employeeType === 'Part Time'){
                             pteCount += employeeType.employeeType;
                         }
                     });
@@ -818,7 +818,6 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-
     switch (quote.aggregatedStatus) {
         case 'declined':
             // Return a declined quote summary
@@ -906,6 +905,14 @@ async function createQuoteSummary(quote) {
                     log.error('file get error: no file content' + __location);
                 }
             }
+            let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
+            // checking below to see if images path inserted twice, the IMAGE_URL ends with /images and the insurer.logos starts with images/
+            // the following check should fix the double images path issue
+            if(insurerLogoUrl.includes("imagesimages")){
+                insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
+            }else if (insurerLogoUrl.includes("images/images")){
+                insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
+            }
             // Return the quote summary
             return {
                 id: quote.mysqlId,
@@ -916,7 +923,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: global.settings.IMAGE_URL + insurer.logo,
+                    logo: insurerLogoUrl,
                     name: insurer.name,
                     rating: insurer.rating
                 },
