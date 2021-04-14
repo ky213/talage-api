@@ -1,11 +1,11 @@
 /* eslint-disable dot-notation */
-const builder = require('xmlbuilder');
+//const builder = require('xmlbuilder');
 const moment = require('moment');
-const moment_timezone = require('moment-timezone');
+//const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const superagent = require('superagent');
+//const superagent = require('superagent');
 const _ = require('lodash');
 const GreatAmericanApi = require('./api');
 
@@ -22,9 +22,8 @@ module.exports = class GreatAmericanWC extends Integration {
 
     logApiCall(title, params, out) {
         this.log += `--------======= Sending ${title} =======--------<br><br>`;
-        this.log += `Location: ${__location}<br><br>`;
-        this.log += `Params: ${JSON.stringify(params, null, 2)}<br><br>`;
-        this.log += `<pre>${JSON.stringify(out, null, 2)}</pre><br><br>`;
+        this.log += `Request:\n <pre>${JSON.stringify(params, null, 2)}</pre><br><br>\n`;
+        this.log += `Response:\n <pre>${JSON.stringify(out, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
     }
 
@@ -36,11 +35,16 @@ module.exports = class GreatAmericanWC extends Integration {
      *   containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
-        const codes = await Promise.all(Object.keys(this.insurer_wc_codes).map(
-            code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))
-        ));
-
-        const token = await GreatAmericanApi.getToken(this);
+        const codes = await Promise.all(Object.keys(this.insurer_wc_codes).map(code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))));
+        let error = null
+        const token = await GreatAmericanApi.getToken(this).catch((err) => {
+            error = err;
+            log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
+        });
+        if(error){
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request Error: ${error}`);
+            return this.return_result('error');
+        }
 
         let sessionCodes = codes.map(c => ({
             id: c.code,
@@ -48,8 +52,12 @@ module.exports = class GreatAmericanWC extends Integration {
         }));
         // GA only wants the first activity code passed to their API endpoint.
         sessionCodes = [sessionCodes[0]];
-        const session = await GreatAmericanApi.getSession(this, token, sessionCodes);
-        this.logApiCall('getSession', [sessionCodes], session);
+        const session = await GreatAmericanApi.getSession(this, token, sessionCodes)
+        if(!session){
+            this.log += `Great American getSession failed: `;
+            this.reasons.push(`Great American getSession failed`);
+            return this.return_result('error');
+        }
 
         const questions = {};
         for (const q of Object.values(this.questions)) {
@@ -77,6 +85,7 @@ module.exports = class GreatAmericanWC extends Integration {
             const years = moment().diff(this.app.applicationDocData.founded, 'years',true);
             questions['generalEligibilityYearsOfExperience'] = yearsWhole.toString();
 
+
             if(years < 0.16){
                 //New Business/No Experience < 2 months
                 questions['scheduleRatingBusinessExperience'] = 'New Business/No Experience';
@@ -93,6 +102,8 @@ module.exports = class GreatAmericanWC extends Integration {
             }
 
             questions['generalEligibility3OrMore'] = years >= 3 ? "Yes" : "No"
+            //questions['generalEligibility3OrMoreRestManu'] = years >= 3 ? "Yes" : "No"
+            log.debug(`application GreatAmerican Questions ${JSON.stringify(this.questions)}`)
         }
         else {
             questions['generalEligibilityYearsOfExperience'] = '5';
@@ -175,8 +186,19 @@ module.exports = class GreatAmericanWC extends Integration {
                 return this.return_result('declined');
             }
         }
-        const quote = await GreatAmericanApi.getPricing(token, this, curAnswers.newBusiness.id);
-        this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
+
+        const quote = await GreatAmericanApi.getPricing(token, this, curAnswers.newBusiness.id).catch((err) => {
+            error = err;
+            log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
+        });
+        // logging should be at the raw request level.   not here. outbound logged before call.
+        // response after call.[curAnswers.newBusiness.id] is not the payload......
+        //this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
+        if(error){
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request Error: ${error}`);
+            return this.return_result('error');
+        }
+
 
         if (_.get(quote, 'rating.data.policy.id')) {
             this.amount = parseFloat(_.get(quote, 'rating.data.TotalResult'));
@@ -189,7 +211,8 @@ module.exports = class GreatAmericanWC extends Integration {
             }
             this.log += 'Finished quoted!';
             return this.return_result('quoted');
-        } else {
+        }
+        else {
             this.log += 'Finished declined';
             return this.return_result('declined');
         }

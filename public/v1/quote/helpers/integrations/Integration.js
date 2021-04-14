@@ -260,6 +260,9 @@ module.exports = class Integration {
             if(!insurerActivityCode){
                 insurerActivityCode = {attributes: {}};
             }
+            if(typeof insurerActivityCode.attributes === 'string'){
+                insurerActivityCode.attributes = JSON.parse(insurerActivityCode.attributes);
+            }
         }
         catch(err){
             log.warn(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
@@ -1123,17 +1126,21 @@ module.exports = class Integration {
             const appId = this.app.id;
             const insurerName = this.insurer.name;
             const policyType = this.policy.type
-            await this._insurer_quote().
-                then(function(result) {
-                    fulfill(result);
-                }).catch(function(error) {
-                    const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${error}`;
-                    log.error(error_message + __location);
-                    //Do not want to stop the rest of the quoting for application.
-                    // and end of quoting processing.
-                    //reject(error);
-                    fulfill(null);
-                });
+            let error = null;
+            const result = await this._insurer_quote().catch(function(err) {
+                const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${err}`;
+                log.error(error_message + __location);
+                error = err;
+            });
+
+            if(error){
+                //need to save quote with reason.
+                const error_message = `${insurerName} ${policyType} is unable to quote ${error}`;
+                this.reasons.push(error_message)
+                this.return_result('error');
+                fulfill(null);
+            }
+            fulfill(result);
         });
     }
 
