@@ -712,6 +712,7 @@ async function applicationCopy(req, res, next) {
         }
         newApplicationDoc.agencyPortalCreatedUser = userId
         newApplicationDoc.agencyPortalCreated = true;
+        newApplicationDoc.handledByTalage = false;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)
