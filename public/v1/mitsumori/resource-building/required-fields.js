@@ -3,6 +3,10 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 
 // basic starting points for policy requirements
 // the requirement is only needed if it is NOT ALWAYS required
+
+// TODO: this needs to be documented and set up to include everything required.
+// its current state is just to reflect what is possible.
+// eventually we can add or remove keys based on factors other than policy type.
 const bopRequirements = {
     officer: {officerTitle: {}},
     grossSalesAmt: {}
