@@ -57,7 +57,6 @@ async function getResources(req, res, next){
             break;
         case "_officers":
             officerTitles(resources);
-            console.log("HERE");
             await requirementHelper.requiredFields(resources, req.query.appId);
             break;
     }
