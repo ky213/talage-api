@@ -1,4 +1,6 @@
+/* eslint-disable dot-notation */
 const builder = require('xmlbuilder');
+const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
@@ -69,9 +71,81 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('declined');
         }
 
-        // XXX: Temporarily hard-coding this question. Need to remove later.
-        questions['generalEligibilityYearsOfExperience'] = '5';
-        
+        //Questions from appDoc Data.
+        if(this.app.applicationDocData.founded){
+            const yearsWhole = moment().diff(this.app.applicationDocData.founded, 'years',false);
+            const years = moment().diff(this.app.applicationDocData.founded, 'years',true);
+            questions['generalEligibilityYearsOfExperience'] = yearsWhole.toString();
+
+            if(years < 0.16){
+                //New Business/No Experience < 2 months
+                questions['scheduleRatingBusinessExperience'] = 'New Business/No Experience';
+            }
+            else if(years < 1){
+                //New Business/No Experience
+                questions['scheduleRatingBusinessExperience'] = 'Less Than 1 Year';
+            }
+            else if(years >= 1 && years <= 3){
+                questions['scheduleRatingBusinessExperience'] = '1 to 3 Years';
+            }
+            else {
+                questions['scheduleRatingBusinessExperience'] = '3 Years or More';
+            }
+
+            questions['generalEligibility3OrMore'] = years >= 3 ? "Yes" : "No"
+        }
+        else {
+            questions['generalEligibilityYearsOfExperience'] = '5';
+        }
+        if(this.app.applicationDocData.yearsOfExp){
+            questions['generalEligibilityYearsOfExperience'] = this.app.applicationDocData.yearsOfExp;
+        }
+
+        //Employee Info
+        questions['generalEligibilityTotalFullTime'] = this.get_total_full_time_employees();
+        questions['generalEligibilityTotalPartTime'] = this.get_total_part_time_employees();
+        questions['generalEligibilityTotalEmployees'] = this.get_total_employees();
+
+        //Claims
+        questions['claimsLossesMoreThan50K'] = "No, I have not had a single loss more than $50,000";
+        questions['claimsLosses4years'] = "Less than 2 losses";
+        this.app.applicationDocData.claims.forEach((claim) => {
+            let years = 5;
+            if(claim.eventDate){
+                try{
+                    years = moment().diff(claim.eventDate, 'years',false);
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} Great American WC: claim date error ${err} ` + __location);
+                }
+            }
+            let claimCount = 0;
+            if(claim.policyType === "WC" && years < 5){
+                claimCount++;
+                let totalAmount = 0;
+                if(claim.amountPaid){
+                    totalAmount = claim.amountPaid
+                }
+                if(claim.amountReserved){
+                    totalAmount += claim.amountReserved
+                }
+                if(totalAmount > 50000){
+                    questions['claimsLossesMoreThan50K'] = "Yes, I’ve had a single loss more than $50,000";
+                }
+            }
+            if(claimCount < 2){
+                questions['claimsLosses4years'] = "Less than 2 losses";
+            }
+            else if(claimCount >= 2 && claimCount < 5){
+                questions['claimsLosses4years'] = "2 to 4 losses";
+            }
+            else{
+                //no insurance for you!
+                questions['claimsLosses4years'] = "5 or more losses";
+            }
+        });
+
+
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;

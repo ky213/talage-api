@@ -215,7 +215,7 @@ const getSession = async (integration, token, businessTypes) => {
         .post(`${getApiUrl(integration)}/shop/api/newBusiness/eligibility`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
-                Accept: 'application/json',
+                Accept: 'application/json'
             }
         });
     return apiCall.data;
@@ -250,8 +250,10 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
             if (question.answerType === 'SELECT') {
                 const gaOption = question.options.find(a => a.label === questionAnswers[question.questionId]);
                 if (!gaOption) {
-                    log.error(`Cannot find value for option: ${questionAnswers[question.questionId]} @ ${__location}`);
-                    throw new Error(`Cannot find value for option: ${questionAnswers[question.questionId]}`);
+                    log.error(`Cannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)} @ ${__location}`);
+                    // let insurer reject it for missing question
+                    throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
+                    //continue;
                 }
                 answer = gaOption.optionId;
 
