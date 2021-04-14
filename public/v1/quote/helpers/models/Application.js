@@ -771,8 +771,8 @@ module.exports = class Application {
                 some_quotes = true;
             }
             //quote Docs are marked with handledByTalage
-            if(quoteDoc.handedByTalage){
-                notifiyTalage = quoteDoc.handedByTalage;
+            if(quoteDoc.handledByTalage){
+                notifiyTalage = quoteDoc.handledByTalage;
             }
         });
         log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
