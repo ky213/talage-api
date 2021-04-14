@@ -244,7 +244,7 @@ ApplicationSchema.virtual('managementStructure').
     set(function(v){
         this.management_structure = v;
     });
-/********************************** */
+
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);
 
@@ -278,24 +278,6 @@ ApplicationSchema.pre('updateOne', async function(next) {
     next();
 });
 
-// // eslint-disable-next-line object-curly-spacing
-// ApplicationSchema.pre('updateOne', async function() {
-//     const einClear = this.get("ein");
-//     if(einClear){
-//         try{
-//             log.debug("preUpdateOne app mongoose Encrypting ein fields")
-//             this.set({ ein: "XXXasdf"});
-
-//             const einEncrypted = await crypt.encrypt(einClear);
-//             const einHash = await crypt.hash(einClear);
-//             this.set({ einEncrypted: einEncrypted });
-//             this.set({ einHash: einHash});
-
-//         catch(err){
-//             log.error("Application model einEncrypted error " + err + __location );
-//         }
-//     }
-// });
 
 ApplicationSchema.post('find', async function(result) {
     if(result && result.length > 0){
@@ -314,12 +296,6 @@ ApplicationSchema.post('findOne', async function(result) {
     }
 });
 
-
-// // Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
-// ApplicationSchema.set('toJSON', {
-//     getters: true,
-//     virtuals: true
-// });
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
