@@ -727,7 +727,7 @@ module.exports = class Application {
             //if a quote is marked handedByTalage  mark the application as handedByTalage and wholesale = true
             let isHandledByTalage = false
             quoteList.forEach((quoteDoc) => {
-                if(quoteDoc.handedByTalage){
+                if(quoteDoc.handledByTalage){
                     isHandledByTalage = quoteDoc.handledByTalage;
                 }
             });
