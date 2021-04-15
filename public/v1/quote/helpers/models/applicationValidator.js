@@ -101,7 +101,8 @@ const validateBusiness = (applicationDocData) => {
      * - Cannot be prior to July 4, 1776
      */
     if (applicationDocData.founded) {
-        const foundedMoment = moment(applicationDocData.founded.toISOString());
+
+        const foundedMoment = moment(applicationDocData.founded);
 
         // Check for mm-yyyy formatting
         if (!foundedMoment.isValid()) {
@@ -224,7 +225,7 @@ const validateBusiness = (applicationDocData) => {
     // Years of Experience (conditionally required)
     // - Only required if founded less than 3 years ago
     // - Must be a number between 0 and 99
-    const foundedMoment = moment(applicationDocData.founded.toISOString());
+    const foundedMoment = moment(applicationDocData.founded);
     if (foundedMoment.isAfter(moment().subtract(3, 'years'))) {
         if (applicationDocData.yearsOfExp < 0 || applicationDocData.yearsOfExp > 99) {
             //let it quote and the insurer reject it.
@@ -443,17 +444,17 @@ const validateActivityCodes = (applicationDocData) => {
 
         for (const activityCode of applicationDocData.activityCodes) {
         // Check that ID is a number
-            if (isNaN(activityCode.ncciCode)) {
+            if (isNaN(activityCode.activityCodeId) && isNaN(activityCode.ncciCode)) {
                 throw new Error('You must supply a valid ID with each class code.');
             }
 
             // Check that Payroll is a number
             if (isNaN(activityCode.payroll)) {
-                throw new Error(`Invalid payroll amount (Activity Code ${activityCode.ncciCode})`);
+                throw new Error(`Invalid payroll amount (Activity Code ${activityCode.activityCodeId})`);
             }
 
             if (typeof activityCode.payroll === "undefined" || activityCode.payroll < 1) {
-                throw new Error(`You must provide a payroll for each activity code (Activity Code ${activityCode.ncciCode})`);
+                throw new Error(`You must provide a payroll for each activity code (Activity Code ${activityCode.activityCodeId})`);
             }
         }
     }

@@ -44,7 +44,7 @@ async function findOne(req, res, next) {
     const insurerActivityCodeBO = new InsurerActivityCodeBO();
     // Load the request data into it
     const objectJSON = await insurerActivityCodeBO.getById(req.params.id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerActivityCodeBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {
@@ -74,7 +74,7 @@ async function add(req, res, next) {
     }
 
     const objectJSON = await insurerActivityCodeBO.insertMongo(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerActivityCodeBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -106,7 +106,7 @@ async function update(req, res, next) {
     const insurerActivityCodeBO = new InsurerActivityCodeBO();
     let error = null;
     const newJSON = await insurerActivityCodeBO.updateMongo(req.params.id, req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerActivityCodeBO load error " + err + __location);
         error = err;
     });
     if (error) {
