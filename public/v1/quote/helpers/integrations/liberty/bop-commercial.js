@@ -644,16 +644,16 @@ module.exports = class LibertySBOP extends Integration {
         const Deductible = DeductibleCoverage.ele('Deductible');
         const DeductibleFormatCurrencyAmt = Deductible.ele('FormatCurrencyAmt');
         DeductibleFormatCurrencyAmt.ele('Amt', deductible);
-        Deductible.ele('DeductibleTypeCd', 'BPP');
+        Deductible.ele('DeductibleTypeCd', 'FL');
         Deductible.ele('DeductibleAppliesToCd', 'Coverage');
 
         applicationDocData.locations.forEach((location, i) => {
-            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
-            CommlPropertyInfo.ele('ClassCd', this.industry_code.code);
-
             // Business Personal Property Limit
-            CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
-            const BPPCoverage = CommlPropertyInfo.ele('Coverage');
+            const BPPCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
+            BPPCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
+
+            BPPCommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
+            const BPPCoverage = BPPCommlPropertyInfo.ele('Coverage');
             BPPCoverage.ele('CoverageCd', 'BPP');
             const BPPLimit = BPPCoverage.ele('Limit');
             const BPPFormatCurrencyAmt = BPPLimit.ele('FormatCurrencyAmt');
@@ -661,8 +661,11 @@ module.exports = class LibertySBOP extends Integration {
             BPPLimit.ele('LimitAppliesToCd', 'Coverage');
 
             // Building Limit
-            CommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
-            const BLDGCoverage = CommlPropertyInfo.ele('Coverage');
+            const BLDGCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
+            BLDGCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
+
+            BLDGCommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
+            const BLDGCoverage = BLDGCommlPropertyInfo.ele('Coverage');
             BLDGCoverage.ele('CoverageCd', 'BLDG');
             const BLDGLimit = BLDGCoverage.ele('Limit');
             const BLDGFormatCurrencyAmt = BLDGLimit.ele('FormatCurrencyAmt');
@@ -703,8 +706,8 @@ module.exports = class LibertySBOP extends Integration {
         // Each Occurrence Limit
         const PerOccLimit = LimitCoverage.ele('Limit');
         const PerOccFormatCurrencyAmt = PerOccLimit.ele('FormatCurrencyAmt');
-        PerOccFormatCurrencyAmt.ele('Amt', "ENTER HERE");
-        PerOccFormatCurrencyAmt.ele('LimitAppliesToCd', perOccLimit);
+        PerOccFormatCurrencyAmt.ele('Amt', perOccLimit);
+        PerOccFormatCurrencyAmt.ele('LimitAppliesToCd', "PerOcc");
 
         applicationDocData.locations.forEach((location, index) => {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
