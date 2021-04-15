@@ -204,7 +204,7 @@ async function getAgency(req, res, next) {
     const agencyBO = new AgencyBO();
     // Load the request data into it
     const agency = await agencyBO.getById(agent).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agencyBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {

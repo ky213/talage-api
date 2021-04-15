@@ -16,6 +16,7 @@ const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
 //const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
@@ -239,7 +240,7 @@ module.exports = class Integration {
      *
      * @param {number} insurerId - The insurer ID
      * @param {string} territory - The 2 character territory code
-     * @param {number} activityCode - The 4 digit Talage activity code
+     * @param {number} activityCode - The Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
@@ -704,6 +705,112 @@ module.exports = class Integration {
         else {
             return [];
         }
+    }
+
+
+    /**
+     * Retrieves the application's  ActivityCodeIds
+     *
+     * @returns {array} - Array of Talage ActivityCodeId
+     */
+    get_application_activitycodes(){
+        const activityCodeArray = [];
+        this.app.applicationDocData.locations.forEach(function(location) {
+            location.activityPayrollList.forEach(function(activtyCodePayroll) {
+                if(!activityCodeArray.activityCodeId){
+                    activityCodeArray.activityCodeId = activityCodeArray.ncciCode
+                }
+                if(!activityCodeArray.includes(activtyCodePayroll.activityCodeId)){
+                    activityCodeArray.push(activtyCodePayroll.activityCodeId)
+                }
+            });
+        });
+        return activityCodeArray;
+
+    }
+
+    /**
+     * Retrieves the application's  ActivityCodeIds
+     *
+     * @returns {array} - Array of Talage ActivityCodeId
+     */
+    get_application_territorylist(){
+        const territoryList = [];
+        this.app.applicationDocData.locations.forEach(function(location) {
+            if(!territoryList.includes(location.state)){
+                territoryList.push(location.state)
+            }
+        });
+        return territoryList;
+
+    }
+
+    /**
+     * Retrieves the applications  Array of Talage ActivityCodeId
+     *
+     * @param {string} activityCodeArray - Array of Talage ActivityCodeId
+     * @returns {array} - Array of Insurer Questions
+     */
+    async get_insurer_questions_by_activitycodes(activityCodeArray){
+        if(!activityCodeArray){
+            activityCodeArray = this.get_application_activitycodes();
+        }
+        if (activityCodeArray.length > 0) {
+            const territoryList = this.get_application_territorylist();
+            //Find insurerActivityCode
+            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const activityCodeQuery = {
+                insurerId: this.insurer.id,
+                talageActivityCodeIdList: {$in: activityCodeArray},
+                territoryList: {$in: territoryList},
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
+            }
+            let insurerQuestionList = null;
+            try{
+                // eslint-disable-next-line prefer-const
+                let insurerQuestionIdList = [];
+                const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
+                insurerActivityCodeList.forEach((insurerActivtyCode) => {
+                    let newInsurerQuestionList = [];
+                    for(let i = 0; i < territoryList.length; i++){
+                        const tQFound = insurerActivtyCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territoryList[i]);
+                        if(tQFound){
+                            newInsurerQuestionList = tQFound.insurerQuestionIdList
+                            break;
+                        }
+                    }
+                    if(newInsurerQuestionList.length === 0){
+                        newInsurerQuestionList = insurerActivtyCode.insurerQuestionIdList
+                    }
+                    if(newInsurerQuestionList.length > 0){
+                        utility.addArrayToArray(insurerQuestionIdList,newInsurerQuestionList)
+                    }
+                });
+
+                const query = {
+                    "insurerId": this.insurer.id,
+                    "insurerQuestionId": {$in: insurerQuestionIdList}
+                }
+                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                try{
+                    insurerQuestionList = await InsurerQuestionModel.find(query);
+                }
+                catch(err){
+                    throw err
+                }
+            }
+            catch(err){
+                log.error(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: get_insurer_questions_by_activitycodes error ${err} ` + __location);
+            }
+            return insurerQuestionList;
+        }
+        else {
+            return [];
+        }
+
     }
 
     /**

@@ -65,7 +65,7 @@ async function add(req, res, next) {
     const industryCodeCategoryBO = new IndustryCodeCategoryBO();
     let error = null;
     await industryCodeCategoryBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("industryCodeCategoryBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -87,7 +87,7 @@ async function update(req, res, next) {
     const industryCodeCategoryBO = new IndustryCodeCategoryBO();
     let error = null;
     await industryCodeCategoryBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("industryCodeCategoryBO load error " + err + __location);
         error = err;
     });
     if (error) {

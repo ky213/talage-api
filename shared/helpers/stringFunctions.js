@@ -373,3 +373,17 @@ exports.ucFirstLetter = function(s) {
         return null;
     }
 };
+
+exports.trimString = function(str, toTrim, trimOptions = {
+    trimStart: true,
+    trimEnd: false
+}) {
+    let returnStr = str;
+    if(trimOptions.trimStart && str.startsWith(toTrim)) {
+        returnStr = returnStr.substring(toTrim.length);
+    }
+    if(trimOptions.trimEnd && str.endsWith(toTrim)) {
+        returnStr = returnStr.substring(0, returnStr.length - toTrim.length);
+    }
+    return returnStr;
+}

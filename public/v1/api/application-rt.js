@@ -12,7 +12,7 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
-const ApiAuth = require("./auth-api-rt.js");
+const tokenSvc = global.requireShared('./services/tokensvc.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
@@ -62,7 +62,6 @@ async function applicationSave(req, res, next) {
     if (!req.body.applicationId && req.body.uuid) {
         req.body.applicationId = req.body.uuid;
     }
-
 
     const applicationBO = new ApplicationBO();
 
@@ -118,7 +117,7 @@ async function applicationSave(req, res, next) {
     else {
         //get application and valid agency
         // check JWT has access to this application.
-        const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+        const rightsToApp = isAuthForApplication(req, req.body.applicationId);
         if(rightsToApp !== true){
             return next(serverHelper.forbiddenError(`Not Authorized`));
         }
@@ -132,32 +131,59 @@ async function applicationSave(req, res, next) {
             log.error("Error checking application doc " + err + __location);
             return next(serverHelper.requestError(`Bad Request: check error ${err}`));
         }
-
     }
 
+    // TODO: should the name be more ambiguous or is this a good name?
+    let refreshToken = false;
+    if(req.body.refreshToken){
+        refreshToken = true;
+        delete req.body.refreshToken;
+    }
 
     let responseAppDoc = null;
     try {
         const updateMysql = true;
 
         // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
+        // WHERE IS THE IF LOGIC???? This simple creates and sets activitycodes  - BP
+        //get location part_time_employees and full_time_employees from location payroll data.
         const activityCodes = [];
+        let fteCount = 0;
+        let pteCount = 0;
         if (req.body.locations && req.body.locations.length) {
             req.body.locations.forEach((location) => {
                 location.activityPayrollList.forEach((activityCode) => {
-                    const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
+                    //check if using new JSON
+                    if(!activityCode.activtyCodeId){
+                        activityCode.activtyCodeId = activityCode.ncciCode;
+                    }
+                    const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
                     if (foundCode) {
                         foundCode.payroll += parseInt(activityCode.payroll, 10);
                     }
                     else {
                         // eslint-disable-next-line prefer-const
                         let newActivityCode = {};
+                        newActivityCode.activityCodeId = activityCode.activityCodeId;
                         newActivityCode.ncciCode = activityCode.ncciCode;
-                        newActivityCode.payroll = parseInt(activityCode.payroll,
-                            10);
+                        newActivityCode.payroll = parseInt(activityCode.payroll,10);
                         activityCodes.push(newActivityCode);
                     }
+                    activityCode.employeeTypeList.forEach((employeeType) => {
+                        if(employeeType.employeeType === 'Full Time'){
+                            fteCount += employeeType.employeeType;
+                        }
+                        else if(employeeType.employeeType === 'Part Time'){
+                            pteCount += employeeType.employeeType;
+                        }
+                    });
                 });
+                if(!location.full_time_employees){
+                    location.full_time_employees = fteCount;
+                }
+                if(!location.part_time_employees){
+                    location.part_time_employees = pteCount;
+                }
             });
         }
         req.body.activityCodes = activityCodes;
@@ -179,7 +205,7 @@ async function applicationSave(req, res, next) {
             // update JWT
             if(responseAppDoc && req.userTokenData && req.userTokenData.quoteApp){
                 try{
-                    const newToken = await ApiAuth.createApplicationToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.createApplicationToken(req, responseAppDoc.applicationId);
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -193,7 +219,7 @@ async function applicationSave(req, res, next) {
                 //API request do create newtoken
                 // add application to Redis for JWT
                 try{
-                    const newToken = await ApiAuth.AddApplicationToToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.addApplicationToToken(req, responseAppDoc.applicationId);
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -210,6 +236,15 @@ async function applicationSave(req, res, next) {
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
+
+    // if they ask for a new token (refreshToken: "please") or... true
+    // set up and attach a refreshed token.
+    if(refreshToken){
+        const newToken = await tokenSvc.refreshToken(req);
+        if(newToken){
+            responseAppDoc.token = newToken;
+        }
+    }
 
     if (responseAppDoc) {
         res.send(200, responseAppDoc);
@@ -261,6 +296,7 @@ async function applicationLocationSave(req, res, next) {
     try {
         if(applicationDB){
             const reqLocation = req.body.location
+
             //check
             if(reqLocation.locationId){
                 if(req.body.delete === true){
@@ -280,6 +316,11 @@ async function applicationLocationSave(req, res, next) {
                                     locationDB[locationProp] = reqLocation[locationProp];
                                 }
                             }
+                            locationDB.activityPayrollList.forEach((activityPayrollList) => {
+                                if(!activityPayrollList.activityCodeId){
+                                    activityPayrollList.activityCodeId = activityPayrollList.ncciCode;
+                                }
+                            });
                         }
                     }
                 }
@@ -291,6 +332,13 @@ async function applicationLocationSave(req, res, next) {
                 }
                 if(!reqLocation.activityPayrollList){
                     reqLocation.activityPayrollList = []
+                }
+                else {
+                    reqLocation.activityPayrollList.forEach((activityPayrollList) => {
+                        if(!activityPayrollList.activityCodeId){
+                            activityPayrollList.activityCodeId = activityPayrollList.ncciCode;
+                        }
+                    });
                 }
                 applicationDB.locations.push(reqLocation)
             }
@@ -477,7 +525,7 @@ async function validate(req, res, next) {
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
     const applicationDB = await applicationBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("applicationBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -576,7 +624,7 @@ async function startQuoting(req, res, next) {
 
     //Get app and check status
     const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("applicationBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -719,7 +767,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     try{
                         // eslint-disable-next-line prefer-const
                         let activityPayroll = location.activityPayrollList[j];
-                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
                         activityPayroll.description = activtyCodeJSON.description;
                         //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
@@ -739,7 +787,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                     }
                     catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
+                        log.error(`Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
                     }
                 }
             }
@@ -770,7 +818,6 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-
     switch (quote.aggregatedStatus) {
         case 'declined':
             // Return a declined quote summary
@@ -858,6 +905,14 @@ async function createQuoteSummary(quote) {
                     log.error('file get error: no file content' + __location);
                 }
             }
+            let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
+            // checking below to see if images path inserted twice, the IMAGE_URL ends with /images and the insurer.logos starts with images/
+            // the following check should fix the double images path issue
+            if(insurerLogoUrl.includes("imagesimages")){
+                insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
+            }else if (insurerLogoUrl.includes("images/images")){
+                insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
+            }
             // Return the quote summary
             return {
                 id: quote.mysqlId,
@@ -868,7 +923,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: global.settings.IMAGE_URL + insurer.logo,
+                    logo: insurerLogoUrl,
                     name: insurer.name,
                     rating: insurer.rating
                 },

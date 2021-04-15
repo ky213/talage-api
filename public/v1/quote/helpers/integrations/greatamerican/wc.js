@@ -101,9 +101,19 @@ module.exports = class GreatAmericanWC extends Integration {
                 questions['scheduleRatingBusinessExperience'] = '3 Years or More';
             }
 
-            questions['generalEligibility3OrMore'] = years >= 3 ? "Yes" : "No"
-            //questions['generalEligibility3OrMoreRestManu'] = years >= 3 ? "Yes" : "No"
-            log.debug(`application GreatAmerican Questions ${JSON.stringify(this.questions)}`)
+            //Determine if generalEligibility3OrMore or generalEligibility3OrMoreRestManu should be included.
+            const insurerQuestionList = await this.get_insurer_questions_by_activitycodes();
+            const iQFound = insurerQuestionList.find((iQ) => iQ.identifier === "generalEligibility3OrMore");
+            if(iQFound){
+                questions['generalEligibility3OrMore'] = years >= 3 ? "Yes" : "No"
+            }
+
+            const iQFound2 = insurerQuestionList.find((iQ) => iQ.identifier === "generalEligibility3OrMoreRestManu");
+            if(iQFound2){
+                questions['generalEligibility3OrMoreRestManu'] = years >= 3 ? "Yes" : "No"
+            }
+
+            //log.debug(`application GreatAmerican Questions ${JSON.stringify(this.questions)}`)
         }
         else {
             questions['generalEligibilityYearsOfExperience'] = '5';

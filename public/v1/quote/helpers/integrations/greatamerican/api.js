@@ -114,6 +114,16 @@ const getPricing = async (token, integration, sessionId) => {
         primaryContact = appData.contacts[0];
     }
 
+    //correct activitycodeId vs ncciCode.
+    appData.locations.forEach((location) => {
+        location.activityPayrollList.forEach((payroll) => {
+            if(!payroll.activtyCodeId){
+                payroll.activtyCodeId = payroll.ncciCode;
+            }
+        });
+    });
+
+
     const send = {
         newBusiness: {
             id: sessionId
@@ -144,7 +154,7 @@ const getPricing = async (token, integration, sessionId) => {
                 state: location.state,
                 zip: location.zipcode,
                 classCodes: await Promise.all(location.activityPayrollList.map(async (code) => ({
-                    classCode: await getNcciFromClassCode(code.ncciCode, location.state),
+                    classCode: await getNcciFromClassCode(code.activtyCodeId, location.state),
                     payroll: code.payroll,
                     numberOfEmployees: _.sum(code.employeeTypeList.map(t => t.employeeTypeCount))
                 })))
