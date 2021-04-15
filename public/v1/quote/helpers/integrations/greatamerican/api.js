@@ -317,8 +317,9 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
                     //throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
                     //continue;
                 }
-                answer = gaOption.optionId;
-
+                if(gaOption){
+                    answer = gaOption.optionId;
+                }
             }
             question.answer = answer;
         }
