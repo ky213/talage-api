@@ -313,7 +313,7 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
                     log.error(`Cannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)} @ ${__location}`);
                     integration.log += `\nCannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)}\n`;
                     // let insurer reject it for missing question
-                    //make Great American reject it.
+                    // make Great American reject it.
                     //throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
                     //continue;
                 }
@@ -326,7 +326,11 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
     }
 
     const newEligibilityParameters = _.cloneDeep(questionSession);
-    delete newEligibilityParameters.riskSelection.data;
+
+    if(newEligibilityParameters && newEligibilityParameters.riskSelection){
+        delete newEligibilityParameters.riskSelection.data;
+    }
+
     newEligibilityParameters.riskSelection = {
         input: answerSession
     };
