@@ -291,9 +291,17 @@ const getSession = async (integration, token, businessTypes) => {
  *   question ID and the value is the answer to the question.
  */
 const injectAnswers = async (integration, token, fullQuestionSession, questionAnswers) => {
-    const questionSession = _.cloneDeep(fullQuestionSession);
-    const answerSession = _.get(questionSession, 'riskSelection.data.answerSession');
-    const allGroups = _.get(answerSession, 'questionnaire.groups');
+    let allGroups = null;
+    let questionSession = null;
+    let answerSession = null;
+    try{
+        questionSession = _.cloneDeep(fullQuestionSession);
+        answerSession = _.get(questionSession, 'riskSelection.data.answerSession');
+        allGroups = _.get(answerSession, 'questionnaire.groups');
+    }
+    catch(err){
+        log.error(`Great American WC Error getting in injectAnswers ${err} ` + __location)
+    }
 
     // Set the 'answer' field of questions equal to the values specified in the
     // questionAnswers parameter.
@@ -311,19 +319,26 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
                 const gaOption = question.options.find(a => a.label === questionAnswers[question.questionId]);
                 if (!gaOption) {
                     log.error(`Cannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)} @ ${__location}`);
+                    integration.log += `\nCannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)}\n`;
                     // let insurer reject it for missing question
-                    throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
+                    // make Great American reject it.
+                    //throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
                     //continue;
                 }
-                answer = gaOption.optionId;
-
+                if(gaOption){
+                    answer = gaOption.optionId;
+                }
             }
             question.answer = answer;
         }
     }
 
     const newEligibilityParameters = _.cloneDeep(questionSession);
-    delete newEligibilityParameters.riskSelection.data;
+
+    if(newEligibilityParameters && newEligibilityParameters.riskSelection){
+        delete newEligibilityParameters.riskSelection.data;
+    }
+
     newEligibilityParameters.riskSelection = {
         input: answerSession
     };
