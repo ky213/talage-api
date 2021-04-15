@@ -230,6 +230,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // Liberty Mutual Commercial BOP only uses perOcc and genAgg
         const [perOccLimit, genAggLimit, aggLimit] = this.getSupportedLimits(BOPPolicy.limits);
+        console.log("LIMITS");
         console.log(perOccLimit);
         console.log(genAggLimit);
         console.log(aggLimit);
@@ -674,6 +675,21 @@ module.exports = class LibertySBOP extends Integration {
         });
 
         //                 <LiabilityInfo>
+        //                     <Coverage>
+        //                         <CoverageCd>LBMED</CoverageCd>
+        //                         <Limit>
+        //                             <FormatCurrencyAmt>
+        //                                 <Amt>1000000</Amt>
+        //                             </FormatCurrencyAmt>
+        //                             <LimitAppliesToCd>Aggregate</LimitAppliesToCd>
+        //                         </Limit>
+        //                         <Limit>
+        //                             <FormatCurrencyAmt>
+        //                                 <Amt>2000000</Amt>
+        //                             </FormatCurrencyAmt>
+        //                             <LimitAppliesToCd>PerOcc</LimitAppliesToCd>
+        //                         </Limit>
+        //                     </Coverage>
         //                     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
         //                         <ClassCd>88573</ClassCd>
         //                         <Coverage>
@@ -830,6 +846,17 @@ module.exports = class LibertySBOP extends Integration {
             const BldgOccupancy = LocationUWInfo.ele('BldgOccupancy');
             const AreaOccupied = BldgOccupancy.ele('AreaOccupied');
             const BldgArea = Construction.ele('BldgArea');
+
+            // total receipts (only required if more than 1 location)
+            if (applicationDocData.locations.length > 1) {
+                console.log("LOCATIONS");
+                console.log(JSON.stringify(applicationDocData.locations, null, 4));
+                const totalReceipts = location.activityPayrollList.reduce((sum, activity) => sum + activity.payroll);
+                const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                TotalGrossReceipts.ele('OperationsCd', "TOTAL");
+                const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
+                TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
+            }
 
             // Bldg Area (autofill)
             BldgArea.ele('NumUnits', location.square_footage);
@@ -1015,10 +1042,6 @@ module.exports = class LibertySBOP extends Integration {
             // then create general questions
             standardLocationQuestions.forEach(question => {
                 const QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
-
-                if (question.insurerQuestionAttributes.commercialBOP.ACORDCd === 'N/A') {
-                    console.log(JSON.stringify(question, null, 4));
-                }
                 QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
 
                 if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {

@@ -165,7 +165,7 @@ async function applicationSave(req, res, next) {
                         newActivityCode.payroll = parseInt(activityCode.payroll,10);
                         activityCodes.push(newActivityCode);
                     }
-                    activityCode.employeeTypeList((employeeType) => {
+                    activityCode.employeeTypeList.forEach((employeeType) => {
                         if(employeeType.employeeType === 'Full Time'){
                             fteCount += employeeType.employeeType;
                         }
