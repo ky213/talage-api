@@ -291,9 +291,17 @@ const getSession = async (integration, token, businessTypes) => {
  *   question ID and the value is the answer to the question.
  */
 const injectAnswers = async (integration, token, fullQuestionSession, questionAnswers) => {
-    const questionSession = _.cloneDeep(fullQuestionSession);
-    const answerSession = _.get(questionSession, 'riskSelection.data.answerSession');
-    const allGroups = _.get(answerSession, 'questionnaire.groups');
+    let allGroups = null;
+    let questionSession = null;
+    let answerSession = null;
+    try{
+        questionSession = _.cloneDeep(fullQuestionSession);
+        answerSession = _.get(questionSession, 'riskSelection.data.answerSession');
+        allGroups = _.get(answerSession, 'questionnaire.groups');
+    }
+    catch(err){
+        log.error(`Great American WC Error getting in injectAnswers ${err} ` + __location)
+    }
 
     // Set the 'answer' field of questions equal to the values specified in the
     // questionAnswers parameter.
