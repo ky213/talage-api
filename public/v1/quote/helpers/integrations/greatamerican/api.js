@@ -311,8 +311,10 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
                 const gaOption = question.options.find(a => a.label === questionAnswers[question.questionId]);
                 if (!gaOption) {
                     log.error(`Cannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)} @ ${__location}`);
+                    integration.log += `\nCannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)}\n`;
                     // let insurer reject it for missing question
-                    throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
+                    //make Great American reject it.
+                    //throw new Error(`Cannot find value for question ${question.questionId}  option: ${questionAnswers[question.questionId]}`);
                     //continue;
                 }
                 answer = gaOption.optionId;
