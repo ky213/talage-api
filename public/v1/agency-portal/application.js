@@ -671,6 +671,21 @@ async function applicationCopy(req, res, next) {
         //default back not pre quoting for mysql State.
         newApplicationDoc.processStateOld = 1;
 
+        //fix missing activityCodeId
+        newApplicationDoc.locations.forEach((location) =>{
+            location.activityPayrollList.forEach((activityPayroll) => {
+                if(!activityPayroll.activityCodeId && activityPayroll.ncciCode){
+                    activityPayroll.activityCodeId = activityPayroll.ncciCode
+                }
+            });
+        });
+        newApplicationDoc.activityCodes.forEach((activityCode) => {
+            if(!activityCode.activityCodeId && activityCode.ncciCode){
+                activityCode.activityCodeId = activityCode.ncciCode
+            }
+        });
+
+
         //include Questions
         if(req.body.includeQuestions === false){
             newApplicationDoc.questions = [];
@@ -697,6 +712,7 @@ async function applicationCopy(req, res, next) {
         }
         newApplicationDoc.agencyPortalCreatedUser = userId
         newApplicationDoc.agencyPortalCreated = true;
+        newApplicationDoc.handledByTalage = false;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)

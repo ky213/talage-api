@@ -68,7 +68,7 @@ async function GetActivityCodes(territory,industry_code){
     if(activityIdList.length > 0){
         start = moment();
         const sql_all_activity_codes = `
-            SELECT nc.id, nc.id as 'actvityCodeId', nc.description,
+            SELECT nc.id, nc.id as 'activityCodeId', nc.description,
             CASE
                 WHEN ica.frequency > 30
                 THEN 1

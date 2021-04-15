@@ -16,6 +16,7 @@ const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
 //const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
@@ -259,6 +260,9 @@ module.exports = class Integration {
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
                 insurerActivityCode = {attributes: {}};
+            }
+            if(typeof insurerActivityCode.attributes === 'string'){
+                insurerActivityCode.attributes = JSON.parse(insurerActivityCode.attributes);
             }
         }
         catch(err){
@@ -703,6 +707,112 @@ module.exports = class Integration {
         }
     }
 
+
+    /**
+     * Retrieves the application's  ActivityCodeIds
+     *
+     * @returns {array} - Array of Talage ActivityCodeId
+     */
+    get_application_activitycodes(){
+        const activityCodeArray = [];
+        this.app.applicationDocData.locations.forEach(function(location) {
+            location.activityPayrollList.forEach(function(activtyCodePayroll) {
+                if(!activityCodeArray.activityCodeId){
+                    activityCodeArray.activityCodeId = activityCodeArray.ncciCode
+                }
+                if(!activityCodeArray.includes(activtyCodePayroll.activityCodeId)){
+                    activityCodeArray.push(activtyCodePayroll.activityCodeId)
+                }
+            });
+        });
+        return activityCodeArray;
+
+    }
+
+    /**
+     * Retrieves the application's  ActivityCodeIds
+     *
+     * @returns {array} - Array of Talage ActivityCodeId
+     */
+    get_application_territorylist(){
+        const territoryList = [];
+        this.app.applicationDocData.locations.forEach(function(location) {
+            if(!territoryList.includes(location.state)){
+                territoryList.push(location.state)
+            }
+        });
+        return territoryList;
+
+    }
+
+    /**
+     * Retrieves the applications  Array of Talage ActivityCodeId
+     *
+     * @param {string} activityCodeArray - Array of Talage ActivityCodeId
+     * @returns {array} - Array of Insurer Questions
+     */
+    async get_insurer_questions_by_activitycodes(activityCodeArray){
+        if(!activityCodeArray){
+            activityCodeArray = this.get_application_activitycodes();
+        }
+        if (activityCodeArray.length > 0) {
+            const territoryList = this.get_application_territorylist();
+            //Find insurerActivityCode
+            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const activityCodeQuery = {
+                insurerId: this.insurer.id,
+                talageActivityCodeIdList: {$in: activityCodeArray},
+                territoryList: {$in: territoryList},
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
+            }
+            let insurerQuestionList = null;
+            try{
+                // eslint-disable-next-line prefer-const
+                let insurerQuestionIdList = [];
+                const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
+                insurerActivityCodeList.forEach((insurerActivtyCode) => {
+                    let newInsurerQuestionList = [];
+                    for(let i = 0; i < territoryList.length; i++){
+                        const tQFound = insurerActivtyCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territoryList[i]);
+                        if(tQFound){
+                            newInsurerQuestionList = tQFound.insurerQuestionIdList
+                            break;
+                        }
+                    }
+                    if(newInsurerQuestionList.length === 0){
+                        newInsurerQuestionList = insurerActivtyCode.insurerQuestionIdList
+                    }
+                    if(newInsurerQuestionList.length > 0){
+                        utility.addArrayToArray(insurerQuestionIdList,newInsurerQuestionList)
+                    }
+                });
+
+                const query = {
+                    "insurerId": this.insurer.id,
+                    "insurerQuestionId": {$in: insurerQuestionIdList}
+                }
+                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                try{
+                    insurerQuestionList = await InsurerQuestionModel.find(query);
+                }
+                catch(err){
+                    throw err
+                }
+            }
+            catch(err){
+                log.error(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: get_insurer_questions_by_activitycodes error ${err} ` + __location);
+            }
+            return insurerQuestionList;
+        }
+        else {
+            return [];
+        }
+
+    }
+
     /**
      * Retrieves the question that matches the identifier specified, returns false if none
      *
@@ -836,9 +946,22 @@ module.exports = class Integration {
      */
     get_total_full_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(loc => {
-            total += loc.full_time_employees;
+        let totalLocLevel = 0;
+        this.app.applicationDocData.locations.forEach(loc => {
+            totalLocLevel += loc.full_time_employees;
+            loc.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Full Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
         });
+        //handle if old style
+        if(total === 0){
+            total = totalLocLevel;
+        }
         return total;
     }
 
@@ -849,9 +972,22 @@ module.exports = class Integration {
      */
     get_total_part_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(loc => {
-            total += loc.part_time_employees;
+        let totalLocLevel = 0;
+        this.app.applicationDocData.locations.forEach(loc => {
+            totalLocLevel += loc.part_time_employees;
+            loc.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Part Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
         });
+        //handle if old style
+        if(total === 0){
+            total = totalLocLevel;
+        }
         return total;
     }
 
@@ -1123,17 +1259,21 @@ module.exports = class Integration {
             const appId = this.app.id;
             const insurerName = this.insurer.name;
             const policyType = this.policy.type
-            await this._insurer_quote().
-                then(function(result) {
-                    fulfill(result);
-                }).catch(function(error) {
-                    const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${error}`;
-                    log.error(error_message + __location);
-                    //Do not want to stop the rest of the quoting for application.
-                    // and end of quoting processing.
-                    //reject(error);
-                    fulfill(null);
-                });
+            let error = null;
+            const result = await this._insurer_quote().catch(function(err) {
+                const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${err}`;
+                log.error(error_message + __location);
+                error = err;
+            });
+
+            if(error){
+                //need to save quote with reason.
+                const error_message = `${insurerName} ${policyType} is unable to quote ${error}`;
+                this.reasons.push(error_message)
+                this.return_result('error');
+                fulfill(null);
+            }
+            fulfill(result);
         });
     }
 

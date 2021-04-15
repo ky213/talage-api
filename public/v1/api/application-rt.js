@@ -12,7 +12,7 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
-const ApiAuth = require("./auth-api-rt.js");
+const tokenSvc = global.requireShared('./services/tokensvc.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
@@ -62,7 +62,6 @@ async function applicationSave(req, res, next) {
     if (!req.body.applicationId && req.body.uuid) {
         req.body.applicationId = req.body.uuid;
     }
-
 
     const applicationBO = new ApplicationBO();
 
@@ -118,7 +117,7 @@ async function applicationSave(req, res, next) {
     else {
         //get application and valid agency
         // check JWT has access to this application.
-        const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+        const rightsToApp = isAuthForApplication(req, req.body.applicationId);
         if(rightsToApp !== true){
             return next(serverHelper.forbiddenError(`Not Authorized`));
         }
@@ -132,9 +131,14 @@ async function applicationSave(req, res, next) {
             log.error("Error checking application doc " + err + __location);
             return next(serverHelper.requestError(`Bad Request: check error ${err}`));
         }
-
     }
 
+    // TODO: should the name be more ambiguous or is this a good name?
+    let refreshToken = false;
+    if(req.body.refreshToken){
+        refreshToken = true;
+        delete req.body.refreshToken;
+    }
 
     let responseAppDoc = null;
     try {
@@ -169,7 +173,7 @@ async function applicationSave(req, res, next) {
                         if(employeeType.employeeType === 'Full Time'){
                             fteCount += employeeType.employeeType;
                         }
-                        else if(employeeType.employeeType === 'Full Time'){
+                        else if(employeeType.employeeType === 'Part Time'){
                             pteCount += employeeType.employeeType;
                         }
                     });
@@ -201,7 +205,7 @@ async function applicationSave(req, res, next) {
             // update JWT
             if(responseAppDoc && req.userTokenData && req.userTokenData.quoteApp){
                 try{
-                    const newToken = await ApiAuth.createApplicationToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.createApplicationToken(req, responseAppDoc.applicationId);
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -215,7 +219,7 @@ async function applicationSave(req, res, next) {
                 //API request do create newtoken
                 // add application to Redis for JWT
                 try{
-                    const newToken = await ApiAuth.AddApplicationToToken(req, responseAppDoc.applicationId)
+                    const newToken = await tokenSvc.addApplicationToToken(req, responseAppDoc.applicationId);
                     if(newToken){
                         responseAppDoc.token = newToken;
                     }
@@ -232,6 +236,15 @@ async function applicationSave(req, res, next) {
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
+
+    // if they ask for a new token (refreshToken: "please") or... true
+    // set up and attach a refreshed token.
+    if(refreshToken){
+        const newToken = await tokenSvc.refreshToken(req);
+        if(newToken){
+            responseAppDoc.token = newToken;
+        }
+    }
 
     if (responseAppDoc) {
         res.send(200, responseAppDoc);
@@ -805,7 +818,6 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-
     switch (quote.aggregatedStatus) {
         case 'declined':
             // Return a declined quote summary
@@ -893,6 +905,14 @@ async function createQuoteSummary(quote) {
                     log.error('file get error: no file content' + __location);
                 }
             }
+            let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
+            // checking below to see if images path inserted twice, the IMAGE_URL ends with /images and the insurer.logos starts with images/
+            // the following check should fix the double images path issue
+            if(insurerLogoUrl.includes("imagesimages")){
+                insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
+            }else if (insurerLogoUrl.includes("images/images")){
+                insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
+            }
             // Return the quote summary
             return {
                 id: quote.mysqlId,
@@ -903,7 +923,7 @@ async function createQuoteSummary(quote) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: global.settings.IMAGE_URL + insurer.logo,
+                    logo: insurerLogoUrl,
                     name: insurer.name,
                     rating: insurer.rating
                 },
