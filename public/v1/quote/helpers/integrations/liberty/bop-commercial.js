@@ -26,6 +26,12 @@ BOP185 (ignored)
     Case: Year Built is > 24 years in the past and either Building limit > 0 or Business Personal Property limit > 500,000
 */
 
+/*
+    TODO: 
+        - Verify Coverage limits are getting parsed in response properly for quote
+        - Make sure response/request logging is done properly, and showing properly in AP
+*/
+
 // The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM
 const supportedPerOccLimits = [
     300000,
@@ -230,10 +236,6 @@ module.exports = class LibertySBOP extends Integration {
 
         // Liberty Mutual Commercial BOP only uses perOcc and genAgg
         const [perOccLimit, genAggLimit, aggLimit] = this.getSupportedLimits(BOPPolicy.limits);
-        console.log("LIMITS");
-        console.log(perOccLimit);
-        console.log(genAggLimit);
-        console.log(aggLimit);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
         const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
@@ -531,7 +533,7 @@ module.exports = class LibertySBOP extends Integration {
                         yearsOfExp = 0;
                     }
 
-                    PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperienceText', yearsOfExp);
+                    PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperience', yearsOfExp);
 
                     if (yearsOfExp < 3) {
                         const BOP191 = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "BOP191");
@@ -679,13 +681,13 @@ module.exports = class LibertySBOP extends Integration {
         //                         <CoverageCd>LBMED</CoverageCd>
         //                         <Limit>
         //                             <FormatCurrencyAmt>
-        //                                 <Amt>1000000</Amt>
+        //                                 <Amt>2000000</Amt>
         //                             </FormatCurrencyAmt>
         //                             <LimitAppliesToCd>Aggregate</LimitAppliesToCd>
         //                         </Limit>
         //                         <Limit>
         //                             <FormatCurrencyAmt>
-        //                                 <Amt>2000000</Amt>
+        //                                 <Amt>1000000</Amt>
         //                             </FormatCurrencyAmt>
         //                             <LimitAppliesToCd>PerOcc</LimitAppliesToCd>
         //                         </Limit>
@@ -728,16 +730,19 @@ module.exports = class LibertySBOP extends Integration {
         applicationDocData.locations.forEach((location, index) => {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
-            const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
-            innerCoverage.ele('CoverageCd', 'BOP');
-            const PTOption = innerCoverage.ele('Option');
-            PTOption.ele('OptionCd', 'PartTime');
-            PTOption.ele('OptionTypeCd', 'Num1');
-            PTOption.ele('OptionValue', location.part_time_employees);
-            const FTOption = innerCoverage.ele('Option');
-            FTOption.ele('OptionCd', 'FullTime');
-            FTOption.ele('OptionTypeCd', 'Num1');
-            FTOption.ele('OptionValue', location.full_time_employees);
+            // NOTE: Commercial BOP does not require PT/FT employee information, except for when professional liability is included
+            //       In those cases, the CoverageCd is whatever employee code matches the Professional Liability selected
+            
+            // const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
+            // innerCoverage.ele('CoverageCd', 'BOP');
+            // const PTOption = innerCoverage.ele('Option');
+            // PTOption.ele('OptionCd', 'PartTime');
+            // PTOption.ele('OptionTypeCd', 'Num1');
+            // PTOption.ele('OptionValue', location.part_time_employees);
+            // const FTOption = innerCoverage.ele('Option');
+            // FTOption.ele('OptionCd', 'FullTime');
+            // FTOption.ele('OptionTypeCd', 'Num1');
+            // FTOption.ele('OptionValue', location.full_time_employees);
         });
 
         //                 <!-- Does the applicant have any subsidiaries or is the applicant a subsidiary of another entity? -->
@@ -847,26 +852,16 @@ module.exports = class LibertySBOP extends Integration {
             const AreaOccupied = BldgOccupancy.ele('AreaOccupied');
             const BldgArea = Construction.ele('BldgArea');
 
-            // total receipts (only required if more than 1 location)
-            if (applicationDocData.locations.length > 1) {
-                console.log("LOCATIONS");
-                console.log(JSON.stringify(applicationDocData.locations, null, 4));
-                const totalReceipts = location.activityPayrollList.reduce((sum, activity) => sum + activity.payroll);
-                const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                TotalGrossReceipts.ele('OperationsCd', "TOTAL");
-                const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
-                TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
-            }
+            // total receipts (only required if more than 1 location, but including anyways)
+            const totalReceipts = location.activityPayrollList.map(activity => activity.payroll).reduce((sum, payroll) => sum + payroll);
+            const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
+            TotalGrossReceipts.ele('OperationsCd', "TOTAL");
+            const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
+            TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
 
             // Bldg Area (autofill)
             BldgArea.ele('NumUnits', location.square_footage);
             BldgArea.ele('UnitMeasurementCd', 'SquareFeet');
-
-            // Gross Revenue (autofill)
-            const AnnualGrossReceipts = LocationUWInfo.ele('GrossReceipts');
-            AnnualGrossReceipts.ele('OperationsCd', 'TOTAL');
-            const AGRAnnualGrossReceiptsAmt = AnnualGrossReceipts.ele('AnnualGrossReceiptsAmt');
-            AGRAnnualGrossReceiptsAmt.ele('Amt', applicationDocData.grossSalesAmt);
 
             let LocationUWInfoExt = null;
             let BldgImprovements = null;
@@ -922,20 +917,17 @@ module.exports = class LibertySBOP extends Integration {
                     case "BOP186":
                     case "BOP185":
                         // only provide these questions if year built was over 24 years ago
-                        if (!yearBuilt || moment().year() - yearBuilt > 24) {
+                        if (!yearBuilt || moment().year() - yearBuilt > 24) { 
                             if (!BldgImprovements) {
                                 BldgImprovements = LocationUWInfo.ele('BldgImprovements');
                             }
-                            if (!BldgImprovementExt) {
-                                BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
-                            }
                             const qId = question.insurerQuestionIdentifier;
                             if (qId === 'BOP8') {
-                                BldgImprovementExt.ele('WiringImprovementYear', question.answerValue);
+                                BldgImprovements.ele('WiringImprovementYear', question.answerValue);
                             } else if (qId === 'BOP186') {
-                                BldgImprovementExt.ele('PlumbingImprovementYear', question.answerValue);
+                                BldgImprovements.ele('PlumbingImprovementYear', question.answerValue);
                             } else { // if BOP185
-                                BldgImprovementExt.ele('HeatingImprovementYear', question.answerValue);
+                                BldgImprovements.ele('HeatingImprovementYear', question.answerValue);
                             }
                         }
                         break;
@@ -1011,7 +1003,7 @@ module.exports = class LibertySBOP extends Integration {
                         Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
                         break;
                     case "LMBOP_RoofConstruction": 
-                        RoofingMaterial.ele('RoofingMaterialCd', roofConstructionMatrix[question.answerValue.trim()]);
+                        RoofingMaterial.ele('RoofMaterialCd', roofConstructionMatrix[question.answerValue.trim()]);
                         break;
                     case "LMBOP_RoofType":
                         RoofingMaterial.ele('com.libertymutual.ci_RoofMaterialResistanceCd', roofTypeMatrix[question.answerValue.trim()]);
@@ -1370,7 +1362,7 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     getSupportedLimits(limitsStr) {
-        if (limitsStr.isEmpty()) {
+        if (limitsStr === "") {
             log.warn(`${logPrefix}Provided limits are empty.`);
             return limitsStr;
         }
@@ -1378,7 +1370,7 @@ module.exports = class LibertySBOP extends Integration {
         // skip first character, look for first occurance of non-zero number
         let indexes = [];
         for (let i = 1; i < limitsStr.length; i++) {
-            if (limits[i] !== "0") {
+            if (limitsStr[i] !== "0") {
                 indexes.push(i);
             }
         }
