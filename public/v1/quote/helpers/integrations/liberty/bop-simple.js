@@ -699,7 +699,7 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // parse first limit out of limits string
-        const limit = limits.substring(0, index)
+        const limit = limits.substring(0, index);
 
         // attempt to convert the passed-in limit to an integer
         let limitInt = 0;

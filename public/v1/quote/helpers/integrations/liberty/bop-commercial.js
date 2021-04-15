@@ -27,11 +27,18 @@ BOP185 (ignored)
 */
 
 // The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM
-const supportedLimits = [
+const supportedPerOccLimits = [
     300000,
     500000,
     1000000,
     2000000
+];
+
+const supportedGenAggLimits = [
+    600000,
+    1000000,
+    2000000,
+    4000000
 ];
 
 // The supported property deductables
@@ -158,6 +165,8 @@ const lossCauseCodeMatrix = {
     "Other": "BOTHR"
 }
 
+let logPrefix = '';
+
 module.exports = class LibertySBOP extends Integration {
 
     /**
@@ -185,7 +194,7 @@ module.exports = class LibertySBOP extends Integration {
 
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
-        const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
+        logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
 
         // if there's no BOP policy
         if (!BOPPolicy) {
@@ -219,9 +228,11 @@ module.exports = class LibertySBOP extends Integration {
         const commercialBOPQuestions = applicationDocData.questions.filter(q => q.insurerQuestionAttributes.commercialBOP);
         const requestUUID = this.generate_uuid();
 
-        // Assign the closest supported limit for Per Occ
-        // NOTE: Currently this is not included in the request and defaulted on LM's side
-        const limit = this.getSupportedLimit(BOPPolicy.limits);
+        // Liberty Mutual Commercial BOP only uses perOcc and genAgg
+        const [perOccLimit, genAggLimit, aggLimit] = this.getSupportedLimits(BOPPolicy.limits);
+        console.log(perOccLimit);
+        console.log(genAggLimit);
+        console.log(aggLimit);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
         const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
@@ -371,7 +382,7 @@ module.exports = class LibertySBOP extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
-        BusinessInfo.ele('OperationsDesc', 'N/A'); // NOTE: See if this is acceptable, or if we need to add a question 
+        BusinessInfo.ele('OperationsDesc', 'Operation Description Not Provided.'); // NOTE: See if this is acceptable, or if we need to add a question 
 
     //             <Policy>
 
@@ -612,6 +623,16 @@ module.exports = class LibertySBOP extends Integration {
         //                                 <LimitAppliesToCd>Coverage</LimitAppliesToCd>
         //                             </Limit>
         //                         </Coverage>
+        //                         <SubjectInsuranceCd>BPP</SubjectInsuranceCd>
+        //                         <Coverage>
+        //                             <CoverageCd>BPP</CoverageCd>
+        //                             <Limit>
+        //                                 <FormatCurrencyAmt>
+        //                                     <Amt>250000</Amt>
+        //                                 </FormatCurrencyAmt>
+        //                                 <LimitAppliesToCd>Coverage</LimitAppliesToCd>
+        //                             </Limit>
+        //                         </Coverage>
         //                     </CommlPropertyInfo>
         //                 </PropertyInfo>
 
@@ -642,6 +663,7 @@ module.exports = class LibertySBOP extends Integration {
             // Building Limit
             CommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
             const BLDGCoverage = CommlPropertyInfo.ele('Coverage');
+            BLDGCoverage.ele('CoverageCd', 'BLDG');
             const BLDGLimit = BLDGCoverage.ele('Limit');
             const BLDGFormatCurrencyAmt = BLDGLimit.ele('FormatCurrencyAmt');
             BLDGFormatCurrencyAmt.ele('Amt', location.buildingLimit);
@@ -668,6 +690,22 @@ module.exports = class LibertySBOP extends Integration {
         //                 </LiabilityInfo>
 
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
+
+        // structure not provided in example request
+
+        const LimitCoverage = LiabilityInfo.ele('Coverage');
+        LimitCoverage.ele('CoverageCd', 'LBMED');
+        // General Aggregate Limit
+        const AggLimit = LimitCoverage.ele('Limit');
+        const AggFormatCurrencyAmt = AggLimit.ele('FormatCurrencyAmt');
+        AggFormatCurrencyAmt.ele('Amt', genAggLimit);
+        AggFormatCurrencyAmt.ele('LimitAppliesToCd', "Aggregate");
+        // Each Occurrence Limit
+        const PerOccLimit = LimitCoverage.ele('Limit');
+        const PerOccFormatCurrencyAmt = PerOccLimit.ele('FormatCurrencyAmt');
+        PerOccFormatCurrencyAmt.ele('Amt', "ENTER HERE");
+        PerOccFormatCurrencyAmt.ele('LimitAppliesToCd', perOccLimit);
+
         applicationDocData.locations.forEach((location, index) => {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
@@ -1305,57 +1343,87 @@ module.exports = class LibertySBOP extends Integration {
 
     }
 
-    getSupportedLimit(limits) {
+    getSupportedLimits(limitsStr) {
+        if (limitsStr.isEmpty()) {
+            log.warn(`${logPrefix}Provided limits are empty.`);
+            return limitsStr;
+        }
+
         // skip first character, look for first occurance of non-zero number
-        let index = 0;
-        for (let i = 1; i < limits.length; i++) {
+        let indexes = [];
+        for (let i = 1; i < limitsStr.length; i++) {
             if (limits[i] !== "0") {
-                index = i;
-                break;
+                indexes.push(i);
             }
         }
 
         // parse first limit out of limits string
-        const limit = limits.substring(0, index)
+        const limits = [];
+        limits.push(limitsStr.substring(0, indexes[0])); // per occ
+        limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
+        limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
 
-        // attempt to convert the passed-in limit to an integer
-        let limitInt = 0;
+        // attempt to convert the passed-in limits to an integer
         try {
-            limitInt = parseInt(limit, 10);
+            limits.map(limit => parseInt(limit, 10));
         }
         catch (e) {
-            log.warn(`Error parsing limit: ${e}. Leaving value as-is. ` + __location);
-            return limit;
+            log.warn(`${logPrefix}Error parsing limit: ${e}. Leaving value as-is. ` + __location);
+            return limitsStr;
         }
 
-        // find the index of the limit that is greater than the passed-in limit, if it exists
-        let greaterThanIndex = -1;
-        for (let i = 0; i < supportedLimits.length; i++) {
-            const l = supportedLimits[i];
-            if (l > limitInt) {
-                greaterThanIndex = i;
-                break;
+        limits.map((limit, i) => {
+            let supportedLimits = null;
+            switch(i) {
+                case 1: 
+                    supportedLimits = supportedPerOccLimits;
+                    break;
+                case 2:
+                    supportedLimits = supportedGenAggLimits;
+                    break;
+                case 3: 
+                    // Liberty BOP Commercial doesn't use Aggregate
+                    break;
+                default:
+                    log.warn(`${logPrefix}Encountered more limits than we should have.`);
             }
-        }
 
-        // based off the index, determine which limit to return (as a string)
-        switch (greaterThanIndex) {
-            case -1:
-                return `${supportedLimits[supportedLimits.length - 1]}`;
-            case 0:
-                return `${supportedLimits[0]}`;
-            default:
-                const lowerLimit = supportedLimits[greaterThanIndex - 1];
-                const upperLimit = supportedLimits[greaterThanIndex];
-                const diffToLower = limitInt - lowerLimit;
-                const diffToUpper = upperLimit - limitInt;
-                if (diffToLower < diffToUpper) {
-                    return `${lowerLimit}`;
+            if (supportedLimits) {
+                // find the index of the limit that is greater than the passed-in limit, if it exists
+                let greaterThanIndex = -1;
+                for (let i = 0; i < supportedLimits.length; i++) {
+                    const l = supportedLimits[i];
+                    if (l > limit) {
+                        greaterThanIndex = i;
+                        break;
+                    }
                 }
-                else {
-                    return `${upperLimit}`;
+
+                // based off the index, determine which limit to return (as a string)
+                switch (greaterThanIndex) {
+                    case -1:
+                        return `${supportedLimits[supportedLimits.length - 1]}`;
+                    case 0:
+                        return `${supportedLimits[0]}`;
+                    default:
+                        const lowerLimit = supportedLimits[greaterThanIndex - 1];
+                        const upperLimit = supportedLimits[greaterThanIndex];
+                        const diffToLower = limit - lowerLimit;
+                        const diffToUpper = upperLimit - limit;
+                        if (diffToLower < diffToUpper) {
+                            return `${lowerLimit}`;
+                        }
+                        else {
+                            return `${upperLimit}`;
+                        }
                 }
-        }
+            } else {
+                return limit;
+            }
+
+        });
+
+        return limits;
     }
 
     getSupportedDeductible(deductible) {
