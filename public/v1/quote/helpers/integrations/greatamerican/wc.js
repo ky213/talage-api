@@ -175,6 +175,10 @@ module.exports = class GreatAmericanWC extends Integration {
 
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
+        if(!curAnswers){
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request injectAnswers Error: No reponse`);
+            return this.return_result('error');
+        }
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
         // Often times follow-up questions are offered by the Great American
