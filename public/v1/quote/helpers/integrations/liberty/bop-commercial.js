@@ -29,7 +29,6 @@ BOP185 (ignored)
 /*
     TODO: 
         - Verify Coverage limits are getting parsed in response properly for quote
-        - Make sure response/request logging is done properly, and showing properly in AP
 */
 
 // The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM
@@ -102,7 +101,7 @@ const locationQuestionSpecialCases = [
 
 const constructionMatrix = {
     "Frame": "F",
-    "Joisted Masongry": "JM",
+    "Joisted Masonry": "JM",
     "Non Combustible": "NC",
     "Masonry Non Combustible": "MNC",
     "Fire Resistive": "R"
@@ -1171,7 +1170,7 @@ module.exports = class LibertySBOP extends Integration {
         let premium = null;
         const quoteLimits = {};
         let quoteLetter = null;
-        const quoteMIMEType = null;
+        const quoteMIMEType = "BASE64";
         let policyStatus = null;
 
         // check valid response object structure
@@ -1224,38 +1223,34 @@ module.exports = class LibertySBOP extends Integration {
         // check valid limit data structure in response
         if (
             !result.BOPLineBusiness ||
-            !result.BOPLineBusiness[0].LiabilityInfo ||
-            !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification ||
-            !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage
+            !result.BOPLineBusiness[0].LiabilityInfo || 
+            !result.BOPLineBusiness[0].LiabilityInfo[0].Coverage
         ) {
             log.error(`${logPrefix}Liability Limits not provided, or result structure has changed. ` + __location);
         }
         else {
             // limits exist, set them
-            const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage[0];
+            const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].Coverage;
 
-            coverages.Limit.forEach((limit) => {
-                const limitAmount = limit.FormatCurrencyAmt[0].Amt[0];
-                switch(limit.LimitAppliesToCd[0]){
-                    case 'Aggregate':
-                        quoteLimits[8] = limitAmount;
-                        break;
-                    case 'FireDam':
-                        quoteLimits[5] = limitAmount;
-                        break;
-                    case 'Medical':
-                        quoteLimits[6] = limitAmount;
-                        break;
-                    case 'PerOcc':
-                        quoteLimits[4] = limitAmount;
-                        break;
-                    case 'ProductsCompletedOperations':
-                        quoteLimits[9] = limitAmount;
-                        break;
-                    default:
-                        log.warn(`${logPrefix}Unexpected Limit found in response.`);
-                        break;
-                }
+            coverages.forEach(coverageLimit => {
+                // only look at limits that have LimitAppliesToCd
+                coverageLimit.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
+                    const limitAmount = limit.FormatCurrencyAmt[0].Amt[0];
+                    switch(limit.LimitAppliesToCd[0]){
+                        case 'Aggregate':
+                            quoteLimits[8] = limitAmount;
+                            break;
+                        case 'MEDEX':
+                            quoteLimits[6] = limitAmount;
+                            break;
+                        case 'PerOcc':
+                            quoteLimits[4] = limitAmount;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Unexpected Limit "${limit.LimitAppliesToCd[0]}" found in response. We may want to capture it.`);
+                            break;
+                    }
+                });
             });
         }
 
