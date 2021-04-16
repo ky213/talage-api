@@ -114,6 +114,36 @@ const getMonthlyTrends = async(where) => {
         moment(t._id.month, 'M').format('MMMM'), t.count
     ]);
 }
+
+
+const getDailyTrends = async(where) => {
+    const monthlyTrends = await Application.aggregate([
+        {$match: where},
+        {$project: {
+            creationDay: {$dayOfMonth: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}}
+        }},
+        {$group: {
+            _id: {
+                day: '$creationDay',
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            count: {$sum: 1}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1,
+            '_id.day': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(`${t._id.year}-${t._id.month}-${t._id.day}`, 'Y-M-D').format('M-D'), t.count
+    ]);
+}
+
 // eslint-disable-next-line valid-jsdoc
 /** Get the earliest application created date */
 const getMinDate = async(where) => {
@@ -310,6 +340,7 @@ async function getReports(req) {
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     const where = {active: true};
+    let monthlyTrend = true
 
     // If static data isn't being requested both dates are required
     if (!initialRequest) {
@@ -319,6 +350,13 @@ async function getReports(req) {
                 $gte: mysqlDateToJsDate(startDate, offSetHours),
                 $lte: mysqlDateToJsDate(endDate, offSetHours)
             };
+
+            const startMoment = moment(startDate)
+            const endMoment = moment(endDate)
+            const reportDays = endMoment.diff(startMoment, 'days')
+            if(reportDays <= 62){
+                monthlyTrend = false;
+            }
         }
         else {
             log.info('Bad Request: Query parameters missing');
@@ -430,6 +468,8 @@ async function getReports(req) {
         };
     }
     else {
+        //trend monthly or daily ?
+        const trendData = monthlyTrend ? await getMonthlyTrends(where) : await getDailyTrends(where);
         return {
             funnel: {
                 started: await Application.countDocuments(where),
@@ -439,7 +479,7 @@ async function getReports(req) {
             },
             geography: await getGeography(where),
             industries: await getIndustries(where),
-            monthlyTrends: await getMonthlyTrends(where),
+            monthlyTrends: trendData,
             premium: await getPremium(where)
         }
     }
