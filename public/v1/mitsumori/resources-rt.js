@@ -51,6 +51,7 @@ async function getResources(req, res, next){
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
+            await requirementHelper.requiredFields(resources, req.query.appId);
             break;
         case "_mailing-address":
             territories(resources);
