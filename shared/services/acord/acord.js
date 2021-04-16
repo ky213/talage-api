@@ -617,7 +617,7 @@ module.exports = class ACORD{
                         for(const insurerActivityCodeObj of insurerActivityCodeList){
                             const currentLetter = String.fromCharCode(pdfKey);
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}-${insurerActivityCodeObj.sub}`;
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}${insurerActivityCodeObj.sub ? `-${insurerActivityCodeObj.sub}` : ''}`;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = insurerActivityCodeObj.description;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
