@@ -109,11 +109,10 @@ exports.requiredFields = async(resources, appId) => {
                     break;
             }
         }
-
-        // TODO: eventually we can make more determinations off the application to decide what is required (and not)
-        console.log(requiredFields);
         resources.requiredAppFields = requiredFields;
     }
+
+    // TODO: eventually we can make more determinations off the application to decide what is required (and not)
 };
 // combine objects, this needs to merge both objects with true taking precedence above false for both required and visible
 const combineRequiredObjects = (obj1, obj2, newObj) => {
