@@ -154,7 +154,7 @@ var agencyReportTask = async function(){
         "lastName": "Last Name",
         "phone": "Agency Phone",
         "email": "Agency Email",
-        "createdAt": "Created",
+        "created": "Created",
         "lastAppDt": "Last App Date"
     };
 
