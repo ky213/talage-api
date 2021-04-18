@@ -81,6 +81,7 @@ var agencyReportTask = async function(){
     try{
         const pipline = [
             {$match: {
+                agencyNetworkId: 1,
                 active: true,
                 agencyId: {$nin: [42,44]},
                 createdAt: {$gte: fortyFiveDaysAgo}
