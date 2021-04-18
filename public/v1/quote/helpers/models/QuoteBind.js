@@ -25,13 +25,15 @@ module.exports = class QuoteBind{
         this.insurer = {};
         this.paymnet_plan = 0;
         this.agencyLocation = null;
+        this.requestUserId = null;
+        this.policyInfo = {};
     }
 
     /**
      * Marks this quote as bound. ??? where is the save or update
      * @returns {Promise.<string, ServerError>} Returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
      */
-    async markAsBind(){
+    async checkIfQuoteCanBeBound(){
         if(!this.quoteDoc){
             log.error('Missing QuoteDoc ' + __location);
             throw new Error('Quote not Found. No action taken.');
@@ -71,17 +73,17 @@ module.exports = class QuoteBind{
         // Make sure that this quote was quoted by the API
         if(!statusWithinBindingRange){
             // If this was a price indication, let's send a Slack message
-            if(this.quoteDoc.apiResult === 'referred_with_price'){
-                await this.send_slack_notification('indication');
-            }
+            // if(this.quoteDoc.apiResult === 'referred_with_price'){
+            //     await this.send_slack_notification('indication');
+            // }
 
             // Return an error
             log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
-        await this.send_slack_notification('requested');
-        return "NotBound";
+        //await this.send_slack_notification('requested');
+        return true;
     }
 
     // eslint-disable-next-line valid-jsdoc
@@ -90,7 +92,17 @@ module.exports = class QuoteBind{
      * returns nothing. If not successful, then an Exception is thrown.
      */
     async bindPolicy(){
-        await this.markAsBind();
+        let oktoBind = false;
+        // only have success with API call.
+        try {
+            oktoBind = await this.checkIfQuoteCanBeBound();
+        }
+        catch(err){
+            log.error(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} error checking quote status ${err} ${__location}`);
+        }
+        if(oktoBind === false){
+            return "cannot_bind_quote";
+        }
 
         // Check that an integration file exists for this insurer and store a reference to it for later use
         const path = `${__dirname}/../integrations/${this.insurer.slug}/${this.quoteDoc.policyType.toLowerCase()}-bind.js`;
@@ -101,12 +113,56 @@ module.exports = class QuoteBind{
             // Create an instance of the Integration class
             const BindClass = require(path);
 
-            const integration = new BindClass(this.quoteDoc, this.insurer);
+            const bindWorker = new BindClass(this.quoteDoc, this.insurer, this.agencyLocation);
             // Begin the binding process
             try {
-                return await integration.bind();
+                // response: "success", "error", "rejected"
+                const quoteResp = await bindWorker.bind();
+                //save log.
+                await this.quoteDoc.save().catch((err) => {
+                    log.error(`failed to save quoteDoc after processing ${err}` + __location);
+                })
+                if(quoteResp === "success"){
+                    //save it
+                    const policyInfo = {
+                        policyId: bindWorker.policyId,
+                        policyName: bindWorker.policyName,
+                        policyEffectiveDate: bindWorker.policyEffectiveDate,
+                        policyPremium: bindWorker.policyPremium
+                    }
+                    //in case upstrign need to get access to it.
+                    this.policyInfo = policyInfo;
+
+                    const quoteBO = new QuoteBO()
+                    await quoteBO.markQuoteAsBound(this.quoteDoc.quoteId, this.applicationDoc.applicationId, this.requestUserId, policyInfo);
+                    //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
+                    const ApplicationBO = global.requireShared('./models/Application-BO.js');
+                    const applicationBO = new ApplicationBO();
+
+                    //Quote and application Doc should be updated here to central logic.
+                    await applicationBO.updateStatus(this.applicationDoc.applicationId,"bound", 90);
+                    // Update Application-level quote metrics when we do a bind.
+                    await applicationBO.recalculateQuoteMetrics(this.applicationDoc.applicationId);
+                    //notification should be trigger here.
+                }
+                // else if(quoteResp = "rejected") {
+                //     //nothing to do
+                // } if(quoteResp = "error") {
+                //     //nothing to do
+                // }
+                else {
+                    //unknown reponse.
+                    log.error(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} Bind Unknown response from Bind Class ${__location}`);
+                    return "error";
+                }
+                return quoteResp;
             }
             catch (error) {
+                await this.quoteDoc.save().catch((err) => {
+                    log.error(`failed to save quoteDoc after error ${err}` + __location);
+                })
+                log.debug(`${error}` + __location);
+                log.error(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} Bind request Error: ${error} ${__location}`);
                 throw error;
             }
         }
@@ -117,20 +173,18 @@ module.exports = class QuoteBind{
 	 * Populates this object with data from the database
 	 *
 	 * @param {int} id - The ID of the quote
-	 * @param {int} payment_plan - The ID of the payment plan selected by the user
+	 * @param {int} payment_plan_id - The ID of the payment plan selected by the user
+      @param {int} requestUserId - The Agency Portal user ID that requested the bind.
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
-    async load(id, payment_plan){
+    async load(id, payment_plan_id, requestUserId){
+        this.requestUserId = requestUserId;
         // Attempt to get the details of this quote from the database
         //USE BO's
         const quoteModel = new QuoteBO();
         try {
-            if(await validator.isUuid(id)){
-                this.quoteDoc = await quoteModel.getById(id)
-            }
-            else {
-                this.quoteDoc = await quoteModel.getMongoDocbyMysqlId(id)
-            }
+            const returnModel = true
+            this.quoteDoc = await quoteModel.getById(id,returnModel)
         }
         catch (err) {
             log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
@@ -142,12 +196,18 @@ module.exports = class QuoteBind{
             log.error(`No quoteDoc quoteId ${id} ` + __location);
             throw new Error(`No quoteDoc quoteId ${id}`);
         }
+        if(this.quoteDoc.paymentPlanId && !payment_plan_id){
+            payment_plan_id = this.quoteDoc.paymentPlanId;
+        }
+        if(!payment_plan_id){
+            payment_plan_id = 1;
+        }
         //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
         const ApplicationBO = global.requireShared('./models/Application-BO.js');
         const applicationBO = new ApplicationBO();
         try{
             this.applicationDoc = await applicationBO.getfromMongoByAppId(this.quoteDoc.applicationId);
-            log.debug("Quote Application added applicationData")
+            log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
             log.error("Unable to get applicationData for binding appId: " + id + __location);
@@ -163,6 +223,16 @@ module.exports = class QuoteBind{
             log.error("Agency load for bind error " + err + __location);
             return;
         }
+        //for API credentials.
+        //load agencyLocation
+        try {
+            const agencyLocationBO = new AgencyLocationBO()
+            this.agencyLocation = await agencyLocationBO.getById(this.applicationDoc.agencyLocationId)
+        }
+        catch (err) {
+            log.error("Agency Location load for bind error " + err + __location);
+            return;
+        }
 
         // Load up an insurer based on the ID found
         const insurer = new Insurer();
@@ -170,19 +240,22 @@ module.exports = class QuoteBind{
 
         // Validate the payment plan
         // - Only set payment plan if passed in.
-        if (payment_plan) {
+        if (payment_plan_id) {
             const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
             let insurerPaymentPlan = null;
             try {
-                insurerPaymentPlan = await insurerPaymentPlanBO.getById(parseInt(payment_plan, 10));
+                insurerPaymentPlan = await insurerPaymentPlanBO.getById(parseInt(payment_plan_id, 10));
             }
             catch (err) {
-                log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan}:` + err + __location);
+                log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan_id}:` + err + __location);
             }
             if(!insurerPaymentPlan){
                 throw new Error('Payment plan does not belong to the insurer who provided this quote');
             }
-            this.payment_plan = payment_plan;
+            this.payment_plan = payment_plan_id;
+        }
+        else{
+            log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan_id}:` + __location);
         }
     }
 

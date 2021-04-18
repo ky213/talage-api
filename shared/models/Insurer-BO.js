@@ -221,6 +221,7 @@ module.exports = class InsurerBO{
                 let docDB = null;
                 try {
                     docDB = await InsurerModel.findOne(query, '-__v');
+                    docDB.id = docDB.insurerId;
                 }
                 catch (err) {
                     log.error("Getting Agency error " + err + __location);

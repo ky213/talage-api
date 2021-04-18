@@ -19,6 +19,14 @@ const QouteLimitSchema = new Schema({
     amount: {type: Number, required: true}
 },{_id : false})
 
+const PolicySchema = new Schema({
+    policyId: {type: String, required: false},
+    policyName: {type: String, required: false},
+    policyEffectiveDate: {type: String, required: false},
+    policyPremium: {type: String, required: false}
+},{_id : false})
+
+
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
     mysqlId: {type: Number, unique: true},
@@ -49,6 +57,7 @@ const QuoteSchema = new Schema({
     additionalInfo: {type: Schema.Types.Mixed},
     handledByTalage: {type: Boolean, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
+    policyInfo: PolicySchema,
     active: {type: Boolean, default: true}
 })
 

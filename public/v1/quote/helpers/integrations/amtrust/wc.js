@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /**
  * Worker's Compensation for Acuity
  *
@@ -443,7 +444,7 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    return this.client_error('Could not determine the answer for one of the questions', __location, { questionId: questionId });
+                    return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId });
                 }
                 // This question was not answered
                 if (!answer) {

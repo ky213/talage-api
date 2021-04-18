@@ -1010,7 +1010,10 @@ async function quotingCheck(req, res, next) {
     return next();
 }
 
-async function bindQuote(req, res, next) {
+async function requestToBindQuote(req, res, next) {
+
+    // This only marks quote with request to bind.
+    // trigger no logic that does API level binding - 2021-04-18
 
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
@@ -1073,6 +1076,9 @@ async function bindQuote(req, res, next) {
                 paymentPlanId: paymentPlanId
             };
             await applicationBO.processRequestToBind(applicationId,quoteJSON);
+
+            // When API level binding is implemented.
+            // the calls for processRequestToBind sould be enhanced.
         }
         catch(err){
             log.error(`Bind request error app ${applicationId} error ${err}` + __location)
@@ -1103,5 +1109,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, requestToBindQuote);
 }
