@@ -56,7 +56,7 @@ const wcRequirements = {
     grossSalesAmt: {}
 };
 
-exports.requiredFields = async(resources, appId) => {
+exports.requiredFields = async(appId) => {
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
@@ -66,8 +66,8 @@ exports.requiredFields = async(resources, appId) => {
         log.error("Error getting application doc " + err + __location);
     }
 
+    let requiredFields = null;
     if(applicationDB && applicationDB.hasOwnProperty('policies')){
-        let requiredFields = null;
         for(const policyData of applicationDB.policies){
             // if the policyType is not defined for any reason, just skip it
             if(!policyData.policyType){
@@ -104,10 +104,10 @@ exports.requiredFields = async(resources, appId) => {
                     break;
             }
         }
-        resources.requiredAppFields = requiredFields;
     }
 
     // TODO: eventually we can make more determinations off the application to decide what is required (and not)
+    return requiredFields;
 };
 // combine objects, this needs to merge both objects with true taking precedence above false for both required and visible
 const combineRequiredObjects = (obj1, obj2, newObj) => {

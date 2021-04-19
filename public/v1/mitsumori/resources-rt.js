@@ -40,7 +40,7 @@ async function getResources(req, res, next){
             break;
         case "_business-questions":
             membershipTypes(resources);
-            await requirementHelper.requiredFields(resources, req.query.appId);
+            resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_business":
             break;
@@ -51,14 +51,14 @@ async function getResources(req, res, next){
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
-            await requirementHelper.requiredFields(resources, req.query.appId);
+            resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_mailing-address":
             territories(resources);
             break;
         case "_officers":
             officerTitles(resources);
-            await requirementHelper.requiredFields(resources, req.query.appId);
+            resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
     }
 
