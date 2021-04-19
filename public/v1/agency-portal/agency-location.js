@@ -496,7 +496,7 @@ async function getSelectionList(req, res, next) {
 
     let locationList = null;
     const query = {"agencyId": agencyId}
-    const getAgencyName = true;
+    const getAgencyName = false;
     const getChildren = true;
     const useAgencyPrimeInsurers = true;
 
