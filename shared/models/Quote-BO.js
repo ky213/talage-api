@@ -66,42 +66,52 @@ module.exports = class QuoteBO {
         });
     }
 
-    saveIntegrationQuote(quoteJSON, columns, values) {
+    saveIntegrationQuote(quoteId, quoteJSON, columns, values) {
         return new Promise(async(resolve) => {
-            let quoteID = 0;
-            const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
-                log.error("Error QuoteBO insertByColumnValue " + err + __location);
-                // reject(err);
-                // do not stop mongo save.
-            });
-            if(quoteResult){
-                quoteID = quoteResult.insertId;
-                log.debug(`${tableName} saved id ` + quoteID);
-                quoteJSON.mysqlId = quoteID;
-            }
-            //check limits
-            if(quoteJSON.limits && quoteJSON.limits.length > 0){
-                for (let i = 0; i < quoteJSON.limits.length; i++){
-                    const limitJSON = quoteJSON.limits[i];
-                    if(!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN"){
-                        log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
-                        limitJSON.amount = 0;
+            if (quoteId === null) {
+                // if null, insert new record
+                let mysqlQuoteId = 0;
+                const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
+                    log.error("Error QuoteBO insertByColumnValue " + err + __location);
+                    // reject(err);
+                    // do not stop mongo save.
+                });
+                if (quoteResult) { 
+                    mysqlQuoteId = quoteResult.insertId;
+                    log.debug(`${tableName} saved id ` + mysqlQuoteId);
+                    quoteJSON.mysqlId = mysqlQuoteId;
+                }
+
+                //check limits
+                if (quoteJSON.limits && quoteJSON.limits.length > 0) {
+                    for (let i = 0; i < quoteJSON.limits.length; i++) {
+                        const limitJSON = quoteJSON.limits[i];
+                        if (!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN") {
+                            log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
+                            limitJSON.amount = 0;
+                        }
                     }
                 }
-            }
-            //mongo save.
-            //log.debug("quoteJSON " + JSON.stringify(quoteJSON))
-            try{
-                const quote = new Quote(quoteJSON);
-                await quote.save().catch(function(err){
-                    log.error('Mongo Quote Save err ' + err + __location);
-                });
-            }
-            catch(err){
-                log.error("Error saving Mongo quote " + err + __location);
+
+                //mongo save.
+                //log.debug("quoteJSON " + JSON.stringify(quoteJSON))
+                try{
+                    const quote = new Quote(quoteJSON);
+                    await quote.save().catch(function(err){
+                        log.error('Mongo Quote Save err ' + err + __location);
+                    });
+                    // TODO: quoteId = quote.???
+                }
+                catch(err){
+                    log.error("Error saving Mongo quote " + err + __location);
+                }
+    
+                resolve(quoteId);
+            } else {
+                // otherwise record exists, update it
+                // TODO: update record
             }
 
-            resolve(quoteID);
         });
     }
 

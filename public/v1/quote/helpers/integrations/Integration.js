@@ -84,6 +84,7 @@ module.exports = class Integration {
         this.amount = 0;
         this.quote_letter = {};
         this.reasons = [];
+        this.quoteId = null;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1545,11 +1546,11 @@ module.exports = class Integration {
         }
         //QuoteBO
         const quoteBO = new QuoteBO();
-        const quoteID = await quoteBO.saveIntegrationQuote(quoteJSON, columns, values).catch(function(err){
+        this.quoteId = quoteID = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON, columns, values).catch(function(err){
             log.error("Error quoteBO.insertByColumnValue " + err + __location);
         });
 
-        return quoteID;
+        return this.quoteId;
     }
 
     /**
