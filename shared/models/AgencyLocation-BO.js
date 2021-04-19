@@ -250,7 +250,7 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false) {
+    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false, getAgencyLocationName = false) {
         return new Promise(async(resolve, reject) => {
             let queryProjection = {"__v": 0}
 
@@ -342,7 +342,8 @@ module.exports = class AgencyLocationBO{
                     city: 1,
                     state: 1,
                     zipcode: 1,
-                    mysqlId: 1
+                    mysqlId: 1,
+                    name: 1
                 };
             }
 
@@ -355,6 +356,9 @@ module.exports = class AgencyLocationBO{
 
                     if(mainCollection){
                         for(const doc of docList){
+                            if(getAgencyLocationName){
+                                doc.agencyLocationName = doc.name;
+                            }
                             if(doc.agencyId){
                                 const agencyJSON = await this.getAgencyJSON(doc.agencyId);
                                 if(agencyJSON){
@@ -756,6 +760,6 @@ module.exports = class AgencyLocationBO{
         }
 
         const getAgencyName = true;
-        return this.getList(queryJSON, getAgencyName, false, false, true);
+        return this.getList(queryJSON, getAgencyName, false, false, true, true);
     }
 }

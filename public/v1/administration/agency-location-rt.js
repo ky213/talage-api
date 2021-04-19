@@ -37,15 +37,16 @@ async function findAll(req, res, next) {
                 //Admin is expecting agencyLocationid as integer
                 agencyLocation.agencyLocationid = agencyLocation.mysqlId;
                 agencyLocation.state_abbr = agencyLocation.state;
+                agencyLocation.displayString = `${agencyLocation.name}: ${agencyLocation.agencyLocationName ? `${agencyLocation.agencyLocationName}: ` : ''}`
 
                 if(agencyLocation.address){
-                    agencyLocation.displayString = `${agencyLocation.name}: ${agencyLocation.address}, ${agencyLocation.city}, ${agencyLocation.state} ${agencyLocation.zipcode}`;
+                    agencyLocation.displayString += `${agencyLocation.address}, ${agencyLocation.city}, ${agencyLocation.state} ${agencyLocation.zipcode}`;
                 }
                 else if(agencyLocation.zip){
-                    agencyLocation.displayString = `${agencyLocation.name}: ${agencyLocation.city}, ${agencyLocation.state} ${agencyLocation.zipcode}`
+                    agencyLocation.displayString += `${agencyLocation.city}, ${agencyLocation.state} ${agencyLocation.zipcode}`
                 }
                 else {
-                    agencyLocation.displayString = `${agencyLocation.name}: no address`
+                    agencyLocation.displayString += `no address`
                 }
                 for(const removeProp of propertyToRemove){
                     if(agencyLocation[removeProp]){
