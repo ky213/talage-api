@@ -144,9 +144,8 @@ async function applicationSave(req, res, next) {
     try {
         const updateMysql = true;
 
-        // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
-        // WHERE IS THE IF LOGIC???? This simple creates and sets activitycodes  - BP
-        //get location part_time_employees and full_time_employees from location payroll data.
+        // if activityPayrollList exists, populate activityCode data from it
+        // extract location part_time_employees and full_time_employees from location payroll data.
         const activityCodes = [];
         if (req.body.locations && req.body.locations.length) {
             req.body.locations.forEach((location) => {
@@ -194,7 +193,10 @@ async function applicationSave(req, res, next) {
                 }
             });
         }
-        req.body.activityCodes = activityCodes;
+        // assign our list if activityCodes was populated
+        if(activityCodes.length > 0){
+            req.body.activityCodes = activityCodes;
+        }
 
         if (req.body.applicationId) {
             log.debug("App Doc UPDATE.....");
