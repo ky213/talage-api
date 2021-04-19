@@ -144,49 +144,59 @@ async function applicationSave(req, res, next) {
     try {
         const updateMysql = true;
 
-        // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
-        // WHERE IS THE IF LOGIC???? This simple creates and sets activitycodes  - BP
-        //get location part_time_employees and full_time_employees from location payroll data.
+        // if activityPayrollList exists, populate activityCode data from it
+        // extract location part_time_employees and full_time_employees from location payroll data.
         const activityCodes = [];
-        let fteCount = 0;
-        let pteCount = 0;
         if (req.body.locations && req.body.locations.length) {
             req.body.locations.forEach((location) => {
-                location.activityPayrollList.forEach((activityCode) => {
-                    //check if using new JSON
-                    if(!activityCode.activtyCodeId){
-                        activityCode.activtyCodeId = activityCode.ncciCode;
-                    }
-                    const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
-                    if (foundCode) {
-                        foundCode.payroll += parseInt(activityCode.payroll, 10);
-                    }
-                    else {
-                        // eslint-disable-next-line prefer-const
-                        let newActivityCode = {};
-                        newActivityCode.activityCodeId = activityCode.activityCodeId;
-                        newActivityCode.ncciCode = activityCode.ncciCode;
-                        newActivityCode.payroll = parseInt(activityCode.payroll,10);
-                        activityCodes.push(newActivityCode);
-                    }
-                    activityCode.employeeTypeList.forEach((employeeType) => {
-                        if(employeeType.employeeType === 'Full Time'){
-                            fteCount += employeeType.employeeType;
+                let fteCount = 0;
+                let pteCount = 0;
+                // make sure we have an activityPayrollList to check
+                if(location.activityPayrollList){
+                    location.activityPayrollList.forEach(activityCode => {
+                        //check if using new JSON
+                        if(!activityCode.activtyCodeId){
+                            activityCode.activtyCodeId = activityCode.ncciCode;
                         }
-                        else if(employeeType.employeeType === 'Part Time'){
-                            pteCount += employeeType.employeeType;
+
+                        activityCode.payroll = activityCode.employeeTypeList.reduce((total, type) => {
+                            // use the functionality of reduce to double as forEach to calculate employment totals
+                            if (type.employeeType === "Full Time") {
+                                fteCount += parseInt(type.employeeTypeCount, 10);
+                            }
+                            else if (type.employeeType === "Part Time") {
+                                pteCount += parseInt(type.employeeTypeCount, 10);
+                            }
+                            return total + parseInt(type.employeeTypePayroll, 10);
+                        }, 0);
+
+                        // if another location had this activity, just add to the total payroll
+                        const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
+                        if (foundCode) {
+                            foundCode.payroll += parseInt(activityCode.payroll, 10);
+                        }
+                        else {
+                            const newActivityCode = {
+                                activityCodeId: activityCode.activityCodeId,
+                                ncciCode: activityCode.ncciCode,
+                                payroll: activityCode.payroll
+                            };
+                            activityCodes.push(newActivityCode);
                         }
                     });
-                });
-                if(!location.full_time_employees){
-                    location.full_time_employees = fteCount;
-                }
-                if(!location.part_time_employees){
-                    location.part_time_employees = pteCount;
+                    if(fteCount !== 0){
+                        location.full_time_employees = fteCount;
+                    }
+                    if(pteCount !== 0){
+                        location.part_time_employees = pteCount;
+                    }
                 }
             });
         }
-        req.body.activityCodes = activityCodes;
+        // assign our list if activityCodes was populated
+        if(activityCodes.length > 0){
+            req.body.activityCodes = activityCodes;
+        }
 
         if (req.body.applicationId) {
             log.debug("App Doc UPDATE.....");
@@ -1010,7 +1020,10 @@ async function quotingCheck(req, res, next) {
     return next();
 }
 
-async function bindQuote(req, res, next) {
+async function requestToBindQuote(req, res, next) {
+
+    // This only marks quote with request to bind.
+    // trigger no logic that does API level binding - 2021-04-18
 
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
@@ -1073,6 +1086,9 @@ async function bindQuote(req, res, next) {
                 paymentPlanId: paymentPlanId
             };
             await applicationBO.processRequestToBind(applicationId,quoteJSON);
+
+            // When API level binding is implemented.
+            // the calls for processRequestToBind sould be enhanced.
         }
         catch(err){
             log.error(`Bind request error app ${applicationId} error ${err}` + __location)
@@ -1103,5 +1119,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, requestToBindQuote);
 }

@@ -127,17 +127,6 @@
 						{{/if}}
                             <WorkCompRateState>
                                 <StateProvCd>{{:app.business.primary_territory}}</StateProvCd>
-							{{if app.business.experience_modifier > 0}}
-							{{if app.business.bureau_number > 0}}
-                                <NAICCd>{{:app.business.bureau_number}}</NAICCd>
-							{{/if}}
-                                <CreditOrSurcharge>
-                                    <CreditSurchargeCd>EXP</CreditSurchargeCd>
-                                    <NumericValue>
-                                        <FormatModFactor>{{:app.business.experience_modifier}}</FormatModFactor>
-                                    </NumericValue>
-                                </CreditOrSurcharge>
-							{{/if}}
 							{{for app.business.locations itemVar='~location'}}
                                 <WorkCompLocInfo LocationRef="L{{:#index + 1}}">
                                     <NumEmployees>{{:~location.part_time_employees + ~location.full_time_employees}}</NumEmployees>

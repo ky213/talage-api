@@ -917,7 +917,7 @@ module.exports = class ApplicationModel {
             });
             // note: recalculating metric is call in saveApplicationStep
             try{
-
+                // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
                 await quoteBind.load(quoteDBJSON.mysqlId, quote.paymentPlanId);
                 await quoteBind.send_slack_notification("requested");

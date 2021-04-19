@@ -1,3 +1,6 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
+/* eslint-disable no-catch-shadow */
 /* eslint-disable dot-notation */
 /* eslint-disable require-jsdoc */
 'use strict';
@@ -176,14 +179,20 @@ async function getApplication(req, res, next) {
             }
             quoteJSON.number = quoteJSON.quoteNumber;
             // Change the name of autodeclined
-            if (quoteJSON.status === 'autodeclined') {
-                quoteJSON.status = 'Out of Market';
-            }
             if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
                 || quoteJSON.status === 'quoted') {
 
                 quoteJSON.reasons = '';
+            }
+            if (quoteJSON.status === 'autodeclined') {
+                quoteJSON.status = 'Out of Market';
+                quoteJSON.displayStatus = 'Out of Market';
+            }
+            else if(typeof quoteJSON.status === 'string'){
+                //ucase word
+                const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
+                quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
             }
             // can see log?
             try {
@@ -580,7 +589,6 @@ async function applicationSave(req, res, next) {
             });
         }
         req.body.activityCodes = activityCodes;
-        
         const updateMysql = true;
         if(req.body.applicationId){
             log.debug("App Doc UPDATE.....")
@@ -672,7 +680,7 @@ async function applicationCopy(req, res, next) {
         newApplicationDoc.processStateOld = 1;
 
         //fix missing activityCodeId
-        newApplicationDoc.locations.forEach((location) =>{
+        newApplicationDoc.locations.forEach((location) => {
             location.activityPayrollList.forEach((activityPayroll) => {
                 if(!activityPayroll.activityCodeId && activityPayroll.ncciCode){
                     activityPayroll.activityCodeId = activityPayroll.ncciCode
@@ -931,7 +939,7 @@ async function requote(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.body.id;
+    const id = req.body.id;
     let applicationDB = null;
     if(id > 0){
         // requote the application ID
@@ -1181,16 +1189,45 @@ async function bindQuote(req, res, next) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
-
+    let bindSuccess = false;
+    let bindFailureMessage = '';
     try {
         if (req.body.markAsBound !== true && req.body.requestBind !== true) {
             //const insurerBO = new InsurerBO();
             // API binding with Insures...
+
             const quoteBind = new QuoteBind();
-            await quoteBind.load(quoteId);
-            await quoteBind.bindPolicy();
+            let paymentPlanId = 1;
+            if(req.body.paymentPlanId){
+                paymentPlanId = req.body.paymentPlanId
+            }
+            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+            const bindResp = await quoteBind.bindPolicy();
+            if(bindResp === "success"){
+                log.info(`succesfully API bound ${quoteId}` + __location)
+                bindSuccess = true;
+            }
+            else if(bindResp === "cannot_bind_quote"){
+                log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: cannot_bind_quote` + __location);
+                bindFailureMessage = "Cannot Bind Quote"
+            }
+            else {
+                log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: BindQuote did not return a response` + __location);
+                bindFailureMessage = "Could not confirm Bind Quote"
+            }
+            if(bindSuccess){
+                log.debug("quoteBind.policyInfo " + JSON.stringify(quoteBind.policyInfo));
+                res.send(200, {"bound": true, policyNumber: quoteBind.policyInfo.policyNumber});
+            }
+            else {
+                res.send(bindFailureMessage);
+            }
+
+            return next();
+
+
         }
-        if(req.body.requestBind){
+        else if(req.body.requestBind){
             const quoteBO = new QuoteBO();
             let quoteDoc = null;
             try {
@@ -1214,24 +1251,25 @@ async function bindQuote(req, res, next) {
         }
         else {
             //Mark Quote Doc as bound.
-            const quoteBO = new QuoteBO()
-            const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
-            if(bindResp){
-                await applicationBO.updateApplicationStatus(applicationDB.mysqlId,"bound", 90);
-                // Update Application-level quote metrics when we do a bind.
-                await applicationBO.recalculateQuoteMetrics(applicationId);
-            }
+            const quoteBO = new QuoteBO();
+            await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
         }
     }
 
     catch (err) {
-        log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
-        res.send(err);
+        // We Do not pass error object directly to Client - May cause info leak.
+        log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: ${err}` + __location);
+        res.send("Failed To Bind");
         return next();
     }
 
     // Send back bound for both request, mark and API binds.
-    res.send(200, {"bound": true});
+    if(bindSuccess){
+        res.send(200, {"bound": true});
+    }
+    else {
+        res.send(bindFailureMessage);
+    }
 
     return next();
 }
@@ -1590,7 +1628,7 @@ async function GetQuoteLimits(req, res, next){
         log.warn(`Missing quote id. ${__location}`)
         return next(serverHelper.requestError("Missing Id."));
     }
-    let id = req.query.quoteId;
+    const id = req.query.quoteId;
     let error = null;
     const quoteModel = new QuoteBO();
     let quote = null;
@@ -1611,8 +1649,8 @@ async function GetQuoteLimits(req, res, next){
             // NOTE: frontend expects a string.
             limits[limit.description] = `${quoteLimit.amount}`;
         }
-        catch (error) {
-            log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+        catch (err) {
+            log.error(`Could not get limits for ${quote.insurerId}:` + err + __location);
         }
     }
     res.send(200, {limits: limits});
@@ -1728,7 +1766,7 @@ async function saveApplicationNotes(req, res, next){
         log.info('Forbidden: User is not authorized for this agency' + __location);
         return next(serverHelper.forbiddenError('You are not authorized for this agency'));
     }
-    
+
     let responseAppNotesDoc = null;
     let userId = null;
     try{
@@ -1754,7 +1792,7 @@ async function saveApplicationNotes(req, res, next){
         return next();
     }
     else{
-       // res.send(500, "No updated document");
+        // res.send(500, "No updated document");
         return next(serverHelper.internalError(new Error('No updated document')));
     }
 }
