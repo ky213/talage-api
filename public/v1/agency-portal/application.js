@@ -179,14 +179,20 @@ async function getApplication(req, res, next) {
             }
             quoteJSON.number = quoteJSON.quoteNumber;
             // Change the name of autodeclined
-            if (quoteJSON.status === 'autodeclined') {
-                quoteJSON.status = 'Out of Market';
-            }
             if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
                 || quoteJSON.status === 'quoted') {
 
                 quoteJSON.reasons = '';
+            }
+            if (quoteJSON.status === 'autodeclined') {
+                quoteJSON.status = 'Out of Market';
+                quoteJSON.displayStatus = 'Out of Market';
+            }
+            else if(typeof quoteJSON.status === 'string'){
+                //ucase word
+                const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
+                quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
             }
             // can see log?
             try {
