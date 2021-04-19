@@ -2,10 +2,6 @@
 /* eslint-disable default-case */
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 
-// TODO: this needs to be documented and set up to include everything required.
-// its current state is just to reflect what is possible.
-// eventually we can add or remove keys based on factors other than policy type.
-
 // if the property is provided:
 
 // required is assumed true if not provided
@@ -22,9 +18,6 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 // visible is assumed true
 
 const bopRequirements = {
-    officer: {
-        officerTitle: {}
-    },
     location: {
         buildingLimit: {},
         businessPersonalPropertyLimit: {}
@@ -33,7 +26,6 @@ const bopRequirements = {
 };
 
 const glRequirements = {
-    officer: {},
     location: {
         buildingLimit: {
             visible: false,
@@ -48,6 +40,9 @@ const glRequirements = {
 };
 
 const wcRequirements = {
+    owner: {
+        officerTitle: {}
+    },
     location: {
         buildingLimit: {
             visible: false,

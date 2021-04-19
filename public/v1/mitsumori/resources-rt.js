@@ -12,7 +12,7 @@ const serverHelper = require("../../../server.js");
 // const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const policyHelper = require("./resource-building/policies");
-const requirementHelper = require("./resource-building/required-fields");
+const requirementHelper = global.requireShared('./services/required-app-fields-svc.js');
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
