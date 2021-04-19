@@ -124,12 +124,12 @@ module.exports = class QuoteBO {
         });
     }
 
-    async getById(quoteId) {
+    async getById(quoteId, returnModel = false) {
         if(validator.isUuid(quoteId)){
-            return this.getfromMongoByQuoteId(quoteId)
+            return this.getfromMongoByQuoteId(quoteId, returnModel)
         }
         else {
-            return this.getMongoDocbyMysqlId(quoteId)
+            return this.getMongoDocbyMysqlId(quoteId, returnModel)
         }
     }
 
@@ -383,9 +383,9 @@ module.exports = class QuoteBO {
         return this.getList(query);
 
     }
-    
 
-    async getfromMongoByQuoteId(quoteId) {
+
+    async getfromMongoByQuoteId(quoteId, returnModel = false) {
         return new Promise(async(resolve, reject) => {
             if (quoteId) {
                 const query = {
@@ -395,8 +395,11 @@ module.exports = class QuoteBO {
                 let quoteDoc = null;
                 try {
                     const docDB = await Quote.findOne(query, '-__v');
-                    if (docDB) {
+                    if (docDB && returnModel === false) {
                         quoteDoc = mongoUtils.objCleanup(docDB);
+                    }
+                    else {
+                        quoteDoc = docDB
                     }
                 }
                 catch (err) {
@@ -411,7 +414,7 @@ module.exports = class QuoteBO {
         });
     }
 
-    async getMongoDocbyMysqlId(mysqlId) {
+    async getMongoDocbyMysqlId(mysqlId, returnModel = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
                 const query = {
@@ -421,8 +424,11 @@ module.exports = class QuoteBO {
                 let quoteDoc = null;
                 try {
                     const docDB = await Quote.findOne(query, '-__v');
-                    if (docDB) {
+                    if (docDB && returnModel === false) {
                         quoteDoc = mongoUtils.objCleanup(docDB);
+                    }
+                    else {
+                        quoteDoc = docDB
                     }
                 }
                 catch (err) {
@@ -536,8 +542,9 @@ module.exports = class QuoteBO {
         }
         return true;
     }
+    //bindQuote
 
-    async bindQuote(quoteId, applicationId, bindUser) {
+    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo) {
         if(quoteId && applicationId && bindUser){
             // update Mongo
             const query = {
@@ -549,13 +556,17 @@ module.exports = class QuoteBO {
                 quoteDoc = await Quote.findOne(query, '-__v');
                 if(!quoteDoc.bound){
                     const bindDate = moment();
-                    const updateJSON = {
+                    // eslint-disable-next-line prefer-const
+                    let updateJSON = {
                         "bound": true,
                         "boundUser": bindUser,
                         "boundDate": bindDate,
                         "aggregatedStatus": "bound",
                         "status": "bound"
                     };
+                    if(policyInfo){
+                        updateJSON.policyInfo = policyInfo;
+                    }
                     await Quote.updateOne(query, updateJSON);
                     log.info(`Update Mongo QuoteDoc bound status on quoteId: ${quoteId}` + __location);
                 }
