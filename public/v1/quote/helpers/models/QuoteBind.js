@@ -126,13 +126,14 @@ module.exports = class QuoteBind{
                     //save it
                     const policyInfo = {
                         policyId: bindWorker.policyId,
-                        policyName: bindWorker.policyName,
+                        policyNumber: bindWorker.policyNumber,
                         policyEffectiveDate: bindWorker.policyEffectiveDate,
-                        policyPremium: bindWorker.policyPremium
+                        policyPremium: bindWorker.policyPremium,
+                        policyUrl: bindWorker.policyUrl
                     }
                     //in case upstrign need to get access to it.
                     this.policyInfo = policyInfo;
-
+                    log.debug("policyInfo " + JSON.stringify(policyInfo));
                     const quoteBO = new QuoteBO()
                     await quoteBO.markQuoteAsBound(this.quoteDoc.quoteId, this.applicationDoc.applicationId, this.requestUserId, policyInfo);
                     //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.

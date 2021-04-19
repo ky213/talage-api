@@ -45,7 +45,9 @@ class EmployersBind extends Bind {
             this.quote.log += `Response:\n <pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
             this.quote.log += `--------======= End =======--------<br><br>`;
             const employersResp = result.data
-            this.policyId = employersResp.policyNumber;
+            this.policyId = employersResp.id;
+            this.policyNumber = employersResp.policyNumber;
+            this.policyUrl = employersResp.policyURL;
             // this.policyName = '';
             this.policyEffectiveDate = employersResp.effectiveDate;
             this.policyPremium = employersResp.totalPremium;
