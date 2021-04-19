@@ -507,11 +507,14 @@ module.exports = class QuoteBO {
         return mongoUtils.objCleanup(quote);
     }
 
-    async updateQuoteAggregatedStatus(quoteId, aggregatedStatus) {
-        if(quoteId && aggregatedStatus){
+    //TODO: update this
+    async updateQuoteStatus(quoteId, status) {
+        if(quoteId && status){
+            // likely not updating SQL since it will be deprecated, so just sending description for now
+            // TODO: Verify this, and update if necessary
             const sql = `
                 UPDATE clw_talage_quotes
-                SET aggregated_status = ${db.escape(aggregatedStatus)}
+                SET aggregated_status = ${db.escape(status.description)}
                 WHERE id = ${quoteId}
             `;
             try {
@@ -525,7 +528,10 @@ module.exports = class QuoteBO {
             // update Mongo
             try{
                 const query = {"mysqlId": quoteId};
-                const updateJSON = {"aggregatedStatus": aggregatedStatus};
+                const updateJSON = {
+                    "quoteStatusId": status.id, 
+                    "quoteStatusDescription": status.description
+                };
                 await Quote.updateOne(query, updateJSON);
                 log.info(`Update Mongo QuoteDoc aggregated status on mysqlId: ${quoteId}` + __location);
             }

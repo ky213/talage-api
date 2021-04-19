@@ -1032,7 +1032,7 @@ async function requote(req, res, next) {
     try {
         await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateApplicationStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
@@ -1217,7 +1217,7 @@ async function bindQuote(req, res, next) {
             const quoteBO = new QuoteBO()
             const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
             if(bindResp){
-                await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
+                await applicationBO.updateApplicationStatus(applicationDB.mysqlId,"bound", 90);
                 // Update Application-level quote metrics when we do a bind.
                 await applicationBO.recalculateQuoteMetrics(applicationId);
             }

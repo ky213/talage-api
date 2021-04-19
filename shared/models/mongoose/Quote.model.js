@@ -32,6 +32,8 @@ const QuoteSchema = new Schema({
     amount: {type: Number},
     deductible: {type: Number},
     status: {type: String},
+    quoteStatusId: {type: Number},
+    quoteStatusDescription: {type: String},
     aggregatedStatus: {type: String},
     apiResult: {type: String},
     bound: {type: Boolean, default: false},
