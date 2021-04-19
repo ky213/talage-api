@@ -72,10 +72,12 @@ class AmTrustBind extends Bind {
         const baseUrl = this.insurer.useSandbox ? 'utgateway.amtrustgroup.com/DigitalAPI_Usertest' : 'gateway.amtrustgroup.com/DigitalAPI';
         const axiosOptions = {headers: {
             "Accept": "application/json",
+            "Content-Type": "application/json",
             "Authorization": `Bearer ${accessToken}`,
             "subscriber_id": credentials.mulesoftSubscriberId
         }};
-
+        //responseType: "application/json",
+        log.debug("headers \n" + JSON.stringify(axiosOptions) + "\n" + __location)
         //get agencyContractId
         const getGetByContractPath = `/api/v1/quotes/${this.quote.quoteNumber}/agent-contact`
         let requestUrl = `https://${baseUrl}${getGetByContractPath}`;
@@ -88,8 +90,10 @@ class AmTrustBind extends Bind {
             result = await axios.get(requestUrl, axiosOptions);
         }
         catch (err) {
-            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${err} ${__location}`);
-            //Quote log ???
+            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${err} Response ${JSON.stringify(err.response.data)}${__location}`);
+            this.quote.log += `--------======= Bind Request Error =======--------<br><br>`;
+            this.quote.log += `Response:\n <pre>${err}</br> Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
+            this.quote.log += `--------======= End =======--------<br><br>`;
             throw new Error(JSON.stringify(err));
         }
         if(result && result.data && result.data.Data){
@@ -103,6 +107,69 @@ class AmTrustBind extends Bind {
             log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not retrieve agencyContractId ${__location}`);
             return "error";
         }
+        //Get payment pl
+        //Post payment plan.
+        const paymentPlanTalage2AMtrustMap = {
+            "1": {
+                numberOfPayments: 1,
+                paymentPlanId:2,
+                downpayment: 0
+            } ,
+            "2": {
+                numberOfPayments: 2,
+                paymentPlanId:2,
+                downpayment: 0.5
+            }
+        };
+
+        const paymentPlanJSON = {
+            "BillingType": "Direct",
+            "DepositPercent": 0,
+            "NumberPayments": 1,
+            "IsDirectDebit": false,
+            "PaymentPlanId": 1,
+            "PaymentPlan": {
+                "PaymentPlanType": "None"
+            }
+        };
+
+        const postPaymentPlanPath = `/api/v2/quotes/${this.quote.quoteNumber}/paymentPlans`
+        requestUrl = `https://${baseUrl}${postPaymentPlanPath}`;
+        log.debug(`postBind: ${requestUrl}` + __location);
+        this.quote.log += `--------======= PaymentPlan Request to ${requestUrl} =======--------<br><br>`;
+        this.quote.log += `Request:\n <pre>NO BODY</pre><br><br>\n`;
+        this.quote.log += `--------======= End =======--------<br><br>`;
+
+        result = null;
+        try {
+            result = await axios.post(requestUrl, JSON.stringify(paymentPlanJSON), axiosOptions);
+        }
+        catch (err) {
+            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} PaymentPlan request ${err} ${__location}`);
+            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} PaymentPlan Response ${JSON.stringify(err.response.data)} ${__location}`);
+            //log.error(err.response.data)
+            this.quote.log += `--------======= Bind Request Error =======--------<br><br>`;
+            this.quote.log += `Response:\n <pre>${err} </br> Response ${err.response}</pre><br><br>`;
+            this.quote.log += `--------======= End =======--------<br><br>`;
+            //log.debug(JSON.stringify(err) + __location);
+            return 'error';
+        }
+        if(result.data){
+            // {
+            //     "StatusCode": 200,
+            //     "Message": "ok",
+            //     "AdditionalMessages": [],
+            //     "Errors": null
+            // }
+            if(result.data.Errors){
+                this.quote.log += `--------======= Bind Request Errors =======--------<br><br>`;
+                this.quote.log += `Response:\n <pre>Response ${JSON.stringify(result.data)}</pre><br><br>`;
+                this.quote.log += `--------======= End =======--------<br><br>`;
+                return "rejected";
+            }
+        }
+
+
         //request Bind
 
         const postBindPath = `/api/v2/quotes/${this.quote.quoteNumber}/bind/agent-contact/${agencyContactId}`
@@ -117,11 +184,13 @@ class AmTrustBind extends Bind {
             result = await axios.post(requestUrl, null, axiosOptions);
         }
         catch (err) {
-            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request ${err} ${__location}`);
+
+            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request ${err}  Response ${JSON.stringify(err.response.data)}${__location}`);
+            log.error(err.response);
             this.quote.log += `--------======= Bind Request Error =======--------<br><br>`;
-            this.quote.log += `Response:\n <pre>${err}</pre><br><br>`;
+            this.quote.log += `Response:\n <pre>${err}</br> Response ${err.response}</pre><br><br>`;
             this.quote.log += `--------======= End =======--------<br><br>`;
-            log.debug(JSON.stringify(err) + __location);
+            //log.debug(JSON.stringify(err) + __location);
             return 'error';
         }
         //log response.
@@ -130,11 +199,11 @@ class AmTrustBind extends Bind {
             this.quote.log += `Response:\n <pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
             this.quote.log += `--------======= End =======--------<br><br>`;
             const insurerbindInfo = result.data;
-            if(result.data.StatusCode === 200 & result.data.Message === "OK"){
-                this.policyId = insurerbindInfo.policyId;
-                this.policyName = insurerbindInfo.policyName;
-                this.policyEffectiveDate = insurerbindInfo.policyEffectiveDate;
-                this.policyPremium = insurerbindInfo.policyPremium;
+            if(insurerbindInfo.StatusCode === 200 & insurerbindInfo.Message.toLowerCase() === "ok"){
+                this.policyId = insurerbindInfo.Data.policyId;
+                this.policyName = insurerbindInfo.Data.policyName;
+                this.policyEffectiveDate = insurerbindInfo.Data.policyEffectiveDate;
+                this.policyPremium = insurerbindInfo.Data.policyPremium;
                 return "success";
             }
             else {
