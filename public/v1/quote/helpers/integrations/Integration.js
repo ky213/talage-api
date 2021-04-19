@@ -18,7 +18,7 @@ const xmlFormatter = require('xml-formatter');
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
-const quoteStatus = global.requireShared('./models/status/quoteStatus.js');
+const { quoteStatus, getQuoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -1127,7 +1127,7 @@ module.exports = class Integration {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
-            await this.record_quote(null, '');
+            await this.record_quote(null, quoteStatus.initiated.description);
 
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
@@ -1515,7 +1515,7 @@ module.exports = class Integration {
         }
 
         // quoteStatusId and quoteStatusDescription
-        const status = quoteStatus.getQuoteStatus(false, '', api_result);
+        const status = getQuoteStatus(false, '', api_result);
         quoteJSON.quoteStatusId = status.id;
         quoteJSON.quoteStatusDescription = status.description;
 
