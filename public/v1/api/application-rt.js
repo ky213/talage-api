@@ -160,7 +160,7 @@ async function applicationSave(req, res, next) {
                         }
 
                         activityCode.payroll = activityCode.employeeTypeList.reduce((total, type) => {
-                            // might as well use the functionality of reduce to double as forEach to calculate employment totals
+                            // use the functionality of reduce to double as forEach to calculate employment totals
                             if (type.employeeType === "Full Time") {
                                 fteCount += parseInt(type.employeeTypeCount, 10);
                             }
