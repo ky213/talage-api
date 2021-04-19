@@ -1216,7 +1216,8 @@ async function bindQuote(req, res, next) {
                 bindFailureMessage = "Could not confirm Bind Quote"
             }
             if(bindSuccess){
-                res.send(200, {"bound": true, policyId: quoteBind.policyInfo.policyId});
+                log.debug("quoteBind.policyInfo " + JSON.stringify(quoteBind.policyInfo));
+                res.send(200, {"bound": true, policyNumber: quoteBind.policyInfo.policyNumber});
             }
             else {
                 res.send(bindFailureMessage);
