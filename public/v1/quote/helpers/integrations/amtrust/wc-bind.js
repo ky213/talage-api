@@ -94,7 +94,7 @@ class AmTrustBind extends Bind {
             this.quote.log += `--------======= Bind Request Error =======--------<br><br>`;
             this.quote.log += `Response:\n <pre>${err}</br> Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
             this.quote.log += `--------======= End =======--------<br><br>`;
-            throw new Error(JSON.stringify(err));
+            return "error";
         }
         if(result && result.data && result.data.Data){
             agencyContactId = result.data.Data.Id;
@@ -109,18 +109,18 @@ class AmTrustBind extends Bind {
         }
         //Get payment pl
         //Post payment plan.
-        const paymentPlanTalage2AMtrustMap = {
-            "1": {
-                numberOfPayments: 1,
-                paymentPlanId:2,
-                downpayment: 0
-            } ,
-            "2": {
-                numberOfPayments: 2,
-                paymentPlanId:2,
-                downpayment: 0.5
-            }
-        };
+        // const paymentPlanTalage2AMtrustMap = {
+        //     "1": {
+        //         numberOfPayments: 1,
+        //         paymentPlanId:2,
+        //         downpayment: 0
+        //     } ,
+        //     "2": {
+        //         numberOfPayments: 2,
+        //         paymentPlanId:2,
+        //         downpayment: 0.5
+        //     }
+        // };
 
         const paymentPlanJSON = {
             "BillingType": "Direct",
