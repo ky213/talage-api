@@ -77,7 +77,7 @@ class AmTrustBind extends Bind {
             "subscriber_id": credentials.mulesoftSubscriberId
         }};
         //responseType: "application/json",
-        log.debug("headers \n" + JSON.stringify(axiosOptions) + "\n" + __location)
+        //log.debug("headers \n" + JSON.stringify(axiosOptions) + "\n" + __location)
         //get agencyContractId
         const getGetByContractPath = `/api/v1/quotes/${this.quote.quoteNumber}/agent-contact`
         let requestUrl = `https://${baseUrl}${getGetByContractPath}`;
