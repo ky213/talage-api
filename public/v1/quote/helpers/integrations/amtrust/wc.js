@@ -339,7 +339,7 @@ module.exports = class AcuityWC extends Integration {
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
-            "IsIncumbantAgent": false,
+            "IsIncumbentAgent": false,
             // "ExpiredPremium": 10000,
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
