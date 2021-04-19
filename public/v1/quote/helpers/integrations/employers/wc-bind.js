@@ -22,7 +22,7 @@ class EmployersBind extends Bind {
             result = await axios.put(requestUrl, null, axiosOptions);
         }
         catch (error) {
-            log.error(`Employers Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error} ${__location}`);
+            log.error(`Employers Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);
             this.quote.log += `--------======= Bind Response Error =======--------<br><br>`;
             this.quote.log += error;
             this.quote.log += "<br><br>";
@@ -44,11 +44,11 @@ class EmployersBind extends Bind {
             this.quote.log += `--------======= Bind Response =======--------<br><br>`;
             this.quote.log += `Response:\n <pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
             this.quote.log += `--------======= End =======--------<br><br>`;
-            // this.policyId = '';
+            const employersResp = result.data
+            this.policyId = employersResp.policyNumber;
             // this.policyName = '';
-            // this.policyEffectiveDate = null;
-            // this.policyPremium = 0;
-
+            this.policyEffectiveDate = employersResp.effectiveDate;
+            this.policyPremium = employersResp.totalPremium;
             return "success"
         }
         else{
