@@ -200,10 +200,11 @@ class AmTrustBind extends Bind {
             this.quote.log += `--------======= End =======--------<br><br>`;
             const insurerbindInfo = result.data;
             if(insurerbindInfo.StatusCode === 200 & insurerbindInfo.Message.toLowerCase() === "ok"){
-                this.policyId = insurerbindInfo.Data.policyId;
-                this.policyName = insurerbindInfo.Data.policyName;
-                this.policyEffectiveDate = insurerbindInfo.Data.policyEffectiveDate;
-                this.policyPremium = insurerbindInfo.Data.policyPremium;
+                log.debug(`insurerbindInfo.Data ${JSON.stringify(insurerbindInfo.Data)}`)
+                this.policyId = insurerbindInfo.Data.PolicyId;
+                this.policyNumber = insurerbindInfo.Data.Policy;
+                this.policyEffectiveDate = insurerbindInfo.Data.EffectiveDate;
+                this.policyPremium = insurerbindInfo.Data.AnnualPremium;
                 return "success";
             }
             else {

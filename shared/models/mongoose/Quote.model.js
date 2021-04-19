@@ -21,7 +21,8 @@ const QouteLimitSchema = new Schema({
 
 const PolicySchema = new Schema({
     policyId: {type: String, required: false},
-    policyName: {type: String, required: false},
+    policyUrl: {type: String, required: false},
+    policyNumber: {type: String, required: false},
     policyEffectiveDate: {type: String, required: false},
     policyPremium: {type: String, required: false}
 },{_id : false})
