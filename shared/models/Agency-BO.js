@@ -85,7 +85,7 @@ module.exports = class AgencyBO {
                             log.debug("new logo file " + newObjectJSON.logo);
                         }
                         catch (e) {
-                            log.error("Agency SaveModel error processing logo " + e + __location);
+                            log.error(`Agency SaveModel: Error processing logo for agencyId: ${newObjectJSON.agencyId} | ${e} |${__location}`);
                             //newObjectJSON.logo = null;
                             delete newObjectJSON.logo;
                             reject(e);
