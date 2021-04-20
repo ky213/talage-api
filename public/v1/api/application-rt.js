@@ -850,18 +850,25 @@ async function createQuoteSummary(quote) {
             // Retrieve the limits and create the limits object
             const limits = {};
             const limitsModel = new LimitsBO();
-            for (const quoteLimit of quote.limits) {
-                try {
-                    const limit = await limitsModel.getById(quoteLimit.limitId);
-                    // NOTE: frontend expects a string. -SF
-                    limits[limit.description] = `${quoteLimit.amount}`;
-                }
-                catch (error) {
-                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
-                    return null;
+            if(quote.limits){
+                for (const quoteLimit of quote.limits) {
+                    try {
+                        const limit = await limitsModel.getById(quoteLimit.limitId);
+                        // NOTE: frontend expects a string. -SF
+                        limits[limit.description] = `${quoteLimit.amount}`;
+                    }
+                    catch (error) {
+                        log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+                        return null;
+                    }
                 }
             }
-
+            if(quote.quoteCoverages){
+                for(const quoteCoverage of quote.quoteCoverages){
+                    limits[quoteCoverage.description] = `${quoteCoverage.value}`;
+                }
+            }
+            
             // Retrieve the insurer's payment plan
             const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
             let insurerPaymentPlanList = null;
