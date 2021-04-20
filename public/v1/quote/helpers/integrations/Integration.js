@@ -18,7 +18,7 @@ const xmlFormatter = require('xml-formatter');
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
-const { quoteStatus, getQuoteStatus } = global.requireShared('./models/status/quoteStatus.js');
+const { quoteStatus, getQuoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -1519,9 +1519,9 @@ module.exports = class Integration {
         const status = getQuoteStatus(false, '', api_result);
         quoteJSON.quoteStatusId = status.id;
         quoteJSON.quoteStatusDescription = status.description;
-        
-        // backwards compatibility w/ old Mongo property
-        quoteJSON.aggregatedStatus = status.description;
+
+        // backwards compatibility w/ old Mongo property and existing code logic
+        quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
 
         // Aggregated Status (backwards compatibility w/ SQL)
         columns.push('aggregated_status');
@@ -1549,7 +1549,7 @@ module.exports = class Integration {
         }
         //QuoteBO
         const quoteBO = new QuoteBO();
-        this.quoteId = quoteID = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON, columns, values).catch(function(err){
+        this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON, columns, values).catch(function(err){
             log.error("Error quoteBO.insertByColumnValue " + err + __location);
         });
 

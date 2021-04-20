@@ -100,7 +100,7 @@ module.exports = class QuoteBO {
                     await quote.save().catch(function(err){
                         log.error('Mongo Quote Save err ' + err + __location);
                     });
-                    // TODO: quoteId = quote.???
+                    quoteId = quote.quoteId;
                 }
                 catch(err){
                     log.error("Error saving Mongo quote " + err + __location);
@@ -108,7 +108,12 @@ module.exports = class QuoteBO {
             } else {
                 // otherwise record exists, update it
                 const query = { "mysqlId": quoteId };
-                await Quote.updateOne(query, quoteJSON);
+                try {
+                    await Quote.updateOne(query, quoteJSON);
+                } catch (e) {
+                    log.error(`Error updating quote: ${e}.`);
+                    throw e;
+                }
             }
 
             resolve(quoteId);
