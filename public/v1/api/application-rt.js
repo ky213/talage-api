@@ -850,18 +850,41 @@ async function createQuoteSummary(quote) {
             // Retrieve the limits and create the limits object
             const limits = {};
             const limitsModel = new LimitsBO();
-            for (const quoteLimit of quote.limits) {
-                try {
-                    const limit = await limitsModel.getById(quoteLimit.limitId);
-                    // NOTE: frontend expects a string. -SF
-                    limits[limit.description] = `${quoteLimit.amount}`;
-                }
-                catch (error) {
-                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
-                    return null;
+            if(quote.limits){
+                for (const quoteLimit of quote.limits) {
+                    try {
+                        const limit = await limitsModel.getById(quoteLimit.limitId);
+                        // NOTE: frontend expects a string. -SF
+                        limits[limit.description] = `${quoteLimit.amount}`;
+                    }
+                    catch (error) {
+                        log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+                        return null;
+                    }
                 }
             }
-
+            if(quote.quoteCoverages){
+                // sort ascending order based on id, if no sort value then number will be sorted first
+                function ascendingOrder (a, b){
+                    if(a.sort && b.sort){
+                        // this sorts in ascending order
+                        return a.sort - b.sort;
+                    }else if (a.sort && !b.sort){
+                        // since no sort order on "b" then return -1
+                        return -1; 
+                    }else if (!a.sort && b.sort){
+                        // since no sort order on "a" return 1
+                        return 1; 
+                    }else {
+                        return 0;
+                    }
+                }
+                const sortedCoverageList = quote.quoteCoverages.sort(ascendingOrder);
+                for(const quoteCoverage of sortedCoverageList){
+                    limits[quoteCoverage.description] = `${quoteCoverage.value}`;
+                }
+            }
+            
             // Retrieve the insurer's payment plan
             const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
             let insurerPaymentPlanList = null;
