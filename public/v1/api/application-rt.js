@@ -9,6 +9,8 @@ const serverHelper = require("../../../server.js");
 const validator = global.requireShared("./helpers/validator.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+const AgencyNetworkInsurerBO = global.requireShared('models/AgencyNetworkInsurer-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
@@ -22,27 +24,55 @@ const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.
 
 const moment = require('moment');
 
-function isAuthForApplication(req, applicationId){
+async function isAuthForApplication(req, applicationId){
     let canAccessApp = false;
     if(req.userTokenData && req.userTokenData.quoteApp){
         if(req.userTokenData.applicationId === applicationId){
             canAccessApp = true;
         }
         else {
-            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
+            log.warn("Unauthorized Attempt to modify or access Application " + __location)
         }
     }
     else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
+        // if redis already contains the app, they have access
         if(req.userTokenData.applications.indexOf(applicationId) > -1){
             canAccessApp = true;
         }
-        else {
-            //TODO check database Does API JWT owner have access to this
-            // agency to add/edit applications.
+        else if(req.userTokenData.userId){
+            // check which agencies the user has access to
+            const agencyPortalUserBO = new AgencyPortalUserBO();
+            await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
 
-            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
+            let agencies = [];
+
+            // if the user is part of an agency network, get the list of agencies
+            if(agencyPortalUserBO.agency_network){
+                const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+                const agencyNetworkInsurerQuery = {agencyNetworkId: agencyPortalUserBO.agency_network};
+                const agencyNetworkInsurerMap = await agencyNetworkInsurerBO.getList(agencyNetworkInsurerQuery);
+                agencies = agencyNetworkInsurerMap.map(agencyNetworkInsurer => agencyNetworkInsurer.insurer);
+            }
+            // if not part of a network, just look at the single agency
+            else if(agencyPortalUserBO.agency) {
+                agencies = [agencyPortalUserBO.agency];
+            }
+
+            // get the application to check against
+            const applicationBO = new ApplicationBO();
+            const applicationDB = await applicationBO.getById(applicationId);
+
+            if(applicationDB && applicationDB.agencyId){
+                // has access if the applications agency matches an agency the user is part of
+                canAccessApp = agencies.includes(applicationDB.agencyId);
+            }
         }
     }
+
+    if(canAccessApp === false){
+        log.warn("Unauthorized Attempt to modify or access Application " + __location)
+    }
+
     return canAccessApp;
 }
 
@@ -117,7 +147,7 @@ async function applicationSave(req, res, next) {
     else {
         //get application and valid agency
         // check JWT has access to this application.
-        const rightsToApp = isAuthForApplication(req, req.body.applicationId);
+        const rightsToApp = await isAuthForApplication(req, req.body.applicationId);
         if(rightsToApp !== true){
             return next(serverHelper.forbiddenError(`Not Authorized`));
         }
@@ -288,7 +318,7 @@ async function applicationLocationSave(req, res, next) {
     let applicationDB = null;
     //get application and valid agency
     // check JWT has access to this application.
-    const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+    const rightsToApp = await isAuthForApplication(req, req.body.applicationId)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -404,7 +434,7 @@ async function getApplication(req, res, next) {
         }
         appId = req.query.id
     }
-    const rightsToApp = isAuthForApplication(req, appId)
+    const rightsToApp = await isAuthForApplication(req, appId)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -433,7 +463,7 @@ async function getApplication(req, res, next) {
 
 async function GetQuestions(req, res, next){
 
-    const rightsToApp = isAuthForApplication(req, req.params.id)
+    const rightsToApp = await isAuthForApplication(req, req.params.id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -499,7 +529,7 @@ async function validate(req, res, next) {
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let id = req.body.applicationId;
-    const rightsToApp = isAuthForApplication(req, id)
+    const rightsToApp = await isAuthForApplication(req, id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -601,7 +631,7 @@ async function startQuoting(req, res, next) {
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let applicationId = req.body.applicationId;
-    const rightsToApp = isAuthForApplication(req, applicationId);
+    const rightsToApp = await isAuthForApplication(req, applicationId);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -978,7 +1008,7 @@ async function quotingCheck(req, res, next) {
         return next(serverHelper.requestError('No id was received'));
     }
 
-    const rightsToApp = isAuthForApplication(req, req.params.id);
+    const rightsToApp = await isAuthForApplication(req, req.params.id);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -1070,7 +1100,7 @@ async function requestToBindQuote(req, res, next) {
 
     // make sure the caller has the correct rights
     let applicationId = req.body.applicationId;
-    const rightsToApp = isAuthForApplication(req, applicationId);
+    const rightsToApp = await isAuthForApplication(req, applicationId);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
