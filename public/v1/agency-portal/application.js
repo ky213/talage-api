@@ -241,22 +241,23 @@ async function getApplication(req, res, next) {
                 }
             }
             if(quoteJSON.quoteCoverages){
-                // sort ascending order based on id
+                // sort ascending order based on id, if no sort value then number will be sorted first
                 function ascendingOrder (a, b){
                     if(a.sort && b.sort){
                         // this sorts in ascending order
                         return a.sort - b.sort;
                     }else if (a.sort && !b.sort){
-                        // since no sort order on "a" then return -1
+                        // since no sort order on "b" then return -1
                         return -1; 
                     }else if (!a.sort && b.sort){
-                        // since no sort order on "b" return 1
+                        // since no sort order on "a" return 1
                         return 1; 
                     }else {
                         return 0;
                     }
                 }
                 const sortedCoverageList = quoteJSON.quoteCoverages.sort(ascendingOrder);
+                log.debug(JSON.stringify(sortedCoverageList));
                 for(const quoteCoverage of sortedCoverageList){
                     limitsList[quoteCoverage.description] = `${quoteCoverage.value}`;
                 }
