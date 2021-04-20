@@ -44,7 +44,7 @@ async function findOne(req, res, next) {
     const industryCodeBO = new IndustryCodeBO();
     // Load the request data into it
     const objectJSON = await industryCodeBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("industryCodeBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {
@@ -65,7 +65,7 @@ async function add(req, res, next) {
     const industryCodeBO = new IndustryCodeBO();
     let error = null;
     await industryCodeBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("industryCodeBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -87,7 +87,7 @@ async function update(req, res, next) {
     const industryCodeBO = new IndustryCodeBO();
     let error = null;
     await industryCodeBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("industryCodeBO load error " + err + __location);
         error = err;
     });
     if (error) {

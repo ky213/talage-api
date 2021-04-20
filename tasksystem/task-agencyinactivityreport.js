@@ -190,7 +190,7 @@ var agencyReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Agency Inactivity Report', 'Agency with no applications in last 14 days.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Agency Inactivity Report', 'Agencies with no applications in last 14 days.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
             if(emailResp === false){
                 slack.send('#alerts', 'warning',`The system failed to send Agency Inactivity Report email.`);
             }

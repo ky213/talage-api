@@ -35,14 +35,16 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
-    ncciCode: {type: Number, required: true},
+    activityCodeId: {type: Number, required: true},
+    ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
 })
 
 const ActivtyCodePayrollSchema = new Schema({
-    ncciCode: {type: Number, required: true},
+    activityCodeId: {type: Number, required: true},
+    ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false}
 });
@@ -242,7 +244,7 @@ ApplicationSchema.virtual('managementStructure').
     set(function(v){
         this.management_structure = v;
     });
-/********************************** */
+
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);
 
@@ -276,24 +278,6 @@ ApplicationSchema.pre('updateOne', async function(next) {
     next();
 });
 
-// // eslint-disable-next-line object-curly-spacing
-// ApplicationSchema.pre('updateOne', async function() {
-//     const einClear = this.get("ein");
-//     if(einClear){
-//         try{
-//             log.debug("preUpdateOne app mongoose Encrypting ein fields")
-//             this.set({ ein: "XXXasdf"});
-
-//             const einEncrypted = await crypt.encrypt(einClear);
-//             const einHash = await crypt.hash(einClear);
-//             this.set({ einEncrypted: einEncrypted });
-//             this.set({ einHash: einHash});
-
-//         catch(err){
-//             log.error("Application model einEncrypted error " + err + __location );
-//         }
-//     }
-// });
 
 ApplicationSchema.post('find', async function(result) {
     if(result && result.length > 0){
@@ -313,12 +297,6 @@ ApplicationSchema.post('findOne', async function(result) {
 });
 
 
-// // Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
-// ApplicationSchema.set('toJSON', {
-//     getters: true,
-//     virtuals: true
-// });
-
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
 
@@ -331,17 +309,25 @@ mongoose.model('Application', ApplicationSchema);
  * @returns {void}
  */
 function populateActivityCodePayroll(schema) {
+    log.debug(`in populateActivityCodePayroll ` + __location)
     const application = schema.getUpdate();
     if (application.hasOwnProperty("locations")) {
         const activityCodesPayrollSumList = [];
         for (const location of application.locations) {
             for (const activityCode of location.activityPayrollList) {
                 // Find the entry for this activity code
-                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.activityCodeId === activityCode.activityCodeId);
+                if(!activityCodePayrollSum){
+                    activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                    if(activityCodePayrollSum){
+                        activityCodePayrollSum.activityCodeId = activityCodePayrollSum.ncciCode;
+                    }
+                }
                 if (!activityCodePayrollSum) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
-                        ncciCode: activityCode.ncciCode,
+                        activityCodeId: activityCode.activityCodeId,
+                        ncciCode: activityCode.activityCodeId,
                         payroll: 0
                     };
                     activityCodesPayrollSumList.push(activityCodePayrollSum);

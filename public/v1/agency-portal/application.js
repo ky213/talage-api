@@ -1,3 +1,6 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
+/* eslint-disable no-catch-shadow */
 /* eslint-disable dot-notation */
 /* eslint-disable require-jsdoc */
 'use strict';
@@ -367,7 +370,13 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     try{
                         // eslint-disable-next-line prefer-const
                         let activityPayroll = location.activityPayrollList[j];
-                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        let activtyCodeJSON = {};
+                        if(activityPayroll.activityCodeId){
+                            activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
+                        }
+                        else {
+                            activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        }
                         activityPayroll.description = activtyCodeJSON.description;
                         //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
@@ -375,6 +384,8 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                         //Check for new employeeType lists - If not present fill
                         // with zero employee count - User will have to fix.
+                        // TODO determine if there was only one activity code entered.
+                        // and only FTE.  if so the FTE count is the employeeTypeCount.
                         if(activityPayroll.employeeTypeList.length === 0){
                             activityPayroll.employeeTypeList = []
                             const payRollJSON = {
@@ -387,7 +398,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                     }
                     catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
+                        log.error(`Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
                     }
                 }
             }
@@ -557,20 +568,19 @@ async function applicationSave(req, res, next) {
 
 
     try{
-        const updateMysql = true;
-
         // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
         const activityCodes = [];
         if(req.body.locations && req.body.locations.length){
             req.body.locations.forEach((location) => {
                 location.activityPayrollList.forEach((activityCode) => {
-                    const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
+                    const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
                     if(foundCode){
                         foundCode.payroll += parseInt(activityCode.payroll, 10);
                     }
                     else{
                         // eslint-disable-next-line prefer-const
                         let newActivityCode = {};
+                        newActivityCode.activityCodeId = activityCode.activityCodeId;
                         newActivityCode.ncciCode = activityCode.ncciCode;
                         newActivityCode.payroll = parseInt(activityCode.payroll, 10);
                         activityCodes.push(newActivityCode);
@@ -579,12 +589,12 @@ async function applicationSave(req, res, next) {
             });
         }
         req.body.activityCodes = activityCodes;
-
+        const updateMysql = true;
         if(req.body.applicationId){
             log.debug("App Doc UPDATE.....")
             //update
             req.body.agencyPortalModifiedUser = userId
-            responseAppDoc = await applicationBO.updateMongo(req.body.applicationId, req.body, updateMysql);
+            responseAppDoc = await applicationBO.updateMongo(req.body.applicationId, req.body);
         }
         else {
             //insert.
@@ -669,6 +679,21 @@ async function applicationCopy(req, res, next) {
         //default back not pre quoting for mysql State.
         newApplicationDoc.processStateOld = 1;
 
+        //fix missing activityCodeId
+        newApplicationDoc.locations.forEach((location) => {
+            location.activityPayrollList.forEach((activityPayroll) => {
+                if(!activityPayroll.activityCodeId && activityPayroll.ncciCode){
+                    activityPayroll.activityCodeId = activityPayroll.ncciCode
+                }
+            });
+        });
+        newApplicationDoc.activityCodes.forEach((activityCode) => {
+            if(!activityCode.activityCodeId && activityCode.ncciCode){
+                activityCode.activityCodeId = activityCode.ncciCode
+            }
+        });
+
+
         //include Questions
         if(req.body.includeQuestions === false){
             newApplicationDoc.questions = [];
@@ -695,6 +720,7 @@ async function applicationCopy(req, res, next) {
         }
         newApplicationDoc.agencyPortalCreatedUser = userId
         newApplicationDoc.agencyPortalCreated = true;
+        newApplicationDoc.handledByTalage = false;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)
@@ -752,7 +778,7 @@ async function deleteObject(req, res, next) {
 
 
     await applicationBO.deleteSoftById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("deleteSoftById load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -781,7 +807,8 @@ async function validate(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.body.id;
+    const id = req.body.id;
+    let applicationDocDB = null;
     if(id > 0){
         // Validate the application ID
         if (!await validator.is_valid_id(req.body.id)) {
@@ -792,7 +819,7 @@ async function validate(req, res, next) {
     else {
         //assume uuid input
         log.debug(`Getting app id  ${id} from mongo` + __location)
-        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
+        applicationDocDB = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
             log.error(`Error getting application Doc for validate ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
             error = err;
@@ -800,26 +827,26 @@ async function validate(req, res, next) {
         if (error) {
             return next(error);
         }
-        if(appDoc){
-            log.debug("Have app doc for " + appDoc.mysqlId + __location)
-            id = appDoc.mysqlId;
-        }
-        else {
+        if(!applicationDocDB){
             log.error(`Did not find application Doc for validate ${id}` + __location);
             return next(serverHelper.requestError('Invalid id'));
         }
+        log.debug('got application ' + __location)
     }
-
 
     //Get app and check status
-    log.debug("Loading Application by mysqlId for Validation " + __location)
-    const applicationDocDB = await applicationBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+    log.debug("Loading Application for Validation " + __location)
+    if(!applicationDocDB){
+        log.debug('Loading app using mysqlId ' + __location)
+        applicationDocDB = await applicationBO.getById(id).catch(function(err) {
+            log.error("applicationBO load error " + err + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
     }
+
     if (!applicationDocDB) {
         return next(serverHelper.requestError('Not Found'));
     }
@@ -912,7 +939,8 @@ async function requote(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.body.id;
+    const id = req.body.id;
+    let applicationDB = null;
     if(id > 0){
         // requote the application ID
         if (!await validator.is_valid_id(req.body.id)) {
@@ -923,7 +951,7 @@ async function requote(req, res, next) {
     else {
         //assume uuid input
         log.debug(`Getting app id  ${id} from mongo` + __location)
-        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
+        applicationDB = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
             log.error(`Error getting application Doc for requote ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
             error = err;
@@ -931,22 +959,21 @@ async function requote(req, res, next) {
         if (error) {
             return next(error);
         }
-        if(appDoc){
-            id = appDoc.mysqlId;
-        }
-        else {
+        if(!applicationDB) {
             log.error(`Did not find application Doc for requote ${id}` + __location);
             return next(serverHelper.requestError('Invalid id'));
         }
     }
 
     //Get app and check status
-    const applicationDB = await applicationBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+    if(!applicationDB) {
+        applicationDB = await applicationBO.getById(id).catch(function(err) {
+            log.error("applicationBO load error " + err + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
     }
     if (!applicationDB) {
         return next(serverHelper.requestError('Not Found'));
@@ -985,7 +1012,7 @@ async function requote(req, res, next) {
     try {
         const forceQuoting = true;
         const loadJson = {
-            "id": id,
+            "id": applicationDB.applicationId,
             agencyPortalQuote: true
         };
         if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
@@ -1162,16 +1189,45 @@ async function bindQuote(req, res, next) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
-
+    let bindSuccess = false;
+    let bindFailureMessage = '';
     try {
         if (req.body.markAsBound !== true && req.body.requestBind !== true) {
             //const insurerBO = new InsurerBO();
             // API binding with Insures...
+
             const quoteBind = new QuoteBind();
-            await quoteBind.load(quoteId);
-            await quoteBind.bindPolicy();
+            let paymentPlanId = 1;
+            if(req.body.paymentPlanId){
+                paymentPlanId = req.body.paymentPlanId
+            }
+            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+            const bindResp = await quoteBind.bindPolicy();
+            if(bindResp === "success"){
+                log.info(`succesfully API bound ${quoteId}` + __location)
+                bindSuccess = true;
+            }
+            else if(bindResp === "cannot_bind_quote"){
+                log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: cannot_bind_quote` + __location);
+                bindFailureMessage = "Cannot Bind Quote"
+            }
+            else {
+                log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: BindQuote did not return a response` + __location);
+                bindFailureMessage = "Could not confirm Bind Quote"
+            }
+            if(bindSuccess){
+                log.debug("quoteBind.policyInfo " + JSON.stringify(quoteBind.policyInfo));
+                res.send(200, {"bound": true, policyNumber: quoteBind.policyInfo.policyNumber});
+            }
+            else {
+                res.send(bindFailureMessage);
+            }
+
+            return next();
+
+
         }
-        if(req.body.requestBind){
+        else if(req.body.requestBind){
             const quoteBO = new QuoteBO();
             let quoteDoc = null;
             try {
@@ -1196,23 +1252,24 @@ async function bindQuote(req, res, next) {
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
-            if(bindResp){
-                await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
-                // Update Application-level quote metrics when we do a bind.
-                await applicationBO.recalculateQuoteMetrics(applicationId);
-            }
+            await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
         }
     }
 
     catch (err) {
-        log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
-        res.send(err);
+        // We Do not pass error object directly to Client - May cause info leak.
+        log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: ${err}` + __location);
+        res.send("Failed To Bind");
         return next();
     }
 
     // Send back bound for both request, mark and API binds.
-    res.send(200, {"bound": true});
+    if(bindSuccess){
+        res.send(200, {"bound": true});
+    }
+    else {
+        res.send(bindFailureMessage);
+    }
 
     return next();
 }
@@ -1571,7 +1628,7 @@ async function GetQuoteLimits(req, res, next){
         log.warn(`Missing quote id. ${__location}`)
         return next(serverHelper.requestError("Missing Id."));
     }
-    let id = req.query.quoteId;
+    const id = req.query.quoteId;
     let error = null;
     const quoteModel = new QuoteBO();
     let quote = null;
@@ -1592,8 +1649,8 @@ async function GetQuoteLimits(req, res, next){
             // NOTE: frontend expects a string.
             limits[limit.description] = `${quoteLimit.amount}`;
         }
-        catch (error) {
-            log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+        catch (err) {
+            log.error(`Could not get limits for ${quote.insurerId}:` + err + __location);
         }
     }
     res.send(200, {limits: limits});
@@ -1709,7 +1766,7 @@ async function saveApplicationNotes(req, res, next){
         log.info('Forbidden: User is not authorized for this agency' + __location);
         return next(serverHelper.forbiddenError('You are not authorized for this agency'));
     }
-    
+
     let responseAppNotesDoc = null;
     let userId = null;
     try{
@@ -1735,7 +1792,7 @@ async function saveApplicationNotes(req, res, next){
         return next();
     }
     else{
-       // res.send(500, "No updated document");
+        // res.send(500, "No updated document");
         return next(serverHelper.internalError(new Error('No updated document')));
     }
 }

@@ -384,7 +384,7 @@ module.exports = class ChubbGL extends Integration {
         BOPLineBusiness.ele('QuoteType', 'Quote');
 
         // Do you want terrorism coverage?
-        if (this.questions[1064].get_answer_as_boolean()) {
+        if (this.questions[1064] && this.questions[1064].get_answer_as_boolean()) {
             // <CommlCoverage>
             const terrorism_CommlCoverage = BOPLineBusiness.ele('CommlCoverage');
             terrorism_CommlCoverage.att('Action', 'Create');
@@ -418,6 +418,9 @@ module.exports = class ChubbGL extends Integration {
             terrorism_CommlCoverage.ele('CategoryCd', 'LP');
             terrorism_CommlCoverage.ele('RatingClassificationCd', this.industry_code.cgl);
             // </CommlCoverage>
+        }
+        else {
+            log.error(`Chubb GL (application ${this.app.id}): Error could not find terrorism question 1064 ` + __location);
         }
 
         // <LiabilityInfo>

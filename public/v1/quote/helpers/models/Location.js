@@ -93,9 +93,12 @@ module.exports = class Location {
             locationDocJson.activityPayrollList.forEach((actvityPayroll) => {
                 // Check if we have already seen this activity code
                 let match = false;
-                const tmp_id = parseInt(actvityPayroll.ncciCode, 10);
+                if(!actvityPayroll.activityCodeId){
+                    actvityPayroll.activityCodeId = actvityPayroll.ncciCode
+                }
+                const tmp_id = parseInt(actvityPayroll.activityCodeId, 10);
                 this.activity_codes.forEach(function(modelActivityCode) {
-                    if (tmp_id === modelActivityCode.ncciCode) {
+                    if (tmp_id === modelActivityCode.activityCodeId) {
                         match = true;
                         modelActivityCode.load(actvityPayroll);
                     }

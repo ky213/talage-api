@@ -49,7 +49,7 @@ async function findOne(req, res, next) {
     const insurerContactBO = new InsurerContactBO();
     // Load the request data into it
     const objectJSON = await insurerContactBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerContactBO load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {
@@ -73,7 +73,7 @@ async function add(req, res, next) {
     const insurerContactBO = new InsurerContactBO();
     let error = null;
     await insurerContactBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("insurerContactBO load error " + err + __location);
         error = err;
     });
     if (error) {

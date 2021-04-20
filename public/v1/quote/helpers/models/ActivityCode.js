@@ -23,7 +23,12 @@ module.exports = class ActivityCode{
 	 */
     load(locationActiviyCodeDocJson){
         // locationActiviyCodeDocJson from Mongoose Application Model
-        this.id = locationActiviyCodeDocJson.ncciCode;
+        if(locationActiviyCodeDocJson.activityCodeId){
+            this.id = locationActiviyCodeDocJson.activityCodeId;
+        }
+        else{
+            this.id = locationActiviyCodeDocJson.ncciCode;
+        }
         if(locationActiviyCodeDocJson.payroll > 0){
             this.payroll += locationActiviyCodeDocJson.payroll;
         }

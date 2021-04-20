@@ -654,6 +654,7 @@ module.exports = class ApplicationModel {
                     }
                     const activityPayrollJSON = {};
                     activityPayrollJSON.ncciCode = activity_code.id;
+                    activityPayrollJSON.activityCodeId = activity_code.id;
                     activityPayrollJSON.payroll = activity_code.payroll;
                     activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
@@ -692,6 +693,7 @@ module.exports = class ApplicationModel {
                             }
                             else {
                                 const activityPayrollJSON = {
+                                    activityCodeId: applicationJSON.owner_payroll.activity_code,
                                     ncciCode: applicationJSON.owner_payroll.activity_code,
                                     ownerPayRoll: applicationJSON.owner_payroll.payroll
                                 };
@@ -915,7 +917,7 @@ module.exports = class ApplicationModel {
             });
             // note: recalculating metric is call in saveApplicationStep
             try{
-
+                // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
                 await quoteBind.load(quoteDBJSON.mysqlId, quote.paymentPlanId);
                 await quoteBind.send_slack_notification("requested");
@@ -2266,6 +2268,7 @@ module.exports = class ApplicationModel {
     }
 
     getById(id) {
+        log.debug(`appBO id ${id} ` + __location)
         if(validator.isUuid(id)){
             return this.getfromMongoByAppId(id)
         }
@@ -2352,7 +2355,7 @@ module.exports = class ApplicationModel {
             if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId && forceDBQuery === false) {
                 resolve(this.#applicationMongooseDB);
             }
-            else if (mysqlId) {
+            else if (mysqlId > 0) {
                 const query = {
                     "mysqlId": mysqlId,
                     active: true
@@ -2381,7 +2384,7 @@ module.exports = class ApplicationModel {
 
             }
             else {
-                reject(new Error('no id supplied'))
+                reject(new Error('no id supplied ' + mysqlId))
             }
         });
     }
@@ -2484,7 +2487,12 @@ module.exports = class ApplicationModel {
         let activityCodeArray = [];
         if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
             for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+                if(applicationDocDB.activityCodes[i].activityCodeId){
+                    activityCodeArray.push(applicationDocDB.activityCodes[i].activityCodeId);
+                }
+                else {
+                    activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+                }
             }
 
         }

@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /**
  * Worker's Compensation for Acuity
  *
@@ -74,7 +75,10 @@ module.exports = class AcuityWC extends Integration {
         for (const location of this.app.applicationDocData.locations) {
             for (const activityPayroll of location.activityPayrollList) {
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
-                const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.ncciCode];
+                if(!activityPayroll.activityCodeId){
+                    activityPayroll.activityCodeId = activityPayroll.ncciCode;
+                }
+                const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.activityCodeId];
                 if (insurerClassCode) {
                     let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
                     if (!amtrustClassCode) {
@@ -340,6 +344,7 @@ module.exports = class AcuityWC extends Integration {
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
+            //"IsIncumbantAgent": false,
             // "ExpiredPremium": 10000,
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
@@ -440,7 +445,7 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    return this.client_error('Could not determine the answer for one of the questions', __location, { questionId: questionId });
+                    return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId });
                 }
                 // This question was not answered
                 if (!answer) {

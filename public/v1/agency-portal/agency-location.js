@@ -71,7 +71,7 @@ async function getbyId(req, res, next) {
     const getAgencyName = true;
     const loadChildren = true;
     const locationJSONList = await agencyLocationBO.getList(query, getAgencyName, loadChildren).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("agencyLocationBO load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -311,7 +311,7 @@ function getAgencyByLocationId(id) {
         }
         const agencyLocationBO = new AgencyLocationBO();
         const locationJSON = await agencyLocationBO.getById(id).catch(function(err) {
-            log.error("Location load error " + err + __location);
+            log.error("agencyLocationBO load error " + err + __location);
             reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
         });
         if(locationJSON){
@@ -496,7 +496,7 @@ async function getSelectionList(req, res, next) {
 
     let locationList = null;
     const query = {"agencyId": agencyId}
-    const getAgencyName = true;
+    const getAgencyName = false;
     const getChildren = true;
     const useAgencyPrimeInsurers = true;
 

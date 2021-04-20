@@ -1,11 +1,11 @@
 /* eslint-disable require-jsdoc */
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const utility = global.requireShared('./helpers/utility.js');
+//const utility = global.requireShared('./helpers/utility.js');
 const moment = require('moment');
 
 async function GetActivityCodes(territory,industry_code){
-    let addCode2Redis = false;
+  //  const addCode2Redis = false;
     let activityIdList = [];
     const redisKey = "activity-code-industrycode-" + territory + "-" + industry_code.toString();
     // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YESNO"){
@@ -35,56 +35,40 @@ async function GetActivityCodes(territory,industry_code){
 
     // eslint-disable-next-line prefer-const
     //generate from activityId list from mongo or mysal
-    if(global.settings.USE_MONGO_QUESTIONS === "YES"){
-        const start = moment();
-        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-        const activityCodeQuery = {
-            territoryList: territory,
-            active: true
+    
+    let start = moment();
+    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+    let insurerActivityCodeList = null;
+    try{
+        const pipeLine = [
+            {$match: {
+                territoryList: territory,
+                active: true
+            }},
+            {"$unwind": "$talageActivityCodeIdList"} ,
+            {$group:{
+                _id : null,
+                uniqueTalageActivityCodes : {$addToSet : "$talageActivityCodeIdList"}
+            }}
+        ]
+        insurerActivityCodeList = await InsurerActivityCodeModel.aggregate(pipeLine)
+        if(insurerActivityCodeList[0] && insurerActivityCodeList[0].uniqueTalageActivityCodes && insurerActivityCodeList[0].uniqueTalageActivityCodes.length > 0){
+            activityIdList = insurerActivityCodeList[0].uniqueTalageActivityCodes;
         }
-        let insurerActivityCodeList = null;
-        try{
-            //insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
-            const pipeLine =  [
-                    {$match: {territoryList: territory, active: true}},
-                    {"$unwind": "$talageActivityCodeIdList" } ,
-                    {$group:{_id : null, uniqueTalageActivityCodes : {$addToSet : "$talageActivityCodeIdList"}}}
-                    ]
-            insurerActivityCodeList = await InsurerActivityCodeModel.aggregate(pipeLine)
-            if(insurerActivityCodeList[0] && insurerActivityCodeList[0].uniqueTalageActivityCodes && insurerActivityCodeList[0].uniqueTalageActivityCodes.length >0){
-                activityIdList = insurerActivityCodeList[0].uniqueTalageActivityCodes;
-            }
-            
-        }
-        catch(err){
-            log.warn(`Appid: ${this.app.id} Error ActivityCodeSvc.GetActivityCodes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-        }
-        
-        const endMongo = moment();
-        var diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
+
     }
-    else {
-        const sql_insurer_territory_activity_codes = `
-		SELECT distinct nca.code
-		FROM clw_talage_activity_code_associations AS nca 
-		JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-		WHERE inc.territory = ${db.escape(territory)} AND inc.state = 1;
-		`;
-        const activityIdResults = await db.queryReadonly(sql_insurer_territory_activity_codes).catch(function(err) {
-            log.error(err.message + __location);
-        });
-        if(activityIdResults){
-            activityIdResults.forEach((resultJSON) => {
-                activityIdList.push(resultJSON.code);
-            });
-        }
+    catch(err){
+        log.warn(`Appid: ${this.app.id} Error ActivityCodeSvc.GetActivityCodes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
     }
 
+    let endMongo = moment();
+    let diff = endMongo.diff(start, 'milliseconds', true);
+    log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
+
     if(activityIdList.length > 0){
-        const start = moment();
+        start = moment();
         const sql_all_activity_codes = `
-            SELECT nc.id, nc.description,
+            SELECT nc.id, nc.id as 'activityCodeId', nc.description,
             CASE
                 WHEN ica.frequency > 30
                 THEN 1
@@ -104,8 +88,8 @@ async function GetActivityCodes(territory,industry_code){
         if (error) {
             throw error;
         }
-        const endMongo = moment();
-        var diff = endMongo.diff(start, 'milliseconds', true);
+        endMongo = moment();
+        diff = endMongo.diff(start, 'milliseconds', true);
         log.info(`Mysql Activity Code request ${redisKey} duration: ${diff} milliseconds` + __location);
 
         if (codes && codes.length) {
@@ -165,11 +149,11 @@ async function GetActivityCodes(territory,industry_code){
 //                 catch(err){
 //                     log.error(`Error Setting industry code questions cache industryCodeId ${industryCodeId} for Redis ${err}` + __location)
 //                 }
-            
+
 
 //             }
 //             log.info(`Actvity Code Cache By Indusry Code Redis update for industryCodeId: ${industryCodeId} updated ${i + 1} of ${industryCodeList.length} in ${listName}`);
-            
+
 //         }
 //     }
 //     else {
@@ -202,8 +186,6 @@ async function GetActivityCodes(territory,industry_code){
 // }
 
 
-
-
 // async function UpdateRedisActivityCodeByIndustryCache(industryCodeId){
 //     let sql = ` SELECT distinct ic.id as 'industryCodeId'
 //             FROM clw_talage_industry_codes AS ic
@@ -228,7 +210,6 @@ async function GetActivityCodes(territory,industry_code){
 
 // }
 
-module.exports = {
-    GetActivityCodes: GetActivityCodes
+module.exports = {GetActivityCodes: GetActivityCodes
     //UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
-        }
+}
