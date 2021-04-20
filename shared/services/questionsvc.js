@@ -135,7 +135,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
 
     });
-    const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
+    
 
     // Industry and activity code effective date is done using the unique policy effective date list.
     const industryCodeEffectiveDateWhereClauseList = [];
@@ -144,8 +144,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         industryCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)`);
         activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
     }
-    const industryCodeEffectiveDateWhereClause = "(" + industryCodeEffectiveDateWhereClauseList.join(" OR ") + ")";
-    const activityCodeEffectiveDateWhereClause = "(" + activityCodeEffectiveDateWhereClauseList.join(" OR") + ")";
 
     // Do not permit requests that include both BOP and GL
     if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
@@ -199,10 +197,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
 
     // Build the select and where statements
-    const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
-    let where = `q.state = 1
-        ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
-    `;
+    // const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
+    // let where = `q.state = 1
+    //     ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
+    // `;
     const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     let questions = [];
     log.debug("Getting universal questions " + __location);
@@ -274,7 +272,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
 
     // From this point forward, only get non-universal questions
-    where += ' AND iq.universal = 0';
+   // where += ' AND iq.universal = 0';
 
     // ============================================================
     // // Get industry-based questions
@@ -376,8 +374,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         let talageQuestionIdArray = [];
         if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
             for(const insurerIndustryCode of insurerIndustryCodeList){
-                let addStandardQuestions = false;
                 if(insurerIndustryCode.insurerTerritoryQuestionList && insurerIndustryCode.insurerTerritoryQuestionList.length > 0){
+                    let addStandardQuestions = false;
                     for(let i = 0; i < territories.length; i++){
                         //find if territory is in insurerIndustryCode.InsurerTerritoryQuestionList
                         //if so add question list - Dups are OK.
@@ -390,8 +388,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                             addStandardQuestions = true;
                         }
                     }
+                    //any territory that does not get a hit trigger adding standard questions
+                    if(addStandardQuestions && insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
+                        insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
+                    }
                 }
-                if(addStandardQuestions && insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
+                else if(insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
                     insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
                 }
 
@@ -401,7 +403,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         let insurerQuestionList = null;
         if(insurerQuestionIdArray.length > 0){
             // eslint-disable-next-line prefer-const
-            const insurerQuestionQuery = {
+            insurerQuestionQuery = {
                 insurerId: {$in: insurerArray},
                 insurerQuestionId: {$in: insurerQuestionIdArray},
                 universal: false,
@@ -454,7 +456,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     log.debug("Getting activity questions " + __location);
     // ============================================================
     // Get activity-based questions
-    
     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
     start = moment();
     const now = moment();
@@ -468,6 +469,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         active: true
     }
     try{
+        log.debug(`activityCodeQuery ${JSON.stringify(activityCodeQuery)}`);
         const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
@@ -486,10 +488,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                             addStandardQuestions = true;
                         }
                     }
-                    if(addStandardQuestions){
+                    //any territory that does not get a hit trigger adding standard questions
+                    if(addStandardQuestions && insurerActivityCode.insurerQuestionIdList && insurerActivityCode.insurerQuestionIdList.length > 0){
                         insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
                     }
-
+                }
+                else if(insurerActivityCode.insurerQuestionIdList && insurerActivityCode.insurerQuestionIdList.length > 0){
+                    insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
                 }
             }
         }
@@ -497,7 +502,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         let insurerQuestionList = null;
         if(insurerQuestionIdArray.length > 0){
             // eslint-disable-next-line prefer-const
-            const insurerQuestionQuery = {
+            insurerQuestionQuery = {
                 insurerId: {$in: insurerArray},
                 insurerQuestionId: {$in: insurerQuestionIdArray},
                 universal: false,
