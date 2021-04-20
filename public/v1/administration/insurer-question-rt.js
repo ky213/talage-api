@@ -203,6 +203,10 @@ async function add(req, res, next) {
         req.body.attributes = JSON.parse(req.body.attributes);
     }
 
+    if(!req.body.insurerId){
+        req.body.insurerId = req.body.insurer;
+    }
+
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
     const objectJSON = await insurerQuestionBO.insertMongo(req.body).catch(function(err) {
