@@ -1519,6 +1519,9 @@ module.exports = class Integration {
         const status = getQuoteStatus(false, '', api_result);
         quoteJSON.quoteStatusId = status.id;
         quoteJSON.quoteStatusDescription = status.description;
+        
+        // backwards compatibility w/ old Mongo property
+        quoteJSON.aggregatedStatus = status.description;
 
         // Aggregated Status (backwards compatibility w/ SQL)
         columns.push('aggregated_status');
