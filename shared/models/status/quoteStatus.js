@@ -86,6 +86,7 @@ async function updateQuoteStatus(quoteDocJson) {
  */
  function getQuoteStatus(bound, status, apiResult) {
     if (bound) {
+        
         // return 'bound';
         return quoteStatus.bound;
     }

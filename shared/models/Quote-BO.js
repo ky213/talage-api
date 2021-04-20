@@ -105,13 +105,13 @@ module.exports = class QuoteBO {
                 catch(err){
                     log.error("Error saving Mongo quote " + err + __location);
                 }
-    
-                resolve(quoteId);
             } else {
                 // otherwise record exists, update it
-                // TODO: update record
+                const query = { "mysqlId": quoteId };
+                await Quote.updateOne(query, quoteJSON);
             }
 
+            resolve(quoteId);
         });
     }
 
