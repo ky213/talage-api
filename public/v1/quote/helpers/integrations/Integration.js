@@ -85,6 +85,7 @@ module.exports = class Integration {
         this.amount = 0;
         this.quote_letter = {};
         this.reasons = [];
+        this.isBindable = false;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1475,6 +1476,9 @@ module.exports = class Integration {
             columns.push('quote_link');
             values.push(this.quoteLink);
             quoteJSON.quoteLink = this.quoteLink
+        }
+        if(this.isBindable){
+            quoteJSON.isBindable = this.isBindable
         }
 
         // Error

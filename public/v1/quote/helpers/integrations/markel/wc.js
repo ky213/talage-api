@@ -1248,7 +1248,10 @@ module.exports = class MarkelWC extends Integration {
                 catch (e) {
                     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote number.` + __location);
                 }
-
+                // null is a valid response. isBindable defaults to false.  null equals false.
+                if(response[rquIdKey].isBindAvailable){
+                    this.isBindable = response[rquIdKey].isBindAvailable;
+                }
                 // Get the quote limits
                 if (response[rquIdKey].application["Policy Info"]) {
 

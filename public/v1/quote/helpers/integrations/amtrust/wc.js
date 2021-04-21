@@ -536,6 +536,7 @@ module.exports = class AcuityWC extends Integration {
         }
         switch (quoteEligibility) {
             case "BindEligible":
+                this.isBindable = true
                 if (quoteLink) {
                     this.quoteLink = quoteLink;
                 }
