@@ -58,7 +58,6 @@ const quoteStatus = {
  * @param {Object} quoteDocJson - the quote to update
  * @return {void}
  */
-// TODO: Rename this to updateQuoteStatus once we deprecate quote.aggregatedStatus
 async function updateQuoteStatus(quoteDocJson) {
     const QuoteBO = global.requireShared('./models/Quote-BO.js');
     const status = getQuoteStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult);

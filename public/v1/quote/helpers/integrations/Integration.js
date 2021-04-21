@@ -14,7 +14,6 @@ const {v4: uuidv4} = require('uuid');
 const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
-// eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');

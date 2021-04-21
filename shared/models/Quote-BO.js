@@ -531,11 +531,10 @@ module.exports = class QuoteBO {
     //TODO: update this
     async updateQuoteStatus(quoteId, status) {
         if(quoteId && status){
-            // likely not updating SQL since it will be deprecated, so just sending description for now
-            // TODO: Verify this, and update if necessary
+            // Not updating SQL since it will be deprecated, so just sending description for now
             const sql = `
                 UPDATE clw_talage_quotes
-                SET aggregated_status = ${db.escape(status.description)}
+                SET aggregated_status = ${db.escape(convertToAggregatedStatus(status.description))}
                 WHERE id = ${quoteId}
             `;
             try {
