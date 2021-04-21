@@ -8,6 +8,7 @@ const agencyBO = global.requireShared('./models/Agency-BO.js');
 const agencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const industryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const questionBO = global.requireShared('./models/Question-BO.js');
+const insurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
 
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const phoneHelper = global.requireShared('./helpers/formatPhone.js');
@@ -584,22 +585,58 @@ module.exports = class ACORD{
             const locationsInStateList = this.applicationDoc.locations.filter(location => location.state === state);
             for(const location of locationsInStateList){
                 const locationNumber = this.applicationDoc.locations.indexOf(location) + 1;
+                const talageActivityCodeIdList = location.activityPayrollList.map(activity => activity.activityCodeId || activity.ncciCode);
+                const insurerActivityCodeQuery = {
+                    insurerId: this.insurerId,
+                    talageActivityCodeIdList: {$in: talageActivityCodeIdList},
+                    territoryList: {$in: uniqueStateList},
+                    effectiveDate: {$lte: this.policyObj.effectiveDate},
+                    expirationDate: {$gte: this.policyObj.expirationDate},
+                    active: true
+                };
+
+                const insurerActivityCode = new insurerActivityCodeBO();
+                let insurerActivityCodeList = null;
+                try{
+                    insurerActivityCodeList = await insurerActivityCode.getList(insurerActivityCodeQuery);
+                }
+                catch(err) {
+                    log.error('Failed getting Insurer Activity Code list' + err + __location);
+                }
+
+                if(!insurerActivityCodeList.length) {
+                    log.info('No Insurer Activity Codes were found' + __location);
+                }
+
                 for(const activity of location.activityPayrollList){
                     if(!activity.activityCodeId){
                         activity.activityCodeId = activity.ncciCode
                     }
 
-                    const currentLetter = String.fromCharCode(pdfKey);
-                    statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
-                    statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = activity.activityCodeId;
-                    const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId)
-                    if(activityCodeWithDescriptionObj){
-                        statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId).description;
+                    if(insurerActivityCodeList.length){
+                        for(const insurerActivityCodeObj of insurerActivityCodeList){
+                            const currentLetter = String.fromCharCode(pdfKey);
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}${insurerActivityCodeObj.sub ? `-${insurerActivityCodeObj.sub}` : ''}`;
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = insurerActivityCodeObj.description;
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
+                            pdfKey += 1;
+                        }
                     }
-                    statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
-                    statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
-                    statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
-                    pdfKey += 1;
+                    else{
+                        const currentLetter = String.fromCharCode(pdfKey);
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
+                        const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId);
+                        if(activityCodeWithDescriptionObj){
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = activityCodeWithDescriptionObj.description;
+                        }
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
+                        pdfKey += 1;
+                    }
                 }
             }
 

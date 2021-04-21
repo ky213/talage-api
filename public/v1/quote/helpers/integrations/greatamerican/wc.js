@@ -79,6 +79,21 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('declined');
         }
 
+        const questionnaireInit = session.riskSelection.data.answerSession.questionnaire;
+        let need_generalEligibility3OrMore = false;
+        let need_generalEligibility3OrMoreRestManu = false;
+        questionnaireInit.groups.forEach((groups) => {
+            groups.questions.forEach((question) => {
+                if(question.questionId === 'generalEligibility3OrMore'){
+                    need_generalEligibility3OrMore = true;
+                }
+                if(question.questionId === 'generalEligibility3OrMoreRestManu'){
+                    need_generalEligibility3OrMoreRestManu = true;
+                }
+
+
+            });
+        });
         //Questions from appDoc Data.
         if(this.app.applicationDocData.founded){
             const yearsWhole = moment().diff(this.app.applicationDocData.founded, 'years',false);
@@ -102,14 +117,11 @@ module.exports = class GreatAmericanWC extends Integration {
             }
 
             //Determine if generalEligibility3OrMore or generalEligibility3OrMoreRestManu should be included.
-            const insurerQuestionList = await this.get_insurer_questions_by_activitycodes();
-            const iQFound = insurerQuestionList.find((iQ) => iQ.identifier === "generalEligibility3OrMore");
-            if(iQFound){
+            if(need_generalEligibility3OrMore){
                 questions['generalEligibility3OrMore'] = years >= 3 ? "Yes" : "No"
             }
 
-            const iQFound2 = insurerQuestionList.find((iQ) => iQ.identifier === "generalEligibility3OrMoreRestManu");
-            if(iQFound2){
+            if(need_generalEligibility3OrMoreRestManu){
                 questions['generalEligibility3OrMoreRestManu'] = years >= 3 ? "Yes" : "No"
             }
 
@@ -180,6 +192,17 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('error');
         }
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
+
+
+
+
+
+
+
+
+
+
+
 
         // Often times follow-up questions are offered by the Great American
         // API after the first request for questions. So keep injecting the

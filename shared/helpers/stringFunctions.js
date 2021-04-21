@@ -36,6 +36,17 @@ exports.strtolower = function(str) {
 };
 
 /**
+ * Converts a underscore to space
+ *
+ * @param {string} str - The string
+ * @return {string} The lower-case string
+ */
+exports.strUnderscoretoSpace = function(str) {
+    return String(str).replace(/_/g, " ");
+};
+
+
+/**
  * Formats a number
  *
  * @param {Number} number - The number to format

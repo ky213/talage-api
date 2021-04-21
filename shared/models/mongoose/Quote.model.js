@@ -10,14 +10,33 @@ var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
 
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
-
+global.requireShared('./helpers/tracker.js');
 
 const QouteLimitSchema = new Schema({
     limitId: {type: Number, required: true},
     amount: {type: Number, required: true}
-},{_id : false})
+}, {_id: false});
+
+/**
+ * description [required]: The display name of the coverage
+ * value [required]: The amount of the coverage, deductible, or rate change
+ * sort [required]: A sorting integer to control ordering
+ * insurerIdentifier [optional]: The identifier code, used to find the coverage in the JSON response for a quote
+ */
+const QuoteCoverages = new Schema({
+    description: {type: String, required: true},
+    value: {type: Number, required: true},
+    sort: {type: Number, required: true},
+    insurerIdentifier: {type: String, required: false}
+}, {_id: false});
+
+const PolicySchema = new Schema({
+    policyId: {type: String, required: false},
+    policyUrl: {type: String, required: false},
+    policyNumber: {type: String, required: false},
+    policyEffectiveDate: {type: String, required: false},
+    policyPremium: {type: String, required: false}
+}, {_id: false});
 
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
@@ -34,6 +53,7 @@ const QuoteSchema = new Schema({
     status: {type: String},
     aggregatedStatus: {type: String},
     apiResult: {type: String},
+    isBindable: {type: Boolean, default: false},
     bound: {type: Boolean, default: false},
     boundUser: {type: String},
     boundDate: {type: Date},
@@ -45,12 +65,14 @@ const QuoteSchema = new Schema({
     quoteResponseJSON: {type: Schema.Types.Mixed},
     writer: {type: String},
     limits: [QouteLimitSchema],
+    quoteCoverages: [QuoteCoverages],
     quoteLink: {type: String},
     additionalInfo: {type: Schema.Types.Mixed},
     handledByTalage: {type: Boolean, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
+    policyInfo: PolicySchema,
     active: {type: Boolean, default: true}
-})
+});
 
 QuoteSchema.plugin(timestamps);
 QuoteSchema.plugin(mongooseHistory);

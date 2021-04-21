@@ -132,20 +132,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
                     insureDB.policyTypes = [];
                     const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
                     if(insurerPtDBList && insurerPtDBList.length > 0){
-                        insurerPtDBList.forEach((policyTypeObj) => {
-                            //TODO refactor AP to use full JSON from here.  (Territories not handled correctly)
-                            let reducedPolicyTypeObj = {};
-                            if(typeof policyTypeObj.policy_type !== 'undefined'){
-                                reducedPolicyTypeObj.policy_type = policyTypeObj.policy_type;
-                            }
-                            if(typeof policyTypeObj.acord_support !== 'undefined'){
-                                reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
-                            }
-                            if(insureDB.insurerId === 1 && global.settings.DISABLE_BINDING !== "YES"){
-                                reducedPolicyTypeObj.api_bind_support = 1;
-                            }
-                            insureDB.policyTypes.push(reducedPolicyTypeObj);
-                        });
+                        insureDB.policyTypes = insurerPtDBList;
                     }
                     else {
                         log.info(`No wheelhouse enabled products for insurer ${insureDB.insurerId}` + __location)

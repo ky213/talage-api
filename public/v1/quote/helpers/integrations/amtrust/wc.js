@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /**
  * Worker's Compensation for Acuity
  *
@@ -342,7 +343,8 @@ module.exports = class AcuityWC extends Integration {
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
-            "IsIncumbantAgent": false,
+            "IsIncumbentAgent": false,
+            //"IsIncumbantAgent": false,
             // "ExpiredPremium": 10000,
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
@@ -443,7 +445,7 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    return this.client_error('Could not determine the answer for one of the questions', __location, { questionId: questionId });
+                    return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId });
                 }
                 // This question was not answered
                 if (!answer) {
@@ -534,6 +536,7 @@ module.exports = class AcuityWC extends Integration {
         }
         switch (quoteEligibility) {
             case "BindEligible":
+                this.isBindable = true
                 if (quoteLink) {
                     this.quoteLink = quoteLink;
                 }
