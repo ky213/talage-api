@@ -167,7 +167,7 @@ const convertToAggregatedStatus = ({id, description}) => {
             return 'error';
         default:
             log.warn(`Cannot convert to aggregate, unknown status: [${id}: ${description}]`);
-            break;
+            return '';
     }
 }
 

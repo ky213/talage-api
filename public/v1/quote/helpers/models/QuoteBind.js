@@ -135,7 +135,7 @@ module.exports = class QuoteBind{
                     this.policyInfo = policyInfo;
                     log.debug("policyInfo " + JSON.stringify(policyInfo));
                     const quoteBO = new QuoteBO()
-                    await quoteBO.markQuoteAsBound(this.quoteDoc.quoteId, this.applicationDoc.applicationId, this.requestUserId, policyInfo);
+                    await quoteBO.markQuoteAsBound(this.quoteDoc.quoteId, this.applicationDoc.applicationId, this.requestUserId, policyInfo, true);
                     //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
                     const ApplicationBO = global.requireShared('./models/Application-BO.js');
                     const applicationBO = new ApplicationBO();

@@ -107,7 +107,7 @@ module.exports = class QuoteBO {
                 }
             } else {
                 // otherwise record exists, update it
-                const query = { "mysqlId": quoteId };
+                const query = { "quoteId": quoteId };
                 try {
                     await Quote.updateOne(query, quoteJSON);
                 } catch (e) {
