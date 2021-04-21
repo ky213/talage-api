@@ -110,8 +110,8 @@ module.exports = class ChubbBOP extends Integration {
                 '/api/v1/tokens',
                 null,
                 {
-                    App_ID: '84b45546-f66d-4da7-abbc-e54a100caabf',
-                    App_Key: `|M*O49d\\7)H0o8X.]HZ89eS&`
+                    App_ID: this.username,
+                    App_Key: this.password
                 },
                 'POST')
         }
