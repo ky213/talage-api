@@ -1,19 +1,19 @@
 /* eslint-disable guard-for-in */
 
-const moment = require('moment');
+global.requireShared('./helpers/tracker.js');
 
+const moment = require('moment');
 const DatabaseObject = require('./DatabaseObject.js');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-
+const { quoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 const tableName = 'clw_talage_quotes'
 const skipCheckRequired = false;
+
 module.exports = class QuoteBO {
 
     #dbTableORM = null;
@@ -565,8 +565,10 @@ module.exports = class QuoteBO {
     }
     //bindQuote
 
-    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo) {
+    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo, apiBound = false) {
         if(quoteId && applicationId && bindUser){
+            const status = apiBound ? quoteStatus.bound : quoteStatus.bound_external;
+
             // update Mongo
             const query = {
                 "quoteId": quoteId,
@@ -582,8 +584,10 @@ module.exports = class QuoteBO {
                         "bound": true,
                         "boundUser": bindUser,
                         "boundDate": bindDate,
-                        "aggregatedStatus": "bound",
-                        "status": "bound"
+                        "aggregatedStatus": convertToAggregatedStatus(status),
+                        "status": "bound",
+                        "quoteStatusId": status.id,
+                        "quoteStatusDescription": status.description
                     };
                     if(policyInfo){
                         updateJSON.policyInfo = policyInfo;
