@@ -171,10 +171,6 @@ async function runFunction() {
     const quote_promises = [];
     // eslint-disable-next-line array-element-newline
     //Wheelhouse
-    const appIdList = [11426,11428,1414,11401,11365,11333,11617,11613,11601,11600,11585,11561,11541,11540,11535,11525,11497,11482,11490,11700,11711,11720,11721,11723,11732,11726, 11919];
-    //const appIdList = [11482];
-    //Digalent apps
-    //const appIdList = [11477,11472, 11329];
     const path = 'testrunapplications.json';
     let appListText = fs.readFileSync(path);
     let appList = JSON.parse(appListText);
@@ -182,18 +178,18 @@ async function runFunction() {
     //var Application = require('mongoose').model('Application');
     const updateMysql = true;
     for(let i = 0; i < appList.length; i++){
-        const mysqlId = appList[i].sourceAppId;
-        log.debug("copying mysqlId " + mysqlId);
+        const sourceAppId = appList[i].sourceAppId;
+        log.debug("copying mysqlId " + sourceAppId);
         try{
         //load applicationBO
             const applicationBO = new ApplicationBO();
             //setup old app to copy from;
-            let mongoApp = await applicationBO.getMongoDocbyMysqlId(mysqlId)
-            if(!mongoApp.additionalInfo){
-                mongoApp.additionalInfo = {}
-            }
+            let mongoApp = await applicationBO.getById(sourceAppId)
             if(mongoApp){
-                log.debug("Loaded mysqlId " + mysqlId + " applicationId " + mongoApp.applicationId)
+                if(!mongoApp.additionalInfo){
+                    mongoApp.additionalInfo = {}
+                }
+                log.debug("Loaded sourceAppId " + sourceAppId + " applicationId " + mongoApp.applicationId)
                 mongoApp.additionalInfo.copiedFromMysqlId = mongoApp.mysqlId;
                 mongoApp.additionalInfo.copiedFromAppId = mongoApp.applicationId;
 
@@ -226,7 +222,7 @@ async function runFunction() {
 
                 //save mongoinsert
                 const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
-                log.debug("Saved new msqlId " + newApplicationJSON.mysqlId + " applicationId " + newApplicationJSON.applicationId);
+                log.debug("Saved new sourceAppId " + newApplicationJSON.mysqlId + " applicationId " + newApplicationJSON.applicationId);
 
                 //run quote process
                 const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.mysqlId}/requote`;
@@ -244,13 +240,13 @@ async function runFunction() {
                 }
             }
             else {
-                log.error("Failed to load mysqlId " + mysqlId);
+                log.error("Failed to load sourceAppId " + sourceAppId);
             }
 
 
         }
         catch(err){
-            log.error(`Copying and quoting mongo application mysqlId: ${mysqlId} error ` + err + __location)
+            log.error(`Copying and quoting mongo application sourceAppId: ${sourceAppId} error ` + err + __location)
         }
     }
     if(quote_promises.length > 0){
