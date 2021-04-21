@@ -1871,7 +1871,7 @@ module.exports = class Integration {
                 return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
 
             case 'error':
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration returned An Error` + __location);
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
                     for(let i = 0; i < this.reasons.length; i++){
