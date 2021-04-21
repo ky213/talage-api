@@ -313,7 +313,9 @@ module.exports = class EmployersWC extends Integration {
                             log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.` + __location);
                         }
                     }
-
+                    if (status === 'QUOTE') {
+                        this.isBindable = true
+                    }
                     // Send the result of the request
                     fulfill(this.return_result(status));
                 });
