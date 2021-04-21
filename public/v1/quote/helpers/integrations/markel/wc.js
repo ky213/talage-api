@@ -1235,7 +1235,7 @@ module.exports = class MarkelWC extends Integration {
         const rquIdKey = Object.keys(response)[0]
 
         try {
-            if (response && response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
+            if (response && (response[rquIdKey].underwritingDecisionCode === 'SUBMITTED' || response[rquIdKey].underwritingDecisionCode === 'QUOTED')) {
 
                 if(response[rquIdKey].premium){
                     this.amount = response[rquIdKey].premium.totalPremium;
@@ -1254,19 +1254,23 @@ module.exports = class MarkelWC extends Integration {
 
                     const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
                     const limitsArray = limitsString.split('/');
-                    const quotelimits = {
+                    this.limits = {
                         '1': parseInt(limitsArray[0],10) * 1000,
                         '2': parseInt(limitsArray[1],10) * 1000,
                         '3': parseInt(limitsArray[2],10) * 1000
                     }
-                    return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');
                 }
                 // Return with the quote
-                return this.return_result('referred_with_price');
+                if(response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
+                    return this.return_result('referred_with_price');
+                }
+                else {
+                    return this.return_result('quoted');
+                }
             }
         }
         catch (error) {
