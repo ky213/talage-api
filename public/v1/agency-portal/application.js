@@ -1082,7 +1082,7 @@ async function requote(req, res, next) {
     try {
         await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateApplicationStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
@@ -1293,7 +1293,7 @@ async function bindQuote(req, res, next) {
         }
         else {
             //Mark Quote Doc as bound.
-            const quoteBO = new QuoteBO()
+            const quoteBO = new QuoteBO();
             await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
         }
     }

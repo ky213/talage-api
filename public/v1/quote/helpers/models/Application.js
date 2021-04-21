@@ -10,7 +10,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const get_questions = global.requireShared('./helpers/getQuestions.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 
-const status = global.requireShared('./models/application-businesslogic/status.js');
+const status = global.requireShared('./models/status/applicationStatus.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');

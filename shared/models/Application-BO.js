@@ -1311,7 +1311,7 @@ module.exports = class ApplicationModel {
     }
 
 
-    async updateStatus(id, appStatusDesc, appStatusid) {
+    async updateApplicationStatus(id, appStatusDesc, appStatusid) {
 
         if (id) {
             //mongo update.....
@@ -1337,7 +1337,7 @@ module.exports = class ApplicationModel {
             return true;
         }
         else {
-            log.error(`updateStatus missing id ` + __location);
+            log.error(`updateApplicationStatus missing id ` + __location);
         }
     }
 
@@ -1619,7 +1619,7 @@ module.exports = class ApplicationModel {
                     return;
                 }
 
-                const status = global.requireShared('./models/application-businesslogic/status.js');
+                const status = global.requireShared('./models/status/applicationStatus.js');
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
