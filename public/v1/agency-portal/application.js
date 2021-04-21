@@ -1289,7 +1289,7 @@ async function bindQuote(req, res, next) {
                 noCustomerEmail: true
             }
             const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(error){
-                log.error(`Error trying to request bind quoteId #${quoteId} on applicationId #${applicationId} ` + error + __location);
+                log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + error + __location);
                 bindFailureMessage = "Failed to request bind. If this continues please contact us.";
             });
             
@@ -1301,7 +1301,7 @@ async function bindQuote(req, res, next) {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
             const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(error){ 
-                log.error(`Error trying to mark quoteId #${quoteId} bound on applicationId #${applicationId} ` + error + __location);
+                log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + error + __location);
                 bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
             });
             if(markAsBoundResponse === true){
@@ -1322,7 +1322,7 @@ async function bindQuote(req, res, next) {
         res.send(200, {"bound": true});
     }
     else {
-        res.send(200, {'message': bindFailureMessage});
+        res.send( {'message': bindFailureMessage});
     }
 
     return next();
