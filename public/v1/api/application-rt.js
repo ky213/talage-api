@@ -684,7 +684,7 @@ async function startQuoting(req, res, next) {
     try {
         await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateApplicationStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
@@ -960,12 +960,12 @@ async function createQuoteSummary(quote) {
                     name: insurer.name,
                     rating: insurer.rating
                 },
-                limits: limits,
+                limits,
                 payment_options: paymentOptions
             };
         default:
-            // We don't return a quote for any other aggregated status
-            // log.error(`Quote ${quote.id} has a unknow aggregated status of ${quote.aggregated_status} when creating quote summary ${__location}`);
+            // We don't return a quote for any other status
+            // log.error(`Quote ${quote.id} has a unknown status of ${quote.aggregated_status} when creating quote summary ${__location}`);
             return null;
     }
 }
