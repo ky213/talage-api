@@ -250,7 +250,7 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false, getAgencyLocationName = false) {
+    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false) {
         return new Promise(async(resolve, reject) => {
             let queryProjection = {"__v": 0}
 
@@ -356,10 +356,7 @@ module.exports = class AgencyLocationBO{
 
                     if(mainCollection){
                         for(const doc of docList){
-                            if(getAgencyLocationName){
-                                doc.agencyLocationName = doc.name;
-                            }
-                            if(doc.agencyId){
+                            if(doc.agencyId && !doc.name){
                                 const agencyJSON = await this.getAgencyJSON(doc.agencyId);
                                 if(agencyJSON){
                                     doc.name = agencyJSON.name;
@@ -763,6 +760,6 @@ module.exports = class AgencyLocationBO{
         }
 
         const getAgencyName = true;
-        return this.getList(queryJSON, getAgencyName, false, false, true, true);
+        return this.getList(queryJSON, getAgencyName, false, false, true);
     }
 }
