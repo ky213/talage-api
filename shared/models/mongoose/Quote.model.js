@@ -55,6 +55,7 @@ const QuoteSchema = new Schema({
     quoteStatusDescription: {type: String},
     aggregatedStatus: {type: String},
     apiResult: {type: String},
+    isBindable: {type: Boolean, default: false},
     bound: {type: Boolean, default: false},
     boundUser: {type: String},
     boundDate: {type: Date},
