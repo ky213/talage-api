@@ -3,28 +3,7 @@
 /* eslint-disable object-curly-newline */
 'use strict';
 
-/**
- * Ensures that a quote has a value for aggregated_status
- *
- * @param {Object} quoteDocJson - the quote to update
- * @return {void}
- */
-async function updateQuoteAggregatedStatus(quoteDocJson) {
-    const QuoteBO = global.requireShared('./models/Quote-BO.js');
-    const aggregatedStatus = getQuoteAggregatedStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult);
-    if (aggregatedStatus !== quoteDocJson.aggregatedStatus) {
-        quoteDocJson.aggregatedStatus = aggregatedStatus;
-        const quoteBO = new QuoteBO();
-        try {
-            await quoteBO.updateQuoteAggregatedStatus(quoteDocJson.id, aggregatedStatus);
-        }
-        catch (error) {
-            log.error(`Could not update quote ${quoteDocJson.id} aggregated status: ${error} ${__location}`);
-            return false;
-        }
-    }
-    return true;
-}
+const { updateQuoteStatus } = require('./quoteStatus.js');
 
 /**
  * Ensures that a quote has a value for aggregated_status
@@ -84,48 +63,11 @@ async function updateApplicationStatus(application, timeout) {
     // Set the new application status
     try {
         //TODO change to applicationId
-        await applicationBO.updateStatus(applicationDocJson.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        await applicationBO.updateApplicationStatus(applicationDocJson.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
     catch (err) {
         log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
-}
-
-/**
- * Retrieves an aggregated quote status
- *
- * @param {Boolean} bound - whether or not the quote is bound
- * @param {String} status - quote status
- * @param {String} apiResult - result from the api call
- * @return {void}
- */
-function getQuoteAggregatedStatus(bound, status, apiResult) {
-    if (bound) {
-
-        return 'bound';
-    }
-    else if (status === 'bind_requested' && apiResult === 'referred_with_price') {
-        return 'request_to_bind_referred';
-    }
-    else if (status === 'bind_requested') {
-        return 'request_to_bind';
-    }
-    else if (apiResult === 'quoted') {
-        return 'quoted';
-    }
-    else if (apiResult === 'referred_with_price') {
-        return 'quoted_referred';
-    }
-    else if (apiResult === 'referred') {
-        return 'referred';
-    }
-    else if (apiResult === 'acord_emailed') {
-        return 'acord_emailed';
-    }
-    else if (apiResult === 'declined' || apiResult === 'autodeclined') {
-        return 'declined';
-    }
-    return 'error';
 }
 
 /**
@@ -137,8 +79,10 @@ function getQuoteAggregatedStatus(bound, status, apiResult) {
  * @return {string} - The status object {appStatusId, appStatusDesc} of the application
  */
 function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) {
-    // Ensure that each quote has an aggregated status (backwards compatibility)
-    quoteDocJsonList.forEach((quoteDocJson) => updateQuoteAggregatedStatus(quoteDocJson));
+    // Ensure that each quote has a quote status and ID 
+    // TODO: This should not be part of this function's responsibilities...
+    quoteDocJsonList.forEach((quoteDocJson) => updateQuoteStatus(quoteDocJson));
+
     if (applicationDoc.appStatusId < 10) {
         //appStatusId = 0
         return { appStatusId: 0, appStatusDesc: 'incomplete' };
@@ -230,6 +174,5 @@ function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList, time
 }
 
 module.exports = {
-    updateApplicationStatus: updateApplicationStatus,
-    getQuoteAggregatedStatus: getQuoteAggregatedStatus
+    updateApplicationStatus
 };

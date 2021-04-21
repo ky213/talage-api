@@ -14,12 +14,10 @@ const {v4: uuidv4} = require('uuid');
 const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
-//const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
-const status = global.requireShared('./models/application-businesslogic/status.js');
+const { quoteStatus, getQuoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -85,6 +83,8 @@ module.exports = class Integration {
         this.amount = 0;
         this.quote_letter = {};
         this.reasons = [];
+        this.quoteId = null;
+        this.isBindable = false;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1127,6 +1127,9 @@ module.exports = class Integration {
     quote() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
+
+            await this.record_quote(null, quoteStatus.initiated.description);
+
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
@@ -1476,6 +1479,9 @@ module.exports = class Integration {
             values.push(this.quoteLink);
             quoteJSON.quoteLink = this.quoteLink
         }
+        if(this.isBindable){
+            quoteJSON.isBindable = this.isBindable
+        }
 
         // Error
         columns.push('api_result');
@@ -1508,15 +1514,21 @@ module.exports = class Integration {
                 }
             }
             catch (err) {
-                log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
+                log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${fileName}, error: ${err}. ${__location}`);
             }
         }
 
-        // Aggregated Status.
+        // quoteStatusId and quoteStatusDescription
+        const status = getQuoteStatus(false, '', api_result);
+        quoteJSON.quoteStatusId = status.id;
+        quoteJSON.quoteStatusDescription = status.description;
+
+        // backwards compatibility w/ old Mongo property and existing code logic
+        quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
+
+        // Aggregated Status (backwards compatibility w/ SQL)
         columns.push('aggregated_status');
-        const aggregatedStatus = status.getQuoteAggregatedStatus(false, '', api_result);
-        values.push(aggregatedStatus);
-        quoteJSON.aggregatedStatus = aggregatedStatus
+        values.push(status.description);
 
         if (Object.keys(this.limits).length) {
             quoteJSON.limits = []
@@ -1540,11 +1552,11 @@ module.exports = class Integration {
         }
         //QuoteBO
         const quoteBO = new QuoteBO();
-        const quoteID = await quoteBO.saveIntegrationQuote(quoteJSON, columns, values).catch(function(err){
+        this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON, columns, values).catch(function(err){
             log.error("Error quoteBO.insertByColumnValue " + err + __location);
         });
 
-        return quoteID;
+        return this.quoteId;
     }
 
     /**
@@ -1871,7 +1883,7 @@ module.exports = class Integration {
                 return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
 
             case 'error':
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration returned An Error` + __location);
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
                     for(let i = 0; i < this.reasons.length; i++){
