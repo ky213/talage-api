@@ -511,7 +511,13 @@ async function getAgencyMetadata(req, res, next) {
     const metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
 
     // use wheelhouse defaults if its not present
-    const metaDescription = agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault;
+    let metaDescription = null;
+    if(agencyJson.landingPageContent && agencyJson.landingPageContent.bannerHeadingDefault){
+        metaDescription = agencyJson.landingPageContent.bannerHeadingDefault;
+    }
+    else if(agencyJson.defaultLandingPageContent) {
+        metaDescription = agencyJson.defaultLandingPageContent.bannerHeadingDefault;
+    }
 
     res.send(200, {
         wholesale: agencyJson.wholesale,
