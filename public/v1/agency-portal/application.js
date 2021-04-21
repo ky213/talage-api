@@ -1294,7 +1294,7 @@ async function bindQuote(req, res, next) {
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO();
-            await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID, null, false);
+            await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
         }
     }
 

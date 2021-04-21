@@ -564,9 +564,9 @@ module.exports = class QuoteBO {
     }
     //bindQuote
 
-    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo, apiBound = false) {
+    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo) {
         if(quoteId && applicationId && bindUser){
-            const status = apiBound ? quoteStatus.bound : quoteStatus.bound_external;
+            const status = quoteStatus.bound;
 
             // update Mongo
             const query = {

@@ -8,47 +8,42 @@ const quoteStatus = {
         id: 0,
         description: "Initiated"
     },
-    // generic error, can be broken down into specifics within the range 11-19
     error: {
         id: 10,
         description: "Error"
     },
-    // may want to include auto declined deliniation? 
+    // may want to include auto declined delineation? 
     declined: {
-        id: 11,
+        id: 20,
         description: "Declined"
     },
     ACORDEmailed: {
-        id: 20,
+        id: 30,
         description: "ACORD Emailed"
     },
     referred: {
-        id: 30,
+        id: 40,
         description: "Referred"
     },
     quoted: {
-        id: 40,
+        id: 50,
         description: "Quoted"
     },
     quoted_referred: {
-        id: 41,
+        id: 55,
         description: "Referred Quote"
     },
     bind_requested: {
-        id: 50,
+        id: 60,
         description: "Bind Requested"
     },
     bind_requested_referred: {
-        id: 51,
+        id: 65,
         description: "Bind Requested for Referral"
     },
     bound: {
-        id: 60,
+        id: 100,
         description: "Bound"
-    },
-    bound_external: {
-        id: 61,
-        description: "Externally Bound"
     }
 };
 
@@ -91,14 +86,7 @@ async function updateQuoteStatus(quoteDocJson) {
  function getQuoteStatus(bound, status, apiResult) {
     if (bound) {
         // return 'bound';
-        if (apiResult === quoteStatus.bound.description) {
-            return quoteStatus.bound;
-        } else if (apiResult === quoteStatus.bound_external.description) {
-            return quoteStatus.bound_external;
-        } else {
-            log.warn(`Mismatched apiResult passed in when bound = true. apiResult: ${apiResult}.`);
-            return quoteStatus.bound_external;
-        }
+        return quoteStatus.bound;
     }
     else if (status === 'bind_requested' && apiResult === 'referred_with_price') {
         // return 'request_to_bind_referred';
@@ -146,7 +134,6 @@ const convertToAggregatedStatus = ({id, description}) => {
     // NOTE: There is no aggregate case for new status "initiated"
     switch (id) {
         case quoteStatus.bound.id:
-        case quoteStatus.bound_external.id:
             return 'bound';
         case quoteStatus.bind_requested_referred.id:
             return 'request_to_bind_referred';
@@ -155,7 +142,7 @@ const convertToAggregatedStatus = ({id, description}) => {
         case quoteStatus.quoted.id:
             return 'quoted';
         case quoteStatus.quoted_referred.id:
-            return 'referred_with_price';
+            return 'quoted_referred';
         case quoteStatus.referred.id:
             return 'referred';
         case quoteStatus.ACORDEmailed.id:
