@@ -64,6 +64,7 @@ module.exports = class Integration {
         this.insurer_wc_codes = {};
         this.grouped_activity_codes = [];
         this.limits = {};
+        this.quoteCoverages = [];
         this.log = '';
         //This is the quote number/id from
         this.number = '';
@@ -1524,19 +1525,23 @@ module.exports = class Integration {
         values.push(aggregatedStatus);
         quoteJSON.aggregatedStatus = aggregatedStatus
 
+        // Set up quote limits for old-style hydration (should be deprecated eventually)
         if (Object.keys(this.limits).length) {
-            quoteJSON.limits = []
             // eslint-disable-next-line guard-for-in
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId) && typeof this.limits[limitId] === 'number' && this.limits[limitId]) {
                     const limitJSON = {
                         limitId: limitId,
                         amount: this.limits[limitId]
-                    }
+                    };
                     quoteJSON.limits.push(limitJSON);
                 }
             }
         }
+
+        // hydrate quoteCoverages property with insurer coverages
+        quoteJSON.quoteCoverages = this.quoteCoverages;
+
         //shouldNotifyTalage is based on talageWholesale Setting
         const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
         //We only need one AL insurer to be set to notifyTalage to send it to Slack.
@@ -1600,18 +1605,22 @@ module.exports = class Integration {
      * Returns a quote object for a 'referred' quote
      *
      * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
-     * @param {int} limits - The limits parsed from the quote
+     * @param {array<object>} limits - The limits parsed from the quote (optional if coverages is supplied)
      * @param {int} premiumAmount - The premium amount (optional)
      * @param {string} quoteLetter - The quote letter (optional)
      * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
+     * @param {array<object>} coverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_referred(quoteNumber, limits, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null) {
-        if (!limits || Object.keys(limits).length === 0) {
-            this.log_error('Received a referred quote but no limits', __location);
-            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+    async client_referred(quoteNumber, limits = {}, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null, coverages = []) {
+        this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
+        this.quoteCoverages = coverages && coverages.length > 0 ? coverages : null;
+
+        if (!this.limits && !this.coverages) {
+            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
+            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
-        this.limits = limits;
+
         if (premiumAmount) {
             this.amount = premiumAmount;
         }
@@ -1635,20 +1644,25 @@ module.exports = class Integration {
 
     /**
      * Returns a quote object for a 'quoted' quote
+     * 
+     * NOTE: limits will "eventually" be deprecated and replaced by coverages
      *
      * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
-     * @param {array} limits - The limits parsed from the quote
+     * @param {array<object>} limits - The limits parsed from the quote (optional if coverages is supplied)
      * @param {int} premiumAmount - The premium amount
      * @param {string} quoteLetter - The quote letter (optional)
      * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
+     * @param {array<object>} coverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits, premiumAmount, quoteLetter = null, quoteLetterMimeType = null) {
-        if (!limits) {
-            this.log_error(`Received a quote but no limits for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
-            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, coverages = []) {
+        this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
+        this.quoteCoverages = coverages && coverages.length > 0 ? coverages : null;
+
+        if (!this.limits && !this.coverages) {
+            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
+            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
-        this.limits = limits;
 
         if (!premiumAmount) {
             this.log_error(`Received a quote but no premium amount for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);

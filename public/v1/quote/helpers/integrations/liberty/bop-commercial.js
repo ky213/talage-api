@@ -170,6 +170,34 @@ const lossCauseCodeMatrix = {
     "Other": "BOTHR"
 }
 
+// These are the descriptions tied to each coverage code
+// NOTE: "LBMED" not included, as it refers just to general limits (i.e. General Aggregate an Liability - Each Occurrence)
+//       LBMED is handled explicitly in the integration
+// NOTE: BOP codes override GL codes where applicable. (i.e. MEDEX (BOP) is used over Medical (GL), since this is a BOP integration)
+const coverageCodeMatrix = {
+    "EMPDH": "Employee Dishonesty (Including Forgery and Alterations)",
+    // "LMCI_RateAsOfDt": "N/A" // GL ONLY, no description provided
+    "ACCTS": "Accounts Receivable",
+    // "Aggregate" // GL, overwritten by LBMED (BOP)
+    "BOLAW": "Ordinance or Law",
+    "FIART": "Fine Arts",
+    "FireDam": "Fire Damage", // GL ONLY
+    "FLL": "Fire Legal Liability",
+    "IDRC": "Identity Recovery",
+    "INFL": "Business Personal Property",
+    // "Medical": "Medical Expense" // GL, overwritten by MEDEX (BOP)
+    "MEDEX": "Medical Expense",
+    "MSEC": "Money and Securities",
+    "OUTSI": "Outdoor Signs",
+    // "PerOcc" // GL, overwritten by LBMED (BOP)
+    "PersInjury": "Personal and Advertising Injury", // GL ONLY
+    "ProductsCompletedOperations": "Products - Completed Operations", // GL ONLY
+    "TOOLS": "Employee Tools", // Shows up as TOOLE as a coverage
+    "VPAPR": "Valuable Papers"
+    // "LMCI_DistanceToFireStationCd" // no description provided
+    // "LMCI_DistanceToHydrantCd" // no description provided
+}
+
 let logPrefix = '';
 
 module.exports = class LibertySBOP extends Integration {
@@ -247,10 +275,6 @@ module.exports = class LibertySBOP extends Integration {
         // fall back to outside phone IFF we cannot find primary contact phone
         phone = phone ? phone : applicationDocData.phone.toString();
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
-
-        // used for implicit question NBOP11: any losses or claims in the past 3 years?
-        const claimsPast3Years = applicationDocData.claims.length === 0 || 
-            applicationDocData.claims.find(c => moment().diff(moment(c.eventDate), 'years', true) >= 3) ? "NO" : "YES";
 
         // ------------- CREATE XML REQUEST ---------------
         
@@ -1172,6 +1196,8 @@ module.exports = class LibertySBOP extends Integration {
         let quoteLetter = null;
         const quoteMIMEType = "BASE64";
         let policyStatus = null;
+        const quoteCoverages = [];
+        let coverageSort = 0;
 
         // check valid response object structure
         if (
@@ -1220,39 +1246,43 @@ module.exports = class LibertySBOP extends Integration {
             quoteProposalId = policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId'];
         }
 
-        // check valid limit data structure in response
-        if (
-            !result.BOPLineBusiness ||
-            !result.BOPLineBusiness[0].LiabilityInfo || 
-            !result.BOPLineBusiness[0].LiabilityInfo[0].Coverage
-        ) {
-            log.error(`${logPrefix}Liability Limits not provided, or result structure has changed. ` + __location);
+        // Check for Limit Coverages in Liability Info
+        if (!result.BOPLineBusiness || !result.BOPLineBusiness[0].LiabilityInfo) {
+            log.warn(`${logPrefix}No Liability Limit Coverages provided, or result structure has changed. ` + __location);
         }
         else {
             // limits exist, set them
-            const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].Coverage;
+            const coverages = result.BOPLineBusiness[0].LiabilityInfo;
 
-            coverages.forEach(coverageLimit => {
+            coverages.forEach(coverage => {
                 // only look at limits that have LimitAppliesToCd
-                coverageLimit.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
-                    const limitAmount = limit.FormatCurrencyAmt[0].Amt[0];
-                    switch(limit.LimitAppliesToCd[0]){
-                        case 'Aggregate':
-                            quoteLimits[8] = limitAmount;
-                            break;
-                        case 'MEDEX':
-                            quoteLimits[6] = limitAmount;
-                            break;
-                        case 'PerOcc':
-                            quoteLimits[4] = limitAmount;
-                            break;
-                        default:
-                            log.warn(`${logPrefix}Unexpected Limit "${limit.LimitAppliesToCd[0]}" found in response. We may want to capture it.`);
-                            break;
-                    }
+                coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
+                    const limitAmount = parseInt(limit.FormatCurrencyAmt[0].Amt[0]);
+                    const newCoverage = {
+                        description: `${coverageCodeMatrix[limit.LimitAppliesToCd]} Limit`,
+                        value: limitAmount,
+                        sort: coverageSort++,
+                        insurerIdentifier: limit.LimitAppliesToCd
+                    };
+                    quoteCoverages.push(newCoverage);
+                });
+
+                // only look at limits that have DeductibleAppliesToCd
+                coverage.Limit.filter(limit => limit.DeductibleAppliesToCd).forEach(limit => {
+                    const limitAmount = parseInt(limit.FormatCurrencyAmt[0].Amt[0]);
+                    const newCoverage = {
+                        description: `${coverageCodeMatrix[limit.LimitAppliesToCd]} Deductible`,
+                        value: limitAmount,
+                        sort: coverageSort++,
+                        insurerIdentifier: limit.LimitAppliesToCd
+                    };
+                    quoteCoverages.push(newCoverage);
                 });
             });
         }
+
+        // Check for Limit Coverages in Property Info
+        // TODO: do it...
 
         const quotePath = `/v1/quoteProposal?quoteProposalId=${quoteProposalId}`;
 

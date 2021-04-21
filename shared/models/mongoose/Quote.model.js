@@ -23,7 +23,7 @@ const QouteLimitSchema = new Schema({
  * sort [required]: A sorting integer to control ordering
  * insurerIdentifier [optional]: The identifier code, used to find the coverage in the JSON response for a quote
  */
-const QuoteCoverages = new Schema({
+const QuoteCoveragesSchema = new Schema({
     description: {type: String, required: true},
     value: {type: Number, required: true},
     sort: {type: Number, required: true},
@@ -65,7 +65,7 @@ const QuoteSchema = new Schema({
     quoteResponseJSON: {type: Schema.Types.Mixed},
     writer: {type: String},
     limits: [QouteLimitSchema],
-    quoteCoverages: [QuoteCoverages],
+    quoteCoverages: [QuoteCoveragesSchema],
     quoteLink: {type: String},
     additionalInfo: {type: Schema.Types.Mixed},
     handledByTalage: {type: Boolean, default: false},
