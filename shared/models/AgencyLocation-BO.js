@@ -374,7 +374,10 @@ module.exports = class AgencyLocationBO{
                             if(getAgencyName && doc.agencyId){
                                 const agencyJSON = await this.getAgencyJSON(doc.agencyId);
                                 if(agencyJSON){
-                                    doc.name = agencyJSON.name;
+                                    if(!doc.name){
+                                        doc.name = agencyJSON.name;
+                                    }
+                                    doc.agencyName = agencyJSON.name;
                                     doc.agencyNetworkId = agencyJSON.agencyNetworkId;
                                     doc.agencyEmail = agencyJSON.email;
                                     doc.doNotReport = agencyJSON.doNotReport;
