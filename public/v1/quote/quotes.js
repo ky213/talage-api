@@ -162,12 +162,12 @@ async function createQuoteSummary(quote) {
                     name: insurer.name,
                     rating: insurer.rating
                 },
-                limits: limits,
+                limits,
                 payment_options: paymentOptions
             };
         default:
-            // We don't return a quote for any other aggregated status
-            // log.error(`Quote ${quote.id} has a unknow aggregated status of ${quote.aggregated_status} when creating quote summary ${__location}`);
+            // We don't return a quote for any other status
+            // log.error(`Quote ${quote.id} has a unknown status of ${quote.aggregated_status} when creating quote summary ${__location}`);
             return null;
     }
 }
