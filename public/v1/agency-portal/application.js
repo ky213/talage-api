@@ -257,7 +257,6 @@ async function getApplication(req, res, next) {
                     }
                 }
                 const sortedCoverageList = quoteJSON.quoteCoverages.sort(ascendingOrder);
-                log.debug(JSON.stringify(sortedCoverageList));
                 for(const quoteCoverage of sortedCoverageList){
                     limitsList[quoteCoverage.description] = `${quoteCoverage.value}`;
                 }
@@ -1289,12 +1288,25 @@ async function bindQuote(req, res, next) {
                 paymentPlanId: paymentPlanId,
                 noCustomerEmail: true
             }
-            await applicationBO.processRequestToBind(applicationId, quoteObj)
+            const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(error){
+                log.error(`Error trying to request bind quoteId #${quoteId} on applicationId #${applicationId} ` + error + __location);
+                bindFailureMessage = "Failed to request bind. If this continues please contact us.";
+            });
+            
+            if(requestBindResponse){
+                bindSuccess = true;
+            }
         }
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
+            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(error){ 
+                log.error(`Error trying to mark quoteId #${quoteId} bound on applicationId #${applicationId} ` + error + __location);
+                bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
+            });
+            if(markAsBoundResponse === true){
+                bindSuccess = true;
+            }
         }
     }
 
@@ -1310,7 +1322,7 @@ async function bindQuote(req, res, next) {
         res.send(200, {"bound": true});
     }
     else {
-        res.send(bindFailureMessage);
+        res.send(200, {'message': bindFailureMessage});
     }
 
     return next();
