@@ -63,7 +63,7 @@ async function updateQuoteStatus(quoteDocJson) {
         quoteDocJson.aggregatedStatus = convertToAggregatedStatus(status);
         const quoteBO = new QuoteBO();
         try {
-            await quoteBO.updateQuoteStatus(quoteDocJson.id, status);
+            await quoteBO.updateQuoteAggregatedStatus(quoteDocJson.id, status);
         }
         catch (error) {
             log.error(`Could not update quote ${quoteDocJson.id} status: ${error} ${__location}`);
@@ -152,7 +152,9 @@ const convertToAggregatedStatus = ({id, description}) => {
         case quoteStatus.error.id:
             return 'error';
         default:
-            log.warn(`Cannot convert to aggregate, unknown status: [${id}: ${description}]`);
+            // This will generally hit in cases where it's a new quote, which is considered initiated, but we used to not record this early, 
+            // so there's no aggregatedStatus for the quote at this stage. 
+            // log.warn(`Cannot convert to aggregate, unknown status: [${id}: ${description}]`);
             return '';
     }
 }
