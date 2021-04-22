@@ -5,6 +5,7 @@
 'use strict';
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
@@ -82,7 +83,7 @@ module.exports = class QuoteBind{
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
-        //await this.send_slack_notification('requested');
+        
         return true;
     }
 
@@ -145,6 +146,7 @@ module.exports = class QuoteBind{
                     // Update Application-level quote metrics when we do a bind.
                     await applicationBO.recalculateQuoteMetrics(this.applicationDoc.applicationId);
                     //notification should be trigger here.
+                    await this.send_slack_notification('bound');
                 }
                 // else if(quoteResp = "rejected") {
                 //     //nothing to do
@@ -271,13 +273,25 @@ module.exports = class QuoteBind{
         // Only send a Slack notification if the agent is Talage or if Agency is marked to notify Talage (channel partners)
         //Determine if notifyTalage is enabled for this AgencyLocation Insurer.
         const agencyLocationBO = new AgencyLocationBO()
-        const notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
+        let notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
+        //Temporarily send talage all bound activity.
+        if(type === 'bound'){
+            notifiyTalage = true;
+        }
+        //temporarily notify Talage of all Bound 
         // notifyTalage force a hard match on true. in case something beside a boolan got in there
         if(this.applicationDoc.agencyId <= 2 || notifiyTalage === true){
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetwork = await agencyNetworkBO.getById(this.applicationDoc.agencyNetworkId);
             // Build out the 'attachment' for the Slack message
             const attachment = {
                 'application_id': this.applicationDoc.applicationId,
                 'fields': [
+                    {
+                        short: false,
+                        title: 'Agency Network',
+                        value: agencyNetwork.name
+                    },
                     {
                         short: false,
                         title: 'Agency Name',

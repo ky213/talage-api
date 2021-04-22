@@ -82,7 +82,7 @@ class AmTrustBind extends Bind {
         const getGetByContractPath = `/api/v1/quotes/${this.quote.quoteNumber}/agent-contact`
         let requestUrl = `https://${baseUrl}${getGetByContractPath}`;
         this.quote.log += `--------======= Get AGencyContract Request to ${requestUrl} @ ${moment().toISOString()} =======--------<br><br>`;
-        this.quote.log += `Request:\n <pre>NO BODU</pre><br><br>\n`;
+        this.quote.log += `Request:\n <pre>NO BODY</pre><br><br>\n`;
         this.quote.log += `--------======= End =======--------<br><br>`;
         let agencyContactId = null;
         let result = null;
@@ -107,27 +107,30 @@ class AmTrustBind extends Bind {
             log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not retrieve agencyContractId ${__location}`);
             return "error";
         }
-        //Get payment pl
-        //Post payment plan.
-        // const paymentPlanTalage2AMtrustMap = {
-        //     "1": {
-        //         numberOfPayments: 1,
-        //         paymentPlanId:2,
-        //         downpayment: 0
-        //     } ,
-        //     "2": {
-        //         numberOfPayments: 2,
-        //         paymentPlanId:2,
-        //         downpayment: 0.5
-        //     }
-        // };
-
+        let paymentPlanId = 1
+        let numberOfPlanments = 1
+        let IsDirectDebit = false;
+        let DepositPercent = 0;
+        switch(this.quote.paymentPlanId){
+            case 2:
+                paymentPlanId = 2;
+                numberOfPlanments = 2;
+                DepositPercent = 50;
+                break;
+            case 5:
+                paymentPlanId = 7;
+                numberOfPlanments = 12;
+                IsDirectDebit = true;
+                DepositPercent = 8.33;
+                break;
+            default:
+        }
         const paymentPlanJSON = {
             "BillingType": "Direct",
-            "DepositPercent": 0,
-            "NumberPayments": 1,
-            "IsDirectDebit": false,
-            "PaymentPlanId": 1,
+            "DepositPercent": DepositPercent,
+            "NumberPayments": numberOfPlanments,
+            "IsDirectDebit": IsDirectDebit,
+            "PaymentPlanId": paymentPlanId,
             "PaymentPlan": {
                 "PaymentPlanType": "None"
             }
@@ -137,7 +140,7 @@ class AmTrustBind extends Bind {
         requestUrl = `https://${baseUrl}${postPaymentPlanPath}`;
         log.debug(`postBind: ${requestUrl}` + __location);
         this.quote.log += `--------======= PaymentPlan Request to ${requestUrl} =======--------<br><br>`;
-        this.quote.log += `Request:\n <pre>NO BODY</pre><br><br>\n`;
+        this.quote.log += `Request:\n <pre>${JSON.stringify(paymentPlanJSON,null,2)}</pre><br><br>\n`;
         this.quote.log += `--------======= End =======--------<br><br>`;
 
         result = null;
