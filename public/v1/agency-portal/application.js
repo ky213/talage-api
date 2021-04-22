@@ -1297,7 +1297,7 @@ async function bindQuote(req, res, next) {
                 bindFailureMessage = "Failed to request bind. If this continues please contact us.";
             });
             
-            if(requestBindResponse){
+            if(requestBindResponse === true){
                 bindSuccess = true;
             }
         }
@@ -1317,7 +1317,7 @@ async function bindQuote(req, res, next) {
     catch (err) {
         // We Do not pass error object directly to Client - May cause info leak.
         log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: ${err}` + __location);
-        res.send("Failed To Bind");
+        res.send({'message': "Failed To Bind"});
         return next();
     }
 
