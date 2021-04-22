@@ -1533,7 +1533,7 @@ module.exports = class Integration {
 
         // Aggregated Status (backwards compatibility w/ SQL)
         columns.push('aggregated_status');
-        values.push(status.description);
+        values.push(convertToAggregatedStatus(status));
 
         if (Object.keys(this.limits).length) {
             quoteJSON.limits = []

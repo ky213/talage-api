@@ -534,7 +534,7 @@ module.exports = class QuoteBO {
             // Not updating SQL with new status information since it will be deprecated
             const sql = `
                 UPDATE clw_talage_quotes
-                SET aggregated_status = ${db.escape(convertToAggregatedStatus(status.description))}
+                SET aggregated_status = ${db.escape(convertToAggregatedStatus(status))}
                 WHERE id = ${quoteId}
             `;
             try {
@@ -549,7 +549,7 @@ module.exports = class QuoteBO {
             try{
                 const query = {"mysqlId": quoteId};
                 const updateJSON = {
-                    "aggregatedStatus": convertToAggregatedStatus(status.description),
+                    "aggregatedStatus": convertToAggregatedStatus(status),
                     "quoteStatusId": status.id, 
                     "quoteStatusDescription": status.description
                 };
