@@ -37,7 +37,7 @@ class AmTrustBind extends Bind {
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            throw new Error("AmTrust username and password are not comma-delimited.", __location);
+            throw new Error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} ${agentUserNamePassword}`, __location);
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
         const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
