@@ -272,10 +272,6 @@ module.exports = class LibertySBOP extends Integration {
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
         const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
-        const fireDamage = "1000000"; // we do not store this data currently
-        const prodCompOperations = "2000000"; // we do not store this data currently
-        const medicalExpenseLimit = "15000"; // we do not store this data currently
-        const ECAggregateLimit = "1000000/2000000"; // we do not store this data currently
 
         let phone = applicationDocData.contacts.find(c => c.primary).phone.toString();
         // fall back to outside phone IFF we cannot find primary contact phone
@@ -1265,13 +1261,28 @@ module.exports = class LibertySBOP extends Integration {
 
                 // only look at limits that have LimitAppliesToCd
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
-                    const limitAmount = parseInt(limit.FormatCurrencyAmt[0].Amt[0]);
+                    const value = parseInt(limit.FormatCurrencyAmt[0].Amt[0]);
+                    let description = ``;
+
+                    if (coverageCodeMatrix[insurerIdentifier]) {
+                        description = `${coverageCodeMatrix[insurerIdentifier]} Limit`;
+                    }
+
+                    if (limitCodeMatrix[limit.LimitAppliesToCd]) {
+                        if (description.length > 0) {
+                            description += `: ${limitCodeMatrix[limit.LimitAppliesToCd]}`;
+                        } else {
+                            description = `${limitCodeMatrix[limit.LimitAppliesToCd]}`;
+                        }
+                    }
+
                     const newCoverage = {
-                        description: `${coverageCodeMatrix[limit.LimitAppliesToCd]} Limit`,
-                        value: limitAmount,
+                        description,
+                        value,
                         sort: coverageSort++,
-                        insurerIdentifier: limit.LimitAppliesToCd
+                        insurerIdentifier
                     };
+
                     quoteCoverages.push(newCoverage);
                 });
             });
@@ -1311,13 +1322,16 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
+        // DEBUG - REMOVE THIS
+        console.log(JSON.stringify(quoteCoverages, null, 4));
+
         // return result based on policy status
         if (policyStatus) {
             switch (policyStatus.toLowerCase()) {
                 case "accept":
-                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType);
+                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType, quoteCoverages);
                 case "refer":
-                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType);
+                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType, quoteCoverages);
                 default:
                     const errorMessage = `${logPrefix}Insurer response error: unknown policyStatus - ${policyStatus} `;
                     log.error(errorMessage + __location);
