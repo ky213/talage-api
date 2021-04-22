@@ -132,6 +132,31 @@ module.exports = class IndustryCodeBO{
                     sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `
                     hasWhere = true;
                 }
+                if(queryJSON.cgl){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` cgl like ${db.escape(`%${queryJSON.cgl}%`)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.sic){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` sic like ${db.escape(`%${queryJSON.sic}%`)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.naics){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` naics like ${db.escape(`%${queryJSON.naics}%`)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.iso){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` iso like ${db.escape(`%${queryJSON.iso}%`)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.hiscox){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` hiscox like ${db.escape(`%${queryJSON.hiscox}%`)} `
+                    hasWhere = true;
+                }
                 //GetList is used by more than just the ADmin.
                 //This logic for the admin should be in the route code. - Brian
                 const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
