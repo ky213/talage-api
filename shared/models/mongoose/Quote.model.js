@@ -51,6 +51,8 @@ const QuoteSchema = new Schema({
     amount: {type: Number},
     deductible: {type: Number},
     status: {type: String},
+    quoteStatusId: {type: Number},
+    quoteStatusDescription: {type: String},
     aggregatedStatus: {type: String},
     apiResult: {type: String},
     isBindable: {type: Boolean, default: false},
@@ -70,6 +72,7 @@ const QuoteSchema = new Schema({
     additionalInfo: {type: Schema.Types.Mixed},
     handledByTalage: {type: Boolean, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
+    insurerPaymentPlans: {type: Schema.Types.Mixed},
     policyInfo: PolicySchema,
     active: {type: Boolean, default: true}
 });
