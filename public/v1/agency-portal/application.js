@@ -28,7 +28,7 @@ const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBi
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
-const { quoteStatus } = require('../../../shared/models/status/quoteStatus.js');
+const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 
 // Application Messages Imports
