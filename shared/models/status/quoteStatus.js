@@ -41,6 +41,10 @@ const quoteStatus = {
         id: 65,
         description: "Bind Requested for Referral"
     },
+    dead: {
+        id: 85,
+        description: "Dead"
+    },
     bound: {
         id: 100,
         description: "Bound"
