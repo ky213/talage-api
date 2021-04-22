@@ -63,7 +63,7 @@ async function updateApplicationStatus(application, timeout) {
     // Set the new application status
     try {
         //TODO change to applicationId
-        await applicationBO.updateApplicationStatus(applicationDocJson.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        await applicationBO.updateStatus(applicationDocJson.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
     catch (err) {
         log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);

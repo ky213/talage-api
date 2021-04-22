@@ -55,7 +55,6 @@ function logLocalErrorMessage(message) {
  */
 async function main() {
 
-    
     // eslint-disable-next-line no-console
     console.log(Date());
     // eslint-disable-next-line no-console
