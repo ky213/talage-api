@@ -1311,7 +1311,7 @@ module.exports = class ApplicationModel {
     }
 
 
-    async updateApplicationStatus(id, appStatusDesc, appStatusid) {
+    async updateStatus(id, appStatusDesc, appStatusid) {
 
         if (id) {
             //mongo update.....
@@ -1337,7 +1337,7 @@ module.exports = class ApplicationModel {
             return true;
         }
         else {
-            log.error(`updateApplicationStatus missing id ` + __location);
+            log.error(`updateStatus missing id ` + __location);
         }
     }
 

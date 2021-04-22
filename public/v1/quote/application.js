@@ -126,7 +126,7 @@ async function postApplication(req, res, next) {
         await applicationBO.updateProgress(req.body.id, "quoting");
 
         const appStatusIdQuoting = 15;
-        await applicationBO.updateApplicationStatus(application.id, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(application.id, "quoting", appStatusIdQuoting);
 
 
     }
