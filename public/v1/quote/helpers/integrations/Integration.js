@@ -85,6 +85,7 @@ module.exports = class Integration {
         this.reasons = [];
         this.quoteId = null;
         this.isBindable = false;
+        this.insurerPaymentPlans = null;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1481,6 +1482,10 @@ module.exports = class Integration {
         }
         if(this.isBindable){
             quoteJSON.isBindable = this.isBindable
+        }
+
+        if(this.insurerPaymentPlans){
+            quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
         }
 
         // Error
