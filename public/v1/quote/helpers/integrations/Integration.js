@@ -85,6 +85,7 @@ module.exports = class Integration {
         this.reasons = [];
         this.quoteId = null;
         this.isBindable = false;
+        this.insurerPaymentPlans = null;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1483,6 +1484,10 @@ module.exports = class Integration {
             quoteJSON.isBindable = this.isBindable
         }
 
+        if(this.insurerPaymentPlans){
+            quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
+        }
+
         // Error
         columns.push('api_result');
         values.push(api_result);
@@ -1528,7 +1533,7 @@ module.exports = class Integration {
 
         // Aggregated Status (backwards compatibility w/ SQL)
         columns.push('aggregated_status');
-        values.push(status.description);
+        values.push(convertToAggregatedStatus(status));
 
         if (Object.keys(this.limits).length) {
             quoteJSON.limits = []

@@ -273,7 +273,7 @@ module.exports = class LibertySBOP extends Integration {
 
         const PolicyExt = Policy.ele('PolicyExt');
         PolicyExt.ele('com.libertymutual.ci_BusinessClassDesc', this.industry_code.description);
-        PolicyExt.ele('com.libertymutual.ci_BusinessClassId', this.industry_code.id);
+        PolicyExt.ele('com.libertymutual.ci_BusinessClassId', this.industry_code.code);
 
         // <Location id="Wc3a968def7d94ae0acdabc4d95c34a86W">
         //     <Addr>
