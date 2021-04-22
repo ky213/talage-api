@@ -880,7 +880,7 @@ module.exports = class Application {
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
             const agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetwork = await agencyNetworkBO.getById(this.applicationDoc.agencyNetworkId);
+            const agencyNetwork = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId);
 
             const attachment = {
                 application_id: this.id,
