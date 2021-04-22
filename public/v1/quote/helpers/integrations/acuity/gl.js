@@ -260,7 +260,11 @@ module.exports = class AcuityGL extends Integration {
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('NAICSCd', this.industry_code.attributes.acuityNAICSCode);
         BusinessInfo.ele('BusinessStartDt', this.app.business.founded.format('YYYY-MM-DD'));
-        const operationsDescription = this.app.business.locations[0].activity_codes[0].description ? this.app.business.locations[0].activity_codes[0].description : this.app.business.industry_code_description;
+        let operationsDescription = this.app.business.industry_code_description;
+        //caused produciton error before defensive check.
+        if(this.app.business.locations[0] && this.app.business.locations[0].activity_codes[0]){
+            operationsDescription = this.app.business.locations[0].activity_codes[0].description;
+        }
         BusinessInfo.ele('OperationsDesc', operationsDescription);
         BusinessInfo.ele('NumOwners', this.app.business.num_owners);
         BusinessInfo.ele('NumEmployees', this.get_total_employees());
