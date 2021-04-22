@@ -82,7 +82,7 @@ class AmTrustBind extends Bind {
         const getGetByContractPath = `/api/v1/quotes/${this.quote.quoteNumber}/agent-contact`
         let requestUrl = `https://${baseUrl}${getGetByContractPath}`;
         this.quote.log += `--------======= Get AGencyContract Request to ${requestUrl} @ ${moment().toISOString()} =======--------<br><br>`;
-        this.quote.log += `Request:\n <pre>NO BODU</pre><br><br>\n`;
+        this.quote.log += `Request:\n <pre>NO BODY</pre><br><br>\n`;
         this.quote.log += `--------======= End =======--------<br><br>`;
         let agencyContactId = null;
         let result = null;
@@ -108,24 +108,28 @@ class AmTrustBind extends Bind {
             return "error";
         }
         let paymentPlanId = 1
+        let numberOfPlanments = 1
+        let IsDirectDebit = false;
+        let DepositPercent = 0;
         switch(this.quote.paymentPlanId){
             case 2:
                 paymentPlanId = 2;
+                numberOfPlanments = 2;
+                DepositPercent = 50;
                 break;
             case 5:
                 paymentPlanId = 7;
+                numberOfPlanments = 12;
+                IsDirectDebit = true;
+                DepositPercent = 8.33;
                 break;
             default:
         }
-        if(this.quote.paymentPlanId === 2){
-            //Talage only mapps to Annual or Semi-Annual
-            paymentPlanId = 2;
-        }
         const paymentPlanJSON = {
             "BillingType": "Direct",
-            "DepositPercent": 0,
-            "NumberPayments": 1,
-            "IsDirectDebit": false,
+            "DepositPercent": DepositPercent,
+            "NumberPayments": numberOfPlanments,
+            "IsDirectDebit": IsDirectDebit,
             "PaymentPlanId": paymentPlanId,
             "PaymentPlan": {
                 "PaymentPlanType": "None"
@@ -136,7 +140,7 @@ class AmTrustBind extends Bind {
         requestUrl = `https://${baseUrl}${postPaymentPlanPath}`;
         log.debug(`postBind: ${requestUrl}` + __location);
         this.quote.log += `--------======= PaymentPlan Request to ${requestUrl} =======--------<br><br>`;
-        this.quote.log += `Request:\n <pre>NO BODY</pre><br><br>\n`;
+        this.quote.log += `Request:\n <pre>${JSON.stringify(paymentPlanJSON,null,2)}</pre><br><br>\n`;
         this.quote.log += `--------======= End =======--------<br><br>`;
 
         result = null;

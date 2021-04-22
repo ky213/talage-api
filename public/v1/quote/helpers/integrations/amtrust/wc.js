@@ -606,19 +606,16 @@ module.exports = class AcuityWC extends Integration {
                 if(quoteAvailablePaymentPlansResponse && quoteAvailablePaymentPlansResponse.Data){
                     // eslint-disable-next-line prefer-const
                     let paymentPlanList = quoteAvailablePaymentPlansResponse.Data
-                    //log.debug(`paymentPlanList ${JSON.stringify(paymentPlanList)}` + __location)
                     // eslint-disable-next-line prefer-const
                     let directPlans = paymentPlanList.Direct;
                     if(directPlans){
                         for (let i = 0; i < directPlans.length; i++) {
                             // eslint-disable-next-line prefer-const
                             let paymentPlan = directPlans[i];
-                            log.debug(`paymentPlan ${JSON.stringify(paymentPlan)}`)
                             paymentPlan.paymentPlanId = paymentPlan.PaymentPlanId;
                             paymentPlan.paymentPlanDescription = paymentPlan.PaymentPlanDescription;
                         }
                     }
-                    log.debug(`directPlans ${JSON.stringify(directPlans)}`)
                     this.insurerPaymentPlans = directPlans;
                 }
                 else {
