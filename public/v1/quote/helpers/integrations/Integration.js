@@ -1484,8 +1484,10 @@ module.exports = class Integration {
             quoteJSON.isBindable = this.isBindable
         }
 
+        log.debug(`this.insurerPaymentPlans ${JSON.stringify(this.insurerPaymentPlans)}` + __location)
         if(this.insurerPaymentPlans){
             quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
+            log.debug(`setting quote insurerPaymentPlans ${JSON.stringify(quoteJSON.insurerPaymentPlans)}`)
         }
 
         // Error

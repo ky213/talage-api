@@ -107,27 +107,26 @@ class AmTrustBind extends Bind {
             log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not retrieve agencyContractId ${__location}`);
             return "error";
         }
-        //Get payment pl
-        //Post payment plan.
-        // const paymentPlanTalage2AMtrustMap = {
-        //     "1": {
-        //         numberOfPayments: 1,
-        //         paymentPlanId:2,
-        //         downpayment: 0
-        //     } ,
-        //     "2": {
-        //         numberOfPayments: 2,
-        //         paymentPlanId:2,
-        //         downpayment: 0.5
-        //     }
-        // };
-
+        let paymentPlanId = 1
+        switch(this.quote.paymentPlanId){
+            case 2:
+                paymentPlanId = 2;
+                break;
+            case 5:
+                paymentPlanId = 7;
+                break;
+            default:
+        }
+        if(this.quote.paymentPlanId === 2){
+            //Talage only mapps to Annual or Semi-Annual
+            paymentPlanId = 2;
+        }
         const paymentPlanJSON = {
             "BillingType": "Direct",
             "DepositPercent": 0,
             "NumberPayments": 1,
             "IsDirectDebit": false,
-            "PaymentPlanId": 1,
+            "PaymentPlanId": paymentPlanId,
             "PaymentPlan": {
                 "PaymentPlanType": "None"
             }

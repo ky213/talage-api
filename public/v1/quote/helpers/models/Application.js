@@ -80,7 +80,8 @@ module.exports = class Application {
 
         try {
             //getById does uuid vs integer check...
-            this.applicationDocData = await applicationBO.getById(data.id);
+             
+            this.applicationDocData = await applicationBO.loadById(data.id);
             log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
