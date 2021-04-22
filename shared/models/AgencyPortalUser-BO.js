@@ -310,6 +310,8 @@ module.exports = class AgencyPortalUserBO{
 
     updateProperty(){
         const dbJSON = this.#dbTableORM.cleanJSON()
+        this.agencyNetworkId = dbJSON.agency_network;
+        this.agencyId = dbJSON.agency;
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
             this[property] = dbJSON[property];
