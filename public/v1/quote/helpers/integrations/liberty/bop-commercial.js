@@ -196,7 +196,13 @@ const coverageCodeMatrix = {
     "VPAPR": "Valuable Papers"
     // "LMCI_DistanceToFireStationCd" // no description provided
     // "LMCI_DistanceToHydrantCd" // no description provided
-}
+};
+
+// These are used in conjunction with the above coverages
+const limitCodeMatrix = {
+    "PerOcc": "Each Occurrence",
+    "Aggregate": "General Aggregate"
+};
 
 let logPrefix = '';
 
@@ -1252,26 +1258,16 @@ module.exports = class LibertySBOP extends Integration {
         }
         else {
             // limits exist, set them
-            const coverages = result.BOPLineBusiness[0].LiabilityInfo;
+            const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].Coverage;
 
             coverages.forEach(coverage => {
+                const insurerIdentifier = coverage.CoverageCd[0];
+
                 // only look at limits that have LimitAppliesToCd
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
                     const limitAmount = parseInt(limit.FormatCurrencyAmt[0].Amt[0]);
                     const newCoverage = {
                         description: `${coverageCodeMatrix[limit.LimitAppliesToCd]} Limit`,
-                        value: limitAmount,
-                        sort: coverageSort++,
-                        insurerIdentifier: limit.LimitAppliesToCd
-                    };
-                    quoteCoverages.push(newCoverage);
-                });
-
-                // only look at limits that have DeductibleAppliesToCd
-                coverage.Limit.filter(limit => limit.DeductibleAppliesToCd).forEach(limit => {
-                    const limitAmount = parseInt(limit.FormatCurrencyAmt[0].Amt[0]);
-                    const newCoverage = {
-                        description: `${coverageCodeMatrix[limit.LimitAppliesToCd]} Deductible`,
                         value: limitAmount,
                         sort: coverageSort++,
                         insurerIdentifier: limit.LimitAppliesToCd
