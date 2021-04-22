@@ -10,7 +10,6 @@ const validator = global.requireShared("./helpers/validator.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
-const AgencyNetworkInsurerBO = global.requireShared('models/AgencyNetworkInsurer-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
@@ -21,6 +20,7 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
+const clonedeep = require('lodash.clonedeep');
 
 const moment = require('moment');
 
@@ -30,47 +30,37 @@ async function isAuthForApplication(req, applicationId){
         if(req.userTokenData.applicationId === applicationId){
             canAccessApp = true;
         }
-        else {
-            log.warn("Unauthorized Attempt to modify or access Application " + __location)
-        }
     }
-    else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
-        // if redis already contains the app, they have access
-        if(req.userTokenData.applications.indexOf(applicationId) > -1){
-            canAccessApp = true;
-        }
-        else if(req.userTokenData.userId){
+    else if (req.userTokenData && req.userTokenData.apiToken){
+        if(req.userTokenData.userId){
             // check which agencies the user has access to
             const agencyPortalUserBO = new AgencyPortalUserBO();
             await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
-
-            let agencies = [];
-
-            // if the user is part of an agency network, get the list of agencies
-            if(agencyPortalUserBO.agency_network){
-                const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
-                const agencyNetworkInsurerQuery = {agencyNetworkId: agencyPortalUserBO.agency_network};
-                const agencyNetworkInsurerMap = await agencyNetworkInsurerBO.getList(agencyNetworkInsurerQuery);
-                agencies = agencyNetworkInsurerMap.map(agencyNetworkInsurer => agencyNetworkInsurer.insurer);
-            }
-            // if not part of a network, just look at the single agency
-            else if(agencyPortalUserBO.agency) {
-                agencies = [agencyPortalUserBO.agency];
-            }
 
             // get the application to check against
             const applicationBO = new ApplicationBO();
             const applicationDB = await applicationBO.getById(applicationId);
 
-            if(applicationDB && applicationDB.agencyId){
-                // has access if the applications agency matches an agency the user is part of
-                canAccessApp = agencies.includes(applicationDB.agencyId);
+            // if no application was found, just log for us and dont check anything else
+            if(!applicationDB){
+                log.warn("Application requested not found " + __location);
             }
+            // if the user is part of an agency network, get the list of agencies
+            else if(agencyPortalUserBO.agencyNetworkId){
+                canAccessApp = applicationDB.agencyNetworkId === agencyPortalUserBO.agencyNetworkId;
+            }
+            // if not part of a network, just look at the single agency
+            else if(agencyPortalUserBO.agencyId) {
+                canAccessApp = applicationDB.agencyId === agencyPortalUserBO.agencyId;
+            }
+        }
+        else {
+            log.warn("Recieved request with token but no user id " + __location);
         }
     }
 
     if(canAccessApp === false){
-        log.warn("Unauthorized Attempt to modify or access Application " + __location)
+        log.warn("Unauthorized Attempt to modify or access Application " + __location);
     }
 
     return canAccessApp;
@@ -415,43 +405,45 @@ async function applicationLocationSave(req, res, next) {
  * @returns {void}
  */
 async function getApplicationList(req, res, next) {
-    // TODO: what do we want to require about the query? for now just make sure its there and we can add to it.
     if (!req.query || typeof req.query !== 'object') {
         log.error('Bad Request: No data received ' + __location);
         return next(serverHelper.requestError('Bad Request: No data received'));
     }
-    // if there is no user on the token we cant determine which applications they can see
-    if(!req.userTokenData || !req.userTokenData.userId){
+    // if there is no user on the token we cant determine which applications they can see, only allow api users
+    if(!req.userTokenData || !req.userTokenData.userId || !req.userTokenData.apiToken){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
+    // check which agencies the user has access to
     const agencyPortalUserBO = new AgencyPortalUserBO();
     await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
 
-    let agencies = [];
-    // if the user is part of an agency network, get the list of agencies
-    if(agencyPortalUserBO.agency_network){
-        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
-        const agencyNetworkInsurerQuery = {agencyNetworkId: agencyPortalUserBO.agency_network};
-        const agencyNetworkInsurerMap = await agencyNetworkInsurerBO.getList(agencyNetworkInsurerQuery);
-        agencies = agencyNetworkInsurerMap.map(agencyNetworkInsurer => agencyNetworkInsurer.insurer);
+    let agencyNetworkId = null;
+    let agencyId = null;
+    // if the user is part of an agency network, use the network id
+    if(agencyPortalUserBO.agencyNetworkId){
+        agencyNetworkId = agencyPortalUserBO.agencyNetworkId;
     }
     // if not part of a network, just look at the single agency
-    else if(agencyPortalUserBO.agency) {
-        agencies = [agencyPortalUserBO.agency];
+    else if(agencyPortalUserBO.agencyId) {
+        agencyId = agencyPortalUserBO.agencyId;
     }
 
-    // in get Application List we just care that they have a valid token, we will filter what they can see
-    if(agencies.length === 0){
+    // not currently filtering out any applications via doNotReport
+    const applicationQuery = clonedeep(req.query);
+    if(agencyNetworkId){
+        applicationQuery.agencyNetworkId = agencyNetworkId;
+    }
+    else if(agencyId){
+        applicationQuery.agencyId = agencyId;
+    }
+    else{
+        // no access to any applications
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
-    // TODO: do we want to restrict this more?
-    req.query.agencyId = agencies;
-
-    let applicationList = [];
     const applicationBO = new ApplicationBO();
-    applicationList = await applicationBO.getList(req.query);
+    const applicationList = await applicationBO.getList(applicationQuery);
 
     res.send(200, applicationList);
     return next();
