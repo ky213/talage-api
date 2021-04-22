@@ -15,31 +15,20 @@ class AmTrustBind extends Bind {
             log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not load AmTrust API credentials ${err} ${__location}`);
             throw new Error("Could not load AmTrust API credentials");
         }
-        const alInsurer = this.agencyLocation.insurers.find((ali) => ali.insurerId = this.insurer.insurerId)
+        const alInsurer = this.agencyLocation.insurers.find((ali) => ali.insurerId === this.insurer.insurerId)
         if(!alInsurer){
             log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not find AmTrust info for AgencyLocation ${__location}`);
             throw new Error("Could not find AmTrust info for AgencyLocation ");
         }
         log.debug()
-        //let agencyId = alInsurer.agencyId.trim();
-        const agentUserNamePassword = alInsurer.agentId.trim();
 
-        // Ensure the agent ID is a number (required for the API request)
-        // try {
-        //     agencyId = parseInt(agencyId, 10);
-        // }
-        // catch (err) {
-        //     throw new Error(`Invalid AmTrust agent ID '${agencyId}'`, __location, {error: err});
-        // }
-        // if (agencyId === 0) {
-        //     throw new Error(`Invalid AmTrust agent ID '${agencyId}'`, __location);
-        // }
+        const agentUserNamePassword = alInsurer.agentId.trim();
 
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            log.error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} insurerId: ${this.insurer.insurerId} agentId: ${agentUserNamePassword} alInsurer: ${JSON.stringify(alInsurer)} ` + __location);
-            log.error(`AmTrust username and password are not comma-delimited.  this.agencyLocation: ${JSON.stringify(this.agencyLocation)} ` + __location);
+            //log.error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} insurerId: ${this.insurer.insurerId} agentId: ${agentUserNamePassword} alInsurer: ${JSON.stringify(alInsurer)} ` + __location);
+            //log.error(`AmTrust username and password are not comma-delimited.  this.agencyLocation: ${JSON.stringify(this.agencyLocation)} ` + __location);
             throw new Error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} insurerId: ${this.insurer.insurerId} agentId: ${agentUserNamePassword} al: ${JSON.stringify(alInsurer)}`, __location);
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
