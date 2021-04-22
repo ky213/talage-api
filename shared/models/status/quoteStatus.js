@@ -63,7 +63,7 @@ async function updateQuoteStatus(quoteDocJson) {
         quoteDocJson.aggregatedStatus = convertToAggregatedStatus(status);
         const quoteBO = new QuoteBO();
         try {
-            await quoteBO.updateQuoteStatus(quoteDocJson.id, status);
+            await quoteBO.updateQuoteAggregatedStatus(quoteDocJson.id, status);
         }
         catch (error) {
             log.error(`Could not update quote ${quoteDocJson.id} status: ${error} ${__location}`);

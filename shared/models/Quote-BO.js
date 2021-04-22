@@ -528,10 +528,10 @@ module.exports = class QuoteBO {
         return mongoUtils.objCleanup(quote);
     }
 
-    //TODO: update this
-    async updateQuoteStatus(quoteId, status) {
+    // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
+    async updateQuoteAggregatedStatus(quoteId, status) {
         if(quoteId && status){
-            // Not updating SQL since it will be deprecated, so just sending description for now
+            // Not updating SQL with new status information since it will be deprecated
             const sql = `
                 UPDATE clw_talage_quotes
                 SET aggregated_status = ${db.escape(convertToAggregatedStatus(status.description))}
@@ -549,6 +549,7 @@ module.exports = class QuoteBO {
             try{
                 const query = {"mysqlId": quoteId};
                 const updateJSON = {
+                    "aggregatedStatus": convertToAggregatedStatus(status.description),
                     "quoteStatusId": status.id, 
                     "quoteStatusDescription": status.description
                 };
