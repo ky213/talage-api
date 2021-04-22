@@ -1435,6 +1435,12 @@ module.exports = class Integration {
             policyType: this.policy.type,
             quoteTimeSeconds: this.seconds
         }
+
+        // if this is a new quote, set its quotingStartedDate to now
+        if (apiResult === quoteStatus.initiated.description) {
+            quoteJSON.quotingStartedDate = moment.utc();
+        }
+
         //additionalInfo example
         if(this.quoteResponseJSON){
             quoteJSON.quoteResponseJSON = this.quoteResponseJSON;
