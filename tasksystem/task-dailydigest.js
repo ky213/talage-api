@@ -186,7 +186,10 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 // eslint-disable-next-line prefer-const
                 //Get primary contact
                 const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-                const customerPhone = formatPhone(customerContact.phone);
+                let customerPhone = "ukn";
+                if(customerContact){
+                    customerPhone = formatPhone(customerContact.phone);
+                }
 
                 let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
                 if(applicationDoc.solepro){
@@ -311,7 +314,10 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
                 // eslint-disable-next-line prefer-const
                 //Get primary contact
                 const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-                const customerPhone = formatPhone(customerContact.phone);
+                let customerPhone = "ukn";
+                if(customerContact){
+                    customerPhone = formatPhone(customerContact.phone);
+                }
 
                 let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
                 if(applicationDoc.solepro){
