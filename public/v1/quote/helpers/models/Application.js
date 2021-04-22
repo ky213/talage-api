@@ -30,6 +30,7 @@ const {
 
 //const helper = global.requireShared('./helpers/helper.js');
 
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -878,9 +879,17 @@ module.exports = class Application {
         // Only send Slack messages on Talage applications  this.agencyLocation.agency
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetwork = await agencyNetworkBO.getById(this.applicationDoc.agencyNetworkId);
+
             const attachment = {
                 application_id: this.id,
                 fields: [
+                    {
+                        short: false,
+                        title: 'Agency Network',
+                        value: agencyNetwork.name
+                    },
                     {
                         short: false,
                         title: 'Agency Name',
