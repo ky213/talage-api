@@ -1924,6 +1924,14 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId;
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId;
+            }
 
             if (queryJSON) {
                 for (var key in queryJSON) {

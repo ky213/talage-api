@@ -405,9 +405,60 @@ async function applicationLocationSave(req, res, next) {
     }
 }
 
+/**
+ * Responds to GET requests and returns a list of applications
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getApplicationList(req, res, next) {
+    // TODO: what do we want to require about the query? for now just make sure its there and we can add to it.
+    if (!req.query || typeof req.query !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+    // if there is no user on the token we cant determine which applications they can see
+    if(!req.userTokenData || !req.userTokenData.userId){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
+
+    let agencies = [];
+    // if the user is part of an agency network, get the list of agencies
+    if(agencyPortalUserBO.agency_network){
+        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+        const agencyNetworkInsurerQuery = {agencyNetworkId: agencyPortalUserBO.agency_network};
+        const agencyNetworkInsurerMap = await agencyNetworkInsurerBO.getList(agencyNetworkInsurerQuery);
+        agencies = agencyNetworkInsurerMap.map(agencyNetworkInsurer => agencyNetworkInsurer.insurer);
+    }
+    // if not part of a network, just look at the single agency
+    else if(agencyPortalUserBO.agency) {
+        agencies = [agencyPortalUserBO.agency];
+    }
+
+    // in get Application List we just care that they have a valid token, we will filter what they can see
+    if(agencies.length === 0){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    // TODO: do we want to restrict this more?
+    req.query.agencyId = agencies;
+
+    let applicationList = [];
+    const applicationBO = new ApplicationBO();
+    applicationList = await applicationBO.getList(req.query);
+
+    res.send(200, applicationList);
+    return next();
+}
 
 /**
- * Responds to GET requests and returns the data for the queried page
+ * Responds to GET requests and returns an application
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -453,7 +504,6 @@ async function getApplication(req, res, next) {
     if(applicationDB && applicationDB.applicationId){
         res.send(200, applicationDB);
         return next();
-
     }
     else {
         res.send(404,"Not found")
@@ -1167,6 +1217,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi("PUT Application",`${basePath}/application`, applicationSave);
     server.addPutAuthAppApi("PUT Application Location",`${basePath}/application/location`, applicationLocationSave);
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`, getApplication);
+    server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
