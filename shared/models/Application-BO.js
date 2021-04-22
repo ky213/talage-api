@@ -1671,6 +1671,18 @@ module.exports = class ApplicationModel {
     }
 
 
+    loadById(id) {
+        log.debug(`appBO id ${id} ` + __location)
+        if(validator.isUuid(id)){
+            return this.loadfromMongoByAppId(id)
+        }
+        else {
+            // nodoc, force mongo query.
+            return this.loadfromMongoBymysqlId(id, false, true);
+        }
+    }
+
+
     loadfromMongoByAppId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
@@ -1771,7 +1783,7 @@ module.exports = class ApplicationModel {
                     if (docDB) {
                         await this.setDocEinClear(docDB);
                         await this.checkAndFixAppStatus(docDB);
-                        applicationDoc = mongoUtils.objCleanup(docDB);
+                        //applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
                 catch (err) {
