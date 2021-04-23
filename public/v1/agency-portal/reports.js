@@ -227,6 +227,9 @@ const getAgencyList = async(where,isAgencyNetworkUser) => {
     if(where.agencyId){
         agencyQuery.systemId = where.agencyId
     }
+    if(!agencyQuery.agencyNetworkId && !agencyQuery.systemId){
+        return [];
+    }
     //log.debug(`agencyQuery: ${JSON.stringify(agencyQuery)} `)
     const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
         log.error(`Report agencyList error ${err}`)
