@@ -297,7 +297,7 @@ module.exports = class AcuityWC extends Integration {
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            return this.client_error("AmTrust username and password are not comma-delimited.", __location);
+            return this.client_error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} `, __location);
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
         const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
