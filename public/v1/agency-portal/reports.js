@@ -221,34 +221,43 @@ const getAgencyList = async(where,isAgencyNetworkUser) => {
 
     //This should be manditory to have either agencyNetworkId or agencyID
     // otherwise we could leak an agency list between agencyNetworks.
+    let goodQuery = false;
     if(where.agencyNetworkId){
         agencyQuery.agencyNetworkId = where.agencyNetworkId
+        goodQuery = true;
     }
     if(where.agencyId){
         agencyQuery.systemId = where.agencyId
+         goodQuery = true;
     }
-    //log.debug(`agencyQuery: ${JSON.stringify(agencyQuery)} `)
-    const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
-        log.error(`Report agencyList error ${err}`)
-    });
-    if(agencyList && agencyList.length > 0){
-        let agencyDisplayList = [];
-        if(isAgencyNetworkUser && where.agencyNetworkId === 1){
-            const displayJSON = {
-                agencyId: -9999,
-                name: "Global View"
+    if(goodQuery){
+        
+        //log.debug(`agencyQuery: ${JSON.stringify(agencyQuery)} `)
+        const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
+            log.error(`Report agencyList error ${err}`)
+        });
+        if(agencyList && agencyList.length > 0){
+            let agencyDisplayList = [];
+            if(isAgencyNetworkUser && where.agencyNetworkId === 1){
+                const displayJSON = {
+                    agencyId: -9999,
+                    name: "Global View"
+                }
+                agencyDisplayList.push(displayJSON);
             }
-            agencyDisplayList.push(displayJSON);
+            log.debug("agencyList length " + agencyList.length)
+            agencyList.forEach((agencyDoc) => {
+                const displayJSON = {
+                    agencyId: agencyDoc.systemId,
+                    name: agencyDoc.name
+                }
+                agencyDisplayList.push(displayJSON);
+            })
+            return agencyDisplayList;
         }
-        log.debug("agencyList length " + agencyList.length)
-        agencyList.forEach((agencyDoc) => {
-            const displayJSON = {
-                agencyId: agencyDoc.systemId,
-                name: agencyDoc.name
-            }
-            agencyDisplayList.push(displayJSON);
-        })
-        return agencyDisplayList;
+        else {
+            return [];
+        }
     }
     else {
         return [];
@@ -267,6 +276,7 @@ const getAgencyLocationList = async(where) => {
 
     if(agencyLocList && agencyLocList.length > 0){
         let agencyLocDisplayList = [];
+        log.debug("agencyLocList.length " + agencyLocList.length);
         agencyLocList.forEach((agencyLocDoc) => {
             let name = agencyLocDoc.name;
             if(!name){
@@ -328,7 +338,7 @@ const getReferredList = async(where) => {
  * @returns {void}
  */
 async function getReports(req) {
-    //log.debug(`req.query ${JSON.stringify(req.query)}` + __location)
+    log.debug(`req.query ${JSON.stringify(req.query)}` + __location)
     // Get the agents that we are permitted to view
     let agents = await auth.getAgents(req);
 
@@ -412,12 +422,13 @@ async function getReports(req) {
                         agents = agents.filter(function(value){
                             return donotReportAgencyIdArray.indexOf(value) === -1;
                         });
+                        where.agencyId = {$nin: donotReportAgencyIdArray};
                     }
                     //check for all
                     if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                         && (req.query.all === '12332'
-                        || (req.query.agencyid = "-9999"))){
-
+                        || (req.query.agencyid === "-9999"))){
+                        log.debug('global view 1')
                         if(where.agencyId){
                             delete where.agencyId;
                         }
@@ -428,10 +439,12 @@ async function getReports(req) {
                             where.agencyId = {$nin: donotReportAgencyIdArray};
                         }
                     }
+
                 }
                 else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                         && (req.query.all === '12332'
-                        || (req.query.agencyid = "-9999"))){
+                        || (req.query.agencyid === "-9999"))){
+                    log.debug('global view 2')
                     if(where.agencyId){
                         delete where.agencyId;
                     }
