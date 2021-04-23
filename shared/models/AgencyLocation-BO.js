@@ -342,7 +342,8 @@ module.exports = class AgencyLocationBO{
                     city: 1,
                     state: 1,
                     zipcode: 1,
-                    mysqlId: 1
+                    mysqlId: 1,
+                    name: 1
                 };
             }
 
@@ -355,7 +356,7 @@ module.exports = class AgencyLocationBO{
 
                     if(mainCollection){
                         for(const doc of docList){
-                            if(doc.agencyId){
+                            if(doc.agencyId && !doc.name){
                                 const agencyJSON = await this.getAgencyJSON(doc.agencyId);
                                 if(agencyJSON){
                                     doc.name = agencyJSON.name;
@@ -370,7 +371,10 @@ module.exports = class AgencyLocationBO{
                             if(getAgencyName && doc.agencyId){
                                 const agencyJSON = await this.getAgencyJSON(doc.agencyId);
                                 if(agencyJSON){
-                                    doc.name = agencyJSON.name;
+                                    if(!doc.name){
+                                        doc.name = agencyJSON.name;
+                                    }
+                                    doc.agencyName = agencyJSON.name;
                                     doc.agencyNetworkId = agencyJSON.agencyNetworkId;
                                     doc.agencyEmail = agencyJSON.email;
                                     doc.doNotReport = agencyJSON.doNotReport;

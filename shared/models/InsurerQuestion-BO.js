@@ -67,11 +67,15 @@ module.exports = class InsurerQuestionBO{
             const queryProjection = {"__v": 0};
 
             let findCount = false;
-
             let rejected = false;
-            // eslint-disable-next-line prefer-const
-            let query = {active: true};
             let error = null;
+
+            const query = {active: true};
+
+            // if a valid active was provided, use it.
+            if(queryJSON.hasOwnProperty("active") && typeof queryJSON.active === "boolean"){
+                query.active = queryJSON.active;
+            }
 
             var queryOptions = {};
             queryOptions.sort = {createdAt: 1};
@@ -87,7 +91,6 @@ module.exports = class InsurerQuestionBO{
             else {
                 // default to DESC on sent
                 queryOptions.sort.createdAt = -1;
-
             }
             const queryLimit = 500;
             if (queryJSON.limit) {

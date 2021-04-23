@@ -10,7 +10,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const get_questions = global.requireShared('./helpers/getQuestions.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 
-const status = global.requireShared('./models/application-businesslogic/status.js');
+const status = global.requireShared('./models/status/applicationStatus.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
@@ -30,6 +30,7 @@ const {
 
 //const helper = global.requireShared('./helpers/helper.js');
 
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -80,7 +81,8 @@ module.exports = class Application {
 
         try {
             //getById does uuid vs integer check...
-            this.applicationDocData = await applicationBO.getById(data.id);
+             
+            this.applicationDocData = await applicationBO.loadById(data.id);
             log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
@@ -877,9 +879,17 @@ module.exports = class Application {
         // Only send Slack messages on Talage applications  this.agencyLocation.agency
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetwork = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId);
+
             const attachment = {
                 application_id: this.id,
                 fields: [
+                    {
+                        short: false,
+                        title: 'Agency Network',
+                        value: agencyNetwork.name
+                    },
                     {
                         short: false,
                         title: 'Agency Name',

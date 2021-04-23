@@ -20,7 +20,11 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const bopRequirements = {
     location: {
         buildingLimit: {},
-        businessPersonalPropertyLimit: {}
+        businessPersonalPropertyLimit: {},
+        unemployment_num: {
+            visible: false,
+            required: false
+        }
     },
     grossSalesAmt: {}
 };
@@ -32,6 +36,10 @@ const glRequirements = {
             required: false
         },
         businessPersonalPropertyLimit: {
+            visible: false,
+            required: false
+        },
+        unemployment_num: {
             visible: false,
             required: false
         }
@@ -51,6 +59,10 @@ const wcRequirements = {
         businessPersonalPropertyLimit: {
             visible: false,
             required: false
+        },
+        unemployment_num: {
+            visible: true,
+            required: true
         }
     },
     grossSalesAmt: {}

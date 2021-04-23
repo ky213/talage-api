@@ -1619,7 +1619,7 @@ module.exports = class ApplicationModel {
                     return;
                 }
 
-                const status = global.requireShared('./models/application-businesslogic/status.js');
+                const status = global.requireShared('./models/status/applicationStatus.js');
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
@@ -1667,6 +1667,18 @@ module.exports = class ApplicationModel {
                     delete sourceJSON[mapProp];
                 }
             }
+        }
+    }
+
+
+    loadById(id) {
+        log.debug(`appBO id ${id} ` + __location)
+        if(validator.isUuid(id)){
+            return this.loadfromMongoByAppId(id)
+        }
+        else {
+            // nodoc, force mongo query.
+            return this.loadfromMongoBymysqlId(id, false, true);
         }
     }
 
@@ -1771,7 +1783,7 @@ module.exports = class ApplicationModel {
                     if (docDB) {
                         await this.setDocEinClear(docDB);
                         await this.checkAndFixAppStatus(docDB);
-                        applicationDoc = mongoUtils.objCleanup(docDB);
+                        //applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
                 catch (err) {
@@ -1924,6 +1936,14 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId;
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId;
+            }
 
             if (queryJSON) {
                 for (var key in queryJSON) {

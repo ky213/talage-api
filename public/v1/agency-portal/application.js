@@ -167,10 +167,10 @@ async function getApplication(req, res, next) {
             log.error("Error get paymentPlanList " + err + __location)
         }
 
-
         for (let i = 0; i < quoteList.length; i++) {
             // eslint-disable-next-line prefer-const
             let quoteJSON = quoteList[i];
+
             if(quoteJSON.quoteLetter){
                 quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
@@ -223,6 +223,47 @@ async function getApplication(req, res, next) {
                 if(paymentPlanJson){
                     quoteJSON.paymentPlan = paymentPlanJson.name
                 }
+            }
+            //limits information
+            const limitsList = {}
+            // Retrieve the limits and create the limits object
+            if(quoteJSON.limits){
+                const limitsModel = new LimitsBO();
+                for (const quoteLimit of quoteJSON.limits) {
+                    try {
+                        const limit = await limitsModel.getById(quoteLimit.limitId);
+                        // NOTE: frontend expects a string.
+                        limitsList[limit.description] = `${quoteLimit.amount}`;
+                    }
+                    catch (err) {
+                        log.error(`Could not get limits for ${quoteJSON.insurerId}:` + err + __location);
+                    }
+                }
+            }
+            if(quoteJSON.quoteCoverages){
+                // sort ascending order based on id, if no sort value then number will be sorted first
+                function ascendingOrder (a, b){
+                    if(a.sort && b.sort){
+                        // this sorts in ascending order
+                        return a.sort - b.sort;
+                    }else if (a.sort && !b.sort){
+                        // since no sort order on "b" then return -1
+                        return -1; 
+                    }else if (!a.sort && b.sort){
+                        // since no sort order on "a" return 1
+                        return 1; 
+                    }else {
+                        return 0;
+                    }
+                }
+                const sortedCoverageList = quoteJSON.quoteCoverages.sort(ascendingOrder);
+                for(const quoteCoverage of sortedCoverageList){
+                    limitsList[quoteCoverage.description] = `${quoteCoverage.value}`;
+                }
+            }
+            const keys = Object.keys(limitsList);
+            if(keys && keys.length && keys.length > 0){
+                quoteJSON.limits = limitsList;
             }
         }
         // Add the quotes to the response
@@ -721,6 +762,10 @@ async function applicationCopy(req, res, next) {
         newApplicationDoc.agencyPortalCreatedUser = userId
         newApplicationDoc.agencyPortalCreated = true;
         newApplicationDoc.handledByTalage = false;
+        newApplicationDoc.referrer = null;
+        newApplicationDoc.quotingStartedDate = null;
+        newApplicationDoc.metrics = null;
+
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)
@@ -1247,19 +1292,32 @@ async function bindQuote(req, res, next) {
                 paymentPlanId: paymentPlanId,
                 noCustomerEmail: true
             }
-            await applicationBO.processRequestToBind(applicationId, quoteObj)
+            const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(error){
+                log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + error + __location);
+                bindFailureMessage = "Failed to request bind. If this continues please contact us.";
+            });
+            
+            if(requestBindResponse === true){
+                bindSuccess = true;
+            }
         }
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
+            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(error){ 
+                log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + error + __location);
+                bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
+            });
+            if(markAsBoundResponse === true){
+                bindSuccess = true;
+            }
         }
     }
 
     catch (err) {
         // We Do not pass error object directly to Client - May cause info leak.
         log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: ${err}` + __location);
-        res.send("Failed To Bind");
+        res.send({'message': "Failed To Bind"});
         return next();
     }
 
@@ -1268,7 +1326,7 @@ async function bindQuote(req, res, next) {
         res.send(200, {"bound": true});
     }
     else {
-        res.send(bindFailureMessage);
+        res.send( {'message': bindFailureMessage});
     }
 
     return next();
@@ -1653,6 +1711,7 @@ async function GetQuoteLimits(req, res, next){
             log.error(`Could not get limits for ${quote.insurerId}:` + err + __location);
         }
     }
+
     res.send(200, {limits: limits});
     return next();
 
