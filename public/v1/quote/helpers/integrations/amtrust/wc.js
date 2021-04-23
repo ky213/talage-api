@@ -240,6 +240,7 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        const appDoc = this.app.applicationDocData
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',
@@ -297,7 +298,7 @@ module.exports = class AcuityWC extends Integration {
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            return this.client_error("AmTrust username and password are not comma-delimited.", __location);
+            return this.client_error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} `, __location);
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
         const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
@@ -334,7 +335,7 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Format the FEIN
-        const fein = this.app.business.locations[0].identification_number.replace(/\D/g, '');
+        const fein = appDoc.ein.replace(/\D/g, '');
 
         // Check the status of the FEIN.
         const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});

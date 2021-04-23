@@ -65,7 +65,8 @@ const wcRequirements = {
             required: true
         }
     },
-    grossSalesAmt: {}
+    grossSalesAmt: {},
+    ein: {}
 };
 
 exports.requiredFields = async(appId) => {

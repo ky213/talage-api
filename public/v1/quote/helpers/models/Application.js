@@ -9,6 +9,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const get_questions = global.requireShared('./helpers/getQuestions.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const status = global.requireShared('./models/status/applicationStatus.js');
 const AgencyLocation = require('./AgencyLocation.js');
@@ -197,6 +198,10 @@ module.exports = class Application {
 
     async translate() {
 
+        if(this.applicationDocData.ein){
+            this.applicationDocData.ein = stringFunctions.santizeNumber(this.applicationDocData.ein);
+        }
+
         /************** BUSINESS DATA TRANSLATION ***************/
 
         // DBA length check
@@ -253,12 +258,8 @@ module.exports = class Application {
             'RI',
             'UT'
         ];
-
         this.business.locations.forEach(location => {
-            // identification number modification
-            location.identification_number_type = this.applicationDocData.hasEin ? 'EIN' : 'SSN';
-
-            // default unemployment_num to 0
+            // default unemployment_num to 0  - Why is this necessary? -BP
             if (!location.unemployment_num || !unemployment_number_states.includes(location.state_abbr)) {
                 location.unemployment_num = 0;
             }

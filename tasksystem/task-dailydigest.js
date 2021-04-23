@@ -315,8 +315,14 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
                 //Get primary contact
                 const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
                 let customerPhone = "ukn";
+                let firstName = 'unkn';
+                let lastName = 'unkn';
+                let customerEmail = 'unkn';
                 if(customerContact){
                     customerPhone = formatPhone(customerContact.phone);
+                    firstName = customerContact.firstName;
+                    lastName = customerContact.lastName;
+                    customerEmail = customerContact.email
                 }
 
                 let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
@@ -324,7 +330,7 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
                     wholesale = "SolePro"
                 }
 
-                applicationList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + customerContact.firstName + ' ' + customerContact.lastName + '</td><td>' + customerContact.email + '</td><td>' + customerPhone + '</td><td>' + wholesale + '</td></tr>';
+                applicationList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + firstName + ' ' + lastName + '</td><td>' + customerEmail + '</td><td>' + customerPhone + '</td><td>' + wholesale + '</td></tr>';
             }
 
             applicationList += '</tbody></table><br>';

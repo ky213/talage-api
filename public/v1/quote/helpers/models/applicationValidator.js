@@ -232,12 +232,13 @@ const validateBusiness = (applicationDocData) => {
             log.info(`Invalid value for property: yearsOfExp. Value must be between 0 and 100 (not inclusive) for ${applicationDocData.applicationId}`)
         }
     }
-
-    if (!applicationDocData.ein) {
+    //EIN - Only require for WC. Most GL and BOP submissions do not require it.
+    const requiresEIN = Boolean(applicationDocData.policies.filter(policy => policy === "WC").length);
+    if (requiresEIN && !applicationDocData.ein) {
         throw new Error('Identification Number is required');
     }
 
-    if (!(validator.ein(applicationDocData.ein) || validator.ssn(applicationDocData.ein))) {
+    if (requiresEIN && !(validator.ein(applicationDocData.ein) || validator.ssn(applicationDocData.ein))) {
         throw new Error(`Invalid formatting for property: EIN`);
     }
     return;
