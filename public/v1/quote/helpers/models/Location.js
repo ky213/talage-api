@@ -22,7 +22,8 @@ module.exports = class Location {
         this.county = '';
         this.full_time_employees = 0;
         this.identification_number = '';
-        this.identification_number_type = null;
+        //Not used anywhere
+        //this.identification_number_type = null;
         this.part_time_employees = 0;
         this.square_footage = 0;
         this.territory = '';

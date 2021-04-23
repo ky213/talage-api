@@ -240,6 +240,7 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        const appDoc = this.app.applicationDocData
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',
@@ -334,7 +335,7 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Format the FEIN
-        const fein = this.app.business.locations[0].identification_number.replace(/\D/g, '');
+        const fein = appDoc.ein.replace(/\D/g, '');
 
         // Check the status of the FEIN.
         const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
