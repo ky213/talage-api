@@ -33,13 +33,13 @@ module.exports = class PieWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+        const appDoc = this.app.applicationDocData
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         /*
 		This.possible_api_responses.Accept = 'quoted';
 		this.possible_api_responses.Refer = 'referred';
 		this.possible_api_responses.Reject = 'declined';
 		*/
-        const appDoc = this.app.applicationDocData;
         // These are the limits supported by Pie
         const carrierLimits = ['100000/500000/100000',
             '500000/500000/500000',
@@ -339,7 +339,7 @@ module.exports = class PieWC extends Integration {
         if (this.app.business.dba) {
             data.workersCompensation.legalEntities[0].doingBusinessAs = [this.app.business.dba];
         }
-        data.workersCompensation.legalEntities[0].taxId = this.app.business.locations[0].identification_number;
+        data.workersCompensation.legalEntities[0].taxId = appDoc.ein;
 
         // Limits
         data.workersCompensation.employersLiability = {};

@@ -33,6 +33,7 @@ module.exports = class LibertyGL extends Integration{
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	_insurer_quote(){
+        const appDoc = this.app.applicationDocData
 
 		// These are the statuses returned by the insurer and how they map to our Talage statuses
 		this.possible_api_responses.Accept = 'quoted';
@@ -75,7 +76,6 @@ module.exports = class LibertyGL extends Integration{
 			'Trust - For Profit': 'TR',
 			'Trust - Non-Profit': 'TR'
 		};
-
 		return new Promise(async(fulfill) => {
 
 			// Prepare limits
@@ -108,6 +108,14 @@ module.exports = class LibertyGL extends Integration{
 				fulfill(this.return_result('autodeclined'));
 				return;
 			}
+
+            // for EIN
+            if (!appDoc.ein) {
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} GL requires FEIN ` + __location)
+				this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} GL requires FEIN`);
+				fulfill(this.return_result('error'));
+                return;
+            }
 
 			// Liberty has us define our own Request ID
 			this.request_id = this.generate_uuid();
@@ -193,7 +201,7 @@ module.exports = class LibertyGL extends Integration{
 									// <TaxIdentity>
 									const TaxIdentity = NameInfo.ele('TaxIdentity');
 										TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-										TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
+										TaxIdentity.ele('TaxId', appDoc.ein);
 									// </TaxIdentity>
 								// </NameInfo>
 

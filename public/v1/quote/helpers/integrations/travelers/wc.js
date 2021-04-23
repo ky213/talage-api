@@ -137,6 +137,8 @@ module.exports = class AcuityWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+        const appDoc = this.app.applicationDocData
+
         const defaultLimits = [
             "100000/500000/100000",
             "500000/500000/500000",
@@ -271,7 +273,7 @@ module.exports = class AcuityWC extends Integration {
                 "primaryNameInsured": this.app.business.name,
                 "tradeDBALine1": this.app.business.dba ? this.app.business.dba : "",
                 "tradeDBALine2": "",
-                "FEIN": this.app.business.locations[0].identification_number,
+                "FEIN": appDoc.ein,
                 "legalEntity": legalEntityMap[this.app.business.locations[0].business_entity_type],
                 "address": {
                     "mailingAddress": this.app.business.mailing_address,
