@@ -196,7 +196,7 @@ const coverageCodeMatrix = {
     // "PerOcc" // GL, overwritten by LBMED (BOP)
     "PersInjury": "Personal and Advertising Injury", // GL ONLY
     "ProductsCompletedOperations": "Products - Completed Operations", // GL ONLY
-    "TOOLS": "Employee Tools", // Shows up as TOOLE as a coverage
+    "TOOLE": "Employee Tools", // Shows up as TOOLS in the spreadsheet
     "VPAPR": "Valuable Papers"
     // "LMCI_DistanceToFireStationCd" // no description provided
     // "LMCI_DistanceToHydrantCd" // no description provided
@@ -212,6 +212,15 @@ const limitCodeMatrix = {
 };
 
 let logPrefix = '';
+let quoteNumber = null;
+let quoteProposalId = null;
+let premium = null;
+const quoteLimits = {};
+let quoteLetter = null;
+const quoteMIMEType = "BASE64";
+let policyStatus = null;
+const quoteCoverages = [];
+let coverageSort = 0;
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -1198,16 +1207,6 @@ module.exports = class LibertySBOP extends Integration {
         log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
         log.debug("=================== QUOTE RESULT ===================");
 
-        let quoteNumber = null;
-        let quoteProposalId = null;
-        let premium = null;
-        const quoteLimits = {};
-        let quoteLetter = null;
-        const quoteMIMEType = "BASE64";
-        let policyStatus = null;
-        const quoteCoverages = [];
-        let coverageSort = 0;
-
         // check valid response object structure
         if (
             !result.ACORD.InsuranceSvcRs ||
@@ -1266,101 +1265,12 @@ module.exports = class LibertySBOP extends Integration {
             log.warn(`${logPrefix}No Commercial Property Limit Coverages provided, or result structure has changed. ` + __location);
         }
         else {
-            console.log("================== COMMERCIAL ==================");
-            const commercialProperties = result.BOPLineBusiness[0].PropertyInfo[0].CommlPropertyInfo;
-
-            for (const property of commercialProperties) {
-                const insurerIdentifier = property.SubjectInsuranceCd[0];
-                const category = "Commercial Property Coverages";
-
-                // DEBUG - REMOVE THIS
-                console.log(insurerIdentifier);
-
-                // if no coverage is populated, we won't store it (invalid coverage)
-                if (!property.Coverage || property.Coverage.length === 0) {
-                    continue;
+            const commercialProperty = result.BOPLineBusiness[0].PropertyInfo[0].CommlPropertyInfo;
+            commercialProperty.forEach(property => {
+                if (property.Coverage) {
+                    this.getCoverages(property.Coverage, "Commercial Property Coverages");
                 }
-
-                // if an automatic increase exists, store it
-                const INFL = property.Coverage.find(c => c.CoverageCd[0] === "INFL");
-
-                // grab the coverage whose CoverageCd matches its SubjectInsuranceCd
-                // NOTE: TOOLS is the only coverage who's CoverageCd doesn't match its SubjectInsuranceCd
-                const coverage = insurerIdentifier === "TOOLS" ? 
-                    property.Coverage.find(c => c.CoverageCd[0] === "TOOLE") :
-                    property.Coverage.find(c => c.CoverageCd[0] === insurerIdentifier);
-
-                // if a deductible exists, store it
-                let deductibleCoverage = property.Coverage.find(c => c.Deductible);
-
-                let description = `${coverageCodeMatrix[insurerIdentifier]}`;
-
-                coverage.Limit.forEach(limit => {
-                    const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
-                    if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
-                        const coverageValue = limit.FormatCurrencyAmt[0].Amt[0];
-                        const coverageDescription = `${description} Limit`;
-                        const additionalDescription = additionalText ? `: ${additionalText}` : ``;
-
-                        const newCoverage = {
-                            description: `${coverageDescription}${additionalDescription}`,
-                            value: convertToDollarFormat(coverageValue, true),
-                            sort: coverageSort++,
-                            category,
-                            insurerIdentifier
-                        };
-        
-                        console.log(`newCoverage:\n${JSON.stringify(newCoverage, null, 4)}`);
-                        quoteCoverages.push(newCoverage);
-                    }
-                });
-
-                // if an annual increase exists for this coverage, add it as a separate coverage
-                if (INFL) {
-                    INFL.Limit.forEach(limit => {
-                        const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
-                        if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
-                            const coverageValue = `${limit.FormatPct[0]}%`;
-                            const coverageDescription = `${description} Automatic Increase`;
-                            const additionalDescription = additionalText ? `: ${additionalText}` : ``;
-    
-                            const coverageAutoInc = {
-                                description: `${coverageDescription}${additionalDescription}`,
-                                value: coverageValue,
-                                sort: coverageSort++,
-                                category,
-                                insurerIdentifier
-                            };
-        
-                            console.log(`coverageAutoInc:\n${JSON.stringify(coverageAutoInc, null, 4)}`);
-                            quoteCoverages.push(coverageAutoInc);
-                        }
-                    });
-                }
-
-                // if a deductible exists for this coverage, add it as a separate coverage
-                if (deductibleCoverage) {
-                    deductibleCoverage.Deductible.forEach(deductible => {
-                        const additionalText = limitCodeMatrix[deductible.DeductibleAppliesToCd[0]];
-                        if (additionalText || deductible.DeductibleAppliesToCd[0] === "FL") {
-                            const deductibleValue = deductible.FormatCurrencyAmt[0].Amt[0];
-                            const deductibleDescription = `${description} Deductible`;
-                            const additionalDescription = additionalText ? `: ${additionalText}` : ``;
-
-                            const coverageDeductible = {
-                                description: `${deductibleDescription}${additionalDescription}`,
-                                value: convertToDollarFormat(deductibleValue, true),
-                                sort: coverageSort++,
-                                category,
-                                insurerIdentifier
-                            };
-        
-                            console.log(`coverageDeductible:\n${JSON.stringify(coverageDeductible, null, 4)}`);
-                            quoteCoverages.push(coverageDeductible);
-                        }
-                    });
-                }
-            }
+            });
         }
 
         // ===================== PROPERTY COVERAGES =====================
@@ -1368,92 +1278,8 @@ module.exports = class LibertySBOP extends Integration {
             log.warn(`${logPrefix}No Property Limit Coverages provided, or result structure has changed. ` + __location);
         }
         else {
-            console.log("================== COVERAGE ==================");
             const coverages = result.BOPLineBusiness[0].PropertyInfo[0].Coverage;
-            this.getCoverages(coverages, quoteCoverages, "Property Coverages", coverageSort);
-            // result.BOPLineBusiness[0].PropertyInfo[0].Coverage.forEach(coverage => {
-            //     const hasDeductible = coverage.Deductible;
-            //     const hasCoverage = coverage.Limit;
-            //     const hasPercentIncrease = hasCoverage && coverage.Limit.find(l => l.FormatPct);
-            //     const insurerIdentifier = coverage.CoverageCd[0];
-            //     const category = "Property Coverages";
-
-            //     let description = ``;
-            //     if (coverageCodeMatrix[insurerIdentifier]) {
-            //         description = `${coverageCodeMatrix[insurerIdentifier]}`;
-            //     }
-
-            //     if (hasCoverage) {
-            //         console.log("limit");
-            //         coverage.Limit.forEach(limit => {
-            //             const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
-            //             if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
-            //                 const coverageValue = limit.FormatCurrencyAmt[0].Amt[0];
-            //                 const coverageDescription = `${description} Limit`;
-            //                 const additionalDescription = additionalText ? `: ${additionalText}` : ``;
-    
-            //                 const newCoverage = {
-            //                     description: `${coverageDescription}${additionalDescription}`,
-            //                     value: convertToDollarFormat(coverageValue, true),
-            //                     sort: coverageSort++,
-            //                     category,
-            //                     insurerIdentifier
-            //                 };
-            
-            //                 console.log(`newCoverage:\n${JSON.stringify(newCoverage, null, 4)}`);
-            //                 quoteCoverages.push(newCoverage);
-            //             }
-            //         });
-            //     } 
-
-            //     if (hasPercentIncrease) {
-            //         console.log("percentIncrease");
-            //         coverage.Limit.forEach(limit => {
-            //             if (limit.FormatPct) {
-            //                 const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
-            //                 if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
-            //                     const coverageValue = `${limit.FormatPct[0]}%`;
-            //                     const coverageDescription = `${description} Automatic Increase`;
-            //                     const additionalDescription = additionalText ? `: ${additionalText}` : ``;
-        
-            //                     const coverageAutoInc = {
-            //                         description: `${coverageDescription}${additionalDescription}`,
-            //                         value: coverageValue,
-            //                         sort: coverageSort++,
-            //                         category,
-            //                         insurerIdentifier
-            //                     };
-            
-            //                     console.log(`coverageAutoInc:\n${JSON.stringify(coverageAutoInc, null, 4)}`);
-            //                     quoteCoverages.push(coverageAutoInc);
-            //                 }
-            //             }
-            //         });
-            //     }
-                
-            //     if (hasDeductible) {
-            //         console.log("deductible");
-            //         coverage.Deductible.forEach(deductible => {
-            //             const additionalText = limitCodeMatrix[deductible.DeductibleAppliesToCd[0]];
-            //             if (additionalText || deductible.DeductibleAppliesToCd[0] === "Coverage") {
-            //                 const deductibleValue = deductible.FormatCurrencyAmt[0].Amt[0];
-            //                 const deductibleDescription = `${description} Deductible`;
-            //                 const additionalDescription = additionalText ? `: ${additionalText}` : ``;
-    
-            //                 const coverageDeductible = {
-            //                     description: `${deductibleDescription}${additionalDescription}`,
-            //                     value: convertToDollarFormat(deductibleValue, true),
-            //                     sort: coverageSort++,
-            //                     category,
-            //                     insurerIdentifier
-            //                 };
-        
-            //                 console.log(`coverageDeductible:\n${JSON.stringify(coverageDeductible, null, 4)}`);
-            //                 quoteCoverages.push(coverageDeductible);
-            //             }
-            //         });
-            //     }
-            // });
+            this.getCoverages(coverages, "Property Coverages");
         }
 
         // ===================== LIABILITY COVERAGES =====================
@@ -1461,43 +1287,8 @@ module.exports = class LibertySBOP extends Integration {
             log.warn(`${logPrefix}No Liability Limit Coverages provided, or result structure has changed. ` + __location);
         }
         else {
-            console.log("================== LIABILITY ==================");
-            // limits exist, set them
             const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].Coverage;
-            this.getCoverages(coverages, quoteCoverages, "Liability Coverages", coverageSort);
-
-            // coverages.forEach(coverage => {
-            //     const insurerIdentifier = coverage.CoverageCd[0];
-            //     const category = "liability Coverages";
-
-            //     // only look at limits that have LimitAppliesToCd
-            //     coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
-            //         let value = convertToDollarFormat(limit.FormatCurrencyAmt[0].Amt[0], true);
-            //         let description = ``;
-
-            //         if (coverageCodeMatrix[insurerIdentifier]) {
-            //             description = `${coverageCodeMatrix[insurerIdentifier]} Limit`;
-            //         }
-
-            //         if (limitCodeMatrix[limit.LimitAppliesToCd]) {
-            //             if (description.length > 0) {
-            //                 description += `: ${limitCodeMatrix[limit.LimitAppliesToCd]}`;
-            //             } else {
-            //                 description = `${limitCodeMatrix[limit.LimitAppliesToCd]}`;
-            //             }
-            //         }
-
-            //         const newCoverage = {
-            //             description,
-            //             value,
-            //             sort: coverageSort++,
-            //             category,
-            //             insurerIdentifier
-            //         };
-
-            //         quoteCoverages.push(newCoverage);
-            //     });
-            // });
+            this.getCoverages(coverages, "Liability Coverages");
         }
 
         const quotePath = `/v1/quoteProposal?quoteProposalId=${quoteProposalId}`;
@@ -1605,14 +1396,14 @@ module.exports = class LibertySBOP extends Integration {
 
     }
 
-    getCoverages(coverages, quoteCoverages, category, coverageSort) {
+    getCoverages(coverages, category) {
         coverages.forEach(coverage => {
             const hasDeductible = coverage.Deductible;
-            const hasCoverage = coverage.Limit;
-            const hasPercentIncrease = hasCoverage && coverage.Limit.find(l => l.FormatPct);
+            const hasCoverage = coverage.Limit && coverage.Limit.find(l => l.FormatCurrencyAmt);
+            const hasPercentIncrease = coverage.Limit && coverage.Limit.find(l => l.FormatPct);
             const insurerIdentifier = coverage.CoverageCd[0];
 
-            let description = ``;
+            let description = null;
             if (coverageCodeMatrix[insurerIdentifier]) {
                 description = `${coverageCodeMatrix[insurerIdentifier]}`;
             }
@@ -1623,8 +1414,8 @@ module.exports = class LibertySBOP extends Integration {
                     const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
                     if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
                         const coverageValue = limit.FormatCurrencyAmt[0].Amt[0];
-                        const coverageDescription = `${description} Limit`;
-                        const additionalDescription = additionalText ? `: ${additionalText}` : ``;
+                        const coverageDescription = description ? `${description} Limit` : ``;
+                        const additionalDescription = additionalText ? (description ? `: ${additionalText}` : additionalText) : ``;
 
                         const newCoverage = {
                             description: `${coverageDescription}${additionalDescription}`,
@@ -1647,8 +1438,8 @@ module.exports = class LibertySBOP extends Integration {
                         const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
                         if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
                             const coverageValue = `${limit.FormatPct[0]}%`;
-                            const coverageDescription = `${description} Automatic Increase`;
-                            const additionalDescription = additionalText ? `: ${additionalText}` : ``;
+                            const coverageDescription = description ? `${description} Automatic Increase` : ``;
+                            const additionalDescription = additionalText ? (description ? `: ${additionalText}` : additionalText) : ``;
     
                             const coverageAutoInc = {
                                 description: `${coverageDescription}${additionalDescription}`,
@@ -1671,8 +1462,8 @@ module.exports = class LibertySBOP extends Integration {
                     const additionalText = limitCodeMatrix[deductible.DeductibleAppliesToCd[0]];
                     if (additionalText || deductible.DeductibleAppliesToCd[0] === "Coverage") {
                         const deductibleValue = deductible.FormatCurrencyAmt[0].Amt[0];
-                        const deductibleDescription = `${description} Deductible`;
-                        const additionalDescription = additionalText ? `: ${additionalText}` : ``;
+                        const deductibleDescription = description ? `${description} Deductible` : ``;
+                        const additionalDescription = additionalText ? (description ? `: ${additionalText}` : additionalText) : ``;
 
                         const coverageDeductible = {
                             description: `${deductibleDescription}${additionalDescription}`,
