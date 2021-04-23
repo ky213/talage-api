@@ -27,6 +27,8 @@ module.exports = class AcuityGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+        
+        const appDoc = this.app.applicationDocData
 
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
@@ -81,6 +83,12 @@ module.exports = class AcuityGL extends Integration {
             log.error(`Acuity (application ${this.app.id}): Invalid Entity Type ${__location}`);
             return this.return_result('autodeclined');
         }
+
+        // for EIN
+        if (!appDoc.ein) {
+            return this.client_error("Acuity GL requires FEIN.", __location);
+        }
+
 
         // Acuity has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -197,7 +205,7 @@ module.exports = class AcuityGL extends Integration {
         // <TaxIdentity>
         const TaxIdentity = NameInfo.ele('TaxIdentity');
         TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-        TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
+        TaxIdentity.ele('TaxId', appDoc.ein);
         // </TaxIdentity>
 
         if (this.app.business.dba) {
@@ -478,7 +486,6 @@ module.exports = class AcuityGL extends Integration {
         // Exposures
 
 
-        const appDoc = this.app.applicationDocData
         for (let i = 0; i < appDoc.locations.length; i++) {
             const location = appDoc.locations[i];
 

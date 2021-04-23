@@ -41,6 +41,7 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+        const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
@@ -233,7 +234,7 @@ module.exports = class CompwestWC extends Integration {
 
         // <TaxIdentity>
         const TaxIdentity = NameInfo.ele('TaxIdentity');
-        TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
+        TaxIdentity.ele('TaxId', appDoc.ein);
         // </TaxIdentity>
         // </NameInfo>
 
@@ -349,7 +350,7 @@ module.exports = class CompwestWC extends Integration {
                 CommlNameAddInfo.ele('Type',"Company");
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);
+                DBATaxIdentity.ele('TaxCd',appDoc.ein);
                 DBANameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
                 // </NameInfo>
                 // <Addr>
