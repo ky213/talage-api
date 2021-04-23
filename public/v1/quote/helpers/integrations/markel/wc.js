@@ -699,6 +699,7 @@ module.exports = class MarkelWC extends Integration {
         let ownerPayroll = '';
 
         // Add class code information
+        //TODO -  new activity code structure.
         this.app.business.locations.forEach((location) => {
             location.activity_codes.forEach((activity_code) => {
                 classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
