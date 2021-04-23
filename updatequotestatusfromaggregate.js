@@ -134,9 +134,22 @@ async function runFunction() {
         logErrorAndExit(`No quotes retreived. Exiting.`);
     }
 
-    logSuccess(`Updating ${quotes.length} quotes...`);
+    logSuccess(`${quotes.length} Quotes found...`);
 
     let successes = 0;
+    const oldCount = quotes.length;
+
+    // walk over each quote, ignoring quotes that already have quoteStatusDescription
+    quotes = quotes.filter(q => !q.quoteStatusDescription);
+    const newCount = quotes.length;
+
+    if (oldCount !== newCount && newCount !== 0) {
+        logWarning(`${oldCount - newCount} quotes already have quoteStatus information, skipping those quotes.`);
+    } else if (newCount === 0) {
+        logWarning(`All quotes have quoteStatus information. Exiting.`);
+        process.exit(0);
+    }
+
     for (const quote of quotes) {
         const status = getStatus(quote.aggregatedStatus);
 
