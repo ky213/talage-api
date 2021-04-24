@@ -2,7 +2,6 @@
 'use strict';
 
 const moment = require('moment');
-const serverHelper = global.requireRootPath('server.js');
 const DatabaseObject = require('./DatabaseObject.js');
 const AgencyNetworkBO = require('./AgencyNetwork-BO.js');
 // eslint-disable-next-line no-unused-vars
@@ -95,8 +94,9 @@ module.exports = class AgencyBO {
                         if(dbDocJSON.favicon){
                             try {
                                 log.debug("Removing favicon " + s3AgencyFaviconPath + dbDocJSON.favicon);
-                                await fileSvc.deleteFile(s3AgencyFaviconPath+dbDocJSON.logo);
-                            }catch(e){
+                                await fileSvc.deleteFile(s3AgencyFaviconPath + dbDocJSON.logo);
+                            }
+                            catch(e){
                                 log.error("Agency favicon delete error: " + e + __location);
                             }
                         }
@@ -106,7 +106,7 @@ module.exports = class AgencyBO {
                             log.debug("new favicon file name " + newObjectJSON.favicon);
                         }
                         catch(e) {
-                            log.error("Agency SaveModel error processing favicon "+ e + __location);
+                            log.error("Agency SaveModel error processing favicon " + e + __location);
                             delete newObjectJSON.favicon;
                             reject(e);
                         }
@@ -137,7 +137,7 @@ module.exports = class AgencyBO {
             if(typeof sourceJSON[sourceProp] !== "object"){
                 if(propMappings[sourceProp]){
                     const appProp = propMappings[sourceProp]
-                    if(!targetJSON[appProp]){ 
+                    if(!targetJSON[appProp]){
                         targetJSON[appProp] = sourceJSON[sourceProp];
                     }
                 }
@@ -158,9 +158,9 @@ module.exports = class AgencyBO {
                     // Isolate the extension
                     const extension = newObjectJSON.favicon.substring(11, newObjectJSON.favicon.indexOf(';'));
                     if (![
-                        'png',
-                        'vnd.microsoft.icon'].includes(extension)) {
-                        reject('Please upload your favicon in png or ico preferably ico format.');
+                        'png', 'vnd.microsoft.icon'
+                    ].includes(extension)) {
+                        reject(new Error('Please upload your favicon in png or ico preferably ico format.'));
                         return;
                     }
 
@@ -169,7 +169,7 @@ module.exports = class AgencyBO {
 
                     // Check the file size (max 100KB)
                     if (faviconData.length * 0.75 > 100000) {
-                        reject('Favicon too large. The maximum file size is 100KB.');
+                        reject(new Error('Favicon too large. The maximum file size is 100KB.'));
                         return;
                     }
 
@@ -211,7 +211,7 @@ module.exports = class AgencyBO {
                     if (!['gif',
                         'jpeg',
                         'png'].includes(extension)) {
-                        reject('Please upload your logo in gif, jpeg, or preferably png format.');
+                        reject(new Error('Please upload your logo in gif, jpeg, or preferably png format.'));
                         return;
                     }
 
@@ -220,7 +220,7 @@ module.exports = class AgencyBO {
 
                     // Check the file size (max 200KB)
                     if (logoData.length * 0.75 > 200000) {
-                        reject('Logo too large. The maximum file size is 200KB.');
+                        reject(new Error('Logo too large. The maximum file size is 200KB.'));
                         return;
                     }
 
@@ -840,8 +840,8 @@ module.exports = class AgencyBO {
             //get AgencyNetwork 1st than replace with Agency overwrites
             const agencyNetworkBO = new AgencyNetworkBO();
             const emailTemplateJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyJSON.agencyNetworkId, agencyContentProperty, customerContentProperty).catch(function(err) {
-                log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
-                throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
+                log.error(`Email content Error Unable to get email content for ${agencyContentProperty}.  error: ${err}` + __location);
+                throw new Error(`Email content Error Unable to get email content for ${agencyContentProperty}.  error: ${err}`)
             });
 
             const query = {active: true};
@@ -866,14 +866,7 @@ module.exports = class AgencyBO {
                     emailTemplateJSON.customerSubject = agencyEmailDB[customerContentProperty].subject;
                 }
             }
-            log.debug("");
-            log.debug("emailTemplateJSON:  " + JSON.stringify(emailTemplateJSON));
             return emailTemplateJSON;
-            // }
-            // else {
-            //     log.error(`No agencyId ${agencyId} supplied for getEmailContentAgencyAndCustomer` + __location)
-            //     throw new Error("No agencyId supplied");
-            // }
 
         }
     }
@@ -901,8 +894,8 @@ module.exports = class AgencyBO {
                 //get AgencyNetwork 1st than replace with Agency overwrites
                 const agencyNetworkBO = new AgencyNetworkBO();
                 const emailTemplateJSON = await agencyNetworkBO.getEmailContent(agencyJSON.agencyNetworkId, contentProperty).catch(function(err) {
-                    log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
-                    throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
+                    log.error(`Email content Error Unable to get email content for ${contentProperty}.  error: ${err}` + __location);
+                    throw new Error(`Email content Error Unable to get email content for ${contentProperty}.  error: ${err}`)
                 });
                 if (emailTemplateJSON) {
                     const query = {active: true};

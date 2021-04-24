@@ -4,11 +4,14 @@ const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 
-//const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
 
 /**
@@ -71,7 +74,6 @@ var abandonAppTask = async function(){
 
 
     const query = {
-        "agencyPortalCreated": false,
         "abandonedAppEmail": false,
         "solepro": false,
         "optedOutOnline": false,
@@ -91,12 +93,24 @@ var abandonAppTask = async function(){
     }
     //process list.....
     if(appList && appList.length > 0){
+        //get agencyNetworList.  pass to processAbandonApp
+        let agencyNetworkList = null;
+
+        const agencyNetworkBO = new AgencyNetworkBO();
+        try {
+            agencyNetworkList = await agencyNetworkBO.getList()
+        }
+        catch (err) {
+            log.error("Error getting Agency Network List " + err + __location);
+        }
+
+
         for(let i = 0; i < appList.length; i++){
             const appDoc = appList[i];
             let error = null;
             let succesfulProcess = false;
             try{
-                succesfulProcess = await processAbandonApp(appDoc);
+                succesfulProcess = await processAbandonApp(appDoc,agencyNetworkList);
             }
             catch(err){
                 error = err;
@@ -119,15 +133,40 @@ var abandonAppTask = async function(){
     return;
 };
 
-var processAbandonApp = async function(applicationDoc){
+var processAbandonApp = async function(applicationDoc,agencyNetworkList){
 
     if(applicationDoc){
+        let succesfulProcess = true;
+        let error = null;
+        let agencyLocationEmail = null;
+
+        const agencyLocationBO = new AgencyLocationBO();
+        let agencyLocationJSON = null
+        try{
+            agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
+        }
+        catch(err){
+            log.error("Error getting agencyLocationBO " + err + __location);
+            error = true;
+
+        }
+        if(error){
+            return false;
+        }
+
+        //decrypt info...
+        if(agencyLocationJSON.email){
+            agencyLocationEmail = agencyLocationJSON.email
+        }
+        else if(agencyJSON.email){
+            agencyLocationEmail = agencyJSON.email;
+        }
+
 
         //Load AgencyNetwork
-        const agencyNetwork = applicationDoc.agencyNetworkId;
-        //Get email content
-        // TODO only uses customer...
-        let error = null;
+        const agencyNetworkId = applicationDoc.agencyNetworkId;
+        const agencyNetworkJSON = agencyNetworkList.find((ag) => ag.agencyNetworkId === agencyNetworkId);
+
         const agencyBO = new AgencyBO();
         let agencyJSON = {};
         try{
@@ -140,63 +179,132 @@ var processAbandonApp = async function(applicationDoc){
         if(error){
             return false;
         }
-        const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "abandoned_applications_customer", "abandoned_applications_customer").catch(function(err){
-            log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
-            error = true;
-        });
-        if(error){
-            return false;
-        }
+        //only hit db for email content if we are going to send.
+        let emailContentJSON = null;
+
+        //Use AgencyNetwork feature agencyAbandonAppEmails to determine who get the email.
+
+        if(agencyNetworkJSON.featureJson.abandonAppEmailsCustomer === true && applicationDoc.agencyPortalCreated === false){
+            emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "abandoned_applications_agency", "abandoned_applications_customer").catch(function(err){
+                log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
+                error = true;
+            });
+            if(emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject){
+                let customerEmail = '';
+
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                customerEmail = customerContact.email;
+
+                let agencyPhone = agencyJSON.phone;
+                let agencyWebsite = agencyJSON.website;
 
 
-        if(emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject){
+                if(!agencyWebsite){
+                    agencyWebsite = "";
+                }
 
-            const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-            const customerEmail = customerContact.email;
+                if(agencyPhone){
+                    agencyPhone = formatPhone(agencyPhone);
+                }
+                else {
+                    agencyPhone = '';
+                }
+                //  get from AgencyNetwork BO
+                const brandurl = emailContentJSON.APPLICATION_URL;
+                const agencyLandingPage = `${brandurl}/${agencyJSON.slug}`;
 
-            let agencyPhone = agencyJSON.phone;
-            let agencyWebsite = agencyJSON.website;
+                let message = emailContentJSON.customerMessage;
+                const subject = emailContentJSON.customerSubject;
+                // Perform content replacements
+                message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                message = message.replace(/{{Agency Page Link}}/g, `<a href="${agencyLandingPage}" rel="noopener noreferrer" target="_blank">${agencyLandingPage}</a>`);
+                message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                message = message.replace(/{{Agency Website}}/g, `<a href="${agencyWebsite}" rel="noopener noreferrer" target="_blank">${agencyWebsite}</a>`);
 
 
-            if(!agencyWebsite){
-                agencyWebsite = "";
-            }
-
-            if(agencyPhone){
-                agencyPhone = formatPhone(agencyPhone);
+                //send email:
+                // Send the email
+                const keys = {'applicationDoc': applicationDoc};
+                const emailResp = await emailSvc.send(customerEmail, subject, message, keys ,agencyNetworkId, emailContentJSON.emailBrand, applicationDoc.agencyId);
+                //log.debug("emailResp = " + emailResp);
+                if(emailResp === false){
+                    slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationDoc.applicationId}. Please follow-up manually.`, {'application_id': applicationDoc.applicationId});
+                }
             }
             else {
-                agencyPhone = '';
+                log.error(`AbandonApp missing emailcontent for agencyid ${applicationDoc.agencyId} and  agencynetwork: ` + agencyNetworkId + __location);
+                succesfulProcess = false;
             }
-            //  get from AgencyNetwork BO
-            const brandurl = emailContentJSON.APPLICATION_URL;
-            const agencyLandingPage = `${brandurl}/${agencyJSON.slug}`;
 
-            let message = emailContentJSON.customerMessage;
-            const subject = emailContentJSON.customerSubject;
+        }
 
-            // Perform content replacements
-            message = message.replace(/{{Agency}}/g, agencyJSON.name);
-            message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
-            message = message.replace(/{{Agency Page Link}}/g, `<a href="${agencyLandingPage}" rel="noopener noreferrer" target="_blank">${agencyLandingPage}</a>`);
-            message = message.replace(/{{Agency Phone}}/g, agencyPhone);
-            message = message.replace(/{{Agency Website}}/g, `<a href="${agencyWebsite}" rel="noopener noreferrer" target="_blank">${agencyWebsite}</a>`);
-
-
-            //send email:
-            // Send the email
-            const keys = {'applicationDoc': applicationDoc};
-            const emailResp = await emailSvc.send(customerEmail, subject, message, keys ,agencyNetwork, emailContentJSON.emailBrand, applicationDoc.agencyId);
-            //log.debug("emailResp = " + emailResp);
-            if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationDoc.applicationId}. Please follow-up manually.`, {'application_id': applicationDoc.applicationId});
+        if(agencyNetworkJSON.featureJson.abandonAppEmailsAgency === true){
+            if(!emailContentJSON){
+                emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "abandoned_applications_agency", "abandoned_applications_customer").catch(function(err){
+                    log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
+                    error = true;
+                });
             }
-            return true;
+            if(emailContentJSON && emailContentJSON.agencyMessage && emailContentJSON.agencySubject){
+                let customerEmail = '';
+
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                customerEmail = customerContact.email;
+
+                const portalLink = emailContentJSON.PORTAL_URL;
+
+                // Format the full name and phone number
+                const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
+                let phone = '';
+                if(customerContact.phone){
+                    phone = formatPhone(customerContact.phone);
+                }
+
+                let message2 = emailContentJSON.agencyMessage;
+                const subject2 = emailContentJSON.agencySubject;
+
+
+                let industryCodeDesc = '';
+                const industryCodeBO = new IndustryCodeBO();
+                try{
+                    const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
+                    if(industryCodeJson){
+                        industryCodeDesc = industryCodeJson.description;
+                    }
+                }
+                catch(err){
+                    log.error("Error getting industryCodeBO " + err + __location);
+                }
+                //  // Perform content message.replacements
+                message2 = message2.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
+                message2 = message2.replace(/{{Brand}}/g, stringFunctions.ucwords(stringFunctions.ucwords(emailContentJSON.emailBrand)));
+                message2 = message2.replace(/{{Business Name}}/g, applicationDoc.businessName);
+                message2 = message2.replace(/{{Contact Email}}/g, customerEmail);
+                message2 = message2.replace(/{{Contact Name}}/g, fullName);
+                message2 = message2.replace(/{{Contact Phone}}/g, phone);
+                message2 = message2.replace(/{{Industry}}/g, industryCodeDesc);
+
+                // Send the email
+                const keyData2 = {'applicationDoc': applicationDoc};
+                if(agencyLocationEmail){
+                    const emailResp = await emailSvc.send(agencyLocationEmail, subject2, message2, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
+                    if(emailResp === false){
+                        slack.send('#alerts', 'warning',`The system failed to inform an agency of the abandoned app for application ${applicationDoc.applicationId}. Please follow-up manually.`);
+                    }
+                }
+                else {
+                    log.error(`Abandon App no email address for application: ${applicationDoc.applicationId} ` + __location);
+                }
+            }
+            else {
+                log.error(`AbandonApp missing emailcontent for agencyid ${applicationDoc.agencyId} and  agencynetwork: ` + agencyNetworkId + __location);
+                succesfulProcess = false;
+            }
+
         }
-        else {
-            log.error(`AbandonApp missing emailcontent for agencyid ${applicationDoc.agencyId} and  agencynetwork: ` + agencyNetwork + __location);
-            return false;
-        }
+
+        return succesfulProcess;
     }
     else {
         return false;
