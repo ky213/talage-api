@@ -781,8 +781,8 @@ module.exports = class Application {
         }
         if(!agencyNetworkDB){
             agencyNetworkDB = {featureJson : {
-                quotedEmailsCustomer : true,
-                quotedEmailsAgency: true,
+                quoteEmailsCustomer : true,
+                quoteEmailsAgency: true,
                 agencyNetworkQuoteEmails: false
             }}
         }
@@ -823,7 +823,7 @@ module.exports = class Application {
                 let subject = '';
 
                 /* ---=== Email to Insured === --- */
-                if(agencyNetworkDB.featureJson.quotedEmailsCustomer === true && this.agencyPortalQuote === false){
+                if(agencyNetworkDB.featureJson.quoteEmailsCustomer === true && this.agencyPortalQuote === false){
                     message = emailContentJSON.customerMessage;
                     subject = emailContentJSON.customerSubject;
 
@@ -850,7 +850,7 @@ module.exports = class Application {
                 }
 
                 /* ---=== Email to Agency === --- */
-                if(agencyNetworkDB.featureJson.quotedEmailsAgency === true && this.agencyPortalQuote === false){
+                if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && this.agencyPortalQuote === false){
                     // Do not send if this is Talage
                     if (this.agencyLocation.agencyId > 2) {
                         // Determine the portal login link
