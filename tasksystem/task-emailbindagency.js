@@ -76,7 +76,7 @@ exports.emailbindagency = async function(applicationId, quoteId, noCustomerEmail
  * @returns {void}
  */
 
-var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
+var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = false) {
     log.debug(`emailbindagency noCustomerEmail: ${noCustomerEmail}` + __location)
     if (applicationId && quoteId) {
         let applicationDoc = null;
@@ -85,7 +85,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
 
         const applicationBO = new ApplicationBO();
         try {
-            applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
+            applicationDoc = await applicationBO.getById(applicationId);
         }
         catch (err) {
             log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
@@ -94,14 +94,12 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
         }
 
         if (applicationDoc) {
-
-
             //get Quote
             let error = null;
             const quoteBO = new QuoteBO();
             let quoteDoc = null;
             try {
-                quoteDoc = await quoteBO.getMongoDocbyMysqlId(quoteId);
+                quoteDoc = await quoteBO.getById(quoteId);
             }
             catch(err){
                 log.error("Error getting quote for emailbindagency " + err + __location);
@@ -123,8 +121,6 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
             if(error){
                 return false;
             }
-
-
 
             const agencyBO = new AgencyBO();
             const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
@@ -213,38 +209,41 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
                 if (quoteResult.indexOf('_') > 0) {
                     quoteResult = quoteResult.substring(0, quoteResult.indexOf('_'));
                 }
-                // TO AGENCY
+
+                const keyData = {'applicationDoc': applicationDoc};
                 let message = emailContentJSON.agencyMessage;
                 let subject = emailContentJSON.agencySubject;
 
-                message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
-                message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
-                message = message.replace(/{{Carrier}}/g, insurerJson.name);
-                message = message.replace(/{{Contact Email}}/g, customerContact.email);
-                message = message.replace(/{{Contact Name}}/g, fullName);
-                message = message.replace(/{{Contact Phone}}/g, customerPhone);
-                message = message.replace(/{{Industry}}/g, industryCodeDesc);
-                message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
-                message = message.replace(/{{Quote Result}}/g, quoteResult);
+                // TO AGENCY
+                if(agencyNetworkDB.featureJson.quoteEmailsAgency === true){
+                    message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
+                    message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+                    message = message.replace(/{{Carrier}}/g, insurerJson.name);
+                    message = message.replace(/{{Contact Email}}/g, customerContact.email);
+                    message = message.replace(/{{Contact Name}}/g, fullName);
+                    message = message.replace(/{{Contact Phone}}/g, customerPhone);
+                    message = message.replace(/{{Industry}}/g, industryCodeDesc);
+                    message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
+                    message = message.replace(/{{Quote Result}}/g, quoteResult);
 
 
-                message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
-                subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
 
-                // Send the email
-                const keyData = {'applicationDoc': applicationDoc};
-                if (agencyLocationEmail) {
-                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, "Networkdefault");
-                    if (emailResp === false) {
-                        slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
+                    // Send the email
+
+                    if (agencyLocationEmail) {
+                        const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, "Networkdefault");
+                        if (emailResp === false) {
+                            slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
+                        }
+                    }
+                    else {
+                        log.error(`emailbindagency no email address for appId: ${applicationId} ` + __location);
                     }
                 }
-                else {
-                    log.error(`emailbindagency no email address for appId: ${applicationId} ` + __location);
-                }
-
                 //TO INSURED
-                if(noCustomerEmail === false){
+                if(agencyNetworkDB.featureJson.quoteEmailsCustomer === true && noCustomerEmail === false){
                     try{
                         message = emailContentJSON.customerMessage;
                         subject = emailContentJSON.customerSubject;
@@ -287,6 +286,10 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
                         message = emailContentAgencyNetworkJSON.message;
                         subject = emailContentAgencyNetworkJSON.subject;
 
+                        message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                        message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                        message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+
                         message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
                         message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
                         message = message.replace(/{{Carrier}}/g, insurerJson.name);
@@ -300,6 +303,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
 
                         message = message.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
+                        subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
 
                         // Send the email
                         const keyData3 = {'applicationDoc': applicationDoc};
@@ -317,7 +321,6 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
                     catch(err){
                         log.error(`Sending Agency Network bind email ${err}` + __location);
                     }
-                   
                 }
                 return true;
             }

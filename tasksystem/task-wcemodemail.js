@@ -82,7 +82,7 @@ const sendEmodEmail = async function(applicationId) {
         let applicationDoc = null;
         const applicationBO = new ApplicationBO();
         try {
-            applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
+            applicationDoc = await applicationBO.getById(applicationId);
         }
         catch (err) {
             log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
@@ -112,7 +112,7 @@ const sendEmodEmail = async function(applicationId) {
                 }
             }
             catch(err){
-                log.error("Error getting quote for emailbindagency " + err + __location);
+                log.error("Error getting quote for wce mod email " + err + __location);
             }
 
 
