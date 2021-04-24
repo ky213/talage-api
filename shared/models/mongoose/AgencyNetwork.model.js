@@ -24,8 +24,12 @@ const featureSchema = new Schema({
     notifyTalage: {type: Boolean, required: true, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
     agencyNetworkQuoteEmails: {type: Boolean, required: true, default: false},
+    quoteEmailsCustomer: {type: Boolean, required: true, default: true},
+    quoteEmailsAgency: {type: Boolean, required: true, default: true},
     agencyNetworkDailyDigestEmail: {type: Boolean, required: true, default: false},
-    agencyPortalRequestToBind: {type: Boolean, required: true, default: false}
+    agencyPortalRequestToBind: {type: Boolean, required: true, default: false},
+    abandonAppEmailsCustomer: {type: Boolean, required: true, default: true},
+    abandonAppEmailsAgency: {type: Boolean, required: true, default: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({

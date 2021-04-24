@@ -228,10 +228,9 @@ const getAgencyList = async(where,isAgencyNetworkUser) => {
     }
     if(where.agencyId){
         agencyQuery.systemId = where.agencyId
-         goodQuery = true;
+        goodQuery = true;
     }
     if(goodQuery){
-        
         //log.debug(`agencyQuery: ${JSON.stringify(agencyQuery)} `)
         const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
             log.error(`Report agencyList error ${err}`)
@@ -245,7 +244,6 @@ const getAgencyList = async(where,isAgencyNetworkUser) => {
                 }
                 agencyDisplayList.push(displayJSON);
             }
-            log.debug("agencyList length " + agencyList.length)
             agencyList.forEach((agencyDoc) => {
                 const displayJSON = {
                     agencyId: agencyDoc.systemId,
