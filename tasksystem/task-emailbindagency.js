@@ -124,8 +124,6 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
                 return false;
             }
 
-
-
             const agencyBO = new AgencyBO();
             const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
                 log.error(`Email content Error Unable to get email content for  email bind agency. appid: ${applicationId}.  error: ${err}` + __location);
@@ -317,7 +315,6 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
                     catch(err){
                         log.error(`Sending Agency Network bind email ${err}` + __location);
                     }
-                   
                 }
                 return true;
             }
