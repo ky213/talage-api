@@ -840,8 +840,8 @@ module.exports = class AgencyBO {
             //get AgencyNetwork 1st than replace with Agency overwrites
             const agencyNetworkBO = new AgencyNetworkBO();
             const emailTemplateJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyJSON.agencyNetworkId, agencyContentProperty, customerContentProperty).catch(function(err) {
-                log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
-                throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
+                log.error(`Email content Error Unable to get email content for ${agencyContentProperty}.  error: ${err}` + __location);
+                throw new Error(`Email content Error Unable to get email content for ${agencyContentProperty}.  error: ${err}`)
             });
 
             const query = {active: true};
@@ -894,8 +894,8 @@ module.exports = class AgencyBO {
                 //get AgencyNetwork 1st than replace with Agency overwrites
                 const agencyNetworkBO = new AgencyNetworkBO();
                 const emailTemplateJSON = await agencyNetworkBO.getEmailContent(agencyJSON.agencyNetworkId, contentProperty).catch(function(err) {
-                    log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
-                    throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
+                    log.error(`Email content Error Unable to get email content for ${contentProperty}.  error: ${err}` + __location);
+                    throw new Error(`Email content Error Unable to get email content for ${contentProperty}.  error: ${err}`)
                 });
                 if (emailTemplateJSON) {
                     const query = {active: true};
