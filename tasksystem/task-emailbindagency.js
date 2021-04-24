@@ -229,7 +229,6 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
 
                     message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
-                    
 
                     // Send the email
 
