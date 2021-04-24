@@ -314,7 +314,9 @@ module.exports = class QuoteBO {
 
                 docList = mongoUtils.objListCleanup(docList);
                 for (const quoteDoc of docList) {
-                    await this.checkAndFixQuoteStatus(quoteDoc);
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
+                    }
                 }
                 return resolve(docList);
             }
@@ -388,7 +390,9 @@ module.exports = class QuoteBO {
 
             docList = mongoUtils.objListCleanup(docList);
             for (const quoteDoc of docList) {
-                await this.checkAndFixQuoteStatus(quoteDoc);
+                if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                    await this.checkAndFixQuoteStatus(quoteDoc);
+                }
             }
             return resolve(docList);
         });
@@ -422,7 +426,9 @@ module.exports = class QuoteBO {
                     else {
                         quoteDoc = docDB
                     }
-                    await this.checkAndFixQuoteStatus(quoteDoc);
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
+                    }
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -452,7 +458,9 @@ module.exports = class QuoteBO {
                     else {
                         quoteDoc = docDB
                     }
-                    await this.checkAndFixQuoteStatus(quoteDoc);
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
+                    }
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -491,7 +499,9 @@ module.exports = class QuoteBO {
                     // const quote = new Quote(newObjectJSON);
                     await Quote.updateOne(query, newObjectJSON);
                     const newQuotedoc = await Quote.findOne(query);
-                    await this.checkAndFixQuoteStatus(newQuotedoc);
+                    if(newQuotedoc && newQuotedoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(newQuotedoc);
+                    }
                     newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
                 }
                 catch (err) {
