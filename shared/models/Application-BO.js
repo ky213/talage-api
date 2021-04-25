@@ -1817,7 +1817,7 @@ module.exports = class ApplicationModel {
             let findCount = false;
 
             let rejected = false;
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {lean:true};
