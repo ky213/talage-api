@@ -1174,9 +1174,17 @@ module.exports = class Integration {
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
             let insurerQuestionList = null;
-            const query = {
+            //TODO switch to policyType List
+            let query = {
                 "insurerId": this.insurer.id,
                 "policyType": this.policy.type
+            }
+            //acuity work around
+            if(this.insurer.id === 10 && this.policy.type === "BOP"){
+                query = {
+                    "insurerId": this.insurer.id,
+                    "policyType": "GL"
+                }
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             try{

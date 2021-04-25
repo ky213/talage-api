@@ -24,6 +24,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let error = false;
     let sql = '';
 
+
     /*
      * Validate Activity Codes
      */
@@ -133,6 +134,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         }
         mongoPolicyExpirationList.push(mongoPolicyEffectiveDateQuery);
 
+        //For Acuity BOP testing
+        if(policyTypeJSON.type.toUpperCase() === 'BOP'){
+            // eslint-disable-next-line prefer-const
+            let pe2 = JSON.parse(JSON.stringify(mongoPolicyEffectiveDateQuery))
+            pe2.policyType = "GL";
+            mongoPolicyExpirationList.push(pe2);
+
+        }
+
 
     });
     
@@ -145,11 +155,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
     }
 
-    // Do not permit requests that include both BOP and GL
-    if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
-        log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-        return false;
-    }
+    //work around to not remap GL questions for BOP.  Question system should not care
+    // // Do not permit requests that include both BOP and GL
+    // if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
+    //     log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
+    //     //return false; //work around to not remap GL questions for BOP.  Question system should not crea
+    // }
 
     // Get Policy Types from the database
     sql = 'SELECT abbr FROM clw_talage_policy_types;';
@@ -169,13 +180,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Check that all policy types match
     policyTypes.forEach(function(policy_type) {
         if (!supported_policy_types.includes(policy_type)) {
-            log.warn('Bad Request: Invalid Policy Type');
-            error = `Policy type '${policy_type}' is not supported.`;
+            log.warn(`Bad Request: Invalid Policy Type ${policy_type}` + __location);
         }
     });
-    if (error) {
-        return false;
-    }
 
 
     /*
@@ -225,7 +232,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     });
     insurerQuestionQuery.$or = orParamList;
 
-    // log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
+    log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
     try{
 
         const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
@@ -407,10 +414,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 insurerId: {$in: insurerArray},
                 insurerQuestionId: {$in: insurerQuestionIdArray},
                 universal: false,
-                // policyType: {$in: policyTypes},
                 questionSubjectArea: questionSubjectArea,
-                // effectiveDate: {$lt: policyEffectiveDate},
-                // expirationDate: {$gt: policyEffectiveDate},
                 active: true
             }
             // eslint-disable-next-line prefer-const

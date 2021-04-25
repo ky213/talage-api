@@ -28,7 +28,12 @@ module.exports = class AcuityGL extends Integration {
 	 */
     async _insurer_quote() {
         const appDoc = this.app.applicationDocData
-
+        const bopPolicy = this.app.applicationDocData.policies.find((appPolicy) => appPolicy.policyType === "BOP")
+        if(!bopPolicy){
+            log.error(`Acuity (application ${this.app.id}): Does not have policy ${this.policy.type}  ${__location}`);
+            this.reasons.push(`Application does not have BOP policy`);
+            return this.return_result('autodeclined');
+        }
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
         const insurer = await insurerBO.getBySlug(insurerSlug);
@@ -63,11 +68,11 @@ module.exports = class AcuityGL extends Integration {
         // They are likely that they are hard-coded in below somewhere
         const skipQuestions = [1036, 1037];
 
-        // Check Industry Code Support
-        if (!this.industry_code.cgl) {
-            log.error(`Acuity (application ${this.app.id}): CGL not set for Industry Code ${this.industry_code.id} ${__location}`);
-            return this.return_result('autodeclined');
-        }
+        // // Check Industry Code Support -- not used any in integration
+        // if (!this.industry_code.cgl) {
+        //     log.error(`Acuity (application ${this.app.id}): CGL not set for Industry Code ${this.industry_code.id} ${__location}`);
+        //     return this.return_result('autodeclined');
+        // }
 
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
@@ -131,14 +136,15 @@ module.exports = class AcuityGL extends Integration {
         InsuranceSvcRq.ele('RqUID', this.request_id);
 
         // <GeneralLiabilityPolicyQuoteInqRq>
-        const GeneralLiabilityPolicyQuoteInqRq = InsuranceSvcRq.ele('GeneralLiabilityPolicyQuoteInqRq');
-        GeneralLiabilityPolicyQuoteInqRq.ele('RqUID', this.request_id);
-        GeneralLiabilityPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
-        GeneralLiabilityPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
-        GeneralLiabilityPolicyQuoteInqRq.ele('CurCd', 'USD');
+        const BOPPolicyQuoteInqRq = InsuranceSvcRq.ele('BOPPolicyQuoteInqRq');
+        BOPPolicyQuoteInqRq.ele('RqUID', this.request_id);
+        BOPPolicyQuoteInqRq.ele('BusinessPurposeTypeCd', "com.acuity_NBQ_RC1");
+        BOPPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
+        BOPPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
+        BOPPolicyQuoteInqRq.ele('CurCd', 'USD');
 
         // <Producer>
-        const Producer = GeneralLiabilityPolicyQuoteInqRq.ele('Producer');
+        const Producer = BOPPolicyQuoteInqRq.ele('Producer');
 
         // <GeneralPartyInfo>
         let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
@@ -181,7 +187,7 @@ module.exports = class AcuityGL extends Integration {
         // </Producer>
 
         // <InsuredOrPrincipal>
-        const InsuredOrPrincipal = GeneralLiabilityPolicyQuoteInqRq.ele('InsuredOrPrincipal');
+        const InsuredOrPrincipal = BOPPolicyQuoteInqRq.ele('InsuredOrPrincipal');
         // <GeneralPartyInfo>
         GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
         // <NameInfo>
@@ -275,13 +281,15 @@ module.exports = class AcuityGL extends Integration {
         BusinessInfo.ele('OperationsDesc', operationsDescription);
         BusinessInfo.ele('NumOwners', this.app.business.num_owners);
         BusinessInfo.ele('NumEmployees', this.get_total_employees());
+        BusinessInfo.ele('NumEmployeesFullTime', this.get_total_full_time_employees());
+        BusinessInfo.ele('NumEmployeesPartTime', this.get_total_part_time_employees());
         // </BusinessInfo>
         // </InsuredOrPrincipalInfo>
         // </InsuredOrPrincipal>
 
         // <CommlPolicy>
-        const CommlPolicy = GeneralLiabilityPolicyQuoteInqRq.ele('CommlPolicy');
-        CommlPolicy.ele('LOBCd', 'CGL');
+        const CommlPolicy = BOPPolicyQuoteInqRq.ele('CommlPolicy');
+        CommlPolicy.ele('LOBCd', 'BOP');
         CommlPolicy.ele('ControllingStateProvCd', this.app.business.primary_territory);
 
         // <ContractTerm>
@@ -311,7 +319,7 @@ module.exports = class AcuityGL extends Integration {
 
         // Losses
         this.app.policies.forEach((policy) => {
-            if (policy.type !== "GL") {
+            if (policy.type !== "BOP") {
                 return;
             }
             const totalClaimCount = this.get_num_claims(3);
@@ -321,7 +329,7 @@ module.exports = class AcuityGL extends Integration {
             const totalClaimAmount = this.get_total_amount_incurred_on_claims(3);
             const OtherOrPriorPolicy = CommlPolicy.ele('OtherOrPriorPolicy');
             OtherOrPriorPolicy.ele('PolicyCd', 'com.acuity_LossHistory');
-            OtherOrPriorPolicy.ele('LOBCd', 'CGL');
+            OtherOrPriorPolicy.ele('LOBCd', 'BOP');
             OtherOrPriorPolicy.ele('NumLosses', totalClaimCount);
             OtherOrPriorPolicy.ele('ContractTerm').ele('DurationPeriod').ele('NumUnits', 3);
             OtherOrPriorPolicy.ele('TotalPaidLossesAmt').ele('Amt', totalClaimAmount);
@@ -335,7 +343,7 @@ module.exports = class AcuityGL extends Integration {
             question_identifiers = await this.get_question_identifiers();
         }
         catch (error) {
-            log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}` + __location);
+            log.error(`${this.insurer.name} ${this.policy.type} is unable to get question identifiers.${error}` + __location);
             return this.return_result('autodeclined');
         }
         const questionCodes = Object.values(question_identifiers);
@@ -427,14 +435,9 @@ module.exports = class AcuityGL extends Integration {
         // </CommlPolicy>
 
         // <Location>
-        this.app.business.locations.forEach((location, index) => {
-            const Location = GeneralLiabilityPolicyQuoteInqRq.ele('Location');
+        appDoc.locations.forEach((location, index) => {
+            const Location = BOPPolicyQuoteInqRq.ele('Location');
             Location.att('id', `L${index + 1}`);
-
-            // TO DO: Ask Adam: The RiskLocationCd is used to indicate if an address is within city limits (IN) or outside city limits (OUT).  I believe this only comes into play for the state of KY when more detailed location info is needed for tax purposes.  For the Rating API, if this information is not provided, the default is to assume the address IS within city limits.
-            // <RiskLocationCd>IN</RiskLocationCd>
-            // We must ask the user (it is higher in the city limits)
-
             // <Addr>
             Addr = Location.ele('Addr');
             Addr.ele('Addr1', location.address);
@@ -442,17 +445,18 @@ module.exports = class AcuityGL extends Integration {
                 Addr.ele('Addr2', location.address2);
             }
             Addr.ele('City', location.city);
-            Addr.ele('StateProvCd', location.territory);
-            Addr.ele('PostalCode', location.zip);
+            Addr.ele('StateProvCd', location.state);
+            Addr.ele('PostalCode', location.zipcode);
             // </Addr>
+
+
         });
 
-        // <GeneralLiabilityLineBusiness>
-        const GeneralLiabilityLineBusiness = GeneralLiabilityPolicyQuoteInqRq.ele('GeneralLiabilityLineBusiness');
-        GeneralLiabilityLineBusiness.ele('LOBCd', 'CGL');
-
+        // <BOPLineBusiness>
+        const BOPLineBusiness = BOPPolicyQuoteInqRq.ele('BOPLineBusiness');
+        BOPLineBusiness.ele('LOBCd', 'BOP');
         // <LiabilityInfo>
-        const LiabilityInfo = GeneralLiabilityLineBusiness.ele('LiabilityInfo');
+        const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
         // <CommlCoverage>
         let CommlCoverage = LiabilityInfo.ele('CommlCoverage');
         CommlCoverage.ele('CoverageCd', 'EAOCC');
@@ -474,9 +478,9 @@ module.exports = class AcuityGL extends Integration {
         // </CommlCoverage>
 
         // <CommlCoverage>
-        CommlCoverage = LiabilityInfo.ele('CommlCoverage');
-        CommlCoverage.ele('CoverageCd', 'PRDCO');
-        CommlCoverage.ele('CoverageDesc', 'Products&Completed Operations');
+        // CommlCoverage = LiabilityInfo.ele('CommlCoverage');
+        // CommlCoverage.ele('CoverageCd', 'PRDCO');
+        // CommlCoverage.ele('CoverageDesc', 'Products&Completed Operations');
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
         Limit.ele('FormatInteger', limits[2]);
@@ -484,10 +488,41 @@ module.exports = class AcuityGL extends Integration {
         // </CommlCoverage>
         // Exposures
 
+        //PropertyInfo
+        //const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
 
         for (let i = 0; i < appDoc.locations.length; i++) {
             const location = appDoc.locations[i];
+            //blding limit
+            // if(location.buildingLimit){
 
+            //     const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+            //     CommlPropertyInfo.att('LocationRef', `L${i + 1}`);
+            //     CommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
+            //     const bopCommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+            //     bopCommlCoverage.ele('CoverageCd', 'BLDG');
+            //     bopCommlCoverage.ele('ValuationCd', 'RC');
+
+            //     const bopLimit = bopCommlCoverage.ele('Limit');
+            //     bopLimit.ele('FormatInteger', location.buildingLimit);
+            //     const bopDeductible = bopCommlCoverage.ele('Deductible');
+            //     bopDeductible.ele('FormatInteger', bopPolicy.deductible);
+
+            // }
+            //bpp
+            // if(location.businessPersonalPropertyLimit){
+            //     const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+            //     CommlPropertyInfo.att('LocationRef', `L${i + 1}`);
+            //     CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
+            //     const bopCommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+            //     bopCommlCoverage.ele('CoverageCd', 'BPP');
+            //     bopCommlCoverage.ele('ValuationCd', 'RC');
+
+            //     const bopLimit = bopCommlCoverage.ele('Limit');
+            //     bopLimit.ele('FormatInteger', location.businessPersonalPropertyLimit);
+            //     const bopDeductible = bopCommlCoverage.ele('Deductible');
+            //     bopDeductible.ele('FormatInteger', bopPolicy.deductible);
+            // }
             const cobPayrollList = [];
             // eslint-disable-next-line prefer-const
             for (let activityCode of location.activityPayrollList){
@@ -540,8 +575,8 @@ module.exports = class AcuityGL extends Integration {
             }
         }
 
-        // </GeneralLiabilityLineBusiness>
-        // </GeneralLiabilityPolicyQuoteInqRq>
+        // </BOPLineBusiness>
+        // </BOPPolicyQuoteInqRq>
         // </InsuranceSvcRq>
         // </ACORD>
 
@@ -600,7 +635,7 @@ module.exports = class AcuityGL extends Integration {
         }
 
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
-        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
+        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
             log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo ${__location}`);
             this.reasons.push(`Could not find PolicySummaryInfo in response`);
@@ -614,7 +649,7 @@ module.exports = class AcuityGL extends Integration {
         }
 
         // If the first message status begins with "Rating is not available ...", it is an autodecline
-        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
+        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
         if (extendedStatusDescription && extendedStatusDescription.startsWith("Rating is not available for this type of business")) {
             this.reasons.push('Rating is not available for this type of business.');
             return this.return_result('autodeclined');
@@ -631,7 +666,7 @@ module.exports = class AcuityGL extends Integration {
                 }
                 // Get the returned limits
                 let foundLimitsCount = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.GeneralLiabilityLineBusiness.LiabilityInfo.CommlCoverage', true);
+                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node in response.`);
                     log.error(`Acuity (application ${this.app.id}): Could not find the CommlCoverage node. ${__location}`);
@@ -681,7 +716,7 @@ module.exports = class AcuityGL extends Integration {
                 }
 
                 // Retrieve and the quote letter if it exists
-                const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo', true);
+                const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.FileAttachmentInfo', true);
                 for (const fileAttachmentInfo of fileAttachmentInfoList) {
                     switch (fileAttachmentInfo.AttachmentDesc[0]) {
                         case "Policy Quote Print":
@@ -703,7 +738,7 @@ module.exports = class AcuityGL extends Integration {
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
                 return this.return_result(status);
             case "com.acuity_Declined":
-                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
+                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
                 if (extendedStatusList) {
                     for (const extendedStatus of extendedStatusList) {
                         if (extendedStatus.hasOwnProperty('com.acuity_ExtendedStatusType') && extendedStatus['com.acuity_ExtendedStatusType'].length) {
