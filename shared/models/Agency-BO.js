@@ -439,7 +439,7 @@ module.exports = class AgencyBO {
                 query.agencyId = queryJSON.agencyId;
                 delete queryJSON.agencyId
             }
-            //doNotReport false
+            //doNotReport false - So we can search on false
             if(queryJSON.doNotReport === false){
                 query.doNotReport = false;
                 delete queryJSON.doNotReport
