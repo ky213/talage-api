@@ -648,6 +648,13 @@ module.exports = class Integration {
      */
     async get_question_details() {
         const results = await this.getInsurerQuestionsByTalageQuestionId("general", Object.keys(this.questions));
+        //To Allow for multiple iq => Talage question mappings.
+        //use app.questions insurerQuestionRefList to make sure there guestions that generated the Talage question.
+        //  for (const question_id in this.app.questions) {
+        //const question = this.app.questions[question_id];
+        // if(question.insurerQuestionRefList){
+        //  }
+
         // Convert this into an object for easy reference
         const question_details = {};
         try {
@@ -1174,17 +1181,9 @@ module.exports = class Integration {
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
             let insurerQuestionList = null;
-            //TODO switch to policyType List
-            let query = {
+            const query = {
                 "insurerId": this.insurer.id,
-                "policyType": this.policy.type
-            }
-            //acuity work around
-            if(this.insurer.id === 10 && this.policy.type === "BOP"){
-                query = {
-                    "insurerId": this.insurer.id,
-                    "policyType": "GL"
-                }
+                "policyTypeList": this.policy.type
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             try{
@@ -2328,10 +2327,11 @@ module.exports = class Integration {
             if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
                 // eslint-disable-next-line prefer-const
                 let orParamList = [];
-                const policyTypeCheck = {policyType: this.policyTypeFilter};
-                const policyTypeNullCheck = {policyType: null}
+                const policyTypeCheck = {policyTypeList: this.policyTypeFilter};
+                //const policyTypeNullCheck = {policyTypeList: null}
+                const noPolicyTypeCheck = {'policyTypeList.0': {$exists: false}};
                 orParamList.push(policyTypeCheck)
-                orParamList.push(policyTypeNullCheck)
+                orParamList.push(noPolicyTypeCheck)
                 industryQuery.$or = orParamList;
             }
             // eslint-disable-next-line prefer-const

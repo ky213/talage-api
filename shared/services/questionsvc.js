@@ -128,24 +128,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
 
         const mongoPolicyEffectiveDateQuery = {
-            policyType: policyTypeJSON.type.toUpperCase(),
+            policyTypeList: policyTypeJSON.type.toUpperCase(),
             effectiveDate: {$lte: policyEffectiveDate},
             expirationDate: {$gte: policyEffectiveDate}
         }
         mongoPolicyExpirationList.push(mongoPolicyEffectiveDateQuery);
-
-        //For Acuity BOP testing
-        if(policyTypeJSON.type.toUpperCase() === 'BOP'){
-            // eslint-disable-next-line prefer-const
-            let pe2 = JSON.parse(JSON.stringify(mongoPolicyEffectiveDateQuery))
-            pe2.policyType = "GL";
-            mongoPolicyExpirationList.push(pe2);
-
-        }
-
-
     });
-    
+
 
     // Industry and activity code effective date is done using the unique policy effective date list.
     const industryCodeEffectiveDateWhereClauseList = [];
@@ -220,7 +209,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let insurerQuestionQuery = {
         insurerId: {$in: insurerArray},
         universal: true,
-        policyType: {$in: policyTypes},
+        policyTypeList: {$in: policyTypes},
         questionSubjectArea: questionSubjectArea,
         active: true
     }
@@ -369,10 +358,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     // eslint-disable-next-line prefer-const
     orParamList = [];
-    const policyTypeCheck = {policyType: {$in: policyTypes}};
-    const policyTypeNullCheck = {policyType: null}
+    const policyTypeCheck = {policyTypeList: {$in: policyTypes}};
+    const noPolicyTypeCheck = {'policyTypeList.0': {$exists: false}};
     orParamList.push(policyTypeCheck)
-    orParamList.push(policyTypeNullCheck)
+    orParamList.push(noPolicyTypeCheck)
     industryQuery.$or = orParamList;
     try{
         const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
@@ -510,10 +499,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 insurerId: {$in: insurerArray},
                 insurerQuestionId: {$in: insurerQuestionIdArray},
                 universal: false,
-                //policyType: {$in: policyTypes},
                 questionSubjectArea: questionSubjectArea,
-                // effectiveDate: {$lt: now},
-                //expirationDate: {$gt: now},
                 active: true
             }
             // eslint-disable-next-line prefer-const
@@ -768,15 +754,20 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
         //add row for every match
         // eslint-disable-next-line prefer-const
         let talageQuestionPolicyTypeList = [];
+        // eslint-disable-next-line prefer-const
+        let insurerQuestionRefList = [];
         talageQuestions.forEach(function(talageQuestion){
             const iqForTalageQList = insurerQuestionList.filter(function(iq) {
-                return iq.question === talageQuestion.id;
+                return iq.talageQuestionId === talageQuestion.id;
             });
-
+            //change to store insurerQuestionId.  will allow for multiple insurerquestions to map to
+            // one talage question.
             iqForTalageQList.forEach(function(iqForTalageQ){
                 talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+                insurerQuestionRefList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.insurerQuestionId)
             });
             talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
+            talageQuestion.insurerQuestionRefList = insurerQuestionRefList;
         });
         return talageQuestions;
     }
