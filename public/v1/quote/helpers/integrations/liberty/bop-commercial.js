@@ -1409,7 +1409,6 @@ module.exports = class LibertySBOP extends Integration {
             }
 
             if (hasCoverage) {
-                console.log("limit");
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
                     const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
                     if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
@@ -1432,7 +1431,6 @@ module.exports = class LibertySBOP extends Integration {
             } 
 
             if (hasPercentIncrease) {
-                console.log("percentIncrease");
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
                     if (limit.FormatPct) {
                         const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
@@ -1457,7 +1455,6 @@ module.exports = class LibertySBOP extends Integration {
             }
             
             if (hasDeductible) {
-                console.log("deductible");
                 coverage.Deductible.filter(deductible => deductible.DeductibleAppliesToCd).forEach(deductible => {
                     const additionalText = limitCodeMatrix[deductible.DeductibleAppliesToCd[0]];
                     if (additionalText || deductible.DeductibleAppliesToCd[0] === "Coverage") {
