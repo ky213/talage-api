@@ -1539,7 +1539,7 @@ module.exports = class Integration {
         values.push(convertToAggregatedStatus(status));
 
         // Set up quote limits for old-style hydration (should be deprecated eventually)
-        if (Object.keys(this.limits).length) {
+        if (this.limits && Object.keys(this.limits).length) {
             // eslint-disable-next-line guard-for-in
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId) && typeof this.limits[limitId] === 'number' && this.limits[limitId]) {
@@ -1553,7 +1553,9 @@ module.exports = class Integration {
         }
 
         // hydrate quoteCoverages property with insurer coverages
-        quoteJSON.quoteCoverages = this.quoteCoverages;
+        if (this.quoteCoverages && this.quoteCoverages.length > 0) {
+            quoteJSON.quoteCoverages = this.quoteCoverages;
+        }
 
         //shouldNotifyTalage is based on talageWholesale Setting
         const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
@@ -1625,11 +1627,11 @@ module.exports = class Integration {
      * @param {array<object>} coverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_referred(quoteNumber, limits = {}, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null, coverages = []) {
+    async client_referred(quoteNumber, limits = {}, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
-        this.quoteCoverages = coverages && coverages.length > 0 ? coverages : null;
+        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
-        if (!this.limits && !this.coverages) {
+        if (!this.limits && !this.quoteCoverages) {
             this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
             return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
@@ -1668,11 +1670,11 @@ module.exports = class Integration {
      * @param {array<object>} coverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, coverages = []) {
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
-        this.quoteCoverages = coverages && coverages.length > 0 ? coverages : null;
+        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
-        if (!this.limits && !this.coverages) {
+        if (!this.limits && !this.quoteCoverages) {
             this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
             return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }

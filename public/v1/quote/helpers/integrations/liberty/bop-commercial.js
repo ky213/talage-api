@@ -1318,20 +1318,17 @@ module.exports = class LibertySBOP extends Integration {
                 log.warn(`${logPrefix}Quote Proposal Letter not provided, or quote result structure has changed. ` + __location);
             }
             else {
-                quoteLetter = quoteResult.substring(start, end);
+                quoteLetter = quoteResult.substring(start, end).toString('base64');
             }
         }
-
-        // DEBUG - REMOVE THIS
-        console.log(JSON.stringify(quoteCoverages, null, 4));
 
         // return result based on policy status
         if (policyStatus) {
             switch (policyStatus.toLowerCase()) {
                 case "accept":
-                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType, quoteCoverages);
+                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
                 case "refer":
-                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType, quoteCoverages);
+                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
                 default:
                     const errorMessage = `${logPrefix}Insurer response error: unknown policyStatus - ${policyStatus} `;
                     log.error(errorMessage + __location);
@@ -1351,7 +1348,7 @@ module.exports = class LibertySBOP extends Integration {
         const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
         const applicationDocData = this.app.applicationDocData;
 
-        const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `
+        const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
 
         // eslint-disable-next-line prefer-const
         const industryQuery = {
@@ -1424,7 +1421,6 @@ module.exports = class LibertySBOP extends Integration {
                             insurerIdentifier
                         };
         
-                        console.log(`newCoverage:\n${JSON.stringify(newCoverage, null, 4)}`);
                         quoteCoverages.push(newCoverage);
                     }
                 });
@@ -1447,7 +1443,6 @@ module.exports = class LibertySBOP extends Integration {
                                 insurerIdentifier
                             };
         
-                            console.log(`coverageAutoInc:\n${JSON.stringify(coverageAutoInc, null, 4)}`);
                             quoteCoverages.push(coverageAutoInc);
                         }
                     }
@@ -1470,7 +1465,6 @@ module.exports = class LibertySBOP extends Integration {
                             insurerIdentifier
                         };
     
-                        console.log(`coverageDeductible:\n${JSON.stringify(coverageDeductible, null, 4)}`);
                         quoteCoverages.push(coverageDeductible);
                     }
                 });

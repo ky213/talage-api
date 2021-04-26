@@ -26,7 +26,7 @@ const QouteLimitSchema = new Schema({
  */
 const QuoteCoveragesSchema = new Schema({
     description: {type: String, required: true},
-    value: {type: Number, required: true},
+    value: {type: String, required: true},
     sort: {type: Number, required: true},
     category: {type: String, required: true},
     insurerIdentifier: {type: String, required: false}
