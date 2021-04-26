@@ -120,12 +120,11 @@ function logSuccess(message) {
 })();
 
 async function runFunction() {
-    const QuoteBO = global.requireShared('models/Quote-BO.js');
-    const quoteBO = new QuoteBO();
+    const Quote = require('mongoose').model('Quote');
 
     let quotes = null;
     try {
-        quotes = await quoteBO.getList({});
+        quotes = await Quote.find({});
     } catch (e) {
         logErrorAndExit(`Error retreiving list of quotes: ${e}. Exiting.`);
     }
@@ -139,8 +138,8 @@ async function runFunction() {
     let successes = 0;
     const oldCount = quotes.length;
 
-    // walk over each quote, ignoring quotes that already have quoteStatusDescription
-    quotes = quotes.filter(q => !q.quoteStatusDescription);
+    // walk over each quote, ignoring quotes that already have both quoteStatus elements
+    quotes = quotes.filter(q => !q.quoteStatusDescription || !q.quoteStatusId);
     const newCount = quotes.length;
 
     if (oldCount !== newCount && newCount !== 0) {
@@ -154,19 +153,26 @@ async function runFunction() {
         const status = getStatus(quote.aggregatedStatus);
 
         if (status) {
-            const updateQuery = {
+            const updateJSON = {
                 quoteStatusId: status.id,
-                quoteStatusDescription: status.description
+                quoteStatusDescription: status.description,
+                updatedAt: new Date()
             };
+            const query = { "quoteId": quote.quoteId };
 
             try {
-                await quoteBO.updateMongo(quote.quoteId, updateQuery);
+                await Quote.updateOne(query, updateJSON);
                 successes++;
             } catch (e) {
                 logError(`Error updating quote ${quote.quoteId}: ${e}.`);
             }
         } else {
             logWarning(`Quote ${quote.quoteId} has an aggregatedStatus field that doesn't match expected values.`);
+        }
+
+        // status update every 100 records
+        if (successes % 100 === 0 && successes !== 0) {
+            console.log(`Successfully updated ${successes} out of ${quotes.length} records.`);
         }
     }
 
