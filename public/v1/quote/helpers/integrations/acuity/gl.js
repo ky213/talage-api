@@ -358,7 +358,7 @@ module.exports = class AcuityGL extends Integration {
                 }
                 catch (error) {
                     log.error(`Acuity (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
-                    return this.return_result('autodeclined');
+                    //return this.return_result('autodeclined');
                 }
 
                 // This question was not answered
