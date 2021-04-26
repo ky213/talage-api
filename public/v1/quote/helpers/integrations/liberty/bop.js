@@ -1,3 +1,4 @@
+/* eslint-disable no-trailing-spaces */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -7,8 +8,6 @@
 
 'use strict';
 
-const builder = require('xmlbuilder');
-const moment = require('moment');
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');

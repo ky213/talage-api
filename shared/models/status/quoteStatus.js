@@ -1,3 +1,5 @@
+/* eslint-disable object-shorthand */
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable object-property-newline */
 /* eslint-disable object-curly-spacing */
 /* eslint-disable object-curly-newline */
@@ -87,7 +89,7 @@ async function updateQuoteStatus(quoteDocJson) {
  * 
  * NOTE: This whole function will change once we get rid of aggregatedStatus and rework what is passed in by apiResult
  */
- function getQuoteStatus(bound, status, apiResult) {
+function getQuoteStatus(bound, status, apiResult) {
     if (bound) {
         // return 'bound';
         return quoteStatus.bound;
@@ -134,6 +136,7 @@ async function updateQuoteStatus(quoteDocJson) {
  * Use: Wherever we assign aggregatedStatus on the quote, just use the return value of this function
  */
 
+// eslint-disable-next-line no-unused-vars
 const convertToAggregatedStatus = ({id, description}) => {
     // NOTE: There is no aggregate case for new status "initiated"
     switch (id) {

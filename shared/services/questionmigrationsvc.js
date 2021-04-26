@@ -83,7 +83,10 @@ async function importInsurerQuestions(insurerId) {
                 //loop updateable array
                 updateAbleProps.forEach((updateAbleProp) => {
                     if(insurerQuestion[updateAbleProp] && insurerQuestion[updateAbleProp] !== existingDoc[updateAbleProp]){
-                        existingDoc[updateAbleProp] = insurerQuestion[updateAbleProp]
+                        existingDoc[updateAbleProp] = insurerQuestion[updateAbleProp];
+                        if (updateAbleProp === "policyType") {
+                            existingDoc.policyTypeList = [insurerQuestion.policyType]
+                        }
                         updateHit = true;
                     }
                 });
