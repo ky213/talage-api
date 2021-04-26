@@ -1,3 +1,5 @@
+/* eslint-disable no-trailing-spaces */
+/* eslint-disable no-empty */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -12,7 +14,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
-const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 
 /*
 QUESTION SPECIAL CASES:
@@ -28,7 +30,7 @@ BOP185 (ignored)
 */
 
 /*
-    TODO: 
+    TODO:
         - Verify Coverage limits are getting parsed in response properly for quote
 */
 
@@ -132,7 +134,7 @@ const alarmTypeMatrix = {
     "Central Station Without Keys": "CEN",
     "Local": "LO",
     "Police/Fire Connected": "PCFC",
-    "None": "NO" 
+    "None": "NO"
 };
 
 // An association list tying the Talage entity list (left) to the codes used by this insurer (right)
@@ -151,6 +153,7 @@ const entityMatrix = {
 };
 
 // These are loss types for claims. Currently we dont have a mechanism of providing this with each claim
+// eslint-disable-next-line no-unused-vars
 const lossCauseCodeMatrix = {
     "Fire": "BFIRE",
     "Water": "BWATR",
@@ -208,7 +211,7 @@ const limitCodeMatrix = {
     "Aggregate": "General Aggregate",
     "AwayFromPremises": "Away From Premises",
     "OnPremises": "On Premises",
-    "EmplTools": "Employee Tools",
+    "EmplTools": "Employee Tools"
 };
 
 let logPrefix = '';
@@ -221,6 +224,7 @@ const quoteMIMEType = "BASE64";
 let policyStatus = null;
 const quoteCoverages = [];
 let coverageSort = 0;
+// const paymentPlans = [];
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -266,7 +270,9 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // if there's no Business Personal Property limit or Building Limit provided for each location
-        for (const { businessPersonalPropertyLimit, buildingLimit } of applicationDocData.locations) {
+        for (const {
+ businessPersonalPropertyLimit, buildingLimit
+} of applicationDocData.locations) {
             if (typeof businessPersonalPropertyLimit !== "number") {
                 const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit for the Commercial BOP Policy.`;
                 log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
@@ -284,7 +290,10 @@ module.exports = class LibertySBOP extends Integration {
         const requestUUID = this.generate_uuid();
 
         // Liberty Mutual Commercial BOP only uses perOcc and genAgg
-        const [perOccLimit, genAggLimit, aggLimit] = this.getSupportedLimits(BOPPolicy.limits);
+        const [perOccLimit,
+            genAggLimit,
+            // eslint-disable-next-line no-unused-vars
+            aggLimit] = this.getSupportedLimits(BOPPolicy.limits);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
         const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
@@ -295,7 +304,7 @@ module.exports = class LibertySBOP extends Integration {
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // ------------- CREATE XML REQUEST ---------------
-        
+
         const ACORD = builder.create('ACORD', {'encoding': 'UTF-8'});
 
         // <ACORD>
@@ -426,7 +435,7 @@ module.exports = class LibertySBOP extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
-        BusinessInfo.ele('OperationsDesc', 'Operation Description Not Provided.'); // NOTE: See if this is acceptable, or if we need to add a question 
+        BusinessInfo.ele('OperationsDesc', 'Operation Description Not Provided.'); // NOTE: See if this is acceptable, or if we need to add a question
 
     //             <Policy>
 
@@ -541,7 +550,8 @@ module.exports = class LibertySBOP extends Integration {
 
                         if (explanation) {
                             UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
-                        } else {
+                        }
+                        else {
                             log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
                         }
                     }
@@ -555,7 +565,7 @@ module.exports = class LibertySBOP extends Integration {
                 case "BOP24":
                     if (!PolicySupplementExt) {
                         PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
-                    }                    
+                    }
                     PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', question.answerValue);
                     break;
                 case "BOP23":
@@ -569,7 +579,7 @@ module.exports = class LibertySBOP extends Integration {
                         PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                     }
 
-                    let yearsOfExp = parseInt(question.answerValue);
+                    let yearsOfExp = parseInt(question.answerValue, 10);
                     if (isNaN(yearsOfExp)) {
                         yearsOfExp = 0;
                     }
@@ -587,7 +597,7 @@ module.exports = class LibertySBOP extends Integration {
                 case "BOP191":
                     // handled in BOP2
                     break;
-                default: 
+                default:
                     log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
                     break;
             }
@@ -601,11 +611,12 @@ module.exports = class LibertySBOP extends Integration {
             if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
                 // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
                 QuestionAnswer.ele('Explanation', question.answerValue);
-            } else {
+            }
+            else {
                 QuestionAnswer.ele('YesNoCd', question.answerValue);
             }
         });
-        
+
         //                 <AnyLossesAccidentsConvictionsInd>0</AnyLossesAccidentsConvictionsInd>
 
         Policy.ele('AnyLossesAccidentsConvictionsInd', applicationDocData.claims.length);
@@ -773,7 +784,7 @@ module.exports = class LibertySBOP extends Integration {
             GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
             // NOTE: Commercial BOP does not require PT/FT employee information, except for when professional liability is included
             //       In those cases, the CoverageCd is whatever employee code matches the Professional Liability selected
-            
+
             // const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
             // innerCoverage.ele('CoverageCd', 'BOP');
             // const PTOption = innerCoverage.ele('Option');
@@ -810,7 +821,8 @@ module.exports = class LibertySBOP extends Integration {
             if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
                 // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
                 QuestionAnswer.ele('Explanation', question.answerValue);
-            } else {
+            }
+            else {
                 QuestionAnswer.ele('YesNoCd', question.answerValue);
             }
         });
@@ -881,8 +893,8 @@ module.exports = class LibertySBOP extends Integration {
 
             let yearBuilt = null;
             if (yearBuiltQuestion) {
-                if (!isNaN(parseInt(yearBuiltQuestion.answerValue))) {
-                    yearBuilt = parseInt(yearBuiltQuestion.answerValue);
+                if (!isNaN(parseInt(yearBuiltQuestion.answerValue, 10))) {
+                    yearBuilt = parseInt(yearBuiltQuestion.answerValue, 10);
                 }
             }
 
@@ -958,16 +970,18 @@ module.exports = class LibertySBOP extends Integration {
                     case "BOP186":
                     case "BOP185":
                         // only provide these questions if year built was over 24 years ago
-                        if (!yearBuilt || moment().year() - yearBuilt > 24) { 
+                        if (!yearBuilt || moment().year() - yearBuilt > 24) {
                             if (!BldgImprovements) {
                                 BldgImprovements = LocationUWInfo.ele('BldgImprovements');
                             }
                             const qId = question.insurerQuestionIdentifier;
                             if (qId === 'BOP8') {
                                 BldgImprovements.ele('WiringImprovementYear', question.answerValue);
-                            } else if (qId === 'BOP186') {
+                            }
+                            else if (qId === 'BOP186') {
                                 BldgImprovements.ele('PlumbingImprovementYear', question.answerValue);
-                            } else { // if BOP185
+                            }
+                            else { // if BOP185
                                 BldgImprovements.ele('HeatingImprovementYear', question.answerValue);
                             }
                         }
@@ -1003,15 +1017,15 @@ module.exports = class LibertySBOP extends Integration {
                             let unoccupied = 0;
 
                             if (BOP17_AreaOccupiedByOther) {
-                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue);
+                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
                                 const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
                                 AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
                                 AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
-                                
+
                             }
 
                             if (BOP17_AreaUnoccupied) {
-                                unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue);
+                                unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue, 10);
                                 const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
                                 AreaUnoccupied.ele('NumUnits', unoccupied);
                                 AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
@@ -1027,7 +1041,8 @@ module.exports = class LibertySBOP extends Integration {
                             const occupied = location.square_footage - (occupiedByOther + unoccupied);
                             AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
                             AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
-                        } else {
+                        }
+                        else {
                             AreaOccupied.ele('NumUnits', location.square_footage);
                             AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
                         }
@@ -1043,7 +1058,7 @@ module.exports = class LibertySBOP extends Integration {
                     case "LMBOP_Construction":
                         Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
                         break;
-                    case "LMBOP_RoofConstruction": 
+                    case "LMBOP_RoofConstruction":
                         RoofingMaterial.ele('RoofMaterialCd', roofConstructionMatrix[question.answerValue.trim()]);
                         break;
                     case "LMBOP_RoofType":
@@ -1059,14 +1074,14 @@ module.exports = class LibertySBOP extends Integration {
                         BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[question.answerValue.trim()]);
                         break;
                     case "UWQ6003":
-                        // only provide answer to this question if year built is over 24 years ago 
+                        // only provide answer to this question if year built is over 24 years ago
                         if (!yearBuilt || moment().year() - yearBuilt > 24) {
                             const UWQ6003QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
                             UWQ6003QuestionAnswer.ele('QuestionCode', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
                             UWQ6003QuestionAnswer.ele('YesNoCd', question.answerValue);
                         }
                         break;
-                    default: 
+                    default:
                         log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
                         break;
                 }
@@ -1080,7 +1095,8 @@ module.exports = class LibertySBOP extends Integration {
                 if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
                     // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
                     QuestionAnswer.ele('Explanation', question.answerValue);
-                } else {
+                }
+                else {
                     QuestionAnswer.ele('YesNoCd', question.answerValue);
                 }
             });
@@ -1175,10 +1191,12 @@ module.exports = class LibertySBOP extends Integration {
                                 }
                             });
                         }
-                    } else {
+                    }
+                    else {
                         errorMessage += 'Failed to parse error, please review the logs for more details.';
                     }
-                } else {
+                }
+                else {
                     errorMessage += 'Failed to parse error, please review the logs for more details.';
                 }
                 return this.client_declined(errorMessage, additionalReasons);
@@ -1226,7 +1244,7 @@ module.exports = class LibertySBOP extends Integration {
         }
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
-            if (policyStatus.toLowerCase() ===  "reject") {
+            if (policyStatus.toLowerCase() === "reject") {
                 return this.client_declined(`${logPrefix}Application was rejected.`);
             }
         }
@@ -1238,12 +1256,14 @@ module.exports = class LibertySBOP extends Integration {
         else {
             if (policy.QuoteInfo[0].CompanysQuoteNumber) {
                 quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
-            } else {
+            }
+            else {
                 log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ` + __location);
             }
             if (policy.QuoteInfo[0].InsuredFullToBePaidAmt) {
                 premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
-            } else {
+            }
+            else {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
@@ -1255,7 +1275,7 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         /**
-         * The following three sections that populate coverages all work off different structures of the response, they are: 
+         * The following three sections that populate coverages all work off different structures of the response, they are:
          *      - Commercial Property Coverages
          *      - Property Coverages
          *      - Liability Coverages
@@ -1322,6 +1342,39 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
+        // parse payment plan information
+        // NOTE: This will probably change, and should be added to the client_* functions, but for now, simply storing as the following:
+        /**
+         * [{
+         *      paymentCode: "FL",
+         *      deposit: "$100.00"
+         * },
+         * ...
+         * ]
+         */
+        // NOTE: No schema exists for this.paymentPlan, so leaving it as noted above for now
+        this.insurerPaymentPlans = [];
+        if (policy && policy[0].QuoteInfo && policy[0].QuoteInfo[0].QuoteInfoExt && policy[0].QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
+            const paymentOptions = policy[0].QuoteInfo[0].QuoteInfoExt[0].paymentOption;
+
+            const paymentPlan = {};
+            paymentOptions.forEach(paymentOption => {
+                if (paymentOption.PaymentPlanCd) {
+                    paymentPlan.paymentPlanCd = paymentOption.PaymentPlanCd[0];
+                }
+
+                if (paymentOption.DepositAmt) {
+                    paymentPlan.depositAmt = convertToDollarFormat(paymentOption.DepositAmt[0].Amt[0], true);
+                }
+
+                this.insurerPaymentPlans.push(paymentPlan);
+            });
+        } 
+
+        // DEBUG - REMOVE THIS
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify(this.insurerPaymentPlans, null, 4));
+
         // return result based on policy status
         if (policyStatus) {
             switch (policyStatus.toLowerCase()) {
@@ -1348,9 +1401,6 @@ module.exports = class LibertySBOP extends Integration {
         const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
         const applicationDocData = this.app.applicationDocData;
 
-        const logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
-
-        // eslint-disable-next-line prefer-const
         const industryQuery = {
             insurerId: this.insurer.id,
             talageIndustryCodeIdList: applicationDocData.industryCode,
@@ -1360,7 +1410,6 @@ module.exports = class LibertySBOP extends Integration {
             active: true
         }
 
-        // eslint-disable-next-line prefer-const
         const orParamList = [];
         const policyTypeCheck = {policyType: this.policyTypeFilter};
         const policyTypeNullCheck = {policyType: null}
@@ -1372,14 +1421,16 @@ module.exports = class LibertySBOP extends Integration {
         let insurerIndustryCodeList = null;
         try {
             insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
-        } catch (e) {
+        }
+        catch (e) {
             log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.`);
             return;
         }
 
         if (insurerIndustryCodeList && insurerIndustryCodeList.length > 0) {
             this.industry_code = insurerIndustryCodeList;
-        } else {
+        }
+        else {
             log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.`);
             this.industry_code = [this.industry_code];
         }
@@ -1387,7 +1438,7 @@ module.exports = class LibertySBOP extends Integration {
         this.industry_code = this.industry_code.find(ic => ic.attributes.commercialBOP);
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
-            log.error(`${errorMessage} ${JSON.stringify(sbopPolicy)} ` + __location)
+            log.error(`${errorMessage} ` + __location)
             return this.client_error(errorMessage, __location);
         }
 
@@ -1411,20 +1462,21 @@ module.exports = class LibertySBOP extends Integration {
                     if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
                         const coverageValue = limit.FormatCurrencyAmt[0].Amt[0];
                         const coverageDescription = description ? `${description} Limit` : ``;
-                        const additionalDescription = additionalText ? (description ? `: ${additionalText}` : additionalText) : ``;
+                        // eslint-disable-next-line no-nested-ternary
+                        const additionalDescription = additionalText ? description ? `: ${additionalText}` : additionalText : ``;
 
                         const newCoverage = {
                             description: `${coverageDescription}${additionalDescription}`,
                             value: convertToDollarFormat(coverageValue, true),
                             sort: coverageSort++,
-                            category,
-                            insurerIdentifier
+                            category: category,
+                            insurerIdentifier: insurerIdentifier
                         };
-        
+
                         quoteCoverages.push(newCoverage);
                     }
                 });
-            } 
+            }
 
             if (hasPercentIncrease) {
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
@@ -1433,38 +1485,40 @@ module.exports = class LibertySBOP extends Integration {
                         if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
                             const coverageValue = `${limit.FormatPct[0]}%`;
                             const coverageDescription = description ? `${description} Automatic Increase` : ``;
-                            const additionalDescription = additionalText ? (description ? `: ${additionalText}` : additionalText) : ``;
-    
+                            // eslint-disable-next-line no-nested-ternary
+                            const additionalDescription = additionalText ? description ? `: ${additionalText}` : additionalText : ``;
+
                             const coverageAutoInc = {
                                 description: `${coverageDescription}${additionalDescription}`,
                                 value: coverageValue,
                                 sort: coverageSort++,
-                                category,
-                                insurerIdentifier
+                                category: category,
+                                insurerIdentifier: insurerIdentifier
                             };
-        
+
                             quoteCoverages.push(coverageAutoInc);
                         }
                     }
                 });
             }
-            
+
             if (hasDeductible) {
                 coverage.Deductible.filter(deductible => deductible.DeductibleAppliesToCd).forEach(deductible => {
                     const additionalText = limitCodeMatrix[deductible.DeductibleAppliesToCd[0]];
                     if (additionalText || deductible.DeductibleAppliesToCd[0] === "Coverage") {
                         const deductibleValue = deductible.FormatCurrencyAmt[0].Amt[0];
                         const deductibleDescription = description ? `${description} Deductible` : ``;
-                        const additionalDescription = additionalText ? (description ? `: ${additionalText}` : additionalText) : ``;
+                        // eslint-disable-next-line no-nested-ternary
+                        const additionalDescription = additionalText ? description ? `: ${additionalText}` : additionalText : ``;
 
                         const coverageDeductible = {
                             description: `${deductibleDescription}${additionalDescription}`,
                             value: convertToDollarFormat(deductibleValue, true),
                             sort: coverageSort++,
-                            category,
-                            insurerIdentifier
+                            category: category,
+                            insurerIdentifier: insurerIdentifier
                         };
-    
+
                         quoteCoverages.push(coverageDeductible);
                     }
                 });
@@ -1479,7 +1533,7 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // skip first character, look for first occurance of non-zero number
-        let indexes = [];
+        const indexes = [];
         for (let i = 1; i < limitsStr.length; i++) {
             if (limitsStr[i] !== "0") {
                 indexes.push(i);
@@ -1504,13 +1558,13 @@ module.exports = class LibertySBOP extends Integration {
         limits.map((limit, i) => {
             let supportedLimits = null;
             switch(i) {
-                case 1: 
+                case 1:
                     supportedLimits = supportedPerOccLimits;
                     break;
                 case 2:
                     supportedLimits = supportedGenAggLimits;
                     break;
-                case 3: 
+                case 3:
                     // Liberty BOP Commercial doesn't use Aggregate
                     break;
                 default:
@@ -1520,10 +1574,10 @@ module.exports = class LibertySBOP extends Integration {
             if (supportedLimits) {
                 // find the index of the limit that is greater than the passed-in limit, if it exists
                 let greaterThanIndex = -1;
-                for (let i = 0; i < supportedLimits.length; i++) {
-                    const l = supportedLimits[i];
+                for (let x = 0; x < supportedLimits.length; x++) {
+                    const l = supportedLimits[x];
                     if (l > limit) {
-                        greaterThanIndex = i;
+                        greaterThanIndex = x;
                         break;
                     }
                 }
@@ -1546,7 +1600,8 @@ module.exports = class LibertySBOP extends Integration {
                             return `${upperLimit}`;
                         }
                 }
-            } else {
+            }
+            else {
                 return limit;
             }
 
