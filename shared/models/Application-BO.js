@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable prefer-const */
 /* eslint-disable dot-notation */
 /* eslint-disable radix */
@@ -1399,7 +1400,6 @@ module.exports = class ApplicationModel {
     }
 
     async checkExpiration(applicationJSON){
-        log.debug("Checking Expiration date ")
         if(applicationJSON.policies && applicationJSON.policies.length > 0){
             for(let policy of applicationJSON.policies){
                 log.debug("policy " + JSON.stringify(policy))
@@ -1616,15 +1616,20 @@ module.exports = class ApplicationModel {
                 // if the quotingStartedDate doesnt exist, just set it and return
                 if(!applicationDoc.quotingStartedDate){
                     applicationDoc.quotingStartedDate = now;
-                    await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
+                    log.error(`Application: ${applicationDoc.applicationId} setting quotingStartedDate` + __location);
+                    await this.updateMongo(applicationDoc.applicationId, {quotingStartedDate: now});
                     return;
                 }
 
-                const status = global.requireShared('./models/status/applicationStatus.js');
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
-                    log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
-                    await status.updateApplicationStatus(applicationDoc, true);
+                    log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started` + __location);
+                    // eslint-disable-next-line object-curly-newline
+                    await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
+                    applicationDoc.status = 'error';
+                    applicationDoc.appStatusDesc = 'error';
+                    applicationDoc.appStatusId = 20;
+
                 }
             }
             catch(err){
@@ -2197,7 +2202,7 @@ module.exports = class ApplicationModel {
                     //let queryProjection = {"__v": 0, questions:0};
                     let queryProjection = {
                         uuid: 1,
-                        appicationId:1,
+                        applicationId: 1,
                         mysqlId:1,
                         status: 1,
                         appStatusId:1,
@@ -2213,7 +2218,8 @@ module.exports = class ApplicationModel {
                         mailingState: 1,
                         mailingZipcode: 1,
                         handledByTalage: 1,
-                        policies: 1
+                        policies: 1,
+                        quotingStartedDate: 1
 
                     };
                     if(requestParms.format === 'csv'){
