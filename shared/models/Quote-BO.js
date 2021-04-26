@@ -566,7 +566,7 @@ module.exports = class QuoteBO {
             }
             // update Mongo
             try{
-                const query = { quoteId };
+                const query = {quoteId};
                 const updateJSON = {
                     "aggregatedStatus": convertToAggregatedStatus(status),
                     "quoteStatusId": status.id, 
@@ -671,15 +671,15 @@ module.exports = class QuoteBO {
 
     // checks the status of the quote and fixes it if its timed out
     async checkAndFixQuoteStatus(quoteDoc){
-        if(quoteDoc){
-            // only check and fix quotes that are potentially hanging on initiated
-            if(quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+        // only check and fix quotes that are potentially hanging on initiated
+        if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+            try{
                 const now = moment.utc();
                 // if the quotingStartedDate doesnt exist, set it and return (this shouldn't happen)
                 if(!quoteDoc.quotingStartedDate){
                     quoteDoc.quotingStartedDate = now;
-                    const query = { quoteId: quoteDoc.quoteId };
-                    await Quote.updateOne(query, { quotingStartedDate: now });
+                    const query = {quoteId: quoteDoc.quoteId};
+                    await Quote.updateOne(query, {quotingStartedDate: now});
                     return;
                 }
 
@@ -690,7 +690,11 @@ module.exports = class QuoteBO {
                     await status.updateQuoteStatus(quoteDoc, true);
                 }
             }
+            catch(err){
+                log.error('QuoteBO checkAndFixQuoteStatus  ' + err + __location);
+            }
         }
+        return;
     }
 
 }
