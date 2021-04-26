@@ -687,6 +687,8 @@ module.exports = class QuoteBO {
                 const duration = moment.duration(now.diff(moment(quoteDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Quote: ${quoteDoc.quoteId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quote initiated.`);
+                    // This probably should just handle the update to mongo without the call to quotestatus.
+                    // we know exactly what should happen.
                     await status.updateQuoteStatus(quoteDoc, true);
                 }
             }
