@@ -309,7 +309,7 @@ mongoose.model('Application', ApplicationSchema);
  * @returns {void}
  */
 function populateActivityCodePayroll(schema) {
-    log.debug(`in populateActivityCodePayroll ` + __location)
+    //log.debug(`in populateActivityCodePayroll ` + __location)
     const application = schema.getUpdate();
     if (application.hasOwnProperty("locations")) {
         const activityCodesPayrollSumList = [];
