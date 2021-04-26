@@ -366,7 +366,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     orParamList.push(policyTypeNullCheck)
     industryQuery.$or = orParamList;
     try{
-        log.debug(`insurerIndustryCodeList query ${JSON.stringify(industryQuery)}`)
+        //log.debug(`insurerIndustryCodeList query ${JSON.stringify(industryQuery)}`)
         const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
@@ -398,7 +398,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
             }//for insurerIndustryCodeList
         }
-        log.debug("insurerIndustryCodeList insurerQuestionIdArray " + insurerQuestionIdArray)
+        //log.debug("insurerIndustryCodeList insurerQuestionIdArray " + insurerQuestionIdArray)
         let insurerQuestionList = null;
         if(insurerQuestionIdArray.length > 0){
             // eslint-disable-next-line prefer-const
@@ -424,7 +424,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             });
             insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
-            log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
+            //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
             insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
@@ -434,7 +434,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 }
             }
         }
-        log.debug("talageQuestionIdArray " + talageQuestionIdArray)
+       // log.debug("talageQuestionIdArray " + talageQuestionIdArray)
         if(talageQuestionIdArray.length > 0) {
             const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
             log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)    
