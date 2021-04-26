@@ -638,6 +638,7 @@ async function updateLandingPage(req, res, next) {
         agencyLocationId: data.agencyLocationId,
         industryCodeId: data.industryCode,
         industryCodeCategoryId: data.industryCodeCategory,
+        lockDefaults: landingPage.lockDefaults,
         introHeading: data.introHeading,
         showIntroText: landingPage.showIntroText,
         introText: data.introText,
