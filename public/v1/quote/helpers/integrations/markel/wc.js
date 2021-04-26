@@ -29,7 +29,6 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
-
         const special_activity_codes = {
             AK: [
                 '8842',
@@ -576,6 +575,8 @@ module.exports = class MarkelWC extends Integration {
         let path = '';
         let key = '';
 
+        const appDoc = this.app.applicationDocData
+
         //Determine API
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.markelcorp.com';
@@ -698,6 +699,7 @@ module.exports = class MarkelWC extends Integration {
         let ownerPayroll = '';
 
         // Add class code information
+        //TODO -  new activity code structure.
         this.app.business.locations.forEach((location) => {
             location.activity_codes.forEach((activity_code) => {
                 classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
@@ -1189,7 +1191,7 @@ module.exports = class MarkelWC extends Integration {
                     name: this.app.business.name,
                     dba: this.app.business.dba,
                     website: this.app.business.website,
-                    fein: this.app.business.locations[0].identification_number,
+                    fein: appDoc.ein,
                     postalCode: this.app.business.mailing_zipcode,
                     state: this.app.business.mailing_territory
                 },

@@ -899,7 +899,6 @@ module.exports = class ApplicationModel {
             //load quote from database.
             const quoteModel = new QuoteBO();
             //update quote record.
-            //TODO Which to load from Mongo
             const quoteDBJSON = await quoteModel.getById(quote.quoteId).catch(function(err) {
                 log.error(`Loading quote for status and payment plan update quote ${quote.quoteId} error:` + err + __location);
                 //reject(err);
@@ -1818,7 +1817,7 @@ module.exports = class ApplicationModel {
             let findCount = false;
 
             let rejected = false;
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {lean:true};

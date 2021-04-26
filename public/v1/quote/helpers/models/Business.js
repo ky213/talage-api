@@ -10,8 +10,6 @@ const Contact = require('./Contact.js');
 const Location = require('./Location.js');
 const moment = require('moment');
 //const {reject} = require('async');
-const validator = global.requireShared('./helpers/validator.js');
-const crypt = global.requireShared('./services/crypt.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 

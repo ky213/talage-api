@@ -322,27 +322,28 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
             let message = emailContentJSON.customerMessage;
             let subject = emailContentJSON.customerSubject;
+            if(agencyNetworkDB.featureJson.quoteEmailsCustomer && applicationDoc.agencyPortalCreated === false){
+                // Perform content replacements
+                message = message.replace(/{{Agency}}/g, agencyName);
+                message = message.replace(/{{Agency Email}}/g, agencyLocationEmail);
+                message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                message = message.replace(/{{Agency Website}}/g, `<a href="${agencyWebsite}">${agencyWebsite}</a>`);
+                message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(emailContentJSON.emailBrand));
+                message = message.replace(/{{is\/are}}/g, quoteList.length === 1 ? 'is' : 'are');
+                message = message.replace(/{{s}}/g, quoteList.length === 1 ? '' : 's');
+                message = message.replace(/{{Quotes}}/g, quotesHTML);
+                subject = subject.replace(/{{is\/are}}/g, quoteList.length === 1 ? 'is' : 'are');
+                subject = subject.replace(/{{s}}/g, quoteList.length === 1 ? '' : 's');
 
-            // Perform content replacements
-            message = message.replace(/{{Agency}}/g, agencyName);
-            message = message.replace(/{{Agency Email}}/g, agencyLocationEmail);
-            message = message.replace(/{{Agency Phone}}/g, agencyPhone);
-            message = message.replace(/{{Agency Website}}/g, `<a href="${agencyWebsite}">${agencyWebsite}</a>`);
-            message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(emailContentJSON.emailBrand));
-            message = message.replace(/{{is\/are}}/g, quoteList.length === 1 ? 'is' : 'are');
-            message = message.replace(/{{s}}/g, quoteList.length === 1 ? '' : 's');
-            message = message.replace(/{{Quotes}}/g, quotesHTML);
-            subject = subject.replace(/{{is\/are}}/g, quoteList.length === 1 ? 'is' : 'are');
-            subject = subject.replace(/{{s}}/g, quoteList.length === 1 ? '' : 's');
 
-
-            //send email:
-            // Send the email
-            const keyData = {'applicationDoc': applicationDoc}
-            let emailResp = await emailSvc.send(customerEmail, subject, message, keyData, agencyNetworkId, "");
-            // log.debug("emailResp = " + emailResp);
-            if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationDoc.applicationId}. Please follow-up manually.`);
+                //send email:
+                // Send the email
+                const keyData = {'applicationDoc': applicationDoc}
+                let emailResp = await emailSvc.send(customerEmail, subject, message, keyData, agencyNetworkId, "");
+                // log.debug("emailResp = " + emailResp);
+                if(emailResp === false){
+                    slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationDoc.applicationId}. Please follow-up manually.`);
+                }
             }
 
 
@@ -361,47 +362,47 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
+            if(agencyNetworkDB.featureJson.quoteEmailsAgency){
+                // Only send for non-Talage accounts that are not wholesale
+                //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
+                if(applicationDoc.wholesale === false){
+                    const portalLink = emailContentJSON.PORTAL_URL;
 
-            // Only send for non-Talage accounts that are not wholesale
-            //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
-            if(applicationDoc.wholesale === false){
-                const portalLink = emailContentJSON.PORTAL_URL;
+                    // Format the full name and phone number
+                    const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
+                    let phone = '';
+                    if(customerContact.phone){
+                        phone = formatPhone(customerContact.phone);
+                    }
 
-                // Format the full name and phone number
-                const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
-                let phone = '';
-                if(customerContact.phone){
-                    phone = formatPhone(customerContact.phone);
-                }
+                    message = emailContentJSON.agencyMessage;
+                    subject = emailContentJSON.agencySubject;
 
-                message = emailContentJSON.agencyMessage;
-                subject = emailContentJSON.agencySubject;
-
-                //  // Perform content message.replacements
-                message = message.replace(/{{Agent Login URL}}/g, insurerList[0].agent_login);
-                message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
-                message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(stringFunctions.ucwords(emailContentJSON.emailBrand)));
-                message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
-                message = message.replace(/{{Contact Email}}/g, customerEmail);
-                message = message.replace(/{{Contact Name}}/g, fullName);
-                message = message.replace(/{{Contact Phone}}/g, phone);
-                message = message.replace(/{{Industry}}/g, industryCodeDesc);
-                message = message.replace(/{{Quotes}}/g, quotesHTML);
+                    //  // Perform content message.replacements
+                    message = message.replace(/{{Agent Login URL}}/g, insurerList[0].agent_login);
+                    message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
+                    message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(stringFunctions.ucwords(emailContentJSON.emailBrand)));
+                    message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+                    message = message.replace(/{{Contact Email}}/g, customerEmail);
+                    message = message.replace(/{{Contact Name}}/g, fullName);
+                    message = message.replace(/{{Contact Phone}}/g, phone);
+                    message = message.replace(/{{Industry}}/g, industryCodeDesc);
+                    message = message.replace(/{{Quotes}}/g, quotesHTML);
 
 
-                // Send the email
-                const keyData2 = {'applicationDoc': applicationDoc};
-                if(agencyLocationEmail){
-                    emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
-                    if(emailResp === false){
-                        slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
+                    // Send the email
+                    const keyData2 = {'applicationDoc': applicationDoc};
+                    if(agencyLocationEmail){
+                        const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
+                        if(emailResp === false){
+                            slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
+                        }
+                    }
+                    else {
+                        log.error(`Abandon Quote no email address for application: ${applicationDoc.applicationId} ` + __location);
                     }
                 }
-                else {
-                    log.error(`Abandon Quote no email address for application: ${applicationDoc.applicationId} ` + __location);
-                }
             }
-
             //Determine if Agency Network Email is required.
             if(agencyNetworkDB
                 && agencyNetworkDB.featureJson
@@ -409,7 +410,6 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 && agencyNetworkDB.email){
                 try{
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
-                    log.debug('emailContentAgencyNetworkJSON: ' + JSON.stringify(emailContentAgencyNetworkJSON))
                     if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){
                         const portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
 
@@ -427,6 +427,11 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                         // need industry code description
 
                         //  // Perform content message.replacements
+                        message = message.replace(/{{Agency}}/g, agencyName);
+                        message = message.replace(/{{Agency Email}}/g, agencyLocationEmail);
+                        message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                        message = message.replace(/{{Agency Website}}/g, `<a href="${agencyWebsite}">${agencyWebsite}</a>`);
+
                         message = message.replace(/{{Agent Login URL}}/g, insurerList[0].agent_login);
                         message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
                         message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(stringFunctions.ucwords(emailContentAgencyNetworkJSON.emailBrand)));
@@ -438,10 +443,13 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                         message = message.replace(/{{Quotes}}/g, quotesHTML);
 
 
+                        subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
+                        subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+
                         // Send the email
                         const keyData2 = {'applicationDoc': applicationDoc};
                         if(agencyNetworkDB.email){
-                            emailResp = await emailSvc.send(agencyNetworkDB.email, subject, message, keyData2,agencyNetworkId, emailContentAgencyNetworkJSON.emailBrand);
+                            const emailResp = await emailSvc.send(agencyNetworkDB.email, subject, message, keyData2,agencyNetworkId, emailContentAgencyNetworkJSON.emailBrand);
                             if(emailResp === false){
                                 slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
                             }

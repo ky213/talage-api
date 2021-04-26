@@ -9,6 +9,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const get_questions = global.requireShared('./helpers/getQuestions.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const status = global.requireShared('./models/status/applicationStatus.js');
 const AgencyLocation = require('./AgencyLocation.js');
@@ -81,7 +82,7 @@ module.exports = class Application {
 
         try {
             //getById does uuid vs integer check...
-             
+
             this.applicationDocData = await applicationBO.loadById(data.id);
             log.debug("Quote Application added applicationData" + __location)
         }
@@ -197,6 +198,10 @@ module.exports = class Application {
 
     async translate() {
 
+        if(this.applicationDocData.ein){
+            this.applicationDocData.ein = stringFunctions.santizeNumber(this.applicationDocData.ein);
+        }
+
         /************** BUSINESS DATA TRANSLATION ***************/
 
         // DBA length check
@@ -253,12 +258,8 @@ module.exports = class Application {
             'RI',
             'UT'
         ];
-
         this.business.locations.forEach(location => {
-            // identification number modification
-            location.identification_number_type = this.applicationDocData.hasEin ? 'EIN' : 'SSN';
-
-            // default unemployment_num to 0
+            // default unemployment_num to 0  - Why is this necessary? -BP
             if (!location.unemployment_num || !unemployment_number_states.includes(location.state_abbr)) {
                 location.unemployment_num = 0;
             }
@@ -768,6 +769,23 @@ module.exports = class Application {
         // Determine which message will be sent
         let some_quotes = false;
         let notifiyTalage = false
+
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let agencyNetworkDB = {}
+        try{
+            agencyNetworkDB = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId)
+        }
+        catch(err){
+            log.error("Error getting agencyNetworkBO " + err + __location);
+
+        }
+        if(!agencyNetworkDB){
+            agencyNetworkDB = {featureJson : {
+                quoteEmailsCustomer : true,
+                quoteEmailsAgency: true,
+                agencyNetworkQuoteEmails: false
+            }}
+        }
         quoteList.forEach((quoteDoc) => {
             if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
@@ -780,7 +798,7 @@ module.exports = class Application {
         log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
-        if (some_quotes === false && this.agencyPortalQuote === false) {
+        if (some_quotes === false) {
             let error = null;
             const agencyBO = new AgencyBO();
             const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyId, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
@@ -794,9 +812,6 @@ module.exports = class Application {
             }
 
             if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject && emailContentJSON.emailBrand) {
-
-                /* ---=== Email to Insured === --- */
-
                 // Determine the branding to use for this email
                 let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
 
@@ -804,70 +819,124 @@ module.exports = class Application {
                 if (this.agencyLocation.agencyId <= 2) {
                     brand = 'talage';
                 }
+                let message = '';
+                let subject = '';
 
-                let message = emailContentJSON.customerMessage;
-                let subject = emailContentJSON.customerSubject;
-
-                // Perform content replacements
-                message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
-                message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
-                message = message.replace(/{{Agency Website}}/g, this.agencyLocation.agencyWebsite ? `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>` : '');
-                subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
-
-                // Send the email message
-                log.info(`AppId ${this.id} sending customer NO QUOTE email`);
-                await emailSvc.send(this.business.contacts[0].email,
-                    subject,
-                    message,
-                    {
-                        agencyLocationId: this.agencyLocation.id,
-                        applicationId: this.applicationDocData.applicationId,
-                        applicationDoc: this.applicationDocData
-                    },
-                    this.agencyLocation.agencyNetwork,
-                    brand,
-                    this.agencyLocation.agencyId);
-
-                /* ---=== Email to Agency === --- */
-
-                // Do not send if this is Talage
-                if (this.agencyLocation.agencyId > 2) {
-                    // Determine the portal login link
-                    let portalLink = emailContentJSON.PORTAL_URL;
-
-                    message = emailContentJSON.agencyMessage;
-                    subject = emailContentJSON.agencySubject;
+                /* ---=== Email to Insured === --- */
+                if(agencyNetworkDB.featureJson.quoteEmailsCustomer === true && this.agencyPortalQuote === false){
+                    message = emailContentJSON.customerMessage;
+                    subject = emailContentJSON.customerSubject;
 
                     // Perform content replacements
-                    const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
-                    message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
                     message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                    message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quoteList[0].insurerId].agent_login);
-                    message = message.replace(/{{Brand}}/g, capitalizedBrand);
-                    message = message.replace(/{{Business Name}}/g, this.business.name);
-                    message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
-                    message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
-                    message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
-                    message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+                    message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+                    message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+                    message = message.replace(/{{Agency Website}}/g, this.agencyLocation.agencyWebsite ? `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>` : '');
+                    subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
-                    if (quoteList[0].status) {
-                        message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
-                    }
-                    log.info(`AppId ${this.id} sending agency NO QUOTE email`);
-                    // Send the email message - development should email. change local config to get the email.
-                    await emailSvc.send(this.agencyLocation.agencyEmail,
+                    // Send the email message
+                    log.info(`AppId ${this.id} sending customer NO QUOTE email`);
+                    await emailSvc.send(this.business.contacts[0].email,
                         subject,
                         message,
                         {
                             agencyLocationId: this.agencyLocation.id,
                             applicationId: this.applicationDocData.applicationId,
                             applicationDoc: this.applicationDocData
-
                         },
                         this.agencyLocation.agencyNetwork,
-                        emailContentJSON.emailBrand,
+                        brand,
                         this.agencyLocation.agencyId);
+                }
+
+                /* ---=== Email to Agency === --- */
+                if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && this.agencyPortalQuote === false){
+                    // Do not send if this is Talage
+                    if (this.agencyLocation.agencyId > 2) {
+                        // Determine the portal login link
+                        let portalLink = emailContentJSON.PORTAL_URL;
+
+                        message = emailContentJSON.agencyMessage;
+                        subject = emailContentJSON.agencySubject;
+
+                        // Perform content replacements
+                        const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
+                        message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
+                        message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                        message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quoteList[0].insurerId].agent_login);
+                        message = message.replace(/{{Brand}}/g, capitalizedBrand);
+                        message = message.replace(/{{Business Name}}/g, this.business.name);
+                        message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
+                        message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
+                        message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
+                        message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+
+                        if (quoteList[0].status) {
+                            message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
+                        }
+                        log.info(`AppId ${this.id} sending agency NO QUOTE email`);
+                        // Send the email message - development should email. change local config to get the email.
+                        await emailSvc.send(this.agencyLocation.agencyEmail,
+                            subject,
+                            message,
+                            {
+                                agencyLocationId: this.agencyLocation.id,
+                                applicationId: this.applicationDocData.applicationId,
+                                applicationDoc: this.applicationDocData
+
+                            },
+                            this.agencyLocation.agencyNetwork,
+                            emailContentJSON.emailBrand,
+                            this.agencyLocation.agencyId);
+                    }
+                }
+                //AgencyNetwork
+                if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true){
+                    const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"no_quotes_agency_network");
+                    if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
+                        log.error(`AgencyNetwork ${agencyNetworkDB.name} missing no_quotes_agency_network email template` + __location)
+                    }
+                    else {
+                        let portalLink = emailContentJSON.PORTAL_URL;
+
+                        message = emailContentAgencyNetworkJSON.message;
+                        subject = emailContentAgencyNetworkJSON.subject;
+
+                        // Perform content replacements
+                        const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
+                        message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
+
+                        message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                        message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+                        message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+
+
+                        message = message.replace(/{{Brand}}/g, capitalizedBrand);
+                        message = message.replace(/{{Business Name}}/g, this.business.name);
+                        message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
+                        message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
+                        message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
+                        message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+
+                        subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                        if (quoteList[0].status) {
+                            message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
+                        }
+                        log.info(`AppId ${this.id} sending agency network NO QUOTE email`);
+                        // Send the email message - development should email. change local config to get the email.
+                        await emailSvc.send(agencyNetworkDB.email,
+                            subject,
+                            message,
+                            {
+                                agencyLocationId: this.agencyLocation.id,
+                                applicationId: this.applicationDocData.applicationId,
+                                applicationDoc: this.applicationDocData
+
+                            },
+                            this.applicationDocData.agencyNetworkId,
+                            "Networkdefault",
+                            this.applicationDocData.agencyId);
+                    }
                 }
             }
             else {
@@ -879,7 +948,6 @@ module.exports = class Application {
         // Only send Slack messages on Talage applications  this.agencyLocation.agency
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
-            const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetwork = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId);
 
             const attachment = {
