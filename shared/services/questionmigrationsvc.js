@@ -84,9 +84,6 @@ async function importInsurerQuestions(insurerId) {
                 updateAbleProps.forEach((updateAbleProp) => {
                     if(insurerQuestion[updateAbleProp] && insurerQuestion[updateAbleProp] !== existingDoc[updateAbleProp]){
                         existingDoc[updateAbleProp] = insurerQuestion[updateAbleProp];
-                        if (updateAbleProp === "policyType") {
-                            existingDoc.policyTypeList = [insurerQuestion.policyType]
-                        }
                         updateHit = true;
                     }
                 });
@@ -272,7 +269,6 @@ async function importInsurerIndustryCodes(insurerId) {
             // by insurerId, policyType,type, code,
             const query = {
                 insurerId: insurerIndustryCode.insurerId,
-                policyTypeList: [insurerIndustryCode.policyType],
                 policyType: insurerIndustryCode.policyType,
                 code: insurerIndustryCode.code,
                 oldSystemIdList: insurerIndustryCode.oldSystemIdList
