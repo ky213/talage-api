@@ -1,3 +1,4 @@
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable no-extra-parens */
 /* eslint-disable guard-for-in */
 /* eslint-disable space-unary-ops */
@@ -463,7 +464,8 @@ exports.convertToDollarFormat = (str, trimDecimal = false) => {
         }
 
         number = `${frontDigits}${strArray.join("")}`;
-    } else {
+    }
+    else {
         number = strArray.join("");
     }
 

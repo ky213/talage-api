@@ -269,6 +269,7 @@ async function importInsurerIndustryCodes(insurerId) {
             // by insurerId, policyType,type, code,
             const query = {
                 insurerId: insurerIndustryCode.insurerId,
+                policyTypeList: [insurerIndustryCode.policyType],
                 policyType: insurerIndustryCode.policyType,
                 code: insurerIndustryCode.code,
                 oldSystemIdList: insurerIndustryCode.oldSystemIdList

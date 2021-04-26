@@ -1,3 +1,4 @@
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable object-curly-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable no-catch-shadow */
@@ -45,6 +46,25 @@ var Message = require('mongoose').model('Message');
  */
 async function getApplication(req, res, next) {
     let error = false;
+
+    // sort ascending order based on id, if no sort value then number will be sorted first
+    function ascendingOrder(a, b){
+        if(a.sort && b.sort){
+            // this sorts in ascending order
+            return a.sort - b.sort;
+        }
+        else if (a.sort && !b.sort){
+            // since no sort order on "b" then return -1
+            return -1; 
+        }
+        else if (!a.sort && b.sort){
+            // since no sort order on "a" return 1
+            return 1; 
+        }
+        else {
+            return 0;
+        }
+    }
 
     // Check for data
     if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
@@ -241,21 +261,6 @@ async function getApplication(req, res, next) {
                 }
             }
             if(quoteJSON.quoteCoverages){
-                // sort ascending order based on id, if no sort value then number will be sorted first
-                function ascendingOrder (a, b){
-                    if(a.sort && b.sort){
-                        // this sorts in ascending order
-                        return a.sort - b.sort;
-                    }else if (a.sort && !b.sort){
-                        // since no sort order on "b" then return -1
-                        return -1; 
-                    }else if (!a.sort && b.sort){
-                        // since no sort order on "a" return 1
-                        return 1; 
-                    }else {
-                        return 0;
-                    }
-                }
                 const sortedCoverageList = quoteJSON.quoteCoverages.sort(ascendingOrder);
                 for(const quoteCoverage of sortedCoverageList){
                     limitsList[quoteCoverage.description] = `${quoteCoverage.value}`;
@@ -1292,8 +1297,8 @@ async function bindQuote(req, res, next) {
                 paymentPlanId: paymentPlanId,
                 noCustomerEmail: true
             }
-            const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(error){
-                log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + error + __location);
+            const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){
+                log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + err + __location);
                 bindFailureMessage = "Failed to request bind. If this continues please contact us.";
             });
             
@@ -1304,8 +1309,8 @@ async function bindQuote(req, res, next) {
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(error){ 
-                log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + error + __location);
+            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+                log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
                 bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
             });
             if(markAsBoundResponse === true){
@@ -1326,7 +1331,7 @@ async function bindQuote(req, res, next) {
         res.send(200, {"bound": true});
     }
     else {
-        res.send( {'message': bindFailureMessage});
+        res.send({'message': bindFailureMessage});
     }
 
     return next();

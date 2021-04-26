@@ -17,7 +17,9 @@ const xmlFormatter = require('xml-formatter');
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
-const { quoteStatus, getQuoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {
+    quoteStatus, getQuoteStatus, convertToAggregatedStatus
+} = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -1389,7 +1391,8 @@ module.exports = class Integration {
                     try {
                         if(typeof insurerQuestion.attributes === 'string'){
                             insurerQuestionAttributes = JSON.parse(insurerQuestion.attributes);
-                        } else {
+                        }
+                        else {
                             insurerQuestionAttributes = insurerQuestion.attributes;
                         }
                     }
@@ -1631,7 +1634,7 @@ module.exports = class Integration {
      * @param {int} premiumAmount - The premium amount (optional)
      * @param {string} quoteLetter - The quote letter (optional)
      * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
-     * @param {array<object>} coverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
+     * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
     async client_referred(quoteNumber, limits = {}, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
@@ -1666,7 +1669,7 @@ module.exports = class Integration {
 
     /**
      * Returns a quote object for a 'quoted' quote
-     * 
+     *
      * NOTE: limits will "eventually" be deprecated and replaced by coverages
      *
      * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
@@ -1674,7 +1677,7 @@ module.exports = class Integration {
      * @param {int} premiumAmount - The premium amount
      * @param {string} quoteLetter - The quote letter (optional)
      * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
-     * @param {array<object>} coverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
+     * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
     async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
