@@ -52,7 +52,7 @@ const getNcciFromClassCode = async (code, territory) => {
         return insurerActivityCode.code
     }
     else{
-        log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
+        log.error(`Code could not be found: ${code} / ${territory} ${JSON.stringify(activityCodeQuery)} @ ${__location}`);
         throw new Error(`Code could not be found: ${code} / ${territory}`);
     }
 
