@@ -139,8 +139,9 @@ module.exports = class crumForesterBop extends Integration {
                         "liablityCoverages": {
                             "liablityOccurence": requestedLimits[0].toString(),
                             "liablityAggregate": requestedLimits[3].toString(),
-                            "liablityBldgLimit": "299999",
-                            "liablityPersonalPropertyLimit": "33333"
+                            "liablityBldgLimit": "50000",
+                            "medicalLimit": "300000",
+                            "liablityPersonalPropertyLimit": "50000"
                         },
                         "policyID": "",
                         "quoteID": "",
@@ -230,7 +231,8 @@ module.exports = class crumForesterBop extends Integration {
                     "buildingLimit": buildingLimit.toString(),
                     "businessPropertyPersonallimit": bppLimit.toString(),
                     "eligible": "1",
-                    "propertyDeductible": this.policy.deductible.toString()
+                    "propertyDeductible": this.policy.deductible.toString(),
+                    "damageToPremisesRentedToYou": "50000"
                 };
                 submissionJSON.quoteDetails.policyService.data.account.premises.push(permisesJSON);
                 if(buildingLimit){
@@ -357,9 +359,6 @@ module.exports = class crumForesterBop extends Integration {
                     this.amount = quote.premium;
                     this.request_id = quote.externalId;
                     this.quoteLink = quote.applicationUrl;
-                    if(this.policy.type.toUpperCase() === 'BOP'){
-                        this.deductible = crumForesterDeductible;
-                    }
                     isReferred = quote.isEstimate;
                     if(quote.quotes && quote.quotes.length > 0){
                         const quoteDetail = quote.quotes[0];
