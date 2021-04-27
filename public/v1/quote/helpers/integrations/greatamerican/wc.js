@@ -194,16 +194,6 @@ module.exports = class GreatAmericanWC extends Integration {
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
 
-
-
-
-
-
-
-
-
-
-
         // Often times follow-up questions are offered by the Great American
         // API after the first request for questions. So keep injecting the
         // follow-up questions until all of the questions are answered.
@@ -235,7 +225,6 @@ module.exports = class GreatAmericanWC extends Integration {
             this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request Error: ${error}`);
             return this.return_result('error');
         }
-
 
         if (_.get(quote, 'rating.data.policy.id')) {
             this.amount = parseFloat(_.get(quote, 'rating.data.TotalResult'));
