@@ -1,3 +1,4 @@
+/* eslint-disable init-declarations */
 /* eslint-disable valid-jsdoc */
 /* eslint-disable object-curly-newline */
 const axios = require('axios');
@@ -107,6 +108,7 @@ const getPricing = async (token, integration, sessionId) => {
 
     // Retrieve the primary contact.
     let primaryContact;
+    // eslint-disable-next-line prefer-const
     let allPrimaryContacts = appData.contacts.filter(t => t.primary);
     if (allPrimaryContacts.length > 0) {
         primaryContact = allPrimaryContacts[0];
@@ -177,6 +179,7 @@ const getPricing = async (token, integration, sessionId) => {
         log.error(`AppId: ${integration.appId} get getPricing error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
         integration.log += "\n";
     }
     if(apiCall){
@@ -212,6 +215,7 @@ const getQuote = async (integration, token, sessionId) => {
         log.error(`AppId: ${integration.appId} get session error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
         integration.log += "\n";
     }
     if(apiCall){
@@ -267,6 +271,7 @@ const getSession = async (integration, token, businessTypes) => {
         log.error(`AppId: ${integration.app.applicationDocData.applicationId} get session error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
         integration.log += "\n";
     }
     if(apiCall){
