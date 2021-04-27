@@ -9,6 +9,7 @@ const serverHelper = require("../../../server.js");
 const validator = global.requireShared("./helpers/validator.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
@@ -19,30 +20,49 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
+const clonedeep = require('lodash.clonedeep');
 
 const moment = require('moment');
 
-function isAuthForApplication(req, applicationId){
+async function isAuthForApplication(req, applicationId){
     let canAccessApp = false;
     if(req.userTokenData && req.userTokenData.quoteApp){
         if(req.userTokenData.applicationId === applicationId){
             canAccessApp = true;
         }
-        else {
-            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
-        }
     }
-    else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
-        if(req.userTokenData.applications.indexOf(applicationId) > -1){
-            canAccessApp = true;
-        }
-        else {
-            //TODO check database Does API JWT owner have access to this
-            // agency to add/edit applications.
+    else if (req.userTokenData && req.userTokenData.apiToken){
+        if(req.userTokenData.userId){
+            // check which agencies the user has access to
+            const agencyPortalUserBO = new AgencyPortalUserBO();
+            await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
 
-            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
+            // get the application to check against
+            const applicationBO = new ApplicationBO();
+            const applicationDB = await applicationBO.getById(applicationId);
+
+            // if no application was found, just log for us and dont check anything else
+            if(!applicationDB){
+                log.warn("Application requested not found " + __location);
+            }
+            // if the user is part of an agency network, get the list of agencies
+            else if(agencyPortalUserBO.agencyNetworkId){
+                canAccessApp = applicationDB.agencyNetworkId === agencyPortalUserBO.agencyNetworkId;
+            }
+            // if not part of a network, just look at the single agency
+            else if(agencyPortalUserBO.agencyId) {
+                canAccessApp = applicationDB.agencyId === agencyPortalUserBO.agencyId;
+            }
+        }
+        else {
+            log.warn("Recieved request with token but no user id " + __location);
         }
     }
+
+    if(canAccessApp === false){
+        log.warn("Unauthorized Attempt to modify or access Application " + __location);
+    }
+
     return canAccessApp;
 }
 
@@ -117,7 +137,7 @@ async function applicationSave(req, res, next) {
     else {
         //get application and valid agency
         // check JWT has access to this application.
-        const rightsToApp = isAuthForApplication(req, req.body.applicationId);
+        const rightsToApp = await isAuthForApplication(req, req.body.applicationId);
         if(rightsToApp !== true){
             return next(serverHelper.forbiddenError(`Not Authorized`));
         }
@@ -144,49 +164,59 @@ async function applicationSave(req, res, next) {
     try {
         const updateMysql = true;
 
-        // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
-        // WHERE IS THE IF LOGIC???? This simple creates and sets activitycodes  - BP
-        //get location part_time_employees and full_time_employees from location payroll data.
+        // if activityPayrollList exists, populate activityCode data from it
+        // extract location part_time_employees and full_time_employees from location payroll data.
         const activityCodes = [];
-        let fteCount = 0;
-        let pteCount = 0;
         if (req.body.locations && req.body.locations.length) {
             req.body.locations.forEach((location) => {
-                location.activityPayrollList.forEach((activityCode) => {
-                    //check if using new JSON
-                    if(!activityCode.activtyCodeId){
-                        activityCode.activtyCodeId = activityCode.ncciCode;
-                    }
-                    const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
-                    if (foundCode) {
-                        foundCode.payroll += parseInt(activityCode.payroll, 10);
-                    }
-                    else {
-                        // eslint-disable-next-line prefer-const
-                        let newActivityCode = {};
-                        newActivityCode.activityCodeId = activityCode.activityCodeId;
-                        newActivityCode.ncciCode = activityCode.ncciCode;
-                        newActivityCode.payroll = parseInt(activityCode.payroll,10);
-                        activityCodes.push(newActivityCode);
-                    }
-                    activityCode.employeeTypeList.forEach((employeeType) => {
-                        if(employeeType.employeeType === 'Full Time'){
-                            fteCount += employeeType.employeeType;
+                let fteCount = 0;
+                let pteCount = 0;
+                // make sure we have an activityPayrollList to check
+                if(location.activityPayrollList){
+                    location.activityPayrollList.forEach(activityCode => {
+                        //check if using new JSON
+                        if(!activityCode.activtyCodeId){
+                            activityCode.activtyCodeId = activityCode.ncciCode;
                         }
-                        else if(employeeType.employeeType === 'Part Time'){
-                            pteCount += employeeType.employeeType;
+
+                        activityCode.payroll = activityCode.employeeTypeList.reduce((total, type) => {
+                            // use the functionality of reduce to double as forEach to calculate employment totals
+                            if (type.employeeType === "Full Time") {
+                                fteCount += parseInt(type.employeeTypeCount, 10);
+                            }
+                            else if (type.employeeType === "Part Time") {
+                                pteCount += parseInt(type.employeeTypeCount, 10);
+                            }
+                            return total + parseInt(type.employeeTypePayroll, 10);
+                        }, 0);
+
+                        // if another location had this activity, just add to the total payroll
+                        const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
+                        if (foundCode) {
+                            foundCode.payroll += parseInt(activityCode.payroll, 10);
+                        }
+                        else {
+                            const newActivityCode = {
+                                activityCodeId: activityCode.activityCodeId,
+                                ncciCode: activityCode.ncciCode,
+                                payroll: activityCode.payroll
+                            };
+                            activityCodes.push(newActivityCode);
                         }
                     });
-                });
-                if(!location.full_time_employees){
-                    location.full_time_employees = fteCount;
-                }
-                if(!location.part_time_employees){
-                    location.part_time_employees = pteCount;
+                    if(fteCount !== 0){
+                        location.full_time_employees = fteCount;
+                    }
+                    if(pteCount !== 0){
+                        location.part_time_employees = pteCount;
+                    }
                 }
             });
         }
-        req.body.activityCodes = activityCodes;
+        // assign our list if activityCodes was populated
+        if(activityCodes.length > 0){
+            req.body.activityCodes = activityCodes;
+        }
 
         if (req.body.applicationId) {
             log.debug("App Doc UPDATE.....");
@@ -278,7 +308,7 @@ async function applicationLocationSave(req, res, next) {
     let applicationDB = null;
     //get application and valid agency
     // check JWT has access to this application.
-    const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+    const rightsToApp = await isAuthForApplication(req, req.body.applicationId)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -365,9 +395,62 @@ async function applicationLocationSave(req, res, next) {
     }
 }
 
+/**
+ * Responds to GET requests and returns a list of applications
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getApplicationList(req, res, next) {
+    if (!req.query || typeof req.query !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+    // if there is no user on the token we cant determine which applications they can see, only allow api users
+    if(!req.userTokenData || !req.userTokenData.userId || !req.userTokenData.apiToken){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    // check which agencies the user has access to
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
+
+    let agencyNetworkId = null;
+    let agencyId = null;
+    // if the user is part of an agency network, use the network id
+    if(agencyPortalUserBO.agencyNetworkId){
+        agencyNetworkId = agencyPortalUserBO.agencyNetworkId;
+    }
+    // if not part of a network, just look at the single agency
+    else if(agencyPortalUserBO.agencyId) {
+        agencyId = agencyPortalUserBO.agencyId;
+    }
+
+    // not currently filtering out any applications via doNotReport
+    const applicationQuery = clonedeep(req.query);
+    if(agencyNetworkId){
+        applicationQuery.agencyNetworkId = agencyNetworkId;
+    }
+    else if(agencyId){
+        applicationQuery.agencyId = agencyId;
+    }
+    else{
+        // no access to any applications
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    const applicationBO = new ApplicationBO();
+    const applicationList = await applicationBO.getList(applicationQuery);
+
+    res.send(200, applicationList);
+    return next();
+}
 
 /**
- * Responds to GET requests and returns the data for the queried page
+ * Responds to GET requests and returns an application
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -394,7 +477,7 @@ async function getApplication(req, res, next) {
         }
         appId = req.query.id
     }
-    const rightsToApp = isAuthForApplication(req, appId)
+    const rightsToApp = await isAuthForApplication(req, appId)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -413,7 +496,6 @@ async function getApplication(req, res, next) {
     if(applicationDB && applicationDB.applicationId){
         res.send(200, applicationDB);
         return next();
-
     }
     else {
         res.send(404,"Not found")
@@ -423,7 +505,7 @@ async function getApplication(req, res, next) {
 
 async function GetQuestions(req, res, next){
 
-    const rightsToApp = isAuthForApplication(req, req.params.id)
+    const rightsToApp = await isAuthForApplication(req, req.params.id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -489,7 +571,7 @@ async function validate(req, res, next) {
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let id = req.body.applicationId;
-    const rightsToApp = isAuthForApplication(req, id)
+    const rightsToApp = await isAuthForApplication(req, id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -591,7 +673,7 @@ async function startQuoting(req, res, next) {
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let applicationId = req.body.applicationId;
-    const rightsToApp = isAuthForApplication(req, applicationId);
+    const rightsToApp = await isAuthForApplication(req, applicationId);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -840,18 +922,41 @@ async function createQuoteSummary(quote) {
             // Retrieve the limits and create the limits object
             const limits = {};
             const limitsModel = new LimitsBO();
-            for (const quoteLimit of quote.limits) {
-                try {
-                    const limit = await limitsModel.getById(quoteLimit.limitId);
-                    // NOTE: frontend expects a string. -SF
-                    limits[limit.description] = `${quoteLimit.amount}`;
-                }
-                catch (error) {
-                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
-                    return null;
+            if(quote.limits){
+                for (const quoteLimit of quote.limits) {
+                    try {
+                        const limit = await limitsModel.getById(quoteLimit.limitId);
+                        // NOTE: frontend expects a string. -SF
+                        limits[limit.description] = `${quoteLimit.amount}`;
+                    }
+                    catch (error) {
+                        log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+                        return null;
+                    }
                 }
             }
-
+            if(quote.quoteCoverages){
+                // sort ascending order based on id, if no sort value then number will be sorted first
+                function ascendingOrder (a, b){
+                    if(a.sort && b.sort){
+                        // this sorts in ascending order
+                        return a.sort - b.sort;
+                    }else if (a.sort && !b.sort){
+                        // since no sort order on "b" then return -1
+                        return -1; 
+                    }else if (!a.sort && b.sort){
+                        // since no sort order on "a" return 1
+                        return 1; 
+                    }else {
+                        return 0;
+                    }
+                }
+                const sortedCoverageList = quote.quoteCoverages.sort(ascendingOrder);
+                for(const quoteCoverage of sortedCoverageList){
+                    limits[quoteCoverage.description] = `${quoteCoverage.value}`;
+                }
+            }
+            
             // Retrieve the insurer's payment plan
             const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
             let insurerPaymentPlanList = null;
@@ -927,12 +1032,12 @@ async function createQuoteSummary(quote) {
                     name: insurer.name,
                     rating: insurer.rating
                 },
-                limits: limits,
+                limits,
                 payment_options: paymentOptions
             };
         default:
-            // We don't return a quote for any other aggregated status
-            // log.error(`Quote ${quote.id} has a unknow aggregated status of ${quote.aggregated_status} when creating quote summary ${__location}`);
+            // We don't return a quote for any other status
+            // log.error(`Quote ${quote.id} has a unknown status of ${quote.aggregated_status} when creating quote summary ${__location}`);
             return null;
     }
 }
@@ -945,7 +1050,7 @@ async function quotingCheck(req, res, next) {
         return next(serverHelper.requestError('No id was received'));
     }
 
-    const rightsToApp = isAuthForApplication(req, req.params.id);
+    const rightsToApp = await isAuthForApplication(req, req.params.id);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -1010,7 +1115,10 @@ async function quotingCheck(req, res, next) {
     return next();
 }
 
-async function bindQuote(req, res, next) {
+async function requestToBindQuote(req, res, next) {
+
+    // This only marks quote with request to bind.
+    // trigger no logic that does API level binding - 2021-04-18
 
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
@@ -1034,7 +1142,7 @@ async function bindQuote(req, res, next) {
 
     // make sure the caller has the correct rights
     let applicationId = req.body.applicationId;
-    const rightsToApp = isAuthForApplication(req, applicationId);
+    const rightsToApp = await isAuthForApplication(req, applicationId);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -1073,6 +1181,9 @@ async function bindQuote(req, res, next) {
                 paymentPlanId: paymentPlanId
             };
             await applicationBO.processRequestToBind(applicationId,quoteJSON);
+
+            // When API level binding is implemented.
+            // the calls for processRequestToBind sould be enhanced.
         }
         catch(err){
             log.error(`Bind request error app ${applicationId} error ${err}` + __location)
@@ -1098,10 +1209,11 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi("PUT Application",`${basePath}/application`, applicationSave);
     server.addPutAuthAppApi("PUT Application Location",`${basePath}/application/location`, applicationLocationSave);
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`, getApplication);
+    server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, requestToBindQuote);
 }

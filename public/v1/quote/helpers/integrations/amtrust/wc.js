@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /**
  * Worker's Compensation for Acuity
  *
@@ -239,6 +240,39 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        const appDoc = this.app.applicationDocData
+
+        // These are the limits supported AMTrust
+        const carrierLimits = ['100000/500000/100000',
+            '500000/500000/500000',
+            '1000000/1000000/1000000'];
+
+        const mapCarrierLimits = {
+            '100000/500000/100000': '100/500/100',
+            '500000/500000/500000': '500/500/500',
+            '1000000/1000000/1000000': '1000/1000/1000',
+            '1500000/1500000/1500000': '1500/1500/1500',
+            '2000000/2000000/2000000': '2000/2000/2000'
+        }
+
+        let amTrustLimits = mapCarrierLimits[this.app.policies[0].limits];
+        const limits = this.getBestLimits(carrierLimits);
+        if (limits) {
+            const amtrustBestLimits = limits.join("/");
+            const amtrustLimitsSubmission = mapCarrierLimits[amtrustBestLimits];
+            if(amtrustLimitsSubmission){
+                amTrustLimits = amtrustLimitsSubmission;
+            }
+            else {
+                amTrustLimits = '100/500/100';
+            }
+        }
+        else {
+            log.warn(`Appid: ${this.app.id} AmTrust WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
+            return this.return_result('autodeclined');
+        }
+
         // Load the API credentials
         let credentials = null;
         try {
@@ -264,7 +298,7 @@ module.exports = class AcuityWC extends Integration {
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            return this.client_error("AmTrust username and password are not comma-delimited.", __location);
+            return this.client_error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} `, __location);
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
         const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
@@ -301,7 +335,7 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Format the FEIN
-        const fein = this.app.business.locations[0].identification_number.replace(/\D/g, '');
+        const fein = appDoc.ein.replace(/\D/g, '');
 
         // Check the status of the FEIN.
         const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
@@ -342,7 +376,8 @@ module.exports = class AcuityWC extends Integration {
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
-            "IsIncumbantAgent": false,
+            "IsIncumbentAgent": false,
+            //"IsIncumbantAgent": false,
             // "ExpiredPremium": 10000,
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
@@ -428,6 +463,39 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not find the quote ID in the response.`, __location);
         }
 
+        // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
+        //   Anything not in the update PUT will be deleted.  per AMtrust docs
+        //
+        // ***************************************************************
+        //
+        //
+
+        //Get available limites
+
+        const quoteAvailableLlimitesResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/available-liability-limits`);
+        if (!quoteAvailableLlimitesResponse) {
+            return this.client_error("The insurer's server returned an unspecified error when get the quote available limits information.", __location);
+        }
+        const availableLimitsArray = quoteAvailableLlimitesResponse.Data;
+        if(availableLimitsArray && availableLimitsArray.length > 0){
+            if(availableLimitsArray.indexOf(amTrustLimits) === -1){
+                //not in array.  select last postion is array. assuming it it the biggest
+                amTrustLimits = availableLimitsArray[availableLimitsArray.length - 1]
+            }
+        }
+
+        //LiabilityLimits
+        // eslint-disable-next-line prefer-const
+        let amTrustApplicationJSON = quoteResponse.Data;
+        amTrustApplicationJSON.LiabilityLimits = amTrustLimits;
+
+        const quoteUpdateResponse = await this.amtrustCallAPI('PUT', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}`, amTrustApplicationJSON);
+        if (!quoteUpdateResponse) {
+            return this.client_error("The insurer's server returned an unspecified error when submitting the quote update information.", __location);
+        }
+
+        // ==============================================================================================================
+
         // Get the required questions list to ensure we are submitting the correct questions and to resolve question IDs
         const requiredQuestionList = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions`);
         // If this fails, we can still quote (referred)
@@ -443,7 +511,8 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    return this.client_error('Could not determine the answer for one of the questions', __location, { questionId: questionId });
+                    log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                    //return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
                 // This question was not answered
                 if (!answer) {
@@ -532,8 +601,38 @@ module.exports = class AcuityWC extends Integration {
         if (!quoteEligibility) {
             return this.client_error(`The quote elibility could not be found for quote ${quoteId}.`);
         }
+        // need to check if Refer has paymentPlans.
+        if(quoteEligibility === 'BindEligible'){
+            try{
+                const quoteAvailablePaymentPlansResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/paymentPlans`);
+                if(quoteAvailablePaymentPlansResponse && quoteAvailablePaymentPlansResponse.Data){
+                    // eslint-disable-next-line prefer-const
+                    let paymentPlanList = quoteAvailablePaymentPlansResponse.Data
+                    // eslint-disable-next-line prefer-const
+                    let directPlans = paymentPlanList.Direct;
+                    if(directPlans){
+                        for (let i = 0; i < directPlans.length; i++) {
+                            // eslint-disable-next-line prefer-const
+                            let paymentPlan = directPlans[i];
+                            paymentPlan.paymentPlanId = paymentPlan.PaymentPlanId;
+                            paymentPlan.paymentPlanDescription = paymentPlan.PaymentPlanDescription;
+                        }
+                    }
+                    this.insurerPaymentPlans = directPlans;
+                }
+                else {
+                    log.error(`Appid: ${this.app.id} AmTrust WC did not get payment plans QuoteId: ${quoteId} ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Appid: ${this.app.id} AmTrust WC error getting payment plans ${err}` + __location);
+            }
+        }
+
+
         switch (quoteEligibility) {
             case "BindEligible":
+                this.isBindable = true
                 if (quoteLink) {
                     this.quoteLink = quoteLink;
                 }

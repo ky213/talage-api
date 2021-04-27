@@ -41,6 +41,7 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+        const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
@@ -233,7 +234,7 @@ module.exports = class CompwestWC extends Integration {
 
         // <TaxIdentity>
         const TaxIdentity = NameInfo.ele('TaxIdentity');
-        TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
+        TaxIdentity.ele('TaxId', appDoc.ein);
         // </TaxIdentity>
         // </NameInfo>
 
@@ -349,7 +350,7 @@ module.exports = class CompwestWC extends Integration {
                 CommlNameAddInfo.ele('Type',"Company");
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);
+                DBATaxIdentity.ele('TaxCd',appDoc.ein);
                 DBANameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
                 // </NameInfo>
                 // <Addr>
@@ -947,20 +948,22 @@ module.exports = class CompwestWC extends Integration {
                         const optionList = childInsurerQuestion.attributes.optionList
                         // eslint-disable-next-line prefer-const
                         const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
-                        let childAnswerList = childQuestionAnswerStr.split(',');
-                        childAnswerList = childAnswerList.map(s => s.trim());
-                        log.debug("childAnswerList " + JSON.stringify(childAnswerList))
-                        log.debug("optionList " + JSON.stringify(optionList))
-                        if(childAnswerList.length > 0){
-                            for (let i = 0; i < childAnswerList.length; i++){
-                                log.debug("Search optionList for answer " + childAnswerList[i]);
-                                const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
-                                if(optionAnswer){
-                                    log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
-                                    // eslint-disable-next-line prefer-const
-                                    let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
-                                    childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
-                                    childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                        if(childQuestionAnswerStr){
+                            let childAnswerList = childQuestionAnswerStr.split(',');
+                            childAnswerList = childAnswerList.map(s => s.trim());
+                            log.debug("childAnswerList " + JSON.stringify(childAnswerList))
+                            log.debug("optionList " + JSON.stringify(optionList))
+                            if(childAnswerList.length > 0){
+                                for (let i = 0; i < childAnswerList.length; i++){
+                                    log.debug("Search optionList for answer " + childAnswerList[i]);
+                                    const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
+                                    if(optionAnswer){
+                                        log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
+                                        // eslint-disable-next-line prefer-const
+                                        let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
+                                        childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
+                                        childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                                    }
                                 }
                             }
                         }

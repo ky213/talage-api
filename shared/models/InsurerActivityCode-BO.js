@@ -135,6 +135,15 @@ module.exports = class InsurerActivityCodeBO{
                 delete queryJSON.talageActivityCodeIdList;
             }
 
+            if(queryJSON.insurerQuestionIdList && Array.isArray(queryJSON.insurerQuestionIdList)){
+                query.insurerQuestionIdList = {$in: queryJSON.insurerQuestionIdList};
+                delete queryJSON.insurerQuestionIdList;
+            }
+            else if(queryJSON.insurerQuestionIdList){
+                query.insurerQuestionIdList = queryJSON.insurerQuestionIdList;
+                delete queryJSON.insurerQuestionIdList;
+            }
+
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
                 query.insurerId = {$in: queryJSON.insurerId};
                 delete queryJSON.insurerId;

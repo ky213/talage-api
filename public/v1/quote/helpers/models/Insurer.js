@@ -14,6 +14,7 @@ const InsurerOutageBO = global.requireShared('./models/InsurerOutage-BO.js');
 module.exports = class Insurer {
     constructor() {
         this.id = 0;
+        this.insurerId = 0; //new mongo doc
         this.logo = '';
         this.name = '';
         this.outage = false;
@@ -68,6 +69,7 @@ module.exports = class Insurer {
 
         //Switch to BO.
         let insurerJson = null;
+        this.id = id;
         const insurerBO = new InsurerBO();
         try{
             insurerJson = await insurerBO.getById(id);

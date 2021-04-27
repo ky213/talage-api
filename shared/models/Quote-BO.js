@@ -1,19 +1,21 @@
 /* eslint-disable guard-for-in */
 
-const moment = require('moment');
+global.requireShared('./helpers/tracker.js');
 
+const moment = require('moment');
 const DatabaseObject = require('./DatabaseObject.js');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-
+const { quoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 const tableName = 'clw_talage_quotes'
 const skipCheckRequired = false;
+
+const QUOTE_MIN_TIMEOUT = 5;
+
 module.exports = class QuoteBO {
 
     #dbTableORM = null;
@@ -25,11 +27,11 @@ module.exports = class QuoteBO {
 
 
     /**
-   * Save Model
-     *
-   * @param {object} newObjectJSON - newObjectJSON JSON
-   * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-   */
+    * Save Model
+    *
+    * @param {object} newObjectJSON - newObjectJSON JSON
+    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+    */
     saveModel(newObjectJSON) {
         return new Promise(async(resolve, reject) => {
 
@@ -66,42 +68,57 @@ module.exports = class QuoteBO {
         });
     }
 
-    saveIntegrationQuote(quoteJSON, columns, values) {
+    saveIntegrationQuote(quoteId, quoteJSON, columns, values) {
         return new Promise(async(resolve) => {
-            let quoteID = 0;
-            const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
-                log.error("Error QuoteBO insertByColumnValue " + err + __location);
-                // reject(err);
-                // do not stop mongo save.
-            });
-            if(quoteResult){
-                quoteID = quoteResult.insertId;
-                log.debug(`${tableName} saved id ` + quoteID);
-                quoteJSON.mysqlId = quoteID;
-            }
-            //check limits
-            if(quoteJSON.limits && quoteJSON.limits.length > 0){
-                for (let i = 0; i < quoteJSON.limits.length; i++){
-                    const limitJSON = quoteJSON.limits[i];
-                    if(!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN"){
-                        log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
-                        limitJSON.amount = 0;
+            if (quoteId === null) {
+                // if null, insert new record
+                let mysqlQuoteId = 0;
+                const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
+                    log.error("Error QuoteBO insertByColumnValue " + err + __location);
+                    // reject(err);
+                    // do not stop mongo save.
+                });
+                if (quoteResult) { 
+                    mysqlQuoteId = quoteResult.insertId;
+                    log.debug(`${tableName} saved id ` + mysqlQuoteId);
+                    quoteJSON.mysqlId = mysqlQuoteId;
+                }
+
+                //check limits
+                if (quoteJSON.limits && quoteJSON.limits.length > 0) {
+                    for (let i = 0; i < quoteJSON.limits.length; i++) {
+                        const limitJSON = quoteJSON.limits[i];
+                        if (!limitJSON.amount && typeof limitJSON.amount !== 'number' || limitJSON.amount === "NaN") {
+                            log.error(`QuoteBO Bad limits ${JSON.stringify(quoteJSON)} ` + __location)
+                            limitJSON.amount = 0;
+                        }
                     }
                 }
-            }
-            //mongo save.
-            //log.debug("quoteJSON " + JSON.stringify(quoteJSON))
-            try{
-                const quote = new Quote(quoteJSON);
-                await quote.save().catch(function(err){
-                    log.error('Mongo Quote Save err ' + err + __location);
-                });
-            }
-            catch(err){
-                log.error("Error saving Mongo quote " + err + __location);
+
+                //mongo save.
+                //log.debug("quoteJSON " + JSON.stringify(quoteJSON))
+                try{
+                    const quote = new Quote(quoteJSON);
+                    await quote.save().catch(function(err){
+                        log.error('Mongo Quote Save err ' + err + __location);
+                    });
+                    quoteId = quote.quoteId;
+                }
+                catch(err){
+                    log.error("Error saving Mongo quote " + err + __location);
+                }
+            } else {
+                // otherwise record exists, update it
+                const query = { "quoteId": quoteId };
+                try {
+                    await Quote.updateOne(query, quoteJSON);
+                } catch (e) {
+                    log.error(`Error updating quote: ${e}.`);
+                    throw e;
+                }
             }
 
-            resolve(quoteID);
+            resolve(quoteId);
         });
     }
 
@@ -124,12 +141,12 @@ module.exports = class QuoteBO {
         });
     }
 
-    async getById(quoteId) {
+    async getById(quoteId, returnModel = false) {
         if(validator.isUuid(quoteId)){
-            return this.getfromMongoByQuoteId(quoteId)
+            return this.getfromMongoByQuoteId(quoteId, returnModel)
         }
         else {
-            return this.getMongoDocbyMysqlId(quoteId)
+            return this.getMongoDocbyMysqlId(quoteId, returnModel)
         }
     }
 
@@ -295,16 +312,20 @@ module.exports = class QuoteBO {
                     return;
                 }
 
-
-                resolve(mongoUtils.objListCleanup(docList));
-                return;
+                docList = mongoUtils.objListCleanup(docList);
+                for (const quoteDoc of docList) {
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
+                    }
+                }
+                return resolve(docList);
             }
             else {
                 const docCount = await Quote.countDocuments(query).catch(err => {
                     log.error("Quote.countDocuments error " + err + __location);
                     error = null;
                     rejected = true;
-                })
+                });
                 if(rejected){
                     reject(error);
                     return;
@@ -367,9 +388,13 @@ module.exports = class QuoteBO {
                 return;
             }
 
-
-            resolve(mongoUtils.objListCleanup(docList));
-            return;
+            docList = mongoUtils.objListCleanup(docList);
+            for (const quoteDoc of docList) {
+                if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                    await this.checkAndFixQuoteStatus(quoteDoc);
+                }
+            }
+            return resolve(docList);
         });
 
     }
@@ -383,9 +408,9 @@ module.exports = class QuoteBO {
         return this.getList(query);
 
     }
-    
 
-    async getfromMongoByQuoteId(quoteId) {
+
+    async getfromMongoByQuoteId(quoteId, returnModel = false) {
         return new Promise(async(resolve, reject) => {
             if (quoteId) {
                 const query = {
@@ -395,8 +420,14 @@ module.exports = class QuoteBO {
                 let quoteDoc = null;
                 try {
                     const docDB = await Quote.findOne(query, '-__v');
-                    if (docDB) {
+                    if (docDB && returnModel === false) {
                         quoteDoc = mongoUtils.objCleanup(docDB);
+                    }
+                    else {
+                        quoteDoc = docDB
+                    }
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
                     }
                 }
                 catch (err) {
@@ -411,7 +442,7 @@ module.exports = class QuoteBO {
         });
     }
 
-    async getMongoDocbyMysqlId(mysqlId) {
+    async getMongoDocbyMysqlId(mysqlId, returnModel = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
                 const query = {
@@ -421,8 +452,14 @@ module.exports = class QuoteBO {
                 let quoteDoc = null;
                 try {
                     const docDB = await Quote.findOne(query, '-__v');
-                    if (docDB) {
+                    if (docDB && returnModel === false) {
                         quoteDoc = mongoUtils.objCleanup(docDB);
+                    }
+                    else {
+                        quoteDoc = docDB
+                    }
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
                     }
                 }
                 catch (err) {
@@ -462,6 +499,9 @@ module.exports = class QuoteBO {
                     // const quote = new Quote(newObjectJSON);
                     await Quote.updateOne(query, newObjectJSON);
                     const newQuotedoc = await Quote.findOne(query);
+                    if(newQuotedoc && newQuotedoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(newQuotedoc);
+                    }
                     newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
                 }
                 catch (err) {
@@ -507,25 +547,31 @@ module.exports = class QuoteBO {
         return mongoUtils.objCleanup(quote);
     }
 
-    async updateQuoteAggregatedStatus(quoteId, aggregatedStatus) {
-        if(quoteId && aggregatedStatus){
+    // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
+    async updateQuoteAggregatedStatus({quoteId, mysqlId}, status) {
+        if(quoteId && mysqlId && status){
+            // Not updating SQL with new status information since it will be deprecated
             const sql = `
                 UPDATE clw_talage_quotes
-                SET aggregated_status = ${db.escape(aggregatedStatus)}
-                WHERE id = ${quoteId}
+                SET aggregated_status = ${db.escape(convertToAggregatedStatus(status))}
+                WHERE id = ${mysqlId}
             `;
             try {
                 await db.query(sql);
-                log.info(`Updated Mysql clw_talage_quotes.aggregated_status on  ${quoteId}` + __location);
+                log.info(`Updated MySQL clw_talage_quotes.aggregated_status on  ${mysqlId}` + __location);
             }
             catch (err) {
-                log.error(`Could not mysql update quote ${quoteId} aggregated status: ${err} ${__location}`);
+                log.error(`Could not update MySQL quote ${mysqlId} aggregated status: ${err} ${__location}`);
 
             }
             // update Mongo
             try{
-                const query = {"mysqlId": quoteId};
-                const updateJSON = {"aggregatedStatus": aggregatedStatus};
+                const query = {quoteId};
+                const updateJSON = {
+                    "aggregatedStatus": convertToAggregatedStatus(status),
+                    "quoteStatusId": status.id, 
+                    "quoteStatusDescription": status.description
+                };
                 await Quote.updateOne(query, updateJSON);
                 log.info(`Update Mongo QuoteDoc aggregated status on mysqlId: ${quoteId}` + __location);
             }
@@ -536,9 +582,12 @@ module.exports = class QuoteBO {
         }
         return true;
     }
+    //bindQuote
 
-    async bindQuote(quoteId, applicationId, bindUser) {
+    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo) {
         if(quoteId && applicationId && bindUser){
+            const status = quoteStatus.bound;
+
             // update Mongo
             const query = {
                 "quoteId": quoteId,
@@ -549,13 +598,19 @@ module.exports = class QuoteBO {
                 quoteDoc = await Quote.findOne(query, '-__v');
                 if(!quoteDoc.bound){
                     const bindDate = moment();
-                    const updateJSON = {
+                    // eslint-disable-next-line prefer-const
+                    let updateJSON = {
                         "bound": true,
                         "boundUser": bindUser,
                         "boundDate": bindDate,
-                        "aggregatedStatus": "bound",
-                        "status": "bound"
+                        "aggregatedStatus": convertToAggregatedStatus(status),
+                        "status": "bound",
+                        "quoteStatusId": status.id,
+                        "quoteStatusDescription": status.description
                     };
+                    if(policyInfo){
+                        updateJSON.policyInfo = policyInfo;
+                    }
                     await Quote.updateOne(query, updateJSON);
                     log.info(`Update Mongo QuoteDoc bound status on quoteId: ${quoteId}` + __location);
                 }
@@ -612,6 +667,36 @@ module.exports = class QuoteBO {
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         this.updateProperty();
         return true;
+    }
+
+    // checks the status of the quote and fixes it if its timed out
+    async checkAndFixQuoteStatus(quoteDoc){
+        // only check and fix quotes that are potentially hanging on initiated
+        if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+            try{
+                const now = moment.utc();
+                // if the quotingStartedDate doesnt exist, set it and return (this shouldn't happen)
+                if(!quoteDoc.quotingStartedDate){
+                    quoteDoc.quotingStartedDate = now;
+                    const query = {quoteId: quoteDoc.quoteId};
+                    await Quote.updateOne(query, {quotingStartedDate: now});
+                    return;
+                }
+
+                const status = global.requireShared('./models/status/quoteStatus.js');
+                const duration = moment.duration(now.diff(moment(quoteDoc.quotingStartedDate)));
+                if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
+                    log.error(`Quote: ${quoteDoc.quoteId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quote initiated.`);
+                    // This probably should just handle the update to mongo without the call to quotestatus.
+                    // we know exactly what should happen.
+                    await status.updateQuoteStatus(quoteDoc, true);
+                }
+            }
+            catch(err){
+                log.error('QuoteBO checkAndFixQuoteStatus  ' + err + __location);
+            }
+        }
+        return;
     }
 
 }

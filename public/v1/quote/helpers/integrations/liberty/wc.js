@@ -32,6 +32,7 @@ module.exports = class LibertyWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     _insurer_quote() {
+        const appDoc = this.app.applicationDocData
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.Accept = 'quoted';
@@ -165,7 +166,7 @@ module.exports = class LibertyWC extends Integration {
             // <TaxIdentity>
             const TaxIdentity = NameInfo.ele('TaxIdentity');
             TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-            TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
+            TaxIdentity.ele('TaxId', appDoc.ein);
             // </TaxIdentity>
             // </NameInfo>
 
@@ -290,10 +291,7 @@ module.exports = class LibertyWC extends Integration {
                         answer = this.determine_question_answer(question);
                     }
                     catch (error) {
-                        log.error(`Appid: ${this.app.id} Liberty Mutual WC: Talage was unable to determine the answer to a question. Error: ${error} ` + __location);
-                        this.reasons.push('Talage was unable to determine the answer to a question');
-                        fulfill(this.return_result('error'));
-                        return;
+                        log.error(`Liberty WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
                     }
 
                     // This question was not answered

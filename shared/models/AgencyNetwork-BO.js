@@ -1,3 +1,4 @@
+/* eslint-disable handle-callback-err */
 'use strict';
 
 
@@ -93,7 +94,7 @@ module.exports = class AgencyNetworkBO{
         fileName += uuidv4().toString();
         fileName += `-${stringFunctions.santizeFilename(newFileName)}`
         const s3Path = baseS3Path + fileName;
-        await fileSvc.PutFile(s3Path, logoData).then(function(data){
+        await fileSvc.PutFile(s3Path, logoData).then(function(){
             return fileName;
 
         }).catch(function(err){
@@ -427,7 +428,7 @@ module.exports = class AgencyNetworkBO{
                     "agencyMessage": agencyMessage,
                     "agencySubject": agencySubject
                 }
-                log.debug("pre env emailTemplateJSON " + JSON.stringify(emailTemplateJSON))
+                //log.debug("pre env emailTemplateJSON " + JSON.stringify(emailTemplateJSON))
                 const environmentSettings = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo, agencyNetworkId)
                 if(typeof environmentSettings === "object"){
                     // eslint-disable-next-line guard-for-in
@@ -435,7 +436,7 @@ module.exports = class AgencyNetworkBO{
                         emailTemplateJSON[property] = environmentSettings[property];
                     }
                 }
-                log.debug("post env emailTemplateJSON " + JSON.stringify(emailTemplateJSON))
+                //log.debug("post env emailTemplateJSON " + JSON.stringify(emailTemplateJSON))
 
             }
             catch(err) {
@@ -537,6 +538,7 @@ module.exports = class AgencyNetworkBO{
 
     async getEnvSettingbyId(agencyNetworkId){
         const error = null;
+        // eslint-disable-next-line no-unused-vars
         const agencyNetworkJSON = await this.getById(agencyNetworkId).catch(err => error);
         if(error){
             log.error("Error getting AgencyNetwork for env settings " + error + __location);

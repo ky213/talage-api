@@ -50,31 +50,34 @@ module.exports = class AcuityWC extends Integration {
         // Aggregate activity codes for this location, summing payroll and full/part time employees
         for (const locationActivityCode of location.activityPayrollList) {
             // Find the existing entry for this activity code
-            const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, locationActivityCode.ncciCode);
-            let locationClassification = locationClassificationList.find((lc) => lc.classCode === ncciCode.toString());
-            if (!locationClassification) {
-                // Add it if it doesn't exist
-                locationClassification = {
-                    classCode: ncciCode.toString(),
-                    totalAnnualPayroll: 0,
-                    numberFullTimeEmployees: 0,
-                    numberPartTimeEmployees: 0
-                };
-                locationClassificationList.push(locationClassification);
-            }
-            // Sum the employee types
-            for (const employeeType of locationActivityCode.employeeTypeList) {
-                locationClassification.totalAnnualPayroll += employeeType.employeeTypePayroll;
-                switch (employeeType.employeeType) {
-                    case "Full Time":
-                    case "Owner":
-                        locationClassification.numberFullTimeEmployees += employeeType.employeeTypeCount;
-                        break;
-                    case "Part Time":
-                        locationClassification.numberPartTimeEmployees += employeeType.employeeTypeCount;
-                        break;
-                    default:
-                        break;
+            const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, locationActivityCode.activityCodeId);
+            if(ncciCode){
+                let locationClassification = locationClassificationList.find((lc) => lc.classCode === ncciCode.toString());
+                if (!locationClassification) {
+                    // Add it if it doesn't exist
+                    locationClassification = {
+                        classCode: ncciCode.toString(),
+                        totalAnnualPayroll: 0,
+                        numberFullTimeEmployees: 0,
+                        numberPartTimeEmployees: 0
+                    };
+                    locationClassificationList.push(locationClassification);
+
+                    // Sum the employee types
+                    for (const employeeType of locationActivityCode.employeeTypeList) {
+                        locationClassification.totalAnnualPayroll += employeeType.employeeTypePayroll;
+                        switch (employeeType.employeeType) {
+                            case "Full Time":
+                            case "Owner":
+                                locationClassification.numberFullTimeEmployees += employeeType.employeeTypeCount;
+                                break;
+                            case "Part Time":
+                                locationClassification.numberPartTimeEmployees += employeeType.employeeTypeCount;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                 }
             }
         }
@@ -134,6 +137,8 @@ module.exports = class AcuityWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+        const appDoc = this.app.applicationDocData
+
         const defaultLimits = [
             "100000/500000/100000",
             "500000/500000/500000",
@@ -241,6 +246,13 @@ module.exports = class AcuityWC extends Integration {
         const claimCountCurrentPolicy = claims[1].count;
         const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
         const claimObjects = this.getClaims(applicationDocData.claims);
+        let contactPhone = '';
+        try{
+            contactPhone = this.app.business.contacts[0].phone.toString()
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
+        }
 
         // =========================================================================================================
         // Create the quote request
@@ -261,7 +273,7 @@ module.exports = class AcuityWC extends Integration {
                 "primaryNameInsured": this.app.business.name,
                 "tradeDBALine1": this.app.business.dba ? this.app.business.dba : "",
                 "tradeDBALine2": "",
-                "FEIN": this.app.business.locations[0].identification_number,
+                "FEIN": appDoc.ein,
                 "legalEntity": legalEntityMap[this.app.business.locations[0].business_entity_type],
                 "address": {
                     "mailingAddress": this.app.business.mailing_address,
@@ -269,7 +281,7 @@ module.exports = class AcuityWC extends Integration {
                     "mailingCity": this.app.business.mailing_city,
                     "mailingState": this.app.business.mailing_state_abbr,
                     "mailingZipcode": this.app.business.mailing_zipcode,
-                    "insuredPhoneNumber": "1" + this.app.business.contacts[0].phone.toString()
+                    "insuredPhoneNumber": "1" + contactPhone
                 },
                 "contact": {
                     "firstName": this.app.business.contacts[0].first_name,
