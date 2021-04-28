@@ -26,6 +26,7 @@ const InsurerIndustryCodeSchema = new Schema({
     insurerIndustryCodeId: {type: String, required: [true, 'insurerIndustryCodeId required'], unique: true},
     insurerId: {type: Number},
     policyType: {type: String, required: false, default: null},
+    policyTypeList: [String],
     type: {type: String, required: false},
     code: {type: String, required: false},
     description: {type: String, required: false},
@@ -41,10 +42,6 @@ const InsurerIndustryCodeSchema = new Schema({
     oldSystemIdList: [Number],
     active: {type: Boolean, default: true}
 },opts)
-
-
-//InsurerIndustryCodeSchema.index({insurerId: 1}); // Insure Index
-//InsurerIndustryCodeSchema.index({insurerId: 1, policyType: 1, code: 1});
 
 // //***** Virtuals old field names ****************** */
 

@@ -731,7 +731,7 @@ module.exports = class CnaWC extends Integration {
             }
             catch (error) {
                 log.debug(`CNA WC Could not determine the answer for one of the questions ${JSON.stringify(questionArray[i])}` + __location)
-                return this.client_error('Could not determine the answer for one of the questions', __location, JSON.stringify(questionArray[i]));
+               // return this.client_error('Could not determine the answer for one of the questions', __location, JSON.stringify(questionArray[i]));
             }
 
             // if no answer, the question isn't shown

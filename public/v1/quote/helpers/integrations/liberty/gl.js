@@ -406,10 +406,11 @@ module.exports = class LibertyGL extends Integration{
 									try{
 										answer = this.determine_question_answer(question);
 									}
-                                                catch(error){
-										this.reasons.push('Talage was unable to determine the answer to a question');
-										fulfill(this.return_result('error'));
-										return;
+                                    catch(error){
+                                        log.error(`Liberty GL (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+										//this.reasons.push('Talage was unable to determine the answer to a question');
+										//fulfill(this.return_result('error'));
+										//return;
 									}
 
 									// This question was not answered

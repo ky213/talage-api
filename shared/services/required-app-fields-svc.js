@@ -21,6 +21,9 @@ const bopRequirements = {
     location: {
         buildingLimit: {},
         businessPersonalPropertyLimit: {},
+        own: {
+            required: false
+        },
         unemployment_num: {
             visible: false,
             required: false
@@ -36,6 +39,10 @@ const glRequirements = {
             required: false
         },
         businessPersonalPropertyLimit: {
+            visible: false,
+            required: false
+        },
+        own: {
             visible: false,
             required: false
         },
@@ -57,6 +64,10 @@ const wcRequirements = {
             required: false
         },
         businessPersonalPropertyLimit: {
+            visible: false,
+            required: false
+        },
+        own: {
             visible: false,
             required: false
         },
@@ -171,14 +182,14 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
             newObj[key].required = obj1Required || obj2Required;
 
             // if the key is not provided for an obj default visible to true
-            let obj1Visible = !object1[key];
+            let obj1Visible = !(object1[key] && object1[key].hasOwnProperty("visible"));
             const checkObj1Visible = object1[key] && object1[key].hasOwnProperty("visible");
             if(checkObj1Visible){
                 obj1Visible = object1[key].visible;
             }
 
             // if the key is not provided for an obj default visible to true
-            let obj2Visible = !object2[key];
+            let obj2Visible = !(object2[key] && object2[key].hasOwnProperty("visible"));
             const checkObj2Visible = object2[key] && object2[key].hasOwnProperty("visible");
             if(checkObj2Visible){
                 obj2Visible = object2[key].visible;

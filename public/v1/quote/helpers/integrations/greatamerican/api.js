@@ -176,7 +176,7 @@ const getPricing = async (token, integration, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appId} get getPricing error ${err} ` + __location);
+        log.error(`AppId: ${appData.applicationId} get getPricing error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -212,7 +212,7 @@ const getQuote = async (integration, token, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.appData.applicationId} get session error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -358,7 +358,7 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.applicationDocData.applicationId} get session error ${err} ` + __location);
     }
     if(appetite){
         return appetite.data;
