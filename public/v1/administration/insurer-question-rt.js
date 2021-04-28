@@ -199,6 +199,11 @@ async function add(req, res, next) {
         req.body.effectiveDate = "1980-01-01";
     }
 
+    if(!req.body.hasOwnProperty("policyTypeList")){
+        req.body.policyTypeList = [];
+        req.body.policyTypeList.push(req.body.policyType);
+    }
+
     if(req.body && req.body.attributes && typeof req.body.attributes === 'string'){
         req.body.attributes = JSON.parse(req.body.attributes);
     }
@@ -249,6 +254,11 @@ async function update(req, res, next) {
     }
     if(!req.body.hasOwnProperty("effectiveDate")){
         req.body.effectiveDate = "1980-01-01";
+    }
+
+    if(!req.body.hasOwnProperty("policyTypeList")){
+        req.body.policyTypeList = [];
+        req.body.policyTypeList.push(req.body.policyType);
     }
 
     log.debug(JSON.stringify(req.body));

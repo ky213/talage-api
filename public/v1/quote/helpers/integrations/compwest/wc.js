@@ -948,20 +948,22 @@ module.exports = class CompwestWC extends Integration {
                         const optionList = childInsurerQuestion.attributes.optionList
                         // eslint-disable-next-line prefer-const
                         const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
-                        let childAnswerList = childQuestionAnswerStr.split(',');
-                        childAnswerList = childAnswerList.map(s => s.trim());
-                        log.debug("childAnswerList " + JSON.stringify(childAnswerList))
-                        log.debug("optionList " + JSON.stringify(optionList))
-                        if(childAnswerList.length > 0){
-                            for (let i = 0; i < childAnswerList.length; i++){
-                                log.debug("Search optionList for answer " + childAnswerList[i]);
-                                const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
-                                if(optionAnswer){
-                                    log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
-                                    // eslint-disable-next-line prefer-const
-                                    let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
-                                    childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
-                                    childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                        if(childQuestionAnswerStr){
+                            let childAnswerList = childQuestionAnswerStr.split(',');
+                            childAnswerList = childAnswerList.map(s => s.trim());
+                            log.debug("childAnswerList " + JSON.stringify(childAnswerList))
+                            log.debug("optionList " + JSON.stringify(optionList))
+                            if(childAnswerList.length > 0){
+                                for (let i = 0; i < childAnswerList.length; i++){
+                                    log.debug("Search optionList for answer " + childAnswerList[i]);
+                                    const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
+                                    if(optionAnswer){
+                                        log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
+                                        // eslint-disable-next-line prefer-const
+                                        let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
+                                        childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
+                                        childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                                    }
                                 }
                             }
                         }

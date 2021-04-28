@@ -21,6 +21,7 @@ const InsurerQuestionSchema = new Schema({
     insurerId: {type: Number},
     talageQuestionId: {type: Number},
     policyType: {type: String, required: false, default: null},
+    policyTypeList: [String],
     universal: {type: Boolean, default: false},
     text: {type: String, required: false},
     questionSubjectArea : {type: String, required: false, default: "general"},
@@ -36,6 +37,7 @@ const InsurerQuestionSchema = new Schema({
 
 InsurerQuestionSchema.index({insurerId: 1, type: 1}); // Insure Index
 InsurerQuestionSchema.index({insurerQuestionId: 1, type: 1});
+InsurerQuestionSchema.index({insurerId: 1, policyTypeList: 1}); // Insure Index
 
 // //***** Virtuals old field names ****************** */
 

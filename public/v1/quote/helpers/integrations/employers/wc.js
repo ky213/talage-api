@@ -132,10 +132,10 @@ module.exports = class EmployersWC extends Integration {
                         answer = this.determine_question_answer(question, required_questions.includes(question.id));
                     }
                     catch (error) {
-                        log.error(`Appid: ${this.app.id}Employers WC: Unable to determine answer for question ${question.id} error: ${error} ` + __location)
+                        log.error(`Appid: ${this.app.id} Employers WC: Unable to determine answer for question ${question.id} error: ${error} ` + __location)
                         this.reasons.push(`Unable to determine answer for question ${question.id}`);
-                        fulfill(this.return_result('error'));
-                        return;
+                       // fulfill(this.return_result('error'));
+                       // return;
                     }
 
                     // This question was not answered

@@ -738,8 +738,8 @@ module.exports = class MarkelWC extends Integration {
                 }
                 catch (error) {
                     log.error(`Appid: ${this.app.id} Markel WC: Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
-                    this.reasons.push(`Unable to determine answer for question ${question.id}`);
-                    return this.return_result('error');
+                    //this.reasons.push(`Unable to determine answer for question ${question.id}`);
+                    //return this.return_result('error');
                 }
 
                 // This question was not answered

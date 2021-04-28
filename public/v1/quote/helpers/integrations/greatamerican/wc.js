@@ -50,6 +50,10 @@ module.exports = class GreatAmericanWC extends Integration {
             id: c.code,
             value: c.attributes.classIndustry
         }));
+        if(!sessionCodes.id || !sessionCodes.value){
+            log.error(`Appid: ${this.app.id} Great American WC:Bad session Code ${JSON.stringify(sessionCodes)} ` + __location);
+            this.reasons.push(` Great American WC:Bad session Code ${JSON.stringify(sessionCodes)}`);
+        }
         // GA only wants the first activity code passed to their API endpoint.
         sessionCodes = [sessionCodes[0]];
         const session = await GreatAmericanApi.getSession(this, token, sessionCodes)
