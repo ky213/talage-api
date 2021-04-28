@@ -434,7 +434,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 }
             }
         }
-       // log.debug("talageQuestionIdArray " + talageQuestionIdArray)
+        // log.debug("talageQuestionIdArray " + talageQuestionIdArray)
         if(talageQuestionIdArray.length > 0) {
             const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
             log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)    
