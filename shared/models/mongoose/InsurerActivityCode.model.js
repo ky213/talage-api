@@ -42,7 +42,7 @@ const InsurerActivityCodeSchema = new Schema({
 
 InsurerActivityCodeSchema.index({insurerId: 1}); // Insurer Index
 InsurerActivityCodeSchema.index({insurerId: 1, code: 1, sub: 1});
-InsurerActivityCodeSchema.index({talageActivityCodeIdList: 1});
+//InsurerActivityCodeSchema.index({talageActivityCodeIdList: 1});
 
 
 // //***** Virtuals old field names ****************** */
