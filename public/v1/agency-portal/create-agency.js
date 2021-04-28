@@ -28,7 +28,7 @@ async function createAgency(req, res, next){
         "showUseAgencyPrime": false,
         "insurers": [],
         "territories": {}
-    };
+    }; 
 
     // Get all insurers for this agency network
     // Begin compiling a list of territories
@@ -41,8 +41,8 @@ async function createAgency(req, res, next){
     try{
         const agencyNetworkBO = new AgencyNetworkBO();
         const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
-        if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
-            response.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
+        if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
+            response.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
         }
 
         // eslint-disable-next-line prefer-const
