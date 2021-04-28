@@ -48,7 +48,7 @@ const InsurerIndustryCodeSchema = new Schema({
 //InsurerIndustryCodeSchema.index({insurerId: 1, policyType: 1, code: 1});
 InsurerIndustryCodeSchema.index({insurerId: 1, policyTypeList: 1});
 InsurerIndustryCodeSchema.index({insurerId: 1, policyTypeList: 1, code: 1});
-InsurerIndustryCodeSchema.index({insurerId: 1, policyTypeList: 1, talageIndustryCodeIdList: 1});
+InsurerIndustryCodeSchema.index({insurerId: 1, talageIndustryCodeIdList: 1});
 
 // //***** Virtuals old field names ****************** */
 
