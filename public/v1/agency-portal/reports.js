@@ -315,12 +315,22 @@ const getReferredList = async(where) => {
 
         }}
     ];
-    const referrerList = await Application.aggregate(pipline);
-    referrerList.forEach((referrerJson) => {
-        if(!referrerJson.referrer){
-            referrerJson.referrer = "AgencyPortal";
-        }
-    });
+    let referrerList = null;
+    try{
+        referrerList = await Application.aggregate(pipline);
+        referrerList.forEach((referrerJson) => {
+            if(!referrerJson.referrer){
+                referrerJson.referrer = "AgencyPortal";
+            }
+        });
+    }
+    catch(err){
+        log.error("Dashboard error getting referrer list " + err + __location)
+    }
+
+    if(!referrerList){
+        referrerList = [];
+    }
     return referrerList;
 }
 
