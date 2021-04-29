@@ -68,10 +68,20 @@ async function add(req, res, next) {
     if(!req.body.activityCodeId){
         return next(serverHelper.requestError("bad missing activityCodeId"));
     }
+
+    // set the old values as well or else they will be set to 0 and the table will break
+    const addJSON = {
+        industryCodeId: req.body.industryCodeId,
+        industry_code: req.body.industryCodeId,
+        activityCodeId: req.body.activityCodeId,
+        ncci_code: req.body.activityCodeId,
+        frequency: 100
+    };
+
     const industryCodeAssociationBO = new IndustryCodeAssociationBO();
     let error = null;
     const newRecord = true;
-    await industryCodeAssociationBO.saveModel(req.body,newRecord).catch(function(err) {
+    await industryCodeAssociationBO.saveModel(addJSON, newRecord).catch(function(err) {
         log.error("industry code association save error " + err + __location);
         error = err;
     });
