@@ -219,7 +219,7 @@ module.exports = class AgencyLocationBO{
                 let docDB = null;
                 try {
                     docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
-                    if(docDB.useAgencyPrime && addAgencyPrimaryLocation){
+                    if(docDB && docDB.useAgencyPrime && addAgencyPrimaryLocation){
                         const insurerList = await this.getAgencyPrimeInsurers(docDB.agencyId)
                         if(insurerList){
                             docDB.insurers = insurerList
@@ -380,7 +380,7 @@ module.exports = class AgencyLocationBO{
                                     doc.doNotReport = agencyJSON.doNotReport;
                                 }
                             }
-                            if(doc.useAgencyPrime && addAgencyPrimaryLocation){
+                            if(doc && doc.useAgencyPrime && addAgencyPrimaryLocation){
                                 const insurerList = await this.getAgencyPrimeInsurers(doc.agencyId, doc.agencyNetworkId)
                                 if(insurerList){
                                     doc.insurers = insurerList
