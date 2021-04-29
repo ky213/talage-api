@@ -34,9 +34,7 @@ const InsurerIndustryCodeSchema = new Schema({
     expirationDate: {type: Date, required: true},
     territoryList: [String],
     talageIndustryCodeIdList: [Number],
-    talageQuestionIdList: [Number],
     insurerQuestionIdList: [String],
-    insurerQuestionSystemIdList: [Number],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
     oldSystemIdList: [Number],
     active: {type: Boolean, default: true}
