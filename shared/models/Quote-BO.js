@@ -1,3 +1,5 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable guard-for-in */
 
 global.requireShared('./helpers/tracker.js');
@@ -9,7 +11,7 @@ const validator = global.requireShared('./helpers/validator.js');
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const { quoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const tableName = 'clw_talage_quotes'
 const skipCheckRequired = false;
@@ -107,12 +109,14 @@ module.exports = class QuoteBO {
                 catch(err){
                     log.error("Error saving Mongo quote " + err + __location);
                 }
-            } else {
+            } 
+            else {
                 // otherwise record exists, update it
-                const query = { "quoteId": quoteId };
+                const query = {"quoteId": quoteId};
                 try {
                     await Quote.updateOne(query, quoteJSON);
-                } catch (e) {
+                }
+                catch (e) {
                     log.error(`Error updating quote: ${e}.`);
                     throw e;
                 }

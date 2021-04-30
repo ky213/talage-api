@@ -288,7 +288,6 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
