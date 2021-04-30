@@ -7,7 +7,7 @@
 
 'use strict';
 
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //Models

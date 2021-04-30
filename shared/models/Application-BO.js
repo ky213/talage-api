@@ -23,7 +23,7 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
-const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
+const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 

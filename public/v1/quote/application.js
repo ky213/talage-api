@@ -4,8 +4,8 @@
 
 'use strict';
 
-const Application = require('./helpers/models/Application.js');
-const serverHelper = require('../../../server.js');
+const Application = global.requireRootPath('quotesystem/models/Application.js');;
+const serverHelper = global.requireRootPath('server.js');
 const jwt = require('jsonwebtoken');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const slack = global.requireShared('./services/slacksvc.js');

@@ -16,7 +16,7 @@ const moment_timezone = require('moment-timezone');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 // Read the template into memory at load
-const employersWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/employers/wc.xmlt');
+const employersWCTemplate = require('jsrender').templates('./quotesystem/integrations/employers/wc.xmlt');
 
 module.exports = class EmployersWC extends Integration {
 

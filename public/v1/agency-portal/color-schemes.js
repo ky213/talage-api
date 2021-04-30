@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 'use strict';
 
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const colorConverter = require('color-converter').default;
 
 /**
