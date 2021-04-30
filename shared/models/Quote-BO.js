@@ -519,20 +519,6 @@ module.exports = class QuoteBO {
     // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
     async updateQuoteAggregatedStatus({quoteId, mysqlId}, status) {
         if(quoteId && mysqlId && status){
-            // Not updating SQL with new status information since it will be deprecated
-            const sql = `
-                UPDATE clw_talage_quotes
-                SET aggregated_status = ${db.escape(convertToAggregatedStatus(status))}
-                WHERE id = ${mysqlId}
-            `;
-            try {
-                await db.query(sql);
-                log.info(`Updated MySQL clw_talage_quotes.aggregated_status on  ${mysqlId}` + __location);
-            }
-            catch (err) {
-                log.error(`Could not update MySQL quote ${mysqlId} aggregated status: ${err} ${__location}`);
-
-            }
             // update Mongo
             try{
                 const query = {quoteId: quoteId};
