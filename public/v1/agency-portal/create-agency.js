@@ -2,7 +2,7 @@
 /* eslint-disable object-curly-newline */
 'use strict';
 
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
