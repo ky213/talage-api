@@ -29,6 +29,7 @@ const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBi
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
+const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 
 
 // Application Messages Imports
@@ -195,14 +196,19 @@ async function getApplication(req, res, next) {
                 quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
             if (!quoteJSON.status && quoteJSON.apiResult) {
-                quoteJSON.status = quoteJSON.apiResult;
+                // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
+                if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
+                    quoteJSON.status = quoteStatus.error.description;
+                } else {
+                    quoteJSON.status = quoteJSON.apiResult;
+                }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
             // Change the name of autodeclined
             if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
-                || quoteJSON.status === 'quoted') {
-
+                || quoteJSON.status === 'quoted') 
+            {
                 quoteJSON.reasons = '';
             }
             if (quoteJSON.status === 'autodeclined') {

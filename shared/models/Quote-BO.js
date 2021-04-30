@@ -16,6 +16,8 @@ const {quoteStatus, convertToAggregatedStatus} = global.requireShared('./models/
 const tableName = 'clw_talage_quotes'
 const skipCheckRequired = false;
 
+const QUOTE_MIN_TIMEOUT = 5;
+
 module.exports = class QuoteBO {
 
     #dbTableORM = null;
@@ -27,11 +29,11 @@ module.exports = class QuoteBO {
 
 
     /**
-   * Save Model
-     *
-   * @param {object} newObjectJSON - newObjectJSON JSON
-   * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-   */
+    * Save Model
+    *
+    * @param {object} newObjectJSON - newObjectJSON JSON
+    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+    */
     saveModel(newObjectJSON) {
         return new Promise(async(resolve, reject) => {
 
@@ -314,16 +316,20 @@ module.exports = class QuoteBO {
                     return;
                 }
 
-
-                resolve(mongoUtils.objListCleanup(docList));
-                return;
+                docList = mongoUtils.objListCleanup(docList);
+                for (const quoteDoc of docList) {
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
+                    }
+                }
+                return resolve(docList);
             }
             else {
                 const docCount = await Quote.countDocuments(query).catch(err => {
                     log.error("Quote.countDocuments error " + err + __location);
                     error = null;
                     rejected = true;
-                })
+                });
                 if(rejected){
                     reject(error);
                     return;
@@ -386,9 +392,13 @@ module.exports = class QuoteBO {
                 return;
             }
 
-
-            resolve(mongoUtils.objListCleanup(docList));
-            return;
+            docList = mongoUtils.objListCleanup(docList);
+            for (const quoteDoc of docList) {
+                if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                    await this.checkAndFixQuoteStatus(quoteDoc);
+                }
+            }
+            return resolve(docList);
         });
 
     }
@@ -420,6 +430,9 @@ module.exports = class QuoteBO {
                     else {
                         quoteDoc = docDB
                     }
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
+                    }
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -448,6 +461,9 @@ module.exports = class QuoteBO {
                     }
                     else {
                         quoteDoc = docDB
+                    }
+                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(quoteDoc);
                     }
                 }
                 catch (err) {
@@ -487,6 +503,9 @@ module.exports = class QuoteBO {
                     // const quote = new Quote(newObjectJSON);
                     await Quote.updateOne(query, newObjectJSON);
                     const newQuotedoc = await Quote.findOne(query);
+                    if(newQuotedoc && newQuotedoc.quoteStatusId === quoteStatus.initiated.id){
+                        await this.checkAndFixQuoteStatus(newQuotedoc);
+                    }
                     newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
                 }
                 catch (err) {
@@ -533,25 +552,25 @@ module.exports = class QuoteBO {
     }
 
     // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
-    async updateQuoteAggregatedStatus(quoteId, status) {
-        if(quoteId && status){
+    async updateQuoteAggregatedStatus({quoteId, mysqlId}, status) {
+        if(quoteId && mysqlId && status){
             // Not updating SQL with new status information since it will be deprecated
             const sql = `
                 UPDATE clw_talage_quotes
                 SET aggregated_status = ${db.escape(convertToAggregatedStatus(status))}
-                WHERE id = ${quoteId}
+                WHERE id = ${mysqlId}
             `;
             try {
                 await db.query(sql);
-                log.info(`Updated Mysql clw_talage_quotes.aggregated_status on  ${quoteId}` + __location);
+                log.info(`Updated MySQL clw_talage_quotes.aggregated_status on  ${mysqlId}` + __location);
             }
             catch (err) {
-                log.error(`Could not mysql update quote ${quoteId} aggregated status: ${err} ${__location}`);
+                log.error(`Could not update MySQL quote ${mysqlId} aggregated status: ${err} ${__location}`);
 
             }
             // update Mongo
             try{
-                const query = {"mysqlId": quoteId};
+                const query = {quoteId};
                 const updateJSON = {
                     "aggregatedStatus": convertToAggregatedStatus(status),
                     "quoteStatusId": status.id, 
@@ -652,6 +671,36 @@ module.exports = class QuoteBO {
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         this.updateProperty();
         return true;
+    }
+
+    // checks the status of the quote and fixes it if its timed out
+    async checkAndFixQuoteStatus(quoteDoc){
+        // only check and fix quotes that are potentially hanging on initiated
+        if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+            try{
+                const now = moment.utc();
+                // if the quotingStartedDate doesnt exist, set it and return (this shouldn't happen)
+                if(!quoteDoc.quotingStartedDate){
+                    quoteDoc.quotingStartedDate = now;
+                    const query = {quoteId: quoteDoc.quoteId};
+                    await Quote.updateOne(query, {quotingStartedDate: now});
+                    return;
+                }
+
+                const status = global.requireShared('./models/status/quoteStatus.js');
+                const duration = moment.duration(now.diff(moment(quoteDoc.quotingStartedDate)));
+                if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
+                    log.error(`Quote: ${quoteDoc.quoteId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quote initiated.`);
+                    // This probably should just handle the update to mongo without the call to quotestatus.
+                    // we know exactly what should happen.
+                    await status.updateQuoteStatus(quoteDoc, true);
+                }
+            }
+            catch(err){
+                log.error('QuoteBO checkAndFixQuoteStatus  ' + err + __location);
+            }
+        }
+        return;
     }
 
 }

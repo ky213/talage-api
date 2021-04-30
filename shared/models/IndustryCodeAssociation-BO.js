@@ -302,6 +302,24 @@ const properties = {
         "type": "number",
         "dbType": "int(6) unsigned"
     },
+    "industry_code": {
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
+    },
+    "ncci_code": {
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
+    },
     "activityCodeId": {
         "default": null,
         "encrypted": false,

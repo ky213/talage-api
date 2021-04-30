@@ -7,10 +7,10 @@
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 // const util = require('util');
 const auth = require('./helpers/auth-agencyportal.js');
-const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -82,19 +82,24 @@ async function getbyId(req, res, next) {
     if (locationJSONList && locationJSONList.length > 0) {
         let location = locationJSONList[0];
         location.id = location.systemId;
-        if(location.agencyNetworkId){
+        if(location.agencyId){
             try{
+                let agencyNetworkId = location.agencyNetworkId
+                if(!location.agencyNetworkId){
+                    const agencyBO = new AgencyBO();
+                    const agency = await agencyBO.getById(location.agencyId);
+                    agencyNetworkId = agency.agencyNetworkId;
+                }
                 const agencyNetworkBO = new AgencyNetworkBO();
-                const agencyNetwork = await agencyNetworkBO.getById(location.agencyNetworkId);
-                if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
-                    location.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
+                const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
+                if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
+                    location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
                 }
             }
             catch(err){
                 log.error(`Get Agency Location error retrieving AgencyNetwork AgencyLocationId ${location.systemId}` + err + __location)
             }
         }
-
 
 
         if(location.insurers){
@@ -176,7 +181,7 @@ async function createAgencyLocation(req, res, next) {
 
     if(req.body.policy_type_info){
         req.body.policyTypeInfo = req.body.policy_type_info
-    } 
+    }
 
     //Fix insures
     if (req.body.insurers) {
@@ -195,6 +200,9 @@ async function createAgencyLocation(req, res, next) {
     //convert legacy property Name
     if(req.body.agency){
         req.body.agencyId = req.body.agency;
+    }
+    if(!req.body.agencyNetworkId){
+        req.body.agencyNetworkId = req.authentication.agencyNetworkId
     }
 
     // Initialize an agency object
@@ -512,12 +520,18 @@ async function getSelectionList(req, res, next) {
         location.fname = location.firstName;
         location.lname = location.lastName;
         location.id = location.systemId;
-        if(location.agencyNetworkId){
+        if(location.agencyId){
             try{
+                let agencyNetworkId = location.agencyNetworkId
+                if(!location.agencyNetworkId){
+                    const agencyBO = new AgencyBO();
+                    const agency = await agencyBO.getById(location.agencyId);
+                    agencyNetworkId = agency.agencyNetworkId;
+                }
                 const agencyNetworkBO = new AgencyNetworkBO();
-                const agencyNetwork = await agencyNetworkBO.getById(location.agencyNetworkId);
-                if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
-                    location.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
+                const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
+                if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
+                    location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
                 }
             }
             catch(err){

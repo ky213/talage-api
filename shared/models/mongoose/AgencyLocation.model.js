@@ -47,6 +47,7 @@ const AgencyLocationSchema = new Schema({
     systemId: {type: Number, unique: true},
     mysqlId: {type: Number, unique: true},
     agencyId: {type: Number, required: true},
+    agencyNetworkId: {type: Number, required: false},
     primary: {type: Boolean, default: true},
     address: {type: String, required: false},
     address2: {type: String, required: false},

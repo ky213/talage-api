@@ -59,9 +59,10 @@ const quoteStatus = {
  * @param {Object} quoteDocJson - the quote to update
  * @return {void}
  */
-async function updateQuoteStatus(quoteDocJson) {
+async function updateQuoteStatus(quoteDocJson, timeout = false) {
     const QuoteBO = global.requireShared('./models/Quote-BO.js');
-    const status = getQuoteStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult);
+    const status = getQuoteStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult, timeout);
+
     // have both checks just for backwards compatibility, in case there is misalignment, to force an update
     if (status.id !== quoteDocJson.quoteStatusId || status.description !== quoteDocJson.quoteStatusDescription) {
         // note: this is done purely because the function that calls this expects aggregatedStatus to exist
@@ -69,7 +70,7 @@ async function updateQuoteStatus(quoteDocJson) {
         quoteDocJson.aggregatedStatus = convertToAggregatedStatus(status);
         const quoteBO = new QuoteBO();
         try {
-            await quoteBO.updateQuoteAggregatedStatus(quoteDocJson.id, status);
+            await quoteBO.updateQuoteAggregatedStatus(quoteDocJson, status);
         }
         catch (error) {
             log.error(`Could not update quote ${quoteDocJson.id} status: ${error} ${__location}`);
@@ -89,7 +90,7 @@ async function updateQuoteStatus(quoteDocJson) {
  * 
  * NOTE: This whole function will change once we get rid of aggregatedStatus and rework what is passed in by apiResult
  */
-function getQuoteStatus(bound, status, apiResult) {
+ function getQuoteStatus(bound, status, apiResult, timeout) {
     if (bound) {
         // return 'bound';
         return quoteStatus.bound;
@@ -122,9 +123,14 @@ function getQuoteStatus(bound, status, apiResult) {
         // return 'declined';
         return quoteStatus.declined;
     }
-    else if (apiResult === quoteStatus.initiated.description) {
+    else if (apiResult === quoteStatus.initiated.description && !timeout) {
         return quoteStatus.initiated;
     }
+    else if (timeout) {
+        // Making this explicit, even though a fall-through would result in the same error result, in case we change this in the future...
+        return quoteStatus.error;
+    }
+
     // return 'error';
     return quoteStatus.error;
 }

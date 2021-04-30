@@ -1,3 +1,4 @@
+/* eslint-disable init-declarations */
 /* eslint-disable valid-jsdoc */
 /* eslint-disable object-curly-newline */
 const axios = require('axios');
@@ -52,7 +53,7 @@ const getNcciFromClassCode = async (code, territory) => {
         return insurerActivityCode.code
     }
     else{
-        log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
+        log.error(`Code could not be found: ${code} / ${territory} ${JSON.stringify(activityCodeQuery)} @ ${__location}`);
         throw new Error(`Code could not be found: ${code} / ${territory}`);
     }
 
@@ -107,6 +108,7 @@ const getPricing = async (token, integration, sessionId) => {
 
     // Retrieve the primary contact.
     let primaryContact;
+    // eslint-disable-next-line prefer-const
     let allPrimaryContacts = appData.contacts.filter(t => t.primary);
     if (allPrimaryContacts.length > 0) {
         primaryContact = allPrimaryContacts[0];
@@ -154,7 +156,7 @@ const getPricing = async (token, integration, sessionId) => {
                 state: location.state,
                 zip: location.zipcode,
                 classCodes: await Promise.all(location.activityPayrollList.map(async (code) => ({
-                    classCode: await getNcciFromClassCode(code.activtyCodeId, location.state),
+                    classCode: await getNcciFromClassCode(code.activityCodeId, location.state),
                     payroll: code.payroll,
                     numberOfEmployees: _.sum(code.employeeTypeList.map(t => t.employeeTypeCount))
                 })))
@@ -174,9 +176,10 @@ const getPricing = async (token, integration, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appId} get getPricing error ${err} ` + __location);
+        log.error(`AppId: ${appData.applicationId} get getPricing error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
         integration.log += "\n";
     }
     if(apiCall){
@@ -209,9 +212,10 @@ const getQuote = async (integration, token, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.appData.applicationId} get session error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
         integration.log += "\n";
     }
     if(apiCall){
@@ -267,6 +271,7 @@ const getSession = async (integration, token, businessTypes) => {
         log.error(`AppId: ${integration.app.applicationDocData.applicationId} get session error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
         integration.log += "\n";
     }
     if(apiCall){
@@ -353,7 +358,7 @@ const injectAnswers = async (integration, token, fullQuestionSession, questionAn
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.applicationDocData.applicationId} get session error ${err} ` + __location);
     }
     if(appetite){
         return appetite.data;

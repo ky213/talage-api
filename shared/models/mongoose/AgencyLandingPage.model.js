@@ -31,6 +31,7 @@ const AgencyLandingPageSchema = new Schema({
     primary: {type: Boolean, default: false},
     industryCodeId: {type: Number},
     industryCodeCategoryId: {type: Number},
+    lockDefaults: {type: Boolean, default: false},
     colorSchemeId: {type: Number, default: 1},
     heading: {type: String, required: false},
     hits: {type: Number, default: 0},
