@@ -15,7 +15,7 @@ const fs = require('fs');
 
 //const fs = require('fs');
 const slack = global.requireShared('./services/slacksvc.js');
-const validator = global.requireShared('./helpers/validator.js');
+
 
 module.exports = class QuoteBind{
 
@@ -83,7 +83,7 @@ module.exports = class QuoteBind{
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
-        
+
         return true;
     }
 
@@ -278,7 +278,7 @@ module.exports = class QuoteBind{
         if(type === 'bound'){
             notifiyTalage = true;
         }
-        //temporarily notify Talage of all Bound 
+        //temporarily notify Talage of all Bound
         // notifyTalage force a hard match on true. in case something beside a boolan got in there
         if(this.applicationDoc.agencyId <= 2 || notifiyTalage === true){
             const agencyNetworkBO = new AgencyNetworkBO();

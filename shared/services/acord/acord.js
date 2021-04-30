@@ -47,15 +47,8 @@ module.exports = class ACORD{
         const application = new applicationBO();
 
         try {
-            if(this.applicationId > 0){
-                log.debug(`Getting app using mysql Id  ${this.applicationId} from mongo` + __location)
-                this.applicationDoc = await application.loadfromMongoBymysqlId(this.applicationId);
-            }
-            else {
-                log.debug(`Getting app using app Id  ${this.applicationId} from mongo` + __location)
-                this.applicationDoc =  await application.getfromMongoByAppId(this.applicationId);
-            }
-            // this.applicationDoc = await application.getMongoDocbyMysqlId(this.applicationId);
+            log.debug(`Getting app using mysql Id  ${this.applicationId} from mongo` + __location)
+            this.applicationDoc = await application.loadById(this.applicationId);
         }
         catch (err) {
             log.error(`Failed getting application with ID: ${this.applicationId}` + err + __location);

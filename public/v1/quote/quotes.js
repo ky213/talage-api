@@ -1,6 +1,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
+const moment = require('moment');
 const serverHelper = global.requireRootPath('server.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
@@ -10,25 +11,6 @@ const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-B
 const PaymentPlanBO = global.requireShared('./models/PaymentPlan-BO.js');
 const LimitsBO = global.requireShared('./models/Limits-BO.js');
 
-/**
- * Execute a query and log an error if it fails (testing a pattern)
- *
- * @param {object} sql - SQL query to run
- * @param {object} queryDescription - Description of the query
- *
- * @returns {Object} query result
- */
-async function queryDB(sql, queryDescription) {
-    let result = null;
-    try {
-        result = await db.query(sql);
-    }
-    catch (error) {
-        log.error(`ERROR: ${queryDescription}: ${error} ${__location}`);
-        return null;
-    }
-    return result;
-}
 
 /**
  * Create a quote summary to return to the frontend
@@ -58,7 +40,7 @@ async function createQuoteSummary(quote) {
         case 'declined':
             // Return a declined quote summary
             return {
-                id: quote.mysqlAppId,
+                id: quote.quoteId,
                 policy_type: quote.policyType,
                 status: 'declined',
                 message: `${insurer.name} has declined to offer you coverage at this time`,
@@ -150,7 +132,7 @@ async function createQuoteSummary(quote) {
                 logoUrl = global.settings.IMAGE_URL + insurer.logo
             }
             return {
-                id: quote.mysqlId,
+                id: quote.quoteId,
                 policy_type: quote.policyType,
                 amount: quote.amount,
                 deductible: quote.deductible,
@@ -162,7 +144,7 @@ async function createQuoteSummary(quote) {
                     name: insurer.name,
                     rating: insurer.rating
                 },
-                limits,
+                limits: limits,
                 payment_options: paymentOptions
             };
         default:
@@ -182,6 +164,7 @@ async function createQuoteSummary(quote) {
  * @returns {void}
  */
 async function getQuotes(req, res, next) {
+    log.debug(`getQuotes: ${JSON.stringify(req.body)} ` + __location);
     // Validate JWT
     if (!req.query.token) {
         // Missing token
@@ -196,12 +179,6 @@ async function getQuotes(req, res, next) {
         return next(serverHelper.invalidCredentialsError('Expired token.'));
     }
 
-    // Set the last quote ID retrieved
-    let lastQuoteID = 0;
-    if (req.query.after) {
-        lastQuoteID = req.query.after;
-    }
-
     // Retrieve if we are complete. Must be done first or we may miss quotes.
     // return not complete if there is db error.
     // app will try again.
@@ -213,6 +190,7 @@ async function getQuotes(req, res, next) {
     }
     catch(err){
         log.error(`Error getting application progress appId = ${req.body.id}. ` + err + __location);
+        return next(serverHelper.invalidCredentialsError('bad token.'));
     }
 
     const complete = progress !== 'quoting';
@@ -222,11 +200,21 @@ async function getQuotes(req, res, next) {
     const quoteBO = new QuoteBO();
     let quoteList = null;
 
-    const query = {
-        mysqlAppId: tokenPayload.applicationID,
-        lastMysqlId: lastQuoteID
-    };
+    // eslint-disable-next-line prefer-const
+    let query = {applicationId: tokenPayload.applicationID};
+    const now = moment();
+    if (req.query.afterDate) {
+        try{
+            const afterDate = moment(req.query.after);
+            query.createdAt = afterDate;
+        }
+        catch(err){
+            log.error(`Could not process afterDate to get quote list for appId ${tokenPayload.applicationID} error:` + err + __location);
+            return next(serverHelper.requestError('Bad parameters.'));
+        }
+    }
     try {
+        log.debug(`getNewAppQuotes query: ${JSON.stringify(query)} ` + __location);
         quoteList = await quoteBO.getNewAppQuotes(query);
     }
     catch (error) {
@@ -247,7 +235,8 @@ async function getQuotes(req, res, next) {
 
     res.send(200, {
         complete: complete,
-        quotes: returnedQuoteList
+        quotes: returnedQuoteList,
+        afterDate: now.toISOString()
     });
     return next();
 }
