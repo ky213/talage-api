@@ -107,15 +107,16 @@ module.exports = class CompwestWC extends Integration {
             this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type`);
             return this.return_result('error');
         }
-
+        //************************* create XML ************************************ */
         // Build the XML Request
 
         const quoteRequest = true
         const requestACORD = await this.createRequestXML(this.request_id, quoteRequest, guideWireAPI)
-        
+
         // Get the XML structure as a string
         const xml = requestACORD.end({pretty: true});
 
+        /************** Make Request ********************************************** */
         // Determine which URL to use
         let host = '';
         let path = '';
@@ -292,7 +293,7 @@ module.exports = class CompwestWC extends Integration {
                 };
             } catch (err) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
-                return this.return_result('error');
+                //return this.return_result('error');
             }
         }
 
@@ -306,20 +307,25 @@ module.exports = class CompwestWC extends Integration {
         }
 
         // Attempt to get the policy number
+        // eslint-disable-next-line prefer-const
+        let policyInfo = {};
         try {
             this.number = resWorkCompPolicy.PolicyNumber[0];
+            policyInfo.policyNumber = this.number;
+            this.insurerPolicyInfo = policyInfo;
         } catch (e) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
-            return this.return_result('error');
+            //return this.return_result('error');
         }
 
         // Get the amount of the quote
         if (status === 'QUOTED' || status === 'REFERRALNEEDED') {
             try {
                 this.amount = parseInt(resWorkCompPolicy.CurrentTermAmt[0].Amt[0], 10);
+                policyInfo.policyPremium = this.amount;
             } catch (e) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
-                return this.return_result('error');
+                //return this.return_result('error');
             }
         }
 
@@ -333,7 +339,7 @@ module.exports = class CompwestWC extends Integration {
     }
 
 
-    async createRequestXML(request_id, quoteRequest = true, guideWireAPI = true){
+    async createRequestXML(request_id, isGuideWireAPI = true){
         const appDoc = this.app.applicationDocData
 
         // These are the limits supported by AF Group - checked earlier.
@@ -349,7 +355,7 @@ module.exports = class CompwestWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
-        if(guideWireAPI === true){
+        if(isGuideWireAPI === true){
             //updates
             // need to take corporation_type into account for
             // nonprofits.
@@ -381,7 +387,7 @@ module.exports = class CompwestWC extends Integration {
 
           // <ACORD>
         const requestACORD = builder.create('ACORD');
-        if(guideWireAPI === true){
+        if(isGuideWireAPI === true){
             requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
             requestACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
         }
@@ -412,7 +418,7 @@ module.exports = class CompwestWC extends Integration {
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-        if(guideWireAPI === true){
+        if(isGuideWireAPI === true){
             const txnDate = moment();
             WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
         }
@@ -422,7 +428,7 @@ module.exports = class CompwestWC extends Integration {
         // <ItemIdInfo>
         const ItemIdInfo = Producer.ele('ItemIdInfo');
         let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
-        if(guideWireAPI === true){
+        if(isGuideWireAPI === true){
             agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
         }
         ItemIdInfo.ele('AgencyId', agencyCode);
@@ -487,7 +493,7 @@ module.exports = class CompwestWC extends Integration {
         Addr.ele('StateProvCd', this.app.business.mailing_territory);
         Addr.ele('PostalCode', this.app.business.mailing_zip);
 
-        if(guideWireAPI === true){
+        if(isGuideWireAPI === true){
             Addr.ele('CountryCd', 'US');
         }
         else {
@@ -600,7 +606,7 @@ module.exports = class CompwestWC extends Integration {
                 DBAAddr.ele('City', this.app.business.mailing_city);
                 DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
                 DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
-                if(guideWireAPI === true){
+                if(isGuideWireAPI === true){
                     DBAAddr.ele('CountryCd', 'US');
                 }
                 else {
@@ -722,7 +728,7 @@ module.exports = class CompwestWC extends Integration {
                                     //const question_attributes = question.attributes;
                                     const question_attributes = this.question_details[talageQuestionId].attributes;
                                     log.debug(`Compwest WC calling processActivtyCodeQuestion`);
-                                    this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
+                                    this.processActivtyCodeQuestion(ClassCodeQuestions,isGuideWireAPI, WorkCompRateClass,
                                         classCode, subCode, talageQuestionId, question, question_attributes);
 
                                 });
@@ -819,7 +825,7 @@ module.exports = class CompwestWC extends Integration {
 
                         //Detemine QuestionCd
                         let questionCdValue = null;
-                        if(guideWireAPI === true){
+                        if(isGuideWireAPI === true){
                             questionCdValue = this.question_details[questionId].attributes.questionCd;
                         }
                         else {
@@ -832,7 +838,7 @@ module.exports = class CompwestWC extends Integration {
                             QuestionAnswer.ele('QuestionCd', questionCdValue);
                             QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
-                             if(guideWireAPI === true && answerBoolean){
+                             if(isGuideWireAPI === true && answerBoolean){
                                 const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
                                 for (const childQuestionId in this.questions) {
                                     const childTalageQuestion = this.questions[childQuestionId]
