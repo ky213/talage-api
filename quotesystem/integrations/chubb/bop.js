@@ -49,7 +49,7 @@ module.exports = class ChubbBOP extends Integration {
         };
 
         const applicationDocData = this.app.applicationDocData;
-        const logPrefix = `Chubb BOP (Appid: ${applicationDocData.mysqlId}): `;
+        const logPrefix = `Chubb BOP (Appid: ${applicationDocData.applicationId}): `;
         let chubbClassCode = this.industry_code.cgl
         //use Chubb Attributes for cgl and iso(classcode) if present
         if(this.insurerIndustryCode.attributes){

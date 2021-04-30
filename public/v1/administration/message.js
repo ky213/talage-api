@@ -17,8 +17,6 @@ const moment = require("moment");
 const rowLimit = 100;
 const Message = require('mongoose').model('Message');
 
-
-
 async function findAll(req, res, next) {
     const options = {sort: {}};
     const query = {};
@@ -36,7 +34,6 @@ async function findAll(req, res, next) {
         else {
             // default to DESC on sent
             options.sort.sent = -1;
-            options.sort.mysqlId = -1;
         }
 
         let fromDate = null;
@@ -104,7 +101,7 @@ async function findAll(req, res, next) {
         log.debug("MessageList query " + JSON.stringify(query))
         log.debug("MessageList options " + JSON.stringify(options))
         docList = await Message.find(query, '-__v', options);
-        log.debug("docList.length: " + docList.length);
+        log.debug("docList.length: " + docList.length + __location);
         count = await Message.countDocuments(query);
     }
     catch (err) {
@@ -118,14 +115,7 @@ async function findAll(req, res, next) {
 
 async function findOne(req, res, next) {
     let query = {};
-    if (isNaN(req.params.id)) {
-        query.messageId = req.params.id;
-    }
-    else {
-        //mysqlID
-        const id = stringFunctions.santizeNumber(req.params.id, true);
-        query.mysqlId = id;
-    }
+    query.messageId = req.params.id;
     log.debug("query " + JSON.stringify(query));
     let doc = null;
     try {

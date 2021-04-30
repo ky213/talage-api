@@ -31,7 +31,7 @@ exports.processtask = async function(queueMessage) {
         if (queueMessage.body && queueMessage.body.applicationId) {
             await sendEmodEmail(queueMessage.body.applicationId).catch(err => error = err);
             if(error){
-                log.error("Error soleproApplicationEmailTask " + error + __location);
+                log.error("Error wcemodemail " + error + __location);
             }
             error = null;
         }

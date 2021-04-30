@@ -128,10 +128,6 @@ function generateCSV(applicationList){
                     applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
                 }
             }
-            // else {
-            //     log.debug(`No primary contact for appId: ${applicationDoc.mysqlId}` + __location)
-            // }
-
 
             // Status
             if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){

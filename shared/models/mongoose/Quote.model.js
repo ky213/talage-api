@@ -42,9 +42,8 @@ const PolicySchema = new Schema({
 
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
-    mysqlId: {type: Number, unique: true},
+    mysqlId: {type: Number, unique: false},
     applicationId: {type: String},
-    mysqlAppId: {type: Number},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
     quoteNumber: {type: String},

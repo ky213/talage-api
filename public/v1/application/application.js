@@ -20,15 +20,14 @@ const detailStepParser = require('./parsers/detail-step-parser.js')
 const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
 const bindStepParser = require('./parsers/bindrequest-step-parse.js');
-//const { WorkDocs } = require('aws-sdk');
 
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 const slackSvc = global.requireShared('./services/slacksvc.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
-//const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const validator = global.requireShared('./helpers/validator.js');
 
 /**
  * Responds to POST related ot new applications
@@ -54,14 +53,6 @@ async function Save(req, res, next){
     // }
     const applicationRequestJson = req.body;
 
-    if(applicationRequestJson.demo === "true" || applicationRequestJson.id === "-999"){
-        const responseDemo = {};
-        responseDemo.demo = applicationRequestJson.demo;
-        responseDemo.id = -999;
-        responseDemo.message = "saved";
-        res.send(200, responseDemo);
-        return next();
-    }
 
     //Validation passed, give requst application to model to process and save.
     if(!applicationRequestJson.id && applicationRequestJson.step !== "contact" && applicationRequestJson.step !== "bindRequest"){
@@ -70,12 +61,14 @@ async function Save(req, res, next){
     }
     if(applicationRequestJson.id){
         //convert to int and therefore santize
-        try{
-            applicationRequestJson.id = parseInt(applicationRequestJson.id,10)
-        }
-        catch(e){
-            res.send(400, "bad application id");
-            return next(serverHelper.requestError("missing application id"));
+        if(!validator.isUuid(applicationRequestJson.id)){
+            try{
+                applicationRequestJson.id = parseInt(applicationRequestJson.id,10)
+            }
+            catch(e){
+                res.send(400, "bad application id");
+                return next(serverHelper.requestError("missing application id"));
+            }
         }
     }
     // Prep request data for passing to App Model
