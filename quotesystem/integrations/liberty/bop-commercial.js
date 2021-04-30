@@ -1354,8 +1354,8 @@ module.exports = class LibertySBOP extends Integration {
          */
         // NOTE: No schema exists for this.paymentPlan, so leaving it as noted above for now
         this.insurerPaymentPlans = [];
-        if (policy && policy[0].QuoteInfo && policy[0].QuoteInfo[0].QuoteInfoExt && policy[0].QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
-            const paymentOptions = policy[0].QuoteInfo[0].QuoteInfoExt[0].paymentOption;
+        if (policy && policy.QuoteInfo && policy.QuoteInfo[0].QuoteInfoExt && policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
+            const paymentOptions = policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption;
 
             const paymentPlan = {};
             paymentOptions.forEach(paymentOption => {
@@ -1370,10 +1370,6 @@ module.exports = class LibertySBOP extends Integration {
                 this.insurerPaymentPlans.push(paymentPlan);
             });
         } 
-
-        // DEBUG - REMOVE THIS
-        // eslint-disable-next-line no-console
-        console.log(JSON.stringify(this.insurerPaymentPlans, null, 4));
 
         // return result based on policy status
         if (policyStatus) {
