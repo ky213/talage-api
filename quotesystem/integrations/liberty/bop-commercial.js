@@ -1107,9 +1107,9 @@ module.exports = class LibertySBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        log.debug("=================== QUOTE REQUEST ===================");
-        log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
-        log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
+        // log.debug("=================== QUOTE REQUEST ===================");
 
         // Determine which URL to use
         const host = 'ci-policyquoteapi.libertymutual.com';
@@ -1158,9 +1158,9 @@ module.exports = class LibertySBOP extends Integration {
         switch (objPath.MsgStatusCd[0].toLowerCase()) {
             case "error":
                 // NOTE: Insurer "error" is considered a "decline" within Wheelhouse.
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
-                log.error("=================== QUOTE ERROR ===================");
+                // log.error("=================== QUOTE ERROR ===================");
+                // log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
+                // log.error("=================== QUOTE ERROR ===================");
                 // normal error structure, build an error message
                 let additionalReasons = null;
                 let errorMessage = `${logPrefix}`;
@@ -1221,9 +1221,9 @@ module.exports = class LibertySBOP extends Integration {
 
         // PARSE SUCCESSFUL PAYLOAD
         // logged in database only use log.debug so it does not go to ElasticSearch
-        log.debug("=================== QUOTE RESULT ===================");
-        log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
-        log.debug("=================== QUOTE RESULT ===================");
+        // log.debug("=================== QUOTE RESULT ===================");
+        // log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
+        // log.debug("=================== QUOTE RESULT ===================");
 
         // check valid response object structure
         if (
@@ -1357,8 +1357,9 @@ module.exports = class LibertySBOP extends Integration {
         if (policy && policy.QuoteInfo && policy.QuoteInfo[0].QuoteInfoExt && policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
             const paymentOptions = policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption;
 
-            const paymentPlan = {};
             paymentOptions.forEach(paymentOption => {
+                const paymentPlan = {};
+
                 if (paymentOption.PaymentPlanCd) {
                     paymentPlan.paymentPlanCd = paymentOption.PaymentPlanCd[0];
                 }
