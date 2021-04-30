@@ -662,14 +662,13 @@ module.exports = class AcuityWC extends Integration {
         try{
             const quoteDocBytes = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/print/${quoteId}`);
             if (quoteDocBytes) {
-                return this.client_error("The insurer's server returned an unspecified error when retrieving the final quote information.", __location, {statusCode: statusCode});
+                this.quote_letter.data = quoteDocBytes;
             }
-            this.quote_letter.data = quoteDocBytes;
         }
         catch(err){
-            log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
+            log.error(`Appid: ${this.app.id} AMTrust WC: Error getting quote doc ${err} ` + __location)
         }
-
+        return;
 
     }
 };
