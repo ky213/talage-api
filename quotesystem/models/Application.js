@@ -662,14 +662,20 @@ module.exports = class Application {
                                 }
 
                                 const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
-                                if (slug.length > 0 && fs.existsSync(normalizedPath)) {
-                                    // Require the integration file and add the response to our promises
-                                    const IntegrationClass = require(normalizedPath);
-                                    const integration = new IntegrationClass(this, insurer, policy);
-                                    quote_promises.push(integration.quote());
+                                log.debug(`normalizedPathnormalizedPath}`)
+                                try{
+                                    if (slug.length > 0 && fs.existsSync(normalizedPath)) {
+                                        // Require the integration file and add the response to our promises
+                                        const IntegrationClass = require(normalizedPath);
+                                        const integration = new IntegrationClass(this, insurer, policy);
+                                        quote_promises.push(integration.quote());
+                                    }
+                                    else {
+                                        log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
+                                    }
                                 }
-                                else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
+                                catch(err){
+                                    log.error(`Error getting Insurer integration file ${normalizedPath} ${err} ` + __location)
                                 }
                             }
                             else {
