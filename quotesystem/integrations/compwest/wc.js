@@ -41,7 +41,7 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        //const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
@@ -67,8 +67,278 @@ module.exports = class CompwestWC extends Integration {
 
         const cwCoreStates = ['AZ', 'CA', 'CO', 'ID', 'NV', 'OR', 'UT'];
 
-        // These are the limits supported by AF Group
+        const entityMatrix = {
+            Association: 'AS',
+            Corporation: 'CP',
+            'Limited Liability Company': 'LL',
+            'Limited Partnership': 'LP',
+            Partnership: 'PT',
+            'Sole Proprietorship': 'IN'
+        };
+
+        // CompWest has us define our own Request ID
+        this.request_id = this.generate_uuid();
+
+
+        // Check if this is within a core state, if not, more checking needs to be done
+        if (!afCoreStates.includes(this.app.business.primary_territory) && !cwCoreStates.includes(this.app.business.primary_territory)) {
+            // If this wasn't the Talage agency, start over as the Talage agency
+            if (this.app.agencyLocation.agencyId !== 1) {
+                log.info(`TO DO: Appid: ${this.app.id}  As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
+            }
+
+            // For now, just auto decline
+            log.warn(`Appid: ${this.app.id} autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location);
+            this.reasons.push(`Non-Core State: ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory}`);
+            return this.return_result('autodeclined');
+        }
+
+        // Prepare limits - just for error check here.
         const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
+        const limits = this.getBestLimits(carrierLimits);
+        if (!limits) {
+            log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
+            return this.return_result('autodeclined');
+        }
+
+         if (!(this.app.business.entity_type in entityMatrix)) {
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type`);
+            return this.return_result('error');
+        }
+
+        // Build the XML Request
+
+        const quoteRequest = true
+        const requestACORD = await this.createRequestXML(this.request_id, quoteRequest, guideWireAPI)
+        
+        // Get the XML structure as a string
+        const xml = requestACORD.end({pretty: true});
+
+        // Determine which URL to use
+        let host = '';
+        let path = '';
+        if(guideWireAPI === true){
+            if (this.insurer.useSandbox) {
+                log.debug("AF sandbox Guidewire");
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
+            }
+            else {
+                log.debug("AF prod Guidewire");
+                // //TODO Change when Production URl is received
+                 host = 'psv.afgroup.com';
+                 path = '/DigitalAq/rest/getworkcompquote';
+            }
+        }
+        else if (this.insurer.useSandbox) {
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
+        }
+        else {
+            host = 'psv.afgroup.com';
+            path = '/DigitalAq/rest/getworkcompquote';
+        }
+
+        // Send the XML to the insurer
+        let result = null;
+        try {
+            log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} sending request ` + __location);
+            result = await this.send_xml_request(host, path, xml, {
+                Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
+                'Content-Type': 'application/xml'
+            }, false, true);
+        }
+        catch (error) {
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
+            if(error.message.indexOf('timedout') > -1){
+                this.reasons.push(error)
+            }
+            else{
+                this.reasons.push(error)
+            }
+            //return this.return_result('error');
+        }
+        // Begin reducing the response
+        if(!result){
+            this.log += '--------======= Unexpected API Response - No response =======--------';
+            this.log += util.inspect(result, false, null);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Empty response from Insurer`)
+            this.reasons.push("Request Error: Empty response from Insurer")
+            return this.return_result('error');
+        }
+        if(!result.ACORD){
+            this.log += '--------======= Unexpected API Response - No Acord Tag =======--------';
+            this.log += util.inspect(result, false, null);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Unexpected response ${JSON.stringify(result)}`)
+            this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
+            return this.return_result('error');
+        }
+        const res = result.ACORD;
+        //log.debug("AF response " + JSON.stringify(res))
+
+        // Check the status to determine what to do next
+        let message_type = '';
+        let status = ''
+        let statusDescription = '';
+        //if(res.SignonRs[0] && res.SignonRs[0].Status[0]){
+        try{
+            status = res.SignonRs[0].Status[0].StatusCd[0];
+
+            try{
+                if(res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc){
+                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc.toString();
+                }
+                //statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc ? res.SignonRs[0].Status[0].StatusDesc[0].Desc : "";
+            }
+            catch(err){
+                log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Unable to process  res.SignonRs[0].Status[0].StatusDesc[0].Desc ${err}` + __location);
+            }
+
+            // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
+            //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
+            //     && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
+            // }
+            // else {
+            //     statusDescription = "AFGroup/CompWest did not return an error description.";
+            // }
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+        }
+        if(typeof statusDescription !== 'string'){
+            log.debug(`CompWest WC statusDescription response typeof ${typeof statusDescription} value: ` + statusDescription + __location);
+            statusDescription = '';
+        }
+        // }
+        // else {
+        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status: no res.SignonRs[0].Status[0] node`)
+        // }
+        switch (status) {
+            case 'DECLINE':
+                this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
+                this.reasons.push(`${status} - ${statusDescription}`);
+                return this.return_result(status);
+            case 'UNAUTHENTICATED':
+            case 'UNAUTHORIZED':
+                message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
+                this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a quote, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
+                // This was a misconfiguration on the Agent's part, pick it up under the Talage agency for a better user experience
+                this.reasons.push(`${status} - ${message_type} Agency ID`);
+                return this.return_result('error');
+            case 'ERRORED':
+                this.log += `--------======= Application error =======--------<br><br> ${statusDescription}`;
+                log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${statusDescription}` + __location);
+                this.reasons.push(`${status} - ${statusDescription}`);
+                // Send notification email if we get an E Mod error back from carrier
+                try{
+                      if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
+                        wcEmodEmail.sendEmodEmail(this.app.id);
+                    }
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
+                }
+                return this.return_result('error');
+            case 'SMARTEDITS':
+                this.log += `--------======= Application SMARTEDITS =======--------<br><br>${statusDescription}`;
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${statusDescription}` + __location);
+                this.reasons.push(`${status} - ${statusDescription}`);
+                // Send notification email if we get an E Mod error back from carrier
+                try{
+                     if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
+                        wcEmodEmail.sendEmodEmail(this.app.id);
+                    }
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
+                }
+                return this.return_result('referred');
+            case 'REFERRALNEEDED':
+            case 'QUOTED':
+                // This is desired, do nothing
+                break;
+            case 'RESERVED':
+                this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quoted this business.`;
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
+                this.reasons.push(`${status} (blocked) - Another agency has already quoted this business.`);
+                return this.return_result('declined');
+            default:
+                this.log += '--------======= Unexpected API Response =======--------';
+                this.log += util.inspect(res, false, null);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} - Unexpected response code by API `);
+                this.reasons.push(`${status} - Unexpected response code returned by API.`);
+                return this.return_result('error');
+        }
+        let WorkCompPolicyAddRs = null;
+        // Reduce the response further
+        try{
+            WorkCompPolicyAddRs = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+        }
+        catch(err){
+            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
+        }
+
+        if (status === 'QUOTED') {
+            // Grab the file info
+            try {
+                this.quote_letter = {
+                    content_type: 'application/pdf',
+                    data: WorkCompPolicyAddRs['com.afg_Base64PDF'][0],
+                    file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
+                    length: WorkCompPolicyAddRs['com.afg_Base64PDF'][0].length
+                };
+            } catch (err) {
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
+                return this.return_result('error');
+            }
+        }
+
+        // Further reduce the response
+        let resWorkCompPolicy = null;
+        try{
+            resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
+        }
+        catch(err){
+            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
+        }
+
+        // Attempt to get the policy number
+        try {
+            this.number = resWorkCompPolicy.PolicyNumber[0];
+        } catch (e) {
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
+            return this.return_result('error');
+        }
+
+        // Get the amount of the quote
+        if (status === 'QUOTED' || status === 'REFERRALNEEDED') {
+            try {
+                this.amount = parseInt(resWorkCompPolicy.CurrentTermAmt[0].Amt[0], 10);
+            } catch (e) {
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
+                return this.return_result('error');
+            }
+        }
+
+        // Set the limits info
+        this.limits[1] = limits[0];
+        this.limits[2] = limits[1];
+        this.limits[3] = limits[2];
+
+        // Send the result of the request
+        return this.return_result(status);
+    }
+
+
+    async createRequestXML(request_id, quoteRequest = true, guideWireAPI = true){
+        const appDoc = this.app.applicationDocData
+
+        // These are the limits supported by AF Group - checked earlier.
+        const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
+        const limits = this.getBestLimits(carrierLimits);
 
         // Define how legal entities are mapped for Employers
         let entityMatrix = {
@@ -109,42 +379,15 @@ module.exports = class CompwestWC extends Integration {
                 // TRUSTESTATE
         }
 
-        // CompWest has us define our own Request ID
-        this.request_id = this.generate_uuid();
-
-
-        // Check if this is within a core state, if not, more checking needs to be done
-        if (!afCoreStates.includes(this.app.business.primary_territory) && !cwCoreStates.includes(this.app.business.primary_territory)) {
-            // If this wasn't the Talage agency, start over as the Talage agency
-            if (this.app.agencyLocation.agencyId !== 1) {
-                log.info(`TO DO: Appid: ${this.app.id}  As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
-            }
-
-            // For now, just auto decline
-            log.warn(`Appid: ${this.app.id} autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location);
-            this.reasons.push(`Non-Core State: ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory}`);
-            return this.return_result('autodeclined');
-        }
-
-        // Prepare limits
-        const limits = this.getBestLimits(carrierLimits);
-        if (!limits) {
-            log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
-            return this.return_result('autodeclined');
-        }
-
-        // Build the XML Request
-
-        // <ACORD>
-        const ACORD = builder.create('ACORD');
+          // <ACORD>
+        const requestACORD = builder.create('ACORD');
         if(guideWireAPI === true){
-            ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
-            ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+            requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
+            requestACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
         }
 
         // <SignonRq>
-        const SignonRq = ACORD.ele('SignonRq');
+        const SignonRq = requestACORD.ele('SignonRq');
 
         // <ClientApp>
         const ClientApp = SignonRq.ele('ClientApp');
@@ -158,15 +401,14 @@ module.exports = class CompwestWC extends Integration {
                 ClientApp.ele('SubmissionId', this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
                 log.debug("CompWest WC added SubmissionId");
         }
-
         //SubmissionId
 
         // </ClientApp>
         // </SignonRq>
 
         // <InsuranceSvcRq>
-        const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        InsuranceSvcRq.ele('RqUID', this.request_id);
+        const InsuranceSvcRq = requestACORD.ele('InsuranceSvcRq');
+        InsuranceSvcRq.ele('RqUID', request_id);
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
@@ -225,11 +467,7 @@ module.exports = class CompwestWC extends Integration {
         // }
         // </CommlName>
 
-        if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type`);
-            return this.return_result('error');
-        }
+
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
 
         // <TaxIdentity>
@@ -492,7 +730,6 @@ module.exports = class CompwestWC extends Integration {
                             catch(err){
                                 log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
                             }
-                            
                         }//have classcode and sub
                         // </WorkCompRateClass>
                     }
@@ -636,223 +873,8 @@ module.exports = class CompwestWC extends Integration {
         // </InsuranceSvcRq>
         // </ACORD>
 
-        // Get the XML structure as a string
-        const xml = ACORD.end({pretty: true});
+        return requestACORD;
 
-        // Determine which URL to use
-        let host = '';
-        let path = '';
-        if(guideWireAPI === true){
-            if (this.insurer.useSandbox) {
-                log.debug("AF sandbox Guidewire");
-                host = 'npsv.afgroup.com';
-                path = '/TEST_DigitalAq/rest/getworkcompquote';
-            }
-            else {
-                log.debug("AF prod Guidewire");
-                // //TODO Change when Production URl is received
-                 host = 'psv.afgroup.com';
-                 path = '/DigitalAq/rest/getworkcompquote';
-            }
-        }
-        else if (this.insurer.useSandbox) {
-                host = 'npsv.afgroup.com';
-                path = '/TEST_DigitalAq/rest/getworkcompquote';
-        }
-        else {
-            host = 'psv.afgroup.com';
-            path = '/DigitalAq/rest/getworkcompquote';
-        }
-
-        // Send the XML to the insurer
-        let result = null;
-        try {
-            log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} sending request ` + __location);
-            result = await this.send_xml_request(host, path, xml, {
-                Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-                'Content-Type': 'application/xml'
-            }, false, true);
-        }
-        catch (error) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
-            if(error.message.indexOf('timedout') > -1){
-                this.reasons.push(error)
-            }
-            else{
-                this.reasons.push(error)
-            }
-            //return this.return_result('error');
-        }
-        // Begin reducing the response
-        if(!result){
-            this.log += '--------======= Unexpected API Response - No response =======--------';
-            this.log += util.inspect(result, false, null);
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Empty response from Insurer`)
-            this.reasons.push("Request Error: Empty response from Insurer")
-            return this.return_result('error');
-        }
-        if(!result.ACORD){
-            this.log += '--------======= Unexpected API Response - No Acord Tag =======--------';
-            this.log += util.inspect(result, false, null);
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Unexpected response ${JSON.stringify(result)}`)
-            this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
-            return this.return_result('error');
-        }
-        const res = result.ACORD;
-        //log.debug("AF response " + JSON.stringify(res))
-
-        // Check the status to determine what to do next
-        let message_type = '';
-        let status = ''
-        let statusDescription = '';
-        //if(res.SignonRs[0] && res.SignonRs[0].Status[0]){
-        try{
-            status = res.SignonRs[0].Status[0].StatusCd[0];
-
-            try{
-                if(res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc){
-                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc.toString();
-                }
-                //statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc ? res.SignonRs[0].Status[0].StatusDesc[0].Desc : "";
-            }
-            catch(err){
-                log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Unable to process  res.SignonRs[0].Status[0].StatusDesc[0].Desc ${err}` + __location);
-            }
-
-            // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
-            //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
-            //     && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
-            // }
-            // else {
-            //     statusDescription = "AFGroup/CompWest did not return an error description.";
-            // }
-        }
-        catch(err){
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
-        }
-        if(typeof statusDescription !== 'string'){
-            log.debug(`CompWest WC statusDescription response typeof ${typeof statusDescription} value: ` + statusDescription + __location);
-            statusDescription = '';
-        }
-        // }
-        // else {
-        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status: no res.SignonRs[0].Status[0] node`)
-        // }
-        switch (status) {
-            case 'DECLINE':
-                this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
-                this.reasons.push(`${status} - ${statusDescription}`);
-                return this.return_result(status);
-            case 'UNAUTHENTICATED':
-            case 'UNAUTHORIZED':
-                message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
-                this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a quote, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
-                // This was a misconfiguration on the Agent's part, pick it up under the Talage agency for a better user experience
-                this.reasons.push(`${status} - ${message_type} Agency ID`);
-                return this.return_result('error');
-            case 'ERRORED':
-                this.log += `--------======= Application error =======--------<br><br> ${statusDescription}`;
-                log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${statusDescription}` + __location);
-                this.reasons.push(`${status} - ${statusDescription}`);
-                // Send notification email if we get an E Mod error back from carrier
-                try{
-                      if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
-                        wcEmodEmail.sendEmodEmail(this.app.id);
-                    }
-                }
-                catch(err){
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
-                }
-                return this.return_result('error');
-            case 'SMARTEDITS':
-                this.log += `--------======= Application SMARTEDITS =======--------<br><br>${statusDescription}`;
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${statusDescription}` + __location);
-                this.reasons.push(`${status} - ${statusDescription}`);
-                // Send notification email if we get an E Mod error back from carrier
-                try{
-                     if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
-                        wcEmodEmail.sendEmodEmail(this.app.id);
-                    }
-                }
-                catch(err){
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
-                }
-                return this.return_result('referred');
-            case 'REFERRALNEEDED':
-            case 'QUOTED':
-                // This is desired, do nothing
-                break;
-            case 'RESERVED':
-                this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quoted this business.`;
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
-                this.reasons.push(`${status} (blocked) - Another agency has already quoted this business.`);
-                return this.return_result('declined');
-            default:
-                this.log += '--------======= Unexpected API Response =======--------';
-                this.log += util.inspect(res, false, null);
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} - Unexpected response code by API `);
-                this.reasons.push(`${status} - Unexpected response code returned by API.`);
-                return this.return_result('error');
-        }
-        let WorkCompPolicyAddRs = null;
-        // Reduce the response further
-        try{
-            WorkCompPolicyAddRs = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
-        }
-        catch(err){
-            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
-        }
-
-        if (status === 'QUOTED') {
-            // Grab the file info
-            try {
-                this.quote_letter = {
-                    content_type: 'application/pdf',
-                    data: WorkCompPolicyAddRs['com.afg_Base64PDF'][0],
-                    file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
-                    length: WorkCompPolicyAddRs['com.afg_Base64PDF'][0].length
-                };
-            } catch (err) {
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
-                return this.return_result('error');
-            }
-        }
-
-        // Further reduce the response
-        let resWorkCompPolicy = null;
-        try{
-            resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
-        }
-        catch(err){
-            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
-        }
-
-        // Attempt to get the policy number
-        try {
-            this.number = resWorkCompPolicy.PolicyNumber[0];
-        } catch (e) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
-            return this.return_result('error');
-        }
-
-        // Get the amount of the quote
-        if (status === 'QUOTED' || status === 'REFERRALNEEDED') {
-            try {
-                this.amount = parseInt(resWorkCompPolicy.CurrentTermAmt[0].Amt[0], 10);
-            } catch (e) {
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
-                return this.return_result('error');
-            }
-        }
-
-        // Set the limits info
-        this.limits[1] = limits[0];
-        this.limits[2] = limits[1];
-        this.limits[3] = limits[2];
-
-        // Send the result of the request
-        return this.return_result(status);
     }
 
 
