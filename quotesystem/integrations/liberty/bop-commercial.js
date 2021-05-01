@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable no-empty */
 /* eslint indent: 0 */
@@ -224,7 +225,6 @@ const quoteMIMEType = "BASE64";
 let policyStatus = null;
 const quoteCoverages = [];
 let coverageSort = 0;
-// const paymentPlans = [];
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -270,9 +270,7 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // if there's no Business Personal Property limit or Building Limit provided for each location
-        for (const {
- businessPersonalPropertyLimit, buildingLimit
-} of applicationDocData.locations) {
+        for (const {businessPersonalPropertyLimit, buildingLimit} of applicationDocData.locations) {
             if (typeof businessPersonalPropertyLimit !== "number") {
                 const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit for the Commercial BOP Policy.`;
                 log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
