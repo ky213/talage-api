@@ -33,7 +33,7 @@ module.exports = class Integration {
      * @param {object} policy - The data related to the current policy
      * @returns {void}
      */
-    constructor(app, insurer, policy) {
+    constructor(app, insurer, policy, quoteId) {
         // Integration flags
 
         // requiresInsurerIndustryCodes:
@@ -88,6 +88,13 @@ module.exports = class Integration {
         this.isBindable = false;
         this.insurerPaymentPlans = null;
         this.insurerPolicyInfo = null;
+
+
+        // quoteId will be passed in if a parent integration was instantiated first and passes its quoteId through
+        // Examples are Accident Fund and Liberty Mutual BOP
+        if (quoteId) {
+            this.quoteId = quoteId;
+        }
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1104,7 +1111,9 @@ module.exports = class Integration {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
-            this.quoteId = await this.record_quote(null, quoteStatus.initiated.description);
+            if (!this.quoteId) {
+                this.quoteId = await this.record_quote(null, quoteStatus.initiated.description);
+            }
 
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();

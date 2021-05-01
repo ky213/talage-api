@@ -35,7 +35,7 @@ module.exports = class LibertySBOP extends Integration {
 	 */
 	async _insurer_quote() {
 
-        const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy);
+        const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy, this.quoteId);
         const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
 
         let quoteResponses = [];
