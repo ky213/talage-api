@@ -71,7 +71,7 @@ module.exports = class LibertySBOP extends Integration {
 
         const applicationDocData = this.app.applicationDocData;
         const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
-        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.mysqlId}): `
+        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `
 
         if (!SBOPPolicy) {
             const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
@@ -89,14 +89,14 @@ module.exports = class LibertySBOP extends Integration {
 
         // Assign the closest supported limit for Per Occ
         // NOTE: Currently this is not included in the request and defaulted on LM's side
-        const limit = this.getSupportedLimit(SBOPPolicy.limits);
+        //const limit = this.getSupportedLimit(SBOPPolicy.limits);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
-        const deductible = this.getSupportedDeductible(SBOPPolicy.deductible);
-        const fireDamage = "1000000"; // we do not store this data currently
-        const prodCompOperations = "2000000"; // we do not store this data currently
-        const medicalExpenseLimit = "15000"; // we do not store this data currently
-        const ECAggregateLimit = "1000000/2000000"; // we do not store this data currently
+        // const deductible = this.getSupportedDeductible(SBOPPolicy.deductible);
+        // const fireDamage = "1000000"; // we do not store this data currently
+        // const prodCompOperations = "2000000"; // we do not store this data currently
+        // const medicalExpenseLimit = "15000"; // we do not store this data currently
+        // const ECAggregateLimit = "1000000/2000000"; // we do not store this data currently
 
         let phone = applicationDocData.contacts.find(c => c.primary).phone.toString();
         // fall back to outside phone IFF we cannot find primary contact phone
@@ -647,7 +647,7 @@ module.exports = class LibertySBOP extends Integration {
         const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
         const applicationDocData = this.app.applicationDocData;
 
-        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.mysqlId}): `
+        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `
 
         // eslint-disable-next-line prefer-const
         const industryQuery = {

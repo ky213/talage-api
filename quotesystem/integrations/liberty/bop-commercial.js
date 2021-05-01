@@ -253,7 +253,7 @@ module.exports = class LibertySBOP extends Integration {
 
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
-        logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.mysqlId}): `;
+        logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.applicationId}): `;
 
         // if there's no BOP policy
         if (!BOPPolicy) {

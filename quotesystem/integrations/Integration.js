@@ -1405,7 +1405,6 @@ module.exports = class Integration {
         //build mongo Document
         const quoteJSON = {
             applicationId: this.app.applicationDocData.applicationId,
-            mysqlAppId: this.app.id,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,

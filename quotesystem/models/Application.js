@@ -93,13 +93,7 @@ module.exports = class Application {
         if(!this.applicationDocData){
             throw new Error(`Failed to load application ${data.id} `)
         }
-        if(this.applicationDocData.mysqlId > 0){
-            this.id = this.applicationDocData.mysqlId;
-        }
-        else {
-            log.error(`bad appDoc ${JSON.stringify(this.applicationDocData)} ` + __location);
-            throw new Error(`Bad application doc: ${data.id} `)
-        }
+        this.id = this.applicationDocData.applicationId;
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
@@ -877,7 +871,7 @@ module.exports = class Application {
                         message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
                         message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
 
-                        if (quoteList[0].status) {
+                        if (quoteList[0] && quoteList[0].status) {
                             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                         }
                         log.info(`AppId ${this.id} sending agency NO QUOTE email`);

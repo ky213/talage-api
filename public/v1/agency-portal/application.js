@@ -29,7 +29,7 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
-const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 
 // Application Messages Imports
@@ -199,7 +199,8 @@ async function getApplication(req, res, next) {
                 // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
                 if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
                     quoteJSON.status = quoteStatus.error.description;
-                } else {
+                }
+                else {
                     quoteJSON.status = quoteJSON.apiResult;
                 }
             }
@@ -207,8 +208,7 @@ async function getApplication(req, res, next) {
             // Change the name of autodeclined
             if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
-                || quoteJSON.status === 'quoted') 
-            {
+                || quoteJSON.status === 'quoted') {
                 quoteJSON.reasons = '';
             }
             if (quoteJSON.status === 'autodeclined') {
@@ -286,13 +286,13 @@ async function getApplication(req, res, next) {
 
     let docList = null;
     try {
-        docList = await Message.find({$or:[{'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId}]}, '-__v');
+        docList = await Message.find({'applicationId':applicationJSON.applicationId}, '-__v');
     }
     catch (err) {
         log.error(err + __location);
         return serverHelper.sendError(res, next, 'Internal Error');
     }
-    log.debug("docList.length: " + docList.length);
+    
     if(docList.length){
         applicationJSON.messages = docList;
     }
@@ -1094,12 +1094,12 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
+        await applicationBO.updateProgress(applicationDB.applicationId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.applicationId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.applicationId} for quoting. ` + err + __location);
     }
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
@@ -1298,8 +1298,8 @@ async function bindQuote(req, res, next) {
                 paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
             }
             const quoteObj = {
-                quote: quoteDoc.mysqlId,
-                quoteId: quoteDoc.mysqlId,
+                quote: quoteDoc.quoteId,
+                quoteId: quoteDoc.quoteId,
                 paymentPlanId: paymentPlanId,
                 noCustomerEmail: true
             }

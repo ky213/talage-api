@@ -28,7 +28,7 @@ exports.processtask = async function(queueMessage) {
         if(queueMessage.body && queueMessage.body.applicationId){
             await wholesaleApplicationEmailTask(queueMessage.body.applicationId).catch(err => error = err);
             if(error){
-                log.error("Error soleproApplicationEmailTask " + error + __location);
+                log.error("Error wholesaleapplicationemail " + error + __location);
             }
             error = null;
         }
@@ -81,7 +81,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
     let applicationDoc = null;
     const applicationBO = new ApplicationBO();
     try {
-        applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
+        applicationDoc = await applicationBO.getById(applicationId);
     }
     catch (err) {
         log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
