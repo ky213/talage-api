@@ -104,7 +104,7 @@ module.exports = class LibertySBOP extends Integration {
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // used for implicit question NBOP11: any losses or claims in the past 3 years?
-        const claimsPast3Years = applicationDocData.claims.length === 0 || 
+        const claimsPast3Years = applicationDocData.claims.length === 0 ||
             applicationDocData.claims.find(c => moment().diff(moment(c.eventDate), 'years', true) >= 3) ? "NO" : "YES";
 
         // Liberty has us define our own Request ID
@@ -460,10 +460,12 @@ module.exports = class LibertySBOP extends Integration {
                                 }
                             });
                         }
-                    } else {
+                    }
+                    else {
                         errorMessage += 'Failed to parse error, please review the logs for more details.';
                     }
-                } else {
+                }
+                else {
                     errorMessage += 'Failed to parse error, please review the logs for more details.';
                 }
                 return this.client_declined(errorMessage, additionalReasons);
@@ -519,7 +521,7 @@ module.exports = class LibertySBOP extends Integration {
         }
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
-            if (policyStatus.toLowerCase() ===  "reject") {
+            if (policyStatus.toLowerCase() === "reject") {
                 return this.client_declined(`${logPrefix}Application was rejected.`);
             }
         }
@@ -531,12 +533,14 @@ module.exports = class LibertySBOP extends Integration {
         else {
             if (policy.QuoteInfo[0].CompanysQuoteNumber) {
                 quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
-            } else {
+            }
+            else {
                 log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ` + __location);
             }
             if (policy.QuoteInfo[0].InsuredFullToBePaidAmt) {
                 premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
-            } else {
+            }
+            else {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
@@ -667,14 +671,16 @@ module.exports = class LibertySBOP extends Integration {
         let insurerIndustryCodeList = null;
         try {
             insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
-        } catch (e) {
+        }
+        catch (e) {
             log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.`);
             return;
         }
 
         if (insurerIndustryCodeList && insurerIndustryCodeList.length > 0) {
             this.industry_code = insurerIndustryCodeList;
-        } else {
+        }
+        else {
             log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.`);
             this.industry_code = [this.industry_code];
         }

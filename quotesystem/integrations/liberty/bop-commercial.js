@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable no-empty */
 /* eslint indent: 0 */
@@ -224,7 +225,6 @@ const quoteMIMEType = "BASE64";
 let policyStatus = null;
 const quoteCoverages = [];
 let coverageSort = 0;
-// const paymentPlans = [];
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -270,9 +270,7 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // if there's no Business Personal Property limit or Building Limit provided for each location
-        for (const {
- businessPersonalPropertyLimit, buildingLimit
-} of applicationDocData.locations) {
+        for (const {businessPersonalPropertyLimit, buildingLimit} of applicationDocData.locations) {
             if (typeof businessPersonalPropertyLimit !== "number") {
                 const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit for the Commercial BOP Policy.`;
                 log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
@@ -1107,9 +1105,9 @@ module.exports = class LibertySBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        log.debug("=================== QUOTE REQUEST ===================");
-        log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
-        log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug("=================== QUOTE REQUEST ===================");
+        // log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
+        // log.debug("=================== QUOTE REQUEST ===================");
 
         // Determine which URL to use
         const host = 'ci-policyquoteapi.libertymutual.com';
@@ -1158,9 +1156,9 @@ module.exports = class LibertySBOP extends Integration {
         switch (objPath.MsgStatusCd[0].toLowerCase()) {
             case "error":
                 // NOTE: Insurer "error" is considered a "decline" within Wheelhouse.
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
-                log.error("=================== QUOTE ERROR ===================");
+                // log.error("=================== QUOTE ERROR ===================");
+                // log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
+                // log.error("=================== QUOTE ERROR ===================");
                 // normal error structure, build an error message
                 let additionalReasons = null;
                 let errorMessage = `${logPrefix}`;
@@ -1221,9 +1219,9 @@ module.exports = class LibertySBOP extends Integration {
 
         // PARSE SUCCESSFUL PAYLOAD
         // logged in database only use log.debug so it does not go to ElasticSearch
-        log.debug("=================== QUOTE RESULT ===================");
-        log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
-        log.debug("=================== QUOTE RESULT ===================");
+        // log.debug("=================== QUOTE RESULT ===================");
+        // log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
+        // log.debug("=================== QUOTE RESULT ===================");
 
         // check valid response object structure
         if (
@@ -1354,11 +1352,12 @@ module.exports = class LibertySBOP extends Integration {
          */
         // NOTE: No schema exists for this.paymentPlan, so leaving it as noted above for now
         this.insurerPaymentPlans = [];
-        if (policy && policy[0].QuoteInfo && policy[0].QuoteInfo[0].QuoteInfoExt && policy[0].QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
-            const paymentOptions = policy[0].QuoteInfo[0].QuoteInfoExt[0].paymentOption;
+        if (policy && policy.QuoteInfo && policy.QuoteInfo[0].QuoteInfoExt && policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
+            const paymentOptions = policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption;
 
-            const paymentPlan = {};
             paymentOptions.forEach(paymentOption => {
+                const paymentPlan = {};
+
                 if (paymentOption.PaymentPlanCd) {
                     paymentPlan.paymentPlanCd = paymentOption.PaymentPlanCd[0];
                 }
@@ -1370,10 +1369,6 @@ module.exports = class LibertySBOP extends Integration {
                 this.insurerPaymentPlans.push(paymentPlan);
             });
         } 
-
-        // DEBUG - REMOVE THIS
-        // eslint-disable-next-line no-console
-        console.log(JSON.stringify(this.insurerPaymentPlans, null, 4));
 
         // return result based on policy status
         if (policyStatus) {

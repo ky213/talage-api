@@ -40,7 +40,7 @@ module.exports = class AccidentfundWC extends Integration{
     _insurer_quote(){
         // Accident Fund and CompWest are the same company, just refer this over to the CompWest code for processing
         const CompwestWC = require('../compwest/wc.js');
-        const integration = new CompwestWC(this.app, this.insurer, this.policy);
+        const integration = new CompwestWC(this.app, this.insurer, this.policy, this.quoteId);
 
         // Run the quote
         return integration.quote();
