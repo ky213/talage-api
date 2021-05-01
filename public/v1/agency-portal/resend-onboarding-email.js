@@ -2,7 +2,7 @@
 
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');

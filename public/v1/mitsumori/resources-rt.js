@@ -8,7 +8,7 @@ const serverHelper = require("../../../server.js");
 // const ApplicationBO = global.requireShared("models/Application-BO.js");
 // const AgencyBO = global.requireShared('models/Agency-BO.js');
 // const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
-// const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+// const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
 // const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const policyHelper = require("./resource-building/policies");

@@ -16,7 +16,7 @@ const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const auth = require('./helpers/auth-agencyportal.js');
 const validator = global.requireShared('./helpers/validator.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 

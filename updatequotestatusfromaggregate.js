@@ -7,7 +7,7 @@
 /* eslint-disable no-process-exit */
 /* eslint sort-keys: "off"*/
 
-'use strict';
+
 
 // Add global helpers to load shared modules
 global.sharedPath = require('path').join(__dirname, 'shared');
@@ -35,33 +35,30 @@ function logLocalErrorMessage(message) {
     if (global.log) {
         log.error("Global error trap: " + message);
     }
-    // eslint-disable-next-line no-console
-    console.log(colors.red(message));
+    else{
+        // eslint-disable-next-line no-console
+        console.log(colors.red(message));
+    }
 }
 
 function logErrorAndExit(message) {
+    if (global.log) {
+        log.error(message);
+    }
+
+    // eslint-disable-next-line no-console
     console.log(colors.red(message));
+
     process.exit(-1);
 }
 
-function logError(message) {
-    console.log(colors.red(message));
-}
-
-function logWarning(message) {
-    console.log(colors.yellow(message));
-}
-
-function logSuccess(message) {
-    console.log(colors.green(message));
-}
 
 /**
  * Main entrypoint
  *
  * @returns {void}
  */
-(async function main() {
+async function main() {
     // eslint-disable-next-line no-console
     console.log(Date());
     // eslint-disable-next-line no-console
@@ -73,6 +70,7 @@ function logSuccess(message) {
     // eslint-disable-next-line no-console
     console.log(Date());
 
+    // eslint-disable-next-line no-console
     console.log(colors.yellow('\nScript usage includes no optional params: node <path-to-script>/updatequotestatusfromaggregate.js\n'));
 
     // Load the settings from a .env file - Settings are loaded first
@@ -117,7 +115,7 @@ function logSuccess(message) {
     talageEvent.on('mongo-error', function(err) {
         log.error('Mongoose database error ' + err);
     });
-})();
+}
 
 async function runFunction() {
     const Quote = require('mongoose').model('Quote');
@@ -133,7 +131,7 @@ async function runFunction() {
         logErrorAndExit(`No quotes retreived. Exiting.`);
     }
 
-    logSuccess(`${quotes.length} Quotes found...`);
+    log.debug(`${quotes.length} Quotes found...`);
 
     let successes = 0;
     const oldCount = quotes.length;
@@ -143,9 +141,9 @@ async function runFunction() {
     const newCount = quotes.length;
 
     if (oldCount !== newCount && newCount !== 0) {
-        logWarning(`${oldCount - newCount} quotes already have quoteStatus information, skipping those quotes.`);
+        log.warn(`${oldCount - newCount} quotes already have quoteStatus information, skipping those quotes.`);
     } else if (newCount === 0) {
-        logWarning(`All quotes have quoteStatus information. Exiting.`);
+        log.warn(`All quotes have quoteStatus information. Exiting.`);
         process.exit(0);
     }
 
@@ -164,23 +162,23 @@ async function runFunction() {
                 await Quote.updateOne(query, updateJSON);
                 successes++;
             } catch (e) {
-                logError(`Error updating quote ${quote.quoteId}: ${e}.`);
+                log.error(`Error updating quote ${quote.quoteId}: ${e}.`);
             }
         } else {
-            logWarning(`Quote ${quote.quoteId} has an aggregatedStatus field that doesn't match expected values.`);
+            log.warn(`Quote ${quote.quoteId} has an aggregatedStatus field that doesn't match expected values.`);
         }
 
         // status update every 100 records
         if (successes % 100 === 0 && successes !== 0) {
-            console.log(`Successfully updated ${successes} out of ${quotes.length} records.`);
+            log.debug(`Successfully updated ${successes} out of ${quotes.length} records.`);
         }
     }
 
     if (successes === quotes.length) {
-        logSuccess(`All ${quotes.length} quotes updated successfully!`);
+        log.info(`All ${quotes.length} quotes updated successfully!`);
     } else {
         const diff = quotes.length - successes;
-        logWarning(`${diff} quotes were not properly updated. Check script output for more info.`);
+        log.warn(`${diff} quotes were not properly updated. Check script output for more info.`);
     }
 
     process.exit(0);
@@ -210,8 +208,10 @@ function getStatus(aggregatedStatus) {
             if (!aggregatedStatus) {
                 return quoteStatus.initiated;
             } else {
-                logWarning(`Cannot get status from aggregate: ${aggregatedStatus}. No valid case match in switch.`);
+                log.warn(`Cannot get status from aggregate: ${aggregatedStatus}. No valid case match in switch.`);
                 return null;
             }
     }
 }
+
+main()

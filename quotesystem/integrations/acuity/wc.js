@@ -15,7 +15,7 @@
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
-const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/acuity/wc.xmlt');
+const acuityWCTemplate = require('jsrender').templates('./quotesystem/integrations/acuity/wc.xmlt');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 global.requireShared('./helpers/tracker.js');
 

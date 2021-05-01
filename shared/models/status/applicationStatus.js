@@ -63,11 +63,12 @@ async function updateApplicationStatus(application, timeout) {
     // Set the new application status
     try {
         //TODO change to applicationId
-        await applicationBO.updateStatus(applicationDocJson.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        await applicationBO.updateStatus(applicationDocJson.applicationId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
     catch (err) {
         log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
+    return applicationStatus;
 }
 
 /**
@@ -79,10 +80,9 @@ async function updateApplicationStatus(application, timeout) {
  * @return {string} - The status object {appStatusId, appStatusDesc} of the application
  */
 function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) {
-    // Ensure that each quote has a quote status and ID 
+    // Ensure that each quote has a quote status and ID
     // TODO: This should not be part of this function's responsibilities...
     quoteDocJsonList.forEach((quoteDocJson) => updateQuoteStatus(quoteDocJson));
-
     if (applicationDoc.appStatusId < 10) {
         //appStatusId = 0
         return { appStatusId: 0, appStatusDesc: 'incomplete' };
@@ -143,8 +143,7 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         // return 'questions_done';
         return { appStatusId: 10, appStatusDesc: 'questions_done' };
     }
-
-    if(timeout) {
+    else if(timeout) {
         // if timeout is specified then return error if nothing above is chosen
         return { appStatusId: 20, appStatusDesc: 'error' };
     }
@@ -174,5 +173,6 @@ function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList, time
 }
 
 module.exports = {
+    // eslint-disable-next-line object-shorthand
     updateApplicationStatus
 };

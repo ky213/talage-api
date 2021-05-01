@@ -636,6 +636,10 @@ module.exports = class AcuityWC extends Integration {
                 if (quoteLink) {
                     this.quoteLink = quoteLink;
                 }
+                //Get Quote PDF.
+                //getQuoteLetter
+                await this.getQuoteLetter(quoteId,accessToken, credentials)
+
                 return this.client_quoted(quoteId, quoteLimits, quotePremium);
             case "Refer":
                 if (quoteLink) {
@@ -652,4 +656,20 @@ module.exports = class AcuityWC extends Integration {
         // Unregnized quote statue
         return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`);
     }
+
+    async getQuoteLetter(quoteId,accessToken, credentials){
+        //this.quote_letter.data;
+        try{
+            const quoteDocBytes = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/print/${quoteId}`);
+            if (quoteDocBytes) {
+                this.quote_letter.data = quoteDocBytes;
+            }
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} AMTrust WC: Error getting quote doc ${err} ` + __location)
+        }
+        return;
+
+    }
 };
+

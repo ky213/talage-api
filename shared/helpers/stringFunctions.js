@@ -1,3 +1,4 @@
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable no-extra-parens */
 /* eslint-disable guard-for-in */
 /* eslint-disable space-unary-ops */
@@ -397,4 +398,77 @@ exports.trimString = function(str, toTrim, trimOptions = {
         returnStr = returnStr.substring(0, returnStr.length - toTrim.length);
     }
     return returnStr;
+}
+
+/**
+ * Converts a passed in string to a dollar amount representation, extended to 2 decimal places. 
+ * 
+ * @param {String} str - [Required] The string to convert into a dollar amount (f.e. 1000.56 -> $1,000.56) 
+ * @param {Boolean} trimDecimal - [Optional (Default: false)] Whether or not to trim off the decimal (f.e. $1,000.56 -> $1,000)
+ * @returns {String} - A string representation of the dollar amount of the string passed in, or the passed-in value if validation fails
+ */
+exports.convertToDollarFormat = (str, trimDecimal = false) => {
+    if (typeof str !== "string") {
+        log.error(`convertToDollarFormat: Parameter str is not type string.`);
+        return str;
+    }
+
+    if (!str || !str.length > 0) {
+        log.error(`convertToDollarFormat: No string provided, cannot convert.`);
+        return str;
+    }
+    
+    if (isNaN(parseFloat(str, 10))) {
+        log.error(`convertToDollarFormat: Provided string cannot be converted to a number.`);
+        return str;
+    }
+
+    // clip the decimal to 2 digits, if it exists
+    str = `${parseFloat(str, 10).toFixed(2)}`;
+
+    const strArray = str.split("");
+
+    let negative = ``;
+    if (strArray[0] === "-") {
+        negative = strArray.splice(0, 1)[0];
+    }
+
+    let decimal = ``;
+    if (strArray.indexOf(".")) {
+        decimal = strArray.splice(strArray.indexOf("."), strArray.length).splice(0, 3).join("");
+    }
+
+    if (strArray.length === 0) {
+        return `${negative}$0${decimal}`;
+    }
+
+    let number = ``;
+    if (strArray.length > 3) {
+        const frontDigitsRemainder = strArray.length % 3;
+        let frontDigits = ``;
+        if (frontDigitsRemainder !== 0) {
+            frontDigits = `${strArray.splice(0, frontDigitsRemainder).join("")},`;
+        }
+
+        // - 1 because we don't want to add a comma at the end
+        let iterations = (strArray.length / 3) - 1;
+        let index = 0;
+        while (iterations > 0) {
+            // move forward to the next (or first) comma and splice it in
+            index += 3;
+            strArray.splice(index, 0, ",");
+
+            // increment index since we spliced in a ",", then decrement iterations
+            index++;
+            iterations--;
+        }
+
+        number = `${frontDigits}${strArray.join("")}`;
+    }
+    else {
+        number = strArray.join("");
+    }
+
+
+    return `${negative}$${number}${trimDecimal ? '' : decimal}`;
 }

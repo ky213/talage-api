@@ -21,12 +21,14 @@ const QouteLimitSchema = new Schema({
  * description [required]: The display name of the coverage
  * value [required]: The amount of the coverage, deductible, or rate change
  * sort [required]: A sorting integer to control ordering
+ * category [required]: The category the coverage belongs to, such as Liability
  * insurerIdentifier [optional]: The identifier code, used to find the coverage in the JSON response for a quote
  */
-const QuoteCoverages = new Schema({
+const QuoteCoveragesSchema = new Schema({
     description: {type: String, required: true},
-    value: {type: Number, required: true},
+    value: {type: String, required: true},
     sort: {type: Number, required: true},
+    category: {type: String, required: true},
     insurerIdentifier: {type: String, required: false}
 }, {_id: false});
 
@@ -40,9 +42,8 @@ const PolicySchema = new Schema({
 
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
-    mysqlId: {type: Number, unique: true},
+    mysqlId: {type: Number, unique: false},
     applicationId: {type: String},
-    mysqlAppId: {type: Number},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
     quoteNumber: {type: String},
@@ -67,7 +68,7 @@ const QuoteSchema = new Schema({
     quoteResponseJSON: {type: Schema.Types.Mixed},
     writer: {type: String},
     limits: [QouteLimitSchema],
-    quoteCoverages: [QuoteCoverages],
+    quoteCoverages: [QuoteCoveragesSchema],
     quoteLink: {type: String},
     additionalInfo: {type: Schema.Types.Mixed},
     handledByTalage: {type: Boolean, default: false},

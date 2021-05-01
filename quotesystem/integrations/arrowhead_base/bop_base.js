@@ -3,7 +3,7 @@
 
 /**
  * This is a template base class for Arrowhead. This is not currently used, but is preserved to show a wider array of potential request fields
- * 
+ *
  * NOTE: Eventually this should be refactored to consolidate the API calls and response/error handling, and leave the request building to individual files
  */
 
@@ -18,7 +18,7 @@ const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
 
-// TODO: Update to toggle between test/prod 
+// TODO: Update to toggle between test/prod
 const host = 'https://stag-api.nationalprograms.io';
 const path = '/Quote/v0.2-beta/CreateQuote';
 let logPrefix = "";
@@ -71,27 +71,28 @@ module.exports = class LibertySBOP extends Integration {
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
         const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
 
-        logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
+        logPrefix = `Arrowhead (Appid: ${applicationDocData.applicationId}): `;
 
         // construct question map, massage answers into what is expected
         const questions = {};
         applicationDocData.questions.forEach(question => {
             let answer = null;
             if (fieldsToParse.includes(question.insurerQuestionIdentifier)) {
-                answer = parseInt(question.answerValue);
+                answer = parseInt(question.answerValue,10);
 
                 if (isNaN(answer)) {
                     log.error(`${logPrefix}Couldn't parse "${question.answerValue}" for question property "${question.insurerQuestionIdentifier}". Result was NaN, leaving as-is.`);
                     answer = question.answerValue;
                 }
-            } else {
+            }
+ else {
                 answer = question.answerValue;
             }
 
             questions[question.insurerQuestionIdentifier] = answer;
         });
 
-        // Injecting question maps for location and building into each location 
+        // Injecting question maps for location and building into each location
         // NOTE: This will need to change once buildings get their own questions
         applicationDocData.locations.forEach(location => {
             location.locationQuestions = {};
@@ -105,14 +106,16 @@ module.exports = class LibertySBOP extends Integration {
                         log.error(`${logPrefix}Couldn't parse "${question.answerValue}" for question property "${question.insurerQuestionIdentifier}". Result was NaN, leaving as-is.`);
                         answer = question.answerValue;
                     }
-                } else {
+                }
+ else {
                     answer = question.answerValue;
                 }
 
                 if (question.insurerQuestionIdentifier.includes("location.")) {
                     // location specific questions
                     location.locationQuestions[question.insurerQuestionIdentifier.replace("location.", "")] = answer;
-                } else if (question.insurerQuestionIdentifier.includes("building.")){ // purposefully being explicit w/ this if statement
+                }
+ else if (question.insurerQuestionIdentifier.includes("building.")){ // purposefully being explicit w/ this if statement
                     // building specific questions
                     location.buildingQuestions[question.insurerQuestionIdentifier.replace("building.", "")] = answer;
                 }
@@ -122,7 +125,8 @@ module.exports = class LibertySBOP extends Integration {
         let locationList = null;
         try {
             locationList = await this.getLocationList();
-        } catch (e) {
+        }
+ catch (e) {
             return this.client_error(e, __location);
         }
 
@@ -155,7 +159,7 @@ module.exports = class LibertySBOP extends Integration {
             controlSet: {
                 leadid: this.generate_uuid(),
                 prodcode: "111111" // <--- TODO: Get the producer code
-                // prodsubcode: "qatest" 
+                // prodsubcode: "qatest"
             },
             policy: {
                 product: "BBOP",
@@ -171,7 +175,7 @@ module.exports = class LibertySBOP extends Integration {
                     stateOfDomicile: applicationDocData.mailingState,
                     company: applicationDocData.businessName,
                     naicsCode: this.industry_code.attributes.naics,
-                    classCode: this.industry_code.code, 
+                    classCode: this.industry_code.code,
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
                     sicCode: this.industry_code.attributes.sic,
                     effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"),
@@ -190,11 +194,7 @@ module.exports = class LibertySBOP extends Integration {
                     locationList: locationList,
                     otherCOA: limits[1],
                     addtlIntInd: false,
-                    coverages: {
-                        terror: {
-                            includeInd: BOPPolicy.addTerrorismCoverage
-                        }
-                    }
+                    coverages: {terror: {includeInd: BOPPolicy.addTerrorismCoverage}}
                 },
                 effectiveProduct: "BBOP"
             },
@@ -203,7 +203,8 @@ module.exports = class LibertySBOP extends Integration {
 
         try {
             this.injectGeneralQuestions(requestJSON, questions);
-        } catch (e) {
+        }
+        catch (e) {
             return this.client_error(`${logPrefix}${e}`, __location);
         }
 
@@ -223,8 +224,9 @@ module.exports = class LibertySBOP extends Integration {
         try {
             // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
             result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
-        } catch(e) {
-            log.error(`Arrowhead (AppID: ${applicationDocData.mysqlId}): Error sending request: ${e}.`);
+        }
+ catch(e) {
+            log.error(`Arrowhead (AppID: ${applicationDocData.applicationId}): Error sending request: ${e}.`);
         }
 
         // parse the error / response
@@ -238,7 +240,8 @@ module.exports = class LibertySBOP extends Integration {
 
             if (error.statusCode && error.code) {
                 errorMessage += `[${error.statusCode}] ${error.code}: `;
-            } else {
+            }
+ else {
                 return this.client_error(errorMessage + "An error occurred, please review the logs.", __location);
             }
 
@@ -247,11 +250,13 @@ module.exports = class LibertySBOP extends Integration {
                 error.details.forEach((e, i) => {
                     if (i === 0) {
                         errorMessage += `${e}`;
-                    } else {
+                    }
+ else {
                         additionalDetails.push(e);
                     }
-                }); 
-            } else {
+                });
+            }
+ else {
                 errorMessage += `No details were provided, please review the logs.`;
             }
 
@@ -272,14 +277,12 @@ module.exports = class LibertySBOP extends Integration {
     async getLocationList() {
         const applicationDocData = this.app.applicationDocData;
         const locationList = [];
-        
+
         for (const location of applicationDocData.locations) {
-            const smartyStreetsResponse = await smartystreetSvc.checkAddress(
-                applicationDocData.mailingAddress,
+            const smartyStreetsResponse = await smartystreetSvc.checkAddress(applicationDocData.mailingAddress,
                 applicationDocData.mailingCity,
                 applicationDocData.mailingState,
-                applicationDocData.mailingZipcode
-            );
+                applicationDocData.mailingZipcode);
 
             // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine
             // a county so return an error.
@@ -289,7 +292,8 @@ module.exports = class LibertySBOP extends Integration {
                 let errorMessage = "";
                 if (smartyStreetsResponse.hasOwnProperty("error")) {
                     errorMessage += `${smartyStreetsResponse.error}: ${smartyStreetsResponse.errorReason}. Due to this, we are unable to look up County information.`;
-                } else {
+                }
+                else {
                     errorMessage += `SmartyStreets could not determine the county for address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
                 }
 
@@ -322,19 +326,19 @@ module.exports = class LibertySBOP extends Integration {
                 zip: applicationDocData.mailingZipcode,
                 addressLine: applicationDocData.mailingAddress,
                 buildings: 1, // Assumed as such until we work building information into the quote app and API
-                PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
+                PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`,
                 territory: applicationDocData.mailingState,
                 finalProtectionClass: "3", // hardset value expected by Arrowhead
                 // PPCCall: {
                 //     fireProtectionArea: smartyStreetsResponse.addressInformation.county_name,
-                //     waterSupplyType: "Hydrant", 
+                //     waterSupplyType: "Hydrant",
                 //     PPCCode: "3",
                 //     matchType: "Address Level Match",
                 //     county: smartyStreetsResponse.addressInformation.county_name,
                 //     respondingFireStation: "STATION 14",
                 //     priorAlternativePPCCodes: "9/10",
-                //     driveDistanceToRespondingFireStation: "1 mile or less", 
-                //     multiplePPCInd: false 
+                //     driveDistanceToRespondingFireStation: "1 mile or less",
+                //     multiplePPCInd: false
                 // },
                 // bceg: {
                 //     bcegCode: "99",
@@ -449,15 +453,15 @@ module.exports = class LibertySBOP extends Integration {
             this.injectLocationQuestions(locationObj, location.locationQuestions, location.buildingQuestions);
 
             locationList.push(locationObj);
-        };
+        }
 
         return locationList;
     }
 
     injectGeneralQuestions(requestJSON, questions) {
         // hydrate the request JSON object with general question data
-        // NOTE: Add additional general questions here if more get imported  
-        
+        // NOTE: Add additional general questions here if more get imported
+
         // parent questions
         const additionalInsured = [];
         const conins = [];
@@ -469,9 +473,7 @@ module.exports = class LibertySBOP extends Integration {
         for (const [id, answer] of Object.entries(questions)) {
             switch (id) {
                 case "eqpbrk":
-                    bbopSet.coverages.eqpbrk = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
+                    bbopSet.coverages.eqpbrk = {includeInd: this.convertToBoolean(answer)};
                     break;
                 case "automaticIncr":
                     bbopSet.automaticIncr = answer;
@@ -481,17 +483,15 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "medicalExpenses":
                     bbopSet.medicalExpenses = answer;
-                    break;        
+                    break;
                 case "liaDed":
                     bbopSet.liaDed = answer;
-                    break;       
+                    break;
                 case "fixedPropDeductible":
                     bbopSet.fixedPropDeductible = answer;
-                    break;  
+                    break;
                 case "additionalInsured": // <---- THIS ISN'T IN THE TEMPLATE OR THEIR DOCUMENTATION
-                    bbopSet.additionalInsured = {
-                        includeInd: this.convertToBoolean(answer)
-                    }
+                    bbopSet.additionalInsured = {includeInd: this.convertToBoolean(answer)}
                     break;
                 case "cown.numAI":
                 case "desgpers.numAI":
@@ -500,42 +500,39 @@ module.exports = class LibertySBOP extends Integration {
                 case "olccmp.numAI":
                 case "olc.numAI":
                 case "vendor.numAI":
-                    additionalInsured.push({id, answer});
+                    additionalInsured.push({
+id: id,
+answer: answer
+});
                     break;
                 case "blanket.CovOption":
                     bbopSet.coverages.blanket = {
                         includeInd: true,
                         CovOption: answer
                     };
-                    break;  
+                    break;
                 case "bitime":
-                    bbopSet.coverages.bitime = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
-                    break;  
+                    bbopSet.coverages.bitime = {includeInd: this.convertToBoolean(answer)};
+                    break;
                 case "bipay.extNumDays":
                     bbopSet.coverages.bipay = {
                         includeInd: true,
                         extNumDays: answer
                     };
-                    break;  
+                    break;
                 case "blkai":
-                    bbopSet.coverages.blkai = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
-                    break;  
+                    bbopSet.coverages.blkai = {includeInd: this.convertToBoolean(answer)};
+                    break;
                 case "compf.limit":
                     bbopSet.coverages.compf = {
                         includeInd: true,
                         limit: answer
                     };
-                    break;  
-                case "conins": 
-                    bbopSet.coverages.conins = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
-                    break; 
-                case "conins.propOnSite": 
+                    break;
+                case "conins":
+                    bbopSet.coverages.conins = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "conins.propOnSite":
                 case "conins.conEquipRentReimbursement":
                 case "conins.conToolsCovType":
                 case "conins.limit":
@@ -547,37 +544,40 @@ module.exports = class LibertySBOP extends Integration {
                 case "conins.nonownTools.Limit":
                 case "conins.empTools":
                 case "conins.empTools.Limit":
-                    conins.push({id, answer});
+                    conins.push({
+id: id,
+answer: answer
+});
                     break;
                 case "cyber":
-                    bbopSet.coverages.cyber = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
-                    break; 
+                    bbopSet.coverages.cyber = {includeInd: this.convertToBoolean(answer)};
+                    break;
                 case "datcom":
-                    bbopSet.coverages.datcom = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
-                    break; 
+                    bbopSet.coverages.datcom = {includeInd: this.convertToBoolean(answer)};
+                    break;
                 case "datcom.limit":
                 case "datcom.tier.100000":
                 case "datcom.tier.250000":
                 case "datcom.tier.500000":
                 case "datcom.tier.1000000":
-                    datcom.push({id, answer});
+                    datcom.push({
+id: id,
+answer: answer
+});
                     break;
                 case "empben":
-                    bbopSet.coverages.empben = {
-                        includeInd: this.convertToBoolean(answer)
-                    };
+                    bbopSet.coverages.empben = {includeInd: this.convertToBoolean(answer)};
                     break;
                 case "empben.limit":
                 case "empben.NumEmp":
                 case "empben.ProgramName":
                 // case "empben.RetroDate": IGNORED FOR NOW
-                    empben.push({id, answer});
+                    empben.push({
+id: id,
+answer: answer
+});
                     break;
-                default: 
+                default:
                     log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                     break;
             }
@@ -586,14 +586,10 @@ module.exports = class LibertySBOP extends Integration {
         // hydrate additionalInsured with child question data, if any exist
         if (additionalInsured.length > 0) {
             if (!bbopSet.hasOwnProperty("additionalInsured")) {
-                bbopSet.additionalInsured = {
-                    includeInd: true
-                };
+                bbopSet.additionalInsured = {includeInd: true};
             }
             additionalInsured.forEach(prop => {
-                const numAI = {
-                    numAI: prop.answer
-                };
+                const numAI = {numAI: prop.answer};
 
                 switch(prop.id) {
                     case "cown.numAI":
@@ -612,14 +608,12 @@ module.exports = class LibertySBOP extends Integration {
         // hydrate conins with child question data, if any exist
         if (conins.length > 0) {
             if (!bbopSet.hasOwnProperty("conins")) {
-                bbopSet.conins = {
-                    includeInd: true
-                };
+                bbopSet.conins = {includeInd: true};
             }
 
             conins.forEach(prop => {
                 switch(prop.id) {
-                    case "conins.propOnSite": 
+                    case "conins.propOnSite":
                     case "conins.conEquipRentReimbursement":
                     case "conins.conToolsCovType":
                     case "conins.limit":
@@ -628,14 +622,10 @@ module.exports = class LibertySBOP extends Integration {
                         bbopSet.conins[prop.id] = prop.answer;
                         break;
                     case "conins.nonownTools":
-                        bbopSet.conins.nonownTools = {
-                            includeInd: this.convertToBoolean(prop.answer)
-                        }
+                        bbopSet.conins.nonownTools = {includeInd: this.convertToBoolean(prop.answer)}
                         break;
                     case "conins.empTools":
-                        bbopSet.conins.empTools = {
-                            includeInd: this.convertToBoolean(prop.answer)
-                        }
+                        bbopSet.conins.empTools = {includeInd: this.convertToBoolean(prop.answer)}
                         break;
                 }
             });
@@ -643,9 +633,7 @@ module.exports = class LibertySBOP extends Integration {
             const coninsNonownToolsLimit = conins.find(prop => prop.id === "conins.nonownTools.Limit");
             if (coninsNonownToolsLimit) {
                 if (!bbopSet.conins.hasOwnProperty("nonownTools")) {
-                    bbopSet.conins.nonownTools = {
-                        includeInd: true
-                    };
+                    bbopSet.conins.nonownTools = {includeInd: true};
                 }
 
                 bbopSet.conins.nonownTools.Limit = coninsNonownToolsLimit.answer;
@@ -654,9 +642,7 @@ module.exports = class LibertySBOP extends Integration {
             const coninsEmpToolsLimit = conins.find(prop => prop.id === "conins.empTools.Limit");
             if (coninsEmpToolsLimit) {
                 if (!bbopSet.conins.hasOwnProperty("empTools")) {
-                    bbopSet.conins.empTools = {
-                        includeInd: true
-                    };
+                    bbopSet.conins.empTools = {includeInd: true};
                 }
 
                 bbopSet.conins.empTools.Limit = coninsEmpToolsLimit.answer;
@@ -666,9 +652,7 @@ module.exports = class LibertySBOP extends Integration {
         // hydrate datcom with child question data, if any exist
         if (datcom.length > 0) {
             if (!bbopSet.hasOwnProperty("datcom")) {
-                bbopSet.datcom = {
-                    includeInd: true
-                };
+                bbopSet.datcom = {includeInd: true};
             }
 
             const datcomLimit = datcom.find(prop => prop.id === "datcom.limit");
@@ -688,9 +672,7 @@ module.exports = class LibertySBOP extends Integration {
         // hydrate empben with child question data, if any exist
         if (empben.length > 0) {
             if (!bbopSet.hasOwnProperty("empben")) {
-                bbopSet.empben = {
-                    includeInd: true
-                };
+                bbopSet.empben = {includeInd: true};
             }
 
             empben.forEach(prop => {
@@ -707,7 +689,7 @@ module.exports = class LibertySBOP extends Integration {
 
     injectLocationQuestions(location, locationQuestions, buildingQuestions) {
         // hydrate the request JSON object with location question data
-        // NOTE: Add additional location questions here if more get imported   
+        // NOTE: Add additional location questions here if more get imported
 
         for (const [id, answer] of Object.entries(locationQuestions)) {
             switch (id) {
@@ -726,7 +708,7 @@ module.exports = class LibertySBOP extends Integration {
                 case "deductiblePcnt":
                     location[id] = answer;
                     break;
-                default: 
+                default:
                     log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                     break;
             }
@@ -736,10 +718,10 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     // NOTE: Currently this has an object pre-seeded into the buildingList because we only work with 1 building by default. When we allow multiple buildings
-    //       per location, that can be defined in the quote app, this will need to be refactored to handle that (questions will be tied to specific buildings). 
+    //       per location, that can be defined in the quote app, this will need to be refactored to handle that (questions will be tied to specific buildings).
     injectBuildingQuestions(buildings, buildingQuestions) {
         // hydrate the request JSON object with building question data
-        // NOTE: Add additional building questions here if more get imported   
+        // NOTE: Add additional building questions here if more get imported
 
         for (const building of buildings) {
             // parent questions
@@ -783,18 +765,22 @@ module.exports = class LibertySBOP extends Integration {
                     case "uw.hvacUpdates":
                     case "uw.plumbingUpdates":
                     case "uw.electricalUpdates":
-                        uw.push({id: id.replace("uw.", ""), answer});
+                        uw.push({
+id: id.replace("uw.", ""),
+answer: answer
+});
                         break;
                     case "PP":
-                        building[id] = {
-                            includeInd: this.convertToBoolean(answer)
-                        };
+                        building[id] = {includeInd: this.convertToBoolean(answer)};
                         break;
                     case "PP.limit":
                     case "PP.seasonalIncrease":
-                        pp.push({id: id.replace("PP.", ""), answer});
+                        pp.push({
+id: id.replace("PP.", ""),
+answer: answer
+});
                         break;
-                    default: 
+                    default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                         break;
                 }
@@ -822,9 +808,7 @@ module.exports = class LibertySBOP extends Integration {
             // injection of PP child question data
             if (pp.length > 0) {
                 if (!building.hasOwnProperty("PP")) {
-                    building.PP = {
-                        includeInd: true
-                    };
+                    building.PP = {includeInd: true};
                 }
 
                 pp.forEach(prop => {

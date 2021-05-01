@@ -5,7 +5,7 @@ const auth = require('./helpers/auth-agencyportal.js');
 const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const moment = require('moment');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const ApplicationBO = global.requireShared('models/Application-BO.js');
@@ -128,10 +128,6 @@ function generateCSV(applicationList){
                     applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
                 }
             }
-            // else {
-            //     log.debug(`No primary contact for appId: ${applicationDoc.mysqlId}` + __location)
-            // }
-
 
             // Status
             if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){

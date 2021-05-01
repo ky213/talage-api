@@ -1,7 +1,8 @@
 'use strict';
 const fileSvc = global.requireShared('services/filesvc.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const {'v4': uuidv4} = require('uuid');
+
 /**
  * Responds to get requests for the list of insurer logos
  *

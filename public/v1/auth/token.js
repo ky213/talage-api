@@ -5,7 +5,7 @@
 'use strict';
 
 const crypt = global.requireShared('services/crypt.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Responds to get requests for an authorization token

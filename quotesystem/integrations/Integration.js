@@ -4,7 +4,6 @@
 
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
@@ -12,11 +11,11 @@ const moment = require('moment');
 const util = require('util');
 const {v4: uuidv4} = require('uuid');
 const xmlToObj = util.promisify(require('xml2js').parseString);
-const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
+
 // eslint-disable-next-line object-curly-newline
 const {quoteStatus, getQuoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
 
@@ -63,6 +62,7 @@ module.exports = class Integration {
         this.insurer_wc_codes = {};
         this.grouped_activity_codes = [];
         this.limits = {};
+        this.quoteCoverages = [];
         this.log = '';
         //This is the quote number/id from
         this.number = '';
@@ -87,6 +87,7 @@ module.exports = class Integration {
         this.quoteId = null;
         this.isBindable = false;
         this.insurerPaymentPlans = null;
+        this.insurerPolicyInfo = null;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -118,38 +119,6 @@ module.exports = class Integration {
         }
     }
 
-    /**
-     * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
-     *
-     * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
-     */
-    bind() {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
-        return new Promise(async(fulfill, reject) => {
-            // Make sure the _bind() function exists
-            if (typeof this._bind === 'undefined') {
-                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} integration does not support binding quotes` + __location);
-                reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
-                return;
-            }
-
-            // Check for an outage
-            if (this.insurer.outage) {
-                log.warn(`Appid: ${this.app.id} ${this.insurer.name} is currently unavailable due to scheduled maintenance` + __location);
-                reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
-                return;
-            }
-
-            // Run the insurer's bind function
-            await this._bind().
-                then(function(result) {
-                    fulfill(result);
-                }).
-                catch(function(error) {
-                    reject(error);
-                });
-        });
-    }
 
     /* Standardized log messages */
 
@@ -1388,6 +1357,9 @@ module.exports = class Integration {
                         if(typeof insurerQuestion.attributes === 'string'){
                             insurerQuestionAttributes = JSON.parse(insurerQuestion.attributes);
                         }
+                        else {
+                            insurerQuestionAttributes = insurerQuestion.attributes;
+                        }
                     }
                     catch (error) {
                         log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Could not parse attributes for insurer question ${insurerQuestion.identifier}`);
@@ -1410,129 +1382,104 @@ module.exports = class Integration {
      * @returns {mixed} - ID on success, error on error
      */
     async record_quote(amount, apiResult) {
-        const appId = this.app.id;
+        const appId = this.app.applicationDocData.applicationId
         const insurerName = this.insurer.name;
-        const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
-            log.error(`Unable to encrypt log. AppId ${appId} Insurer: ${insurerName}Proceeding anyway. ` + err + __location);
-        });
+        const policyType = this.policy.type;
 
-        const columns = [
-            'application',
-            'insurer',
-            'log',
-            'policy_type',
-            'seconds',
-            'created'
-        ];
-        const values = [
-            this.app.id,
-            this.insurer.id,
-            encrypted_log ? encrypted_log : '',
-            this.policy.type,
-            this.seconds,
-            moment().format('YYYY-MM-DD HH:mm:ss')
-        ];
+
         //build mongo Document
         const quoteJSON = {
             applicationId: this.app.applicationDocData.applicationId,
-            mysqlAppId: this.app.id,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
             quoteTimeSeconds: this.seconds
         }
-
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
             quoteJSON.quotingStartedDate = moment.utc();
         }
 
-        //additionalInfo example
         if(this.quoteResponseJSON){
             quoteJSON.quoteResponseJSON = this.quoteResponseJSON;
         }
 
-        // Amount
-        if (amount) {
-            columns.push('amount');
-            values.push(amount);
-            quoteJSON.amount = amount;
+        try{
+            // Amount
+            if (amount) {
+                quoteJSON.amount = amount;
+            }
+
+            // Deductible
+            if (this.deductible !== null) {
+                quoteJSON.deductible = this.deductible;
+            }
+
+            // Number
+            if (this.number) {
+                quoteJSON.quoteNumber = this.number;
+            }
+
+            // Request ID
+            if (this.request_id) {
+                quoteJSON.requestId = this.request_id
+            }
+
+            // Writer
+            if (this.writer) {
+                quoteJSON.writer = this.writer
+            }
+            if(this.quoteLink){
+                quoteJSON.quoteLink = this.quoteLink
+            }
+            if(this.isBindable){
+                quoteJSON.isBindable = this.isBindable
+            }
+
+            if(this.insurerPaymentPlans){
+                quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
+            }
+            if(this.insurerPolicyInfo){
+                quoteJSON.policyInfo = this.insurerPolicyInfo
+            }
+
+            // Error
+            
+            quoteJSON.apiResult = apiResult
+
+            // Reasons
+            if (this.reasons.length > 0) {
+                // Note: we do not need to escape apostrophes when going to Mongo. This was causing quote reasons to show an escape apostrophe in the agency portal -SF
+                quoteJSON.reasons = this.reasons.join(',');
+            }
+        }
+        catch(err){
+            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error populating values. error ${err} ` + __location)
         }
 
-        // Deductible
-        if (this.deductible !== null) {
-            // do not put in mysql
-            // columns.push('deductible');
-            // values.push(this.deductible);
-            quoteJSON.deductible = this.deductible;
-        }
+        try{
+            // Quote Letter
+            if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
+                // Generate a UUID to use as the file name
+                const fileName = `${this.generate_uuid()}.pdf`;
 
-        // Number
-        if (this.number) {
-            quoteJSON.quoteNumber = this.number
-            columns.push('number');
-            values.push(this.number);
-        }
-
-        // Request ID
-        if (this.request_id) {
-            columns.push('request_id');
-            values.push(this.request_id);
-            quoteJSON.requestId = this.request_id
-        }
-
-        // Writer
-        if (this.writer) {
-            columns.push('writer');
-            values.push(this.writer);
-            quoteJSON.writer = this.writer
-        }
-        if(this.quoteLink){
-            columns.push('quote_link');
-            values.push(this.quoteLink);
-            quoteJSON.quoteLink = this.quoteLink
-        }
-        if(this.isBindable){
-            quoteJSON.isBindable = this.isBindable
-        }
-
-        if(this.insurerPaymentPlans){
-            quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
-        }
-
-        // Error
-        columns.push('api_result');
-        values.push(apiResult);
-        quoteJSON.apiResult = apiResult
-
-        // Reasons
-        if (this.reasons.length > 0) {
-            columns.push('reasons');
-            values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
-            // Note: we do not need to escape apostrophes when going to Mongo. This was causing quote reasons to show an escape apostrophe in the agency portal -SF
-            quoteJSON.reasons = this.reasons.join(',');
-        }
-
-        // Quote Letter
-        if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
-            // Generate a UUID to use as the file name
-            const fileName = `${this.generate_uuid()}.pdf`;
-
-            // Store the quote letter in our cloud storage
-            try {
                 // Store the quote letter in our cloud storage
-                // Secure
-                const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
-                // The file was successfully saved, store the file name in the database
-                if (result && result.code === 'Success') {
-                    columns.push('quote_letter');
-                    values.push(fileName);
-                    quoteJSON.quoteLetter = fileName
+                try {
+                    // Store the quote letter in our cloud storage
+                    // Secure
+                    const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+                    // The file was successfully saved, store the file name in the database
+                    if (result && result.code === 'Success') {
+                        quoteJSON.quoteLetter = fileName
+                    }
+                }
+                catch (err) {
+                    log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${fileName}, error: ${err}. ${__location}`);
                 }
             }
-            catch (err) {
-                log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${fileName}, error: ${err}. ${__location}`);
-            }
+        }
+        catch(err){
+            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving qoute letter. error ${err} ` + __location)
         }
 
         // quoteStatusId and quoteStatusDescription
@@ -1541,37 +1488,62 @@ module.exports = class Integration {
         quoteJSON.quoteStatusDescription = status.description;
 
         // backwards compatibility w/ old Mongo property and existing code logic
-        quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
+        try{
+            quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
+            // Aggregated Status (backwards compatibility w/ SQL)
+        }
+        catch(err){
+            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error setting  aggregatedStatus. error ${err} ` + __location)
+        }
 
-        // Aggregated Status (backwards compatibility w/ SQL)
-        columns.push('aggregated_status');
-        values.push(convertToAggregatedStatus(status));
-
-        if (Object.keys(this.limits).length) {
-            quoteJSON.limits = []
-            // eslint-disable-next-line guard-for-in
-            for (const limitId in this.limits) {
-                if (Object.prototype.hasOwnProperty.call(this.limits, limitId) && typeof this.limits[limitId] === 'number' && this.limits[limitId]) {
-                    const limitJSON = {
-                        limitId: limitId,
-                        amount: this.limits[limitId]
+        try{
+            // Set up quote limits for old-style hydration (should be deprecated eventually)
+            if (this.limits && Object.keys(this.limits).length) {
+                // eslint-disable-next-line guard-for-in
+                for (const limitId in this.limits) {
+                    if (Object.prototype.hasOwnProperty.call(this.limits, limitId) && typeof this.limits[limitId] === 'number' && this.limits[limitId]) {
+                        const limitJSON = {
+                            limitId: limitId,
+                            amount: this.limits[limitId]
+                        };
+                        if(!quoteJSON.limits){
+                            quoteJSON.limits = [];
+                        }
+                        quoteJSON.limits.push(limitJSON);
                     }
-                    quoteJSON.limits.push(limitJSON);
                 }
             }
         }
-        //shouldNotifyTalage is based on talageWholesale Setting
-        const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
-        //We only need one AL insurer to be set to notifyTalage to send it to Slack.
-        if(notifiyTalageTest === true){
-            quoteJSON.handledByTalage = true;
-            quoteJSON.talageWholesale = true;
+        catch(err){
+            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error setting limits. values ${err} ` + __location)
+        }
+        // hydrate quoteCoverages property with insurer coverages
+        if (this.quoteCoverages && this.quoteCoverages.length > 0) {
+            quoteJSON.quoteCoverages = this.quoteCoverages;
+        }
+
+        try{
+            //shouldNotifyTalage is based on talageWholesale Setting
+            const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
+            //We only need one AL insurer to be set to notifyTalage to send it to Slack.
+            if(notifiyTalageTest === true){
+                quoteJSON.handledByTalage = true;
+                quoteJSON.talageWholesale = true;
+            }
+        }
+        catch(err){
+            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error getting notifiyTalageTest. ${err} ` + __location)
         }
         //QuoteBO
-        const quoteBO = new QuoteBO();
-        this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON, columns, values).catch(function(err){
-            log.error("Error quoteBO.insertByColumnValue " + err + __location);
-        });
+        try{
+            const quoteBO = new QuoteBO();
+            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON).catch(function(err){
+                log.error("Error quoteBO.saveIntegrationQuote " + err + __location);
+            });
+        }
+        catch(err){
+            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving quote. Error: ${err} ` + __location)
+        }
 
         return this.quoteId;
     }
@@ -1623,18 +1595,22 @@ module.exports = class Integration {
      * Returns a quote object for a 'referred' quote
      *
      * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
-     * @param {int} limits - The limits parsed from the quote
+     * @param {array<object>} limits - The limits parsed from the quote (optional if coverages is supplied)
      * @param {int} premiumAmount - The premium amount (optional)
      * @param {string} quoteLetter - The quote letter (optional)
      * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
+     * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_referred(quoteNumber, limits, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null) {
-        if (!limits || Object.keys(limits).length === 0) {
-            this.log_error('Received a referred quote but no limits', __location);
-            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+    async client_referred(quoteNumber, limits = {}, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
+        this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
+        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+
+        if (!this.limits && !this.quoteCoverages) {
+            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
+            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
-        this.limits = limits;
+
         if (premiumAmount) {
             this.amount = premiumAmount;
         }
@@ -1659,19 +1635,24 @@ module.exports = class Integration {
     /**
      * Returns a quote object for a 'quoted' quote
      *
+     * NOTE: limits will "eventually" be deprecated and replaced by coverages
+     *
      * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
-     * @param {array} limits - The limits parsed from the quote
+     * @param {array<object>} limits - The limits parsed from the quote (optional if coverages is supplied)
      * @param {int} premiumAmount - The premium amount
      * @param {string} quoteLetter - The quote letter (optional)
      * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
+     * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits, premiumAmount, quoteLetter = null, quoteLetterMimeType = null) {
-        if (!limits) {
-            this.log_error(`Received a quote but no limits for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
-            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
+        this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
+        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+
+        if (!this.limits && !this.quoteCoverages) {
+            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
+            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
-        this.limits = limits;
 
         if (!premiumAmount) {
             this.log_error(`Received a quote but no premium amount for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);

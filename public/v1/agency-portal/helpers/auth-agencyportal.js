@@ -7,7 +7,7 @@
 'use strict';
 
 const validator = global.requireShared('helpers/validator.js');
-const serverHelper = require('../../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 
 /**

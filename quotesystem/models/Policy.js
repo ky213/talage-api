@@ -58,7 +58,7 @@ module.exports = class Policy {
             throw new Error("Quote Policy model no applicationPolicyTypeBO supplied");
         }
 
-        const applicationId = applicationDocData.mysqlId
+        const applicationId = applicationDocData.applicationId
 
         //load property from applicationPolicyTypeBO
         this.applicationId = applicationId;

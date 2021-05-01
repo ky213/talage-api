@@ -2,7 +2,7 @@
 
 
 //const axios = require('axios');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const fileSvc = global.requireShared('./services/filesvc.js');

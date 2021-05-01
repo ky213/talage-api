@@ -79,7 +79,7 @@ var soleproApplicationEmailTask = async function(applicationId) {
     let applicationDoc = null;
     const applicationBO = new ApplicationBO();
     try {
-        applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
+        applicationDoc = await applicationBO.getById(applicationId);
     }
     catch (err) {
         log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
