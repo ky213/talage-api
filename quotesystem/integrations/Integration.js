@@ -87,6 +87,7 @@ module.exports = class Integration {
         this.quoteId = null;
         this.isBindable = false;
         this.insurerPaymentPlans = null;
+        this.insurerPolicyInfo = null;
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
@@ -1384,24 +1385,8 @@ module.exports = class Integration {
         const appId = this.app.applicationDocData.applicationId
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
-        const encrypted_log = '';
 
-        const columns = [
-            'application',
-            'insurer',
-            'log',
-            'policy_type',
-            'seconds',
-            'created'
-        ];
-        const values = [
-            this.app.id,
-            this.insurer.id,
-            encrypted_log ? encrypted_log : '',
-            this.policy.type,
-            this.seconds,
-            moment().format('YYYY-MM-DD HH:mm:ss')
-        ];
+
         //build mongo Document
         const quoteJSON = {
             applicationId: this.app.applicationDocData.applicationId,
@@ -1415,7 +1400,6 @@ module.exports = class Integration {
             quoteJSON.quotingStartedDate = moment.utc();
         }
 
-        //additionalInfo example
         if(this.quoteResponseJSON){
             quoteJSON.quoteResponseJSON = this.quoteResponseJSON;
         }
@@ -1423,42 +1407,29 @@ module.exports = class Integration {
         try{
             // Amount
             if (amount) {
-                columns.push('amount');
-                values.push(amount);
                 quoteJSON.amount = amount;
             }
 
             // Deductible
             if (this.deductible !== null) {
-                // do not put in mysql
-                // columns.push('deductible');
-                // values.push(this.deductible);
                 quoteJSON.deductible = this.deductible;
             }
 
             // Number
             if (this.number) {
-                quoteJSON.quoteNumber = this.number
-                columns.push('number');
-                values.push(this.number);
+                quoteJSON.quoteNumber = this.number;
             }
 
             // Request ID
             if (this.request_id) {
-                columns.push('request_id');
-                values.push(this.request_id);
                 quoteJSON.requestId = this.request_id
             }
 
             // Writer
             if (this.writer) {
-                columns.push('writer');
-                values.push(this.writer);
                 quoteJSON.writer = this.writer
             }
             if(this.quoteLink){
-                columns.push('quote_link');
-                values.push(this.quoteLink);
                 quoteJSON.quoteLink = this.quoteLink
             }
             if(this.isBindable){
@@ -1468,16 +1439,16 @@ module.exports = class Integration {
             if(this.insurerPaymentPlans){
                 quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
             }
+            if(this.insurerPolicyInfo){
+                quoteJSON.policyInfo = this.insurerPolicyInfo
+            }
 
             // Error
-            columns.push('api_result');
-            values.push(apiResult);
+            
             quoteJSON.apiResult = apiResult
 
             // Reasons
             if (this.reasons.length > 0) {
-                columns.push('reasons');
-                values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
                 // Note: we do not need to escape apostrophes when going to Mongo. This was causing quote reasons to show an escape apostrophe in the agency portal -SF
                 quoteJSON.reasons = this.reasons.join(',');
             }
@@ -1499,8 +1470,6 @@ module.exports = class Integration {
                     const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                     // The file was successfully saved, store the file name in the database
                     if (result && result.code === 'Success') {
-                        columns.push('quote_letter');
-                        values.push(fileName);
                         quoteJSON.quoteLetter = fileName
                     }
                 }
@@ -1522,8 +1491,6 @@ module.exports = class Integration {
         try{
             quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
             // Aggregated Status (backwards compatibility w/ SQL)
-            columns.push('aggregated_status');
-            values.push(convertToAggregatedStatus(status));
         }
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error setting  aggregatedStatus. error ${err} ` + __location)
@@ -1570,8 +1537,8 @@ module.exports = class Integration {
         //QuoteBO
         try{
             const quoteBO = new QuoteBO();
-            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON, columns, values).catch(function(err){
-                log.error("Error quoteBO.insertByColumnValue " + err + __location);
+            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON).catch(function(err){
+                log.error("Error quoteBO.saveIntegrationQuote " + err + __location);
             });
         }
         catch(err){

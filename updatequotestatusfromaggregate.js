@@ -70,6 +70,7 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(Date());
 
+    // eslint-disable-next-line no-console
     console.log(colors.yellow('\nScript usage includes no optional params: node <path-to-script>/updatequotestatusfromaggregate.js\n'));
 
     // Load the settings from a .env file - Settings are loaded first

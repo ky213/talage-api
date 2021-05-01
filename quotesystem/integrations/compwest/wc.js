@@ -41,7 +41,7 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        //const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
@@ -67,11 +67,7 @@ module.exports = class CompwestWC extends Integration {
 
         const cwCoreStates = ['AZ', 'CA', 'CO', 'ID', 'NV', 'OR', 'UT'];
 
-        // These are the limits supported by AF Group
-        const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
-
-        // Define how legal entities are mapped for Employers
-        let entityMatrix = {
+        const entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
             'Limited Liability Company': 'LL',
@@ -79,35 +75,6 @@ module.exports = class CompwestWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
-        if(guideWireAPI === true){
-            //updates
-            // need to take corporation_type into account for
-            // nonprofits.
-            entityMatrix = {
-                    Association: 'ASSOCIATION',
-                    Corporation: 'CORPORATION',
-                    'Limited Liability Company': 'LLC',
-                    'Limited Partnership': 'LLP',
-                    Partnership: 'PARTNERSHIP',
-                    'Sole Proprietorship': 'INDIVIDUAL'
-                }
-                // ASSOCIATION
-                // COMMONOWNERSHIP
-                // CORPORATION
-                // EXECUTORTRUSTEE
-                // GOVERNMENT
-                // INDIVIDUAL
-                // JOINTEMPLOYERS
-                // JOINTVENTURE
-                // LIMITEDPARTNERSHIP
-                // LLC
-                // LLP
-                // MULTIPLE
-                // NONPROFIT
-                // OTHER
-                // PARTNERSHIP
-                // TRUSTESTATE
-        }
 
         // CompWest has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -126,7 +93,8 @@ module.exports = class CompwestWC extends Integration {
             return this.return_result('autodeclined');
         }
 
-        // Prepare limits
+        // Prepare limits - just for error check here.
+        const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
             log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
@@ -134,511 +102,21 @@ module.exports = class CompwestWC extends Integration {
             return this.return_result('autodeclined');
         }
 
-        // Build the XML Request
-
-        // <ACORD>
-        const ACORD = builder.create('ACORD');
-        if(guideWireAPI === true){
-            ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
-            ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
-        }
-
-        // <SignonRq>
-        const SignonRq = ACORD.ele('SignonRq');
-
-        // <ClientApp>
-        const ClientApp = SignonRq.ele('ClientApp');
-
-        // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
-        ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
-        if(this.app.applicationDocData
-            && this.app.applicationDocData.businessDataJSON
-            && this.app.applicationDocData.businessDataJSON.afBusinessData
-            && this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId){
-                ClientApp.ele('SubmissionId', this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
-                log.debug("CompWest WC added SubmissionId");
-        }
-
-        //SubmissionId
-
-        // </ClientApp>
-        // </SignonRq>
-
-        // <InsuranceSvcRq>
-        const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        InsuranceSvcRq.ele('RqUID', this.request_id);
-
-        // <WorkCompPolicyQuoteInqRq>
-        const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-        if(guideWireAPI === true){
-            const txnDate = moment();
-            WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
-        }
-        // <Producer>
-        const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
-
-        // <ItemIdInfo>
-        const ItemIdInfo = Producer.ele('ItemIdInfo');
-        let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
-        if(guideWireAPI === true){
-            agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
-        }
-        ItemIdInfo.ele('AgencyId', agencyCode);
-        // </ItemIdInfo>
-
-        // <GeneralPartyInfo>
-        let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
-
-        // <NameInfo>
-        let NameInfo = GeneralPartyInfo.ele('NameInfo');
-        NameInfo.att('id', 'ProducerName');
-
-        // <PersonName>
-        const PersonName = NameInfo.ele('PersonName');
-        PersonName.ele('Surname', this.app.agencyLocation.last_name);
-        PersonName.ele('GivenName', this.app.agencyLocation.first_name);
-        // </PersonName>
-        // </NameInfo>
-        // </GeneralPartyInfo>
-        // </Producer>
-
-        // <InsuredOrPrincipal>
-        const InsuredOrPrincipal = WorkCompPolicyQuoteInqRq.ele('InsuredOrPrincipal');
-        InsuredOrPrincipal.att('id', 'n0');
-
-        // <GeneralPartyInfo>
-        GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
-
-        // <NameInfo>
-        NameInfo = GeneralPartyInfo.ele('NameInfo');
-
-        // <CommlName>
-        const CommlName = NameInfo.ele('CommlName');
-        CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
-        // Preserve this in case they move it back here -SF
-        // if (this.app.business.dba) {
-        //     // <SupplementaryNameInfo>
-        //     const SupplementaryNameInfo = CommlName.ele('SupplementaryNameInfo');
-        //     SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
-        //     SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
-        //     // </SupplementaryNameInfo>
-        // }
-        // </CommlName>
-
-        if (!(this.app.business.entity_type in entityMatrix)) {
+         if (!(this.app.business.entity_type in entityMatrix)) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
             this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type`);
             return this.return_result('error');
         }
-        NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+        //************************* create XML ************************************ */
+        // Build the XML Request
 
-        // <TaxIdentity>
-        const TaxIdentity = NameInfo.ele('TaxIdentity');
-        TaxIdentity.ele('TaxId', appDoc.ein);
-        // </TaxIdentity>
-        // </NameInfo>
-
-        // <Addr>
-        let Addr = GeneralPartyInfo.ele('Addr');
-        Addr.ele('AddrTypeCd', 'MailingAddress');
-        Addr.ele('Addr1', this.app.business.mailing_address);
-        if (this.app.business.mailing_address2) {
-            Addr.ele('Addr2', this.app.business.mailing_address2);
-        }
-        Addr.ele('City', this.app.business.mailing_city);
-        Addr.ele('StateProvCd', this.app.business.mailing_territory);
-        Addr.ele('PostalCode', this.app.business.mailing_zip);
-
-        if(guideWireAPI === true){
-            Addr.ele('CountryCd', 'US');
-        }
-        else {
-            Addr.ele('CountryCd', 'USA');
-        }
-        // </Addr>
-
-        // <Communications>
-        const Communications = GeneralPartyInfo.ele('Communications');
-
-        // <PhoneInfo>
-        const PhoneInfo = Communications.ele('PhoneInfo');
-        PhoneInfo.ele('PhoneNumber', this.app.business.contacts[0].phone);
-        // </PhoneInfo>
-
-        // <EmailInfo>
-        const EmailInfo = Communications.ele('EmailInfo');
-        EmailInfo.ele('EmailAddr', this.app.business.contacts[0].email);
-        // </EmailInfo>
-
-        if (this.app.business.website) {
-            // <WebsiteInfo>
-            const WebsiteInfo = Communications.ele('WebsiteInfo');
-            WebsiteInfo.ele('WebsiteURL', this.app.business.website);
-            // </WebsiteInfo>
-        }
-        // </Communications>
-        // </GeneralPartyInfo>
-        // </InsuredOrPrincipal>
-
-        // <CommlPolicy>
-        const CommlPolicy = WorkCompPolicyQuoteInqRq.ele('CommlPolicy');
-        CommlPolicy.ele('ControllingStateProvCd', this.app.business.primary_territory);
-        CommlPolicy.ele('com.afg_TotalEmployees', this.get_total_employees());
-
-        // <ContractTerm>
-        const ContractTerm = CommlPolicy.ele('ContractTerm');
-        ContractTerm.ele('EffectiveDt', this.policy.effective_date.format('YYYY-MM-DD'));
-        ContractTerm.ele('ExpirationDt', this.policy.expiration_date.format('YYYY-MM-DD'));
-        // </ContractTerm>
-
-        // <CommlPolicySupplement>
-        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
-        CommlPolicySupplement.ele('OperationsDesc', this.get_operation_description());
-
-        // <LengthTimeInBusiness> They want this in years
-        const LengthTimeInBusiness = CommlPolicySupplement.ele('LengthTimeInBusiness');
-        LengthTimeInBusiness.ele('NumUnits', moment().diff(this.app.business.founded, 'years'));
-        // </LengthTimeInBusiness>
-
-        const has_claims = this.policy.claims.length > 0;
-
-        CommlPolicySupplement.ele('LossDataAvailable', has_claims ? 'Y' : 'N');
-        if (has_claims) {
-            const claims_data = this.claims_to_policy_years();
-            CommlPolicySupplement.ele('NumberClaims', this.get_num_claims(4));
-            CommlPolicySupplement.ele('NumberClaims1', claims_data[1].count);
-            CommlPolicySupplement.ele('NumberClaims2', claims_data[2].count);
-            CommlPolicySupplement.ele('NumberClaims3', claims_data[3].count);
-            CommlPolicySupplement.ele('TotalClaimAmount', this.get_total_amount_incurred_on_claims(4));
-        }
-        // <CommlPolicySupplement>
-        // </CommlPolicy>
-        this.app.business.locations.forEach((location, index) => {
-            // <Location>
-            const Location = WorkCompPolicyQuoteInqRq.ele('Location');
-            Location.att('id', `l${index + 1}`);
-
-            // <Addr>
-            Addr = Location.ele('Addr');
-            Addr.ele('Addr1', location.address);
-            if (location.address2) {
-                Addr.ele('Addr2', location.address2);
-            }
-            Addr.ele('City', location.city);
-            Addr.ele('StateProvCd', location.territory);
-            Addr.ele('PostalCode', location.zip);
-            // </Addr>
-
-            if (location.unemployment_number) {
-                // <TaxCodeInfo>
-                const TaxCodeInfo = Location.ele('TaxCodeInfo');
-                TaxCodeInfo.ele('TaxCd', location.unemployment_number);
-                // </TaxCodeInfo>
-            }
-
-            // For the first location, insert the DBA nodes
-            if (this.app.business.dba && index === 0) {
-                const DBAAdditionalInterest = Location.ele('AdditionalInterest');
-                DBAAdditionalInterest.att('id', 'c2');
-                // <GeneralPartyInfo>
-                const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
-                // <NameInfo>
-                const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
-                const CommlNameAddInfo = DBANameInfo.ele('CommlName')
-                CommlNameAddInfo.ele('CommercialName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
-                //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
-                CommlNameAddInfo.ele('Type',"Company");
-                const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
-                DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                DBATaxIdentity.ele('TaxCd',appDoc.ein);
-                DBANameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
-                // </NameInfo>
-                // <Addr>
-                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
-                DBAAddr.ele('Addr1', this.app.business.mailing_address);
-                if (this.app.business.mailing_address2) {
-                    DBAAddr.ele('Addr2', this.app.business.mailing_address2);
-                }
-                DBAAddr.ele('City', this.app.business.mailing_city);
-                DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
-                DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
-                if(guideWireAPI === true){
-                    DBAAddr.ele('CountryCd', 'US');
-                }
-                else {
-                    DBAAddr.ele('CountryCd', 'USA');
-                }
-                // </Addr>
-                // </GeneralPartyInfo>
-                // <AdditionalInterestInfo>
-                DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
-                // </AdditionalInterestInfo>
-            }
-
-            // </Location>
-        });
-
-        // <WorkCompLineBusiness>
-        const WorkCompLineBusiness = WorkCompPolicyQuoteInqRq.ele('WorkCompLineBusiness');
-
-        // Separate out the states
-        const territories = this.app.business.getTerritories();
-        for(let t = 0; t < territories.length; t++){
-            //territories.forEach((territory) => {
-            const territory = territories[t];
-            // <WorkCompRateState>
-            const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-            //db queries below.
-            for(let index = 0; index < this.app.business.locations.length; index++){
-                //this.app.business.locations.forEach((location, index) => {
-                const location = this.app.business.locations[index];
-
-                // Make sure this location is in the current territory, if not, skip it
-                if (location.territory !== territory) {
-                    continue;
-                }
-
-                // <WorkCompLocInfo>
-                const WorkCompLocInfo = WorkCompRateState.ele('WorkCompLocInfo');
-                WorkCompLocInfo.att('LocationRef', `l${index + 1}`);
-
-                // Combine the activity codes
-                const activityCodes = this.combineLocationActivityCodes(location);
-
-                // Add class code information
-                for (const activityCode in activityCodes) {
-                    if (Object.prototype.hasOwnProperty.call(activityCodes, activityCode)) {
-                        // Split up the class code
-                        const classCode = activityCode.substring(0, 4);
-                        const subCode = activityCode.substring(4, 6);
-
-                        // <WorkCompRateClass>
-                        const WorkCompRateClass = WorkCompLocInfo.ele('WorkCompRateClass');
-                        WorkCompRateClass.ele('RatingClassificationCd', classCode);
-                        // log.info('TO DO: We need to build in support for this bullshit');
-                        WorkCompRateClass.ele('RatingClassificationLetter', '');
-                        WorkCompRateClass.ele('RatingClassificationSubCd', subCode);
-                        WorkCompRateClass.ele('Exposure', activityCodes[activityCode]);
-
-                        // From AF : If we have a Classcode(RatingClassificationCd) and Classcode Indiator(RatingClassificationSubCd),
-                        // we don’t expect to see ClassCodeQuestions node within
-                        // Handle class specific questions
-                        //if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
-                        if(true){
-                            // eslint-disable-next-line prefer-const
-                            let ClassCodeQuestions = null;
-                            //get insurerActivityCode doc.
-                            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-                            const activityCodeQuery = {
-                                insurerId: this.insurer.id,
-                                code: classCode,
-                                sub: subCode,
-                                territoryList: location.territory,
-                                active: true
-                            }
-                            try{
-                                const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
-                                // eslint-disable-next-line prefer-const
-                                let talageQuestionList = [];
-                                let insurerQuestionIdList = [];
-                                if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
-                                    insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
-                                }
-                                if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
-                                    //override
-                                    insurerQuestionIdList = [];
-                                    const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
-                                    if(territoryQuestion){
-                                        territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
-                                            if(!insurerQuestionIdList.includes(insurerQuestionId)){
-                                                insurerQuestionIdList.push(insurerQuestionId);
-                                            }
-                                        });
-                                    }
-                                }
-                                //get insurerQuestions
-                                if(insurerQuestionIdList.length > 0){
-                                        const query = {
-                                        "insurerId": this.insurer.id,
-                                        "insurerQuestionId": {$in: insurerQuestionIdList}
-                                    }
-                                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                                    let insurerQuestionList = null;
-                                    try{
-                                        insurerQuestionList = await InsurerQuestionModel.find(query);
-                                    }
-                                    catch(err){
-                                        throw err
-                                    }
-                                    insurerQuestionList.forEach((insurerQuestion) => {
-                                        talageQuestionList.push(insurerQuestion.talageQuestionId);
-                                    });
-                                }
-
-                                talageQuestionList.forEach((talageQuestionId) => {
-                                    const question = this.questions[talageQuestionId];
-                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
-                                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
-                                        return;
-                                    }
-                                    //const question_attributes = question.attributes;
-                                    const question_attributes = this.question_details[talageQuestionId].attributes;
-                                    log.debug(`Compwest WC calling processActivtyCodeQuestion`);
-                                    this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
-                                        classCode, subCode, talageQuestionId, question, question_attributes);
-
-                                });
-                            }
-                            catch(err){
-                                log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
-                            }
-                            
-                        }//have classcode and sub
-                        // </WorkCompRateClass>
-                    }
-                }
-                // </WorkCompLocInfo>
-            }
-            // </WorkCompRateState>
-        }
-
-        // <CommlCoverage>
-        const CommlCoverage = WorkCompLineBusiness.ele('CommlCoverage');
-        CommlCoverage.ele('CoverageCd', 'WCEL');
-        CommlCoverage.ele('CoverageDesc', 'Employers Liability');
-
-        // <Limit>
-        let Limit = CommlCoverage.ele('Limit');
-        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[0]);
-        Limit.ele('LimitAppliesToCd', 'EachClaim');
-        // </Limit>
-
-        // <Limit>
-        Limit = CommlCoverage.ele('Limit');
-        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[2]);
-        Limit.ele('LimitAppliesToCd', 'EachEmployee');
-        // </Limit>
-
-        // <Limit>
-        Limit = CommlCoverage.ele('Limit');
-        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[1]);
-        Limit.ele('LimitAppliesToCd', 'PolicyLimit');
-        // </Limit>
-        // </CommlCoverage>
-
-        /* ---=== Begin Ineligibility and Statement Questions ===--- */
-        // Make a list of embedded questions need by WC questions for Guidwire api.
-        const embeddedQuestions = {};
-        for (const questionId in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
-                // Get the attributes for this question
-                const questionAttributes = this.question_details[questionId].attributes;
-
-                // Check if this is an embedded question
-                if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
-                    // Make sure we have the attributes we are expecting
-                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')) {
-                        embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
-                    }
-                    else {
-                        log.error(`Appid: ${this.app.id} The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
-                    }
-                }
-            }
-        }
-
-
-        // Create one section for each Ineligibility and Statement questions
-        ['Ineligibility', 'Statement'].forEach((type) => {
-            // <Ineligibility/Statement>
-            const root_questions_element = WorkCompLineBusiness.ele(type);
-
-            // Loop through each question
-            for (const questionId in this.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
-
-                    // Get the attributes for this question
-                    const questionAttributes = this.question_details[questionId].attributes;
-
-                    // If this is an embedded question, skip it
-                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
-                        continue;
-                    }
-
-                     if (Object.prototype.hasOwnProperty.call(questionAttributes, 'hasParent') && questionAttributes.hasParent === true) {
-                        continue;
-                    }
-
-                    // Make sure we have the attributes we need, and that they match this section
-                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && questionAttributes.xml_section === type) {
-                        let answerBoolean = this.questions[questionId].get_answer_as_boolean();
-
-                        // Swap over statement question 7, it is inversed in our system
-                        if (this.question_details[questionId].identifier === 'Statement-Q7') {
-                            answerBoolean = !answerBoolean;
-                        }
-
-                        // <QuestionAnswer>
-
-                        //Detemine QuestionCd
-                        let questionCdValue = null;
-                        if(guideWireAPI === true){
-                            questionCdValue = this.question_details[questionId].attributes.questionCd;
-                        }
-                        else {
-                            questionCdValue = this.question_details[questionId].identifier.split('-')[1]
-                        }
-                        //handle old questions that did not get mapped or has effective date changed.
-                        if(questionCdValue){
-                            let QuestionAnswer = null;
-                            QuestionAnswer = root_questions_element.ele('QuestionAnswer');
-                            QuestionAnswer.ele('QuestionCd', questionCdValue);
-                            QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
-
-                             if(guideWireAPI === true && answerBoolean){
-                                const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
-                                for (const childQuestionId in this.questions) {
-                                    const childTalageQuestion = this.questions[childQuestionId]
-                                    const childInsurerQuestion = this.question_details[childQuestionId]
-                                    if(childInsurerQuestion.attributes && childInsurerQuestion.attributes.hasParent && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
-                                        QuestionAnswer.ele('Explanation', childTalageQuestion.answer);
-                                        //Added node for child question
-                                        // eslint-disable-next-line prefer-const
-                                        let childQuestionAnswer = root_questions_element.ele('QuestionAnswer');
-                                        childQuestionAnswer.ele('QuestionCd', childInsurerQuestion.attributes.questionCd);
-                                        childQuestionAnswer.ele('Explanation', childTalageQuestion.answer);
-                                    }
-                                }
-                            }
-                            else if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
-                                // If the answer to this question was true, and it has an embedded question, add the answer
-                                const embeddedQuestion = embeddedQuestions[this.question_details[questionId].identifier];
-
-                                // If the answer was null, skip it
-                                if (embeddedQuestion.answer === null) {
-                                    continue;
-                                }
-
-                                QuestionAnswer.ele('Explanation', embeddedQuestion.answer);
-                            }
-                        }
-                        // </QuestionAnswer>
-                    }
-                }
-            }
-            // </Ineligibility/Statement>
-        });
-
-        /* ---=== End Ineligibility and Statement Questions ===--- */
-
-        // </WorkCompLineBusiness>
-        // </WorkCompPolicyQuoteInqRq>
-        // </InsuranceSvcRq>
-        // </ACORD>
+        const quoteRequest = true
+        const requestACORD = await this.createRequestXML(this.request_id, quoteRequest, guideWireAPI)
 
         // Get the XML structure as a string
-        const xml = ACORD.end({pretty: true});
+        const xml = requestACORD.end({pretty: true});
 
+        /************** Make Request ********************************************** */
         // Determine which URL to use
         let host = '';
         let path = '';
@@ -815,7 +293,7 @@ module.exports = class CompwestWC extends Integration {
                 };
             } catch (err) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
-                return this.return_result('error');
+                //return this.return_result('error');
             }
         }
 
@@ -829,20 +307,25 @@ module.exports = class CompwestWC extends Integration {
         }
 
         // Attempt to get the policy number
+        // eslint-disable-next-line prefer-const
+        let policyInfo = {};
         try {
             this.number = resWorkCompPolicy.PolicyNumber[0];
+            policyInfo.policyNumber = this.number;
+            this.insurerPolicyInfo = policyInfo;
         } catch (e) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
-            return this.return_result('error');
+            //return this.return_result('error');
         }
 
         // Get the amount of the quote
         if (status === 'QUOTED' || status === 'REFERRALNEEDED') {
             try {
                 this.amount = parseInt(resWorkCompPolicy.CurrentTermAmt[0].Amt[0], 10);
+                policyInfo.policyPremium = this.amount;
             } catch (e) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
-                return this.return_result('error');
+                //return this.return_result('error');
             }
         }
 
@@ -853,6 +336,551 @@ module.exports = class CompwestWC extends Integration {
 
         // Send the result of the request
         return this.return_result(status);
+    }
+
+
+    async createRequestXML(request_id, isGuideWireAPI = true){
+        const appDoc = this.app.applicationDocData
+
+        // These are the limits supported by AF Group - checked earlier.
+        const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
+        const limits = this.getBestLimits(carrierLimits);
+
+        // Define how legal entities are mapped for Employers
+        let entityMatrix = {
+            Association: 'AS',
+            Corporation: 'CP',
+            'Limited Liability Company': 'LL',
+            'Limited Partnership': 'LP',
+            Partnership: 'PT',
+            'Sole Proprietorship': 'IN'
+        };
+        if(isGuideWireAPI === true){
+            //updates
+            // need to take corporation_type into account for
+            // nonprofits.
+            entityMatrix = {
+                    Association: 'ASSOCIATION',
+                    Corporation: 'CORPORATION',
+                    'Limited Liability Company': 'LLC',
+                    'Limited Partnership': 'LLP',
+                    Partnership: 'PARTNERSHIP',
+                    'Sole Proprietorship': 'INDIVIDUAL'
+                }
+                // ASSOCIATION
+                // COMMONOWNERSHIP
+                // CORPORATION
+                // EXECUTORTRUSTEE
+                // GOVERNMENT
+                // INDIVIDUAL
+                // JOINTEMPLOYERS
+                // JOINTVENTURE
+                // LIMITEDPARTNERSHIP
+                // LLC
+                // LLP
+                // MULTIPLE
+                // NONPROFIT
+                // OTHER
+                // PARTNERSHIP
+                // TRUSTESTATE
+        }
+
+          // <ACORD>
+        const requestACORD = builder.create('ACORD');
+        if(isGuideWireAPI === true){
+            requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
+            requestACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        }
+
+        // <SignonRq>
+        const SignonRq = requestACORD.ele('SignonRq');
+
+        // <ClientApp>
+        const ClientApp = SignonRq.ele('ClientApp');
+
+        // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
+        ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
+        if(this.app.applicationDocData
+            && this.app.applicationDocData.businessDataJSON
+            && this.app.applicationDocData.businessDataJSON.afBusinessData
+            && this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId){
+                ClientApp.ele('SubmissionId', this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
+                log.debug("CompWest WC added SubmissionId");
+        }
+        //SubmissionId
+
+        // </ClientApp>
+        // </SignonRq>
+
+        // <InsuranceSvcRq>
+        const InsuranceSvcRq = requestACORD.ele('InsuranceSvcRq');
+        InsuranceSvcRq.ele('RqUID', request_id);
+
+        // <WorkCompPolicyQuoteInqRq>
+        const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
+        if(isGuideWireAPI === true){
+            const txnDate = moment();
+            WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
+        }
+        // <Producer>
+        const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
+
+        // <ItemIdInfo>
+        const ItemIdInfo = Producer.ele('ItemIdInfo');
+        let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+        if(isGuideWireAPI === true){
+            agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
+        }
+        ItemIdInfo.ele('AgencyId', agencyCode);
+        // </ItemIdInfo>
+
+        // <GeneralPartyInfo>
+        let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
+
+        // <NameInfo>
+        let NameInfo = GeneralPartyInfo.ele('NameInfo');
+        NameInfo.att('id', 'ProducerName');
+
+        // <PersonName>
+        const PersonName = NameInfo.ele('PersonName');
+        PersonName.ele('Surname', this.app.agencyLocation.last_name);
+        PersonName.ele('GivenName', this.app.agencyLocation.first_name);
+        // </PersonName>
+        // </NameInfo>
+        // </GeneralPartyInfo>
+        // </Producer>
+
+        // <InsuredOrPrincipal>
+        const InsuredOrPrincipal = WorkCompPolicyQuoteInqRq.ele('InsuredOrPrincipal');
+        InsuredOrPrincipal.att('id', 'n0');
+
+        // <GeneralPartyInfo>
+        GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
+
+        // <NameInfo>
+        NameInfo = GeneralPartyInfo.ele('NameInfo');
+
+        // <CommlName>
+        const CommlName = NameInfo.ele('CommlName');
+        CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
+        // Preserve this in case they move it back here -SF
+        // if (this.app.business.dba) {
+        //     // <SupplementaryNameInfo>
+        //     const SupplementaryNameInfo = CommlName.ele('SupplementaryNameInfo');
+        //     SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
+        //     SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
+        //     // </SupplementaryNameInfo>
+        // }
+        // </CommlName>
+
+
+        NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+
+        // <TaxIdentity>
+        const TaxIdentity = NameInfo.ele('TaxIdentity');
+        TaxIdentity.ele('TaxId', appDoc.ein);
+        // </TaxIdentity>
+        // </NameInfo>
+
+        // <Addr>
+        let Addr = GeneralPartyInfo.ele('Addr');
+        Addr.ele('AddrTypeCd', 'MailingAddress');
+        Addr.ele('Addr1', this.app.business.mailing_address);
+        if (this.app.business.mailing_address2) {
+            Addr.ele('Addr2', this.app.business.mailing_address2);
+        }
+        Addr.ele('City', this.app.business.mailing_city);
+        Addr.ele('StateProvCd', this.app.business.mailing_territory);
+        Addr.ele('PostalCode', this.app.business.mailing_zip);
+
+        if(isGuideWireAPI === true){
+            Addr.ele('CountryCd', 'US');
+        }
+        else {
+            Addr.ele('CountryCd', 'USA');
+        }
+        // </Addr>
+
+        // <Communications>
+        const Communications = GeneralPartyInfo.ele('Communications');
+
+        // <PhoneInfo>
+        const PhoneInfo = Communications.ele('PhoneInfo');
+        PhoneInfo.ele('PhoneNumber', this.app.business.contacts[0].phone);
+        // </PhoneInfo>
+
+        // <EmailInfo>
+        const EmailInfo = Communications.ele('EmailInfo');
+        EmailInfo.ele('EmailAddr', this.app.business.contacts[0].email);
+        // </EmailInfo>
+
+        if (this.app.business.website) {
+            // <WebsiteInfo>
+            const WebsiteInfo = Communications.ele('WebsiteInfo');
+            WebsiteInfo.ele('WebsiteURL', this.app.business.website);
+            // </WebsiteInfo>
+        }
+        // </Communications>
+        // </GeneralPartyInfo>
+        // </InsuredOrPrincipal>
+
+        // <CommlPolicy>
+        const CommlPolicy = WorkCompPolicyQuoteInqRq.ele('CommlPolicy');
+        CommlPolicy.ele('ControllingStateProvCd', this.app.business.primary_territory);
+        CommlPolicy.ele('com.afg_TotalEmployees', this.get_total_employees());
+
+        // <ContractTerm>
+        const ContractTerm = CommlPolicy.ele('ContractTerm');
+        ContractTerm.ele('EffectiveDt', this.policy.effective_date.format('YYYY-MM-DD'));
+        ContractTerm.ele('ExpirationDt', this.policy.expiration_date.format('YYYY-MM-DD'));
+        // </ContractTerm>
+
+        // <CommlPolicySupplement>
+        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
+        CommlPolicySupplement.ele('OperationsDesc', this.get_operation_description());
+
+        // <LengthTimeInBusiness> They want this in years
+        const LengthTimeInBusiness = CommlPolicySupplement.ele('LengthTimeInBusiness');
+        LengthTimeInBusiness.ele('NumUnits', moment().diff(this.app.business.founded, 'years'));
+        // </LengthTimeInBusiness>
+
+        const has_claims = this.policy.claims.length > 0;
+
+        CommlPolicySupplement.ele('LossDataAvailable', has_claims ? 'Y' : 'N');
+        if (has_claims) {
+            const claims_data = this.claims_to_policy_years();
+            CommlPolicySupplement.ele('NumberClaims', this.get_num_claims(4));
+            CommlPolicySupplement.ele('NumberClaims1', claims_data[1].count);
+            CommlPolicySupplement.ele('NumberClaims2', claims_data[2].count);
+            CommlPolicySupplement.ele('NumberClaims3', claims_data[3].count);
+            CommlPolicySupplement.ele('TotalClaimAmount', this.get_total_amount_incurred_on_claims(4));
+        }
+        // <CommlPolicySupplement>
+        // </CommlPolicy>
+        this.app.business.locations.forEach((location, index) => {
+            // <Location>
+            const Location = WorkCompPolicyQuoteInqRq.ele('Location');
+            Location.att('id', `l${index + 1}`);
+
+            // <Addr>
+            Addr = Location.ele('Addr');
+            Addr.ele('Addr1', location.address);
+            if (location.address2) {
+                Addr.ele('Addr2', location.address2);
+            }
+            Addr.ele('City', location.city);
+            Addr.ele('StateProvCd', location.territory);
+            Addr.ele('PostalCode', location.zip);
+            // </Addr>
+
+            if (location.unemployment_number) {
+                // <TaxCodeInfo>
+                const TaxCodeInfo = Location.ele('TaxCodeInfo');
+                TaxCodeInfo.ele('TaxCd', location.unemployment_number);
+                // </TaxCodeInfo>
+            }
+
+            // For the first location, insert the DBA nodes
+            if (this.app.business.dba && index === 0) {
+                const DBAAdditionalInterest = Location.ele('AdditionalInterest');
+                DBAAdditionalInterest.att('id', 'c2');
+                // <GeneralPartyInfo>
+                const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
+                // <NameInfo>
+                const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                const CommlNameAddInfo = DBANameInfo.ele('CommlName')
+                CommlNameAddInfo.ele('CommercialName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
+                CommlNameAddInfo.ele('Type',"Company");
+                const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
+                DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+                DBATaxIdentity.ele('TaxCd',appDoc.ein);
+                DBANameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+                // </NameInfo>
+                // <Addr>
+                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                DBAAddr.ele('Addr1', this.app.business.mailing_address);
+                if (this.app.business.mailing_address2) {
+                    DBAAddr.ele('Addr2', this.app.business.mailing_address2);
+                }
+                DBAAddr.ele('City', this.app.business.mailing_city);
+                DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
+                DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
+                if(isGuideWireAPI === true){
+                    DBAAddr.ele('CountryCd', 'US');
+                }
+                else {
+                    DBAAddr.ele('CountryCd', 'USA');
+                }
+                // </Addr>
+                // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
+                // </AdditionalInterestInfo>
+            }
+
+            // </Location>
+        });
+
+        // <WorkCompLineBusiness>
+        const WorkCompLineBusiness = WorkCompPolicyQuoteInqRq.ele('WorkCompLineBusiness');
+
+        // Separate out the states
+        const territories = this.app.business.getTerritories();
+        for(let t = 0; t < territories.length; t++){
+            //territories.forEach((territory) => {
+            const territory = territories[t];
+            // <WorkCompRateState>
+            const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
+            //db queries below.
+            for(let index = 0; index < this.app.business.locations.length; index++){
+                //this.app.business.locations.forEach((location, index) => {
+                const location = this.app.business.locations[index];
+
+                // Make sure this location is in the current territory, if not, skip it
+                if (location.territory !== territory) {
+                    continue;
+                }
+
+                // <WorkCompLocInfo>
+                const WorkCompLocInfo = WorkCompRateState.ele('WorkCompLocInfo');
+                WorkCompLocInfo.att('LocationRef', `l${index + 1}`);
+
+                // Combine the activity codes
+                const activityCodes = this.combineLocationActivityCodes(location);
+
+                // Add class code information
+                for (const activityCode in activityCodes) {
+                    if (Object.prototype.hasOwnProperty.call(activityCodes, activityCode)) {
+                        // Split up the class code
+                        const classCode = activityCode.substring(0, 4);
+                        const subCode = activityCode.substring(4, 6);
+
+                        // <WorkCompRateClass>
+                        const WorkCompRateClass = WorkCompLocInfo.ele('WorkCompRateClass');
+                        WorkCompRateClass.ele('RatingClassificationCd', classCode);
+                        // log.info('TO DO: We need to build in support for this bullshit');
+                        WorkCompRateClass.ele('RatingClassificationLetter', '');
+                        WorkCompRateClass.ele('RatingClassificationSubCd', subCode);
+                        WorkCompRateClass.ele('Exposure', activityCodes[activityCode]);
+
+                        // From AF : If we have a Classcode(RatingClassificationCd) and Classcode Indiator(RatingClassificationSubCd),
+                        // we don’t expect to see ClassCodeQuestions node within
+                        // Handle class specific questions
+                        //if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
+                        if(true){
+                            // eslint-disable-next-line prefer-const
+                            let ClassCodeQuestions = null;
+                            //get insurerActivityCode doc.
+                            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+                            const activityCodeQuery = {
+                                insurerId: this.insurer.id,
+                                code: classCode,
+                                sub: subCode,
+                                territoryList: location.territory,
+                                active: true
+                            }
+                            try{
+                                const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
+                                // eslint-disable-next-line prefer-const
+                                let talageQuestionList = [];
+                                let insurerQuestionIdList = [];
+                                if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
+                                    insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
+                                }
+                                if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
+                                    //override
+                                    insurerQuestionIdList = [];
+                                    const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
+                                    if(territoryQuestion){
+                                        territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
+                                            if(!insurerQuestionIdList.includes(insurerQuestionId)){
+                                                insurerQuestionIdList.push(insurerQuestionId);
+                                            }
+                                        });
+                                    }
+                                }
+                                //get insurerQuestions
+                                if(insurerQuestionIdList.length > 0){
+                                        const query = {
+                                        "insurerId": this.insurer.id,
+                                        "insurerQuestionId": {$in: insurerQuestionIdList}
+                                    }
+                                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                    let insurerQuestionList = null;
+                                    try{
+                                        insurerQuestionList = await InsurerQuestionModel.find(query);
+                                    }
+                                    catch(err){
+                                        throw err
+                                    }
+                                    insurerQuestionList.forEach((insurerQuestion) => {
+                                        talageQuestionList.push(insurerQuestion.talageQuestionId);
+                                    });
+                                }
+
+                                talageQuestionList.forEach((talageQuestionId) => {
+                                    const question = this.questions[talageQuestionId];
+                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
+                                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
+                                        return;
+                                    }
+                                    //const question_attributes = question.attributes;
+                                    const question_attributes = this.question_details[talageQuestionId].attributes;
+                                    log.debug(`Compwest WC calling processActivtyCodeQuestion`);
+                                    this.processActivtyCodeQuestion(ClassCodeQuestions,isGuideWireAPI, WorkCompRateClass,
+                                        classCode, subCode, talageQuestionId, question, question_attributes);
+
+                                });
+                            }
+                            catch(err){
+                                log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
+                            }
+                        }//have classcode and sub
+                        // </WorkCompRateClass>
+                    }
+                }
+                // </WorkCompLocInfo>
+            }
+            // </WorkCompRateState>
+        }
+
+        // <CommlCoverage>
+        const CommlCoverage = WorkCompLineBusiness.ele('CommlCoverage');
+        CommlCoverage.ele('CoverageCd', 'WCEL');
+        CommlCoverage.ele('CoverageDesc', 'Employers Liability');
+
+        // <Limit>
+        let Limit = CommlCoverage.ele('Limit');
+        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[0]);
+        Limit.ele('LimitAppliesToCd', 'EachClaim');
+        // </Limit>
+
+        // <Limit>
+        Limit = CommlCoverage.ele('Limit');
+        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[2]);
+        Limit.ele('LimitAppliesToCd', 'EachEmployee');
+        // </Limit>
+
+        // <Limit>
+        Limit = CommlCoverage.ele('Limit');
+        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[1]);
+        Limit.ele('LimitAppliesToCd', 'PolicyLimit');
+        // </Limit>
+        // </CommlCoverage>
+
+        /* ---=== Begin Ineligibility and Statement Questions ===--- */
+        // Make a list of embedded questions need by WC questions for Guidwire api.
+        const embeddedQuestions = {};
+        for (const questionId in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
+                // Get the attributes for this question
+                const questionAttributes = this.question_details[questionId].attributes;
+
+                // Check if this is an embedded question
+                if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
+                    // Make sure we have the attributes we are expecting
+                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')) {
+                        embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
+                    }
+                    else {
+                        log.error(`Appid: ${this.app.id} The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
+                    }
+                }
+            }
+        }
+
+
+        // Create one section for each Ineligibility and Statement questions
+        ['Ineligibility', 'Statement'].forEach((type) => {
+            // <Ineligibility/Statement>
+            const root_questions_element = WorkCompLineBusiness.ele(type);
+
+            // Loop through each question
+            for (const questionId in this.questions) {
+                if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
+
+                    // Get the attributes for this question
+                    const questionAttributes = this.question_details[questionId].attributes;
+
+                    // If this is an embedded question, skip it
+                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
+                        continue;
+                    }
+
+                     if (Object.prototype.hasOwnProperty.call(questionAttributes, 'hasParent') && questionAttributes.hasParent === true) {
+                        continue;
+                    }
+
+                    // Make sure we have the attributes we need, and that they match this section
+                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && questionAttributes.xml_section === type) {
+                        let answerBoolean = this.questions[questionId].get_answer_as_boolean();
+
+                        // Swap over statement question 7, it is inversed in our system
+                        if (this.question_details[questionId].identifier === 'Statement-Q7') {
+                            answerBoolean = !answerBoolean;
+                        }
+
+                        // <QuestionAnswer>
+
+                        //Detemine QuestionCd
+                        let questionCdValue = null;
+                        if(isGuideWireAPI === true){
+                            questionCdValue = this.question_details[questionId].attributes.questionCd;
+                        }
+                        else {
+                            questionCdValue = this.question_details[questionId].identifier.split('-')[1]
+                        }
+                        //handle old questions that did not get mapped or has effective date changed.
+                        if(questionCdValue){
+                            let QuestionAnswer = null;
+                            QuestionAnswer = root_questions_element.ele('QuestionAnswer');
+                            QuestionAnswer.ele('QuestionCd', questionCdValue);
+                            QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
+
+                             if(isGuideWireAPI === true && answerBoolean){
+                                const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
+                                for (const childQuestionId in this.questions) {
+                                    const childTalageQuestion = this.questions[childQuestionId]
+                                    const childInsurerQuestion = this.question_details[childQuestionId]
+                                    if(childInsurerQuestion.attributes && childInsurerQuestion.attributes.hasParent && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
+                                        QuestionAnswer.ele('Explanation', childTalageQuestion.answer);
+                                        //Added node for child question
+                                        // eslint-disable-next-line prefer-const
+                                        let childQuestionAnswer = root_questions_element.ele('QuestionAnswer');
+                                        childQuestionAnswer.ele('QuestionCd', childInsurerQuestion.attributes.questionCd);
+                                        childQuestionAnswer.ele('Explanation', childTalageQuestion.answer);
+                                    }
+                                }
+                            }
+                            else if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
+                                // If the answer to this question was true, and it has an embedded question, add the answer
+                                const embeddedQuestion = embeddedQuestions[this.question_details[questionId].identifier];
+
+                                // If the answer was null, skip it
+                                if (embeddedQuestion.answer === null) {
+                                    continue;
+                                }
+
+                                QuestionAnswer.ele('Explanation', embeddedQuestion.answer);
+                            }
+                        }
+                        // </QuestionAnswer>
+                    }
+                }
+            }
+            // </Ineligibility/Statement>
+        });
+
+        /* ---=== End Ineligibility and Statement Questions ===--- */
+
+        // </WorkCompLineBusiness>
+        // </WorkCompPolicyQuoteInqRq>
+        // </InsuranceSvcRq>
+        // </ACORD>
+
+        return requestACORD;
+
     }
 
 
