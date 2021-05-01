@@ -14,7 +14,7 @@ const xmlToObj = require("xml2js").parseString;
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
 // Read the template into memory at load
-const hiscoxGLTemplate = require("jsrender").templates("./public/v1/quote/helpers/integrations/hiscox/gl.xmlt");
+const hiscoxGLTemplate = require("jsrender").templates("./quotesystem/integrations/hiscox/gl.xmlt");
 
 /**
  * Gets the Hiscox COB code based on the COB description

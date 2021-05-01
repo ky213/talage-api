@@ -9,7 +9,6 @@ const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
 const _ = require('lodash');
 
-const DatabaseObject = require('./DatabaseObject.js');
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
@@ -23,7 +22,7 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
-const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
+const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 
@@ -43,7 +42,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const convertToIntFields = [];
 
-const tableName = 'clw_talage_applications';
+const collectionName = 'applications';
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
@@ -61,6 +60,7 @@ module.exports = class ApplicationModel {
 
     constructor() {
         this.id = 0;
+        this.applicationId = null;
         this.test = false;
         this.WorkFlowSteps = {
             'contact': 2,
@@ -79,8 +79,6 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseJSON = {};
         this.applicationDoc = null;
 
-        this.#dbTableORM = new ApplicationOrm();
-        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
 
@@ -139,7 +137,7 @@ module.exports = class ApplicationModel {
                 }
                 else {
                     log.debug(`saveApplicationStep Loading by app integer ${applicationJSON.id} ` + __location)
-                    this.applicationDoc = await this.loadfromMongoBymysqlId(applicationJSON.id).catch(function(err) {
+                    this.applicationDoc = await this.loadById(applicationJSON.id).catch(function(err) {
                         log.error("Error getting application from Database " + err + __location);
                         reject(err);
                         return;
@@ -151,7 +149,7 @@ module.exports = class ApplicationModel {
                     return;
 
                 }
-                this.id = this.applicationDoc.mysqlId;
+                this.id = this.applicationDoc.applicationId;
                 this.#applicationMongooseDB = this.applicationDoc;
                 this.updateProperty();
                 applicationJSON.applicationId = this.applicationDoc.applicationId
@@ -250,14 +248,8 @@ module.exports = class ApplicationModel {
                 //minium validation
 
                 const appUuid = applicationJSON.uuid;
-                //insert mysql here to get mysql id.
-                await this.#dbTableORM.save().catch(function(err) {
-                    log.error(`Application ${appUuid} Mysql Insert error ${err} ` + __location);
-                    // Do not stop mongo save. Mysql insert is only for id.
-                    // Id.mysqlId will be obsoleted in Q2 2021
-                });
-                this.id = this.#dbTableORM.id;
-                applicationJSON.id = this.id;
+                this.id = appUuid;
+                applicationJSON.id = appUuid;
 
 
             }
@@ -857,7 +849,6 @@ module.exports = class ApplicationModel {
             //agreement version
             const version = 3;
             const legalAcceptanceJSON = {
-                'application': this.id,
                 'ip': applicationJSON.remoteAddress,
                 'version': version
             }
@@ -895,7 +886,7 @@ module.exports = class ApplicationModel {
 
         if(applicationMongoDoc){
             //no need to await.
-            taskEmailBindAgency.emailbindagency(applicationMongoDoc.mysqlId, quote.quoteId, noCustomerEmail);
+            taskEmailBindAgency.emailbindagency(applicationMongoDoc.applicationId, quote.quoteId, noCustomerEmail);
 
             //load quote from database.
             const quoteModel = new QuoteBO();
@@ -919,7 +910,7 @@ module.exports = class ApplicationModel {
             try{
                 // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
-                await quoteBind.load(quoteDBJSON.mysqlId, quote.paymentPlanId);
+                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
                 await quoteBind.send_slack_notification("requested");
             }
             catch(err){
@@ -984,11 +975,11 @@ module.exports = class ApplicationModel {
         // let error = null;
         //Information will be in the applicationJSON.businessInfo
         // Only process if we have a google_place hit.
-        const appId = parseInt(this.id,10);
+        const appId = this.id;
         if (requestApplicationJSON.google_place && requestApplicationJSON.businessInfo && requestApplicationJSON.businessInfo.name && this.id) {
             let currentAppDBJSON = null;
             try{
-                currentAppDBJSON = await this.getMongoDocbyMysqlId(appId)
+                currentAppDBJSON = await this.getById(appId)
             }
             catch(err){
                 log.error(`error getBusinessInfo getting application record, appid ${appId} error:` + err + __location)
@@ -1378,27 +1369,6 @@ module.exports = class ApplicationModel {
         }
     }
 
-
-    async updateMongoWithMysqlId(mysqlId, newObjectJSON) {
-
-        //Get applicationId.
-        let applicationDoc = null;
-        try {
-            applicationDoc = await this.loadfromMongoBymysqlId(mysqlId);
-        }
-        catch (err) {
-            log.error("Error get applicationId from mysqlId " + err + __location);
-            throw err;
-        }
-        if (applicationDoc && applicationDoc.applicationId) {
-            return this.updateMongo(applicationDoc.applicationId, newObjectJSON)
-        }
-        else {
-            log.error(`Error no ApplicationDoc or Application.applicationID. mysqlId ${mysqlId}` + __location)
-            throw new Error(`mysqlId ${mysqlId} not found`);
-        }
-    }
-
     async checkExpiration(applicationJSON){
         if(applicationJSON.policies && applicationJSON.policies.length > 0){
             for(let policy of applicationJSON.policies){
@@ -1494,7 +1464,7 @@ module.exports = class ApplicationModel {
 
     }
 
-    async insertMongo(newObjectJSON, updateMysql = false) {
+    async insertMongo(newObjectJSON) {
         if (!newObjectJSON) {
             throw new Error("no data supplied");
         }
@@ -1520,6 +1490,10 @@ module.exports = class ApplicationModel {
             delete newObjectJSON.ein
         }
 
+        if(newObjectJSON.mysqlId){
+            delete newObjectJSON.mysqlId
+        }
+
         const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
         //Insert a doc
@@ -1534,10 +1508,6 @@ module.exports = class ApplicationModel {
             await this.checkAndFixAppStatus(application);
         }
         this.#applicationMongooseDB = application;
-        if(updateMysql === true){
-            // save mysql applicaition
-            await this.applicationDoc2MySqlInsert(application);
-        }
 
         return mongoUtils.objCleanup(application);
     }
@@ -1558,55 +1528,6 @@ module.exports = class ApplicationModel {
 
     }
 
-    async applicationDoc2MySqlInsert(newApplicationDoc) {
-        // eslint-disable-next-line prefer-const
-        let applicationJSON = JSON.parse(JSON.stringify(newApplicationDoc));
-        if(applicationJSON.id){
-            delete applicationJSON.id;
-        }
-
-        //save application
-        const propMappingsApp = {
-            processStateOld: "state",
-            lastStep: "last_step",
-            mailingCity: "city",
-            "mailingState": "state_abbr",
-            mailingZipcode: "zipcode",
-            "agencyId": "agency",
-            "agencyLocationId": "agency_location",
-            "agencyNetworkId": "agency_network",
-            "industryCode": "industry_code"
-        };
-        this.jsonToSnakeCase(applicationJSON, propMappingsApp);
-        //prevent mongo import form overwriting doc.
-        applicationJSON.copied_to_mongo = 1;
-        //$app->created_by = $user->id;
-        this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
-            log.error("Error loading application orm " + err + __location);
-        });
-        if (!this.#dbTableORM.uuid) {
-            this.#dbTableORM.uuid = applicationJSON.uuid;
-        }
-
-        //save
-        await this.#dbTableORM.save().catch(function(err) {
-            log.error("applicationDoc2MySqlInsert application save error " + err + __location);
-            // Do not stop mongo save. Mysql insert is only for id.
-            // Id.mysqlId will be obsoleted in Q2 2021
-        });
-
-        applicationJSON.id = this.#dbTableORM.id;
-        newApplicationDoc.mysqlId = applicationJSON.id;
-        await newApplicationDoc.save().catch(function(err) {
-            log.error('Mongo Application Save for mysqlId err ' + err + __location);
-            throw err;
-        });
-        this.applicationDoc = newApplicationDoc;
-        this.updateProperty();
-
-
-    }
-
     // checks the status of the app and fixes it if its timed out
     async checkAndFixAppStatus(applicationDoc){
         // only check and fix quoting apps
@@ -1624,11 +1545,20 @@ module.exports = class ApplicationModel {
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started` + __location);
+                    const status = global.requireShared('./models/status/applicationStatus.js');
+                    const applicationStatus = await status.updateApplicationStatus(applicationDoc, true);
                     // eslint-disable-next-line object-curly-newline
-                    await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
-                    applicationDoc.status = 'error';
-                    applicationDoc.appStatusDesc = 'error';
-                    applicationDoc.appStatusId = 20;
+                    //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
+                    if(applicationStatus && applicationStatus.appStatusId > -1){
+                        applicationDoc.status = applicationStatus.appStatusDesc;
+                        applicationDoc.appStatusDesc = applicationStatus.appStatusDesc;
+                        applicationDoc.appStatusId = applicationStatus.appStatusId;
+                    }
+                    else {
+                        applicationDoc.status = 'error';
+                        applicationDoc.appStatusDesc = 'error';
+                        applicationDoc.appStatusId = "20";
+                    }
 
                 }
             }
@@ -1726,7 +1656,7 @@ module.exports = class ApplicationModel {
     loadfromMongoBymysqlId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if (id) {
+            if (id && id > 0) {
                 const query = {
                     "mysqlId": id,
                     active: true
@@ -1779,38 +1709,6 @@ module.exports = class ApplicationModel {
             }
             else {
                 log.error("getfromMongoByAppId no id supplied");
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-
-    getfromMongoBymysqlId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id) {
-                const query = {
-                    "mysqlId": id,
-                    active: true
-                };
-                let applicationDoc = null;
-                try {
-                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
-                    if (docDB) {
-                        await this.setDocEinClear(docDB);
-                        if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
-                            await this.checkAndFixAppStatus(applicationDoc);
-                        }
-                        //applicationDoc = mongoUtils.objCleanup(docDB);
-                    }
-                }
-                catch (err) {
-                    log.error(`Getting Application ${id} error ` + err + __location);
-                    reject(err);
-                }
-                resolve(applicationDoc);
-            }
-            else {
                 reject(new Error('no id supplied'))
             }
         });
@@ -1892,27 +1790,6 @@ module.exports = class ApplicationModel {
                 delete queryJSON.gtAppStatusId;
             }
 
-
-            let flippedSort = false;
-            if (queryJSON.maxid && queryJSON.minid) {
-                query.mysqlId = {
-                    $lte: parseInt(queryJSON.maxid, 10),
-                    $gte: parseInt(queryJSON.minid, 10)
-                };
-                delete queryJSON.maxid;
-                delete queryJSON.minid;
-            }
-            else if (queryJSON.maxid) {
-                query.mysqlId = {$lte: parseInt(queryJSON.maxid, 10)};
-                delete queryJSON.maxid;
-            }
-            else if (queryJSON.minid) {
-                query.mysqlId = {$gte: parseInt(queryJSON.minid, 10)};
-                delete queryJSON.minid;
-                //change sort
-                queryOptions.sort.mysqlId = 1;
-                flippedSort = true;
-            }
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
                 let fromDate = moment(queryJSON.searchbegindate);
                 let toDate = moment(queryJSON.searchenddate);
@@ -2009,10 +1886,6 @@ module.exports = class ApplicationModel {
                     reject(error);
                     return;
                 }
-                if (flippedSort === true) {
-                    docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
-                }
-
 
                 resolve(mongoUtils.objListCleanup(docList));
                 return;
@@ -2235,7 +2108,7 @@ module.exports = class ApplicationModel {
                         const agencyBO = new AgencyBO();
                         let agencyMap = {};
                         for (const application of docList) {
-                            application.id = application.mysqlId;
+                            application.id = application.applicationId;
                             await this.setDocEinClear(application);
                             if (application && application.appStatusId === QUOTING_STATUS) {
                                 await this.checkAndFixAppStatus(application);
@@ -2248,7 +2121,7 @@ module.exports = class ApplicationModel {
                             }
                             else {
                                 const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
-                                    log.error(`Agency load error appId ${application.mysqlId} ` + err + __location);
+                                    log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
                                 });
                                 if (agency) {
                                     application.agencyName = agency.name;
@@ -2261,7 +2134,7 @@ module.exports = class ApplicationModel {
                             // Load the request data into it
                             if(application.industryCode){
                                 const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
-                                    log.error(`Industry code load error appId ${application.mysqlId} ` + err + __location);
+                                    log.error(`Industry code load error appId ${application.applicationId} ` + err + __location);
                                 });
                                 if(industryCodeJson){
                                     application.industry = industryCodeJson.description;
@@ -2327,14 +2200,14 @@ module.exports = class ApplicationModel {
             if (id && id > 0) {
 
                 //Remove old records.
-                const sql = `Update ${tableName} 
+                const sql = `Update ${collectionName} 
                         SET state = -2
                         WHERE id = ${db.escape(id)}
                 `;
                 //let rejected = false;
                 await db.query(sql).catch(function(err) {
                     // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE State error : ` + err + __location);
+                    log.error(`Database Object ${collectionName} UPDATE State error : ` + err + __location);
                 });
                 // if (rejected) {
                 //     return false;
@@ -2342,7 +2215,7 @@ module.exports = class ApplicationModel {
                 //Mongo delete
                 let applicationDoc = null;
                 try {
-                    applicationDoc = await this.loadfromMongoBymysqlId(id);
+                    applicationDoc = await this.loadById(id);
                     applicationDoc.active = false;
                     await applicationDoc.save();
                 }
@@ -2364,17 +2237,17 @@ module.exports = class ApplicationModel {
             if(id && id > 0){
                 let agencyNetworkId = 0;
                 try{
-                    const appDoc = await this.loadfromMongoBymysqlId(id)
+                    const appDoc = await this.loadById(id)
                     agencyNetworkId = appDoc.agencyNetworkId;
                 }
                 catch(err){
-                    log.error(`this.loadfromMongoBymysqlId ${id} error ` + err + __location)
+                    log.error(`this.loadById ${id} error ` + err + __location)
                 }
                 if (agencyNetworkId > 0) {
                     resolve(agencyNetworkId)
                 }
                 else {
-                    log.error(`this.loadfromMongoBymysqlId App Not Found mysqlId ${id} ${agencyNetworkId} ` + __location)
+                    log.error(`this.loadById App Not Found mysqlId ${id} ${agencyNetworkId} ` + __location)
                     reject(new Error(`App Not Found mysqlId ${id} ${agencyNetworkId}`));
                 }
             }
@@ -2385,7 +2258,7 @@ module.exports = class ApplicationModel {
         });
     }
     getLoadedMongoDoc() {
-        if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId) {
+        if (this.#applicationMongooseDB && this.#applicationMongooseDB.applicationId) {
             return this.#applicationMongooseDB;
         }
         else {
@@ -2393,9 +2266,10 @@ module.exports = class ApplicationModel {
         }
     }
 
+    // let user retreive old application by mysqlId.
     async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, forceDBQuery = false) {
         return new Promise(async(resolve, reject) => {
-            if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId && forceDBQuery === false) {
+            if (this.#applicationMongooseDB && this.#applicationMongooseDB.applicationId && forceDBQuery === false) {
                 resolve(this.#applicationMongooseDB);
             }
             else if (mysqlId > 0) {
@@ -2438,7 +2312,7 @@ module.exports = class ApplicationModel {
     updateProperty() {
         if(this.applicationDoc){
             //main ids only
-            this.id = this.applicationDoc.mysqlId;
+            this.id = this.applicationDoc.applicationId;
             this.agencyNetworkId = this.applicationDoc.agencyNetworkId;
             this.applicationId = this.applicationDoc.applicationId;
             this.agencyId = this.applicationDoc.agencyid;
@@ -2624,7 +2498,7 @@ module.exports = class ApplicationModel {
 
         let applicationDoc = null;
         try {
-            applicationDoc = await this.loadfromMongoBymysqlId(appId);
+            applicationDoc = await this.loadById(appId);
         }
         catch (err) {
             log.error("error calling loadfromMongoByAppId " + err + __location);
@@ -2842,148 +2716,4 @@ module.exports = class ApplicationModel {
         }
     }
 
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "appStatusId": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "agency_network": {
-        "default": 1,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "agency": {
-        "default": 1,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "agency_location": {
-        "default": 1,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "industry_code": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "landing_page": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "last_step": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "referrer": {
-        "default": "unknown",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "request_id": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "uuid": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    }
-}
-
-
-class ApplicationOrm extends DatabaseObject {
-
-    constructor() {
-        super('clw_talage_applications', properties);
-    }
 }

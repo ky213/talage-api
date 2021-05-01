@@ -1,3 +1,4 @@
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable object-curly-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable no-catch-shadow */
@@ -23,12 +24,12 @@ const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const ApplicationNotesCollectionBO = global.requireShared('models/ApplicationNotesCollection-BO.js');
-const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
-const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
+const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
+const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
-const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 
 // Application Messages Imports
@@ -46,6 +47,25 @@ var Message = require('mongoose').model('Message');
  */
 async function getApplication(req, res, next) {
     let error = false;
+
+    // sort ascending order based on id, if no sort value then number will be sorted first
+    function ascendingOrder(a, b){
+        if(a.sort && b.sort){
+            // this sorts in ascending order
+            return a.sort - b.sort;
+        }
+        else if (a.sort && !b.sort){
+            // since no sort order on "b" then return -1
+            return -1; 
+        }
+        else if (!a.sort && b.sort){
+            // since no sort order on "a" return 1
+            return 1; 
+        }
+        else {
+            return 0;
+        }
+    }
 
     // Check for data
     if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
@@ -179,7 +199,8 @@ async function getApplication(req, res, next) {
                 // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
                 if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
                     quoteJSON.status = quoteStatus.error.description;
-                } else {
+                }
+                else {
                     quoteJSON.status = quoteJSON.apiResult;
                 }
             }
@@ -187,8 +208,7 @@ async function getApplication(req, res, next) {
             // Change the name of autodeclined
             if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
-                || quoteJSON.status === 'quoted') 
-            {
+                || quoteJSON.status === 'quoted') {
                 quoteJSON.reasons = '';
             }
             if (quoteJSON.status === 'autodeclined') {
@@ -247,21 +267,6 @@ async function getApplication(req, res, next) {
                 }
             }
             if(quoteJSON.quoteCoverages){
-                // sort ascending order based on id, if no sort value then number will be sorted first
-                function ascendingOrder (a, b){
-                    if(a.sort && b.sort){
-                        // this sorts in ascending order
-                        return a.sort - b.sort;
-                    }else if (a.sort && !b.sort){
-                        // since no sort order on "b" then return -1
-                        return -1; 
-                    }else if (!a.sort && b.sort){
-                        // since no sort order on "a" return 1
-                        return 1; 
-                    }else {
-                        return 0;
-                    }
-                }
                 const sortedCoverageList = quoteJSON.quoteCoverages.sort(ascendingOrder);
                 for(const quoteCoverage of sortedCoverageList){
                     limitsList[quoteCoverage.description] = `${quoteCoverage.value}`;
@@ -281,13 +286,13 @@ async function getApplication(req, res, next) {
 
     let docList = null;
     try {
-        docList = await Message.find({$or:[{'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId}]}, '-__v');
+        docList = await Message.find({'applicationId':applicationJSON.applicationId}, '-__v');
     }
     catch (err) {
         log.error(err + __location);
         return serverHelper.sendError(res, next, 'Internal Error');
     }
-    log.debug("docList.length: " + docList.length);
+    
     if(docList.length){
         applicationJSON.messages = docList;
     }
@@ -1089,12 +1094,12 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
+        await applicationBO.updateProgress(applicationDB.applicationId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.applicationId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.applicationId} for quoting. ` + err + __location);
     }
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
@@ -1293,13 +1298,13 @@ async function bindQuote(req, res, next) {
                 paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
             }
             const quoteObj = {
-                quote: quoteDoc.mysqlId,
-                quoteId: quoteDoc.mysqlId,
+                quote: quoteDoc.quoteId,
+                quoteId: quoteDoc.quoteId,
                 paymentPlanId: paymentPlanId,
                 noCustomerEmail: true
             }
-            const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(error){
-                log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + error + __location);
+            const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){
+                log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + err + __location);
                 bindFailureMessage = "Failed to request bind. If this continues please contact us.";
             });
             
@@ -1310,8 +1315,8 @@ async function bindQuote(req, res, next) {
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(error){ 
-                log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + error + __location);
+            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+                log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
                 bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
             });
             if(markAsBoundResponse === true){
@@ -1332,7 +1337,7 @@ async function bindQuote(req, res, next) {
         res.send(200, {"bound": true});
     }
     else {
-        res.send( {'message': bindFailureMessage});
+        res.send({'message': bindFailureMessage});
     }
 
     return next();

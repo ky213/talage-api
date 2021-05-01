@@ -6,7 +6,6 @@
 
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
 //const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
@@ -458,7 +457,7 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
-        
+
     try {
 
         if (agencyJson.additionalInfo && agencyJson.additionalInfo.socialMediaTags && agencyJson.additionalInfo.socialMediaTags.facebookPixel) {
@@ -470,7 +469,7 @@ async function getAgencySocialMetadata(req, res, next) {
         log.error(`Getting Facebook Pixel ${err} ${__location}`);
     }
     let socialMediaList = [];
-    
+
     if(agencyJson.socialMediaTags && agencyJson.socialMediaTags.length > 0){
         socialMediaList = agencyJson.socialMediaTags;
     }

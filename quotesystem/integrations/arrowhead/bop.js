@@ -53,7 +53,7 @@ module.exports = class LibertySBOP extends Integration {
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
         const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
 
-        logPrefix = `Arrowhead Wendys (Appid: ${applicationDocData.mysqlId}): `;
+        logPrefix = `Arrowhead Wendys (Appid: ${applicationDocData.applicationId}): `;
 
         // reducing questions to a separate questionmap keyed off identifier
         const questions = {};

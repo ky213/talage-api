@@ -2,7 +2,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 async function login(req, res, next) {
     // Ensure we have login information

@@ -1,6 +1,6 @@
 'use strict';
 
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Responds to get requests for the activity codes associated with an industry code

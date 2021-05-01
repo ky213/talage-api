@@ -1,6 +1,6 @@
 'use strict';
 
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 // Current Version of the TOS and Privacy Policy
 const version = 3;

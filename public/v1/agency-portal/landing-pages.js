@@ -1,6 +1,6 @@
 'use strict';
 const auth = require('./helpers/auth-agencyportal.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
 
 /**

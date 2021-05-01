@@ -11,7 +11,7 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 // const util = require('util');
 const auth = require('./helpers/auth-agencyportal.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');

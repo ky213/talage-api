@@ -53,7 +53,7 @@ module.exports = class ChubbGL extends Integration {
         };
 
         const applicationDocData = this.app.applicationDocData;
-        const logPrefix = `Chubb GL (Appid: ${applicationDocData.mysqlId}): `;
+        const logPrefix = `Chubb GL (Appid: ${applicationDocData.applicationId}): `;
 
         let chubbClassCode = this.industry_code.cgl
         //use Chubb Attributes for cgl and iso(classcode) if present
