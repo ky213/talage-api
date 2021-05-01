@@ -2,63 +2,55 @@ const Bind = require('../bind');
 const axios = require('axios');
 const builder = require('xmlbuilder');
 const moment = require('moment');
-const util = require('util');
+const htmlentities = require('html-entities').Html5Entities;
+// const util = require('util');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 
 class CompuwestBind extends Bind {
     async bind() {
-        const isGuideWireAPI = true;
 
         const applicationBO = new ApplicationBO();
         let appDoc = null;
         try {
             //getById does uuid vs integer check...
-            appDoc = await applicationBO.loadById(this.quote.applicationId);
+            appDoc = await applicationBO.getById(this.quote.applicationId);
             log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
             log.error(`Compwest Bind: Unable to get applicationData for binding quoteId: ${this.quote.quoteId} appId: ` + this.quote.applicationId + __location);
             return "error";
         }
-        if(!this.appDoc){
-            log.error(`Compwest Bind: Failed to load application ${this.quote.applicationId} `)
+        if(!appDoc){
+            log.error(`Compwest Bind: Failed to load quote: ${this.quote.quoteId} application: ${this.quote.applicationId} `)
             return "error";
         }
-
-
-        const alInsurer = this.agencyLocation.insurers.find((ali) => ali.insurerId === this.insurer.insurerId)
-        // let agencyCode = alInsurer.agency_id;
-        // if(isGuideWireAPI === true){
-        //     agencyCode = alInsurer.agent_id;
-        // }
-        //this.qoute
 
         const requestACORD = await this.createRequestXML(appDoc, this.quote.requestId)
 
         // Get the XML structure as a string
         const xml = requestACORD.end({pretty: true});
 
-        //https://npsv.afgroup.com/TEST_DigitalAq/rest/getbindworkcompquote
+        const username = await this.insurer.get_username();
+        const password = await this.insurer.get_password();
         //basic auth...
         const auth = {
-            username: await this.insurer.get_username(),
-            password: await this.insurer.get_password()
+            username: username,
+            password: password
         }
-
-        const axiosOptions = {headers: {
-            "auth": auth,
-            "Accept": "application/xml"
-        }};
+        const axiosOptions = {
+            auth: auth,
+            headers: {"Content-Type": "application/xml"}
+        };
 
         const host = this.insurer.useSandbox ? 'npsv.afgroup.com/TEST_DigitalAq/rest' : 'npsv.afgroup.com/DigitalAq/rest';
 
         const requestUrl = `https://${host}/getbindworkcompquote`;
-        this.quote.log += `--------======= Bind Request to ${requestUrl} =======--------<br><br>`;
-        this.quote.log += `Request: <pre>${xml}</pre><br><br>`;
+        this.quote.log += `--------======= Bind Request to ${requestUrl} at ${moment().utc().toISOString()} =======--------<br><br>`;
+        this.quote.log += `Request: <pre>${htmlentities.encode(xml)}</pre><br><br>`;
         this.quote.log += `--------======= End =======--------<br><br>`;
         let result = null;
         try {
-            result = await axios.put(requestUrl, xml, axiosOptions);
+            result = await axios.post(requestUrl, xml, axiosOptions);
         }
         catch (error) {
             log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);
@@ -102,7 +94,7 @@ class CompuwestBind extends Bind {
         }
         else{
             //unknown response
-            this.quote.log += `--------======= Bind Response Unknown no data =======--------<br><br>`;
+            this.quote.log += `--------======= Bind Response Unknown no data status: ${status} =======--------<br><br>`;
             return "rejected"
         }
     }
@@ -155,21 +147,6 @@ class CompuwestBind extends Bind {
         //     requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
         //     requestACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
         // }
-
-        // <SignonRq>
-        const SignonRq = requestACORD.ele('SignonRq');
-
-        // <ClientApp>
-        const ClientApp = SignonRq.ele('ClientApp');
-
-        // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
-        ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
-
-        //SubmissionId
-
-        // </ClientApp>
-        // </SignonRq>
-
         // <InsuranceSvcRq>
         const InsuranceSvcRq = requestACORD.ele('InsuranceSvcRq');
         InsuranceSvcRq.ele('RqUID', request_id);
@@ -182,13 +159,22 @@ class CompuwestBind extends Bind {
         const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
         // <ContractTerm>
         //get WC policy
-        const ContractTerm = CommlPolicy.ele('ContractTerm');
-        ContractTerm.ele('EffectiveDt', this.policy.effective_date.format('YYYY-MM-DD'));
-        ContractTerm.ele('ExpirationDt', this.policy.expiration_date.format('YYYY-MM-DD'));
+        const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
+        if(policy){
+            try{
+                const ContractTerm = CommlPolicy.ele('ContractTerm');
+                ContractTerm.ele('EffectiveDt', moment(policy.effectiveDate).format('YYYY-MM-DD'));
+                ContractTerm.ele('ExpirationDt', moment(policy.expirationDate).format('YYYY-MM-DD'));
+            }
+            catch(err){
+                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error processing policy dates ${err}` + __location);
+            }
+        }
+        else {
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} missing WC policy ` + __location);
+        }
         //policynumber == quote number
         CommlPolicy.ele('PolicyNumber', this.quote.quoteNumber);
-
-        // </ContractTerm>
 
         // <CommlPolicySupplement>
         const PaymentOption = CommlPolicy.ele('PaymentOption');
@@ -239,7 +225,14 @@ class CompuwestBind extends Bind {
         const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
 
         // Separate out the states
-        const territories = appDoc.getTerritories();
+        const territories = [];
+
+        appDoc.locations.forEach(function(loc) {
+            if (!territories.includes(loc.state)) {
+                territories.push(loc.state);
+            }
+        });
+
         for(let t = 0; t < territories.length; t++){
             //territories.forEach((territory) => {
             const territory = territories[t];

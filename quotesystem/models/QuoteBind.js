@@ -93,6 +93,10 @@ module.exports = class QuoteBind{
      * returns nothing. If not successful, then an Exception is thrown.
      */
     async bindPolicy(){
+
+        if(!this.quoteDoc){
+            log.error(`BindPolicy no quoteDoc ` + __location)
+        }
         let oktoBind = false;
         // only have success with API call.
         try {
