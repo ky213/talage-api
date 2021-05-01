@@ -511,7 +511,8 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
+                    log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                    //return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
                 // This question was not answered
                 if (!answer) {

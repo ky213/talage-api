@@ -2,11 +2,7 @@
  * Defines a single industry code
  */
 
-'use strict';
-
 const htmlentities = require('html-entities').Html5Entities;
-const serverHelper = require('../../../../../server.js');
-
 module.exports = class Question{
 
     constructor(){
@@ -16,6 +12,7 @@ module.exports = class Question{
         this.id = 0;
         this.insurer_identifiers = {};
         this.insurers = [];
+        this.insurerQuestionRefList = [];
         this.type = '';
         this.parent = 0;
         this.parent_answer = 0;

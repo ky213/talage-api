@@ -188,5 +188,11 @@
         "description": "BTIS GL NV Handyman -Handyman NV",
         "sourceAppId": 13405,
         "requiresNewEin": false
+    },
+    {
+         "description": "AMTrust Talage Bar - Bar NV",
+        "sourceAppId": "1c1c05fc-a5ba-499a-a79a-da4c962dd468",
+        "requiresNewEin": true
+        
     }
 ]

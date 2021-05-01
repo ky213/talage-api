@@ -17,7 +17,8 @@ const xmlFormatter = require('xml-formatter');
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
 const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
-const { quoteStatus, getQuoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
+// eslint-disable-next-line object-curly-newline
+const {quoteStatus, getQuoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -503,10 +504,9 @@ module.exports = class Integration {
 
                     if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
                         // This shouldn't have happened, throw an error
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
-                        log.verbose(`Appid: ${this.app.id} The question is as follows:`);
-                        log.verbose(util.inspect(question, false, null));
-                        throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
+                        return false;
                     }
 
                     // Add the answer to the answers array
@@ -524,10 +524,9 @@ module.exports = class Integration {
             // Determine the answer based on the Answer ID stored in our database
             if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
                 // This shouldn't have happened, throw an error
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
-                log.verbose(`Appid: ${this.app.id} The question is as follows:`);
-                log.verbose(util.inspect(question, false, null));
-                throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
+                return false;
             }
 
             answer = question.possible_answers[question.answer_id].answer;
@@ -648,6 +647,13 @@ module.exports = class Integration {
      */
     async get_question_details() {
         const results = await this.getInsurerQuestionsByTalageQuestionId("general", Object.keys(this.questions));
+        //To Allow for multiple iq => Talage question mappings.
+        //use app.questions insurerQuestionRefList to make sure there guestions that generated the Talage question.
+        //  for (const question_id in this.app.questions) {
+        //const question = this.app.questions[question_id];
+        // if(question.insurerQuestionRefList){
+        //  }
+
         // Convert this into an object for easy reference
         const question_details = {};
         try {
@@ -1176,7 +1182,7 @@ module.exports = class Integration {
             let insurerQuestionList = null;
             const query = {
                 "insurerId": this.insurer.id,
-                "policyType": this.policy.type
+                "policyTypeList": this.policy.type
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             try{
@@ -1400,10 +1406,10 @@ module.exports = class Integration {
      * Records this quote in the database so we know it happened
      *
      * @param {int} amount - The amount of the quote
-     * @param {string} api_result - The integration's api result
+     * @param {string} apiResult - The integration's api result
      * @returns {mixed} - ID on success, error on error
      */
-    async record_quote(amount, api_result) {
+    async record_quote(amount, apiResult) {
         const appId = this.app.id;
         const insurerName = this.insurer.name;
         const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
@@ -1435,6 +1441,12 @@ module.exports = class Integration {
             policyType: this.policy.type,
             quoteTimeSeconds: this.seconds
         }
+
+        // if this is a new quote, set its quotingStartedDate to now
+        if (apiResult === quoteStatus.initiated.description) {
+            quoteJSON.quotingStartedDate = moment.utc();
+        }
+
         //additionalInfo example
         if(this.quoteResponseJSON){
             quoteJSON.quoteResponseJSON = this.quoteResponseJSON;
@@ -1490,8 +1502,8 @@ module.exports = class Integration {
 
         // Error
         columns.push('api_result');
-        values.push(api_result);
-        quoteJSON.apiResult = api_result
+        values.push(apiResult);
+        quoteJSON.apiResult = apiResult
 
         // Reasons
         if (this.reasons.length > 0) {
@@ -1524,7 +1536,7 @@ module.exports = class Integration {
         }
 
         // quoteStatusId and quoteStatusDescription
-        const status = getQuoteStatus(false, '', api_result);
+        const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;
         quoteJSON.quoteStatusDescription = status.description;
 
@@ -2320,10 +2332,11 @@ module.exports = class Integration {
             if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
                 // eslint-disable-next-line prefer-const
                 let orParamList = [];
-                const policyTypeCheck = {policyType: this.policyTypeFilter};
-                const policyTypeNullCheck = {policyType: null}
+                const policyTypeCheck = {policyTypeList: this.policyTypeFilter};
+                //const policyTypeNullCheck = {policyTypeList: null}
+                const noPolicyTypeCheck = {'policyTypeList.0': {$exists: false}};
                 orParamList.push(policyTypeCheck)
-                orParamList.push(policyTypeNullCheck)
+                orParamList.push(noPolicyTypeCheck)
                 industryQuery.$or = orParamList;
             }
             // eslint-disable-next-line prefer-const

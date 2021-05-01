@@ -24,6 +24,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let error = false;
     let sql = '';
 
+
     /*
      * Validate Activity Codes
      */
@@ -127,15 +128,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
 
         const mongoPolicyEffectiveDateQuery = {
-            policyType: policyTypeJSON.type.toUpperCase(),
+            policyTypeList: policyTypeJSON.type.toUpperCase(),
             effectiveDate: {$lte: policyEffectiveDate},
             expirationDate: {$gte: policyEffectiveDate}
         }
         mongoPolicyExpirationList.push(mongoPolicyEffectiveDateQuery);
-
-
     });
-    
+
 
     // Industry and activity code effective date is done using the unique policy effective date list.
     const industryCodeEffectiveDateWhereClauseList = [];
@@ -145,11 +144,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
     }
 
-    // Do not permit requests that include both BOP and GL
-    if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
-        log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-        return false;
-    }
+    //work around to not remap GL questions for BOP.  Question system should not care
+    // // Do not permit requests that include both BOP and GL
+    // if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
+    //     log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
+    //     //return false; //work around to not remap GL questions for BOP.  Question system should not crea
+    // }
 
     // Get Policy Types from the database
     sql = 'SELECT abbr FROM clw_talage_policy_types;';
@@ -169,13 +169,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Check that all policy types match
     policyTypes.forEach(function(policy_type) {
         if (!supported_policy_types.includes(policy_type)) {
-            log.warn('Bad Request: Invalid Policy Type');
-            error = `Policy type '${policy_type}' is not supported.`;
+            log.warn(`Bad Request: Invalid Policy Type ${policy_type}` + __location);
         }
     });
-    if (error) {
-        return false;
-    }
 
 
     /*
@@ -213,7 +209,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let insurerQuestionQuery = {
         insurerId: {$in: insurerArray},
         universal: true,
-        policyType: {$in: policyTypes},
+        policyTypeList: {$in: policyTypes},
         questionSubjectArea: questionSubjectArea,
         active: true
     }
@@ -225,7 +221,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     });
     insurerQuestionQuery.$or = orParamList;
 
-    // log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
+    log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
     try{
 
         const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
@@ -362,12 +358,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     // eslint-disable-next-line prefer-const
     orParamList = [];
-    const policyTypeCheck = {policyType: {$in: policyTypes}};
-    const policyTypeNullCheck = {policyType: null}
+    const policyTypeCheck = {policyTypeList: {$in: policyTypes}};
+    const policyTypeLengthCheck = {policyTypeList: {$size: 0}}
+    const policyTypeNullCheck = {policyTypeList: null}
     orParamList.push(policyTypeCheck)
+    orParamList.push(policyTypeLengthCheck)
     orParamList.push(policyTypeNullCheck)
     industryQuery.$or = orParamList;
     try{
+        //log.debug(`insurerIndustryCodeList query ${JSON.stringify(industryQuery)}`)
         const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
@@ -399,7 +398,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
             }//for insurerIndustryCodeList
         }
-        //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
+        //log.debug("insurerIndustryCodeList insurerQuestionIdArray " + insurerQuestionIdArray)
         let insurerQuestionList = null;
         if(insurerQuestionIdArray.length > 0){
             // eslint-disable-next-line prefer-const
@@ -407,10 +406,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 insurerId: {$in: insurerArray},
                 insurerQuestionId: {$in: insurerQuestionIdArray},
                 universal: false,
-                // policyType: {$in: policyTypes},
                 questionSubjectArea: questionSubjectArea,
-                // effectiveDate: {$lt: policyEffectiveDate},
-                // expirationDate: {$gt: policyEffectiveDate},
                 active: true
             }
             // eslint-disable-next-line prefer-const
@@ -438,10 +434,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 }
             }
         }
-        //log.debug("talageQuestionIdArray " + talageQuestionIdArray)
+        // log.debug("talageQuestionIdArray " + talageQuestionIdArray)
         if(talageQuestionIdArray.length > 0) {
             const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
-            log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)
+            log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)    
             questions = questions.concat(industry_questions);
             //log.debug("industry_questions " + JSON.stringify(industry_questions));
         }
@@ -506,10 +502,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 insurerId: {$in: insurerArray},
                 insurerQuestionId: {$in: insurerQuestionIdArray},
                 universal: false,
-                //policyType: {$in: policyTypes},
                 questionSubjectArea: questionSubjectArea,
-                // effectiveDate: {$lt: now},
-                //expirationDate: {$gt: now},
                 active: true
             }
             // eslint-disable-next-line prefer-const
@@ -764,15 +757,20 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
         //add row for every match
         // eslint-disable-next-line prefer-const
         let talageQuestionPolicyTypeList = [];
+        // eslint-disable-next-line prefer-const
+        let insurerQuestionRefList = [];
         talageQuestions.forEach(function(talageQuestion){
             const iqForTalageQList = insurerQuestionList.filter(function(iq) {
-                return iq.question === talageQuestion.id;
+                return iq.talageQuestionId === talageQuestion.id;
             });
-
+            //change to store insurerQuestionId.  will allow for multiple insurerquestions to map to
+            // one talage question.
             iqForTalageQList.forEach(function(iqForTalageQ){
                 talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+                insurerQuestionRefList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.insurerQuestionId)
             });
             talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
+            talageQuestion.insurerQuestionRefList = insurerQuestionRefList;
         });
         return talageQuestions;
     }

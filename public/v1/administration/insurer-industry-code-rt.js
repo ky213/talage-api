@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -5,7 +6,7 @@
 /* eslint-disable prefer-const */
 /* eslint-disable guard-for-in */
 /* eslint-disable require-jsdoc */
-'use strict';
+
 
 const InsurerIndustryCodeMySqlBO = global.requireShared('./models/InsurerIndustryCodeMySql-BO.js');
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
@@ -158,6 +159,10 @@ async function add(req, res, next) {
     if(!req.body.hasOwnProperty("effectiveDate")){
         req.body.effectiveDate = "1980-01-01";
     }
+    if(!req.body.hasOwnProperty("policyTypeList")){
+        req.body.policyTypeList = [];
+        req.body.policyTypeList.push(req.body.policyType);
+    }
 
     const objectJSON = await insurerIndustryCodeBO.insertMongo(req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
@@ -187,6 +192,11 @@ async function update(req, res, next) {
     }
     if(!req.body.hasOwnProperty("effectiveDate")){
         req.body.effectiveDate = "1980-01-01";
+    }
+
+    if(!req.body.hasOwnProperty("policyTypeList")){
+        req.body.policyTypeList = [];
+        req.body.policyTypeList.push(req.body.policyType);
     }
 
     const insurerIndustryCodeBO = new InsurerIndustryCodeBO();

@@ -291,10 +291,7 @@ module.exports = class LibertyWC extends Integration {
                         answer = this.determine_question_answer(question);
                     }
                     catch (error) {
-                        log.error(`Appid: ${this.app.id} Liberty Mutual WC: Talage was unable to determine the answer to a question. Error: ${error} ` + __location);
-                        this.reasons.push('Talage was unable to determine the answer to a question');
-                        fulfill(this.return_result('error'));
-                        return;
+                        log.error(`Liberty WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
                     }
 
                     // This question was not answered
