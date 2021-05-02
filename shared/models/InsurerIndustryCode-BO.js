@@ -194,7 +194,7 @@ module.exports = class InsurerIndustryCodeBO{
                 return;
             }
             if(docList && docList.length > 0){
-                // pass back the count as well for api paging (so we know how many total rows are)
+                // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs pass back the count as well for api paging (so we know how many total rows are)
                 if (findCount){
                     resolve({
                         rows: mongoUtils.objListCleanup(docList),
