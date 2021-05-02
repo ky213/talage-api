@@ -153,9 +153,9 @@ module.exports = class InsurerActivityCodeBO{
                 delete queryJSON.insurerId;
             }
 
-            if(queryJSON.notalageactivtycode){
+            if(queryJSON.notalageactivitycode){
                 query["talageActivityCodeIdList.0"] = {$exists: false};
-                delete queryJSON.notalageactivtycode;
+                delete queryJSON.notalageactivitycode;
             }
 
             if(queryJSON.noquestions){
