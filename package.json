@@ -15,11 +15,8 @@
         "type": "git",
         "url": "git+ssh://git@gitlab.com/talage/talage-api.git"
     },
-    "author": "Talage (www.talageins.com)",
+    "author": "Talage, INC (www.talageins.com)",
     "license": "ISC",
-    "bugs": {
-        "url": "https://gitlab.com/talage/talage-api/issues"
-    },
     "homepage": "https://gitlab.com/talage/talage-api#readme",
     "dependencies": {
         "@sendgrid/mail": "^7.0.1",

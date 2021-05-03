@@ -160,6 +160,18 @@ module.exports = class InsurerIndustryCodeBO{
                 delete queryJSON.description;
             }
 
+            if(queryJSON.notalageindustrycode){
+                query["talageIndustryCodeIdList.0"] = {$exists: false};
+                delete queryJSON.notalageindustrycode;
+            }
+
+            if(queryJSON.noquestions){
+                //or with insurerTerritoryQuestionList
+                query["insurerQuestionIdList.0"] = {$exists: false};
+                query["insurerTerritoryQuestionList.0"] = {$exists: false};
+                delete queryJSON.noquestions;
+            }
+
             if (queryJSON) {
                 for (var key in queryJSON) {
                     if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
@@ -194,7 +206,7 @@ module.exports = class InsurerIndustryCodeBO{
                 return;
             }
             if(docList && docList.length > 0){
-                // pass back the count as well for api paging (so we know how many total rows are)
+                // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs pass back the count as well for api paging (so we know how many total rows are)
                 if (findCount){
                     resolve({
                         rows: mongoUtils.objListCleanup(docList),

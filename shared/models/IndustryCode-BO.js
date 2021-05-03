@@ -199,6 +199,7 @@ module.exports = class IndustryCodeBO{
                         log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
                         reject(error);
                     });
+                    // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs
                     resolve({
                         rows: boList,
                         count: count[0] ? count[0]["count(*)"] : 0
