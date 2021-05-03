@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -8,6 +9,7 @@
 'use strict';
 
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -17,7 +19,87 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 async function findAll(req, res, next) {
     let error = null;
     const industryCodeBO = new IndustryCodeBO();
+    const insurerIndustryCodeBO = new InsurerIndustryCodeBO()
 
+    if(req.query.unmapped){
+        //get all activityCodes that are activity.
+        let icQuery = {state: 1}
+        const industryCodeList = await industryCodeBO.getList(icQuery).catch(function(err) {
+            error = err;
+        })
+        if (error) {
+            return next(error);
+        }
+        let notMappedList = [];
+        //Build list that have nothing mapped in insurerActivityCodes collection
+        for(let i = 0; i < industryCodeList.length; i++){
+            const industryCodeJSON = industryCodeList[i];
+            let iacQuery = {countOnly: true, talageIndustryCodeIdList: industryCodeJSON.id}
+            if(req.query.insurerId){
+                try{
+                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
+                }
+                catch(err){
+                    log.error("bad query")
+                }
+            }
+            //log.debug(JSON.stringify(iacQuery))
+            const respJson = await insurerIndustryCodeBO.getList(iacQuery).catch(function(err) {
+                log.error("admin insurerIndustryCodeBO error: " + err + __location);
+                error = err;
+            });
+
+            if(respJson.count === 0){
+                notMappedList.push(industryCodeJSON.id);
+            }
+        }
+        //filter user query on the notMappedList.
+        req.query.state = 1 //we only want active codes.
+        if(notMappedList.length > 0){
+            req.query.industryCodeId = notMappedList
+        }
+    }
+    else if(req.query.insurerId){
+        //TODO optimize by going just to IAC collection
+        //get all activityCodes that are activity.
+        let icQuery = {state: 1}
+        const industryCodeList = await industryCodeBO.getList(icQuery).catch(function(err) {
+            error = err;
+        })
+        if (error) {
+            return next(error);
+        }
+        let mappedtoInsurerList = [];
+        //Build list that have nothing mapped in insurerActivityCodes collection
+        for(let i = 0; i < industryCodeList.length; i++){
+            const industryCodeJSON = industryCodeList[i];
+            let iacQuery = {countOnly: true, talageIndustryCodeIdList: industryCodeJSON.id}
+            if(req.query.insurerId){
+                try{
+                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
+                }
+                catch(err){
+                    log.error("bad query")
+                }
+            }
+            const respJson = await insurerIndustryCodeBO.getList(iacQuery).catch(function(err) {
+                log.error("admin insurerIndustryCodeBO error: " + err + __location);
+                error = err;
+            });
+
+            if(respJson.count > 1){
+                mappedtoInsurerList.push(industryCodeJSON.id);
+            }
+        }
+        //filter user query on the notMappedList.
+        req.query.state = 1 //we only want active codes.
+        if(mappedtoInsurerList.length > 0){
+            req.query.industryCodeId = mappedtoInsurerList
+        }
+        else {
+            req.query.industryCodeId = -999;
+        }
+    }
     const rows = await industryCodeBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
         error = err;
