@@ -66,13 +66,20 @@ module.exports = class InsurerIndustryCodeBO{
             const queryProjection = {"__v": 0}
 
             let findCount = false;
+            let countOnly = false;
+            if(queryJSON.countOnly){
+                countOnly = true;
+                delete queryJSON.countOnly;
+
+            }
+
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {};
+            var queryOptions = {lean:true};
             queryOptions.sort = {createdAt: 1};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -190,37 +197,56 @@ module.exports = class InsurerIndustryCodeBO{
 
             let docList = null;
             let queryRowCount = 0;
-            try {
-                docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
-                if (findCount){
+            //log.debug(`InsurerIndustryCode getList query ${JSON.stringify(query)}` + __location)
+            // until we roll back BO for count to work like other BOs.
+            if(countOnly === true){
+                try {
                     queryRowCount = await InsurerIndustryCode.countDocuments(query);
                 }
-            }
-            catch (err) {
-                log.error(err + __location);
-                error = null;
-                rejected = true;
-            }
-            if(rejected){
-                reject(error);
-                return;
-            }
-            if(docList && docList.length > 0){
-                // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN
-                // no longer can just get count - expense mongoose processing for fill model and more expense db hit.
-                         // of the other BOs pass back the count as well for api paging (so we know how many total rows are)
-                if (findCount){
-                    resolve({
-                        rows: mongoUtils.objListCleanup(docList),
-                        count: queryRowCount
-                    });
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
                 }
-                else{
-                    resolve(mongoUtils.objListCleanup(docList));
+                if(rejected){
+                    reject(error);
+                    return;
                 }
+                resolve({count: queryRowCount});
             }
             else {
-                resolve([]);
+                try {
+                    docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
+                    if (findCount){
+                        queryRowCount = await InsurerIndustryCode.countDocuments(query);
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN
+                    // no longer can just get count - expense mongoose processing for fill model and more expense db hit.
+                            // of the other BOs pass back the count as well for api paging (so we know how many total rows are)
+                    if (findCount){
+                        resolve({
+                            rows: mongoUtils.objListCleanup(docList),
+                            count: queryRowCount
+                        });
+                    }
+                    else{
+                        resolve(mongoUtils.objListCleanup(docList));
+                    }
+                }
+                else {
+                    resolve([]);
+                }
             }
             return;
         });

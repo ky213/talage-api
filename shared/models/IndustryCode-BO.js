@@ -168,7 +168,7 @@ module.exports = class IndustryCodeBO{
                 }
             }
             // Run the query
-            //log.debug("IndustryCodeBO getlist sql: " + sql);
+            //log.debug("IndustryCodeBO getlist sql: " + sqlWhere);
             // Run the query
             const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
                 rejected = true;
