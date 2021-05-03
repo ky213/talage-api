@@ -98,6 +98,7 @@ module.exports = class IndustryCodeBO{
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
             let rejected = false;
+            let findCount = false;
             // Create the update query
             const sqlSelect = `
                 SELECT * FROM ${tableName}  
@@ -108,6 +109,10 @@ module.exports = class IndustryCodeBO{
             let sqlWhere = "";
             let sqlPaging = "";
             if(queryJSON){
+                if (queryJSON.count) {
+                    findCount = queryJSON.count === "1";
+                    delete queryJSON.count;
+                }
                 let hasWhere = false;
                 if(queryJSON.industryCodeId){
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
@@ -157,7 +162,7 @@ module.exports = class IndustryCodeBO{
                     sqlWhere += ` hiscox like ${db.escape(`%${queryJSON.hiscox}%`)} `
                     hasWhere = true;
                 }
-                //GetList is used by more than just the ADmin.
+                //GetList is used by more than just the Admin.
                 //This logic for the admin should be in the route code. - Brian
                 const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
@@ -167,55 +172,46 @@ module.exports = class IndustryCodeBO{
                     sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
                 }
             }
-            // Run the query
-            //log.debug("IndustryCodeBO getlist sql: " + sqlWhere);
-            // Run the query
-            const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
-                reject(error);
-            });
 
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const industryCodeBO = new IndustryCodeBO();
-                    await industryCodeBO.#dbTableORM.decryptFields(result[i]);
-                    await industryCodeBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await industryCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
+            if (findCount === false) {
+                // Run the query
+                //log.debug("IndustryCodeBO getlist sql: " + sqlWhere);
+                // Run the query
+                const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
+                    reject(error);
+                });
+
+                if (rejected) {
+                    return;
+                }
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
+                        const industryCodeBO = new IndustryCodeBO();
+                        await industryCodeBO.#dbTableORM.decryptFields(result[i]);
+                        await industryCodeBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await industryCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(industryCodeBO);
                     }
-                    boList.push(industryCodeBO);
                 }
-                if(queryJSON && (queryJSON.count === "1" || queryJSON.count === "true")){
-                    const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
-                        rejected = true;
-                        log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
-                        reject(error);
-                    });
-                    // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs
-                    // can no longer just get count - bigger database hit.
-                    resolve({
-                        rows: boList,
-                        count: count[0] ? count[0]["count(*)"] : 0
-                    });
-                }
-                else{
-                    resolve(boList);
-                }
+                resolve(boList);
             }
-            else {
-                //Search so no hits ok.
-                resolve([]);
+            else{
+                const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
+                    reject(error);
+                });
+                // return the sql count
+                resolve({count: count[0] ? count[0]["count(*)"] : 0});
             }
-
-
         });
     }
 
