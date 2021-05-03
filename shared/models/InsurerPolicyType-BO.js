@@ -124,7 +124,7 @@ module.exports = class InsurerPolicyTypeBO{
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;

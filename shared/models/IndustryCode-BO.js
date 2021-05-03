@@ -110,7 +110,9 @@ module.exports = class IndustryCodeBO{
             let sqlPaging = "";
             if(queryJSON){
                 if (queryJSON.count) {
-                    findCount = true;
+                    if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                        findCount = true;
+                    }
                     delete queryJSON.count;
                 }
                 let hasWhere = false;
