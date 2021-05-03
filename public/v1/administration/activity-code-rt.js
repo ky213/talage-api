@@ -98,7 +98,7 @@ async function findAll(req, res, next) {
             req.query.activityCodeId = mappedtoInsurerList
         }
         else {
-            log.debug("no unmapped activity codes")
+            req.query.activityCodeId = -999
         }
 
     }
