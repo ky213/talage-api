@@ -45,7 +45,7 @@ module.exports = class CompwestWC extends Integration {
 
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
-        const apiSwitchOverDateString = '2021-05-15T00:00:00-08'
+        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
         const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
 
         //check policy effectiv date to determine API to call.

@@ -6,7 +6,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+//const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 module.exports = class InsurerActivityCodeBO{
@@ -153,6 +153,18 @@ module.exports = class InsurerActivityCodeBO{
                 delete queryJSON.insurerId;
             }
 
+            if(queryJSON.notalageactivitycode){
+                query["talageActivityCodeIdList.0"] = {$exists: false};
+                delete queryJSON.notalageactivitycode;
+            }
+
+            if(queryJSON.noquestions){
+                //or with insurerTerritoryQuestionList
+                query["insurerQuestionIdList.0"] = {$exists: false};
+                query["insurerTerritoryQuestionList.0"] = {$exists: false};
+                delete queryJSON.noquestions;
+            }
+
             if(queryJSON.description){
                 query.description = {
                     "$regex": queryJSON.description,
@@ -179,6 +191,7 @@ module.exports = class InsurerActivityCodeBO{
 
             let docList = null;
             let queryRowCount = 0;
+            log.debug(`InsurerActivityCode query ${JSON.stringify(query)}` + __location)
             try {
                 docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
                 if (findCount){
@@ -195,8 +208,20 @@ module.exports = class InsurerActivityCodeBO{
                 return;
             }
             if(docList && docList.length > 0){
-                // pass back the count as well for api paging (so we know how many total rows are)
+                // BAD --- Break pattern for getList functionality Very BAD CHANGE. pass back the count as well for api paging (so we know how many total rows are)
                 if (findCount){
+                    //This is BAD. It breaks the pattern of how the BOs getLists should work.
+                    // javascript does not have interfaces but idea still holds.
+                    // two mongo hits still happen.
+                    // the route code should make 2 calls.
+                    // 1. for the count
+                    // 2nd for the data.
+                    // This getList should work exactly the pre-existing ones.
+                    // someone will waste around 1 hour figuring out this
+                    // getList is "special" and does not just return an array of the
+                    // documents.
+                    // The BOs are general purpose classes.
+                    //The BOs are intended using be more than just the administration tools.
                     resolve({
                         rows: mongoUtils.objListCleanup(docList),
                         count: queryRowCount
@@ -305,7 +330,7 @@ module.exports = class InsurerActivityCodeBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        
+
         const insurerActivityCode = new InsurerActivityCode(newObjectJSON);
         //Insert a doc
         await insurerActivityCode.save().catch(function(err) {
