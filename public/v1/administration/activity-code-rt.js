@@ -33,7 +33,7 @@ async function findAll(req, res, next) {
         //Build list that have nothing mapped in insurerActivityCodes collection
         for(let i = 0; i < activityCodeList.length; i++){
             const activityCodeJSON = activityCodeList[i];
-            let iacQuery = {countOnly: true, talageActivityCodeIdList: activityCodeJSON.id};
+            let iacQuery = {count: true, talageActivityCodeIdList: activityCodeJSON.id};
             if(req.query.insurerId){
                 try{
                     iacQuery.insurerId = parseInt(req.query.insurerId,10);
@@ -75,7 +75,7 @@ async function findAll(req, res, next) {
         //Build list that have nothing mapped in insurerActivityCodes collection
         for(let i = 0; i < activityCodeList.length; i++){
             const activityCodeJSON = activityCodeList[i];
-            let iacQuery = {countOnly: true, talageActivityCodeIdList: activityCodeJSON.id};
+            let iacQuery = {count: true, talageActivityCodeIdList: activityCodeJSON.id};
             if(req.query.insurerId){
                 try{
                     iacQuery.insurerId = parseInt(req.query.insurerId,10);
