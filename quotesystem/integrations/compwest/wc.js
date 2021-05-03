@@ -976,7 +976,7 @@ module.exports = class CompwestWC extends Integration {
                         const optionList = childInsurerQuestion.attributes.optionList
                         // eslint-disable-next-line prefer-const
                         const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
-                        if(childQuestionAnswerStr){
+                        if(childQuestionAnswerStr !== false){
                             let childAnswerList = childQuestionAnswerStr.split(',');
                             childAnswerList = childAnswerList.map(s => s.trim());
                             log.debug("childAnswerList " + JSON.stringify(childAnswerList))
