@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -8,6 +9,7 @@
 'use strict';
 
 const ActivityCodeBO = global.requireShared('./models/ActivityCode-BO.js');
+const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -15,6 +17,92 @@ const tracker = global.requireShared('./helpers/tracker.js');
 async function findAll(req, res, next) {
     let error = null;
     const activityCodeBO = new ActivityCodeBO();
+    const insurerActivityCodeBO = new InsurerActivityCodeBO();
+
+    if(req.query.unmapped){
+        //get all activityCodes that are activity.
+        let acQuery = {state: 1}
+        const activityCodeList = await activityCodeBO.getList(acQuery).catch(function(err) {
+            error = err;
+        })
+        if (error) {
+            return next(error);
+        }
+        let notMappedList = [];
+        //Build list that have nothing mapped in insurerActivityCodes collection
+        for(let i = 0; i < activityCodeList.length; i++){
+            const activityCodeJSON = activityCodeList[i];
+            let iacQuery = {countOnly: true, talageActivityCodeIdList: activityCodeJSON.id}
+            if(req.query.insurerId){
+                try{
+                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
+                }
+                catch(err){
+                    log.error("bad query")
+                }
+            }
+            //log.debug(JSON.stringify(iacQuery))
+            const respJson = await insurerActivityCodeBO.getList(iacQuery).catch(function(err) {
+                log.error("admin insurerActivityCodeBO error: " + err + __location);
+                error = err;
+            });
+
+            if(respJson.count === 0){
+                notMappedList.push(activityCodeJSON.id);
+            }
+        }
+        //filter user query on the notMappedList.
+        req.query.state = 1 //we only want active codes.
+        if(notMappedList.length > 0){
+            req.query.activityCodeId = notMappedList
+        }
+        else {
+            log.debug("no unmapped activity codes")
+        }
+    }
+    else if(req.query.insurerId){
+        //TODO optimize by going just to IAC collection
+        //get all activityCodes that are activity.
+        let acQuery = {state: 1}
+        const activityCodeList = await activityCodeBO.getList(acQuery).catch(function(err) {
+            error = err;
+        })
+        if (error) {
+            return next(error);
+        }
+        let mappedtoInsurerList = [];
+        //Build list that have nothing mapped in insurerActivityCodes collection
+        for(let i = 0; i < activityCodeList.length; i++){
+            const activityCodeJSON = activityCodeList[i];
+            let iacQuery = {countOnly: true, talageActivityCodeIdList: activityCodeJSON.id}
+            if(req.query.insurerId){
+                try{
+                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
+                }
+                catch(err){
+                    log.error("bad query")
+                }
+            }
+            const respJson = await insurerActivityCodeBO.getList(iacQuery).catch(function(err) {
+                log.error("admin insurerActivityCodeBO error: " + err + __location);
+                error = err;
+            });
+
+            if(respJson.count > 1){
+                mappedtoInsurerList.push(activityCodeJSON.id);
+            }
+        }
+        //filter user query on the notMappedList.
+        req.query.state = 1 //we only want active codes.
+        if(mappedtoInsurerList.length > 0){
+            req.query.activityCodeId = mappedtoInsurerList
+        }
+        else {
+            log.debug("no unmapped activity codes")
+        }
+
+    }
+
     const rows = await activityCodeBO.getList(req.query).catch(function(err) {
         error = err;
     })
