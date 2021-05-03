@@ -80,7 +80,7 @@ module.exports = class InsurerActivityCodeBO{
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {};
+            var queryOptions = {lean:true};
             queryOptions.sort = {createdAt: 1};
             if (queryJSON.sort) {
                 var acs = 1;
