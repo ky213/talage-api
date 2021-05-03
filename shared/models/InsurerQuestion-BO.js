@@ -68,7 +68,9 @@ module.exports = class InsurerQuestionBO{
 
             let findCount = false;
             if(queryJSON.count){
-                findCount = true;
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
                 delete queryJSON.count;
             }
 
@@ -183,20 +185,7 @@ module.exports = class InsurerQuestionBO{
                 }
             }
 
-            if(findCount === true){
-                let queryRowCount = 0;
-                try {
-                    queryRowCount = await InsurerQuestion.countDocuments(query);
-                }
-                catch (err) {
-                    log.error(err + __location);
-                    error = null;
-                    reject(error);
-                    return;
-                }
-                resolve({count: queryRowCount});
-            }
-            else {
+            if(findCount === false){
                 let docList = null;
                 try {
                     docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
@@ -213,6 +202,19 @@ module.exports = class InsurerQuestionBO{
                 else {
                     resolve([]);
                 }
+            }
+            else {
+                let queryRowCount = 0;
+                try {
+                    queryRowCount = await InsurerQuestion.countDocuments(query);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                resolve({count: queryRowCount});
             }
         });
     }

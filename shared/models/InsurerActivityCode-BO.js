@@ -68,7 +68,9 @@ module.exports = class InsurerActivityCodeBO{
 
             let findCount = false;
             if(queryJSON.count){
-                findCount = true;
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
                 delete queryJSON.count;
             }
 
@@ -186,20 +188,7 @@ module.exports = class InsurerActivityCodeBO{
             }
 
             //log.debug(`InsurerActivityCode query ${JSON.stringify(query)}` + __location)
-            if(findCount === true){
-                let queryRowCount = 0;
-                try {
-                    queryRowCount = await InsurerActivityCode.countDocuments(query);
-                }
-                catch (err) {
-                    log.error(err + __location);
-                    error = null;
-                    reject(error);
-                    return;
-                }
-                resolve({count: queryRowCount});
-            }
-            else {
+            if(findCount === false){
                 let docList = null;
                 try {
                     docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
@@ -216,6 +205,19 @@ module.exports = class InsurerActivityCodeBO{
                 else {
                     resolve([]);
                 }
+            }
+            else {
+                let queryRowCount = 0;
+                try {
+                    queryRowCount = await InsurerActivityCode.countDocuments(query);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                resolve({count: queryRowCount});
             }
         });
     }
