@@ -67,6 +67,13 @@ module.exports = class InsurerActivityCodeBO{
             const queryProjection = {"__v": 0}
 
             let findCount = false;
+            let countOnly = false;
+            if(queryJSON.countOnly){
+                // log.debug("have countOnly")
+                countOnly = true;
+                delete queryJSON.countOnly;
+
+            }
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
@@ -111,7 +118,7 @@ module.exports = class InsurerActivityCodeBO{
             }
 
             if (queryJSON.count) {
-                if (queryJSON.count === "1" || queryJSON.count === "true") {
+                if (queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true") {
                     findCount = true;
                 }
                 delete queryJSON.count;
@@ -191,48 +198,53 @@ module.exports = class InsurerActivityCodeBO{
 
             let docList = null;
             let queryRowCount = 0;
-            log.debug(`InsurerActivityCode query ${JSON.stringify(query)}` + __location)
-            try {
-                docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
-                if (findCount){
+            //log.debug(`InsurerActivityCode query ${JSON.stringify(query)}` + __location)
+            // until we roll back BO for count to work like other BOs.
+            if(countOnly === true){
+                try {
                     queryRowCount = await InsurerActivityCode.countDocuments(query);
                 }
-            }
-            catch (err) {
-                log.error(err + __location);
-                error = null;
-                rejected = true;
-            }
-            if(rejected){
-                reject(error);
-                return;
-            }
-            if(docList && docList.length > 0){
-                // BAD --- Break pattern for getList functionality Very BAD CHANGE. pass back the count as well for api paging (so we know how many total rows are)
-                if (findCount){
-                    //This is BAD. It breaks the pattern of how the BOs getLists should work.
-                    // javascript does not have interfaces but idea still holds.
-                    // two mongo hits still happen.
-                    // the route code should make 2 calls.
-                    // 1. for the count
-                    // 2nd for the data.
-                    // This getList should work exactly the pre-existing ones.
-                    // someone will waste around 1 hour figuring out this
-                    // getList is "special" and does not just return an array of the
-                    // documents.
-                    // The BOs are general purpose classes.
-                    //The BOs are intended using be more than just the administration tools.
-                    resolve({
-                        rows: mongoUtils.objListCleanup(docList),
-                        count: queryRowCount
-                    });
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
                 }
-                else{
-                    resolve(mongoUtils.objListCleanup(docList));
+                if(rejected){
+                    reject(error);
+                    return;
                 }
+                resolve({count: queryRowCount});
             }
             else {
-                resolve([]);
+                try {
+                    docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
+                    if (findCount){
+                        queryRowCount = await InsurerActivityCode.countDocuments(query);
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    if (findCount){
+                        resolve({
+                            rows: mongoUtils.objListCleanup(docList),
+                            count: queryRowCount
+                        });
+                    }
+                    else{
+                        resolve(mongoUtils.objListCleanup(docList));
+                    }
+                }
+                else {
+                    resolve([]);
+                }
             }
             return;
         });
