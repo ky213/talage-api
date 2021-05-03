@@ -209,6 +209,9 @@ module.exports = class IndustryCodeBO{
                     log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
                     reject(error);
                 });
+                if (rejected) {
+                    return;
+                }
                 // return the sql count
                 resolve({count: count[0] ? count[0]["count(*)"] : 0});
             }
