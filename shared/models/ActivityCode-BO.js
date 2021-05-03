@@ -181,6 +181,7 @@ module.exports = class ActivityCodeBO{
                         reject(error);
                     });
                     // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs
+                    //no longer can just get count -  more expense db hit for fill out resultset.
                     resolve({
                         rows: boList,
                         count: count[0] ? count[0]["count(*)"] : 0

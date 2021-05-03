@@ -200,6 +200,7 @@ module.exports = class IndustryCodeBO{
                         reject(error);
                     });
                     // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs
+                    // can no longer just get count - bigger database hit.
                     resolve({
                         rows: boList,
                         count: count[0] ? count[0]["count(*)"] : 0

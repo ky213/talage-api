@@ -204,7 +204,9 @@ module.exports = class InsurerQuestionBO{
                 return;
             }
             if(docList && docList.length > 0){
-                // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs pass back the count as well for api paging (so we know how many total rows are)
+                // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN - Lost ability to just get count
+                // this pattern takes very big db and mongoose hit to populate models.       of the other BOs pass back the count as well for api paging (so we know how many total rows are)
+                // 
                 if (findCount){
                     resolve({
                         rows: mongoUtils.objListCleanup(docList),
