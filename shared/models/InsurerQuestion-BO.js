@@ -67,7 +67,11 @@ module.exports = class InsurerQuestionBO{
             const queryProjection = {"__v": 0};
 
             let findCount = false;
-            let rejected = false;
+            if(queryJSON.count){
+                findCount = true;
+                delete queryJSON.count;
+            }
+
             let error = null;
 
             const query = {active: true};
@@ -111,13 +115,6 @@ module.exports = class InsurerQuestionBO{
                 // offset by page number * max rows, so we go that many rows
                 queryOptions.skip = (page - 1) * queryOptions.limit;
                 delete queryJSON.page;
-            }
-
-            if (queryJSON.count) {
-                if (queryJSON.count === "1" || queryJSON.count === "true") {
-                    findCount = true;
-                }
-                delete queryJSON.count;
             }
 
             // insurerQuestionId
@@ -186,41 +183,37 @@ module.exports = class InsurerQuestionBO{
                 }
             }
 
-            let docList = null;
-            let queryRowCount = 0;
-            try {
-                docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
-                if (findCount){
+            if(findCount === true){
+                let queryRowCount = 0;
+                try {
                     queryRowCount = await InsurerQuestion.countDocuments(query);
                 }
-            }
-            catch (err) {
-                log.error(err + __location);
-                error = null;
-                rejected = true;
-            }
-            if(rejected){
-                reject(error);
-                return;
-            }
-            if(docList && docList.length > 0){
-                // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN - Lost ability to just get count
-                // this pattern takes very big db and mongoose hit to populate models.       of the other BOs pass back the count as well for api paging (so we know how many total rows are)
-                // 
-                if (findCount){
-                    resolve({
-                        rows: mongoUtils.objListCleanup(docList),
-                        count: queryRowCount
-                    });
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
                 }
-                else{
-                    resolve(mongoUtils.objListCleanup(docList));
-                }
+                resolve({count: queryRowCount});
             }
             else {
-                resolve([]);
+                let docList = null;
+                try {
+                    docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
             }
-            return;
         });
     }
 

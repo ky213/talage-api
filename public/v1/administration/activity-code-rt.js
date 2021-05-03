@@ -110,7 +110,7 @@ async function findAll(req, res, next) {
         return next(error);
     }
 
-    const countQuery = {...req.query, count: "1"};
+    const countQuery = {...req.query, count: true};
     const count = await activityCodeBO.getList(countQuery).catch(function(err) {
         error = err;
     });

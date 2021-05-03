@@ -107,7 +107,7 @@ module.exports = class ActivityCodeBO{
             let sqlPaging = "";
             if(queryJSON){
                 if (queryJSON.count) {
-                    findCount = queryJSON.count === "1";
+                    findCount = true;
                     delete queryJSON.count;
                 }
                 if(queryJSON.activityCodeId){

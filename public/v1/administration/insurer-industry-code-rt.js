@@ -113,8 +113,18 @@ async function findAll(req, res, next) {
     if (error) {
         return next(error);
     }
+
+    const countQuery = {...req.query, count: true};
+    const count = await insurerIndustryCodeBO.getList(countQuery).catch(function(err) {
+        log.error("admin agencynetwork error: " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
     if (rows) {
-        res.send(200, rows);
+        res.send(200, {rows, ...count});
         return next();
     }
     else {

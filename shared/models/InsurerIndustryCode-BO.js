@@ -66,15 +66,11 @@ module.exports = class InsurerIndustryCodeBO{
             const queryProjection = {"__v": 0}
 
             let findCount = false;
-            let countOnly = false;
-            if(queryJSON.countOnly){
-                countOnly = true;
-                delete queryJSON.countOnly;
-
+            if(queryJSON.count){
+                findCount = true;
+                delete queryJSON.count;
             }
 
-
-            let rejected = false;
             // eslint-disable-next-line prefer-const
             let query = {active: true};
             let error = null;
@@ -114,13 +110,6 @@ module.exports = class InsurerIndustryCodeBO{
                 // offset by page number * max rows, so we go that many rows
                 queryOptions.skip = (page - 1) * queryOptions.limit;
                 delete queryJSON.page;
-            }
-
-            if (queryJSON.count) {
-                if (queryJSON.count === "1" || queryJSON.count === "true") {
-                    findCount = true;
-                }
-                delete queryJSON.count;
             }
 
             if(queryJSON.insurerIndustryCodeId && Array.isArray(queryJSON.insurerIndustryCodeId)){
@@ -195,60 +184,38 @@ module.exports = class InsurerIndustryCodeBO{
                 }
             }
 
-            let docList = null;
-            let queryRowCount = 0;
             //log.debug(`InsurerIndustryCode getList query ${JSON.stringify(query)}` + __location)
-            // until we roll back BO for count to work like other BOs.
-            if(countOnly === true){
+            if(findCount === true){
+                let queryRowCount = 0;
                 try {
                     queryRowCount = await InsurerIndustryCode.countDocuments(query);
                 }
                 catch (err) {
                     log.error(err + __location);
                     error = null;
-                    rejected = true;
-                }
-                if(rejected){
                     reject(error);
                     return;
                 }
                 resolve({count: queryRowCount});
             }
             else {
+                let docList = null;
                 try {
                     docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
-                    if (findCount){
-                        queryRowCount = await InsurerIndustryCode.countDocuments(query);
-                    }
                 }
                 catch (err) {
                     log.error(err + __location);
                     error = null;
-                    rejected = true;
-                }
-                if(rejected){
                     reject(error);
                     return;
                 }
                 if(docList && docList.length > 0){
-                    // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN
-                    // no longer can just get count - expense mongoose processing for fill model and more expense db hit.
-                            // of the other BOs pass back the count as well for api paging (so we know how many total rows are)
-                    if (findCount){
-                        resolve({
-                            rows: mongoUtils.objListCleanup(docList),
-                            count: queryRowCount
-                        });
-                    }
-                    else{
-                        resolve(mongoUtils.objListCleanup(docList));
-                    }
+                    resolve(mongoUtils.objListCleanup(docList));
                 }
                 else {
                     resolve([]);
                 }
             }
-            return;
         });
     }
 
@@ -344,7 +311,7 @@ module.exports = class InsurerIndustryCodeBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        
+
         const insurerIndustryCode = new InsurerIndustryCode(newObjectJSON);
         //Insert a doc
         await insurerIndustryCode.save().catch(function(err) {
