@@ -93,6 +93,7 @@ module.exports = class ActivityCodeBO{
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
             let rejected = false;
+            let findCount = false;
             // Create the update query
             let hasWhere = false;
             let stateSet = false;
@@ -105,6 +106,12 @@ module.exports = class ActivityCodeBO{
             let sqlWhere = "";
             let sqlPaging = "";
             if(queryJSON){
+                if (queryJSON.count) {
+                    if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                        findCount = true;
+                    }
+                    delete queryJSON.count;
+                }
                 if(queryJSON.activityCodeId){
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
 
@@ -147,53 +154,47 @@ module.exports = class ActivityCodeBO{
             // reverse the list to sort by id descending by default
             const sqlOrder = " ORDER BY id DESC";
 
-            const sql = sqlSelect + sqlWhere + sqlOrder + sqlPaging;
-            // Run the query
-            log.debug("ActivityCodeBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
+            if (findCount === false) {
+                const sql = sqlSelect + sqlWhere + sqlOrder + sqlPaging;
+                // Run the query
+                log.debug("ActivityCodeBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function(error) {
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
 
-            if (rejected) {
-                return;
-            }
-
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const activityCodeBO = new ActivityCodeBO();
-                    await activityCodeBO.#dbTableORM.decryptFields(result[i]);
-                    await activityCodeBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await activityCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
+                        const activityCodeBO = new ActivityCodeBO();
+                        await activityCodeBO.#dbTableORM.decryptFields(result[i]);
+                        await activityCodeBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await activityCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(activityCodeBO);
                     }
-                    boList.push(activityCodeBO);
                 }
-                if(queryJSON && (queryJSON.count === "1" || queryJSON.count === "true")){
-                    const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
-                        rejected = true;
-                        log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
-                        reject(error);
-                    });
-                    // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN of the other BOs
-                    //no longer can just get count -  more expense db hit for fill out resultset.
-                    resolve({
-                        rows: boList,
-                        count: count[0] ? count[0]["count(*)"] : 0
-                    });
-                }
-                else{
-                    resolve(boList);
-                }
+                resolve(boList);
             }
-            else {
-                //Search so no hits ok.
-                resolve([]);
+            else{
+                const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                // return the sql count
+                resolve({count: count[0] ? count[0]["count(*)"] : 0});
             }
         });
     }
