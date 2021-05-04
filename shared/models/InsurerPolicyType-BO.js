@@ -81,8 +81,13 @@ module.exports = class InsurerPolicyTypeBO{
     }
 
 
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
 
             const queryProjection = {"__v": 0}
 
