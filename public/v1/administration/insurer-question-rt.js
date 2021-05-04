@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -24,7 +25,7 @@ async function findAll(req, res, next) {
         }
         delete req.query.question
     }
-    
+
     log.debug(JSON.stringify(req.query));
     const rows = await insurerQuestionBO.getList(req.query).catch(function(err) {
         error = err;
@@ -32,8 +33,18 @@ async function findAll(req, res, next) {
     if (error) {
         return next(error);
     }
+
+    const countQuery = {...req.query, count: true};
+    const count = await insurerQuestionBO.getList(countQuery).catch(function(err) {
+        log.error("admin agencynetwork error: " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
     if (rows) {
-        res.send(200, rows);
+        res.send(200, {rows, ...count});
         return next();
     }
     else {
@@ -86,7 +97,10 @@ async function add(req, res, next) {
 
     if(!req.body.hasOwnProperty("policyTypeList")){
         req.body.policyTypeList = [];
-        req.body.policyTypeList.push(req.body.policyType);
+        // let it be an empty list if policy type was not provided, otherwise add it to the list
+        if(req.body.hasOwnProperty("policyType") && req.body.policyType !== null){
+            req.body.policyTypeList.push(req.body.policyType);
+        }
     }
 
     if(req.body && req.body.attributes && typeof req.body.attributes === 'string'){

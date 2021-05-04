@@ -250,8 +250,14 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false) {
+    getList(requestQueryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false, mainCollection = false) {
         return new Promise(async(resolve, reject) => {
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
             let queryProjection = {"__v": 0}
 
             let findCount = false;
@@ -292,7 +298,7 @@ module.exports = class AgencyLocationBO{
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;

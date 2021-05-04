@@ -1714,9 +1714,14 @@ module.exports = class ApplicationModel {
         });
     }
 
-    getList(queryJSON, getOptions = null) {
+    getList(requestQueryJSON, getOptions = null) {
         return new Promise(async(resolve, reject) => {
             //
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
             let getListOptions = {
                 getQuestions: false,
                 getAgencyName: false
@@ -1768,7 +1773,7 @@ module.exports = class ApplicationModel {
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1" || queryJSON.count === 1 || queryJSON.count === true) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;
