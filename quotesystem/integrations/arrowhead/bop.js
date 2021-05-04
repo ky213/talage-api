@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-spacing */
 /* eslint-disable radix */
 /* eslint-disable no-loop-func */
 /* eslint-disable object-property-newline */
@@ -23,6 +24,7 @@ const axios = require('axios');
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
+const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
 
 // TODO: Update to toggle between test/prod 
 const host = 'https://stag-api.nationalprograms.io';
@@ -224,7 +226,7 @@ module.exports = class LibertySBOP extends Integration {
             // log.info("=================== QUOTE ERROR ===================");
             const error = result.data.error;
 
-            this.reasons.push(`Coterie API Error: ${result.data}`);
+            this.reasons.push(`Arrowhead API Error: ${result.data}`);
             this.log += `--------======= Arrowhead Request Error =======--------<br><br>`;
             this.log += JSON.stringify(error, null, 2);
 
@@ -285,9 +287,18 @@ module.exports = class LibertySBOP extends Integration {
         const quoteLimits = {}; 
         const quoteLetter = null; // not provided by Arrowhead
         const quoteMIMEType = null; // not provided by Arrowhead
-        // let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
+        let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
+        const quoteCoverages = [];
+        let coverageSort = 0;
 
         const res = result.data;
+
+        // try to parse the message status for the quote from the response
+        try {
+            policyStatus = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].msgStatus;
+        } catch (e) {
+            log.warn(`${logPrefix}Policy status not provided, or the result structure has changed.` + __location);
+        }
 
         // try to parse out quote number from response
         try {
@@ -296,12 +307,64 @@ module.exports = class LibertySBOP extends Integration {
             log.warn(`${logPrefix}Quote number not provided, or the result structure has changed.` + __location);
         }
 
-        // try to parse out the premium
+        // try to parse out the premium from the reponse
         try {
-            premium = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].instecResponse.rc2.bbopResponse.bopPremiumAdjusted;
+            // or should it be -> res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].spxPremiumAmt ???
+            premium = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].instecResponse.rc2.bbopResponse.spxPremiumAmt;
         } catch (e) {
             log.warn(`${logPrefix}Premium not provided, or the result structure has changed.` + __location);
         }
+
+        // try to parse out payment information from the response
+        try {
+        // NOTE: This will probably change, and should be added to the client_* functions, but for now, simply storing as the following:
+        /**
+         * [{
+         *      depositAmt: "0",
+         *      downPayBop: "0",
+         *      fullTermAmt: "0",
+         *      numPayments: "0",
+         *      paymentPlanCd: "FPDB",
+         *      installmentAmt: "0.00"
+         * },
+         * ...
+         * ]
+         */
+        // NOTE: No schema exists for this.paymentPlan, so leaving it as noted above for now
+        this.insurerPaymentPlans = [];
+            const paymentOptions = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].spxPaymentOptions;
+
+            paymentOptions.forEach(paymentOption => {
+                const paymentPlan = {};
+
+                Object.keys(paymentOption).forEach(property => {
+                    switch (property) {
+                        case "depositAmt":
+                        case "downPayBop":
+                        case "fullTermAmt":
+                            paymentPlan[property] = convertToDollarFormat(paymentOption[property]);
+                            break;
+                        case "numPayments":
+                        case "paymentPlanCd":
+                            paymentPlan[property] = paymentOption[property];
+                            break;
+                        case "installmentInfo":
+                            paymentPlan.installmentAmt = convertToDollarFormat(paymentOption[property].installmentAmt);
+                            break;
+                        default:
+                            break;
+                    }
+                });
+
+                this.insurerPaymentPlans.push(paymentPlan);
+            });
+        } catch (e) {
+            log.warn(`${logPrefix}Payment Options not provided, or the result structure has changed.` + __location);
+        }
+
+        // TODO: Arrowhead sends coverage information, however it is location/building specific, and they do not provide details on the 
+        //       location/building those coverages apply to. Eventually, we should build out this response parsing further to parse out
+        //       the coverage data they provide, instead of just providing the defaulted coverages below. 
 
         // 1 Employers Liability Per Occurrence
         // 2 Employers Liability Disease Per Employee
@@ -315,20 +378,53 @@ module.exports = class LibertySBOP extends Integration {
         // 10 Business Personal Property
         // 11 Aggregate
 
-        // For limits, we currently do not parse values from their response. Instead, we default to the following:
-        quoteLimits[4] = "1000000";
-        quoteLimits[11] = "2000000";
-        quoteLimits[9] = "2000000";
+        // NOTE: We currently do not parse values from their response. Instead, we default to the following:
+        // Each Occurrence
+        quoteCoverages.push({
+            description: `Each Occurrence`,
+            value: convertToDollarFormat(`1000000`, true),
+            sort: coverageSort++,
+            category: "Liability Coverages"
+        });
 
-        if (res.hasOwnProperty("warnings") && res.warnings.length > 0) {
+        // Aggregate
+        quoteCoverages.push({
+            description: `Aggregate`,
+            value: convertToDollarFormat(`2000000`, true),
+            sort: coverageSort++,
+            category: "Liability Coverages"
+        });
+
+        // Products & Completed Operations
+        quoteCoverages.push({
+            description: `Products & Completed Operations`,
+            value: convertToDollarFormat(`2000000`, true),
+            sort: coverageSort++,
+            category: "Liability Coverages"
+        });
+
+        // log any warnings they provided
+        if (res.warnings && res.warnings.length > 0) {
             log.warn(`${logPrefix}Arrowhead reported the following warnings for this quote request:`);
             res.warnings.forEach((warning, i) => {
                 log.warn(`${i}: ${warning}`);
             });
         }
 
-        // return quote result
-        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+        // provide their Agent Exchange portal link as a quote link on the quote
+        if (res.url && res.url.length > 0) {
+            this.quoteLink = res.url;
+        }
+
+        if (policyStatus === "Rated") {
+            return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
+        } else if (policyStatus !== "Rated" && premium) {
+            return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
+        } else if (policyStatus && !premium) {
+            return this.client_error(`${logPrefix}Quote response from carrier did not provide a premium.`, __location);
+        } else {
+            return this.client_error(`${logPrefix}Quote response from carrier did not provide a policy status.`, __location);
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -393,7 +489,8 @@ module.exports = class LibertySBOP extends Integration {
                 ]
             };
 
-            this.injectLocationQuestions(locationObj, location.locationQuestions, location.buildingQuestions);
+            this.injectLocationQuestions(locationObj, location.locationQuestions);
+            this.injectBuildingQuestions(location, locationObj.buildingList, location.buildingQuestions);
 
             locationList.push(locationObj);
         }
@@ -424,7 +521,7 @@ module.exports = class LibertySBOP extends Integration {
                     };
                     break;
                 case "automaticIncr":
-                    bbopSet.automaticIncr = this.convertToInteger({id, answer});
+                    bbopSet.automaticIncr = this.convertToInteger(answer);
                     break;
                 case "medicalExpenses":
                     bbopSet.medicalExpenses = answer;
@@ -433,7 +530,7 @@ module.exports = class LibertySBOP extends Integration {
                     bbopSet.liaDed = answer;
                     break;       
                 case "fixedPropDeductible":
-                    bbopSet.fixedPropDeductible = this.convertToInteger({id, answer});
+                    bbopSet.fixedPropDeductible = this.convertToInteger(answer);
                     break;  
                 case "cyber":
                     bbopSet.coverages.cyber = {
@@ -508,7 +605,7 @@ module.exports = class LibertySBOP extends Integration {
         }
     }
 
-    injectLocationQuestions(location, locationQuestions, buildingQuestions) {
+    injectLocationQuestions(location, locationQuestions) {
         // NOTE: Currently, none of these location questions are used, but keeping in case we need to introduce new location specific questions
 
         // hydrate the request JSON object with location question data
@@ -529,20 +626,18 @@ module.exports = class LibertySBOP extends Integration {
                     break;
             }
         }
-
-        this.injectBuildingQuestions(location.buildingList, buildingQuestions);
     }
 
     // NOTE: Currently this has an object pre-seeded into the buildingList because we only work with 1 building by default. When we allow multiple buildings
     //       per location, that can be defined in the quote app, this will need to be refactored to handle that (questions will be tied to specific buildings). 
-    injectBuildingQuestions(buildings, buildingQuestions) {
+    injectBuildingQuestions(location, buildings, buildingQuestions) {
         // hydrate the request JSON object with building question data
         // NOTE: Add additional building questions here if more get imported   
         for (const building of buildings) {
             // parent questions
             const uw = [];
-            const pp = [];
-            const bld = [];
+            // const pp = [];
+            // const bld = [];
             const osigns = [];
             const spoil = [];
             const compf = [];
@@ -559,19 +654,16 @@ module.exports = class LibertySBOP extends Integration {
                         building[id] = answer;
                         break;
                     case "numStories":
-                        building[id] = this.convertToInteger({id, answer});
+                        building[id] = this.convertToInteger(answer);
                         break;
                     case "occupancy":
                         building[id] = answer;
                         break;
                     case "occupiedSqFt":
-                        building[id] = this.convertToInteger({id, answer});
-                        break;
-                    case "totalSqFt":
-                        building[id] = this.convertToInteger({id, answer});
+                        building[id] = this.convertToInteger(answer);
                         break;
                     case "yearBuilt":
-                        building[id] = this.convertToInteger({id, answer});
+                        building[id] = this.convertToInteger(answer);
                         break;
                     case "compf":
                         building.coverages[id] = {
@@ -586,26 +678,6 @@ module.exports = class LibertySBOP extends Integration {
                     case "uw.plumbingUpdates": // child
                     case "uw.electricalUpdates": // child
                         uw.push({id: id.replace("uw.", ""), answer});
-                        break;
-                    case "PP":
-                        building.coverages[id] = {
-                            includeInd: this.convertToBoolean(answer)
-                        };
-                        break;
-                    case "PP.limit": // child
-                    case "PP.seasonalIncrease": // child
-                    case "PP.valuationInd": // child
-                        pp.push({id: id.replace("PP.", ""), answer});
-                        break;
-                    case "bld":
-                        building.coverages[id] = {
-                            includeInd: this.convertToBoolean(answer)
-                        };
-                        break;
-                    case "bld.valuation": // child
-                    case "bld.limit": // child 
-                    case "bld.automaticIncr": // child
-                        bld.push({id: id.replace("bld.", ""), answer});
                         break;
                     case "osigns":
                         building.coverages[id] = {
@@ -643,63 +715,14 @@ module.exports = class LibertySBOP extends Integration {
                         case "hvacUpdates":
                         case "plumbingUpdates":
                         case "electricalUpdates":
-                            building.uw[id] = this.convertToInteger({id, answer});
+                            building.uw[id] = this.convertToInteger(answer);
                             break;
                         default:
                             log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
                             break;
                     }
                 });
-            }
-
-            // injection of PP child question data
-            if (pp.length > 0) {
-                if (!building.coverages.hasOwnProperty("PP")) {
-                    building.coverages.PP = {
-                        includeInd: true
-                    };
-                }
-
-                pp.forEach(({id, answer}) => {
-                    switch (id) {
-                        case "limit":
-                            building.coverages.PP[id] = answer;
-                            break;
-                        case "seasonalIncrease":
-                            building.coverages.PP[id] = answer;
-                            break;
-                        case "valuationInd":
-                            building.coverages.PP[id] = this.convertToBoolean(answer);
-                            break;
-                        default:
-                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
-                            break;
-                    }
-                });
-            }
-
-            // injection of bld child question data
-            if (bld.length > 0) {
-                if (!building.coverages.hasOwnProperty("bld")) {
-                    building.coverages.bld = {
-                        includeInd: true
-                    };
-                }
-
-                bld.forEach(({id, answer}) => {
-                    switch (id) {
-                        case "valuation":
-                            building.coverages.bld[id] = answer;
-                            break;
-                        case "limit":
-                            building.coverages.bld[id] = this.convertToInteger({id, answer});
-                            break;
-                        default: 
-                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for bld coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
-                            break;                   
-                    }
-                });
-            }
+            }    
 
             if (osigns.length > 0) {
                 if (!building.coverages.hasOwnProperty("osigns")) {
@@ -733,7 +756,7 @@ module.exports = class LibertySBOP extends Integration {
                             building.coverages.spoil[id] = answer;
                             break;
                         case "spoilageLimit":
-                            building.coverages.spoil[id] = this.convertToInteger({id, answer});
+                            building.coverages.spoil[id] = this.convertToInteger(answer);
                             break;
                         case "powerOutInd": 
                             building.coverages.spoil[id] = this.convertToBoolean(answer);
@@ -770,6 +793,25 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 });
             }
+
+            // This section includes deprecated questions that can be answered implicitly now
+            // Square Feet (total)
+            building.totalSqFt = this.convertToInteger(location.square_footage);
+
+            // Building Limit            
+            building.coverages.PP = {
+                includeInd: true,
+                seasonalIncrease: "25",
+                valuationInd: false,
+                limit: `${location.buildingLimit}`
+            };
+
+            // Business Personal Property Limit            
+            building.coverages.bld = {
+                includeInd: true,
+                valuation: "Replacement Cost",
+                limit: location.businessPersonalPropertyLimit
+            };
         }
     }
 
@@ -786,11 +828,11 @@ module.exports = class LibertySBOP extends Integration {
         return null;
     }
 
-    convertToInteger({id, answer}) {
+    convertToInteger(answer) {
         let parsedAnswer = parseInt(answer);
 
         if (isNaN(parsedAnswer)) {
-            log.warn(`${logPrefix}Couldn't parse "${answer}" for question property "${id}". Result was NaN, leaving as-is.`);
+            log.warn(`${logPrefix}Couldn't parse "${answer}" into an integer, Result was NaN. Leaving as-is.`);
             parsedAnswer = answer;
         }
 
