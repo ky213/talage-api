@@ -419,8 +419,8 @@ module.exports = class ChubbGL extends Integration {
             terrorism_CommlCoverage.ele('RatingClassificationCd', this.industry_code.cgl);
             // </CommlCoverage>
         }
-        else {
-            log.error(`Chubb GL (application ${this.app.id}): Error could not find terrorism question 1064 ` + __location);
+        else if(!this.questions[1064]) {
+            log.error(`Chubb GL (application ${this.app.id}): Error could not find terrorism question 1064 questions ${JSON.stringify(this.questions)} ` + __location);
         }
 
         // <LiabilityInfo>

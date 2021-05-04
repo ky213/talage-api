@@ -113,8 +113,18 @@ async function findAll(req, res, next) {
     if (error) {
         return next(error);
     }
+
+    const countQuery = {...req.query, count: true};
+    const count = await insurerIndustryCodeBO.getList(countQuery).catch(function(err) {
+        log.error("admin agencynetwork error: " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
     if (rows) {
-        res.send(200, rows);
+        res.send(200, {rows, ...count});
         return next();
     }
     else {
@@ -161,7 +171,10 @@ async function add(req, res, next) {
     }
     if(!req.body.hasOwnProperty("policyTypeList")){
         req.body.policyTypeList = [];
-        req.body.policyTypeList.push(req.body.policyType);
+        // let it be an empty list if policy type was not provided, otherwise add it to the list
+        if(req.body.hasOwnProperty("policyType") && req.body.policyType !== null){
+            req.body.policyTypeList.push(req.body.policyType);
+        }
     }
 
     const objectJSON = await insurerIndustryCodeBO.insertMongo(req.body).catch(function(err) {

@@ -350,6 +350,14 @@ async function getAgencyLandingPage(req, res, next) {
         primaryLocation = agency.locations[0];
     }
 
+    // agencyLocationId is the agency location to show on this page, if it is overridden
+    let overrideLocation = null;
+    if(agency.agencyLocationId){
+        overrideLocation = agency.locations.find(loc => loc.mysqlId === agency.agencyLocationId);
+    }
+
+    const landingPageLocation = overrideLocation ? overrideLocation : primaryLocation;
+
     const landingPage = {
         banner: agency.banner,
         name: agency.name,
@@ -363,10 +371,10 @@ async function getAgencyLandingPage(req, res, next) {
         industryCodeId: agency.industryCodeId,
         industryCodeCategoryId: agency.industryCodeCategoryId,
         lockDefaults: agency.lockDefaults,
-        email: primaryLocation ? primaryLocation.email : null,
-        phone: primaryLocation ? primaryLocation.phone : null,
-        address: primaryLocation ? primaryLocation.address : null,
-        addressCityState: primaryLocation ? `${primaryLocation.city}, ${primaryLocation.territory} ${primaryLocation.zip}` : null,
+        email: landingPageLocation ? landingPageLocation.email : null,
+        phone: landingPageLocation ? landingPageLocation.phone : null,
+        address: landingPageLocation ? landingPageLocation.address : null,
+        addressCityState: landingPageLocation ? `${landingPageLocation.city}, ${landingPageLocation.territory} ${landingPageLocation.zip}` : null,
         ...agency.landingPageContent
     };
 
@@ -490,16 +498,27 @@ async function getAgencyMetadata(req, res, next) {
         return next();
     }
 
-    let openTime = "";
-    let closeTime = "";
-    try{
-        const primaryLocation = agencyJson.locations.find(location => location.primary);
-        if(primaryLocation){
-            openTime = primaryLocation.openTime;
-            closeTime = primaryLocation.closeTime;
+    let landingPageLocation = null;
+    if(agencyJson.locations){
+        let primaryLocation = agencyJson.locations.find(loc => loc.primary);
+        if(!primaryLocation && agencyJson.locations.length > 0){
+            primaryLocation = agencyJson.locations[0];
         }
-    }catch (error) {
-        log.error(`Could not find agency operation hours: ${error} ${__location}`);
+
+        // agencyLocationId is the agency location to show on this page, if it is overridden
+        let overrideLocation = null;
+        if(agencyJson.agencyLocationId){
+            overrideLocation = agencyJson.locations.find(loc => loc.mysqlId === agencyJson.agencyLocationId);
+        }
+
+        landingPageLocation = overrideLocation ? overrideLocation : primaryLocation;
+    }
+
+    let openTime = landingPageLocation.openTime ? landingPageLocation.openTime : "";
+    let closeTime = landingPageLocation.closeTime ? landingPageLocation.closeTime : "";
+
+    if(!openTime || !closeTime){
+        log.error(`Agency operation hours not set: ${__location}`);
     }
 
     // dont pass back data that isnt there
@@ -524,8 +543,8 @@ async function getAgencyMetadata(req, res, next) {
     res.send(200, {
         wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,
-        metaPhone: agencyJson.phone,
-        metaEmail: agencyJson.email,
+        metaPhone: landingPageLocation.phone,
+        metaEmail: landingPageLocation.email,
         metaCALicence: agencyJson.caLicenseNumber,
         metaLogo: metaLogo,
         metaFooterLogo: metaFooterLogo,
