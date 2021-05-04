@@ -636,8 +636,6 @@ module.exports = class LibertySBOP extends Integration {
         for (const building of buildings) {
             // parent questions
             const uw = [];
-            // const pp = [];
-            // const bld = [];
             const osigns = [];
             const spoil = [];
             const compf = [];
