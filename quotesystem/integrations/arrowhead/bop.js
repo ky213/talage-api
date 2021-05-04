@@ -295,7 +295,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // try to parse the message status for the quote from the response
         try {
-            policyStatus = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].msgStatus;
+            policyStatus = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].msgStatus.msgStatusCd;
         } catch (e) {
             log.warn(`${logPrefix}Policy status not provided, or the result structure has changed.` + __location);
         }
