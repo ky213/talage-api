@@ -12,7 +12,7 @@ const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+//const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 //const moment = require("moment")
 
 // MONGO
