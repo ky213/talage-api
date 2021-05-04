@@ -1714,9 +1714,14 @@ module.exports = class ApplicationModel {
         });
     }
 
-    getList(queryJSON, getOptions = null) {
+    getList(requestQueryJSON, getOptions = null) {
         return new Promise(async(resolve, reject) => {
             //
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
             let getListOptions = {
                 getQuestions: false,
                 getAgencyName: false

@@ -358,8 +358,13 @@ module.exports = class AgencyBO {
     }
 
 
-    getList(queryJSON, getAgencyNetwork = false, noActiveCheck = false) {
+    getList(requestQueryJSON, getAgencyNetwork = false, noActiveCheck = false) {
         return new Promise(async(resolve, reject) => {
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
 
             let agencyNetworkList = null;
             if (getAgencyNetwork === true) {
