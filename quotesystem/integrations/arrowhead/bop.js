@@ -1,3 +1,11 @@
+/* eslint-disable radix */
+/* eslint-disable no-loop-func */
+/* eslint-disable object-property-newline */
+/* eslint-disable object-shorthand */
+/* eslint-disable function-paren-newline */
+/* eslint-disable no-trailing-spaces */
+/* eslint-disable object-curly-newline */
+/* eslint-disable brace-style */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -214,11 +222,12 @@ module.exports = class LibertySBOP extends Integration {
             // log.info("=================== QUOTE ERROR ===================");
             // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
             // log.info("=================== QUOTE ERROR ===================");
+            const error = result.data.error;
+
             this.reasons.push(`Coterie API Error: ${result.data}`);
             this.log += `--------======= Arrowhead Request Error =======--------<br><br>`;
-            this.log += err;
+            this.log += JSON.stringify(error, null, 2);
 
-            const error = result.data.error;
             let errorMessage = "";
 
             if (error.statusCode && error.code) {
@@ -261,7 +270,7 @@ module.exports = class LibertySBOP extends Integration {
         if (result.data.hasOwnProperty("decision")) {
             const decision = result.data.decision;
             const declineMessage = `Arrowhead application did not quote. Decision: "${decision}. "`;
-            let extraReasons = [];
+            const extraReasons = [];
             if (result.data.hasOwnProperty("uwResults")) {
                 result.data.uwResults.forEach(reason => {
                     extraReasons.push(reason.trim());
@@ -276,7 +285,7 @@ module.exports = class LibertySBOP extends Integration {
         const quoteLimits = {}; 
         const quoteLetter = null; // not provided by Arrowhead
         const quoteMIMEType = null; // not provided by Arrowhead
-        let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
+        // let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
 
         const res = result.data;
 
@@ -360,7 +369,6 @@ module.exports = class LibertySBOP extends Integration {
                 address: applicationDocData.mailingAddress,
                 rawProtectionClass: "", // hardset value expected by Arrowhead
                 state: location.state,
-                countyName: smartyStreetsResponse.addressInformation.county_name,
                 zip: applicationDocData.mailingZipcode,
                 addressLine: applicationDocData.mailingAddress,
                 buildings: 1, // Assumed as such until we work building information into the quote app and API
@@ -388,7 +396,7 @@ module.exports = class LibertySBOP extends Integration {
             this.injectLocationQuestions(locationObj, location.locationQuestions, location.buildingQuestions);
 
             locationList.push(locationObj);
-        };
+        }
 
         return locationList;
     }
@@ -399,7 +407,6 @@ module.exports = class LibertySBOP extends Integration {
         
         // parent questions
         const datcom = [];
-        const compf = [];
         const cyber = [];
 
         const bbopSet = requestJSON.policy.bbopSet;
@@ -784,7 +791,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (isNaN(parsedAnswer)) {
             log.warn(`${logPrefix}Couldn't parse "${answer}" for question property "${id}". Result was NaN, leaving as-is.`);
-            parsedAnswer = question.answerValue;
+            parsedAnswer = answer;
         }
 
         return parsedAnswer;
