@@ -97,7 +97,10 @@ async function add(req, res, next) {
 
     if(!req.body.hasOwnProperty("policyTypeList")){
         req.body.policyTypeList = [];
-        req.body.policyTypeList.push(req.body.policyType);
+        // let it be an empty list if policy type was not provided, otherwise add it to the list
+        if(req.body.hasOwnProperty("policyType") && req.body.policyType !== null){
+            req.body.policyTypeList.push(req.body.policyType);
+        }
     }
 
     if(req.body && req.body.attributes && typeof req.body.attributes === 'string'){
