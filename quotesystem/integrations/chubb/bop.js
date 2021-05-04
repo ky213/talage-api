@@ -414,7 +414,7 @@ module.exports = class ChubbBOP extends Integration {
             terrorism_CommlCoverage.ele('RatingClassificationCd', this.industry_code.cgl);
             // </CommlCoverage>
         }
-        else {
+        else if (!this.questions[1064]) {
             log.error(`Chubb bop (application ${this.app.id}): Error could not find terrorism question 1064 ` + __location);
         }
 
