@@ -42,6 +42,14 @@ async function findAll(req, res, next) {
                     log.error("bad query");
                 }
             }
+            if(req.query.territory){
+                try{
+                    iacQuery.territoryList = req.query.territory;
+                }
+                catch(err){
+                    log.error("bad query");
+                }
+            }
             //log.debug(JSON.stringify(iacQuery))
             const respJson = await insurerActivityCodeBO.getList(iacQuery).catch(function(err) {
                 log.error("admin insurerActivityCodeBO error: " + err + __location);
@@ -61,7 +69,7 @@ async function findAll(req, res, next) {
             log.debug("no unmapped activity codes");
         }
     }
-    else if(req.query.insurerId){
+    else if(req.query.insurerId || req.query.territory){
         //TODO optimize by going just to IAC collection
         //get all activityCodes that are activity.
         let acQuery = {state: 1};
@@ -79,6 +87,14 @@ async function findAll(req, res, next) {
             if(req.query.insurerId){
                 try{
                     iacQuery.insurerId = parseInt(req.query.insurerId,10);
+                }
+                catch(err){
+                    log.error("bad query");
+                }
+            }
+            if(req.query.territory){
+                try{
+                    iacQuery.territoryList = req.query.territory;
                 }
                 catch(err){
                     log.error("bad query");
