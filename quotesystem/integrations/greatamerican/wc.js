@@ -146,8 +146,10 @@ module.exports = class GreatAmericanWC extends Integration {
         //Claims
         questions['claimsLossesMoreThan50K'] = "No, I have not had a single loss more than $50,000";
         questions['claimsLosses4years'] = "Less than 2 losses";
+        let totalAmount = 0;
+        let claimCount = 0;
+        let years = 5;
         this.app.applicationDocData.claims.forEach((claim) => {
-            let years = 5;
             if(claim.eventDate){
                 try{
                     years = moment().diff(claim.eventDate, 'years',false);
@@ -156,31 +158,29 @@ module.exports = class GreatAmericanWC extends Integration {
                     log.error(`Appid: ${this.app.id} Great American WC: claim date error ${err} ` + __location);
                 }
             }
-            let claimCount = 0;
             if(claim.policyType === "WC" && years < 5){
                 claimCount++;
-                let totalAmount = 0;
                 if(claim.amountPaid){
-                    totalAmount = claim.amountPaid
+                    totalAmount += claim.amountPaid
                 }
                 if(claim.amountReserved){
                     totalAmount += claim.amountReserved
                 }
-                if(totalAmount > 50000){
-                    questions['claimsLossesMoreThan50K'] = "Yes, I’ve had a single loss more than $50,000";
-                }
-            }
-            if(claimCount < 2){
-                questions['claimsLosses4years'] = "Less than 2 losses";
-            }
-            else if(claimCount >= 2 && claimCount < 5){
-                questions['claimsLosses4years'] = "2 to 4 losses";
-            }
-            else{
-                //no insurance for you!
-                questions['claimsLosses4years'] = "5 or more losses";
             }
         });
+        if(claimCount < 2){
+            questions['claimsLosses4years'] = "Less than 2 losses";
+        }
+        else if(claimCount >= 2 && claimCount < 5){
+            questions['claimsLosses4years'] = "2 to 4 losses";
+        }
+        else{
+            //no insurance for you!
+            questions['claimsLosses4years'] = "5 or more losses";
+        }
+        if(totalAmount > 50000){
+            questions['claimsLossesMoreThan50K'] = "Yes, I’ve had a single loss more than $50,000";
+        }
         //PolicyQuestions
         this.app.applicationDocData.policies.forEach((policy) => {
             if(policy.policyType === "WC"){
