@@ -31,6 +31,7 @@ module.exports = class Integration {
      * @param {Application} app - An object containing all of the application information
      * @param {object} insurer - An object containing all of the insurer information
      * @param {object} policy - The data related to the current policy
+     * @param {uuid} quoteId - This there is already an open quote.
      * @returns {void}
      */
     constructor(app, insurer, policy, quoteId) {
