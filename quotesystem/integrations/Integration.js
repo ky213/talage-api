@@ -1,3 +1,6 @@
+/* eslint-disable no-trailing-spaces */
+/* eslint-disable brace-style */
+/* eslint-disable no-extra-parens */
 /**
  * Defines a insurer integration
  */
@@ -1454,7 +1457,6 @@ module.exports = class Integration {
             }
 
             // Error
-            
             quoteJSON.apiResult = apiResult
 
             // Reasons
@@ -1859,8 +1861,16 @@ module.exports = class Integration {
         }
 
         // If this was quoted, make sure we have limits
-        if ((result === 'quoted' || result === 'referred_with_price') && !Object.keys(this.limits).length) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
+        if (result === 'quoted' || result === 'referred_with_price') {
+
+            // if we're quoted or referred w/ price, AND either both limits are null, or one is null and the other has no limit entries
+            if ((!this.limits && !this.quoteCoverages) || 
+                (!this.limits && this.quoteCoverages && !this.quoteCoverages.length > 0) ||
+                (!this.quoteCoverages && this.limits && !Object.keys(this.limits).length > 0)) 
+            {
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
+            }
+
         }
 
         // Start the log message
