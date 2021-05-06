@@ -3,7 +3,7 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const tableName = 'clw_talage_questions';
 const skipCheckRequired = false;
 module.exports = class QuestionBO{
@@ -80,49 +80,83 @@ module.exports = class QuestionBO{
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
             let rejected = false;
-            // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
+            let findCount = false;
+            // Create the select query
+            const sqlSelect = `
+                SELECT * FROM ${tableName}  
+            `;
+            const sqlCount = `
+                SELECT count(*) FROM ${tableName}  
+            `;
+            let sqlWhere = "";
+            let sqlPaging = "";
+
             if(queryJSON){
+                if (queryJSON.count) {
+                    if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                        findCount = true;
+                    }
+                    delete queryJSON.count;
+                }
                 let hasWhere = false;
                 if(queryJSON.question){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` question like ${db.escape(queryJSON.question)} `
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` question like ${db.escape(`%${queryJSON.question}%`)} `;
                     hasWhere = true;
                 }
+                if(queryJSON.id){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` id like %${db.escape(queryJSON.id)}% `;
+                    hasWhere = true;
+                }
+                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
+                if(limit && page) {
+                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
+                    // offset by page number * max rows, so we go that many rows
+                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
+                }
             }
-            // Run the query
-            log.debug("QuestionBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const questionBO = new QuestionBO();
-                    await questionBO.#dbTableORM.decryptFields(result[i]);
-                    await questionBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await questionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
+            if (findCount === false) {
+                // Run the query
+                log.debug("QuestionBO getlist sql: " + sqlSelect + sqlWhere + sqlPaging);
+                const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
+                        const questionBO = new QuestionBO();
+                        await questionBO.#dbTableORM.decryptFields(result[i]);
+                        await questionBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await questionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(questionBO);
                     }
-                    boList.push(questionBO);
                 }
                 resolve(boList);
             }
-            else {
-                //Search so no hits ok.
-                resolve([]);
+            else{
+                const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                // return the sql count
+                resolve({count: count[0] ? count[0]["count(*)"] : 0});
             }
         });
     }
