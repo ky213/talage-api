@@ -184,7 +184,9 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                     agencyWebInfo[property] = landingPageJSON[property];
                 }
             }
-
+            if(landingPageJSON.agencyLocationId){
+                agencyWebInfo.lockAgencyLocationId = true;
+            }
             haveLandingPage = true;
         }
     }
@@ -359,6 +361,7 @@ async function getAgencyLandingPage(req, res, next) {
     const landingPageLocation = overrideLocation ? overrideLocation : primaryLocation;
 
     const landingPage = {
+        agencyId: agency.agencyId,
         banner: agency.banner,
         name: agency.name,
         heading: agency.heading,
@@ -377,6 +380,14 @@ async function getAgencyLandingPage(req, res, next) {
         addressCityState: landingPageLocation ? `${landingPageLocation.city}, ${landingPageLocation.territory} ${landingPageLocation.zip}` : null,
         ...agency.landingPageContent
     };
+    if(agency.agencyLocationId){
+        landingPage.agencyLocationId = agency.agencyLocationId;
+
+    }
+    //So the client App know agencyLocation should not be changed.
+    if(agency.lockAgencyLocationId){
+        landingPage.lockAgencyLocationId = agency.lockAgencyLocationId
+    }
 
     res.send(200, landingPage);
     return next();
