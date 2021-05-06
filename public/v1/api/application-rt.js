@@ -532,11 +532,15 @@ async function GetQuestions(req, res, next){
     }
     // insurers is optional
 
-
-    // Set questionSubjectArea (default to "general" if not specified
+    // Set questionSubjectArea (default to "general" if not specified)
     let questionSubjectArea = "general";
     if (req.query.questionSubjectArea) {
         questionSubjectArea = req.query.questionSubjectArea;
+    }
+
+    let activityCodeList = [];
+    if (req.query.activityCodeList) {
+        activityCodeList = req.query.activityCodeList;
     }
 
     let stateList = [];
@@ -558,7 +562,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
