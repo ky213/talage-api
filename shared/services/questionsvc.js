@@ -83,11 +83,16 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         // Check that the zip code is valid
 
         if (!zipCodeArray || !zipCodeArray.length) {
-            log.warn('Bad Request: Zip Codes');
+            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
             return false;
         }
         // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
         // are cut down to 5.
+        zipCodeArray.forEach((zip) => {
+            if(zip.length > 5){
+                zip = zip.substring(0,5);
+            }
+        })
         sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
         const zip_result = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
@@ -101,7 +106,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             });
         }
         else {
-            log.warn('Bad Request: Zip Code');
+            log.warn(`Question Service: Bad Request: Zip Code ${zipCodeArray.join(',')} ` + __location);
             //return false;
         }
     }

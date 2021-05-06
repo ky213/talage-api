@@ -135,6 +135,7 @@ async function applicationSave(req, res, next) {
         }
     }
     else {
+        // Need to now if we get locations for the first thiem
         //get application and valid agency
         // check JWT has access to this application.
         const rightsToApp = await isAuthForApplication(req, req.body.applicationId);
@@ -372,15 +373,26 @@ async function applicationLocationSave(req, res, next) {
                 }
                 applicationDB.locations.push(reqLocation)
             }
+
             const updateMysql = false;
+            //updateMongo seems to wipping out the appid sent
+            const appId = applicationDB.applicationId
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
                 applicationDB,
                 updateMysql);
+
+            //Check/select Agencylocation Choice with new location
+            log.debug('applicationDB.applicationId ' + appId + __location)
+            const resp = await applicationBO.setAgencyLocation(appId)
+            if(resp !== true){
+                log.error(`applicationLocationSave Error: setAgencyLocation: ${resp}. ` + __location);
+                throw new Error(`Application Error: setAgencyLocation: ${resp}`);
+            }
         }
     }
     catch (err) {
         //mongoose parse errors will end up there.
-        log.error("Error saving application " + err + __location);
+        log.error("Error saving application Location " + err + __location);
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
@@ -610,7 +622,7 @@ async function validate(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        log.error('Application Validation ' + errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -668,6 +680,8 @@ async function startQuoting(req, res, next) {
         return next(serverHelper.requestError('Cannot Requote Application'));
     }
 
+    // TODO Check/select Agencylocation Choice.
+
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
 
@@ -694,7 +708,7 @@ async function startQuoting(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${applicationId}: ${err.message}`;
-        log.error(errMessage + __location);
+        log.error('Application Validation ' + errMessage + __location);
         res.send(400, errMessage);
         return next();
     }

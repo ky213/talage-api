@@ -2721,4 +2721,124 @@ module.exports = class ApplicationModel {
         }
     }
 
+    // *********************************
+    //    AgencyLocation processing
+    // *********************************
+    // eslint-disable-next-line valid-jsdoc
+    /**
+     * Check and potentially resets agency location
+     *
+     * @param {number} applicationId The application UUID.
+     */
+    async setAgencyLocation(applicationId) {
+        let errorMessage = null;
+        let missingTerritory = '';
+        try{
+            const agencyLocationBO = new AgencyLocationBO();
+            const appDoc = await ApplicationMongooseModel.findOne({applicationId: applicationId});
+            if(appDoc && appDoc.lockAgencyLocationId){
+                return;
+            }
+            if(appDoc && appDoc.locations){
+                let needsUpdate = false;
+                if(appDoc.agencyLocationId){
+                    const agencylocationJSON = await agencyLocationBO.getById(appDoc.agencyLocationId).catch(function(err) {
+                        log.error(`Error getting Agency Location ${appDoc.applicationId} ` + err + __location);
+                    });
+                    if(agencylocationJSON){
+                        if(agencylocationJSON.territories && agencylocationJSON.territories.length > 0){
+                            appDoc.locations.forEach((location) => {
+                                if(agencylocationJSON.territories.indexOf(location.state) === -1){
+                                    missingTerritory = location.state;
+                                    needsUpdate = true;
+                                }
+                            });
+                        }
+                        else{
+                            log.error(`Application ${appDoc.applicationId} Agency Location ${appDoc.agencyLocationId} is not configured for any territories. ` + __location)
+                            needsUpdate = true;
+                        }
+
+                    }
+                    else {
+                        needsUpdate = true;
+                    }
+
+                }
+                else {
+                    needsUpdate = true;
+                }
+                if(needsUpdate){
+                    //get agency's locations.
+                    const query = {agencyId: appDoc.agencyId};
+                    const agenyLocationList = await agencyLocationBO.getList(query).catch(function(err) {
+                        log.error(`Error getting Agency Location List ${appDoc.applicationId} ` + err + __location);
+                    });
+                    //loop through locaitons check application terrtories vs agency location territories.
+                    if(agenyLocationList && agenyLocationList.length > 1){
+                        for(let i = 0; i < agenyLocationList.length; i++){
+                            const agLoc = agenyLocationList[i];
+                            let newLocationId = agLoc.systemId;
+                            if(agLoc.territories && agLoc.territories.length > 0){
+                                appDoc.locations.forEach((location) => {
+                                    if(agLoc.territories.indexOf(location.state) === -1){
+                                        newLocationId = 0;
+                                    }
+                                });
+                            }
+                            if(newLocationId){
+                                needsUpdate = false;
+                                if(appDoc.agencyLocationId !== newLocationId){
+                                    appDoc.agencyLocationId = newLocationId
+                                    await appDoc.save();
+                                }
+                                break;
+                            }
+                        }
+                        if(needsUpdate){
+                            // check if wholesale agency
+                            //state.agency.wholesale
+                            const agencyBO = new AgencyBO();
+                            // Load the request data into it
+                            const agencyJSON = await agencyBO.getById(appDoc.agencyId).catch(function(err) {
+                                log.error("Agency load error " + err + __location);
+                            });
+                            if (agencyJSON && agencyJSON.wholesale){
+                                appDoc.wholesale = true;
+                                await appDoc.save();
+                            }
+                            else {
+                                errorMessage = `Agency does not cover application territory ${missingTerritory}`
+                            }
+                        }
+                    }
+                    else if(agenyLocationList && agenyLocationList.length === 1){
+                        //no update app
+                        errorMessage = `Agency does not cover application territory ${missingTerritory}`
+                    }
+                    else {
+                        log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location)
+                        errorMessage = `Could not set agencylocation on ${applicationId}`
+                    }
+                }
+            }
+            else {
+                if(appDoc){
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} locations ` + __location)
+                }
+                else {
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location)
+                }
+                errorMessage = `Could not set agencylocation on ${applicationId}`
+            }
+        }
+        catch(err){
+            log.error(`setAgencyLocation  Error Application ${applicationId} - ${err}. ` + __location)
+            errorMessage(`Could not set agencylocation on ${applicationId}`)
+        }
+
+        return errorMessage ? errorMessage : true;
+
+    }
+
 }
