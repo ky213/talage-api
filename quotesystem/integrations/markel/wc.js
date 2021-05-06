@@ -1244,6 +1244,8 @@ module.exports = class MarkelWC extends Integration {
             location.activityPayrollList.forEach(activity => {
                 const fullTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Full Time");
                 const partTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Part Time");
+                const ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
+                const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
                 const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
 
                 // if we find an owner, map it for later when setting owner information
@@ -1263,12 +1265,14 @@ module.exports = class MarkelWC extends Integration {
 
                 locationObj["Payroll Section"].push({
                     Payroll: activity.payroll,
-                    "Full Time Employees": fullTimeEmployees,
-                    "Part Time Employees": partTimeEmployees,
+                    "Full Time Employees": ftCount,
+                    "Part Time Employees": ptCount,
                     "Class Code": classCode ? classCode : ``,
                     "Class Code Description": this.industry_code.description
                 });
             });
+
+            locationList.push(locationObj);
         });
 
         // if we weren't able to set a class code (they didn't enter owner payroll info), but we have owners, set as first activity
