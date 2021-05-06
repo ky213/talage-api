@@ -2483,7 +2483,7 @@ module.exports = class ApplicationModel {
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
@@ -2731,14 +2731,12 @@ module.exports = class ApplicationModel {
      * @param {number} applicationId The application UUID.
      */
     async setAgencyLocation(applicationId) {
+        log.debug(`Processing SetAgencyLocation ${applicationId} ` + __location)
         let errorMessage = null;
         let missingTerritory = '';
         try{
             const agencyLocationBO = new AgencyLocationBO();
             const appDoc = await ApplicationMongooseModel.findOne({applicationId: applicationId});
-            if(appDoc && appDoc.lockAgencyLocationId){
-                return;
-            }
             if(appDoc && appDoc.locations){
                 let needsUpdate = false;
                 if(appDoc.agencyLocationId){
@@ -2748,6 +2746,7 @@ module.exports = class ApplicationModel {
                     if(agencylocationJSON){
                         if(agencylocationJSON.territories && agencylocationJSON.territories.length > 0){
                             appDoc.locations.forEach((location) => {
+                                log.debug(`SetAgencyLocation checking ${location.state}  against ${agencylocationJSON.territories} ${applicationId} ${appDoc.agencyLocationId}` + __location)
                                 if(agencylocationJSON.territories.indexOf(location.state) === -1){
                                     missingTerritory = location.state;
                                     needsUpdate = true;
@@ -2768,7 +2767,7 @@ module.exports = class ApplicationModel {
                 else {
                     needsUpdate = true;
                 }
-                if(needsUpdate){
+                if(needsUpdate && appDoc.lockAgencyLocationId !== true){
                     //get agency's locations.
                     const query = {agencyId: appDoc.agencyId};
                     const agenyLocationList = await agencyLocationBO.getList(query).catch(function(err) {
@@ -2789,6 +2788,7 @@ module.exports = class ApplicationModel {
                             if(newLocationId){
                                 needsUpdate = false;
                                 if(appDoc.agencyLocationId !== newLocationId){
+                                    log.info(`setAgencyLocation ${applicationId} switching locations ${appDoc.agencyLocationId} to ${newLocationId} ` + __location)
                                     appDoc.agencyLocationId = newLocationId
                                     await appDoc.save();
                                 }
@@ -2804,6 +2804,7 @@ module.exports = class ApplicationModel {
                                 log.error("Agency load error " + err + __location);
                             });
                             if (agencyJSON && agencyJSON.wholesale){
+                                log.info(`setAgencyLocation ${applicationId} setting to wholesale ` + __location)
                                 appDoc.wholesale = true;
                                 await appDoc.save();
                             }
@@ -2820,6 +2821,11 @@ module.exports = class ApplicationModel {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location)
                         errorMessage = `Could not set agencylocation on ${applicationId}`
                     }
+                }
+                else if(needsUpdate && appDoc.lockAgencyLocationId === true){
+                    //no update app
+                    log.info(`setAgencyLocation  locked Agencylocation does not cover application territories ${applicationId} ` + __location)
+                    errorMessage = `Agency Location does not cover application territory ${missingTerritory}`
                 }
             }
             else {

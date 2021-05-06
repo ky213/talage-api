@@ -87,6 +87,7 @@ async function applicationSave(req, res, next) {
 
     //Insert checks
     if (!req.body.applicationId) {
+        log.debug(`API Saving new application`);
         //Required fields for an insert.
         // eslint-disable-next-line array-element-newline
         const requiredPropertyList = ["agencyId", "businessName"];
@@ -121,6 +122,7 @@ async function applicationSave(req, res, next) {
 
         //if agencyLocationId is not sent for insert get primary
         if (!req.body.agencyLocationId) {
+            log.info(`API AppSave setting agencyLocationId to primary ` + __location);
             const agencyLocationBO = new AgencyLocationBO();
             const locationPrimaryJSON = await agencyLocationBO.
                 getByAgencyPrimary(req.body.agencyId).
@@ -289,7 +291,7 @@ async function applicationSave(req, res, next) {
 
 
 async function applicationLocationSave(req, res, next) {
-    log.debug("Application Post: " + JSON.stringify(req.body));
+    log.debug("Application Location Post: " + JSON.stringify(req.body));
     if (!req.body || typeof req.body !== "object") {
         log.error("Bad Request: No data received " + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
@@ -317,6 +319,9 @@ async function applicationLocationSave(req, res, next) {
         applicationDB = await applicationBO.getById(req.body.applicationId);
         if (!applicationDB) {
             return next(serverHelper.requestError("Not Found"));
+        }
+        if(applicationDB.agencyLocationId){
+            log.debug(`applicationLocationSave  - app load - applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
         }
     }
     catch (err) {
@@ -376,6 +381,10 @@ async function applicationLocationSave(req, res, next) {
 
             const updateMysql = false;
             //updateMongo seems to wipping out the appid sent
+            if(applicationDB.agencyLocationId){
+                log.debug(`applicationLocationSave applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
+            }
+
             const appId = applicationDB.applicationId
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
                 applicationDB,
