@@ -1291,7 +1291,7 @@ module.exports = class MarkelWC extends Integration {
                 "Owner Title": ownerTitleMatrix[owner.officerTitle],
                 "Owner Ownership": owner.ownership,
                 "Owner Class": ownerClassCode ? ownerClassCode : ``,
-                "Owner Payroll": totalOwnerPayroll / totalOwners,
+                "Owner Payroll": Math.round(totalOwnerPayroll / totalOwners),
                 "Owner Include": owner.include ? 'Yes' : 'No'
             });
         });
