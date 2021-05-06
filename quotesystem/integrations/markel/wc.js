@@ -1226,6 +1226,7 @@ module.exports = class MarkelWC extends Integration {
 
         let totalOwnerPayroll = 0;
         let ownerClassCode = null;
+        let highestPayroll = 0;
 
         // Populate the location list
         const locationList = [];
@@ -1247,13 +1248,17 @@ module.exports = class MarkelWC extends Integration {
 
                 // if we find an owner, map it for later when setting owner information
                 // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records
-                // For this integration, we will pick the first class code listed, and divide the payroll by the number of owners, for each owner
+                //      For this integration, we will pick the class code associated with the highest payroll, 
+                //      and divide the payroll by the number of owners, for each owner
                 const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
                 if (owner) {
-                    if (!ownerClassCode) {
-                        ownerClassCode = this.insurer_wc_codes[`${location.territory}${activity.activityCodeId}`];
+                    const payroll = parseInt(owner.employeeTypePayroll, 10);
+                    totalOwnerPayroll += payroll;
+
+                    if (payroll > highestPayroll) {
+                        ownerClassCode = classCode;
+                        highestPayroll = payroll;
                     }
-                    totalOwnerPayroll += parseInt(owner.employeeTypePayroll, 10);
                 }
 
                 locationObj["Payroll Section"].push({
@@ -1265,6 +1270,12 @@ module.exports = class MarkelWC extends Integration {
                 });
             });
         });
+
+        // if we weren't able to set a class code (they didn't enter owner payroll info), but we have owners, set as first activity
+        if (!ownerClassCode && applicationDocData.owners.length > 0) {
+            const firstActivity = Object.values(this.insurer_wc_codes)[0];
+            ownerClassCode = firstActivity ? firstActivity : ``;
+        }
 
         // Populate the owner / officer information section
         const ownerOfficerInformationSection = [];
