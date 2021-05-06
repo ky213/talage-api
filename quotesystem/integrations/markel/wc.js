@@ -39,7 +39,7 @@ const ownerTitleMatrix = {
     "Treasurer": "Treas",
     // Trustee: "Trustee"
     "Vice President": "VP",
-    // The rest below are unmapped and therefore set to other
+    // BELOW ARE OWNER TITLES WE SUPPORT BUT MARKEL DOESN'T - SET TO "Ot" (OTHER)
     "Chief Financial Officer": "Ot",
     "Chief Operating Officer": "Ot",
     "Director": "Ot",
@@ -57,6 +57,63 @@ const ownerTitleMatrix = {
     "VP-Secy-Treas": "Ot",
     "VP-Secy": "Ot"
 }
+
+const entityTypeMatrix = {
+    "Association": "AS",
+    // Not applicable in GA, IL, KY
+    "C Corporation": "CCORP",
+    // Not applicable in AK, AL, AR, CA, CO, CT, DE, FL, GA, HI, IA, IL, IN, KS, KY, LA, MD, MI, MN, MO, MS, NC, NE, NH, NJ, NM, NV, OK, RI, SC, SD, TN, TX, UT, VA, VT, WI, WV
+    "Common Ownership": "CO",
+    // Not applicable in DC, ID, KY, MI, MT, ND, OH, OR, WA, WI, WY
+    "Corporation": "CP",
+    // Applicable in all states.
+    "Estate": "ES",
+    // Not applicable in GA, IL, NH
+    "Governmental Entity": "GE",
+    // Not applicable in GA, IL, KY, LA, UT
+    "Joint Venture": "JV",
+    // Not applicable in DC, GA, ID, IL, ND, NY, OH, OR, WA, WY
+    "Limited Liability Company": "LLC",
+    // Applicable in all states.
+    "Limited Partnership": "LP",
+    // Not applicable in AL, AR, CO, CT, DE, FL, GA, HI, IA, IL, IN, KS, KY, LA, MA MD, MI, MN, MO, MS, NC, NE, NH, NJ, NM, NV, OK, PA, RI, SC, SD, TN, TX, UT, VA, VT, WV
+    "Individual": "IN",
+    // Not applicable in NY.
+    "Nonprofit": "NP",
+    // Not applicable in MI, NY, WI
+    "Other": "OT",
+    // Not applicable in GA, IL, KY, MI, VA
+    "Professional Corporation": "PROF",
+    // Applicable only in CA.
+    "Partnership": "PT",
+    // Applicable in all states.
+    "Public Employer": "PUBLIC",
+    // Not applicable in AZ, DC, GA, ID, IL, KY, MA, ME, MT, ND, OH, OR, UT, WA, WI, WY
+    "Sole Proprietor": "SOLEPRP",
+    // Applicable in all states.
+    "S Corporation": "SS", // Markel's name: Subchapter S Corporation
+    // Not applicable in AK, AL, AR, CO, CT, DE, FL, GA, IA, IL, IN, KS, KY, LA, MD, MI, MN, MO, MS, NC, NE, NH, NM, NV, OK, RI, SC, SD, TN, TX, UT, VA, VT, WI, WV
+    "Trust": "TR",
+    // Not applicable in GA, IL
+    "Cooperative Corporation": "com.markel.coop",
+    // Applicable only in CA.
+    "Executor": "com.markel.exec",
+    // Not applicable in AZ, DC, GA, ID, IL, KY, MT, NC, ND, OH, OR, WA, WI, WY
+    "Limited Liability Partnership": "com.markel.llp",
+    // Not applicable in AL, AR, CO, CT, DE, FL, HI, IA, IN, KS, KY, MD, MN, MO, MS, NC, NE, NH, NM, NV, OK, RI, SC, SD, TN, TX, VA, VT, WV
+    "Religious Organization": "com.markel.religious",
+    // Not applicable in DC, GA, ID, IL, KY, MT, ND, OH, OR, WA, WY
+    "Trustee": "com.markel.trustee",
+    // Not applicable in AZ, CA, DC, GA, ID, IL, KY, MI, MT, ND, OH, OR, WA, WI, WY
+    "Registered Limited Liability Partnership": "com.markel.RLLP",
+    // Applicable only in NY
+    "Professional Service Liability Company": "com.markel.PSLC",
+    // Applicable only in NY
+    "Nonprofit Corporation": "com.markel.NPC",
+    // Applicable only in NY
+    "Unincorporated Nonprofit Association": "com.markel.UNPA"
+    // Applicable only in NY
+};
 
 module.exports = class MarkelWC extends Integration {
 
@@ -715,27 +772,30 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-
         const primaryAddress = this.app.business.locations[0];
 
-        // Define how legal entities are mapped for Markel
-        // TODO: Update this mapping
-        const entityMatrix = {
-            Association: 'AS',
-            Corporation: 'CP',
-            'Limited Liability Company': 'LLC',
-            'Limited Partnership': 'LP',
-            Partnership: 'PT',
-            'Sole Proprietorship': 'IN'
-        };
-        const entityType = entityMatrix[this.app.business.entity_type];
-        // Get the claims organized by year
-
-        if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`Markel (application ${this.app.id}): Invalid Entity Type ${__location}`);
-            // return this.return_result('autodeclined');
+        let entityType = null;
+        if (applicationDocData.entityType === "Corporation") {
+            switch(applicationDocData.corporationType) {
+                case "C":
+                    entityType = "CCORP";
+                    break;
+                case "S":
+                    entityType = "SS";
+                    break;
+                case "N":
+                    entityType = "NP";
+                    break;
+                default:
+                    entityType = "CP";
+                    break;
+            }
+        } 
+        else {
+            entityType = entityTypeMatrix[applicationDocData.entityType];
         }
 
+        // Get the claims organized by year
         const claims_by_year = this.claims_to_policy_years();
         let losses = 'No';
 
@@ -745,16 +805,7 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        // Add class code information
-        //TODO - this looks wrong, owner payroll shouldn't be the last location's payroll
-        // this.app.business.locations.forEach((location) => {
-        //     location.activity_codes.forEach((activity_code) => {
-        //         classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
-        //         ownerPayroll = activity_code.payroll;
-        //     });
-        // });
-
-        // /* ---=== Begin Questions ===--- */
+        /* ---=== Begin Questions ===--- */
 
         const specialQuestions = ['CGL05',
             'GENRL22',
