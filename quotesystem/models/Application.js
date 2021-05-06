@@ -444,6 +444,15 @@ module.exports = class Application {
                 this.questions[q.id] = q;
             }
         }
+
+        /************** AGENCY LOCATION SELECTION ***************/
+        // fix bad selection.
+        let applicationBO = new ApplicationBO();
+        const resp = await applicationBO.setAgencyLocation(this.applicationDocData.applicationId)
+        if(resp !== true){
+            log.error(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            throw new Error(`Data Error: setAgencyLocation: ${resp}`);
+        }
     }
 
     /**
@@ -1003,10 +1012,11 @@ module.exports = class Application {
         return new Promise(async(fulfill, reject) => {
             // Agent
             try {
-                await validateAgencyLocation(this.agencyLocation);
+                //Check Agencylocation Choice.
+                await validateAgencyLocation(this.applicationDocData, this.agencyLocation);
             }
             catch (e) {
-                log.error(`validateAgencyLocation() error: ${e}. ` + __location);
+                log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
                 return reject(e);
             }
 
