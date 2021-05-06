@@ -1,3 +1,5 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable no-console */
 
 /**
@@ -8,8 +10,53 @@
 
 const Integration = require('../Integration.js');
 const moment = require('moment');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+global.requireShared('./helpers/tracker.js');
+
+// NOTE: Many of these missing titles will be added 
+const ownerTitleMatrix = {
+    // Administrator: "com.markel.title.Administrator"
+    // Board Member: "OfcrBO"
+    // Executor: "com.markel.title.Executor"
+    // General Partner: "GenPtnr"
+    // Limited Partner: "LtdPtnr"
+    // Manager: "GenMgr"
+    // "Member": "Member",
+    // Non-Paid Officer (CA Only): "com.markel.title.NonPaidOfficer_CAonly"
+    // Non-subject Officer (NY only): "com.markel.title.NSO_NYonly"
+    // NY Non-Subject Executive Officer (President): "com.markel.title.NSEO.President_NYonly"
+    // NY Non-Subject Executive Officer (Secretary): "com.markel.title.NSEO.Secretary_NYonly"
+    // NY Non-Subject Executive Officer (Treasurer): "com.markel.title.NSEO.Treasurer_NYonly"
+    // NY Non-Subject Executive Officer (Vice President): "com.markel.title.NSEO.VicePresident_NYonly"
+    // Officer: "CorpOff"
+    "Other": "Ot",
+    // Owner: "Own"
+    // Partner: "Ptnr"
+    "President": "Pres",
+    "Chief Executive Officer": "Pres",
+    // Partner: "Ptnr"
+    "Secretary": "Sec",
+    // Sole Proprietor: "SolePrp"
+    "Treasurer": "Treas",
+    // Trustee: "Trustee"
+    "Vice President": "VP",
+    // The rest below are unmapped and therefore set to other
+    "Chief Financial Officer": "Ot",
+    "Chief Operating Officer": "Ot",
+    "Director": "Ot",
+    "Executive Vice President": "Ot",
+    "Executive Secy-VP": "Ot",
+    "Executive Secretary": "Ot",
+    "Secy-Treas": "Ot",
+    "Pres-VP-Secy-Treas": "Ot",
+    "Pres-VP-Secy": "Ot",
+    "Pres-VP": "Ot",
+    "Pres-Treas": "Ot",
+    "Pres-Secy-Treas": "Ot",
+    "Pres-Secy": "Ot",
+    "VP-Treas": "Ot",
+    "VP-Secy-Treas": "Ot",
+    "VP-Secy": "Ot"
+}
 
 module.exports = class MarkelWC extends Integration {
 
@@ -29,6 +76,8 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
+        const applicationDocData = this.app.applicationDocData;
+
         const special_activity_codes = {
             AK: [
                 '8842',
@@ -670,6 +719,7 @@ module.exports = class MarkelWC extends Integration {
         const primaryAddress = this.app.business.locations[0];
 
         // Define how legal entities are mapped for Markel
+        // TODO: Update this mapping
         const entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
@@ -695,17 +745,14 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        let classificationCd = '';
-        let ownerPayroll = '';
-
         // Add class code information
-        //TODO -  new activity code structure.
-        this.app.business.locations.forEach((location) => {
-            location.activity_codes.forEach((activity_code) => {
-                classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
-                ownerPayroll = activity_code.payroll;
-            });
-        });
+        //TODO - this looks wrong, owner payroll shouldn't be the last location's payroll
+        // this.app.business.locations.forEach((location) => {
+        //     location.activity_codes.forEach((activity_code) => {
+        //         classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
+        //         ownerPayroll = activity_code.payroll;
+        //     });
+        // });
 
         // /* ---=== Begin Questions ===--- */
 
@@ -1126,51 +1173,63 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
+        let totalOwnerPayroll = 0;
+        let ownerClassCode = null;
+
         // Populate the location list
         const locationList = [];
-        this.app.business.locations.forEach(location => {
-            // Get total payroll for this location
-            let locationPayroll = 0;
-            location.activity_codes.forEach((activityCode) => {
-                locationPayroll += activityCode.payroll;
-            });
-            locationList.push({
+        // for each location, push a location object into the locationList
+        applicationDocData.locations.forEach(location => {
+            const locationObj = {
                 "Location Address1":location.address,
-                "Location Zip": location.zip,
+                "Location Zip": location.zipcode,
                 "Location City": location.city,
-                "Location State": location.state_abbr,
-                "Payroll Section": [
-                    {
-                        Payroll: locationPayroll,
-                        "Full Time Employees": location.full_time_employees,
-                        "Part Time Employees": location.part_time_employees,
-                        "Class Code": classificationCd,
-                        "Class Code Description": this.app.business.industry_code_description
+                "Location State": location.state,
+                "Payroll Section": []
+            };
+
+            // for each activity, push a Payroll Section object into the Payroll Section list
+            location.activityPayrollList.forEach(activity => {
+                const fullTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Full Time");
+                const partTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Part Time");
+                const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
+
+                // if we find an owner, map it for later when setting owner information
+                // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records
+                // For this integration, we will pick the first class code listed, and divide the payroll by the number of owners, for each owner
+                const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+                if (owner) {
+                    if (!ownerClassCode) {
+                        ownerClassCode = this.insurer_wc_codes[`${location.territory}${activity.activityCodeId}`];
                     }
-                ]
-            })
+                    totalOwnerPayroll += parseInt(owner.employeeTypePayroll, 10);
+                }
+
+                locationObj["Payroll Section"].push({
+                    Payroll: activity.payroll,
+                    "Full Time Employees": fullTimeEmployees,
+                    "Part Time Employees": partTimeEmployees,
+                    "Class Code": classCode ? classCode : ``,
+                    "Class Code Description": this.industry_code.description
+                });
+            });
         });
 
         // Populate the owner / officer information section
-        let ownerOfficerInformationSection = null;
-        if (this.app.business.owners && this.app.business.owners.length > 0) {
-            ownerOfficerInformationSection = [
-                {
-                    "Owner First Name": this.app.business.owners[0].fname,
-                    "Owner Last Name": this.app.business.owners[0].lname,
-                    "Owner Title": this.app.business.owners[0].officerTitle,
-                    "Owner Ownership": this.app.business.owners[0].ownership,
-                    "Owner Class": 8001,
-                    "Owner Payroll": ownerPayroll,
-                    "Owner Include": 'Yes'
-                }
-            ];
-        }
-        else {
-            ownerOfficerInformationSection = [
-                {"Owner Include": 'No'}
-            ];
-        }
+        const ownerOfficerInformationSection = [];
+        const totalOwners = applicationDocData.owners.length;
+        applicationDocData.owners.forEach(owner => {
+            ownerOfficerInformationSection.push({
+                "Owner First Name": owner.fname,
+                "Owner Last Name": owner.lname,
+                "Owner Title": ownerTitleMatrix[owner.officerTitle],
+                "Owner Ownership": owner.ownership,
+                "Owner Class": ownerClassCode ? ownerClassCode : ``,
+                "Owner Payroll": totalOwnerPayroll / totalOwners,
+                "Owner Include": owner.include ? 'Yes' : 'No'
+            });
+        });
+        
         if(!markelLimits){
             log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
         }
@@ -1220,7 +1279,7 @@ module.exports = class MarkelWC extends Integration {
                     "signaturePreference": "Electronic"
                 }
             }
-        ]}
+        ]};
 
         // let unansweredQ = null;
         // let declinedReasons = null;
@@ -1234,7 +1293,7 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('error');
         }
 
-        const rquIdKey = Object.keys(response)[0]
+        const rquIdKey = Object.keys(response)[0];
 
         try {
             if (response && (response[rquIdKey].underwritingDecisionCode === 'SUBMITTED' || response[rquIdKey].underwritingDecisionCode === 'QUOTED')) {
