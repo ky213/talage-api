@@ -90,7 +90,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         // are cut down to 5.
         zipCodeArray.forEach((zip) => {
             if(zip.length > 5){
-                zip = zip.substring(0,5);
+                zip = zip.substring(0,5)
             }
         })
         sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
