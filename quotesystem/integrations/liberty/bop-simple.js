@@ -688,7 +688,7 @@ module.exports = class LibertySBOP extends Integration {
         this.industry_code = this.industry_code.find(ic => ic.attributes.simpleBOP);
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
-            log.error(`${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location)
+            log.error(`${errorMessage} ` + __location)
             return this.client_error(errorMessage, __location);
         }
 
