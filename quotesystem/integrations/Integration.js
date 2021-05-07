@@ -2082,7 +2082,7 @@ module.exports = class Integration {
                     this.seconds = process.hrtime(start_time)[0];
 
                     // Attempt to format the returned data
-                    log.debug(` Appid: ${this.app.id} calling ${this.insurer.name} rawData ${rawData}`)
+                    //log.debug(` Appid: ${this.app.id} calling ${this.insurer.name} rawData ${rawData}`)
                     let formattedData = rawData;
                     if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
                         // Format XML to be readable
