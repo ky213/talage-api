@@ -164,7 +164,7 @@ module.exports = class ApplicationModel {
                 }
                 // //Check that it is too old (1 hours) from creation
                 const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-                if (this.created && bypassAgeCheck === false) {
+                if (this.createdAt && bypassAgeCheck === false) {
                     const dbCreated = moment(this.applicationDoc.createdAt);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
@@ -399,7 +399,11 @@ module.exports = class ApplicationModel {
                         resolve(true);
                         return;
                     }
-                    break;
+                    else {
+                        log.error(`AF Bindrequest no quotes appId ${this.applicationDoc.applicationId} ` + __location);
+                        resolve(true);
+                        return;
+                    }
                 default:
                     // not from old Web application application flow.
                     reject(new Error(`Unknown Application for appId ${appId} Workflow Step`))
