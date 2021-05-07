@@ -11,18 +11,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 exports.process = async function(requestJSON) {
 
-    const QuoteBO = global.requireShared('models/Quote-BO.js');
-    const quoteBO = new QuoteBO();
-    try{
-        const quoteJSON = await quoteBO.getById(requestJSON.quotes[0].quote)
-        if(quoteJSON){
-            requestJSON.id = quoteJSON.applicationId;
-        }
-    }
-    catch(err){
-        log.error(`Error get applicationId ${err} request ${JSON.stringify(requestJSON)}` + __location);
-    }
-
     //	$additionalInsured = $_POST['additionalInsured'] === 'false' ? 0 : ($_POST['additionalInsured'] === 'true' ? 1 : null);
     // $waiverOfSubrogation = $_POST['waiverOfSubrogation'] === 'false' ? 0 : ($_POST['waiverOfSubrogation'] === 'true' ? 1 : null);
     if (requestJSON.additionalInsured) {
