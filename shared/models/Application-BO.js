@@ -2203,7 +2203,7 @@ module.exports = class ApplicationModel {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id ) {
-                // dont know if we need this code still? but id will only be greater than 1 if it is numerical
+                // Dont know if we need this code still? But id will only be greater than 1 if it is numerical ie mysqlId
                 if(id > 0){
                     //Remove old records.
                     const sql = `Update ${collectionName} 
