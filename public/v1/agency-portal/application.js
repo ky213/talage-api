@@ -770,6 +770,7 @@ async function applicationCopy(req, res, next) {
         catch(err){
             log.error("Error gettign userID " + err + __location);
         }
+        newApplicationDoc.copiedFromAppId = req.body.applicationId;
         newApplicationDoc.agencyPortalCreatedUser = userId
         newApplicationDoc.agencyPortalCreated = true;
         newApplicationDoc.handledByTalage = false;
