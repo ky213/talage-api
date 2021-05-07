@@ -921,6 +921,7 @@ module.exports = class CompwestWC extends Integration {
         }
         else if(!question_attributes.parentQuestionId){
             log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            //TODO Throw Error?
         }
     }
     else if(question_attributes.code){
