@@ -223,6 +223,9 @@ module.exports = class LibertySBOP extends Integration {
         //     <InsuredOrPrincipalRoleCd>FNI</InsuredOrPrincipalRoleCd>
         //     <BusinessInfo>
         //         <BusinessStartDt>2015</BusinessStartDt>
+        //         <NumEmployeesFullTime>2</NumEmployeesFullTime>
+        //         <NumEmployeesPartTime>0</NumEmployeesPartTime>
+        //         <NumEmployees>2</NumEmployees>
         //     </BusinessInfo>
         // </InsuredOrPrincipalInfo>
 
@@ -347,18 +350,6 @@ module.exports = class LibertySBOP extends Integration {
         //     <GeneralLiabilityClassification LocationRef="L0">
         //         <Coverage>
         //             <CoverageCd>CGL</CoverageCd>
-        //             <Option>
-        //                 <OptionCd>PartTime</OptionCd>
-        //                 <OptionValue>0.0</OptionValue>
-        //             </Option>
-        //             <Option>
-        //                 <OptionCd>FullTime</OptionCd>
-        //                 <OptionValue>2.0</OptionValue>
-        //             </Option>
-        //             <Option>
-        //                 <OptionCd>EMPL</OptionCd>
-        //                 <OptionValue>2.0</OptionValue>
-        //             </Option>
         //         </Coverage>
         //         <ClassCd>89324</ClassCd>
         //     </GeneralLiabilityClassification>
