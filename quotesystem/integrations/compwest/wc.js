@@ -53,7 +53,7 @@ module.exports = class CompwestWC extends Integration {
             guideWireAPI = false;
         }
         //prevent new API use in Production
-        if (!this.insurer.useSandbox) {
+        if (this.insurer.useSandbox) {
             guideWireAPI = false;
         }
 

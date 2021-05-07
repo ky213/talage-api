@@ -155,7 +155,7 @@ const validateBusiness = (applicationDocData) => {
         // Let different Insurers have different rules
         // reject and clean rules should be in insurer integrations files.
         if (!validator.isBusinessName(applicationDocData.businessName)) {
-            log.error(`Invalid characters in businessName applicationId: ${applicationDocData.applicationId}` + __location);
+            log.warn(`Invalid characters in businessName applicationId: ${applicationDocData.applicationId}` + __location);
         }
 
         // Check for max length
