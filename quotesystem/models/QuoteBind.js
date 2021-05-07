@@ -123,7 +123,7 @@ module.exports = class QuoteBind{
             try {
                 // response: "success", "error", "rejected"
                 const quoteResp = await bindWorker.bind();
-                //save log.
+                //save log and any other quote update like quote letter for AF
                 await this.quoteDoc.save().catch((err) => {
                     log.error(`failed to save quoteDoc after processing ${err}` + __location);
                 })
