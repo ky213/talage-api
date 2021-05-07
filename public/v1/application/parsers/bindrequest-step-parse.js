@@ -11,6 +11,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 exports.process = async function(requestJSON) {
 
+    try{
+        if(typeof requestJSON.quotes === 'string'){
+            requestJSON.quotes = JSON.parse(requestJSON.quotes)
+        }
+    }
+    catch(err){
+        log.error(`bindrequest parser ${err} requestJSON${JSON.stringify(requestJSON)}  ` + __location)
+    }
+
     //	$additionalInsured = $_POST['additionalInsured'] === 'false' ? 0 : ($_POST['additionalInsured'] === 'true' ? 1 : null);
     // $waiverOfSubrogation = $_POST['waiverOfSubrogation'] === 'false' ? 0 : ($_POST['waiverOfSubrogation'] === 'true' ? 1 : null);
     if (requestJSON.additionalInsured) {
