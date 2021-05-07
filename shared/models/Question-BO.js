@@ -109,6 +109,11 @@ module.exports = class QuestionBO{
                     sqlWhere += ` id like %${db.escape(queryJSON.id)}% `;
                     hasWhere = true;
                 }
+                if(queryJSON.parent){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` parent = ${db.escape(`${queryJSON.parent}`)} `;
+                    hasWhere = true;
+                }
                 const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
                 if(limit && page) {
