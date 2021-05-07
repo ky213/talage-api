@@ -1,18 +1,20 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable guard-for-in */
 
 global.requireShared('./helpers/tracker.js');
 
 const moment = require('moment');
-const DatabaseObject = require('./DatabaseObject.js');
+
 const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const { quoteStatus, convertToAggregatedStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
 
-const tableName = 'clw_talage_quotes'
-const skipCheckRequired = false;
+const collectionName = 'Quotes'
+
 
 const QUOTE_MIN_TIMEOUT = 5;
 
@@ -21,8 +23,7 @@ module.exports = class QuoteBO {
     #dbTableORM = null;
 
     constructor() {
-        this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        this.id = null;
     }
 
 
@@ -36,7 +37,7 @@ module.exports = class QuoteBO {
         return new Promise(async(resolve, reject) => {
 
             if (!newObjectJSON) {
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
             let newDoc = true;
             let quoteDocDB = null;
@@ -68,21 +69,10 @@ module.exports = class QuoteBO {
         });
     }
 
-    saveIntegrationQuote(quoteId, quoteJSON, columns, values) {
+    saveIntegrationQuote(quoteId, quoteJSON) {
         return new Promise(async(resolve) => {
             if (quoteId === null) {
                 // if null, insert new record
-                let mysqlQuoteId = 0;
-                const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
-                    log.error("Error QuoteBO insertByColumnValue " + err + __location);
-                    // reject(err);
-                    // do not stop mongo save.
-                });
-                if (quoteResult) { 
-                    mysqlQuoteId = quoteResult.insertId;
-                    log.debug(`${tableName} saved id ` + mysqlQuoteId);
-                    quoteJSON.mysqlId = mysqlQuoteId;
-                }
 
                 //check limits
                 if (quoteJSON.limits && quoteJSON.limits.length > 0) {
@@ -107,37 +97,20 @@ module.exports = class QuoteBO {
                 catch(err){
                     log.error("Error saving Mongo quote " + err + __location);
                 }
-            } else {
+            } 
+            else {
                 // otherwise record exists, update it
-                const query = { "quoteId": quoteId };
+                const query = {"quoteId": quoteId};
                 try {
                     await Quote.updateOne(query, quoteJSON);
-                } catch (e) {
+                }
+                catch (e) {
                     log.error(`Error updating quote: ${e}.`);
                     throw e;
                 }
             }
 
             resolve(quoteId);
-        });
-    }
-
-
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
         });
     }
 
@@ -210,7 +183,7 @@ module.exports = class QuoteBO {
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;
@@ -349,7 +322,7 @@ module.exports = class QuoteBO {
             if(!queryJSON){
                 reject(new Error("getNewAppQuotes: no query Data"));
             }
-            if(!queryJSON.mysqlAppId && !queryJSON.applicationId || !queryJSON.lastMysqlId){
+            if(!queryJSON.applicationId){
                 reject(new Error("getNewAppQuotes: missing query Data"));
             }
 
@@ -360,22 +333,18 @@ module.exports = class QuoteBO {
             let error = null;
 
             var queryOptions = {lean:true};
-            queryOptions.sort = {mysqlId: 1};
+            
 
             queryOptions.limit = 500;
 
 
-            if(queryJSON.lastMysqlId){
-                query.mysqlId = {$gt: queryJSON.lastMysqlId};
-            }
-
-            if(queryJSON.mysqlAppId){
-                query.mysqlAppId = queryJSON.mysqlAppId;
-                delete queryJSON.mysqlAppId
-            }
-            else if(queryJSON.applicationId){
+            if(queryJSON.applicationId){
                 query.applicationId = queryJSON.applicationId;
-                delete queryJSON.applicationId
+            
+            }
+            if(queryJSON.createdAt){
+                query.createdAt = {$gte: queryJSON.createdAt};
+            
             }
 
             let docList = null;
@@ -555,23 +524,9 @@ module.exports = class QuoteBO {
     // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
     async updateQuoteAggregatedStatus({quoteId, mysqlId}, status) {
         if(quoteId && mysqlId && status){
-            // Not updating SQL with new status information since it will be deprecated
-            const sql = `
-                UPDATE clw_talage_quotes
-                SET aggregated_status = ${db.escape(convertToAggregatedStatus(status))}
-                WHERE id = ${mysqlId}
-            `;
-            try {
-                await db.query(sql);
-                log.info(`Updated MySQL clw_talage_quotes.aggregated_status on  ${mysqlId}` + __location);
-            }
-            catch (err) {
-                log.error(`Could not update MySQL quote ${mysqlId} aggregated status: ${err} ${__location}`);
-
-            }
             // update Mongo
             try{
-                const query = {quoteId};
+                const query = {quoteId: quoteId};
                 const updateJSON = {
                     "aggregatedStatus": convertToAggregatedStatus(status),
                     "quoteStatusId": status.id, 
@@ -632,48 +587,6 @@ module.exports = class QuoteBO {
     }
 
 
-    async cleanupInput(inputJSON) {
-        for (const property in properties) {
-            if (inputJSON[property]) {
-                // Convert to number
-                try {
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string") {
-                        if (properties[property].dbType.indexOf("int") > -1) {
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1) {
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch (e) {
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
-
-    updateProperty() {
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-
-    /**
-   * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-   * @param {object} inputJSON - input JSON
-   * @returns {void}
-   */
-    async loadORM(inputJSON) {
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
     // checks the status of the quote and fixes it if its timed out
     async checkAndFixQuoteStatus(quoteDoc){
         // only check and fix quotes that are potentially hanging on initiated
@@ -702,262 +615,6 @@ module.exports = class QuoteBO {
             }
         }
         return;
-    }
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "policy_type": {
-        "default": "WC",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
-    },
-    "application": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "insurer": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "number": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "package_type": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "request_id": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(36)"
-    },
-    "amount": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "float(9,2) unsigned"
-    },
-    "seconds": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(4) unsigned"
-    },
-    "aggregated_status": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "status": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(19)"
-    },
-    "api_result": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(19)"
-    },
-    "bound": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "log": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "payment_plan": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "reasons": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(500)"
-    },
-    "quote_letter": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(40)"
-    },
-    "writer": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "quote_link": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(500)"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    }
-}
-
-
-class DbTableOrm extends DatabaseObject {
-
-    // eslint-disable-next-line no-shadow
-    constructor(tableName) {
-        super(tableName, properties);
     }
 
 }

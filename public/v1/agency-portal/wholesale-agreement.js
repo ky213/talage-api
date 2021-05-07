@@ -1,7 +1,7 @@
 'use strict';
 
 //const crypt = global.requireShared('./services/crypt.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const docusign = global.requireShared('./services/docusign.js');
 
 // DocuSign template IDs

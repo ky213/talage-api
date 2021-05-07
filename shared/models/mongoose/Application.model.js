@@ -162,6 +162,7 @@ const ApplicationSchema = new Schema({
     agencyNetworkId: {type: Number, required: true},
     agencyId: {type: Number, required: true},
     agencyLocationId: {type: Number, default: 0},
+    lockAgencyLocationId: {type: Boolean, default: false},
     appStatusId: {type: Number, required: true, default: 0},
     lastStep: {type: Number, default: 0},
     progress: {type: String, default: "unknown"},

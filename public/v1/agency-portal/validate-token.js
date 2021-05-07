@@ -1,7 +1,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Checks whether or not a JWT is valid

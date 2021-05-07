@@ -4,8 +4,8 @@
 
 'use strict';
 
-const Application = require('./helpers/models/Application.js');
-const serverHelper = require('../../../server.js');
+const Application = global.requireRootPath('quotesystem/models/Application.js');
+const serverHelper = global.requireRootPath('server.js');
 const jwt = require('jsonwebtoken');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const slack = global.requireShared('./services/slacksvc.js');
@@ -21,6 +21,7 @@ const slack = global.requireShared('./services/slacksvc.js');
  * @returns {void}
  */
 async function postApplication(req, res, next) {
+    log.debug(`Application Quote: ${JSON.stringify(req.body)} ` + __location);
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
         log.warn('No data was received' + __location);

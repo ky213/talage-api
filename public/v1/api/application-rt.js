@@ -11,7 +11,7 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
-const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const tokenSvc = global.requireShared('./services/tokensvc.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
@@ -87,6 +87,7 @@ async function applicationSave(req, res, next) {
 
     //Insert checks
     if (!req.body.applicationId) {
+        log.debug(`API Saving new application`);
         //Required fields for an insert.
         // eslint-disable-next-line array-element-newline
         const requiredPropertyList = ["agencyId", "businessName"];
@@ -121,6 +122,7 @@ async function applicationSave(req, res, next) {
 
         //if agencyLocationId is not sent for insert get primary
         if (!req.body.agencyLocationId) {
+            log.info(`API AppSave setting agencyLocationId to primary ` + __location);
             const agencyLocationBO = new AgencyLocationBO();
             const locationPrimaryJSON = await agencyLocationBO.
                 getByAgencyPrimary(req.body.agencyId).
@@ -135,6 +137,7 @@ async function applicationSave(req, res, next) {
         }
     }
     else {
+        // Need to now if we get locations for the first thiem
         //get application and valid agency
         // check JWT has access to this application.
         const rightsToApp = await isAuthForApplication(req, req.body.applicationId);
@@ -288,7 +291,7 @@ async function applicationSave(req, res, next) {
 
 
 async function applicationLocationSave(req, res, next) {
-    log.debug("Application Post: " + JSON.stringify(req.body));
+    log.debug("Application Location Post: " + JSON.stringify(req.body));
     if (!req.body || typeof req.body !== "object") {
         log.error("Bad Request: No data received " + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
@@ -316,6 +319,9 @@ async function applicationLocationSave(req, res, next) {
         applicationDB = await applicationBO.getById(req.body.applicationId);
         if (!applicationDB) {
             return next(serverHelper.requestError("Not Found"));
+        }
+        if(applicationDB.agencyLocationId){
+            log.debug(`applicationLocationSave  - app load - applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
         }
     }
     catch (err) {
@@ -372,15 +378,30 @@ async function applicationLocationSave(req, res, next) {
                 }
                 applicationDB.locations.push(reqLocation)
             }
+
             const updateMysql = false;
+            //updateMongo seems to wipping out the appid sent
+            if(applicationDB.agencyLocationId){
+                log.debug(`applicationLocationSave applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
+            }
+
+            const appId = applicationDB.applicationId
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
                 applicationDB,
                 updateMysql);
+
+            //Check/select Agencylocation Choice with new location
+            log.debug('applicationDB.applicationId ' + appId + __location)
+            const resp = await applicationBO.setAgencyLocation(appId)
+            if(resp !== true){
+                log.error(`applicationLocationSave Error: setAgencyLocation: ${resp}. ` + __location);
+                throw new Error(`Application Error: setAgencyLocation: ${resp}`);
+            }
         }
     }
     catch (err) {
         //mongoose parse errors will end up there.
-        log.error("Error saving application " + err + __location);
+        log.error("Error saving application Location " + err + __location);
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
@@ -570,37 +591,10 @@ async function validate(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.body.applicationId;
+    const id = req.body.applicationId;
     const rightsToApp = await isAuthForApplication(req, id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
-    }
-    if(id > 0){
-        // Validate the application ID
-        if (!await validator.is_valid_id(req.body.id)) {
-            log.error(`Bad Request: Invalid id ${id}` + __location);
-            return next(serverHelper.requestError('Invalid id'));
-        }
-    }
-    else {
-        //assume uuid input
-        log.debug(`Getting app id  ${id} from mongo` + __location)
-        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
-            log.error(`Error getting application Doc for validate ${id} ` + err + __location);
-            log.error('Bad Request: Invalid id ' + __location);
-            error = err;
-        });
-        if (error) {
-            return next(error);
-        }
-        if(appDoc){
-            log.debug("Have app doc for " + appDoc.mysqlId + __location)
-            id = appDoc.mysqlId;
-        }
-        else {
-            log.error(`Did not find application Doc for validate ${id}` + __location);
-            return next(serverHelper.requestError('Invalid id'));
-        }
     }
 
 
@@ -637,7 +631,7 @@ async function validate(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        log.error('Application Validation ' + errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -672,36 +666,10 @@ async function startQuoting(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let applicationId = req.body.applicationId;
+    const applicationId = req.body.applicationId;
     const rightsToApp = await isAuthForApplication(req, applicationId);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
-    }
-    if(applicationId > 0){
-        // requote the application ID
-        if (!await validator.is_valid_id(applicationId)) {
-            log.error(`Bad Request: Invalid id ${applicationId}` + __location);
-            return next(serverHelper.requestError('Invalid id'));
-        }
-    }
-    else {
-        //assume uuid input
-        log.debug(`Getting app id  ${applicationId} from mongo` + __location);
-        const appDoc = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
-            log.error(`Error getting application Doc for requote ${applicationId} ` + err + __location);
-            log.error('Bad Request: Invalid id ' + __location);
-            error = err;
-        });
-        if (error) {
-            return next(error);
-        }
-        if(appDoc){
-            applicationId = appDoc.mysqlId;
-        }
-        else {
-            log.error(`Did not find application Doc for requote ${applicationId}` + __location);
-            return next(serverHelper.requestError('Invalid id'));
-        }
     }
 
     //Get app and check status
@@ -720,6 +688,8 @@ async function startQuoting(req, res, next) {
     if (applicationDB.appStatusId > 60) {
         return next(serverHelper.requestError('Cannot Requote Application'));
     }
+
+    // TODO Check/select Agencylocation Choice.
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
@@ -747,19 +717,19 @@ async function startQuoting(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${applicationId}: ${err.message}`;
-        log.error(errMessage + __location);
+        log.error('Application Validation ' + errMessage + __location);
         res.send(400, errMessage);
         return next();
     }
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
+        await applicationBO.updateProgress(applicationDB.applicationId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.applicationId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.applicationId} for quoting. ` + err + __location);
     }
 
     // Send back the token
@@ -904,7 +874,7 @@ async function createQuoteSummary(quote) {
         case 'declined':
             // Return a declined quote summary
             return {
-                id: quote.mysqlAppId,
+                id: quote.qouteId,
                 policy_type: quote.policyType,
                 status: 'declined',
                 message: `${insurer.name} has declined to offer you coverage at this time`,
@@ -937,17 +907,21 @@ async function createQuoteSummary(quote) {
             }
             if(quote.quoteCoverages){
                 // sort ascending order based on id, if no sort value then number will be sorted first
-                function ascendingOrder (a, b){
+                // eslint-disable-next-line no-inner-declarations
+                function ascendingOrder(a, b){
                     if(a.sort && b.sort){
                         // this sorts in ascending order
                         return a.sort - b.sort;
-                    }else if (a.sort && !b.sort){
+                    }
+                    else if (a.sort && !b.sort){
                         // since no sort order on "b" then return -1
-                        return -1; 
-                    }else if (!a.sort && b.sort){
+                        return -1;
+                    }
+                    else if (!a.sort && b.sort){
                         // since no sort order on "a" return 1
-                        return 1; 
-                    }else {
+                        return 1;
+                    }
+                    else {
                         return 0;
                     }
                 }
@@ -956,7 +930,7 @@ async function createQuoteSummary(quote) {
                     limits[quoteCoverage.description] = `${quoteCoverage.value}`;
                 }
             }
-            
+
             // Retrieve the insurer's payment plan
             const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
             let insurerPaymentPlanList = null;
@@ -1015,12 +989,13 @@ async function createQuoteSummary(quote) {
             // the following check should fix the double images path issue
             if(insurerLogoUrl.includes("imagesimages")){
                 insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
-            }else if (insurerLogoUrl.includes("images/images")){
+            }
+            else if (insurerLogoUrl.includes("images/images")){
                 insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
             }
             // Return the quote summary
             return {
-                id: quote.mysqlId,
+                id: quote.quoteId,
                 policy_type: quote.policyType,
                 amount: quote.amount,
                 deductible: quote.deductible,
@@ -1032,7 +1007,7 @@ async function createQuoteSummary(quote) {
                     name: insurer.name,
                     rating: insurer.rating
                 },
-                limits,
+                limits: limits,
                 payment_options: paymentOptions
             };
         default:

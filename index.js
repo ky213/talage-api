@@ -137,6 +137,7 @@ async function main(){
         //log.info('Assetws Mongoose connected to mongodb');
         if(hasMongoMadeInitialConnected === false){
             hasMongoMadeInitialConnected = true;
+            cleanMongoIndexes();
             setupListeners();
         }
     });
@@ -171,4 +172,29 @@ async function setupListeners() {
     }
 }
 
+
+/**
+ * cleanMongoIndexes
+ *
+ * @returns {void}
+ */
+async function cleanMongoIndexes() {
+    // 2021-04-30
+    const quoteDropIndexes = ['mysqlId_1', 'createdAt_-1_mysqlAppId_1']
+    const Quote = require('mongoose').model('Quote');
+    Quote.collection.getIndexes({full: true}).then(indexes => {
+        for(const colIndex of indexes){
+            if(quoteDropIndexes.includes(colIndex.name)){
+                Quote.collection.dropIndex(colIndex.name, function(err) {
+                    if (err) {
+                        log.warn(`Error in dropping index! ${colIndex.name}`, err);
+                    }
+                });
+
+            }
+        }
+    }).catch((err) => {
+        log.error("Mongo index drop " + err);
+    });
+}
 main();
