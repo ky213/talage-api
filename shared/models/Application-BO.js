@@ -2334,7 +2334,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false, activityCodeList = []){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2384,7 +2384,6 @@ module.exports = class ApplicationModel {
         let industryCodeString = '';
         if(applicationDocDB.industryCode){
             industryCodeString = applicationDocDB.industryCode;
-
         }
         else {
             throw new Error("Incomplete Application: Application Industry Code")
@@ -2408,21 +2407,24 @@ module.exports = class ApplicationModel {
         // activity codes are not required for GL or BOP. only WC.
         // This check may need to become insurer aware.
         const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy === "WC").length);
-        let activityCodeArray = [];
-        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
-            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                if(applicationDocDB.activityCodes[i].activityCodeId){
-                    activityCodeArray.push(applicationDocDB.activityCodes[i].activityCodeId);
-                }
-                else {
-                    activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+        // for questionSubjectArea: general, always get the activity codes from the application.
+        if(!activityCodeList || activityCodeList.length === 0 || questionSubjectArea === 'general'){
+            // clean out activity codes in case they are there but we are general questionSubjectArea
+            activityCodeList = [];
+            if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+                for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                    if(applicationDocDB.activityCodes[i].activityCodeId){
+                        activityCodeList.push(applicationDocDB.activityCodes[i].activityCodeId);
+                    }
+                    else {
+                        activityCodeList.push(applicationDocDB.activityCodes[i].ncciCode);
+                    }
                 }
             }
-
-        }
-        else if(requireActivityCodes) {
-            if(questionSubjectArea === 'general'){
-                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+            else if(requireActivityCodes) {
+                if(questionSubjectArea === 'general'){
+                    throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+                }
             }
         }
 
@@ -2480,10 +2482,10 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeList, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
