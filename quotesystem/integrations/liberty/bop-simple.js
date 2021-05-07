@@ -226,11 +226,21 @@ module.exports = class LibertySBOP extends Integration {
         //     </BusinessInfo>
         // </InsuredOrPrincipalInfo>
 
+        let fullTimeEmployees = 0;
+        let partTimeEmployees = 0;
+        applicationDocData.locations.forEach(location => {
+            fullTimeEmployees += location.full_time_employees;
+            partTimeEmployees += location.part_time_employees;
+        });
+
         const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI'); // Per Liberty, "first name insured" is the only valid value
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         // NOTE: This satisifies the BOP1 question - we do not need to send BOP1 question to Liberty Mutual
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
+        BusinessInfo.ele('NumEmployeesFullTime', fullTimeEmployees);
+        BusinessInfo.ele('NumEmployeesPartTime', partTimeEmployees);
+        BusinessInfo.ele('NumEmployees', fullTimeEmployees + partTimeEmployees);
 
         // <Policy>
         //     <LOBCd>BOP</LOBCd>
@@ -359,15 +369,6 @@ module.exports = class LibertySBOP extends Integration {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
             innerCoverage.ele('CoverageCd', 'CGL');
-            const Option1 = innerCoverage.ele('Option');
-            Option1.ele('OptionCd', 'PartTime');
-            Option1.ele('OptionValue', `${location.part_time_employees}.0`);
-            const Option2 = innerCoverage.ele('Option');
-            Option2.ele('OptionCd', 'FullTime');
-            Option2.ele('OptionValue', `${location.full_time_employees}.0`);
-            const Option3 = innerCoverage.ele('Option');
-            Option3.ele('OptionCd', 'EMPL');
-            Option3.ele('OptionValue', `${location.part_time_employees + location.full_time_employees}.0`);
             GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
         });
 
@@ -688,7 +689,7 @@ module.exports = class LibertySBOP extends Integration {
         this.industry_code = this.industry_code.find(ic => ic.attributes.simpleBOP);
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
-            log.error(`${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location)
+            log.error(`${errorMessage} ` + __location);
             return this.client_error(errorMessage, __location);
         }
 
