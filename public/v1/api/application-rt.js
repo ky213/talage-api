@@ -394,7 +394,7 @@ async function applicationLocationSave(req, res, next) {
             log.debug('applicationDB.applicationId ' + appId + __location)
             const resp = await applicationBO.setAgencyLocation(appId)
             if(resp !== true){
-                log.error(`applicationLocationSave Error: setAgencyLocation: ${resp}. ` + __location);
+                log.error(`applicationLocationSave Error: setAgencyLocation: ${resp} for appId ${appId} ` + __location);
                 throw new Error(`Application Error: setAgencyLocation: ${resp}`);
             }
         }
