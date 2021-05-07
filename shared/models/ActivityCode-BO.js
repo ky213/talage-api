@@ -390,7 +390,7 @@ const properties = {
 }
 
 class DbTableOrm extends DatabaseObject {
-    constructor(tableName){
-        super(tableName, properties);
+    constructor(tableNameORM){
+        super(tableNameORM, properties);
     }
 }
