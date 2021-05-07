@@ -20,7 +20,7 @@ exports.process = async function(requestJSON) {
         }
     }
     catch(err){
-        log.error(`Error get applicationId ${err}` +__location );
+        log.error(`Error get applicationId ${err} request ${JSON.stringify(requestJSON)}` + __location);
     }
 
     //	$additionalInsured = $_POST['additionalInsured'] === 'false' ? 0 : ($_POST['additionalInsured'] === 'true' ? 1 : null);
@@ -35,6 +35,6 @@ exports.process = async function(requestJSON) {
         delete requestJSON.waiverOfSubrogation
     }
 
-    log.debug("bindRequest parser requestJSON: " + JSON.stringify(requestJSON));
+    log.info("bindRequest AF parser requestJSON: " + JSON.stringify(requestJSON));
     return true;
 }
