@@ -146,7 +146,7 @@ module.exports = class GreatAmericanWC extends Integration {
         //Claims
         questions['claimsLossesMoreThan50K'] = "No, I have not had a single loss more than $50,000";
         questions['claimsLosses4years'] = "Less than 2 losses";
-        let totalAmount = 0;
+        let claimOver50K = false;
         let claimCount = 0;
         let years = 5;
         this.app.applicationDocData.claims.forEach((claim) => {
@@ -159,6 +159,7 @@ module.exports = class GreatAmericanWC extends Integration {
                 }
             }
             if(claim.policyType === "WC" && years < 5){
+                let totalAmount = 0;
                 claimCount++;
                 if(claim.amountPaid){
                     totalAmount += claim.amountPaid
@@ -166,7 +167,11 @@ module.exports = class GreatAmericanWC extends Integration {
                 if(claim.amountReserved){
                     totalAmount += claim.amountReserved
                 }
+                if(totalAmount > 50000){
+                    claimOver50K = true;
+                }
             }
+
         });
         if(claimCount < 2){
             questions['claimsLosses4years'] = "Less than 2 losses";
@@ -178,7 +183,7 @@ module.exports = class GreatAmericanWC extends Integration {
             //no insurance for you!
             questions['claimsLosses4years'] = "5 or more losses";
         }
-        if(totalAmount > 50000){
+        if(claimOver50K){
             questions['claimsLossesMoreThan50K'] = "Yes, I’ve had a single loss more than $50,000";
         }
         //PolicyQuestions
