@@ -2206,22 +2206,7 @@ module.exports = class ApplicationModel {
     deleteSoftById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if (id && id > 0) {
-
-                //Remove old records.
-                const sql = `Update ${collectionName} 
-                        SET state = -2
-                        WHERE id = ${db.escape(id)}
-                `;
-                //let rejected = false;
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${collectionName} UPDATE State error : ` + err + __location);
-                });
-                // if (rejected) {
-                //     return false;
-                // }
-                //Mongo delete
+            if (id) {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await this.loadById(id);
@@ -2229,7 +2214,7 @@ module.exports = class ApplicationModel {
                     await applicationDoc.save();
                 }
                 catch (err) {
-                    log.error("Error get marking Application from mysqlId " + err + __location);
+                    log.error(`Error marking Application from uuid ${id} ` + err + __location);
                     reject(err);
                 }
                 resolve(true);
@@ -2243,7 +2228,7 @@ module.exports = class ApplicationModel {
 
     getAgencyNewtorkIdById(id) {
         return new Promise(async(resolve, reject) => {
-            if(id && id > 0){
+            if(id){
                 let agencyNetworkId = 0;
                 try{
                     const appDoc = await this.loadById(id)
@@ -2262,7 +2247,7 @@ module.exports = class ApplicationModel {
             }
             else {
                 log.error(`getAgencyNewtorkIdById no ID supplied  ${id}` + __location);
-                reject(new Error(`App Not Found mysqlId ${id}`));
+                reject(new Error(`App Not Found applicationId ${id}`));
             }
         });
     }
@@ -2584,15 +2569,14 @@ module.exports = class ApplicationModel {
                 log.error('Error getting AFConvrDataMapp Mapping ' + err + __location)
             }
             if (mappingJSON) {
-                //get AF questions
+                //get AF/Compwest questions
                 const compWestId = 12;
-                const sql = `select * 
-                                from clw_talage_insurer_questions 
-                                where insurer = ${compWestId}
-                        `;
                 let compWestQuestionList = null;
                 try {
-                    compWestQuestionList = await db.query(sql);
+                    //AF questions - Should be ok because CompWest & Af are duplicate sets based on identifiers  ?
+                    const insurerQuery = {"insurerId": compWestId}
+                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                    compWestQuestionList = await InsurerQuestionModel.find(insurerQuery)
                 }
                 catch (err) {
                     log.error("Error get compWestQuestionList " + err + __location);
@@ -2613,7 +2597,7 @@ module.exports = class ApplicationModel {
                                     const compWestQuestion = compWestQuestionList.find(compWestQuestionTest => mapping.afgIndicator === compWestQuestionTest.identifier);
                                     if (compWestQuestion) {
                                         //find in getQuestionsResult
-                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.question === questionTest.id);
+                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.talageQuestionId === questionTest.id);
                                         if (question && question.type === "Yes/No" && question.answers) {
                                             //gotHit = true;
                                             log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
@@ -2640,7 +2624,7 @@ module.exports = class ApplicationModel {
                                         }
                                     }
                                     else {
-                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicatora}`)
+                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicator}`)
                                     }
                                 }
                                 // else {
