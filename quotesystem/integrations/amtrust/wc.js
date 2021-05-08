@@ -337,6 +337,7 @@ module.exports = class AcuityWC extends Integration {
         // Format the FEIN
         const fein = appDoc.ein.replace(/\D/g, '');
 
+        let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
         const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
         if (einCheckResponse) {
@@ -345,7 +346,65 @@ module.exports = class AcuityWC extends Integration {
             if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
                 return this.client_declined("The EIN is blocked");
             }
+
+            log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
+            if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
+                && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
+                //return this.client_declined("The EIN is blocked");
+                if (!this.insurer.useSandbox) {
+                    return this.client_declined("The EIN is blocked by earlier submission.");
+                }
+                useQuotePut_OldQuoteId = true;
+                log.debug(`**************************************************************`)
+                log.debug(`**************************************************************`)
+                log.debug(`**************************************************************`)
+                log.debug(`**************************************************************`)
+                log.debug(`**************************************************************`)
+                log.debug(`FEIN is already used **************************************************************`)
+            }
         }
+        //find old quoteID
+        let quoteId = '';
+        if(useQuotePut_OldQuoteId){
+            try{
+                log.debug('AMTrust WC getting old quoteId' + __location)
+                const QuoteBO = global.requireShared('models/Quote-BO.js');
+                const quoteBO = new QuoteBO();
+
+                const quoteQuery = {
+                    applicationId: appDoc.applicationId,
+                    insurerId: this.insurer.id
+                }
+                const quoteList = await quoteBO.getList(quoteQuery);
+                for(const quote of quoteList){
+                    if(quote.quoteNumber){
+                        quoteId = quote.quoteNumber;
+                    }
+                }
+                if(!quoteId && appDoc.copiedFromAppId){
+                    const quoteQuery2 = {
+                        applicationId: appDoc.copiedFromAppId,
+                        insurerId: this.insurer.id
+                    }
+                    const quoteList2 = await quoteBO.getList(quoteQuery2);
+                    for(const quote of quoteList2){
+                        if(quote.quoteNumber){
+                            quoteId = quote.quoteNumber;
+                        }
+                    }
+                }
+                if(!quoteId){
+                    return this.client_declined("The EIN is blocked by earlier application");
+                }
+            }
+            catch(err){
+                log.error(`AMtrust WC (application ${this.app.id}): Error get old quote ID: ${err} ${__location}`);
+                return this.client_declined("The EIN is blocked By earlier application");
+            }
+
+
+        }
+
 
         // =========================================================================================================
         // Create the quote request
@@ -356,13 +415,13 @@ module.exports = class AcuityWC extends Integration {
                 "Line1": this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : ""),
                 "City": this.app.business.locations[0].city,
                 "State": this.app.business.locations[0].state_abbr,
-                "Zip": this.app.business.locations[0].zip
+                "Zip": this.app.business.locations[0].zip.slice(0,5)
             },
             "MailingAddress": {
                 "Line1": this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : ""),
                 "City": this.app.business.mailing_city,
                 "State": this.app.business.mailing_state_abbr,
-                "Zip": this.app.business.mailing_zipcode
+                "Zip": this.app.business.mailing_zipcode.slice(0,5)
             },
             "BusinessName": this.app.business.name,
             "ContactInformation": {
@@ -433,9 +492,15 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Send the requests
         const successfulStatusCodes = [200, 201];
-
+        let createQuoteMethod = 'POST';
+        let createRoute = '/api/v2/quotes'
+        if(useQuotePut_OldQuoteId){
+            log.debug(`AMTrust WC using PUT with old quoteId ${quoteId}` + __location)
+            createQuoteMethod = "PUT";
+            createRoute = `/api/v1/quotes/${quoteId}`
+        }
         // Send the quote request
-        const quoteResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/quotes', quoteRequestData);
+        const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestData);
         if (!quoteResponse) {
             return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location);
         }
@@ -458,10 +523,13 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Extract the quote ID
-        const quoteId = this.getChildProperty(quoteResponse, "Data.AccountInformation.QuoteId");
-        if (!quoteId) {
-            return this.client_error(`Could not find the quote ID in the response.`, __location);
+        if(useQuotePut_OldQuoteId === false){
+            quoteId = this.getChildProperty(quoteResponse, "Data.AccountInformation.QuoteId");
+            if (!quoteId) {
+                return this.client_error(`Could not find the quote ID in the response.`, __location);
+            }
         }
+        this.number = quoteId;
 
         // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
         //   Anything not in the update PUT will be deleted.  per AMtrust docs
@@ -511,7 +579,7 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                    log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${questionId} answer: ${error} ${__location}`);
                     //return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
                 // This question was not answered
@@ -672,4 +740,3 @@ module.exports = class AcuityWC extends Integration {
 
     }
 };
-
