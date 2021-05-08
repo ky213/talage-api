@@ -2206,18 +2206,20 @@ module.exports = class ApplicationModel {
     deleteSoftById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if (id && id > 0) {
-
-                //Remove old records.
-                const sql = `Update ${collectionName} 
-                        SET state = -2
-                        WHERE id = ${db.escape(id)}
-                `;
-                //let rejected = false;
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${collectionName} UPDATE State error : ` + err + __location);
-                });
+            if (id ) {
+                // Dont know if we need this code still? But id will only be greater than 1 if it is numerical ie mysqlId
+                if(id > 0){
+                    //Remove old records.
+                    const sql = `Update ${collectionName} 
+                            SET state = -2
+                            WHERE id = ${db.escape(id)}
+                    `;
+                    //let rejected = false;
+                    await db.query(sql).catch(function(err) {
+                        // Check if this was
+                        log.error(`Database Object ${collectionName} UPDATE State error : ` + err + __location);
+                    });
+                }
                 // if (rejected) {
                 //     return false;
                 // }
@@ -2229,7 +2231,7 @@ module.exports = class ApplicationModel {
                     await applicationDoc.save();
                 }
                 catch (err) {
-                    log.error("Error get marking Application from mysqlId " + err + __location);
+                    log.error(`Error marking Application from uuid ${id} ` + err + __location);
                     reject(err);
                 }
                 resolve(true);
@@ -2243,7 +2245,7 @@ module.exports = class ApplicationModel {
 
     getAgencyNewtorkIdById(id) {
         return new Promise(async(resolve, reject) => {
-            if(id && id > 0){
+            if(id){
                 let agencyNetworkId = 0;
                 try{
                     const appDoc = await this.loadById(id)
@@ -2262,7 +2264,7 @@ module.exports = class ApplicationModel {
             }
             else {
                 log.error(`getAgencyNewtorkIdById no ID supplied  ${id}` + __location);
-                reject(new Error(`App Not Found mysqlId ${id}`));
+                reject(new Error(`App Not Found applicationId ${id}`));
             }
         });
     }
