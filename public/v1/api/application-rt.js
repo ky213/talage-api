@@ -526,8 +526,10 @@ async function getApplication(req, res, next) {
 
 async function GetQuestions(req, res, next){
 
-    const rightsToApp = await isAuthForApplication(req, req.params.id)
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
     if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     // insurers is optional
@@ -562,7 +564,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList);
+        getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -571,6 +573,7 @@ async function GetQuestions(req, res, next){
     }
 
     if(!getQuestionsResult){
+        log.error(`No response from GetQuestions:  appId ${appId} ${JSON.stringify(getQuestionsResult)}` + __location);
         return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 
@@ -598,6 +601,7 @@ async function validate(req, res, next) {
     const id = req.body.applicationId;
     const rightsToApp = await isAuthForApplication(req, id)
     if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${id}` + __location);
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
@@ -612,6 +616,7 @@ async function validate(req, res, next) {
         return next(error);
     }
     if (!applicationDB) {
+        log.warn(`Application not found appId ${id}` + __location);
         return next(serverHelper.requestError('Not Found'));
     }
 
