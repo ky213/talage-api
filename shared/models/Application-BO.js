@@ -25,6 +25,7 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
+const utility = global.requireShared('./helpers/utility.js');
 
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
@@ -2323,8 +2324,8 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false, activityCodeList = []){
-
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = []){
+        log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList} `)
         let passedAgencyCheck = false;
         let applicationDocDB = null;
         let questionsObject = {};
@@ -2349,6 +2350,7 @@ module.exports = class ApplicationModel {
         }
 
         // check SAQ to populate the answeredList with location answers if they are there
+        // This will need to up to switch as we add more subject areas
         if(questionSubjectArea === "location") {
             if(locationId){
                 const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
@@ -2375,6 +2377,7 @@ module.exports = class ApplicationModel {
             industryCodeString = applicationDocDB.industryCode;
         }
         else {
+            log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Industry Code")
         }
 
@@ -2389,78 +2392,136 @@ module.exports = class ApplicationModel {
             }
         }
         else {
+            log.error(`Data problem prevented getting Application Policy Types for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Policy Types")
         }
 
-        //get activitycodes.
-        // activity codes are not required for GL or BOP. only WC.
+        // get activitycodes.
+        // activity codes are not required for For most GL or BOP. only WC.
+        // Future Enhance is to take insurers into account. For Example: Acuity mixes GL and WC concepts.
         // This check may need to become insurer aware.
         const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy === "WC").length);
         // for questionSubjectArea: general, always get the activity codes from the application.
-        if(!activityCodeList || activityCodeList.length === 0 || questionSubjectArea === 'general'){
-            // clean out activity codes in case they are there but we are general questionSubjectArea
-            activityCodeList = [];
-            if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
-                for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                    if(applicationDocDB.activityCodes[i].activityCodeId){
-                        activityCodeList.push(applicationDocDB.activityCodes[i].activityCodeId);
-                    }
-                    else {
-                        activityCodeList.push(applicationDocDB.activityCodes[i].ncciCode);
-                    }
-                }
-            }
-            else if(requireActivityCodes) {
-                if(questionSubjectArea === 'general'){
-                    throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+        // if it a location subject area should we be getting the activity codes from the location
+        //    not application wide.
+        // special overrides allowed.
+        const subjectAreaRequestOverrideAllowed = ["location"];
+        let activityCodeList = [];
+        // if locationId is sent the activity codes in the location should be used.
+        if(questionSubjectArea === "location" && locationId){
+            //Get question just that location's activity codes which may be a subset of appDoc.activityCodes
+            const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+            // if we found the location and there are questions populated on it, otherwise set to empty
+            for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
+                if(activityCodeList.indexOf(ActivtyCodeEmployeeType.activityCodeId) === -1){
+                    activityCodeList.push(ActivtyCodeEmployeeType.activityCodeId);
                 }
             }
         }
-
-        //zipCodes
-        let zipCodeArray = [];
-        // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
-        // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
-        if (!stateList || stateList.length === 0) {
-            if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
-                for (let i = 0; i < applicationDocDB.locations.length; i++) {
-                    zipCodeArray.push(applicationDocDB.locations[i].zipcode);
-                    if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
-                        stateList.push(applicationDocDB.locations[i].state)
-                    }
+        // Specials case we allows the clients to get the questions before save the relate item
+        // as of 2021/05/08 this is only for location.
+        else if(requestActivityCodeList && requestActivityCodeList.length > 0 && !locationId
+                && subjectAreaRequestOverrideAllowed.indexOf(questionSubjectArea) > -1){
+            utility.addArrayToArray(activityCodeList,requestActivityCodeList)
+        }
+        // clean out activity codes in case they are there but we are general questionSubjectArea
+        else if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                if(applicationDocDB.activityCodes[i].activityCodeId){
+                    activityCodeList.push(applicationDocDB.activityCodes[i].activityCodeId);
+                }
+                else {
+                    activityCodeList.push(applicationDocDB.activityCodes[i].ncciCode);
                 }
             }
-            else if (applicationDocDB.mailingZipcode && questionSubjectArea !== 'general') {
+        }
+        else if(requireActivityCodes) {
+            if(questionSubjectArea === 'general'){
+                log.error(`Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
+                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+            }
+        }
+        //zipCodes
+        let zipCodeArray = [];
+        let stateList = [];
+        // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
+        // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
+        // need to trace calls.
+        // We probably should not be allow in the client to override the Application Data here.  At least, not in 
+        // all requests.   "location" pre save override is probably OK.
+        if(questionSubjectArea === "location" && locationId){
+            //Get question just that location's activity codes which may be a subset of appDoc.activityCodes
+            const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+            if(location){
+                zipCodeArray.push(location.zipcode);
+                stateList.push(location.state)
+            }
+            else {
+                log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. using mailing` + __location)
                 zipCodeArray.push(applicationDocDB.mailingZipcode);
                 stateList.push(applicationDocDB.mailingState)
             }
-            else {
-                throw new Error("Incomplete Application: Application locations")
+        }
+        else if (requestStateList && requestStateList.length > 0 && subjectAreaRequestOverrideAllowed.indexOf(questionSubjectArea) > -1) {
+            //do nothing. do not need zip
+            utility.addArrayToArray(stateList,requestStateList)
+        }
+        else if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
+            for (let i = 0; i < applicationDocDB.locations.length; i++) {
+                zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
+                    stateList.push(applicationDocDB.locations[i].state)
+                }
             }
+        }
+        // should not be here. Must be getting questions before saving locations.
+        // use app mailing.
+        else if (applicationDocDB.mailingZipcode) {
+            zipCodeArray.push(applicationDocDB.mailingZipcode);
+            stateList.push(applicationDocDB.mailingState)
+        }
+        else {
+            log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
+            throw new Error("Incomplete Application: Application locations")
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
+            log.debug(`Getting  Primary Agency insurers ` + __location);
             //TODO Agency Prime
             const agencyLocationBO = new AgencyLocationBO();
             const getChildren = true;
             const addAgencyPrimaryLocation = true;
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+            let agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
-
-            if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+            if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
+                try{
+                    const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
+                    for(let i = 0; i < insurerObjList.length; i++){
+                        insurerArray.push(insurerObjList[i].insurerId)
+                    }
+                    log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
+                }
+                catch(err){
+                    log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                    throw new Error("Agency Network Error no Primary Agency Insurers")
+                }
+            }
+            else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
                     insurerArray.push(agencylocationJSON.insurers[i].insurerId)
                 }
             }
             else {
-                log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                log.error(`Data problem prevented getting App agency location insurers for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                throw new Error(`Agency setup error Agency Location ${applicationDocDB.agencyLocationId} Not Found in database or does not have Insurers setup`)
             }
         }
         else {
+            log.error(`Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
