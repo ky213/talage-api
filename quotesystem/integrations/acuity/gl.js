@@ -63,11 +63,6 @@ module.exports = class AcuityGL extends Integration {
         // They are likely that they are hard-coded in below somewhere
         const skipQuestions = [1036, 1037];
 
-        // Check Industry Code Support
-        if (!this.industry_code.cgl) {
-            log.error(`Acuity (application ${this.app.id}): CGL not set for Industry Code ${this.industry_code.id} ${__location}`);
-            return this.return_result('autodeclined');
-        }
 
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
@@ -260,7 +255,7 @@ module.exports = class AcuityGL extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'Insured');
 
         if (!this.industry_code.attributes.acuityNAICSCode) {
-            log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for CGL code ${this.industry_code.cgl} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for industry code ${this.industry_code.id} ${__location}`);
             return this.return_result('autodeclined');
         }
         // <BusinessInfo>
