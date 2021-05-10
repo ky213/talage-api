@@ -53,10 +53,10 @@ module.exports = class CompwestWC extends Integration {
             guideWireAPI = false;
         }
         //prevent new API use in Production
-        if (this.insurer.useSandbox) {
+        if (!this.insurer.useSandbox) {
             guideWireAPI = false;
         }
-
+        log.debug(`guideWireAPI: ${guideWireAPI}` + __location);
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
         this.possible_api_responses.QUOTED = 'quoted';
@@ -110,8 +110,7 @@ module.exports = class CompwestWC extends Integration {
         //************************* create XML ************************************ */
         // Build the XML Request
 
-        const quoteRequest = true
-        const requestACORD = await this.createRequestXML(this.request_id, quoteRequest, guideWireAPI)
+        const requestACORD = await this.createRequestXML(this.request_id, guideWireAPI)
 
         // Get the XML structure as a string
         const xml = requestACORD.end({pretty: true});
@@ -339,7 +338,7 @@ module.exports = class CompwestWC extends Integration {
     }
 
 
-    async createRequestXML(request_id, isGuideWireAPI = true){
+    async createRequestXML(request_id, guideWireAPI){
         const appDoc = this.app.applicationDocData
 
         // These are the limits supported by AF Group - checked earlier.
@@ -355,7 +354,7 @@ module.exports = class CompwestWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             //updates
             // need to take corporation_type into account for
             // nonprofits.
@@ -387,7 +386,7 @@ module.exports = class CompwestWC extends Integration {
 
           // <ACORD>
         const requestACORD = builder.create('ACORD');
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
             requestACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
         }
@@ -418,7 +417,7 @@ module.exports = class CompwestWC extends Integration {
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             const txnDate = moment();
             WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
         }
@@ -428,7 +427,7 @@ module.exports = class CompwestWC extends Integration {
         // <ItemIdInfo>
         const ItemIdInfo = Producer.ele('ItemIdInfo');
         let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
         }
         ItemIdInfo.ele('AgencyId', agencyCode);
@@ -493,7 +492,7 @@ module.exports = class CompwestWC extends Integration {
         Addr.ele('StateProvCd', this.app.business.mailing_territory);
         Addr.ele('PostalCode', this.app.business.mailing_zip);
 
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             Addr.ele('CountryCd', 'US');
         }
         else {
@@ -606,7 +605,7 @@ module.exports = class CompwestWC extends Integration {
                 DBAAddr.ele('City', this.app.business.mailing_city);
                 DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
                 DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
-                if(isGuideWireAPI === true){
+                if(guideWireAPI === true){
                     DBAAddr.ele('CountryCd', 'US');
                 }
                 else {
@@ -667,8 +666,10 @@ module.exports = class CompwestWC extends Integration {
                         // From AF : If we have a Classcode(RatingClassificationCd) and Classcode Indiator(RatingClassificationSubCd),
                         // we don’t expect to see ClassCodeQuestions node within
                         // Handle class specific questions
-                        //if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
-                        if(true){
+                        log.debug('')
+                        log.debug(`!classCode ${classCode} || !subCode ${subCode}) && guideWireAPI ${guideWireAPI} === true || guideWireAPI === false`)
+                        //if((classCode || subCode) && guideWireAPI === false || guideWireAPI === true){
+
                             // eslint-disable-next-line prefer-const
                             let ClassCodeQuestions = null;
                             //get insurerActivityCode doc.
@@ -677,6 +678,8 @@ module.exports = class CompwestWC extends Integration {
                                 insurerId: this.insurer.id,
                                 code: classCode,
                                 sub: subCode,
+                                effectiveDate: {$lte: this.policy.effective_date},
+                                expirationDate: {$gte: this.policy.effective_date},
                                 territoryList: location.territory,
                                 active: true
                             }
@@ -704,31 +707,35 @@ module.exports = class CompwestWC extends Integration {
                                 if(insurerQuestionIdList.length > 0){
                                         const query = {
                                         "insurerId": this.insurer.id,
-                                        "insurerQuestionId": {$in: insurerQuestionIdList}
+                                        "insurerQuestionId": {$in: insurerQuestionIdList},
+                                        effectiveDate: {$lte: this.policy.effective_date},
+                                        expirationDate: {$gte: this.policy.effective_date}
                                     }
                                     const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
                                     let insurerQuestionList = null;
                                     try{
                                         insurerQuestionList = await InsurerQuestionModel.find(query);
+                                        if(insurerQuestionList){
+                                            insurerQuestionList.forEach((insurerQuestion) => {
+                                                talageQuestionList.push(insurerQuestion.talageQuestionId);
+                                            });
+                                        }
                                     }
                                     catch(err){
                                         throw err
                                     }
-                                    insurerQuestionList.forEach((insurerQuestion) => {
-                                        talageQuestionList.push(insurerQuestion.talageQuestionId);
-                                    });
                                 }
 
                                 talageQuestionList.forEach((talageQuestionId) => {
                                     const question = this.questions[talageQuestionId];
                                     if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
-                                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
+                                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
                                         return;
                                     }
                                     //const question_attributes = question.attributes;
                                     const question_attributes = this.question_details[talageQuestionId].attributes;
-                                    log.debug(`Compwest WC calling processActivtyCodeQuestion`);
-                                    this.processActivtyCodeQuestion(ClassCodeQuestions,isGuideWireAPI, WorkCompRateClass,
+                                    log.debug(`${this.insurer.name} WC calling processActivtyCodeQuestion`);
+                                    this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
                                         classCode, subCode, talageQuestionId, question, question_attributes);
 
                                 });
@@ -736,7 +743,7 @@ module.exports = class CompwestWC extends Integration {
                             catch(err){
                                 log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
                             }
-                        }//have classcode and sub
+                       // }//have classcode and sub
                         // </WorkCompRateClass>
                     }
                 }
@@ -825,7 +832,7 @@ module.exports = class CompwestWC extends Integration {
 
                         //Detemine QuestionCd
                         let questionCdValue = null;
-                        if(isGuideWireAPI === true){
+                        if(guideWireAPI === true){
                             questionCdValue = this.question_details[questionId].attributes.questionCd;
                         }
                         else {
@@ -838,7 +845,7 @@ module.exports = class CompwestWC extends Integration {
                             QuestionAnswer.ele('QuestionCd', questionCdValue);
                             QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
-                             if(isGuideWireAPI === true && answerBoolean){
+                             if(guideWireAPI === true && answerBoolean){
                                 const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
                                 for (const childQuestionId in this.questions) {
                                     const childTalageQuestion = this.questions[childQuestionId]
@@ -885,7 +892,7 @@ module.exports = class CompwestWC extends Integration {
 
 
     processActivtyCodeQuestion(ClassCodeQuestions, guideWireAPI, WorkCompRateClass, classCode, subCode, question_id, question, question_attributes){
-
+    log.debug('Adding Activity Code questions ' + __location)
     let ClassCodeQuestion = null;
     //Determine QuestionCd or questionId
     let addNode = false;
@@ -909,7 +916,7 @@ module.exports = class CompwestWC extends Integration {
             }
         }
         else if(!question_attributes.parentQuestionId){
-            log.error(`AF - Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
         }
         if(publicId){
             if(!ClassCodeQuestions){
@@ -920,7 +927,8 @@ module.exports = class CompwestWC extends Integration {
             addNode = true;
         }
         else if(!question_attributes.parentQuestionId){
-            log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Did not find PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            //TODO Throw Error?
         }
     }
     else if(question_attributes.code){

@@ -1,7 +1,3 @@
-'use strict';
-
-
-const DatabaseObject = require('./DatabaseObject.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -10,15 +6,15 @@ var InsurerPolicyTypeModel = require('mongoose').model('InsurerPolicyType');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
-const tableName = 'clw_talage_insurer_policy_types'
-const skipCheckRequired = false;
+const collectionName = 'insurerPolicyTypes'
+
 module.exports = class InsurerPolicyTypeBO{
 
     #dbTableORM = null;
 
     constructor(){
-        this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        this.id = '';
+
     }
 
     /**
@@ -31,14 +27,14 @@ module.exports = class InsurerPolicyTypeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
 
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -67,7 +63,7 @@ module.exports = class InsurerPolicyTypeBO{
             //validate
             if(id && id > 0){
                 await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting  ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -379,127 +375,6 @@ module.exports = class InsurerPolicyTypeBO{
                 reject(new Error('no id supplied'))
             }
         });
-    }
-
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "insurer": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "policy_type": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
-    },
-    "api_support": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "wheelhouse_support": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "slug": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "acord_support": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    // eslint-disable-next-line no-shadow
-    constructor(tableName){
-        super(tableName, properties);
     }
 
 }

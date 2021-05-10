@@ -20,7 +20,6 @@ const InsurerQuestionSchema = new Schema({
     systemId: {type: Number},
     insurerId: {type: Number},
     talageQuestionId: {type: Number},
-    policyType: {type: String, required: false, default: null},
     policyTypeList: {type: [String], required: false, default: []},
     universal: {type: Boolean, default: false},
     text: {type: String, required: false},
