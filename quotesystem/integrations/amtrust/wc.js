@@ -350,10 +350,6 @@ module.exports = class AcuityWC extends Integration {
             log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
             if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
                 && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
-                //return this.client_declined("The EIN is blocked");
-                if (!this.insurer.useSandbox) {
-                    return this.client_declined("The EIN is blocked by earlier submission.");
-                }
                 useQuotePut_OldQuoteId = true;
                 log.debug(`**************************************************************`)
                 log.debug(`**************************************************************`)
@@ -562,7 +558,7 @@ module.exports = class AcuityWC extends Integration {
             this.number = quoteId;
         }
         else {
-           quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
+            quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
         }
 
         // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
