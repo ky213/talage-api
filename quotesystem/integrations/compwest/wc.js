@@ -110,8 +110,7 @@ module.exports = class CompwestWC extends Integration {
         //************************* create XML ************************************ */
         // Build the XML Request
 
-        const quoteRequest = true
-        const requestACORD = await this.createRequestXML(this.request_id, quoteRequest, guideWireAPI)
+        const requestACORD = await this.createRequestXML(this.request_id, guideWireAPI)
 
         // Get the XML structure as a string
         const xml = requestACORD.end({pretty: true});
@@ -339,7 +338,7 @@ module.exports = class CompwestWC extends Integration {
     }
 
 
-    async createRequestXML(request_id, guideWireAPI = true){
+    async createRequestXML(request_id, guideWireAPI){
         const appDoc = this.app.applicationDocData
 
         // These are the limits supported by AF Group - checked earlier.
