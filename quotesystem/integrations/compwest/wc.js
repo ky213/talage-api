@@ -916,7 +916,7 @@ module.exports = class CompwestWC extends Integration {
             }
         }
         else if(!question_attributes.parentQuestionId){
-            log.error(`AF - Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
         }
         if(publicId){
             if(!ClassCodeQuestions){
@@ -927,7 +927,7 @@ module.exports = class CompwestWC extends Integration {
             addNode = true;
         }
         else if(!question_attributes.parentQuestionId){
-            log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
             //TODO Throw Error?
         }
     }
