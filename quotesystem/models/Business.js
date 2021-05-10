@@ -155,7 +155,7 @@ module.exports = class Business {
             //backward compatible for integration code.
             this.zip = applicationDocJSON.mailingZipcode;
             this.mailing_zip = applicationDocJSON.mailingZipcode;
-            if(this.mailing_zip.length > 5){
+            if(this.mailing_zip && this.mailing_zip.length > 5){
                 this.mailing_zip = this.mailing_zip.substring(0,4);
             }
             this.mailing_territory = applicationDocJSON.mailingState;
