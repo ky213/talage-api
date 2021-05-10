@@ -927,7 +927,7 @@ module.exports = class CompwestWC extends Integration {
             addNode = true;
         }
         else if(!question_attributes.parentQuestionId){
-            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Did not file PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Did not find PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
             //TODO Throw Error?
         }
     }
