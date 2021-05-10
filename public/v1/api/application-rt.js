@@ -87,6 +87,7 @@ async function applicationSave(req, res, next) {
 
     //Insert checks
     if (!req.body.applicationId) {
+        log.debug(`API Saving new application`);
         //Required fields for an insert.
         // eslint-disable-next-line array-element-newline
         const requiredPropertyList = ["agencyId", "businessName"];
@@ -121,6 +122,7 @@ async function applicationSave(req, res, next) {
 
         //if agencyLocationId is not sent for insert get primary
         if (!req.body.agencyLocationId) {
+            log.info(`API AppSave setting agencyLocationId to primary ` + __location);
             const agencyLocationBO = new AgencyLocationBO();
             const locationPrimaryJSON = await agencyLocationBO.
                 getByAgencyPrimary(req.body.agencyId).
@@ -135,6 +137,7 @@ async function applicationSave(req, res, next) {
         }
     }
     else {
+        // Need to now if we get locations for the first thiem
         //get application and valid agency
         // check JWT has access to this application.
         const rightsToApp = await isAuthForApplication(req, req.body.applicationId);
@@ -288,7 +291,7 @@ async function applicationSave(req, res, next) {
 
 
 async function applicationLocationSave(req, res, next) {
-    log.debug("Application Post: " + JSON.stringify(req.body));
+    log.debug("Application Location Post: " + JSON.stringify(req.body));
     if (!req.body || typeof req.body !== "object") {
         log.error("Bad Request: No data received " + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
@@ -316,6 +319,9 @@ async function applicationLocationSave(req, res, next) {
         applicationDB = await applicationBO.getById(req.body.applicationId);
         if (!applicationDB) {
             return next(serverHelper.requestError("Not Found"));
+        }
+        if(applicationDB.agencyLocationId){
+            log.debug(`applicationLocationSave  - app load - applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
         }
     }
     catch (err) {
@@ -372,15 +378,30 @@ async function applicationLocationSave(req, res, next) {
                 }
                 applicationDB.locations.push(reqLocation)
             }
+
             const updateMysql = false;
+            //updateMongo seems to wipping out the appid sent
+            if(applicationDB.agencyLocationId){
+                log.debug(`applicationLocationSave applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
+            }
+
+            const appId = applicationDB.applicationId
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
                 applicationDB,
                 updateMysql);
+
+            //Check/select Agencylocation Choice with new location
+            log.debug('applicationDB.applicationId ' + appId + __location)
+            const resp = await applicationBO.setAgencyLocation(appId)
+            if(resp !== true){
+                log.error(`applicationLocationSave Error: setAgencyLocation: ${resp} for appId ${appId} ` + __location);
+                throw new Error(`Application Error: setAgencyLocation: ${resp}`);
+            }
         }
     }
     catch (err) {
         //mongoose parse errors will end up there.
-        log.error("Error saving application " + err + __location);
+        log.error("Error saving application Location " + err + __location);
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
@@ -505,17 +526,23 @@ async function getApplication(req, res, next) {
 
 async function GetQuestions(req, res, next){
 
-    const rightsToApp = await isAuthForApplication(req, req.params.id)
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
     if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     // insurers is optional
 
-
-    // Set questionSubjectArea (default to "general" if not specified
+    // Set questionSubjectArea (default to "general" if not specified)
     let questionSubjectArea = "general";
     if (req.query.questionSubjectArea) {
         questionSubjectArea = req.query.questionSubjectArea;
+    }
+
+    let activityCodeList = [];
+    if (req.query.activityCodeList) {
+        activityCodeList = req.query.activityCodeList;
     }
 
     let stateList = [];
@@ -537,7 +564,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck);
+        getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -546,6 +573,7 @@ async function GetQuestions(req, res, next){
     }
 
     if(!getQuestionsResult){
+        log.error(`No response from GetQuestions:  appId ${appId} ${JSON.stringify(getQuestionsResult)}` + __location);
         return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 
@@ -573,6 +601,7 @@ async function validate(req, res, next) {
     const id = req.body.applicationId;
     const rightsToApp = await isAuthForApplication(req, id)
     if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${id}` + __location);
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
@@ -587,6 +616,7 @@ async function validate(req, res, next) {
         return next(error);
     }
     if (!applicationDB) {
+        log.warn(`Application not found appId ${id}` + __location);
         return next(serverHelper.requestError('Not Found'));
     }
 
@@ -610,7 +640,7 @@ async function validate(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        log.error('Application Validation ' + errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -668,6 +698,8 @@ async function startQuoting(req, res, next) {
         return next(serverHelper.requestError('Cannot Requote Application'));
     }
 
+    // TODO Check/select Agencylocation Choice.
+
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
 
@@ -694,7 +726,7 @@ async function startQuoting(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${applicationId}: ${err.message}`;
-        log.error(errMessage + __location);
+        log.error('Application Validation ' + errMessage + __location);
         res.send(400, errMessage);
         return next();
     }

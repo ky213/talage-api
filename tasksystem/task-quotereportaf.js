@@ -129,10 +129,10 @@ var quoteReportTask = async function(){
                     const applicationBO = new ApplicationBO();
                     try{
 
-                        lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+                        lastAppDoc = await applicationBO.getById(quoteDoc.applicationId);
                     }
                     catch(err){
-                        log.error("abandonquotetask getting appid list error " + err + __location);
+                        log.error("quotereportAF task getting appid list error " + err + __location);
                         throw err;
                     }
                 }
@@ -146,6 +146,7 @@ var quoteReportTask = async function(){
                 newRow.name = insurer.name;
                 if(lastAppDoc){
                     newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
+                    newRow.businessName = lastAppDoc.businessName;
                 }
                 else {
                     newRow.network = "App Deleted"
@@ -156,7 +157,7 @@ var quoteReportTask = async function(){
                 newRow.api_result = quoteDoc.apiResult;
                 newRow.reasons = quoteDoc.reasons;
                 newRow.seconds = quoteDoc.quoteTimeSeconds;
-                newRow.businessName = lastAppDoc.businessName;
+
 
                 //Agency Name
                 if(lastAppDoc.agencyId){

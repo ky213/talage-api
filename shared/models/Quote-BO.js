@@ -123,9 +123,14 @@ module.exports = class QuoteBO {
         }
     }
 
-    getList(queryJSON, getOptions = null) {
+    getList(requestQueryJSON, getOptions = null) {
         return new Promise(async(resolve, reject) => {
-            //
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
             // eslint-disable-next-line prefer-const
             let getListOptions = {getInsurerName: false}
 

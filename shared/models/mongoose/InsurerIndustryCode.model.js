@@ -25,8 +25,7 @@ const InsurerTerritoryQuestionSchema = new Schema({
 const InsurerIndustryCodeSchema = new Schema({
     insurerIndustryCodeId: {type: String, required: [true, 'insurerIndustryCodeId required'], unique: true},
     insurerId: {type: Number},
-    policyType: {type: String, required: false, default: null},
-    policyTypeList: [String],
+    policyTypeList: {type: [String], required: false, default: []},
     type: {type: String, required: false},
     code: {type: String, required: false},
     description: {type: String, required: false},
@@ -37,7 +36,6 @@ const InsurerIndustryCodeSchema = new Schema({
     talageIndustryCodeIdList: [Number],
     insurerQuestionIdList: [String],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
-    oldSystemIdList: [Number],
     active: {type: Boolean, default: true}
 },opts)
 

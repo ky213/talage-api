@@ -11,31 +11,13 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 exports.process = async function(requestJSON) {
 
-    // move to business and contact info
-    // to businessInfo
-    //Clean inputs
-    //look up application ID by quote
-    if (requestJSON.quotes) {
-        requestJSON.quotes = JSON.parse(requestJSON.quotes);
-        const sql = `select id, application from clw_talage_quotes where id = ${requestJSON.quotes[0].quote}`
-        log.debug(sql + __location)
-        let rejected = null;
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
-            rejected = true;
-        });
-        if (rejected) {
-            return false;
+    try{
+        if(typeof requestJSON.quotes === 'string'){
+            requestJSON.quotes = JSON.parse(requestJSON.quotes)
         }
-        try {
-            log.debug('setting appicationid from quote ' + __location)
-            log.debug('quote record ' + JSON.stringify(result[0]));
-            requestJSON.id = result[0].application;
-        }
-        catch (e) {
-            log.error(e + __location)
-        }
+    }
+    catch(err){
+        log.error(`bindrequest parser ${err} requestJSON${JSON.stringify(requestJSON)}  ` + __location)
     }
 
     //	$additionalInsured = $_POST['additionalInsured'] === 'false' ? 0 : ($_POST['additionalInsured'] === 'true' ? 1 : null);
@@ -50,6 +32,6 @@ exports.process = async function(requestJSON) {
         delete requestJSON.waiverOfSubrogation
     }
 
-    log.debug("bindRequest parser requestJSON: " + JSON.stringify(requestJSON));
+    log.info("bindRequest AF parser requestJSON: " + JSON.stringify(requestJSON));
     return true;
 }

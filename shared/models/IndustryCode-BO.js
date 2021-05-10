@@ -97,6 +97,7 @@ module.exports = class IndustryCodeBO{
 
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
+            //log.debug(`Industrycode Get List ${JSON.stringify(queryJSON)} ` + __location)
             let rejected = false;
             let findCount = false;
             // Create the update query
@@ -123,7 +124,6 @@ module.exports = class IndustryCodeBO{
                     if(Array.isArray(queryJSON.industryCodeId)){
                         queryIdList = queryJSON.industryCodeId.join(",");
                     }
-
                     sqlWhere += ` id IN (${queryIdList}) `;
                 }
                 if(queryJSON.activityCode) {
@@ -177,7 +177,7 @@ module.exports = class IndustryCodeBO{
 
             if (findCount === false) {
                 // Run the query
-                //log.debug("IndustryCodeBO getlist sql: " + sqlWhere);
+                //log.debug("IndustryCodeBO getlist sql: " + sqlSelect + sqlWhere);
                 // Run the query
                 const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
                     rejected = true;

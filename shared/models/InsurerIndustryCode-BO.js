@@ -57,11 +57,12 @@ module.exports = class InsurerIndustryCodeBO{
         });
     }
 
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            if(!queryJSON){
-                queryJSON = {};
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
             }
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
 
             const queryProjection = {"__v": 0}
 

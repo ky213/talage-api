@@ -162,6 +162,7 @@ const ApplicationSchema = new Schema({
     agencyNetworkId: {type: Number, required: true},
     agencyId: {type: Number, required: true},
     agencyLocationId: {type: Number, default: 0},
+    lockAgencyLocationId: {type: Boolean, default: false},
     appStatusId: {type: Number, required: true, default: 0},
     lastStep: {type: Number, default: 0},
     progress: {type: String, default: "unknown"},
@@ -227,7 +228,8 @@ const ApplicationSchema = new Schema({
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
-    handledByTalage: {type: Boolean, default: false}
+    handledByTalage: {type: Boolean, default: false},
+    copiedFromAppId: {type: String, required: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 
@@ -314,11 +316,11 @@ function populateActivityCodePayroll(schema) {
     if (application.hasOwnProperty("locations")) {
         const activityCodesPayrollSumList = [];
         for (const location of application.locations) {
-            for (const activityCode of location.activityPayrollList) {
+            for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
                 // Find the entry for this activity code
-                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.activityCodeId === activityCode.activityCodeId);
+                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.activityCodeId === ActivtyCodeEmployeeType.activityCodeId);
                 if(!activityCodePayrollSum){
-                    activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                    activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === ActivtyCodeEmployeeType.ncciCode);
                     if(activityCodePayrollSum){
                         activityCodePayrollSum.activityCodeId = activityCodePayrollSum.ncciCode;
                     }
@@ -326,14 +328,14 @@ function populateActivityCodePayroll(schema) {
                 if (!activityCodePayrollSum) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
-                        activityCodeId: activityCode.activityCodeId,
-                        ncciCode: activityCode.activityCodeId,
+                        activityCodeId: ActivtyCodeEmployeeType.activityCodeId,
+                        ncciCode: ActivtyCodeEmployeeType.activityCodeId,
                         payroll: 0
                     };
                     activityCodesPayrollSumList.push(activityCodePayrollSum);
                 }
                 // Sum the payroll
-                activityCodePayrollSum.payroll += activityCode.payroll;
+                activityCodePayrollSum.payroll += ActivtyCodeEmployeeType.payroll;
             }
         }
         schema.set({ activityCodes: activityCodesPayrollSumList });
