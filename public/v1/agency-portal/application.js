@@ -770,6 +770,7 @@ async function applicationCopy(req, res, next) {
         catch(err){
             log.error("Error gettign userID " + err + __location);
         }
+        newApplicationDoc.copiedFromAppId = req.body.applicationId;
         newApplicationDoc.agencyPortalCreatedUser = userId
         newApplicationDoc.agencyPortalCreated = true;
         newApplicationDoc.handledByTalage = false;
@@ -797,16 +798,16 @@ async function applicationCopy(req, res, next) {
 }
 
 async function deleteObject(req, res, next) {
-    let id = stringFunctions.santizeNumber(req.params.id, true);
+    let id = req.params.id;
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    try{
-        id = parseInt(id, 10);
-    }
-    catch(err){
-        log.error("App delete object bad id error: " + error + __location);
-    }
+    // try{
+    //     id = parseInt(id, 10);
+    // }
+    // catch(err){
+    //     log.error("App delete object bad id error: " + error + __location);
+    // }
     //Deletes only by AgencyNetwork Users.
 
     const agencyNetwork = req.authentication.agencyNetworkId;
