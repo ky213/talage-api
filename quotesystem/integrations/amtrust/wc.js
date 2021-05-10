@@ -405,10 +405,9 @@ module.exports = class AcuityWC extends Integration {
 
         }
 
-
         // =========================================================================================================
         // Create the quote request
-        const quoteRequestData = {"Quote": {
+        const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
             "Fein": fein,
             "PrimaryAddress": {
@@ -451,7 +450,7 @@ module.exports = class AcuityWC extends Integration {
             if (this.app.business.locations[0].unemployment_number === 0) {
                 return this.client_error("AmTrust requires an unemployment number if located in MN, HI, RI, or ME.", __location);
             }
-            quoteRequestData.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
+            quoteRequestDataV2.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
         }
 
         // Add the rating zip if any location is in California
@@ -470,7 +469,7 @@ module.exports = class AcuityWC extends Integration {
             }
         }
         if (ratingZip) {
-            quoteRequestData.Quote.RatingZip = ratingZip;
+            quoteRequestDataV2.Quote.RatingZip = ratingZip;
         }
 
         // =========================================================================================================
@@ -494,18 +493,47 @@ module.exports = class AcuityWC extends Integration {
         const successfulStatusCodes = [200, 201];
         let createQuoteMethod = 'POST';
         let createRoute = '/api/v2/quotes'
+
+        let quoteRequestJSON = JSON.parse(JSON.stringify(quoteRequestDataV2));
         if(useQuotePut_OldQuoteId){
             log.debug(`AMTrust WC using PUT with old quoteId ${quoteId}` + __location)
             createQuoteMethod = "PUT";
             createRoute = `/api/v1/quotes/${quoteId}`
+            this.number = quoteId;
+
+            //V1 JSON
+            quoteRequestJSON = quoteRequestJSON.Quote;
+            if(quoteRequestJSON.ContactInformation && quoteRequestJSON.ContactInformation.AgentContactId){
+                delete quoteRequestJSON.ContactInformation.AgentContactId
+            }
+            if(quoteRequestJSON.MailingAddress){
+                quoteRequestJSON.MailingAddress1 = quoteRequestJSON.MailingAddress.Line1;
+                quoteRequestJSON.MailingCity = quoteRequestJSON.MailingAddress.City;
+                quoteRequestJSON.MailingState = quoteRequestJSON.MailingAddress.State;
+                quoteRequestJSON.MailingZip = quoteRequestJSON.MailingAddress.Zip;
+
+                delete quoteRequestJSON.MailingAddress;
+
+            }
+            if(quoteRequestJSON.ClassCodes){
+                quoteRequestJSON.ClassCodes.forEach((classCode) => {
+                    if(classCode.Payroll){
+                        classCode.Payroll = classCode.Payroll.toString();
+                    }
+                });
+            }
+
         }
         // Send the quote request
-        const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestData);
+        const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestJSON);
         if (!quoteResponse) {
             return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location);
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
+        if(useQuotePut_OldQuoteId){
+            statusCode = this.getChildProperty(quoteResponse, "HttpStatusCode");
+        }
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             if (quoteResponse.error) {
                 return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
@@ -522,14 +550,20 @@ module.exports = class AcuityWC extends Integration {
             return this.client_autodeclined_out_of_appetite();
         }
 
-        // Extract the quote ID
+
         if(useQuotePut_OldQuoteId === false){
-            quoteId = this.getChildProperty(quoteResponse, "Data.AccountInformation.QuoteId");
-            if (!quoteId) {
-                return this.client_error(`Could not find the quote ID in the response.`, __location);
+            // Extract the quote ID
+            if(useQuotePut_OldQuoteId === false){
+                quoteId = this.getChildProperty(quoteResponse, "Data.AccountInformation.QuoteId");
+                if (!quoteId) {
+                    return this.client_error(`Could not find the quote ID in the response.`, __location);
+                }
             }
+            this.number = quoteId;
         }
-        this.number = quoteId;
+        else {
+           quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
+        }
 
         // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
         //   Anything not in the update PUT will be deleted.  per AMtrust docs
