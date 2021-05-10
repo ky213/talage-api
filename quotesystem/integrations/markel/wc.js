@@ -1244,10 +1244,16 @@ module.exports = class MarkelWC extends Integration {
             location.activityPayrollList.forEach(activity => {
                 const fullTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Full Time");
                 const partTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Part Time");
-                const ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
+                const owners = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+                // we count owners as full time employees, so add them if they exist
+                let ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
+                ftCount += owners ? owners.employeeTypeCount : 0;
                 const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
+
                 const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
 
+                // TODO: The logic below will be changed once we get further clarification from Markel. Likely, we will not send owners if they are included
+                //       in the payroll to force a non-bindable quote, since we do not track owner information the way the expect
                 // if we find an owner, map it for later when setting owner information
                 // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records
                 //      For this integration, we will pick the class code associated with the highest payroll, 
