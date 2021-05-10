@@ -53,10 +53,10 @@ module.exports = class CompwestWC extends Integration {
             guideWireAPI = false;
         }
         //prevent new API use in Production
-        if (this.insurer.useSandbox) {
+        if (!this.insurer.useSandbox) {
             guideWireAPI = false;
         }
-
+        log.debug(`guideWireAPI: ${guideWireAPI}` + __location);
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
         this.possible_api_responses.QUOTED = 'quoted';
