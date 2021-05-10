@@ -60,37 +60,55 @@ class CompuwestBind extends Bind {
             return "error";
             //throw new Error(JSON.stringify(error));
         }
-        if (result.data && !result.data.ACORD) {
-            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Rejected: ${JSON.stringify(result.data)} ${__location}`);
-            this.quote.log += `--------======= Bind Response Declined =======--------<br><br>`;
-            this.quote.log += `Response:\n <pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
+        if (result.data && result.data.ACORD) {
+            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response no ACORD node: ${JSON.stringify(result.data)} ${__location}`);
+            log.error(result.data);
+            log.error(typeof result.data);
+            this.quote.log += `--------======= Bind Response No Acord =======--------<br><br>`;
+            this.quote.log += `Response:\n <pre>${htmlentities.encode(result.data, null, 2)}</pre><br><br>`;
             this.quote.log += "<br><br>";
             return "error";
 
         }
-        const res = result.ACORD;
+        log.debug(`typeof result.data.ACORD ${typeof result.data.ACORD}` + __location)
+        const res = result.data.ACORD;
         let status = ''
         try{
             status = res.SignonRs[0].Status[0].StatusCd[0];
         }
         catch(err){
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+            log.error(`Appid: ${this.quote.applicationId} ${this.insurer.name} WC. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
         }
 
         this.quote.log += `--------======= Bind Response =======--------<br><br>`;
-        this.quote.log += `Response:\n <pre>${JSON.stringify(res, null, 2)}</pre><br><br>`;
+        this.quote.log += `Response:\n <pre>${htmlentities.encode(res, null, 2)}</pre><br><br>`;
         this.quote.log += `--------======= End =======--------<br><br>`;
 
         //log response.
-        if(status === 'SUCCESS'){
-            ///ACORD/InsuranceSvcRs/WorkCompPolicyQuoteInqRs/com.csc_PDFContent/CommlPolicy/PolicyNumber
-            // this.policyId = employersResp.id;
-            // this.policyNumber = employersResp.policyNumber;
-            // this.policyUrl = employersResp.policyURL;
-            // // this.policyName = '';
-            // this.policyEffectiveDate = employersResp.effectiveDate;
-            // this.policyPremium = employersResp.totalPremium;
+        if(status === 'QUOTED'){
+            // Document is updated - Replace quote letter?
+            //com.afg_Base64PDF
+            try {
+                const WorkCompPolicyAddRs = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+                this.quote.quote_letter = {
+                    content_type: 'application/pdf',
+                    data: WorkCompPolicyAddRs['com.afg_Base64PDF'][0],
+                    file_name: `${this.insurer.name}_${this.policy.type}_bind_quote_letter.pdf`,
+                    length: WorkCompPolicyAddRs['com.afg_Base64PDF'][0].length
+                };
+            }
+            catch (err) {
+                log.error(`Appid: ${this.quote.applicationId} ${this.insurer.name} integration error: could not locate quote letter attachments. ${JSON.stringify(res)} ${__location}`);
+                //return this.return_result('error');
+            }
             return "success"
+        }
+        else if (status === 'REFERRALNEEDED'){
+            return "success"
+        }
+        else if (status === "ERROR"){
+            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response ERROR: ${JSON.stringify(result.data)} ${__location}`);
+            return "rejected"
         }
         else{
             //unknown response
