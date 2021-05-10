@@ -1059,6 +1059,7 @@ async function requote(req, res, next) {
 
 
     if (applicationDB.appStatusId > 60) {
+        log.warn(`Cannot Requote Application ${req.body.id}` + __location)
         return next(serverHelper.requestError('Cannot Requote Application'));
     }
 

@@ -224,7 +224,7 @@ async function runFunction() {
                 log.debug("Saved new sourceAppId " + newApplicationJSON.mysqlId + " applicationId " + newApplicationJSON.applicationId);
 
                 //run quote process
-                const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.mysqlId}/requote`;
+                const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.applicationId}/requote`;
                 const putBody = {"id": newApplicationJSON.mysqlId};
                 try{
                     const instance = axios.create();
