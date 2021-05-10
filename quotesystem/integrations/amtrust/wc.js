@@ -147,7 +147,8 @@ module.exports = class AcuityWC extends Integration {
     getOfficers(officerInformationList) {
         const officersList = [];
         for (const owner of this.app.applicationDocData.owners) {
-            const state = this.app.applicationDocData.mailingState;
+            //Need to be primary state not mailing.
+            const state = this.app.business.locations[0].state_abbr;
             let officerType = null;
             let endorsementId = null;
             let formType = null;
@@ -351,12 +352,6 @@ module.exports = class AcuityWC extends Integration {
             if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
                 && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
                 useQuotePut_OldQuoteId = true;
-                log.debug(`**************************************************************`)
-                log.debug(`**************************************************************`)
-                log.debug(`**************************************************************`)
-                log.debug(`**************************************************************`)
-                log.debug(`**************************************************************`)
-                log.debug(`FEIN is already used **************************************************************`)
             }
         }
         //find old quoteID
@@ -470,17 +465,49 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Create the additional information request
-        let additionalInformationRequestData = {};
-        if(this.app.business && this.app.business.owners[0] && this.app.business.locations[0]){
-            additionalInformationRequestData = {"AdditionalInsureds": [{
-                "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-                "TaxId": fein,
-                "State": this.app.business.locations[0].state_abbr,
-                "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
-                "DbaName": this.app.business.dba,
-                "AdditionalLocations": this.getAdditionalLocationList()
-            }]};
+        const additionalInformationRequestData = {};
+        if(this.app.business && appDoc.owners[0] && this.app.business.locations[0]){
+            //Officer may be replaced below if we get a response back from /officer-information
+            additionalInformationRequestData.Officers = [];
+            additionalInformationRequestData.AdditionalInsureds = [];
+            appDoc.owners.forEach((owner) => {
+                const officerJSON = {
+                    "Name": owner.fname + " " + owner.lname,
+                    //"EndorsementId": "WC040303C",
+                    "Type": "Officers",
+                    "State": this.app.business.locations[0].state_abbr,
+                    "OwnershipPercent": owner.ownership//,
+                    //  "FormType": owner.include  ? "I" : "E"
+                }
+                try{
+                    if(owner.DateOfBirth){
+                        owner.DateOfBirth = moment(owner.birthdate).format("MM/DD/YYYY");
+                    }
+                }
+                catch(err){
+                    log.error(`owner DateOfBirth error ${err}` + __location)
+                }
+                additionalInformationRequestData.Officers.push(officerJSON)
+                if(owner.included){
+                    const additionalInsurerJSON = {
+                        "Name": owner.fname + " " + owner.lname,
+                        "TaxId": fein,
+                        "State": this.app.business.locations[0].state_abbr,
+                        "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+                        "DbaName": this.app.business.dba,
+                        "AdditionalLocations": this.getAdditionalLocationList()
+                    };
+                    additionalInformationRequestData.AdditionalInsureds.push(additionalInsurerJSON)
+                }
 
+            });
+            // if(additionalInformationRequestData.Officers.length === 0){
+            //     additionalInformationRequestData.Officers = null;
+            // }
+
+            // if(additionalInformationRequestData.AdditionalInsureds.length === 0){
+            //     additionalInformationRequestData.AdditionalInsureds = null;
+            // }
         }
         // console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
 
@@ -647,21 +674,23 @@ module.exports = class AcuityWC extends Integration {
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
 
         // Send the additional information request
-        const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
-        if (!additionalInformationResponse) {
-            return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location);
-        }
-        // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
-        statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
-        if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-            if (additionalInformationResponse.Message) {
-                return this.client_error(additionalInformationResponse.Message, __location, {statusCode: statusCode});
+        if(additionalInformationRequestData.Officers || additionalInformationRequestData.AdditionalInsureds){
+            const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
+            if (!additionalInformationResponse) {
+                return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location);
             }
-            else if (quoteResponse.error) {
-                return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
-            }
-            else {
-                return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
+            // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
+            statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
+            if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
+                if (additionalInformationResponse.Message) {
+                    return this.client_error(additionalInformationResponse.Message, __location, {statusCode: statusCode});
+                }
+                else if (quoteResponse.error) {
+                    return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
+                }
+                else {
+                    return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
+                }
             }
         }
 
