@@ -339,7 +339,7 @@ module.exports = class CompwestWC extends Integration {
     }
 
 
-    async createRequestXML(request_id, isGuideWireAPI = true){
+    async createRequestXML(request_id, guideWireAPI = true){
         const appDoc = this.app.applicationDocData
 
         // These are the limits supported by AF Group - checked earlier.
@@ -355,7 +355,7 @@ module.exports = class CompwestWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             //updates
             // need to take corporation_type into account for
             // nonprofits.
@@ -387,7 +387,7 @@ module.exports = class CompwestWC extends Integration {
 
           // <ACORD>
         const requestACORD = builder.create('ACORD');
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
             requestACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
         }
@@ -418,7 +418,7 @@ module.exports = class CompwestWC extends Integration {
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             const txnDate = moment();
             WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
         }
@@ -428,7 +428,7 @@ module.exports = class CompwestWC extends Integration {
         // <ItemIdInfo>
         const ItemIdInfo = Producer.ele('ItemIdInfo');
         let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
         }
         ItemIdInfo.ele('AgencyId', agencyCode);
@@ -493,7 +493,7 @@ module.exports = class CompwestWC extends Integration {
         Addr.ele('StateProvCd', this.app.business.mailing_territory);
         Addr.ele('PostalCode', this.app.business.mailing_zip);
 
-        if(isGuideWireAPI === true){
+        if(guideWireAPI === true){
             Addr.ele('CountryCd', 'US');
         }
         else {
@@ -606,7 +606,7 @@ module.exports = class CompwestWC extends Integration {
                 DBAAddr.ele('City', this.app.business.mailing_city);
                 DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
                 DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
-                if(isGuideWireAPI === true){
+                if(guideWireAPI === true){
                     DBAAddr.ele('CountryCd', 'US');
                 }
                 else {
@@ -667,8 +667,7 @@ module.exports = class CompwestWC extends Integration {
                         // From AF : If we have a Classcode(RatingClassificationCd) and Classcode Indiator(RatingClassificationSubCd),
                         // we don’t expect to see ClassCodeQuestions node within
                         // Handle class specific questions
-                        //if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
-                        if(true){
+                        if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
                             // eslint-disable-next-line prefer-const
                             let ClassCodeQuestions = null;
                             //get insurerActivityCode doc.
@@ -728,7 +727,7 @@ module.exports = class CompwestWC extends Integration {
                                     //const question_attributes = question.attributes;
                                     const question_attributes = this.question_details[talageQuestionId].attributes;
                                     log.debug(`Compwest WC calling processActivtyCodeQuestion`);
-                                    this.processActivtyCodeQuestion(ClassCodeQuestions,isGuideWireAPI, WorkCompRateClass,
+                                    this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
                                         classCode, subCode, talageQuestionId, question, question_attributes);
 
                                 });
@@ -825,7 +824,7 @@ module.exports = class CompwestWC extends Integration {
 
                         //Detemine QuestionCd
                         let questionCdValue = null;
-                        if(isGuideWireAPI === true){
+                        if(guideWireAPI === true){
                             questionCdValue = this.question_details[questionId].attributes.questionCd;
                         }
                         else {
@@ -838,7 +837,7 @@ module.exports = class CompwestWC extends Integration {
                             QuestionAnswer.ele('QuestionCd', questionCdValue);
                             QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
-                             if(isGuideWireAPI === true && answerBoolean){
+                             if(guideWireAPI === true && answerBoolean){
                                 const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
                                 for (const childQuestionId in this.questions) {
                                     const childTalageQuestion = this.questions[childQuestionId]
