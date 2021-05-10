@@ -25,6 +25,31 @@ class CompuwestBind extends Bind {
             return "error";
         }
 
+
+        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
+        const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
+        let notGwAPI = false;
+        if(policy){
+            try{
+                const policyEffectiveDate = moment(policy.effectiveDate).format('YYYY-MM-DD')
+                if(policyEffectiveDate < apiSwitchOverDateDT){
+                    notGwAPI = true;
+                }
+            }
+            catch(err){
+                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error processing policy dates ${err}` + __location);
+            }
+        }
+        else {
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} missing WC policy ` + __location);
+        }
+        if(notGwAPI){
+            // only sent quotebind for GW API.
+            // return success so no error processing kick in.
+            return "success";
+        }
+
         const requestACORD = await this.createRequestXML(appDoc, this.quote.requestId)
 
         // Get the XML structure as a string

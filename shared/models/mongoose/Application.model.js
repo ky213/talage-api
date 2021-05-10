@@ -154,6 +154,15 @@ const ApplicationMetricsSchema = new Schema({
     lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
 });
 
+
+const AdditionalInsuredSchema = new Schema({
+    namedInsured: {type: String, required: false},
+    dba: {type: String, required: false},
+    entityType: {type: String, required: false},
+    ein: {type: String, required: false}
+});
+
+
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
@@ -217,7 +226,8 @@ const ApplicationSchema = new Schema({
     claims:  [claimSchema],
     activityCodes: [ActivtyCodePayrollSchema],
     grossSalesAmt: {type: Number, required: false},
-    additionalInsured: {type: String, required: false},
+    //additionalInsured: {type: String, required: false},
+    additionalInsuredList:[AdditionalInsuredSchema],
     questions: [QuestionSchema],
     legalAcceptance: legalAcceptanceSchema,
     additionalInfo: {type: Schema.Types.Mixed},

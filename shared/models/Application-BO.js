@@ -43,18 +43,13 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const convertToIntFields = [];
 
-const collectionName = 'applications';
+
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
 const QUOTE_MIN_TIMEOUT = 5;
 
 module.exports = class ApplicationModel {
-
-    #dbTableORM = null;
-    doNotSnakeCase = ['appStatusId',
-        'businessDataJSON',
-        'additionalInfo'];
 
     #applicationMongooseDB = null;
     #applicationMongooseJSON = {};
@@ -865,6 +860,14 @@ module.exports = class ApplicationModel {
 
     }
 
+
+    /**
+    * porcess Request to Bind
+    *
+    * @param {object} applicationId - claims JSON
+    * @param {object} quoteJSON - claims JSON
+    * @returns {boolean} true if processed
+    */
     async processRequestToBind(applicationId, quoteJSON){
         if(!applicationId || !quoteJSON){
             log.error("processRequestToBind missing inputs" + __location)
@@ -917,6 +920,14 @@ module.exports = class ApplicationModel {
                 const quoteBind = new QuoteBind();
                 await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
                 await quoteBind.send_slack_notification("requested");
+
+                //AF special processing of Bind to Send DBA and additionalInsurered
+                let afInsurerList = [12,15];
+                if(applicationMongoDoc.agencyNetworkId === 2 && afInsurerList.indexOf(quote.insurerId) > -1){
+                    //need to check policy effective inside of the bind
+                    // NOT a true bind, just a submission update.
+                    await quoteBind.bindPolicy();
+                }
             }
             catch(err){
                 log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
@@ -2447,7 +2458,7 @@ module.exports = class ApplicationModel {
         // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
         // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
         // need to trace calls.
-        // We probably should not be allow in the client to override the Application Data here.  At least, not in 
+        // We probably should not be allow in the client to override the Application Data here.  At least, not in
         // all requests.   "location" pre save override is probably OK.
         if(questionSubjectArea === "location" && locationId){
             //Get question just that location's activity codes which may be a subset of appDoc.activityCodes
