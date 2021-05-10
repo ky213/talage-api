@@ -165,7 +165,7 @@ module.exports = class ApplicationModel {
                 }
                 // //Check that it is too old (1 hours) from creation
                 const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-                if (this.createdAt && bypassAgeCheck === false) {
+                if (this.applicationDoc.createdAt && bypassAgeCheck === false) {
                     const dbCreated = moment(this.applicationDoc.createdAt);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
