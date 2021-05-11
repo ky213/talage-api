@@ -681,8 +681,6 @@ module.exports = class MarkelWC extends Integration {
         let path = '';
         let key = '';
 
-        const appDoc = this.app.applicationDocData
-
         //Determine API
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.markelcorp.com';
@@ -694,6 +692,9 @@ module.exports = class MarkelWC extends Integration {
             path = '/smallCommercial/v1/wc';
             key = {'apikey': `${this.password}`};
         }
+
+        // see owner hydration code below for an explanation of why this is done
+        const canSendOwners = applicationDocData.owners.length < 2;
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.Declined = 'declined';
@@ -1224,9 +1225,8 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        let totalOwnerPayroll = 0;
+        let ownerPayroll = 0;
         let ownerClassCode = null;
-        let highestPayroll = 0;
 
         // Populate the location list
         const locationList = [];
@@ -1251,22 +1251,20 @@ module.exports = class MarkelWC extends Integration {
                 const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
 
                 const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
-
-                // TODO: The logic below will be changed once we get further clarification from Markel. Likely, we will not send owners if they are included
-                //       in the payroll to force a non-bindable quote, since we do not track owner information the way the expect
-                // if we find an owner, map it for later when setting owner information
-                // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records
-                //      For this integration, we will pick the class code associated with the highest payroll, 
-                //      and divide the payroll by the number of owners, for each owner
+                
+                // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records.
+                //       In cases where there is only 1 owner, we can safely assume that the existing owner activity and payroll link to
+                //       the named owner entered in the owner information section of the application. In cases where there are more than 2 owners,
+                //       whether they belong to the same activity or not, we can not accurately and safely assign the owner entry to the owner record in payroll.
+                //       Therefore, in cases where there are 2 or more owners, we will NOT send owner information in the request, 
+                //       which will result in a non-bindable quote (via API).
                 const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
-                if (owner) {
-                    const payroll = parseInt(owner.employeeTypePayroll, 10);
-                    totalOwnerPayroll += payroll;
 
-                    if (payroll > highestPayroll) {
-                        ownerClassCode = classCode;
-                        highestPayroll = payroll;
-                    }
+                // if we find an owner, map it for later when setting owner information
+                // NOTE: this will be overwritten if there are multiple owner records, but we don't care because we won't send owner information in that case
+                if (owner) {
+                    ownerPayroll = parseInt(owner.employeeTypePayroll, 10);
+                    ownerClassCode = classCode;
                 }
 
                 locationObj["Payroll Section"].push({
@@ -1289,18 +1287,24 @@ module.exports = class MarkelWC extends Integration {
 
         // Populate the owner / officer information section
         const ownerOfficerInformationSection = [];
-        const totalOwners = applicationDocData.owners.length;
-        applicationDocData.owners.forEach(owner => {
-            ownerOfficerInformationSection.push({
-                "Owner First Name": owner.fname,
-                "Owner Last Name": owner.lname,
-                "Owner Title": ownerTitleMatrix[owner.officerTitle],
-                "Owner Ownership": owner.ownership,
-                "Owner Class": ownerClassCode ? ownerClassCode : ``,
-                "Owner Payroll": Math.round(totalOwnerPayroll / totalOwners),
-                "Owner Include": owner.include ? 'Yes' : 'No'
+
+        // NOTE: We can only send owners if we have 1 owner. More than one and we are not able to provide accurate information for each owner's
+        //       payroll and class (activity) code. Even if the owner's are electing to not be covered, the data structure still expects payroll and 
+        //       class code to be provided, which is why regardless of whether they are included or not, we will only send if there is 1 owner
+        if (canSendOwners) {
+            applicationDocData.owners.forEach(owner => {
+                ownerOfficerInformationSection.push({
+                    "Owner First Name": owner.fname,
+                    "Owner Last Name": owner.lname,
+                    "Owner Title": ownerTitleMatrix[owner.officerTitle],
+                    "Owner Ownership": owner.ownership,
+                    "Owner Class": ownerClassCode ? ownerClassCode : ``,
+                    "Owner Payroll": ownerPayroll,
+                    "Owner Include": owner.include ? 'Yes' : 'No'
+                });
             });
-        });
+        }
+        
         
         if(!markelLimits){
             log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
@@ -1322,7 +1326,7 @@ module.exports = class MarkelWC extends Integration {
                     name: this.app.business.name,
                     dba: this.app.business.dba,
                     website: this.app.business.website,
-                    fein: appDoc.ein,
+                    fein: applicationDocData.ein,
                     postalCode: this.app.business.mailing_zipcode,
                     state: this.app.business.mailing_territory
                 },
