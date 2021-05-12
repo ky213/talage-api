@@ -243,13 +243,13 @@ class CompuwestBind extends Bind {
             // </NameInfo>
             // <Addr>
             const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
-            DBAAddr.ele('Addr1', appDoc.mailing_address);
-            if (appDoc.mailing_address2) {
-                DBAAddr.ele('Addr2', appDoc.mailing_address2);
+            DBAAddr.ele('Addr1', appDoc.mailingAddress);
+            if (appDoc.mailingAddress2) {
+                DBAAddr.ele('Addr2', appDoc.mailingAddress2);
             }
-            DBAAddr.ele('City', appDoc.mailing_city);
-            DBAAddr.ele('StateProvCd', appDoc.mailing_territory);
-            DBAAddr.ele('PostalCode', appDoc.mailing_zip);
+            DBAAddr.ele('City', appDoc.mailingCity);
+            DBAAddr.ele('StateProvCd', appDoc.mailingState);
+            DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
             if(isGuideWireAPI === true){
                 DBAAddr.ele('CountryCd', 'US');
             }
@@ -262,6 +262,137 @@ class CompuwestBind extends Bind {
             DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
             // </AdditionalInterestInfo>
         }
+        let additionalInsureredCount = 0;
+        if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
+            appDoc.additionalInsuredList.forEach((additionalInsured) =>{
+                const addInsuredAdditionalInterest = Location.ele('AdditionalInterest');
+                additionalInsureredCount++;
+                addInsuredAdditionalInterest.att('id', 'i' + additionalInsureredCount.toString());
+                // <GeneralPartyInfo>
+                const DBAGeneralPartyInfo = addInsuredAdditionalInterest.ele('GeneralPartyInfo');
+                // <NameInfo>
+                const nameInsuredNameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
+                CommlNameAddInfo.ele('CommercialName', appDoc.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
+                const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
+                let taxIdType = 'FEIN';
+                if(additionalInsured.entityType === "Sole Proprietorship"){
+                    taxIdType = 'SSN';
+                }
+                CommlNameAddInfo.ele('Type',taxIdType === 'FEIN' ? "Company" : "Person");
+                DBATaxIdentity.ele('TaxIdTypeCd', taxIdType);
+                DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                nameInsuredNameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
+                // </NameInfo>
+                // <Addr>
+                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                DBAAddr.ele('Addr1', appDoc.mailingAddress);
+                if (appDoc.mailingAddress2) {
+                    DBAAddr.ele('Addr2', appDoc.mailingAddress2);
+                }
+                DBAAddr.ele('City', appDoc.mailingCity);
+                DBAAddr.ele('StateProvCd', appDoc.mailingState);
+                DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
+                if(isGuideWireAPI === true){
+                    DBAAddr.ele('CountryCd', 'US');
+                }
+                else {
+                    DBAAddr.ele('CountryCd', 'USA');
+                }
+                // </Addr>
+                // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                addInsuredAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'NI');
+                // </AdditionalInterestInfo>
+            });
+        }
+        //Owners
+         if (appDoc.owners && appDoc.owners.length > 0){
+            for(const owner of appDoc.owners){
+            //appDoc.owners.forEach((owner) =>{
+                const addInsuredAdditionalInterest = Location.ele('AdditionalInterest');
+                additionalInsureredCount++;
+                addInsuredAdditionalInterest.att('id', 'i' + additionalInsureredCount.toString());
+                // <GeneralPartyInfo>
+                const DBAGeneralPartyInfo = addInsuredAdditionalInterest.ele('GeneralPartyInfo');
+                // <NameInfo>
+                const nameInsuredNameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
+                CommlNameAddInfo.ele('CommercialName', `${owner.fname}  ${owner.lname}`);
+                CommlNameAddInfo.ele('Type',"Person");
+                
+                // const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
+                
+                // DBATaxIdentity.ele('TaxIdTypeCd', 'SSN');
+                // DBATaxIdentity.ele('TaxCd',owner.ein);
+                nameInsuredNameInfo.ele('LegalEntityCd', 'Individual');
+                // </NameInfo>
+                // <Addr>
+                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                DBAAddr.ele('Addr1', appDoc.mailingAddress);
+                if (appDoc.mailingAddress2) {
+                    DBAAddr.ele('Addr2', appDoc.mailingAddress2);
+                }
+                DBAAddr.ele('City', appDoc.mailingCity);
+                DBAAddr.ele('StateProvCd', appDoc.mailingState);
+                DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
+                if(isGuideWireAPI === true){
+                    DBAAddr.ele('CountryCd', 'US');
+                }
+                else {
+                    DBAAddr.ele('CountryCd', 'USA');
+                }
+                // </Addr>
+                // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                const AdditionalInterestInfo =  addInsuredAdditionalInterest.ele('AdditionalInterestInfo')
+                AdditionalInterestInfo.ele('NatureInterestCd', owner.include ? 'I' : 'E');
+                
+                if(owner.ownership > 0){
+                    const OwnershipPct =  addInsuredAdditionalInterest.ele('OwnershipPct')
+                    const NumericValueNode =  OwnershipPct.ele('NumericValue');
+                    NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
+                }
+
+                //Can only tie ActivityCode and payroll to Named Insured if there is one owner.
+                if(owner.include && appDoc.owners.length === 1){
+                    if(appDoc.locations && appDoc.locations.length > 0){
+                        for (const location of application.locations) {
+                            for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
+                                // Find the entry for this activity code
+                                let ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.find((acs) => acs.employeeType === "Owner" && employeeTypeCount === 1);
+                                if(ActivityCodeEmployeeTypeEntry){
+                                    const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                                    ActualRemunerationAmt.ele('Amt', ActivityCodeEmployeeTypeEntry.employeeTypePayroll);
+                                    //look up AF/C
+                                    const iAC_Query = {
+                                        insurerId: this.quote.insurerId,
+                                        talageActivityCodeIdList: ActivtyCodeEmployeeTypeSchema.activityCodeId,
+                                        territoryList: appDoc.mailingState
+                                    }
+                                    const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
+                                    try{
+                                        iacDocList = await InsurerActivityCodeBO.find(iAC_Query);
+                                        if(iacDocList && iacDocList.length === 1){
+                                            AdditionalInterestInfo.ele('ClassCD',iacDocList[0].code)
+                                        }
+                                        else if(iacDocList && iacDocList.length > 1){
+                                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC multiple hits ${iAC_Query} ` + __location);
+                                        }
+                                        else {
+                                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC no hits ${iAC_Query} ` + __location);
+                                        }
+                                    }
+                                    catch(err){
+                                        log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC ${err} ` + __location);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
 
 
         // <WorkCompLineBusiness>

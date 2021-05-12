@@ -386,6 +386,19 @@ module.exports = class ApplicationModel {
                     if (applicationJSON.quotes) {
                         applicationJSON.progress = 'complete';
                         applicationJSON.appStatusId = this.applicationDoc.appStatusId;
+                        if(applicationJSON.additionalInsured === true){
+                            applicationJSON.additionalInsuredList = [];
+                            const additionalInsuredJSON = {
+                                namedInsured: applicationJSON.additionalNamedInsuredName,
+                                dba: applicationJSON.additionalNamedInsuredName,
+                                entityType: applicationJSON.additionalNamedInsuredName,
+                                ein: applicationJSON.additionalNamedInsuredName
+                            }
+                            applicationJSON.additionalInsuredList.push(additionalInsuredJSON)
+                            const newappJson = {additionalInsuredList: applicationJSON.additionalInsuredList}
+                            //need to save to db to additionalInsuredList is available in the Bind Process.
+                            await this.updateMongo(this.applicationDoc.applicationId, newappJson)
+                        }
                         await this.processQuotes(applicationJSON).catch(function(err) {
                             log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
                             reject(err);
