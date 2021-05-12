@@ -8,6 +8,7 @@ var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 //const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const moment = require('moment');
 
 module.exports = class InsurerActivityCodeBO{
 
@@ -170,6 +171,15 @@ module.exports = class InsurerActivityCodeBO{
                     "$options": "i"
                 };
                 delete queryJSON.description;
+            }
+
+            if(queryJSON.createdAfter){
+                // wrap it in a date to convert the date to iso if it isnt already
+                const createdAfterDate = moment(new Date(queryJSON.createdAfter));
+                if(createdAfterDate.isValid()){
+                    query.createdAt = {$gte: createdAfterDate};
+                }
+                delete queryJSON.createdAfter;
             }
 
             if (queryJSON) {

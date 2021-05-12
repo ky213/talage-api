@@ -6,6 +6,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 var InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const moment = require('moment');
 
 const tableName = 'InsurerIndustryCode';
 module.exports = class InsurerIndustryCodeBO{
@@ -157,6 +158,15 @@ module.exports = class InsurerIndustryCodeBO{
                     "$options": "i"
                 };
                 delete queryJSON.description;
+            }
+
+            if(queryJSON.createdAfter){
+                // wrap it in a date to convert the date to iso if it isnt already
+                const createdAfterDate = moment(new Date(queryJSON.createdAfter));
+                if(createdAfterDate.isValid()){
+                    query.createdAt = {$gte: createdAfterDate};
+                }
+                delete queryJSON.createdAfter;
             }
 
             if(queryJSON.notalageindustrycode){
