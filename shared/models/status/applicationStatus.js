@@ -108,6 +108,9 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         //return 'request_to_bind';
         return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
     }
+    else if (quoteDocJsonList.every(quote => quote.aggregatedStatus === 'dead')) {
+        return { appStatusId: 65, appStatusDesc: 'dead' };
+    }
     else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted')) {
         //appStatusId = 60
         // return 'quoted';

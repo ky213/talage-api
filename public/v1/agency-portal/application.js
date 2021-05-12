@@ -798,7 +798,7 @@ async function applicationCopy(req, res, next) {
 }
 
 async function deleteObject(req, res, next) {
-    let id = req.params.id;
+    const id = req.params.id;
     if (!id) {
         return next(new Error("bad parameter"));
     }
@@ -1058,7 +1058,7 @@ async function requote(req, res, next) {
     // }
 
 
-    if (applicationDB.appStatusId > 60) {
+    if (applicationDB.appStatusId > 65) {
         log.warn(`Cannot Requote Application ${req.body.id}` + __location)
         return next(serverHelper.requestError('Cannot Requote Application'));
     }
