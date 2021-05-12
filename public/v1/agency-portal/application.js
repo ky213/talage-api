@@ -798,7 +798,7 @@ async function applicationCopy(req, res, next) {
 }
 
 async function deleteObject(req, res, next) {
-    let id = req.params.id;
+    const id = req.params.id;
     if (!id) {
         return next(new Error("bad parameter"));
     }
