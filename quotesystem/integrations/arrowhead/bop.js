@@ -436,15 +436,14 @@ module.exports = class LibertySBOP extends Integration {
         const locationList = [];
         
         for (const location of applicationDocData.locations) {
-            const smartyStreetsResponse = await smartystreetSvc.checkAddress(
+            let smartyStreetsResponse = await smartystreetSvc.checkAddress(
                 applicationDocData.mailingAddress,
                 applicationDocData.mailingCity,
                 applicationDocData.mailingState,
                 applicationDocData.mailingZipcode
             );
 
-            // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine
-            // a county so return an error.
+            // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine a county
             if (smartyStreetsResponse.hasOwnProperty("error") ||
                 !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
                 !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
@@ -455,11 +454,12 @@ module.exports = class LibertySBOP extends Integration {
                     errorMessage += `SmartyStreets could not determine the county for address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
                 }
 
-                throw new Error(errorMessage);
+                log.error(`${logPrefix}${errorMessage}`);
+                smartyStreetsResponse = null;
             }
 
             const locationObj = {
-                countyName: smartyStreetsResponse.addressInformation.county_name,
+                countyName: smartyStreetsResponse ? smartyStreetsResponse.addressInformation.county_name : ``,
                 city: location.city,
                 classCodes: this.industry_code.code,
                 address: applicationDocData.mailingAddress,
