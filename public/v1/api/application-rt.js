@@ -694,7 +694,7 @@ async function startQuoting(req, res, next) {
     }
 
 
-    if (applicationDB.appStatusId > 65) {
+    if (applicationDB.appStatusId > 60) {
         return next(serverHelper.requestError('Cannot Requote Application'));
     }
 

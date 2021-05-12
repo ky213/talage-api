@@ -36,15 +36,15 @@ const quoteStatus = {
         description: "Referred Quote"
     },
     dead: {
-        id: 60,
+        id: 58,
         description: "Dead"
     },
     bind_requested: {
-        id: 70,
+        id: 60,
         description: "Bind Requested"
     },
     bind_requested_referred: {
-        id: 75,
+        id: 65,
         description: "Bind Requested for Referral"
     },
     bound: {
