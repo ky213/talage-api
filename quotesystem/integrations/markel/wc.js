@@ -1299,7 +1299,14 @@ module.exports = class MarkelWC extends Integration {
         else if (response[rquIdKey].errors) {
             response[rquIdKey].errors.forEach((error) => {
                 if(typeof error === 'string'){
-                    this.reasons.push(`Markel Error ${error}`);
+                    if(error.indexOf("One or more class codes are Declined") > -1){
+                        this.reasons.push(`Markel Declined ${error}`);
+                        return this.return_result('declined');
+                    }
+                    else {
+                        this.reasons.push(`Markel: ${error}`);
+
+                    }
                 }
                 else {
                     this.reasons.push(`Markel Error ${JSON.stringify(error)}`);
