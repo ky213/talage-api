@@ -11,7 +11,7 @@
 "use strict";
 
 // const crypt = global.requireShared('./services/crypt.js');
-//const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const formatPhone = global.requireShared("./helpers/formatPhone.js");
 const AgencyNetworkBO = global.requireShared("models/AgencyNetwork-BO.js");
 const AgencyLocationBO = global.requireShared("./models/AgencyLocation-BO.js");
@@ -19,6 +19,8 @@ const AgencyBO = global.requireShared("./models/Agency-BO.js");
 const AgencyLandingPageBO = global.requireShared("./models/AgencyLandingPage-BO.js");
 const ColorSchemeBO = global.requireShared("./models/ColorScheme-BO.js");
 const IndustryCodeCategoryBO = global.requireShared("./models/IndustryCodeCategory-BO.js");
+const emailSvc = global.requireShared('./services/emailsvc.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
@@ -374,6 +376,7 @@ async function getAgencyLandingPage(req, res, next) {
         industryCodeId: agency.industryCodeId,
         industryCodeCategoryId: agency.industryCodeCategoryId,
         lockDefaults: agency.lockDefaults,
+        locationId: landingPageLocation.mysqlId,
         email: landingPageLocation ? landingPageLocation.email : null,
         phone: landingPageLocation ? landingPageLocation.phone : null,
         address: landingPageLocation ? landingPageLocation.address : null,
@@ -604,10 +607,79 @@ async function getAgency(req, res, next) {
     return next();
 }
 
+/**
+ * Receives POST requests and sends agencies emails
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function sendEmail(req, res, next) {
+    const responseObj = {};
+    //only type =3 will be processed. - Contact us
+    if(req.body
+        && req.body.email
+        && req.body.type && (req.body.type === "3" || req.body.type === 3)
+        && req.body.agency){
+
+        const email = req.body.email;
+        const messageText = req.body.message;
+        const name = req.body.name;
+        const agencyLocationId = stringFunctions.santizeNumber(req.body.agency, true);
+        const messageKeys = {agencyLocationId: agencyLocationId};
+
+        let error = null;
+        const agencyLocationBO = new AgencyLocationBO();
+        const agencyLocationJSON = await agencyLocationBO.getById(agencyLocationId).catch(function(err) {
+            log.error(`Loading agency in AgencyEmail error:` + err + __location);
+            error = err;
+        });
+        if(!error){
+            if(agencyLocationJSON.email){
+                const agencyEmail = agencyLocationJSON.email;
+                // Build the email
+                let message = '<p style="text-align:left;">You received the following message from ' + name + ' (' + email + '):</p>';
+                message = message + '<p style="text-align:left;margin-top:10px;">"' + messageText + '"</p>';
+                message += `<p style="text-align:right;">-Your Wheelhouse Team</p>`;
+                //call email service
+                const respSendEmail = await emailSvc.send(agencyEmail, 'A Wheelhouse user wants to get in touch with you', message, messageKeys, global.WHEELHOUSE_AGENCYNETWORK_ID, 'wheelhouse', 0).catch(function(err){
+                    log.error("Send email error: " + err + __location);
+                    return res.send(serverHelper.internalError("sendEmail Error"));
+                });
+                if(respSendEmail === false){
+                    log.error("Send email error response was false: " + __location);
+                    return res.send(serverHelper.internalError("sendEmail Error"));
+                }
+                else {
+                    res.send(200, responseObj);
+                    return next();
+                }
+            }
+            else{
+                log.error(`No Agency location email ${agencyLocationId} ` + __location)
+                res.send(400, responseObj);
+                return next();
+            }
+        }
+        else {
+            res.send(500, responseObj);
+            return next();
+        }
+    }
+    else {
+        log.error("Agency sendEmail missing parameters " + __location)
+        res.send(400, responseObj);
+        return next();
+    }
+}
+
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGet("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
     server.addGet("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
     server.addGet("Get Quote App Agency Id", `${basePath}/agency`, getAgency);
+    server.addPostAuthQuoteApp("Post Agency Email", `${basePath}/agency/email`, sendEmail);
 };
