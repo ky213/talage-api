@@ -361,7 +361,7 @@ class CompuwestBind extends Bind {
                         for (const location of application.locations) {
                             for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
                                 // Find the entry for this activity code
-                                let ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.find((acs) => acs.employeeType === "Owner" && employeeTypeCount === 1);
+                                let ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.find((acs) => acs.employeeType === "Owners" && employeeTypeCount === 1);
                                 if(ActivityCodeEmployeeTypeEntry){
                                     const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
                                     ActualRemunerationAmt.ele('Amt', ActivityCodeEmployeeTypeEntry.employeeTypePayroll);
