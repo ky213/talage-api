@@ -693,9 +693,6 @@ module.exports = class MarkelWC extends Integration {
             key = {'apikey': `${this.password}`};
         }
 
-        // see owner hydration code below for an explanation of why this is done
-        const canSendOwners = applicationDocData.owners.length < 2;
-
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.Declined = 'declined';
         this.possible_api_responses.Incomplete = 'error';
@@ -1225,8 +1222,33 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
+        // only include owner payroll (and as FTE) if we have 1 owner AND that owner is included
+        const includeOwnerPayroll = applicationDocData.owners.length === 1 && applicationDocData.owners[0].include;
+
+        // NOTE: we have to determine if there are multiple owner activities or not. If there are, even in excluded cases, we cannot properly assign
+        //       owners to their activities, which would mean we can't present accurate data for a bind, therefore, we will not include the owner activity
+        //       which will result in a non-bindable quote. If there is only one owner activity, even if there are multiple owners, we can properly assign 
+        //       the owner's activity for an accurate bindable quote
         let ownerPayroll = 0;
-        let ownerClassCode = null;
+        let multipleOwnerActivities = false;
+        let ownerActivity = null;
+        applicationDocData.locations.forEach(location => {
+            location.activityPayrollList.forEach(activity => {
+                const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+
+                // if we've encountered our first owner activity, set it
+                if (owner && !ownerActivity && !multipleOwnerActivities) {
+                    ownerActivity = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
+                    ownerPayroll = parseInt(owner.employeeTypePayroll, 10);
+                }
+                // if we've encountered another owner activity, wipe our ownerActivity field... we cannot send owner activity information in the quote request
+                else if (owner && ownerActivity) {
+                    multipleOwnerActivities = true;
+                    ownerActivity = null;
+                    ownerPayroll = 0;
+                }
+            });
+        });
 
         // Populate the location list
         const locationList = [];
@@ -1247,7 +1269,7 @@ module.exports = class MarkelWC extends Integration {
                 const owners = activity.employeeTypeList.find(type => type.employeeType === "Owners");
                 // we count owners as full time employees, so add them if they exist
                 let ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
-                ftCount += owners ? owners.employeeTypeCount : 0;
+                ftCount += includeOwnerPayroll && owners ? owners.employeeTypeCount : 0;
                 const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
 
                 const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
@@ -1260,37 +1282,38 @@ module.exports = class MarkelWC extends Integration {
                 //       which will result in a non-bindable quote (via API).
                 const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
 
-                // if we find an owner, map it for later when setting owner information
-                // NOTE: this will be overwritten if there are multiple owner records, but we don't care because we won't send owner information in that case
-                if (owner) {
-                    ownerPayroll = parseInt(owner.employeeTypePayroll, 10);
-                    ownerClassCode = classCode;
-                }
+                // calculate total payroll from each employee type
+                const totalPayroll = (fullTimeEmployees ? fullTimeEmployees.employeeTypePayroll : 0) + 
+                    (partTimeEmployees ? partTimeEmployees.employeeTypePayroll : 0) + 
+                    (includeOwnerPayroll && owner ? owner.employeeTypePayroll : 0);
 
-                locationObj["Payroll Section"].push({
-                    Payroll: activity.payroll,
-                    "Full Time Employees": ftCount,
-                    "Part Time Employees": ptCount,
-                    "Class Code": classCode ? classCode : ``,
-                    "Class Code Description": this.industry_code.description
-                });
+                // only add a payroll section if there are employees to report on. 
+                // NOTE: 0 employee can happen when an owner is assigned to a unique activity but owners are excluded from coverage
+                if (ftCount + ptCount > 0) {
+                    locationObj["Payroll Section"].push({
+                        Payroll: totalPayroll,
+                        "Full Time Employees": ftCount,
+                        "Part Time Employees": ptCount,
+                        "Class Code": classCode ? classCode : ``,
+                        "Class Code Description": this.industry_code.description
+                    });
+                }
             });
 
             locationList.push(locationObj);
         });
 
-        // if we weren't able to set a class code (they didn't enter owner payroll info), but we have owners, set as first activity
-        if (!ownerClassCode && applicationDocData.owners.length > 0) {
-            const firstActivity = Object.values(this.insurer_wc_codes)[0];
-            ownerClassCode = firstActivity ? firstActivity : ``;
-        }
-
         // Populate the owner / officer information section
         const ownerOfficerInformationSection = [];
 
-        // NOTE: We can only send owners if we have 1 owner. More than one and we are not able to provide accurate information for each owner's
-        //       payroll and class (activity) code. Even if the owner's are electing to not be covered, the data structure still expects payroll and 
-        //       class code to be provided, which is why regardless of whether they are included or not, we will only send if there is 1 owner
+        // NOTE: Not providing "Owner Payroll", even for excluded officers, results in a non-bindable quote. In those cases, we provide 0 instead.
+        // NOTE: If multiple owners fall under multiple activities, we omit "Owner Class" property, otherwise we include it 
+        // NOTE: We can only send owners if we have 1 owner OR all owners are excluded from coverage. More than one included and we are not able to provide 
+        //       accurate information for each owner's payroll and class (activity) code. Even if the owner's are electing to not be covered, 
+        //       the data structure still expects payroll and class code to be provided to bind, which is why regardless of whether they are included or not, 
+        //       we will only send if there is 1 owner, or ALL owners are excluded (so payroll is 0)
+        const canSendOwners = applicationDocData.owners.length > 1 ? !applicationDocData.owners.find(o => o.include === true) : true;
+
         if (canSendOwners) {
             applicationDocData.owners.forEach(owner => {
                 ownerOfficerInformationSection.push({
@@ -1298,13 +1321,12 @@ module.exports = class MarkelWC extends Integration {
                     "Owner Last Name": owner.lname,
                     "Owner Title": ownerTitleMatrix[owner.officerTitle],
                     "Owner Ownership": owner.ownership,
-                    "Owner Class": ownerClassCode ? ownerClassCode : ``,
-                    "Owner Payroll": ownerPayroll,
+                    "Owner Class": ownerActivity ? ownerActivity : ``,
+                    "Owner Payroll": owner.include ? ownerPayroll : 0,
                     "Owner Include": owner.include ? 'Yes' : 'No'
                 });
             });
         }
-        
         
         if(!markelLimits){
             log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
