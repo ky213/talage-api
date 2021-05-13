@@ -29,7 +29,6 @@ module.exports = class InsurerPolicyTypeBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${collectionName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
 
             let newDoc = true;
             if(newObjectJSON.id){
