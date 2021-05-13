@@ -1926,13 +1926,23 @@ async function markQuoteAsDead(req, res, next){
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
-    
+    let markAsDeadSuccess = false;
+    let markAsDeadFailureMessage = '';
     // set the status (quoteStatusId) to dead, set the quoteStatusDescription to Dead and reasons to ' marked as Dead by USER XXX'
     //success send sucessful response
 
     // failure send failure response
 
     // return next
+        // Send back bound for both request, mark and API binds.
+        if(markAsDeadSuccess){
+            res.send(200, {"bound": true});
+        }
+        else {
+            res.send({'message': markAsDeadFailureMessage});
+        }
+    
+        return next();
 }
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
