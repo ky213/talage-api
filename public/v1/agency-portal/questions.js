@@ -8,6 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuestionBO = global.requireShared('models/Question-BO.js');
 const log = global.log;
+
 /**
  * A function to get the answer from a question
  * @param {object} appQuestion - The answer from a question in the form of a string
@@ -63,34 +64,28 @@ async function getQuestions(req, res, next) {
     // }
     const id = req.query.application_id;
 
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error);
-    }
-
-
     let passedAgencyCheck = false;
     let applicationJSON = null;
     try{
         const applicationBO = new ApplicationBO();
-        let applicationDBDoc = null;
-        if(id > 0){
-            applicationDBDoc = await applicationBO.loadfromMongoBymysqlId(id);
+        const applicationDBDoc = await applicationBO.getById(id);
+        if(applicationDBDoc){
+            if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
+                passedAgencyCheck = true;
+            }
+            else {
+                const agents = await auth.getAgents(req).catch(function(e) {
+                    error = e;
+                });
+                if (error) {
+                    log.error('Error get application getAgents ' + error + __location);
+                    return next(error);
+                }
+                if(agents.includes(applicationDBDoc.agencyId)){
+                    passedAgencyCheck = true;
+                }
+            }
         }
-        else {
-            log.debug(`Getting app id  ${id} from mongo` + __location)
-            applicationDBDoc = await applicationBO.getfromMongoByAppId(id);
-        }
-
-
-        if(applicationDBDoc && agents.includes(applicationDBDoc.agencyId)){
-            passedAgencyCheck = true;
-        }
-
         if(applicationDBDoc){
             applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
         }

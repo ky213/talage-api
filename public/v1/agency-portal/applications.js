@@ -486,7 +486,8 @@ async function getApplications(req, res, next){
             if(req.params.searchText){
                 agencyQuery.name = req.params.searchText + "%"
             }
-            const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
+            const noActiveCheck = true;
+            const agencyList = await agencyBO.getList(agencyQuery, noActiveCheck).catch(function(err) {
                 log.error("Agency List load error " + err + __location);
                 error = err;
             });
