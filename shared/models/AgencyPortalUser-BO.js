@@ -11,18 +11,18 @@ const tableName = 'clw_talage_agency_portal_users'
 const skipCheckRequired = false;
 const passwordProperty = "password";
 
-const propToNotReturn =['password','email_hash']
+const propToNotReturn = ['password','email_hash']
 module.exports = class AgencyPortalUserBO{
 
     #dbTableORM = null;
 
-	constructor(){
+    constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
     }
 
     /**
-	 * Save Model 
+	 * Save Model
      *
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
@@ -40,11 +40,11 @@ module.exports = class AgencyPortalUserBO{
             //password hashing is do not outside Savemodel
             // do to needing to knowledge the workflow causing the save.
             // user created save password process by Account PUT for AgencyPortal
-            //admin/agency-user for administration. 
+            //admin/agency-user for administration.
 
 
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -84,10 +84,10 @@ module.exports = class AgencyPortalUserBO{
     }
 
     loadFromId(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-                await this.#dbTableORM.getById(id).catch(function (err) {
+            if(id && id > 0){
+                await this.#dbTableORM.getById(id).catch(function(err) {
                     log.error(`Error getting  ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -102,126 +102,125 @@ module.exports = class AgencyPortalUserBO{
     }
 
     getList(queryJSON, addPermissions = false, includeDisabled = false) {
-        return new Promise(async (resolve, reject) => {
-                let rejected = false;
-                // Create the update query
-                let sql = `
+        return new Promise(async(resolve, reject) => {
+            let rejected = false;
+            // Create the update query
+            let sql = `
                     select * from ${tableName}  
                 `;
-                if(queryJSON){
-                    let hasWhere = false;
-                    if(queryJSON.state){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` state = ${db.escape(queryJSON.state)} `
-                        hasWhere = true;
-                    } else {
-                        if (!includeDisabled) {
-                            sql += 'where state > 0';
-                            hasWhere = true;
-                        }
-                    }
-                    if(queryJSON.agencynetworkid){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` agency_network = ${db.escape(queryJSON.agencynetworkid)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.agency_network){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.agencyid){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` agency = ${db.escape(queryJSON.agencyid)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.agency){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` agency = ${db.escape(queryJSON.agencyid)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.agencylocationid){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.agency_location){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.cansign){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` can_sign = ${db.escape(queryJSON.cansign)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.group){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` \`group\` = ${db.escape(queryJSON.group)} `
-                        hasWhere = true;
-                    }
+            if(queryJSON){
+                let hasWhere = false;
+                if(queryJSON.state){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` state = ${db.escape(queryJSON.state)} `
+                    hasWhere = true;
                 }
                 else if (!includeDisabled) {
                     sql += 'where state > 0';
+                    hasWhere = true;
                 }
-                // Run the query
-                const result = await db.query(sql).catch(function (error) {
-                    // Check if this was
-                    
-                    rejected = true;
-                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                    reject(error);
-                });
-                if (rejected) {
-                    return;
+                if(queryJSON.agencynetworkid){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` agency_network = ${db.escape(queryJSON.agencynetworkid)} `
+                    hasWhere = true;
                 }
-                let boList = [];
-                if(result && result.length > 0 ){
-                    for(let i=0; i < result.length; i++ ){
-                        let agencyPortalUserBO = new AgencyPortalUserBO();
-                        await agencyPortalUserBO.#dbTableORM.decryptFields(result[i]);
-                        await agencyPortalUserBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await agencyPortalUserBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`getList error loading object: ` + err + __location);
-                        })
-                        if(!resp){
-                            log.debug("Bad BO load" + __location)
-                        }
-                        let cleanJSON = agencyPortalUserBO.#dbTableORM.cleanJSON();
-                        let outputJSON = this.cleanOuput(cleanJSON)
-                        outputJSON.lastLogin = outputJSON.last_login;
-                        outputJSON.canSign = outputJSON.can_sign ? outputJSON.can_sign : null;
-                        
-                        if(addPermissions){
-                            let userGroupQuery = {"systemId": outputJSON.group};
-                            let userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
-                            if(userGroup){
-                                outputJSON.groupRole = userGroup.name;
-                                outputJSON.permissions = userGroup.permissions;
-                            }
-                        }
-                        boList.push(outputJSON);
+                if(queryJSON.agency_network){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.agencyid){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` agency = ${db.escape(queryJSON.agencyid)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.agency){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` agency = ${db.escape(queryJSON.agencyid)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.agencylocationid){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.agency_location){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.cansign){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` can_sign = ${db.escape(queryJSON.cansign)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.group){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` \`group\` = ${db.escape(queryJSON.group)} `
+                    hasWhere = true;
+                }
+            }
+            else if (!includeDisabled) {
+                sql += 'where state > 0';
+            }
+            // Run the query
+            const result = await db.query(sql).catch(function(error) {
+                // Check if this was
+
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            const boList = [];
+            if(result && result.length > 0){
+                for(let i = 0; i < result.length; i++){
+                    const agencyPortalUserBO = new AgencyPortalUserBO();
+                    await agencyPortalUserBO.#dbTableORM.decryptFields(result[i]);
+                    await agencyPortalUserBO.#dbTableORM.convertJSONColumns(result[i]);
+                    const resp = await agencyPortalUserBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        log.error(`getList error loading object: ` + err + __location);
+                    })
+                    if(!resp){
+                        log.debug("Bad BO load" + __location)
                     }
-                    resolve(boList);
+                    const cleanJSON = agencyPortalUserBO.#dbTableORM.cleanJSON();
+                    const outputJSON = this.cleanOuput(cleanJSON)
+                    outputJSON.lastLogin = outputJSON.last_login;
+                    outputJSON.canSign = outputJSON.can_sign ? outputJSON.can_sign : null;
+
+                    if(addPermissions){
+                        const userGroupQuery = {"systemId": outputJSON.group};
+                        const userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
+                        if(userGroup){
+                            outputJSON.groupRole = userGroup.name;
+                            outputJSON.permissions = userGroup.permissions;
+                        }
+                    }
+                    boList.push(outputJSON);
                 }
-                else {
-                    //Search so no hits ok.
-                    resolve([]);
-                }
+                resolve(boList);
+            }
+            else {
+                //Search so no hits ok.
+                resolve([]);
+            }
         });
     }
 
     getById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-                await this.#dbTableORM.getById(id).catch(function (err) {
+            if(id && id > 0){
+                await this.#dbTableORM.getById(id).catch(function(err) {
                     log.error(`Error getting  ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
                 this.updateProperty();
-                let cleanJSON = this.#dbTableORM.cleanJSON();
+                const cleanJSON = this.#dbTableORM.cleanJSON();
                 this.cleanOuput(cleanJSON)
                 resolve(cleanJSON);
             }
@@ -246,17 +245,17 @@ module.exports = class AgencyPortalUserBO{
     }
 
     deleteSoftById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-              
+            if(id && id > 0){
+
                 //Remove old records.
-                const sql =`Update ${tableName} 
+                const sql = `Update ${tableName} 
                         SET state = -2
                         WHERE id = ${id}
                 `;
                 let rejected = false;
-                const result = await db.query(sql).catch(function (error) {
+                const result = await db.query(sql).catch(function(error) {
                     // Check if this was
                     log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
                     rejected = true;
@@ -266,7 +265,7 @@ module.exports = class AgencyPortalUserBO{
                     return false;
                 }
                 resolve(true);
-              
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -279,11 +278,11 @@ module.exports = class AgencyPortalUserBO{
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
-                        if (properties[property].dbType.indexOf("int")  > -1){
+                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
+                        if (properties[property].dbType.indexOf("int") > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
-                        else if (properties[property].dbType.indexOf("float")  > -1){
+                        else if (properties[property].dbType.indexOf("float") > -1){
                             inputJSON[property] = parseFloat(inputJSON[property]);
                         }
                     }
@@ -294,13 +293,13 @@ module.exports = class AgencyPortalUserBO{
             }
         }
     }
-    
+
     cleanJSON(noNulls = true){
-		return this.#dbTableORM.cleanJSON(noNulls);
+        return this.#dbTableORM.cleanJSON(noNulls);
     }
-    
+
     cleanOuput(outputJSON){
-        for(let i = 0 ; i < propToNotReturn.length; i++){
+        for(let i = 0; i < propToNotReturn.length; i++){
             if(outputJSON[propToNotReturn[i]]){
                 delete outputJSON[propToNotReturn[i]]
             }
@@ -316,13 +315,13 @@ module.exports = class AgencyPortalUserBO{
         for (const property in properties) {
             this[property] = dbJSON[property];
         }
-      }
+    }
 
-       /**
+    /**
 	 * Load new object JSON into ORM. can be used to filter JSON to object properties
      *
 	 * @param {object} inputJSON - input JSON
-	 * @returns {void} 
+	 * @returns {void}
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
@@ -330,15 +329,19 @@ module.exports = class AgencyPortalUserBO{
         return true;
     }
 
-    getGroupList(forTalageAdmin = false) {
-        return new Promise(async (resolve, reject) => {
-            let query = {active: true};
+    getGroupList(forTalageAdmin = false, agencyNetworkRoles = false) {
+        return new Promise(async(resolve, reject) => {
+            const query = {active: true};
+            if(agencyNetworkRoles === false){
+                query.agencyNetworkOnly = {$ne: true}
+            }
+
             if(forTalageAdmin === false){
                 query.talageAdminOnly = false;
             }
             let userGroupList = null;
             try {
-                let doclist = await AgencyPortalUserGroup.find(query, '-__v');
+                const doclist = await AgencyPortalUserGroup.find(query, '-__v').lean();
                 userGroupList = mongoUtils.objListCleanup(doclist);
                 for(let i = 0; i < userGroupList.length; i++) {
                     userGroupList[i].id = userGroupList[i].systemId;
@@ -348,137 +351,137 @@ module.exports = class AgencyPortalUserBO{
                 log.error("Getting AgencyPortalUserGroup error " + err + __location);
                 reject(err);
             }
-            resolve(userGroupList);   
+            resolve(userGroupList);
         });
     }
 }
 
 const properties = {
     "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "state": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "agency": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "agency_location": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "agency_network": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "can_sign": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1) unsigned"
     },
     "email": {
-      "default": "",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
+        "default": "",
+        "encrypted": true,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "blob"
     },
     "email_hash": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(40)"
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(40)"
     },
     "group": {
-      "default": "5",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": "5",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "password": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(97)"
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(97)"
     },
     "require_reset": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "last_login": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "reset_required": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "timezone": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "timezone_name": {
         "default": null,
@@ -488,60 +491,60 @@ const properties = {
         "rules": null,
         "type": "string",
         "dbType": "varchar(100)"
-      },
+    },
     "created": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "created_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "modified": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "modified_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "deleted": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "deleted_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "clear_email": {
         "default": null,
@@ -552,12 +555,12 @@ const properties = {
         "type": "string",
         "dbType": "varchar(255)"
     }
-  }
+}
 
 class DbTableOrm extends DatabaseObject {
 
-	constructor(tableName){
-		super(tableName, properties);
-	}
+    constructor(tableName){
+        super(tableName, properties);
+    }
 
 }
