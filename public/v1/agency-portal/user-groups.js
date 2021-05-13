@@ -16,8 +16,12 @@ const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js')
 async function getUserGroups(req, res, next){
     let userGroups = null;
     try{
+        let agencyNetworkRoles = false;
+        if(req.query.forAgencyNetwork){
+            agencyNetworkRoles = true;
+        }
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        userGroups = await agencyPortalUserBO.getGroupList();
+        userGroups = await agencyPortalUserBO.getGroupList({},agencyNetworkRoles);
     }
     catch(err){
         log.error('agencyPortalUserBO error ' + err + __location);

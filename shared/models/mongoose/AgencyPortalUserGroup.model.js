@@ -46,6 +46,7 @@ const AgencyPortalUserGroupSchema = new Schema({
     name: {type: String, required:[true, 'name required']},
     permissions: PermissionSchema,
     talageAdminOnly: {type: Boolean, required: true, default: false},
+    agencyNetworkOnly: {type: Boolean, required: true, default: false},
     active: {type: Boolean, default: true}
 })
 
