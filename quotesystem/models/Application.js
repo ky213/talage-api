@@ -104,7 +104,7 @@ module.exports = class Application {
             log.debug('Application age in minutes ' + ageInMinutes);
             if (!bypassAgeCheck && ageInMinutes > 60) {
                 log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
-                throw new Error("Data Error: Application may not be updated do to age.");
+                throw new Error("Data Error: Application may not be updated due to age.");
             }
         }
         //log.debug("applicationBO: " + JSON.stringify(applicationBO));

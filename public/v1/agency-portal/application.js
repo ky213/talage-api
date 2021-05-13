@@ -87,22 +87,8 @@ async function getApplication(req, res, next) {
     //Determine Integer vs uuid.
     const id = req.query.id;
 
-    if(id > 0){
-        // Validate the application ID
-        if (!await validator.is_valid_id(id)) {
-            log.error(`Bad Request: Invalid id ${id}` + __location);
-            return next(serverHelper.requestError('Invalid id'));
-        }
-    }
-
     // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error);
-    }
+    
 
     // // Check if this is Solepro and grant them special access
     // let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
@@ -114,19 +100,25 @@ async function getApplication(req, res, next) {
     let passedAgencyCheck = false;
     let applicationJSON = null;
     try{
-        let applicationDBDoc = null;
-        if(id > 0){
-            applicationDBDoc = await applicationBO.loadfromMongoBymysqlId(id);
+        const applicationDBDoc = await applicationBO.getById(id);
+        if(applicationDBDoc){
+            if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
+                passedAgencyCheck = true;
+            }
+            else {
+                const agents = await auth.getAgents(req).catch(function(e) {
+                    error = e;
+                });
+                if (error) {
+                    log.error('Error get application getAgents ' + error + __location);
+                    return next(error);
+                }   
+                if(agents.includes(applicationDBDoc.agencyId)){
+                    passedAgencyCheck = true;
+                }
+            }
         }
-        else {
-            log.debug(`Getting app id  ${id} from mongo` + __location)
-            applicationDBDoc = await applicationBO.getfromMongoByAppId(id);
-        }
-
-
-        if(applicationDBDoc && agents.includes(applicationDBDoc.agencyId)){
-            passedAgencyCheck = true;
-        }
+        
 
         if(applicationDBDoc){
             applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
@@ -798,7 +790,7 @@ async function applicationCopy(req, res, next) {
 }
 
 async function deleteObject(req, res, next) {
-    let id = req.params.id;
+    const id = req.params.id;
     if (!id) {
         return next(new Error("bad parameter"));
     }
@@ -810,7 +802,7 @@ async function deleteObject(req, res, next) {
     // }
     //Deletes only by AgencyNetwork Users.
 
-    const agencyNetwork = req.authentication.agencyNetworkId;
+    const agencyNetworkId = req.authentication.agencyNetworkId;
     if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
@@ -827,7 +819,7 @@ async function deleteObject(req, res, next) {
     if (error) {
         return next(error);
     }
-    if (appAgencyNetworkId !== agencyNetwork) {
+    if (appAgencyNetworkId !== agencyNetworkId) {
         log.warn("Application Delete agencynetowrk miss match")
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
