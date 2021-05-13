@@ -2130,7 +2130,9 @@ module.exports = class ApplicationModel {
                                 application.agencyName = agencyMap[application.agencyId];
                             }
                             else {
-                                const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
+                                const returnDoc = false;
+                                const returnDeleted = true
+                                const agency = await agencyBO.getById(application.agencyId, returnDoc, returnDeleted).catch(function(err) {
                                     log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
                                 });
                                 if (agency) {
