@@ -452,7 +452,9 @@ async function setupReturnedApplicationJSON(applicationJSON){
     //add Agency name
     const agencyBO = new AgencyBO();
     try{
-        const agencyJSON = await agencyBO.getById(applicationJSON.agencyId)
+        const returnDoc = false;
+        const returnDeleted = true
+        const agencyJSON = await agencyBO.getById(applicationJSON.agencyId, returnDoc, returnDeleted)
         applicationJSON.name = agencyJSON.name;
         applicationJSON.agencyName = agencyJSON.name;
         applicationJSON.agencyPhone = agencyJSON.phone;
