@@ -43,18 +43,13 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const convertToIntFields = [];
 
-const collectionName = 'applications';
+
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
 const QUOTE_MIN_TIMEOUT = 5;
 
 module.exports = class ApplicationModel {
-
-    #dbTableORM = null;
-    doNotSnakeCase = ['appStatusId',
-        'businessDataJSON',
-        'additionalInfo'];
 
     #applicationMongooseDB = null;
     #applicationMongooseJSON = {};
@@ -128,28 +123,27 @@ module.exports = class ApplicationModel {
             }
             if (applicationJSON.id) {
 
-                if(await validator.isUuid(applicationJSON.id)){
-                    log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
-                    this.applicationDoc = await this.loadfromMongoByAppId(applicationJSON.id).catch(function(err) {
-                        log.error("Error getting application from Database " + err + __location);
-                        reject(err);
-                        return;
-                    });
-                }
-                else {
-                    log.debug(`saveApplicationStep Loading by app integer ${applicationJSON.id} ` + __location)
-                    this.applicationDoc = await this.loadById(applicationJSON.id).catch(function(err) {
-                        log.error("Error getting application from Database " + err + __location);
-                        reject(err);
-                        return;
-                    });
-                }
+                log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
+                const getModelDoc = true;
+                this.applicationDoc = await this.loadDocfromMongoByAppId(applicationJSON.id, getModelDoc).catch(function(err) {
+                    log.error("Error getting application from Database " + err + __location);
+                    reject(err);
+                    return;
+                });
+
                 if(!this.applicationDoc){
-                    log.error(`saveApplicationStep cound nto find appId ${applicationJSON.id}` + __location);
+                    log.error(`saveApplicationStep cound not find appId ${applicationJSON.id}` + __location);
                     reject(new Error("Data Error: Application may not be updated."));
                     return;
 
                 }
+                if(this.applicationDoc.agencyNetworkId !== 2){
+                    log.error(`saveApplicationStep for non Digalent Application ${applicationJSON.id}` + __location);
+                    reject(new Error("Data Error: Application may not be updated with this request"));
+                    return;
+                }
+
+
                 this.id = this.applicationDoc.applicationId;
                 this.#applicationMongooseDB = this.applicationDoc;
                 this.updateProperty();
@@ -388,9 +382,38 @@ module.exports = class ApplicationModel {
                     //TODO quotes (Status) setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'bindRequest':
+                    log.debug(`bindRequest json ${JSON.stringify(applicationJSON)}` + __location)
+                    let updateDdDoc = false;
+                    const newappJson = {};
+                    if(applicationJSON.waiverSubrogation){
+                        //since only AF which is only WC - 1 policy.
+                        if(this.applicationDoc.policies[0]){
+                            //waiverSubrogation defaults false
+                            this.applicationDoc.policies[0].waiverSubrogation = true
+                            updateDdDoc = true;
+                        }
+                    }
+
+                    if(applicationJSON.additionalInsured === true){
+                        this.applicationDoc.additionalInsuredList = [];
+                        const additionalInsuredJSON = {
+                            namedInsured: applicationJSON.additionalNamedInsuredName,
+                            dba: applicationJSON.additionalDBA,
+                            entityType: applicationJSON.additionalEntityType,
+                            ein: applicationJSON.additionalEIN
+                        }
+                        this.applicationDoc.additionalInsuredList.push(additionalInsuredJSON)
+                        updateDdDoc = true;
+                    }
+                    if(updateDdDoc){
+                        log.debug(`App BO bindRequest updating appId ${this.applicationDoc.applicationId} with ${JSON.stringify(newappJson)} ` + __location)
+                        await this.applicationDoc.save();
+                    }
+
                     if (applicationJSON.quotes) {
                         applicationJSON.progress = 'complete';
                         applicationJSON.appStatusId = this.applicationDoc.appStatusId;
+
                         await this.processQuotes(applicationJSON).catch(function(err) {
                             log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
                             reject(err);
@@ -865,6 +888,14 @@ module.exports = class ApplicationModel {
 
     }
 
+
+    /**
+    * porcess Request to Bind
+    *
+    * @param {object} applicationId - claims JSON
+    * @param {object} quoteJSON - claims JSON
+    * @returns {boolean} true if processed
+    */
     async processRequestToBind(applicationId, quoteJSON){
         if(!applicationId || !quoteJSON){
             log.error("processRequestToBind missing inputs" + __location)
@@ -873,7 +904,7 @@ module.exports = class ApplicationModel {
         const quote = quoteJSON;
         //log.debug("quote: " + JSON.stringify(quote) + __location)
         log.debug("Sending Bind Agency email for AppId " + applicationId + " quote " + quote.quoteId + __location);
-        log.debug(JSON.stringify(quoteJSON));
+        log.debug(`processRequestToBind quoteJSON ${JSON.stringify(quoteJSON)} ` + __location);
 
         let noCustomerEmail = false;
         if(quoteJSON.noCustomerEmail){
@@ -883,7 +914,7 @@ module.exports = class ApplicationModel {
         //Load application
         let applicationMongoDoc = null;
         try{
-            applicationMongoDoc = await this.loadfromMongoByAppId(applicationId)
+            applicationMongoDoc = await this.loadDocfromMongoByAppId(applicationId)
         }
         catch(err){
             log.error(`Application processRequestToBind error ${err}` + __location);
@@ -916,14 +947,38 @@ module.exports = class ApplicationModel {
                 // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
                 await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
-                await quoteBind.send_slack_notification("requested");
+                //isolate to not prevent Digalent bind request to update submission.
+                try{
+                    await quoteBind.send_slack_notification("requested");
+                }
+                catch(err){
+                    log.error(`appid ${this.id} quote ${quote.quoteId}  had Slack Bind Request error ${err}` + __location);
+                }
+
+                //AF special processing of Bind to Send DBA and additionalInsurered
+                let afInsurerList = [12,15];
+                if(applicationMongoDoc.agencyNetworkId === 2 && afInsurerList.indexOf(quoteDBJSON.insurerId) > -1){
+                    log.debug("Process Digalent request to bind POST AppId " + applicationId + " quote " + quote.quoteId + __location);
+                    //need to check policy effective inside of the bind
+                    // NOT a true bind, just a submission update.
+                    try{
+                        await quoteBind.bindPolicy();
+                    }
+                    catch(err){
+                        log.error(`appid ${this.id} Bind Request Digalent bindPolicy error ${err}` + __location);
+                    }
+                }
+                else {
+                    log.debug(`applicationMongoDoc.agencyNetworkId ${applicationMongoDoc.agencyNetworkId}` + __location)
+                    log.debug(`quoteDBJSON.insurerId ${quoteDBJSON.insurerId}` + __location)
+                }
             }
             catch(err){
-                log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
+                log.error(`appid ${this.id} Bind Request error ${err}` + __location);
             }
 
             let updateAppJSON = {};
-            updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
+            //updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
             if (applicationMongoDoc.appStatusId < 80) {
                 updateAppJSON.status = 'request_to_bind_referred';
                 updateAppJSON.appStatusId = 80;
@@ -1619,7 +1674,7 @@ module.exports = class ApplicationModel {
     loadById(id) {
         log.debug(`appBO id ${id} ` + __location)
         if(validator.isUuid(id)){
-            return this.loadfromMongoByAppId(id)
+            return this.loadDocfromMongoByAppId(id)
         }
         else {
             // nodoc, force mongo query.
@@ -1628,7 +1683,7 @@ module.exports = class ApplicationModel {
     }
 
 
-    loadfromMongoByAppId(id) {
+    loadDocfromMongoByAppId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id) {
@@ -2332,7 +2387,7 @@ module.exports = class ApplicationModel {
         let applicationDocDB = null;
         let questionsObject = {};
         try{
-            applicationDocDB = await this.loadfromMongoByAppId(appId);
+            applicationDocDB = await this.loadDocfromMongoByAppId(appId);
             if(skipAgencyCheck === true){
                 passedAgencyCheck = true;
             }
@@ -2449,7 +2504,7 @@ module.exports = class ApplicationModel {
         // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
         // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
         // need to trace calls.
-        // We probably should not be allow in the client to override the Application Data here.  At least, not in 
+        // We probably should not be allow in the client to override the Application Data here.  At least, not in
         // all requests.   "location" pre save override is probably OK.
         if(questionSubjectArea === "location" && locationId){
             //Get question just that location's activity codes which may be a subset of appDoc.activityCodes
@@ -2560,7 +2615,7 @@ module.exports = class ApplicationModel {
             applicationDoc = await this.loadById(appId);
         }
         catch (err) {
-            log.error("error calling loadfromMongoByAppId " + err + __location);
+            log.error("error calling loadById " + err + __location);
         }
 
         // Override the policyTypeArray from the application doc to get the policy type and effective dates (not passed in by the old quote app)
