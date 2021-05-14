@@ -19,16 +19,11 @@ exports.process = async function(requestJSON) {
     catch(err){
         log.error(`bindrequest parser ${err} requestJSON${JSON.stringify(requestJSON)}  ` + __location)
     }
-
-    //	$additionalInsured = $_POST['additionalInsured'] === 'false' ? 0 : ($_POST['additionalInsured'] === 'true' ? 1 : null);
-    // $waiverOfSubrogation = $_POST['waiverOfSubrogation'] === 'false' ? 0 : ($_POST['waiverOfSubrogation'] === 'true' ? 1 : null);
-    if (requestJSON.additionalInsured) {
-        requestJSON.additional_insured = requestJSON.additionalInsured === 'false' ? 0 : 1
-        delete requestJSON.additionalInsured
-    }
+    //Convert to boolean
+    requestJSON.additionalInsured = requestJSON.additionalInsured === 'true';
     // waiver_subrogation
+    requestJSON.waiverSubrogation = requestJSON.waiverOfSubrogation === 'true'
     if (requestJSON.waiverOfSubrogation) {
-        requestJSON.waiver_subrogation = requestJSON.waiverOfSubrogation === 'false' ? 0 : 1
         delete requestJSON.waiverOfSubrogation
     }
 
