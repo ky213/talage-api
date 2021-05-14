@@ -82,76 +82,83 @@ async function updateApplicationStatus(application, timeout) {
 function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) {
     // Ensure that each quote has a quote status and ID
     // TODO: This should not be part of this function's responsibilities...
-    quoteDocJsonList.forEach((quoteDocJson) => updateQuoteStatus(quoteDocJson));
-    if (applicationDoc.appStatusId < 10) {
-        //appStatusId = 0
-        return { appStatusId: 0, appStatusDesc: 'incomplete' };
-    }
-    else if (applicationDoc.solepro || applicationDoc.wholesale) {
-        //TODO separate status logic
-        //appStatusId = 5
+    // if the application status is already bound or application is dead, don't look at quotes to determine application status
+    const deadApplicationStatusId = 65;
+    const boundApplicationStatusId = 90;
+    if(applicationDoc.appStatusId === deadApplicationStatusId || applicationDoc.appStatusId === boundApplicationStatusId){
+        return {appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.appStatusDesc};
+    }else {
+        quoteDocJsonList.forEach((quoteDocJson) => updateQuoteStatus(quoteDocJson));
+        if (applicationDoc.appStatusId < 10) {
+            //appStatusId = 0
+            return { appStatusId: 0, appStatusDesc: 'incomplete' };
+        }
+        else if (applicationDoc.solepro || applicationDoc.wholesale) {
+            //TODO separate status logic
+            //appStatusId = 5
 
-        return { appStatusId: 5, appStatusDesc: 'wholesale' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'bound')) {
-        //appStatusId = 100
-        //return 'bound';
-        return { appStatusId: 90, appStatusDesc: 'bound' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind_referred')) {
-        //appStatusId = 80
-        //return 'request_to_bind_referred';
-        return { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind')) {
-        //appStatusId = 70
-        //return 'request_to_bind';
-        return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
-    }
-    else if (quoteDocJsonList.every(quote => quote.aggregatedStatus === 'dead')) {
-        return { appStatusId: 65, appStatusDesc: 'dead' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted')) {
-        //appStatusId = 60
-        // return 'quoted';
-        return { appStatusId: 60, appStatusDesc: 'quoted' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted_referred')) {
-        //appStatusId = 50
-        //return 'quoted_referred';
-        return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'acord_emailed')) {
-        //appStatusId = 45
-        //return 'acord_emailed';
-        return { appStatusId: 45, appStatusDesc: 'acord_emailed' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'referred')) {
-        //appStatusId = 40
-        //return 'referred';
-        return { appStatusId: 40, appStatusDesc: 'referred' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'declined')) {
-        //appStatusId = 30
-        // return 'declined';
-        return { appStatusId: 30, appStatusDesc: 'declined' };
-    }
-    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'error')) {
-        //appStatusId = 20
-        //  return 'error';
-        return { appStatusId: 20, appStatusDesc: 'error' };
-    }
-    else if (applicationDoc.lastStep === 8 || applicationDoc.appStatusId === 10) {
-        //appStatusId = 10
-        // return 'questions_done';
-        return { appStatusId: 10, appStatusDesc: 'questions_done' };
-    }
-    else if(timeout) {
-        // if timeout is specified then return error if nothing above is chosen
-        return { appStatusId: 20, appStatusDesc: 'error' };
-    }
-    else{
-        return { appStatusId: 0, appStatusDesc: 'incomplete' };
+            return { appStatusId: 5, appStatusDesc: 'wholesale' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'bound')) {
+            //appStatusId = 100
+            //return 'bound';
+            return { appStatusId: 90, appStatusDesc: 'bound' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind_referred')) {
+            //appStatusId = 80
+            //return 'request_to_bind_referred';
+            return { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind')) {
+            //appStatusId = 70
+            //return 'request_to_bind';
+            return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
+        }
+        else if (quoteDocJsonList.every(quote => quote.aggregatedStatus === 'dead')) {
+            return { appStatusId: 65, appStatusDesc: 'dead' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted')) {
+            //appStatusId = 60
+            // return 'quoted';
+            return { appStatusId: 60, appStatusDesc: 'quoted' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted_referred')) {
+            //appStatusId = 50
+            //return 'quoted_referred';
+            return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'acord_emailed')) {
+            //appStatusId = 45
+            //return 'acord_emailed';
+            return { appStatusId: 45, appStatusDesc: 'acord_emailed' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'referred')) {
+            //appStatusId = 40
+            //return 'referred';
+            return { appStatusId: 40, appStatusDesc: 'referred' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'declined')) {
+            //appStatusId = 30
+            // return 'declined';
+            return { appStatusId: 30, appStatusDesc: 'declined' };
+        }
+        else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'error')) {
+            //appStatusId = 20
+            //  return 'error';
+            return { appStatusId: 20, appStatusDesc: 'error' };
+        }
+        else if (applicationDoc.lastStep === 8 || applicationDoc.appStatusId === 10) {
+            //appStatusId = 10
+            // return 'questions_done';
+            return { appStatusId: 10, appStatusDesc: 'questions_done' };
+        }
+        else if(timeout) {
+            // if timeout is specified then return error if nothing above is chosen
+            return { appStatusId: 20, appStatusDesc: 'error' };
+        }
+        else{
+            return { appStatusId: 0, appStatusDesc: 'incomplete' };
+        }
     }
 }
 
