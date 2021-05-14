@@ -35,7 +35,7 @@ function validateParameters(parent, expectedParameters){
         }
         const parameterValue = parent[expectedParameter.name];
         if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
-            log.error(`Bad Request:  ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
+            log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
         if (expectedParameters[i].verifyDate && parameterValue && !moment(parameterValue).isValid()){
