@@ -22,7 +22,7 @@ async function getUsers(req, res, next){
     // eslint-disable-next-line no-unused-vars
     //  let where = ``;
     let retrievingAgencyUsersForAgencyNetwork = false;
-
+    let getAgencyNetworkRoles = false;
     // Authentication required since endpoint serves users now for network agency for an agency
     // if network agency and wanting agency info confirm the agency is part of the network
     const jwtErrorMessage = await auth.validateJWT(req, req.authentication.isAgencyNetworkUser ? 'agencies' : 'users', 'view');
@@ -47,6 +47,7 @@ async function getUsers(req, res, next){
     }
     else if (req.authentication.isAgencyNetworkUser){
         query.agencynetworkid = parseInt(req.authentication.agencyNetworkId, 10);
+        getAgencyNetworkRoles = true;
     }
     else {
         // Get the agents that we are permitted to view
@@ -92,7 +93,7 @@ async function getUsers(req, res, next){
     let userGroups = null;
     try{
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        userGroups = await agencyPortalUserBO.getGroupList();
+        userGroups = await agencyPortalUserBO.getGroupList(getAgencyNetworkRoles);
     }
     catch(err){
         log.error('agencyPortalUserBO error ' + err + __location);
