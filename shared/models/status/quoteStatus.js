@@ -35,6 +35,10 @@ const quoteStatus = {
         id: 55,
         description: "Referred Quote"
     },
+    dead: {
+        id: 58,
+        description: "Dead"
+    },
     bind_requested: {
         id: 60,
         description: "Bind Requested"
@@ -42,10 +46,6 @@ const quoteStatus = {
     bind_requested_referred: {
         id: 65,
         description: "Bind Requested for Referral"
-    },
-    dead: {
-        id: 85,
-        description: "Dead"
     },
     bound: {
         id: 100,
@@ -57,6 +57,7 @@ const quoteStatus = {
  * Ensures that a quote has a value for aggregated_status
  *
  * @param {Object} quoteDocJson - the quote to update
+ * @param {boolean} timeout - optional (defaulted to false), whether or not the quote timed out
  * @return {void}
  */
 async function updateQuoteStatus(quoteDocJson, timeout = false) {
@@ -86,11 +87,12 @@ async function updateQuoteStatus(quoteDocJson, timeout = false) {
  * @param {Boolean} bound - whether or not the quote is bound
  * @param {String} status - quote status
  * @param {String} apiResult - result from the api call
+ * @param {boolean} timeout - Whether or not the quote timed out
  * @return {void}
  * 
  * NOTE: This whole function will change once we get rid of aggregatedStatus and rework what is passed in by apiResult
  */
- function getQuoteStatus(bound, status, apiResult, timeout) {
+function getQuoteStatus(bound, status, apiResult, timeout) {
     if (bound) {
         // return 'bound';
         return quoteStatus.bound;

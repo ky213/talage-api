@@ -693,7 +693,7 @@ module.exports = class ChubbGL extends Integration {
                     additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                 }
 
-                if (MsgStatusCd !== 'Success') {
+                if (MsgStatusCd !== 'Success' && MsgStatusCd !== 'Referral') {
                     errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
                         errorMessage += additionalInfo;
