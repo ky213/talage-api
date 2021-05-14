@@ -248,13 +248,16 @@ module.exports = class AgencyBO {
     }
 
 
-    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false) {
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false, returnDeleted = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
                 const query = {
                     "mysqlId": mysqlId,
                     active: true
                 };
+                if(returnDeleted){
+                    delete query.active;
+                }
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
@@ -560,9 +563,9 @@ module.exports = class AgencyBO {
 
     /**** END Support Data Migration ************/
 
-    getById(id, getAgencyNetwork = false) {
+    getById(id, getAgencyNetwork = false, returnDeleted = false) {
         const returnDoc = false;
-        return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork)
+        return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork, returnDeleted)
     }
 
     async getByAgencyNetwork(agencyNetworkId) {

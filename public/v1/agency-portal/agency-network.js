@@ -393,5 +393,6 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get AgencyNetwork', `${basePath}/agency-network/:id`, getAgencyNetwork, 'agencies', 'view');
     server.addPutAuth('PUT AgencyNetwork', `${basePath}/agency-network/:id`, updateAgencyNetwork, 'agencies', 'manage');
     server.addGetAuth('Get AgencyNetwork Features',`${basePath}/agency-network/features/:id`, getAgencyNetworkFeatures,'agencies', 'view')
-    server.addGetAuth('Get AgencyNetworkInsurers', `${basePath}/agency-network/insurers-list/:id`, getAgencyNetworkInsurersList, 'agencies', 'view');
+    //must be 'applications' so users with applications.view can load applications.
+    server.addGetAuth('Get AgencyNetworkInsurers', `${basePath}/agency-network/insurers-list/:id`, getAgencyNetworkInsurersList, 'applications', 'view');
 };
