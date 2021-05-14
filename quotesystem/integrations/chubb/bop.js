@@ -732,6 +732,10 @@ module.exports = class ChubbBOP extends Integration {
                     additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                 }
 
+                if (MsgStatusCd === 'Decline') {
+                    return this.client_declined(additionalInfo.length > 0 ? additionalInfo : "Declined by Chubb");
+                }
+
                 if (MsgStatusCd !== 'Success' && MsgStatusCd !== 'Referral') {
                     errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
