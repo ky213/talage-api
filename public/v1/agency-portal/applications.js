@@ -256,7 +256,8 @@ async function getApplications(req, res, next){
                 'quoting',
                 "questions_done",
                 "incomplete",
-                'error']
+                'error',
+                'dead']
         },
         {
             "name": 'startDate',
