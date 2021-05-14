@@ -718,6 +718,7 @@ module.exports = class ChubbBOP extends Integration {
 
                 let MsgStatusCd = null;
                 try {
+                    //This is the wrong status to use for success test.
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
                 }
                 catch (e) {
@@ -731,7 +732,7 @@ module.exports = class ChubbBOP extends Integration {
                     additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                 }
 
-                if (MsgStatusCd !== 'Success') {
+                if (MsgStatusCd !== 'Success' && MsgStatusCd !== 'Referral') {
                     errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
                         errorMessage += additionalInfo;
@@ -747,8 +748,8 @@ module.exports = class ChubbBOP extends Integration {
                 //const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
                 let premium = null;
                 const quoteLimits = {};
-                const quoteLetter = null; // Chubb BOP doesn't currently return a quote letter
-                const quoteMIMEType = null; // Chubb BOP doesn't currently return a quote MIME type
+                const noQuoteLetter = null; // Chubb BOP doesn't currently return a quote letter
+                const noQuoteMIMEType = null; // Chubb BOP doesn't currently return a quote MIME type
 
                 // Attempt to get the quote number
                 try {
@@ -810,10 +811,10 @@ module.exports = class ChubbBOP extends Integration {
 
                 // Send the result of the request
                 if (MsgStatusCd === 'Referral') {
-                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                    return this.client_referred(quoteNumber, quoteLimits, premium, noQuoteLetter, noQuoteMIMEType);
                 }
                 else {
-                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                    return this.client_quoted(quoteNumber, quoteLimits, premium, noQuoteLetter, noQuoteMIMEType);
                 }
             default:
                 errorMessage += `API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
