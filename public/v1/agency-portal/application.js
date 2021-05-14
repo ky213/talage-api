@@ -331,7 +331,7 @@ async function getApplicationDoc(req, res ,next){
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
-        applicationDB = await applicationBO.loadfromMongoByAppId(appId);
+        applicationDB = await applicationBO.getById(appId);
         if(applicationDB && agencies.includes(applicationDB.agencyId)){
             passedAgencyCheck = true;
         }
@@ -589,7 +589,7 @@ async function applicationSave(req, res, next) {
         //get application and valid agency
         let passedAgencyCheck = false;
         try{
-            const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+            const applicationDB = await applicationBO.getById(req.body.applicationId);
             if(applicationDB && agencies.includes(applicationDB.agencyId)){
                 passedAgencyCheck = true;
             }
@@ -708,7 +708,7 @@ async function applicationCopy(req, res, next) {
     let passedAgencyCheck = false;
     let responseAppDoc = null;
     try{
-        const applicationDocDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+        const applicationDocDB = await applicationBO.getById(req.body.applicationId);
         if(applicationDocDB && agencies.includes(applicationDocDB.agencyId)){
             passedAgencyCheck = true;
         }
@@ -1754,7 +1754,7 @@ async function getApplicationNotes(req, res, next){
     //get application and valid agency
     let passedAgencyCheck = false;
     try{
-        const applicationDB = await applicationBO.loadfromMongoByAppId(req.query.applicationId);
+        const applicationDB = await applicationBO.getById(req.query.applicationId);
         if(applicationDB && agencies.includes(applicationDB.agencyId)){
             passedAgencyCheck = true;
         }
@@ -1815,7 +1815,7 @@ async function saveApplicationNotes(req, res, next){
     //get application and valid agency
     let passedAgencyCheck = false;
     try{
-        const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+        const applicationDB = await applicationBO.getById(req.body.applicationId);
         if(applicationDB && agencies.includes(applicationDB.agencyId)){
             passedAgencyCheck = true;
         }

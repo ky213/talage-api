@@ -160,7 +160,7 @@ const AdditionalInsuredSchema = new Schema({
     dba: {type: String, required: false},
     entityType: {type: String, required: false},
     ein: {type: String, required: false}
-});
+},opts);
 
 
 // note: ein - not saved to db
