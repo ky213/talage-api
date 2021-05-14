@@ -23,11 +23,9 @@ async function getNextRoute(req, res, next){
 
     res.send(200, nextRouteName);
 }
-
-const getRoute = async(currentRoute, appId, redisKey) => {
+//, appId, redisKey
+const getRoute = async(currentRoute) => {
     // will probably grab info about application and determine the next route but for now use the current route to just go to the next one we have hardcoded
-    // const applicationBO = new ApplicationBO();
-    // const applicationDB = await applicationBO.loadfromMongoByAppId(appId);
 
     switch(currentRoute){
         case "_policies":
