@@ -18,7 +18,7 @@ const IndustryCodeCategorySchema = new Schema({
     featured:{type: Boolean, default: true},
     name: {type: String, required: false},
     talageStandard: {type: Boolean, default: false},
-    industryCodeCategoryGroupList: [String],
+    codeGroupList: [String],
     active: {type: Boolean, default: true}
 },opts)
 
@@ -41,4 +41,4 @@ IndustryCodeCategorySchema.pre('save', function(next) {
 });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('ActivityCode', IndustryCodeCategorySchema);
+mongoose.model('IndustryCodeCategory', IndustryCodeCategorySchema);

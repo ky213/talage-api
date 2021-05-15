@@ -4,8 +4,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 //const utility = global.requireShared('./helpers/utility.js');
 const moment = require('moment');
 
-async function GetActivityCodes(territory,industry_code){
-  //  const addCode2Redis = false;
+async function GetActivityCodes(territory,industry_code, codeGroupList = []){
+    //  const addCode2Redis = false;
     let activityIdList = [];
     const redisKey = "activity-code-industrycode-" + territory + "-" + industry_code.toString();
     // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YESNO"){

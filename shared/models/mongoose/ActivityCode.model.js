@@ -20,7 +20,7 @@ const ActivityCodeSchema = new Schema({
     description: {type: String, required: false},
     attributes: {type: Schema.Types.Mixed},
     talageStandard: {type: Boolean, default: false},
-    activityCodeGroupList: [String],
+    codeGroupList: [String],
     alternateNames: [String],
     active: {type: Boolean, default: true}
 },opts)

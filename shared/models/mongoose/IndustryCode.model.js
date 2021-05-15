@@ -24,8 +24,9 @@ const IndustryCodeSchema = new Schema({
     hiscox: {type: String, required: false},
     description: {type: String, required: false},
     talageStandard: {type: Boolean, default: false},
-    industryCodeGroupList: [String],
+    codeGroupList: [String],
     activityCodeIdList: [Number],
+    primaryActivityCodeId: {type: Number, required: false},  //used when InsurerId only want the primary ActivityCode for the industry
     attributes: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)
@@ -49,4 +50,4 @@ IndustryCodeSchema.pre('save', function(next) {
 });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('ActivityCode', IndustryCodeSchema);
+mongoose.model('IndustryCode', IndustryCodeSchema);
