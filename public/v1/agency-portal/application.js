@@ -1912,18 +1912,36 @@ async function markQuoteAsDead(req, res, next){
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
+// Find userinfo
+    const id = stringFunctions.santizeNumber(req.authentication.userID, true);
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    // Load the request data into it
+    const userJSON = await agencyPortalUserBO.getById(id).catch(function(err) {
+        log.error("agencyPortalUserBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    let userName = null;
+    if (userJSON) {
+       userName = userJSON.clear_email;
+    }
+    else {
+        log.error(`Could not find user json for user id ${req.authentication.userID} : ` + __location);
+        return next(serverHelper.notFoundError('Error trying to find user information.'));
+    }
+
     let markAsDeadSuccess = false;
     let markAsDeadFailureMessage = '';
     const quoteBO = new QuoteBO();
-    const markAsDeadResponse = await quoteBO.markQuoteAsDead(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+    const markAsDeadResponse = await quoteBO.markQuoteAsDead(quoteId, applicationId, userName).catch(function(err){ 
         log.error(`Error trying to mark quoteId #${quoteId} as dead on applicationId #${applicationId} ` + err + __location);
         markAsDeadFailureMessage = "Failed to mark quote as dead. If this continues please contact us.";
     });
     if(markAsDeadResponse === true){
         markAsDeadSuccess = true;
     }
-    // set the status (quoteStatusId) to dead, set the quoteStatusDescription to Dead and reasons to ' marked as Dead by USER XXX'
-    //success send sucessful response
     
     // Send back mark status.
     if(markAsDeadSuccess){
