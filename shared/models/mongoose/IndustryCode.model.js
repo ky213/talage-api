@@ -26,7 +26,7 @@ const IndustryCodeSchema = new Schema({
     talageStandard: {type: Boolean, default: false},
     codeGroupList: [String],
     activityCodeIdList: [Number],
-    primaryActivityCodeId: {type: Number, required: false},  //used when InsurerId only want the primary ActivityCode for the industry
+    primaryActivityCodeId: {type: Number, required: false}, //used when InsurerId only want the primary ActivityCode for the industry
     attributes: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)

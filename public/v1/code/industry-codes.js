@@ -48,7 +48,7 @@ async function GetIndustryCodes(req, res, next) {
         res.send(200, codes);
         return next();
     }
-    log.info('No Codes Available');
+    log.info('No Codes Available' + __location);
     res.send(404, {
         message: 'No Codes Available',
         status: 'error'
