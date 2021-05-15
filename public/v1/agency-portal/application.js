@@ -1856,6 +1856,7 @@ async function saveApplicationNotes(req, res, next){
         return next(serverHelper.internalError(new Error('No updated document')));
     }
 }
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
