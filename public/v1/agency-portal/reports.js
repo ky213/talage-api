@@ -13,28 +13,6 @@ const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const Quote = mongoose.model('Quote');
 
-// eslint-disable-next-line valid-jsdoc
-/**
- * Keeps only the first 'len' keys in an object. All of the others are
- * consolidated into a new 'Other' key. The new object is returned.
- */
-function trimObjectLength(object, len) {
-    const newObj = {};
-    const keys = Object.keys(object);
-    const objLen = Object.keys(object).length;
-
-    for (let i = 0; i < Math.min(objLen, len); i++) {
-        newObj[keys[i]] = object[keys[i]];
-    }
-
-    if (objLen >= len) {
-        newObj.Other = 0;
-        for (let i = len; i < objLen; i++) {
-            newObj.Other += object[keys[i]];
-        }
-    }
-    return newObj;
-}
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -158,38 +136,76 @@ const getMinDate = async(where) => {
     return app[0].createdAt;
 }
 
-const getIndustries = async(where) => {
-    //TODO update for mongo
-    const industryCodeCategories = _.chain(await db.queryReadonly(`SELECT
-            ${db.quoteName('ic.id')},
-            ${db.quoteName('icc.name')}
-        FROM ${db.quoteName('#__industry_code_categories', 'icc')}
-        INNER JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
-        `)).
-        keyBy('id').
-        mapValues('name').
-        value();
-    const industriesQuery = await Application.aggregate([
-        {"$match": where}, {"$group": {
-            "_id": {"industryCode": "$industryCode"},
-            "count": {"$sum": 1}
-        }}
+const getIndustries = async(where, totalAppCount) => {
+
+    const industriesCountList = await Application.aggregate([
+        {"$match": where},
+        {"$group": {
+            "_id": {"industryCodeId": { '$toInt': "$industryCode"}},
+            "count": {"$sum": 1}}},
+        {"$project":{_id:0, "industryCodeId":"$_id", count:1}},
+        {"$replaceRoot": {
+            "newRoot": {
+                "$mergeObjects": [{ "count": "$count" }, "$industryCodeId"]
+            }
+        }},
+        {"$lookup":
+            {
+                from: "industrycodes",
+                localField: "industryCodeId",
+                foreignField: "industryCodeId",
+                as: "industrycode"
+            }},
+        {
+            "$replaceRoot": { newRoot: { $mergeObjects: [{ "count": "$count" },
+                { $arrayElemAt: ["$industrycode", 0] },
+                "$$ROOT"] } }
+        },
+        {$lookup:
+            {
+                from: "industrycodecategories",
+                localField: "industryCodeCategoryId",
+                foreignField: "industryCodeCategoryId",
+                as: "industrycodecategory"
+            }},
+        {
+            $replaceRoot: { newRoot: { $mergeObjects: [{ "count": "$count" },
+                { $arrayElemAt: ["$industrycodecategory", 0] },
+                "$$ROOT"] } }
+        },
+        {"$group": {
+            "_id": {"name": "$name"},
+            "count": {"$sum": "$count"}}},
+        {"$replaceRoot": {
+            "newRoot": {
+                "$mergeObjects": [{ "count": "$count" }, "$_id"]}
+        }},
+        {"$sort":{count:-1}},
+        {"$limit": 8}
     ])
+
+
     let industries = {};
-    for (const i of industriesQuery) {
-        const id = industryCodeCategories[i._id.industryCode];
-        if (industries[id]) {
-            industries[id] += i.count;
+    let totalCount = 0;
+    for (const countJSON of industriesCountList) {
+
+        if (industries[countJSON.name]) {
+            industries[countJSON.name] += countJSON.count;
         }
         else {
-            industries[id] = i.count;
+            industries[countJSON.name] = countJSON.count;
         }
+        totalCount += countJSON.count;
     }
-    // Sort industries by the ones with the most applications.
-    industries = _.fromPairs(_.sortBy(_.toPairs(industries), 1).reverse())
-    // Trim to only 6 entries
-    industries = trimObjectLength(industries, 8);
+    const otherCount = totalAppCount - totalCount > 0 ? totalAppCount - totalCount : 0;
+    industries.Other = otherCount;
+
+    // // Sort industries by the ones with the most applications.
+    // industries = _.fromPairs(_.sortBy(_.toPairs(industries), 1).reverse())
+    // // Trim to only 6 entries
+    // industries = trimObjectLength(industries, 8);
     // Convert to an array.
+
     return Object.keys(industries).map(k => [
         k, industries[k]
     ]);
@@ -436,7 +452,7 @@ async function getReports(req) {
                     //check for all
                     if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                         && (req.query.all === '12332'
-                        || (req.query.agencyid === "-9999"))){
+                        || req.query.agencyid === "-9999")){
                         log.debug('global view 1')
                         if(where.agencyId){
                             delete where.agencyId;
@@ -452,7 +468,7 @@ async function getReports(req) {
                 }
                 else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                         && (req.query.all === '12332'
-                        || (req.query.agencyid === "-9999"))){
+                        || req.query.agencyid === "-9999")){
                     log.debug('global view 2')
                     if(where.agencyId){
                         delete where.agencyId;
@@ -511,16 +527,17 @@ async function getReports(req) {
     }
     else {
         //trend monthly or daily ?
+        const startedCount = await Application.countDocuments(where);
         const trendData = monthlyTrend ? await getMonthlyTrends(where) : await getDailyTrends(where);
         return {
             funnel: {
-                started: await Application.countDocuments(where),
+                started: startedCount,
                 completed: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt: 10}})),
                 quoted: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: 40}})),
                 bound: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: 70}}))
             },
             geography: await getGeography(where),
-            industries: await getIndustries(where),
+            industries: await getIndustries(where,startedCount),
             monthlyTrends: trendData,
             premium: await getPremium(where)
         }
