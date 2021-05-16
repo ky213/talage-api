@@ -28,6 +28,10 @@ async function GetIndustryCodes(req, res, next) {
         error = err;
     }
     if (error) {
+        res.send(500, {
+            message: 'internal server error',
+            status: 'error'
+        });
         return next(false);
     }
     if (icList && icList.length) {
@@ -46,5 +50,5 @@ async function GetIndustryCodes(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get All Industry Codes', `${basePath}/industry-codes`, GetIndustryCodes);
-    //server.addGet('Get All Industry Codes (depr)', `${basePath}/industry_codes`, GetIndustryCodes);
+    server.addGet('Get All Industry Codes (depr)', `${basePath}/industry_codes`, GetIndustryCodes);
 };

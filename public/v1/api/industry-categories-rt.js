@@ -26,6 +26,10 @@ async function GetIndustryCategories(req, res, next) {
         error = err;
     }
     if (error) {
+        res.send(500, {
+            message: 'internal server error',
+            status: 'error'
+        });
         return next(false);
     }
     if (iicList && iicList.length) {

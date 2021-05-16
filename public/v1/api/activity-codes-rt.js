@@ -4,7 +4,6 @@
 
 'use strict';
 
-const util = require('util');
 const wrap = global.requireShared('helpers/wrap.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
@@ -77,6 +76,6 @@ const GetActivityCodes = wrap(async(req, res, next) => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-     // TODO require Auth.
+    // TODO require Auth.
     server.addGetAuthAppApi('Get Activity Codes', `${basePath}/activity-codes`, GetActivityCodes);
 };
