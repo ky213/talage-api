@@ -32,6 +32,11 @@ const IndustryCodeSchema = new Schema({
     active: {type: Boolean, default: true}
 },opts)
 
+IndustryCodeSchema.virtual('id').
+    get(function() {
+        return this.industryCodeId;
+    });
+
 
 IndustryCodeSchema.plugin(timestamps);
 IndustryCodeSchema.plugin(mongooseHistory);

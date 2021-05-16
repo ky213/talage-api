@@ -25,6 +25,10 @@ const ActivityCodeSchema = new Schema({
     active: {type: Boolean, default: true}
 },opts)
 
+ActivityCodeSchema.virtual('id').
+    get(function() {
+        return this.activityCodeId;
+    });
 
 ActivityCodeSchema.plugin(timestamps);
 ActivityCodeSchema.plugin(mongooseHistory);

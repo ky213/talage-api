@@ -145,7 +145,7 @@ async function findAll(req, res, next) {
 }
 
 async function findOne(req, res, next) {
-    const id = stringFunctions.santizeNumber(req.params.id, true);
+    let id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
         return next(new Error("bad parameter"));
     }
@@ -181,7 +181,7 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    res.send(200, industryCodeBO.cleanJSON());
+    res.send(200, industryCodeBO.mongoDoc);
     return next();
 }
 
@@ -203,7 +203,7 @@ async function update(req, res, next) {
         return next(error);
     }
 
-    res.send(200, industryCodeBO.cleanJSON());
+    res.send(200, industryCodeBO.mongoDoc);
     return next();
 
 }
