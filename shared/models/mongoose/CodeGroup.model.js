@@ -18,7 +18,7 @@ var mongooseHistory = require('mongoose-history');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const CodeGroupSchema = new Schema({
-    codeGroupId: {type: String, required: [true, 'mappingId required'], unique: true},
+    codeGroupId: {type: String, required: [true, 'codeGroupId required'], unique: true},
     name: {type: String, required: [true, 'name required'], unique: true},
     active: {type: Boolean, default: true}
 })

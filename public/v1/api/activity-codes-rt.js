@@ -77,5 +77,6 @@ const GetActivityCodes = wrap(async(req, res, next) => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+     // TODO require Auth.
     server.addGetAuthAppApi('Get Activity Codes', `${basePath}/activity-codes`, GetActivityCodes);
 };

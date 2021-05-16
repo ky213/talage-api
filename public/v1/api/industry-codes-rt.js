@@ -42,5 +42,6 @@ async function GetIndustryCodes(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    // TODO require Auth.
     server.addGet('Get All Industry Codes', `${basePath}/industry-codes`, GetIndustryCodes);
 };

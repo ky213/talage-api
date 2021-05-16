@@ -22,6 +22,10 @@ const IndustryCodeCategorySchema = new Schema({
     active: {type: Boolean, default: true}
 },opts)
 
+IndustryCodeCategorySchema.virtual('id').
+    get(function() {
+        return this.industryCodeCategoryId;
+    });
 
 IndustryCodeCategorySchema.plugin(timestamps);
 IndustryCodeCategorySchema.plugin(mongooseHistory);
