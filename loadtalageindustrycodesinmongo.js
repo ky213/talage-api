@@ -150,7 +150,7 @@ async function runFunction() {
             if(result[i].state < 1){
                 industryCode.active = false
             }
-
+            industryCode.industryCodeCategoryId = result[i].category;
             //get activityCodeList
             let sqlAssoc = `select activityCodeId from clw_talage_industry_code_associations where frequency > 30 and industryCodeId = ${industryCode.industryCodeId}`
 
@@ -235,7 +235,7 @@ async function moveIndustryCategories() {
     for(let i = 0; i < result.length; i++){
         try {
             let industryCodeCategory = new IndustryCodeCategoryModel(result[i]);
-
+            industryCodeCategory.talageStandard = true;
             // Determine if existing doc
             // by insurerId,  code, sub
             const query = {industryCodeCategoryId: industryCodeCategory.industryCodeCategoryId}

@@ -48,7 +48,6 @@ async function GetActivityCodes(territory,industryCodeId){
             active: true
         }
         const IndustryCodeDoc = await IndustryCodeModel.findOne(icQuery).lean();
-        log.debug(`IndustryCodeDoc ${JSON.stringify(IndustryCodeDoc)} ` + __location);
         icActivityCodeList = IndustryCodeDoc.activityCodeIdList;
     }
     catch(err){
@@ -157,127 +156,127 @@ async function GetActivityCodes(territory,industryCodeId){
 }
 
 
-async function GetActivityCodesSQL(territory,industryCodeId){
-    //  const addCode2Redis = false;
-    let activityIdList = [];
-    const redisKey = "activity-code-industrycode-" + territory + "-" + industryCodeId.toString();
-    // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YESNO"){
-    //     const start = moment();
-    //     let redisCacheCodes = null;
-    //     const resp = await global.redisSvc.getKeyValue(redisKey);
-    //     if(resp.found){
-    //         try{
-    //             redisCacheCodes = JSON.parse(resp.value);
-    //         }
-    //         catch(err){
-    //             log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
-    //         }
-    //         const endRedis = moment();
-    //         var diff = endRedis.diff(start, 'milliseconds', true);
-    //         log.info(`Redis Activity Code Cache request ${redisKey} duration: ${diff} milliseconds`);
-    //         if(redisCacheCodes){
-    //             return redisCacheCodes;
-    //         }
-    //     }
-    //     else {
-    //       addCode2Redis = true;
-    //     }
-    //     //TODO filters for insuers, effective date
+// async function GetActivityCodesSQL(territory,industryCodeId){
+//     //  const addCode2Redis = false;
+//     let activityIdList = [];
+//     const redisKey = "activity-code-industrycode-" + territory + "-" + industryCodeId.toString();
+//     // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YESNO"){
+//     //     const start = moment();
+//     //     let redisCacheCodes = null;
+//     //     const resp = await global.redisSvc.getKeyValue(redisKey);
+//     //     if(resp.found){
+//     //         try{
+//     //             redisCacheCodes = JSON.parse(resp.value);
+//     //         }
+//     //         catch(err){
+//     //             log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+//     //         }
+//     //         const endRedis = moment();
+//     //         var diff = endRedis.diff(start, 'milliseconds', true);
+//     //         log.info(`Redis Activity Code Cache request ${redisKey} duration: ${diff} milliseconds`);
+//     //         if(redisCacheCodes){
+//     //             return redisCacheCodes;
+//     //         }
+//     //     }
+//     //     else {
+//     //       addCode2Redis = true;
+//     //     }
+//     //     //TODO filters for insuers, effective date
 
-    // }
+//     // }
 
-    // eslint-disable-next-line prefer-const
-    //generate from activityId list from mongo or mysal
+//     // eslint-disable-next-line prefer-const
+//     //generate from activityId list from mongo or mysal
 
-    let start = moment();
-    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-    let insurerActivityCodeList = null;
-    try{
-        const pipeLine = [
-            {$match: {
-                territoryList: territory,
-                active: true
-            }},
-            {"$unwind": "$talageActivityCodeIdList"} ,
-            {$group:{
-                _id : null,
-                uniqueTalageActivityCodes : {$addToSet : "$talageActivityCodeIdList"}
-            }}
-        ]
-        insurerActivityCodeList = await InsurerActivityCodeModel.aggregate(pipeLine)
-        if(insurerActivityCodeList[0] && insurerActivityCodeList[0].uniqueTalageActivityCodes && insurerActivityCodeList[0].uniqueTalageActivityCodes.length > 0){
-            activityIdList = insurerActivityCodeList[0].uniqueTalageActivityCodes;
-        }
+//     let start = moment();
+//     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+//     let insurerActivityCodeList = null;
+//     try{
+//         const pipeLine = [
+//             {$match: {
+//                 territoryList: territory,
+//                 active: true
+//             }},
+//             {"$unwind": "$talageActivityCodeIdList"} ,
+//             {$group:{
+//                 _id : null,
+//                 uniqueTalageActivityCodes : {$addToSet : "$talageActivityCodeIdList"}
+//             }}
+//         ]
+//         insurerActivityCodeList = await InsurerActivityCodeModel.aggregate(pipeLine)
+//         if(insurerActivityCodeList[0] && insurerActivityCodeList[0].uniqueTalageActivityCodes && insurerActivityCodeList[0].uniqueTalageActivityCodes.length > 0){
+//             activityIdList = insurerActivityCodeList[0].uniqueTalageActivityCodes;
+//         }
 
-    }
-    catch(err){
-        log.warn(`industryCodeId: ${industryCodeId} Error ActivityCodeSvc.GetActivityCodes ` + __location);
-    }
+//     }
+//     catch(err){
+//         log.warn(`industryCodeId: ${industryCodeId} Error ActivityCodeSvc.GetActivityCodes ` + __location);
+//     }
 
-    let endMongo = moment();
-    let diff = endMongo.diff(start, 'milliseconds', true);
-    log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
+//     let endMongo = moment();
+//     let diff = endMongo.diff(start, 'milliseconds', true);
+//     log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
 
-    if(activityIdList.length > 0){
-        start = moment();
-        const sql_all_activity_codes = `
-            SELECT nc.id, nc.id as 'activityCodeId', nc.description,
-            CASE
-                WHEN ica.frequency > 30
-                THEN 1
-                ELSE 0
-            END AS suggested,
-            GROUP_CONCAT(DISTINCT acan.name) AS 'alternate_names'
-            FROM #__activity_codes AS nc
-            LEFT JOIN clw_talage_industry_code_associations AS ica ON nc.id = ica.activityCodeId AND ica.industryCodeId = ${db.escape(industryCodeId)}    
-            LEFT JOIN #__activity_code_alt_names AS acan ON nc.id = acan.activity_code
-            WHERE nc.id in (${activityIdList.join(",")}) AND nc.state = 1 GROUP BY nc.id ORDER BY nc.description;
-            `;
-        let error = false;
-        const codes = await db.queryReadonly(sql_all_activity_codes).catch(function(err) {
-            log.error(err.message + __location);
-            error = err;
-        });
-        if (error) {
-            throw error;
-        }
-        endMongo = moment();
-        diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`Mysql Activity Code request ${redisKey} duration: ${diff} milliseconds` + __location);
+//     if(activityIdList.length > 0){
+//         start = moment();
+//         const sql_all_activity_codes = `
+//             SELECT nc.id, nc.id as 'activityCodeId', nc.description,
+//             CASE
+//                 WHEN ica.frequency > 30
+//                 THEN 1
+//                 ELSE 0
+//             END AS suggested,
+//             GROUP_CONCAT(DISTINCT acan.name) AS 'alternate_names'
+//             FROM #__activity_codes AS nc
+//             LEFT JOIN clw_talage_industry_code_associations AS ica ON nc.id = ica.activityCodeId AND ica.industryCodeId = ${db.escape(industryCodeId)}
+//             LEFT JOIN #__activity_code_alt_names AS acan ON nc.id = acan.activity_code
+//             WHERE nc.id in (${activityIdList.join(",")}) AND nc.state = 1 GROUP BY nc.id ORDER BY nc.description;
+//             `;
+//         let error = false;
+//         const codes = await db.queryReadonly(sql_all_activity_codes).catch(function(err) {
+//             log.error(err.message + __location);
+//             error = err;
+//         });
+//         if (error) {
+//             throw error;
+//         }
+//         endMongo = moment();
+//         diff = endMongo.diff(start, 'milliseconds', true);
+//         log.info(`Mysql Activity Code request ${redisKey} duration: ${diff} milliseconds` + __location);
 
-        if (codes && codes.length) {
-            codes.forEach(function(code) {
-                if (code.alternate_names) {
-                    code.alternate_names = code.alternate_names.split(',');
-                }
-                else {
-                    delete code.alternate_names;
-                }
-            });
-            log.info(`Returning ${codes.length} Activity Codes` + __location);
-            // if(addCode2Redis){
-            //     try{
-            //         //const ttlSeconds = 3600;
-            //         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(codes))
-            //         if(redisResponse && redisResponse.saved){
-            //             log.debug(`Saved ${redisKey} to Redis ` + __location);
-            //         }
-            //     }
-            //     catch(err){
-            //         log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
-            //     }
+//         if (codes && codes.length) {
+//             codes.forEach(function(code) {
+//                 if (code.alternate_names) {
+//                     code.alternate_names = code.alternate_names.split(',');
+//                 }
+//                 else {
+//                     delete code.alternate_names;
+//                 }
+//             });
+//             log.info(`Returning ${codes.length} Activity Codes` + __location);
+//             // if(addCode2Redis){
+//             //     try{
+//             //         //const ttlSeconds = 3600;
+//             //         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(codes))
+//             //         if(redisResponse && redisResponse.saved){
+//             //             log.debug(`Saved ${redisKey} to Redis ` + __location);
+//             //         }
+//             //     }
+//             //     catch(err){
+//             //         log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+//             //     }
 
-            // }
-            return codes;
-        }
-        else {
-            return [];
-        }
-    }
-    else {
-        return [];
-    }
-}
+//             // }
+//             return codes;
+//         }
+//         else {
+//             return [];
+//         }
+//     }
+//     else {
+//         return [];
+//     }
+// }
 
 
 // eslint-disable-next-line require-jsdoc
@@ -363,6 +362,6 @@ async function GetActivityCodesSQL(territory,industryCodeId){
 
 // }
 
-module.exports = {GetActivityCodes: GetActivityCodes
-    //UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
-}
+//UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
+
+module.exports = {GetActivityCodes: GetActivityCodes}

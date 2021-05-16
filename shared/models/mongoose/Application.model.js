@@ -247,6 +247,16 @@ ApplicationSchema.virtual('managementStructure').
         this.management_structure = v;
     });
 
+//industryCodeId
+
+ApplicationSchema.virtual('industryCodeId').
+    get(function() {
+        return this.industryCode;
+    }).
+    set(function(v){
+        this.industryCode = v;
+    });
+
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);
 

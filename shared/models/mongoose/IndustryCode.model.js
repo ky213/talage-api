@@ -27,6 +27,7 @@ const IndustryCodeSchema = new Schema({
     codeGroupList: [String],
     activityCodeIdList: [Number],
     primaryActivityCodeId: {type: Number, required: false}, //used when InsurerId only want the primary ActivityCode for the industry
+    alternateNames: [String],
     attributes: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)
