@@ -4,7 +4,6 @@
 
 'use strict';
 
-const util = require('util');
 const wrap = global.requireShared('helpers/wrap.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
