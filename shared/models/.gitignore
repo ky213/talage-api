@@ -1,1 +1,4 @@
 *.DS_Store
+/ActivityCode-BO-SQL.js
+/IndustryCode-BO-SQL.js
+/IndustryCodeCategory-BO-SQL.js

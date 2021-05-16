@@ -193,7 +193,7 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    res.send(200, activityCodeBO.cleanJSON());
+    res.send(200, activityCodeBO.mongoDoc);
     return next();
 }
 
@@ -215,7 +215,7 @@ async function update(req, res, next) {
     if (error) {
         return next(error);
     }
-    res.send(200, activityCodeBO);
+    res.send(200, activityCodeBO.mongoDoc);
     return next();
 }
 

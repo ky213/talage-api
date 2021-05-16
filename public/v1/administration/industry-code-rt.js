@@ -118,13 +118,16 @@ async function findAll(req, res, next) {
             req.query.industryCodeId = -999;
         }
     }
-    const rows = await industryCodeBO.getList(req.query).catch(function(err) {
+    const industryCodeList = await industryCodeBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
         error = err;
     })
     if (error) {
         return next(error);
     }
+    industryCodeList.forEach((icDoc) => {
+        icDoc.category = icDoc.industryCodeCategoryId;
+    });
 
     const countQuery = {...req.query, count: true};
     const count = await industryCodeBO.getList(countQuery).catch(function(err) {
@@ -134,8 +137,8 @@ async function findAll(req, res, next) {
         return next(error);
     }
 
-    if (rows) {
-        res.send(200, {rows, ...count});
+    if (industryCodeList) {
+        res.send(200, {rows: industryCodeList, ...count});
         return next();
     }
     else {
@@ -145,14 +148,14 @@ async function findAll(req, res, next) {
 }
 
 async function findOne(req, res, next) {
-    const id = stringFunctions.santizeNumber(req.params.id, true);
+    let id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
         return next(new Error("bad parameter"));
     }
     let error = null;
     const industryCodeBO = new IndustryCodeBO();
     // Load the request data into it
-    const objectJSON = await industryCodeBO.getById(id).catch(function(err) {
+    const industryCodeDoc = await industryCodeBO.getById(id).catch(function(err) {
         log.error("industryCodeBO load error " + err + __location);
         error = err;
     });
@@ -160,8 +163,9 @@ async function findOne(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (objectJSON) {
-        res.send(200, objectJSON);
+    if (industryCodeDoc) {
+        industryCodeDoc.category = industryCodeDoc.industryCodeCategoryId;
+        res.send(200, industryCodeDoc);
         return next();
     }
     else {
@@ -181,7 +185,7 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    res.send(200, industryCodeBO.cleanJSON());
+    res.send(200, industryCodeBO.mongoDoc);
     return next();
 }
 
@@ -192,7 +196,9 @@ async function update(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-
+    if(req.body.category){
+        req.body.industryCodeCategoryId = req.body.category
+    }
     const industryCodeBO = new IndustryCodeBO();
     let error = null;
     await industryCodeBO.saveModel(req.body).catch(function(err) {
@@ -203,7 +209,7 @@ async function update(req, res, next) {
         return next(error);
     }
 
-    res.send(200, industryCodeBO.cleanJSON());
+    res.send(200, industryCodeBO.mongoDoc);
     return next();
 
 }

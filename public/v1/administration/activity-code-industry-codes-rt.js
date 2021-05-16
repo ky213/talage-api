@@ -1,6 +1,7 @@
-'use strict';
+
 
 const serverHelper = global.requireRootPath('server.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 
 /**
  * Responds to get requests for the industry codes associated with an activity code
@@ -27,17 +28,9 @@ async function getActivityCodeIndustryCodes(req, res, next){
     if(!activityCodeId){
         return next(serverHelper.requestError('Bad Request: Invalid talageActivityCodeId provided'));
     }
-
-    const talageIndustryCodeSql = `
-        SELECT * 
-        FROM clw_talage_industry_codes 
-        WHERE id IN (
-            SELECT industryCodeId
-            FROM clw_talage_industry_code_associations
-            WHERE activityCodeId = ${db.escape(activityCodeId)}
-        )
-        `;
-    const industryCodes = await db.query(talageIndustryCodeSql).catch(function(err){
+    const industryCodeBO = new IndustryCodeBO();
+    const query = {activityCodeIdList: activityCodeId}
+    const industryCodes = await industryCodeBO.getList(query).catch(function(err){
         log.error(err.message);
         res.send(500, 'Error retrieving industry codes related to an activity code.');
         return next(serverHelper.internalError('Error retrieving industry codes related to an activity code.'));

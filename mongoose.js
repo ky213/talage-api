@@ -71,12 +71,18 @@ module.exports = function() {
     require('./shared/models/mongoose/AgencyLocation.model');
     require('./shared/models/mongoose/AgencyLandingPage.model');
     require('./shared/models/mongoose/ApplicationNotesCollection.model');
-    
+
     require('./shared/models/mongoose/Insurer.model');
     require('./shared/models/mongoose/InsurerPolicyType.model');
     require('./shared/models/mongoose/InsurerIndustryCode.model');
     require('./shared/models/mongoose/InsurerQuestion.model');
     require('./shared/models/mongoose/InsurerActivityCode.model');
+
+    require('./shared/models/mongoose/ActivityCode.model');
+    require('./shared/models/mongoose/IndustryCode.model');
+    require('./shared/models/mongoose/IndustryCodeCategory.model');
+    require('./shared/models/mongoose/CodeGroup.model');
+    require('./shared/models/mongoose/QuestionGroup.model');
 
 
     return mongodb;
