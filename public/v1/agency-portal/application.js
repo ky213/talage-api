@@ -798,7 +798,7 @@ async function deleteObject(req, res, next) {
     }
     
     //Deletes only by AgencyNetwork Users.
-    const agencyNetwork = req.authentication.agencyNetworkId;
+    const agencyNetworkId = req.authentication.agencyNetworkId;
     if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
