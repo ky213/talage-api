@@ -106,7 +106,7 @@ async function GetIndustryCodes(){
                 //     log.debug(`ic.industryCodeCategoryId no hit ${ic.industryCodeCategoryId} ` + __location)
                 // }
             }
-            if (ic.alternateNames) {
+            if (ic.alternateNames && ic.alternateNames.length > 0) {
                 ic.alternate_names = ic.alternateNames;
             }
         });
