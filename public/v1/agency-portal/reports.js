@@ -159,6 +159,7 @@ const getMinDate = async(where) => {
 }
 
 const getIndustries = async(where) => {
+    //TODO update for mongo
     const industryCodeCategories = _.chain(await db.queryReadonly(`SELECT
             ${db.quoteName('ic.id')},
             ${db.quoteName('icc.name')}

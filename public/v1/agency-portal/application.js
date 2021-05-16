@@ -484,7 +484,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
         if(industryCodeJson){
             applicationJSON.industryCodeName = industryCodeJson.description;
             const industryCodeCategoryBO = new IndustryCodeCategoryBO()
-            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.category);
+            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.industryCodeCategoryId);
             if(industryCodeCategoryJson){
                 applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
             }
