@@ -26,7 +26,7 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const utility = global.requireShared('./helpers/utility.js');
-
+const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
@@ -932,9 +932,12 @@ module.exports = class ApplicationModel {
                 //reject(err);
                 return;
             });
+            const status = quoteStatus.bind_requested;
             const quoteUpdate = {
                 "status": "bind_requested",
-                "paymentPlanId": quote.paymentPlanId
+                "paymentPlanId": quote.paymentPlanId,
+                "quoteStatusId": status.id,
+                "quoteStatusDescription": status.description
             }
             await quoteModel.updateMongo(quoteDBJSON.quoteId, quoteUpdate).catch(function(err) {
                 log.error(`Updating  quote with status and payment plan quote ${quote.quoteId} error:` + err + __location);
