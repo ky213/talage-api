@@ -1,23 +1,17 @@
-'use strict';
 
-
-const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const {debug} = require('request');
 
+var IndustryCode = require('mongoose').model('IndustryCode');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-const tableName = 'clw_talage_industry_codes'
-const skipCheckRequired = false;
+const collectionName = 'IndustryCodes'
 module.exports = class IndustryCodeBO{
 
-    #dbTableORM = null;
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
     }
 
 
@@ -31,457 +25,342 @@ module.exports = class IndustryCodeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
+
+            let newDoc = true;
+
+            if(newObjectJSON.industryCodeId){
+                newObjectJSON.id = newObjectJSON.industryCodeId;
+            }
+
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    this.id = dbDocJSON.industryCodeId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.industryCodeId,newObjectJSON);
+                }
+                else {
+                    log.error(`${collectionName} PUT object not found ` + newObjectJSON.id + __location);
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
-
-
-            resolve(true);
-
-        });
-    }
-
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
-
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
+            if(newDoc === true) {
+                const insertedDoc = await this.insertMongo(newObjectJSON);
+                this.id = insertedDoc.industryCodeId;
+                this.mongoDoc = insertedDoc;
             }
             else {
-                reject(new Error('no id supplied'))
+                this.mongoDoc = this.getById(this.id);
             }
+            resolve(true);
+
         });
     }
 
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            //log.debug(`Industrycode Get List ${JSON.stringify(queryJSON)} ` + __location)
-            let rejected = false;
+
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            const queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
+            const queryProjection = {
+                "__v": 0,
+                "_id": 0,
+                "id": 0
+            }
+
             let findCount = false;
-            // Create the update query
-            const sqlSelect = `
-                SELECT * FROM ${tableName}  
-            `;
-            const sqlCount = `
-                SELECT count(*) FROM ${tableName}  
-            `;
-            let sqlWhere = "";
-            let sqlPaging = "";
-            if(queryJSON){
-                if (queryJSON.count) {
-                    if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
-                        findCount = true;
-                    }
-                    delete queryJSON.count;
+            if(queryJSON.count){
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
                 }
-                let hasWhere = false;
-                if(queryJSON.industryCodeId){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-
-                    let queryIdList = queryJSON.industryCodeId;
-                    if(Array.isArray(queryJSON.industryCodeId)){
-                        queryIdList = queryJSON.industryCodeId.join(",");
-                    }
-                    sqlWhere += ` id IN (${queryIdList}) `;
-                }
-                if(queryJSON.activityCode) {
-                    // map from the mapping table
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` id IN (SELECT industryCodeId 
-                                        FROM clw_talage_industry_code_associations 
-                                        WHERE activityCodeId = ${db.escape(queryJSON.activityCode)}) `;
-                    hasWhere = true;
-                }
-                if(queryJSON.description){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.cgl){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` cgl like ${db.escape(`%${queryJSON.cgl}%`)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.sic){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` sic like ${db.escape(`%${queryJSON.sic}%`)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.naics){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` naics like ${db.escape(`%${queryJSON.naics}%`)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.iso){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` iso like ${db.escape(`%${queryJSON.iso}%`)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.hiscox){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` hiscox like ${db.escape(`%${queryJSON.hiscox}%`)} `
-                    hasWhere = true;
-                }
-                //GetList is used by more than just the Admin.
-                //This logic for the admin should be in the route code. - Brian
-                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
-                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
-                if(limit && page) {
-                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
-                    // offset by page number * max rows, so we go that many rows
-                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
-                }
+                delete queryJSON.count;
             }
 
-            if (findCount === false) {
-                // Run the query
-                //log.debug("IndustryCodeBO getlist sql: " + sqlSelect + sqlWhere);
-                // Run the query
-                const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
-                    rejected = true;
-                    log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
-                    reject(error);
-                });
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
 
-                if (rejected) {
-                    return;
+            var queryOptions = {lean:true};
+            queryOptions.sort = {industryCodeId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
                 }
-                const boList = [];
-                if(result && result.length > 0){
-                    for(let i = 0; i < result.length; i++){
-                        const industryCodeBO = new IndustryCodeBO();
-                        await industryCodeBO.#dbTableORM.decryptFields(result[i]);
-                        await industryCodeBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await industryCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`getList error loading object: ` + err + __location);
-                        })
-                        if(!resp){
-                            log.debug("Bad BO load" + __location)
-                        }
-                        boList.push(industryCodeBO);
-                    }
-                }
-                resolve(boList);
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
             }
-            else{
-                const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
-                    rejected = true;
-                    log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
-                    reject(error);
-                });
-                if (rejected) {
-                    return;
-                }
-                // return the sql count
-                resolve({count: count[0] ? count[0]["count(*)"] : 0});
-            }
-        });
-    }
 
-    getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                resolve(this.#dbTableORM.cleanJSON());
+            const queryLimit = 5000;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
             }
             else {
-                reject(new Error('no id supplied ' + id))
+                queryOptions.limit = queryLimit;
             }
-        });
-    }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
+            if(queryJSON.industryCodeId && Array.isArray(queryJSON.industryCodeId)){
+                query.industryCodeId = {$in: queryJSON.industryCodeId};
+                delete queryJSON.insurerIndustryCodeId;
+            }
+            else if(queryJSON.industryCodeId){
+                query.industryCodeId = queryJSON.industryCodeId;
+                delete queryJSON.industryCodeId;
+            }
 
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
+            if(queryJSON.id && Array.isArray(queryJSON.id)){
+                query.industryCodeId = {$in: queryJSON.id};
+                delete queryJSON.id;
+            }
+            else if(queryJSON.id){
+                query.industryCodeId = queryJSON.id;
+                delete queryJSON.industryCodeId;
+            }
+
+            if(queryJSON.industryCodeCategoryId && Array.isArray(queryJSON.industryCodeCategoryId)){
+                query.industryCodeCategoryId = {$in: queryJSON.industryCodeCategoryId};
+                delete queryJSON.industryCodeCategoryId;
+            }
+            else if(queryJSON.industryCodeCategoryId){
+                query.industryCodeCategoryId = queryJSON.industryCodeCategoryId;
+                delete queryJSON.industryCodeCategoryId;
+            }
+
+            if(queryJSON.codeGroupList && Array.isArray(queryJSON.codeGroupList)){
+                query.codeGroupList = {$in: queryJSON.codeGroupList};
+                delete queryJSON.codeGroupList;
+            }
+            else if(queryJSON.codeGroupList){
+                query.codeGroupList = queryJSON.codeGroupList;
+                delete queryJSON.codeGroupList;
+            }
+
+            if(queryJSON.activityCodeIdList && Array.isArray(queryJSON.activityCodeIdList)){
+                query.activityCodeIdList = {$in: queryJSON.activityCodeIdList};
+                delete queryJSON.activityCodeIdList;
+            }
+            else if(queryJSON.activityCodeIdList){
+                query.activityCodeIdList = queryJSON.activityCodeIdList;
+                delete queryJSON.activityCodeIdList;
+            }
+
+            if(queryJSON.description){
+                query.description = {
+                    "$regex": queryJSON.description,
+                    "$options": "i"
+                };
+                delete queryJSON.description;
+            }
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else{
+                        query[key] = queryJSON[key];
                     }
                 }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+            }
+
+            //log.debug(`${collectionName} getList query ${JSON.stringify(query)}` + __location)
+            if(findCount === false){
+                let docList = null;
+                try {
+                    docList = await IndustryCode.find(query, queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    docList.forEach((doc) => {
+                        doc.id = doc.industryCodeId
+                    })
+                    resolve(docList);
+                }
+                else {
+                    resolve([]);
                 }
             }
-        }
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
-
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-
-    async getSelectionList(){
-
-        let rejected = false;
-        const responseLandingPageJSON = {};
-        const reject = false;
-        const sql = `select id, name, logo  
-            from clw_talage_industry_codes
-            where state > 0
-            order by name`
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`${tableName} error on select ` + error + __location);
+            else {
+                let queryRowCount = 0;
+                try {
+                    queryRowCount = await IndustryCode.countDocuments(query);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                resolve({count: queryRowCount});
+            }
         });
-        if (!rejected && result && result.length > 0) {
-            return result;
+    }
+
+    getById(id, returnMongooseModel = false) {
+        return new Promise(async(resolve, reject) => {
+            if (id > 0) {
+                const query = {
+                    "industryCodeId": id,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await IndustryCode.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const industryCodeDoc = mongoUtils.objCleanup(docDB);
+                    resolve(industryCodeDoc);
+                }
+                else {
+                    resolve(null);
+                }
+            }
+            else {
+                reject(new Error('no or invalid id supplied'))
+            }
+        });
+    }
+
+    async updateMongo(industryCodeId, newObjectJSON) {
+        if (industryCodeId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"industryCodeId": industryCodeId};
+                let newindustryCodeJSON = null;
+                try {
+                    const changeNotUpdateList = [
+                        "active",
+                        "id",
+                        "createdAt",
+                        "industryCodeId",
+                        "talageIndustryCodeUuid"
+                    ];
+
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await IndustryCode.updateOne(query, newObjectJSON);
+                    const newindustryCode = await IndustryCode.findOne(query);
+
+                    newindustryCodeJSON = mongoUtils.objCleanup(newindustryCode);
+                }
+                catch (err) {
+                    log.error(`Updating ${collectionName} error appId: ${industryCodeId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newindustryCodeJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${industryCodeId}`)
+            }
+
         }
         else {
-            return [];
+            throw new Error('no id supplied');
         }
+        // return true;
 
     }
 
-}
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        //maxid
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.industryCodeId = newSystemId;
 
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "featured": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "category": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "description": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(100)"
-    },
-    "cgl": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "sic": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "smallint(4) unsigned"
-    },
-    "naics": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(6) unsigned"
-    },
-    "iso": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "hiscox": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
+        const industryCode = new IndustryCode(newObjectJSON);
+        //Insert a doc
+        await industryCode.save().catch(function(err) {
+            log.error(`Mongo ${collectionName} Save err ` + err + __location);
+            throw err;
+        });
+        return mongoUtils.objCleanup(industryCode);
     }
-}
 
-class DbTableOrm extends DatabaseObject {
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
 
-    constructor(tableName){
-        super(tableName, properties);
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"industryCodeId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.industryCodeId = -1;
+            queryOptions.limit = 1;
+            const docList = await IndustryCode.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].industryCodeId > maxId){
+                        maxId = docList[i].industryCodeId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error(`${collectionName} Get max system id ` + err + __location)
+            throw err;
+        }
+        //log.debug("maxId: " + maxId + __location)
+        return maxId;
     }
+
 
 }

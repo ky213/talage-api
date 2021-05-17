@@ -45,7 +45,7 @@ class CompuwestBind extends Bind {
         else {
             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} missing WC policy ` + __location);
         }
-        if(notGwAPI){
+        if(notGwAPI || this.insurer.useSandbox){
             // only sent quotebind for GW API.
             // return success so no error processing kick in.
             return "success";
@@ -85,7 +85,9 @@ class CompuwestBind extends Bind {
             log.debug(`${requestUrl} status ${result.status} `)
         }
         catch (error) {
-            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);
+            if(error.response) {
+                log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);
+            }
             this.quote.log += `--------======= Bind Response Error =======--------<br><br>`;
             this.quote.log += error;
             this.quote.log += "<br><br>";
@@ -380,7 +382,7 @@ class CompuwestBind extends Bind {
                             for (const location of appDoc.locations) {
                                 for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
                                     // Find the entry for this activity code
-                                    const ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.find((acs) => acs.employeeType === "Owners" && acs.employeeTypeCount === 1);
+                                    const ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.employeeTypeList.find((acs) => acs.employeeType === "Owners" && acs.employeeTypeCount === 1);
                                     if(ActivityCodeEmployeeTypeEntry){
                                         const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
                                         ActualRemunerationAmt.ele('Amt', ActivityCodeEmployeeTypeEntry.employeeTypePayroll);
@@ -415,7 +417,7 @@ class CompuwestBind extends Bind {
             }
         }
         catch(err){
-            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error additionalInsuredList processing ${err} ` + __location);
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error additionalInsuredList owner processing ${err} ` + __location);
         }
         // <WorkCompLineBusiness>
         const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');

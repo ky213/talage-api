@@ -4,6 +4,8 @@
 
 'use strict';
 
+const IndustryCodeSvc = global.requireShared('services/industrycodesvc.js');
+
 /**
  * Responds to get requests for all enabled industry code categories
  *
@@ -16,24 +18,26 @@
 async function GetIndustryCategories(req, res, next) {
     // Request for all featured categories with associated codes
     let error = false;
-    const sql_all_industry_categories = 'SELECT DISTINCT `icc`.`id`, `icc`.`name` FROM `#__industry_code_categories` AS `icc` RIGHT JOIN `#__industry_codes` AS `ic` ON `icc`.`id` = `ic`.`category` WHERE `icc`.`featured` = 1 AND `icc`.`state` = 1 ORDER BY `icc`.`name`;';
-    const categories = await db.queryReadonly(sql_all_industry_categories).catch(function(e) {
-        log.warn(e.message);
+    let iicList = null;
+    try{
+        iicList = await IndustryCodeSvc.GetIndustryCodeCategories()
+    }
+    catch(err){
+        error = err;
+    }
+    if (error) {
         res.send(500, {
-            message: 'Internal Server Error',
+            message: 'internal server error',
             status: 'error'
         });
-        error = true;
-    });
-    if (error) {
         return next(false);
     }
-    if (categories && categories.length) {
+    if (iicList && iicList.length) {
         // log.info(`Returning ${categories.length} Industry Code Categories`);
-        res.send(200, categories);
+        res.send(200, iicList);
         return next();
     }
-    log.info('No Categories Available');
+    log.info('No Categories Available' + __location);
     res.send(404, {
         message: 'No Categories Available',
         status: 'error'
@@ -43,5 +47,6 @@ async function GetIndustryCategories(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    // TODO require Auth.
     server.addGet('Get All Industry Code Categories', `${basePath}/industry-categories`, GetIndustryCategories);
 };

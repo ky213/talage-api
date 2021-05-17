@@ -1,5 +1,5 @@
-'use strict';
-
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const ActivityCodeBO = global.requireShared('./models/ActivityCode-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 
 /**
@@ -27,25 +27,28 @@ async function getIdustryCodeActivityCodes(req, res, next){
     if(!industryCodeId){
         return next(serverHelper.requestError('Bad Request: Invalid talageIndustryCodeId provided'));
     }
-
-    const talageActivityCodeSql = `
-        SELECT * 
-        FROM clw_talage_activity_codes 
-        WHERE id IN (
-            SELECT activityCodeId
-            FROM clw_talage_industry_code_associations
-            WHERE industryCodeId = ${db.escape(industryCodeId)}
-        )
-        `;
-    const activityCodes = await db.query(talageActivityCodeSql).catch(function(err){
-        log.error(err.message);
+    const industryCodeBO = new IndustryCodeBO();
+    const icDoc = await industryCodeBO.getById(industryCodeId).catch(function(err){
+        log.error(err.message + __location);
         res.send(500, 'Error retrieving activity codes related to an industry code.');
         return next(serverHelper.internalError('Error retrieving activity codes related to an industry code.'));
     });
 
-    // Return the response
-    res.send(200, activityCodes);
-    return next();
+    if(icDoc && icDoc.activityCodeIdList && icDoc.activityCodeIdList.length > 0){
+        const activityCodeBO = new ActivityCodeBO();
+        const query = {activityCodeId: icDoc.activityCodeIdList}
+        const acList = await activityCodeBO.getList(query).catch(function(err){
+            log.error(err.message + __location);
+            res.send(500, 'Error retrieving activity codes related to an industry code.');
+            return next(serverHelper.internalError('Error retrieving activity codes related to an industry code.'));
+        });
+        res.send(200, acList);
+        return next();
+    }
+    else {
+        res.send(200, []);
+        return next();
+    }
 }
 
 exports.registerEndpoint = (server, basePath) => {
