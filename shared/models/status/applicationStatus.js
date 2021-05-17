@@ -61,14 +61,19 @@ async function updateApplicationStatus(application, timeout) {
     }
 
     // Set the new application status
-    try {
-        //TODO change to applicationId
-        await applicationBO.updateStatus(applicationDocJson.applicationId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+    if(applicationDocJson.appStatusId < applicationStatus.appStatusId){
+        try {
+            //TODO change to applicationId
+            await applicationBO.updateStatus(applicationDocJson.applicationId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        }
+        catch (err) {
+            log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
+        }
+        return applicationStatus;
+    }else {
+        log.info(`New appStatusId ${applicationStatus.appStatusId} is not greater than the current appStatusId ${applicationDocJson.appStatusId}. Not updating application: ${applicationDocJson.applicationId} `+ __location);
+        return {applicationStatus: applicationDocJson.appStatusId, appStatusDesc: applicationDocJson.appStatusDesc};
     }
-    catch (err) {
-        log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
-    }
-    return applicationStatus;
 }
 
 /**
