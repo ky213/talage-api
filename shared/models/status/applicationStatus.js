@@ -71,7 +71,7 @@ async function updateApplicationStatus(application, timeout) {
         }
         return applicationStatus;
     }else {
-        log.warn(`New appStatusId ${applicationStatus.appStatusId} is not greater than the current appStatusId ${applicationDocJson.appStatusId}. Not updating application: ${applicationDocJson.applicationId}`);
+        log.info(`New appStatusId ${applicationStatus.appStatusId} is not greater than the current appStatusId ${applicationDocJson.appStatusId}. Not updating application: ${applicationDocJson.applicationId} `+ __location);
         return {applicationStatus: applicationDocJson.appStatusId, appStatusDesc: applicationDocJson.appStatusDesc};
     }
 }
