@@ -61,24 +61,19 @@ async function updateApplicationStatus(application, timeout) {
     }
 
     // Set the new application status
-    try {
-        //TODO change to applicationId
-        await applicationBO.updateStatus(applicationDocJson.applicationId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
-    }
-    catch (err) {
-        log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
-    }
-    // If the application status is bound then recalculate the application-level quote metrics
-    if(applicationStatus.appStatusId === '90'){
+    if(applicationDocJson.appStatusId < applicationStatus.appStatusId){
         try {
-            // Update Application-level quote metrics when we do a bind.
-            await applicationBO.recalculateQuoteMetrics(applicationDocJson.applicationId);
-
-        } catch (error) {
-            log.error(`Recalculating Quote Metrics Error AppId: ${applicationDocJson.applicationId} `);
+            //TODO change to applicationId
+            await applicationBO.updateStatus(applicationDocJson.applicationId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
         }
+        catch (err) {
+            log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
+        }
+        return applicationStatus;
+    }else {
+        log.warn(`New appStatusId ${applicationStatus.appStatusId} is not greater than the current appStatusId ${applicationDocJson.appStatusId}. Not updating application: ${applicationDocJson.applicationId}`);
+        return {applicationStatus: applicationDocJson.appStatusId, appStatusDesc: applicationDocJson.appStatusDesc};
     }
-    return applicationStatus;
 }
 
 /**
