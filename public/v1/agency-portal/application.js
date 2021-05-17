@@ -1316,10 +1316,14 @@ async function bindQuote(req, res, next) {
             let markAsBoundResponse = false;
             try {
                 markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
-                // Update application status
-                await applicationBO.updateStatus(applicationId,"bound", 90);
-                // Update Application-level quote metrics when we do a bind.
-                await applicationBO.recalculateQuoteMetrics(applicationId);
+                if(applicationDB.appStatusId !== 90){
+                    // Update application status
+                    await applicationBO.updateStatus(applicationId,"bound", 90);
+                    // Update Application-level quote metrics when we do a bind.
+                    await applicationBO.recalculateQuoteMetrics(applicationId);
+                }else {
+                    log.info(`Application ${applicationId} is already bound with appStatusId ${applicationDB.appStatusId} ` + __location);
+                }
             } catch (err) {
                 // We Do not pass error object directly to Client - May cause info leak.
                 log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
