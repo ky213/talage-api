@@ -1305,11 +1305,27 @@ async function bindQuote(req, res, next) {
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+            // const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+            //     log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
+            //     bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
+            // });
+
+            // if(markAsBoundResponse === true){
+            //     bindSuccess = true;
+            // }
+            let markAsBoundResponse = false;
+            try {
+                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
+                // Update application status
+                await applicationBO.updateStatus(applicationId,"bound", 90);
+                // Update Application-level quote metrics when we do a bind.
+                await applicationBO.recalculateQuoteMetrics(applicationId);
+            } catch (err) {
+                error = err;
                 log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
                 bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
-            });
-            if(markAsBoundResponse === true){
+            }
+            if(markAsBoundResponse === true && !error){
                 bindSuccess = true;
             }
         }
