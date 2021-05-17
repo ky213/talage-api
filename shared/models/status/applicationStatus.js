@@ -68,6 +68,16 @@ async function updateApplicationStatus(application, timeout) {
     catch (err) {
         log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
+    // If the application status is bound then recalculate the application-level quote metrics
+    if(applicationStatus.appStatusId === '90'){
+        try {
+            // Update Application-level quote metrics when we do a bind.
+            await applicationBO.recalculateQuoteMetrics(applicationDocJson.applicationId);
+
+        } catch (error) {
+            log.error(`Recalculating Quote Metrics Error AppId: ${applicationDocJson.applicationId} `);
+        }
+    }
     return applicationStatus;
 }
 
