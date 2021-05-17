@@ -1321,11 +1321,12 @@ async function bindQuote(req, res, next) {
                 // Update Application-level quote metrics when we do a bind.
                 await applicationBO.recalculateQuoteMetrics(applicationId);
             } catch (err) {
-                error = err;
+                // We Do not pass error object directly to Client - May cause info leak.
                 log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
-                bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
+                res.send({'message': "Failed to mark quote as bound. If this continues please contact us."});
+                return next();
             }
-            if(markAsBoundResponse === true && !error){
+            if(markAsBoundResponse === true){
                 bindSuccess = true;
             }
         }
