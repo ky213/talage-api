@@ -45,10 +45,10 @@ class CompuwestBind extends Bind {
         else {
             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} missing WC policy ` + __location);
         }
-        if(notGwAPI || this.insurer.useSandbox){
+        if(notGwAPI || !this.insurer.useSandbox){
             // only sent quotebind for GW API.
             // return success so no error processing kick in.
-            return "success";
+            return "updated";
         }
         let xml = null;
         try{
@@ -139,6 +139,7 @@ class CompuwestBind extends Bind {
                 log.error(`Appid: ${this.quote.applicationId} ${this.insurer.name} integration error: could not locate quote letter attachments. ${JSON.stringify(res)} ${__location}`);
                 //return this.return_result('error');
             }
+            //Not a real bind.  just an submission update.
             return "updated"
         }
         else if (status === 'REFERRALNEEDED'){

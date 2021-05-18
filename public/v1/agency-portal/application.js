@@ -491,7 +491,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
     catch(err){
-        log.error("Error getting industryCodeBO " + err + __location);
+        log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
@@ -1250,10 +1250,14 @@ async function bindQuote(req, res, next) {
             await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
             const bindResp = await quoteBind.bindPolicy();
             if(bindResp === "success"){
-                log.info(`succesfully API bound ${quoteId}` + __location)
+                log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
                 bindSuccess = true;
             }
-            else if(bindResp === "cannot_bind_quote"){
+            else if(bindResp === "updated"){
+                log.info(`succesfully API update via bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
+                bindSuccess = true;
+            }
+            else if(bindResp === "cannot_bind_quote" || bindResp === "rejected"){
                 log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: cannot_bind_quote` + __location);
                 bindFailureMessage = "Cannot Bind Quote"
             }
@@ -1305,10 +1309,31 @@ async function bindQuote(req, res, next) {
         else {
             //Mark Quote Doc as bound.
             const quoteBO = new QuoteBO()
-            const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+            // const markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID).catch(function(err){ 
+            //     log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
+            //     bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
+            // });
+
+            // if(markAsBoundResponse === true){
+            //     bindSuccess = true;
+            // }
+            let markAsBoundResponse = false;
+            try {
+                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
+                if(applicationDB.appStatusId !== 90){
+                    // Update application status
+                    await applicationBO.updateStatus(applicationId,"bound", 90);
+                    // Update Application-level quote metrics when we do a bind.
+                    await applicationBO.recalculateQuoteMetrics(applicationId);
+                }else {
+                    log.info(`Application ${applicationId} is already bound with appStatusId ${applicationDB.appStatusId} ` + __location);
+                }
+            } catch (err) {
+                // We Do not pass error object directly to Client - May cause info leak.
                 log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
-                bindFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
-            });
+                res.send({'message': "Failed to mark quote as bound. If this continues please contact us."});
+                return next();
+            }
             if(markAsBoundResponse === true){
                 bindSuccess = true;
             }
