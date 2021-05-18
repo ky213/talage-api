@@ -313,6 +313,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Determine total payroll
         this.totalPayroll = this.get_total_payroll();
+        // eslint-disable-next-line no-extra-parens
         const totalPayrollQuestionId = Object.keys(questionDetails).find(questionId => (questionDetails[questionId].identifier.startsWith("CustomTotalPayroll") ? questionId : null));
         if (totalPayrollQuestionId) {
             //parseInt does not throw error with parse a non-number.
