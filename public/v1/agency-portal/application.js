@@ -1900,13 +1900,10 @@ async function markQuoteAsDead(req, res, next){
     }
 
     let error = null;
-    //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let applicationId = req.body.applicationId;
-
     const quoteId = req.body.quoteId;
 
-    //assume uuid input
     log.debug(`Getting app id  ${applicationId} from mongo` + __location)
     const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
         log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
@@ -1920,7 +1917,7 @@ async function markQuoteAsDead(req, res, next){
         applicationId = applicationDB.applicationId;
     }
     else {
-        log.error(`Did not find application Doc for bound ${applicationId}` + __location);
+        log.error(`Did not find application Doc for mark as dead ${applicationId}` + __location);
         return next(serverHelper.requestError('Invalid id'));
     }
 
@@ -1957,23 +1954,16 @@ async function markQuoteAsDead(req, res, next){
         return next(serverHelper.notFoundError('Error trying to find user information.'));
     }
 
-    let markAsDeadSuccess = false;
-    let markAsDeadFailureMessage = '';
     const quoteBO = new QuoteBO();
     const markAsDeadResponse = await quoteBO.markQuoteAsDead(quoteId, applicationId, userName).catch(function(err){ 
         log.error(`Error trying to mark quoteId #${quoteId} as dead on applicationId #${applicationId} ` + err + __location);
-        markAsDeadFailureMessage = "Failed to mark quote as dead. If this continues please contact us.";
     });
-    if(markAsDeadResponse === true){
-        markAsDeadSuccess = true;
-    }
-    
     // Send back mark status.
-    if(markAsDeadSuccess){
+    if(markAsDeadResponse === true){
         res.send(200, {"marked": true});
     }
     else {
-        res.send({'message': markAsDeadFailureMessage});
+        res.send({'message': 'Failed to mark quote as dead. If this continues please contact us.'});
     }
         return next();
 }
