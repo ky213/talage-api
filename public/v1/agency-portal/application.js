@@ -491,7 +491,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
     catch(err){
-        log.error("Error getting industryCodeBO " + err + __location);
+        log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
