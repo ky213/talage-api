@@ -22,13 +22,13 @@ const optsNoId = {toJSON: {virtuals: true}, _id : false}
 const IncomeLimitSchema = new Schema({
     effectiveDate: {type: Date, required: true},
     minIncomeLimit: {type: Number, required: false},
-    maxIncomeLimit: {type: Number, required: false},
-    attributes: {type: String, required: false}
+    maxIncomeLimit: {type: Number, required: false}
 }, optsNoId);
 
 const EmployeeInclusionStatusSchema = new Schema({ 
     employeeTitle: {type: String, required: true}, 
-    mustInclude: {type: Boolean, required: true},
+    stateEmployeeTitle: {type: String, required: false},
+    mustInclude: {type: Boolean, required: true}
 }, optsNoId);
 
 
@@ -36,9 +36,11 @@ const StateIncomeLimitsSchema = new Schema({
     stateIncomeLimitsId : {type: String, required: [true, 'state income limit id required'], unique: true},
     state: {type: String, required: [true, 'state required']},
     entityType: {type: String, required: [true, 'entity type required']},
+    stateEntityTypeDesc: {type: String, required: false},
     rules: {type: String, required: false},
-    employeeInclusionStatus: {type: [EmployeeInclusionStatusSchema], required: false, default: []},
-    incomeLimit: {type: [IncomeLimitSchema], required: true}
+    attributes: {type: Schema.Types.Mixed, required: false},
+    employeeInclusionStatus: [EmployeeInclusionStatusSchema],
+    incomeLimit: [IncomeLimitSchema]
 }, opts);
 
 StateIncomeLimitsSchema.plugin(timestamps);
