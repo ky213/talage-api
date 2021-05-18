@@ -197,12 +197,15 @@ async function getApplication(req, res, next) {
                 }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            // Change the name of autodeclined
-            if (quoteJSON.status === 'bind_requested'
+            // Do not overwrite the reasons for quote Obj if it is marked dead
+            if(quoteJSON.quoteStatusId !== quoteStatus.dead.id){
+                if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
                 || quoteJSON.status === 'quoted') {
-                quoteJSON.reasons = '';
+                    quoteJSON.reasons = '';
+                }
             }
+            // Change the name of autodeclined
             if (quoteJSON.status === 'autodeclined') {
                 quoteJSON.status = 'Out of Market';
                 quoteJSON.displayStatus = 'Out of Market';
@@ -212,6 +215,7 @@ async function getApplication(req, res, next) {
                 const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
                 quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
             }
+
             // can see log?
             try {
                 if (!req.authentication.permissions.applications.viewlogs) {
