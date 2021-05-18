@@ -16,55 +16,46 @@ const mongooseHistory = require('mongoose-history');
 
 global.requireShared('./helpers/tracker.js');
 
+const opts = {toJSON: {virtuals: true}};
+const optsNoId = {toJSON: {virtuals: true}, _id : false}
+
 const IncomeLimitSchema = new Schema({
-    effectiveDate: {type: Date, required: false},
-    expirationDate: {type: Date, required: false},
-    payrollLimit: {type: Number, required: false},
-    attributes: {type: Schema.Types.Mixed} // Solves the problem from New York data where construction and non-construction have different limits (given same entity type)
-});
+    effectiveDate: {type: Date, required: true},
+    minIncomeLimit: {type: Number, required: false},
+    maxIncomeLimit: {type: Number, required: false},
+    attributes: {type: String, required: false}
+}, optsNoId);
 
-const IncludedInCoverageSchema = new Schema({
-    employeeType: {type: String},
-    include: {type: Boolean}, 
-    exclude: {type: Boolean}, 
-    conditions: {type: Schema.Types.Mixed} 
-// zy Rules are difficult to structure. As laid out here we can show whether something can be included or excluded. 
-// The conditions property just shows stated rules, not necessarily what to do about them. 
-// Alternatively, we could drop entire "description" block into a "rules" property on the main schema
-});
+const EmployeeInclusionStatusSchema = new Schema({ 
+    employeeTitle: {type: String, required: true}, 
+    mustInclude: {type: Boolean, required: true},
+}, optsNoId);
 
-const OwnerIncomeLimitsSchema = new Schema({
-    ownerIncomeId : {type: String, required: [true, 'owner income id required'], unique: true},
-    insurerId: {type: Number, required: [true, 'insurer id required']},
+
+const StateIncomeLimitsSchema = new Schema({
+    stateIncomeLimitsId : {type: String, required: [true, 'state income limit id required'], unique: true},
     state: {type: String, required: [true, 'state required']},
-    entityType: {type: String, required: [true, 'entity type required']}, // Do we want entity type to be an array to allow for different entities with the same rules?
-    attributes: {type: Schema.Types.Mixed},
-    employeeInclusionStatus: {type: [IncludedInCoverageSchema], required: false, default: []},
-    minLimit: {type: [IncomeLimitSchema], required: false, default: []},
-    maxLimit: {type: [IncomeLimitSchema], required: false, default: []}
-});
+    entityType: {type: String, required: [true, 'entity type required']},
+    rules: {type: String, required: false},
+    employeeInclusionStatus: {type: [EmployeeInclusionStatusSchema], required: false, default: []},
+    incomeLimit: {type: [IncomeLimitSchema], required: true}
+}, opts);
 
-OwnerIncomeLimitsSchema.plugin(timestamps);
-OwnerIncomeLimitsSchema.plugin(mongooseHistory);
+StateIncomeLimitsSchema.plugin(timestamps);
+StateIncomeLimitsSchema.plugin(mongooseHistory);
 
-OwnerIncomeLimitsSchema.pre('validate', next => {
+StateIncomeLimitsSchema.pre('validate', next => {
     if (this.isNew) {
-        if (!this.ownerIncomeId) {
-            this.ownerIncomeId = uuid.v4();
+        if (!this.stateIncomeLimitsId) {
+            this.stateIncomeLimitsId = uuid.v4();
         }
     }
     next();
 });
 
-OwnerIncomeLimitsSchema.pre('save', next => {
+StateIncomeLimitsSchema.pre('save', next => {
     next();
 });
 
-// Configure the 'MessageSchema' to use getters and virtuals when transforming to JSON
-// OwnerIncomeLimitsSchema.set('toJSON', { // zy What does this do?
-//     getters: true,
-//     virtuals: true
-// });
-
-mongoose.set('useCreateIndex', true); // zy What do these do?
-mongoose.model('OwnerIncomeLimits', OwnerIncomeLimitsSchema);
+mongoose.set('useCreateIndex', true);
+mongoose.model('OwnerIncomeLimits', StateIncomeLimitsSchema);
