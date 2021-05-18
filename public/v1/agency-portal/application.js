@@ -1933,7 +1933,7 @@ async function markQuoteAsDead(req, res, next){
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
-// Find userinfo
+    // Find userinfo
     const id = stringFunctions.santizeNumber(req.authentication.userID, true);
     const agencyPortalUserBO = new AgencyPortalUserBO();
     // Load the request data into it

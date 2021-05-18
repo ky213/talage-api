@@ -588,7 +588,7 @@ module.exports = class QuoteBO {
 
     async markQuoteAsDead(quoteId, applicationId, markDeadUser) {
         if(quoteId && applicationId && markDeadUser){
-            const status = quoteStatus.dead;
+            const deadStatusObj = quoteStatus.dead;
 
             // update Mongo
             const query = {
@@ -598,11 +598,12 @@ module.exports = class QuoteBO {
             let quoteDoc = null;
             try{
                 quoteDoc = await Quote.findOne(query, '-__v');
-                if(!quoteDoc.bound){
+                if(!quoteDoc.bound && quoteDoc.quoteStatusId !== deadStatusObj.id){
+                    log.debug(`Marking ${quoteId} as dead for application ${applicationId}`);
                     // eslint-disable-next-line prefer-const
                     let updateJSON = {
-                        "quoteStatusId": status.id,
-                        "quoteStatusDescription": status.description,
+                        "quoteStatusId": deadStatusObj.id,
+                        "quoteStatusDescription": deadStatusObj.description,
                         "reasons": `Marked as dead by user ${markDeadUser}`
                     };
                     await Quote.updateOne(query, updateJSON);
