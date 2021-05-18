@@ -116,9 +116,6 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
             // return the current app status if it is less than 10
             return { appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.appStatusDesc };
         }
-        // TODO
-        // out of market should be somewhere between incomplete and questions done, but what about wholesale?
-        // do we need to prevent status change if we are out of market?
         else if (applicationDoc.solepro || applicationDoc.wholesale) {
             //TODO separate status logic
             //appStatusId = 5
