@@ -5,6 +5,23 @@
 
 const { updateQuoteStatus } = require('./quoteStatus.js');
 
+const applicationStatus = {
+    incomplete: { appStatusId: 0, appStatusDesc: 'incomplete' },
+    outOfMarket: { appStatusId: 4, appStatusDesc: "out_of_market" },
+    wholesale: { appStatusId: 5, appStatusDesc: 'wholesale'},
+    questionsDone: { appStatusId: 10, appStatusDesc: 'questions_done' },
+    error: { appStatusId: 20, appStatusDesc: 'error' },
+    declined: { appStatusId: 30, appStatusDesc: 'declined' },
+    referred: { appStatusId: 40, appStatusDesc: 'referred' },
+    acordEmailed: { appStatusId: 45, appStatusDesc: 'acord_emailed' },
+    quotedReferred: { appStatusId: 50, appStatusDesc: 'quoted_referred' },
+    quoted: { appStatusId: 60, appStatusDesc: 'quoted' },
+    dead: { appStatusId: 65, appStatusDesc: 'dead' },
+    requestToBind: { appStatusId: 70, appStatusDesc: 'request_to_bind' },
+    requestToBindReferred: { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' },
+    bound: { appStatusId: 90, appStatusDesc: 'bound' }
+}
+
 /**
  * Ensures that a quote has a value for aggregated_status
  *
@@ -49,26 +66,26 @@ async function updateApplicationStatus(application, timeout) {
     }
 
     // Get the new application status
-    let applicationStatus = '';
+    let appStatus = '';
     switch (applicationDocJson.agencyNetworkId) {
         default:
-            applicationStatus = getGenericApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
+            appStatus = getGenericApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
             break;
         // Accident Fund
         case 2:
-            applicationStatus = getAccidentFundApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
+            appStatus = getAccidentFundApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
             break;
     }
 
     // Set the new application status
     try {
         //TODO change to applicationId
-        await applicationBO.updateStatus(applicationDocJson.applicationId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        await applicationBO.updateStatus(applicationDocJson.applicationId, appStatus.appStatusDesc, appStatus.appStatusId);
     }
     catch (err) {
-        log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
+        log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(appStatus.appStatusDesc)} ` + err + __location);
     }
-    return applicationStatus;
+    return appStatus;
 }
 
 /**
@@ -87,77 +104,80 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
     const boundApplicationStatusId = 90;
     if(applicationDoc.appStatusId === deadApplicationStatusId || applicationDoc.appStatusId === boundApplicationStatusId){
         return {appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.appStatusDesc};
-    }else {
+    }
+    else {
         quoteDocJsonList.forEach((quoteDocJson) => updateQuoteStatus(quoteDocJson));
         if (applicationDoc.appStatusId < 10) {
-            //appStatusId = 0
-            return { appStatusId: 0, appStatusDesc: 'incomplete' };
+            // return the current app status if it is less than 10
+            return { appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.appStatusDesc };
         }
+        // TODO
+        // out of market should be somewhere between incomplete and questions done, but what about wholesale?
+        // do we need to prevent status change if we are out of market?
         else if (applicationDoc.solepro || applicationDoc.wholesale) {
             //TODO separate status logic
             //appStatusId = 5
-
-            return { appStatusId: 5, appStatusDesc: 'wholesale' };
+            return applicationStatus.wholesale;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'bound')) {
             //appStatusId = 100
             //return 'bound';
-            return { appStatusId: 90, appStatusDesc: 'bound' };
+            return applicationStatus.bound;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind_referred')) {
             //appStatusId = 80
             //return 'request_to_bind_referred';
-            return { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' };
+            return applicationStatus.requestToBindReferred;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind')) {
             //appStatusId = 70
             //return 'request_to_bind';
-            return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
+            return applicationStatus.requestToBind;
         }
         else if (quoteDocJsonList.every(quote => quote.aggregatedStatus === 'dead')) {
-            return { appStatusId: 65, appStatusDesc: 'dead' };
+            return applicationStatus.dead;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted')) {
             //appStatusId = 60
             // return 'quoted';
-            return { appStatusId: 60, appStatusDesc: 'quoted' };
+            return applicationStatus.quoted;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted_referred')) {
             //appStatusId = 50
             //return 'quoted_referred';
-            return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
+            return applicationStatus.quotedReferred;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'acord_emailed')) {
             //appStatusId = 45
             //return 'acord_emailed';
-            return { appStatusId: 45, appStatusDesc: 'acord_emailed' };
+            return applicationStatus.acordEmailed;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'referred')) {
             //appStatusId = 40
             //return 'referred';
-            return { appStatusId: 40, appStatusDesc: 'referred' };
+            return applicationStatus.referred;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'declined')) {
             //appStatusId = 30
             // return 'declined';
-            return { appStatusId: 30, appStatusDesc: 'declined' };
+            return applicationStatus.declined;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'error')) {
             //appStatusId = 20
             //  return 'error';
-            return { appStatusId: 20, appStatusDesc: 'error' };
+            return applicationStatus.error;
         }
         else if (applicationDoc.lastStep === 8 || applicationDoc.appStatusId === 10) {
             //appStatusId = 10
             // return 'questions_done';
-            return { appStatusId: 10, appStatusDesc: 'questions_done' };
+            return applicationStatus.questionsDone;
         }
         else if(timeout) {
             // if timeout is specified then return error if nothing above is chosen
-            return { appStatusId: 20, appStatusDesc: 'error' };
+            return applicationStatus.error;
         }
         else{
-            return { appStatusId: 0, appStatusDesc: 'incomplete' };
+            return applicationStatus.incomplete;
         }
     }
 }
@@ -176,7 +196,7 @@ function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList, time
     if (status === 'declined') {
         if (quoteDocJsonList.filter((quote) => quote.aggregatedStatus === 'error').length > 0) {
             //return 'error';
-            return { appStatusId: 20, appStatusDesc: 'error' };
+            return applicationStatus.error;
         }
     }
     return status;
@@ -184,5 +204,7 @@ function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList, time
 
 module.exports = {
     // eslint-disable-next-line object-shorthand
-    updateApplicationStatus
+    updateApplicationStatus,
+    // eslint-disable-next-line object-shorthand
+    applicationStatus
 };
