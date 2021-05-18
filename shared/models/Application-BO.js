@@ -1618,9 +1618,9 @@ module.exports = class ApplicationModel {
                         applicationDoc.appStatusId = applicationStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = 'error';
-                        applicationDoc.appStatusDesc = 'error';
-                        applicationDoc.appStatusId = "20";
+                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusDesc = status.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
                     }
 
                 }
