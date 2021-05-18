@@ -1250,10 +1250,14 @@ async function bindQuote(req, res, next) {
             await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
             const bindResp = await quoteBind.bindPolicy();
             if(bindResp === "success"){
-                log.info(`succesfully API bound ${quoteId}` + __location)
+                log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
                 bindSuccess = true;
             }
-            else if(bindResp === "cannot_bind_quote"){
+            else if(bindResp === "updated"){
+                log.info(`succesfully API update via bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
+                bindSuccess = true;
+            }
+            else if(bindResp === "cannot_bind_quote" || bindResp === "rejected"){
                 log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: cannot_bind_quote` + __location);
                 bindFailureMessage = "Cannot Bind Quote"
             }
