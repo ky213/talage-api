@@ -2843,6 +2843,7 @@ module.exports = class ApplicationModel {
         let errorMessage = null;
         let missingTerritory = '';
         try{
+            const status = global.requireShared('./models/status/applicationStatus.js');
             const agencyLocationBO = new AgencyLocationBO();
             const appDoc = await ApplicationMongooseModel.findOne({applicationId: applicationId});
             if(appDoc && appDoc.locations){
@@ -2917,12 +2918,19 @@ module.exports = class ApplicationModel {
                                 await appDoc.save();
                             }
                             else {
+                                // we dont cover the territory of this location, the application is out of market now.
+                                appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                                appDoc.appStatusDesc = status.applicationStatus.outOfMarket.appStatusDesc;
+                                await appDoc.save();
                                 errorMessage = `Agency does not cover application territory ${missingTerritory}`
                             }
                         }
                     }
                     else if(agenyLocationList && agenyLocationList.length === 1){
-                        //no update app
+                        // we dont cover the territory of this location, the application is out of market now.
+                        appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                        appDoc.appStatusDesc = status.applicationStatus.outOfMarket.appStatusDesc;
+                        await appDoc.save();
                         errorMessage = `Agency does not cover application territory ${missingTerritory}`
                     }
                     else {
@@ -2944,6 +2952,12 @@ module.exports = class ApplicationModel {
                     log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location)
                 }
                 errorMessage = `Could not set agencylocation on ${applicationId}`
+            }
+            if(!errorMessage && appDoc && appDoc.appStatusId === 4){
+                // we're no longer out of market, set back to incomplete
+                appDoc.appStatusId = status.applicationStatus.incomplete.appStatusId;
+                appDoc.appStatusDesc = status.applicationStatus.incomplete.appStatusDesc;
+                await appDoc.save();
             }
         }
         catch(err){
