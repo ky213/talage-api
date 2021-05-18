@@ -80,6 +80,7 @@ module.exports = class AcuityWC extends Integration {
                 }
                 const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.activityCodeId];
                 if (insurerClassCode) {
+                    let addAmtrustClassCode = false;
                     let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
                     if (!amtrustClassCode) {
                         amtrustClassCode = {
@@ -89,7 +90,7 @@ module.exports = class AcuityWC extends Integration {
                             fullTimeEmployees: 0,
                             partTimeEmployees: 0
                         };
-                        amtrustClassCodeList.push(amtrustClassCode);
+                        addAmtrustClassCode = true;
                     }
                     for (const employeeType of activityPayroll.employeeTypeList) {
                         amtrustClassCode.payroll += employeeType.employeeTypePayroll;
@@ -103,6 +104,11 @@ module.exports = class AcuityWC extends Integration {
                             default:
                                 break;
                         }
+                    }
+                    //AMtrust will return an error if the classcode has zero for employees or zero for payroll.
+                    if(addAmtrustClassCode && amtrustClassCode.fullTimeEmployees > 0 && amtrustClassCode.partTimeEmployees > 0
+                        && amtrustClassCode.payroll > 0){
+                        amtrustClassCodeList.push(amtrustClassCode);
                     }
                 }
             }
