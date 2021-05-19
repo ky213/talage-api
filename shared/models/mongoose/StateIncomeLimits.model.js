@@ -25,7 +25,7 @@ const IncomeLimitSchema = new Schema({
     maxIncomeLimit: {type: Number, required: false}
 }, optsNoId);
 
-const EmployeeInclusionStatusSchema = new Schema({
+const EmployeeTitleInclusionStatusSchema = new Schema({
     employeeTitle: {type: String, required: true},
     stateEmployeeTitle: {type: String, required: false},
     mustInclude: {type: Boolean, required: true}
@@ -38,7 +38,7 @@ const StateIncomeLimitsSchema = new Schema({
     stateEntityTypeDesc: {type: String, required: false},
     rules: {type: String, required: false},
     attributes: {type: Schema.Types.Mixed, required: false},
-    employeeTitleInclusionStatuses: [EmployeeInclusionStatusSchema],
+    employeeTitleInclusionStatuses: [EmployeeTitleInclusionStatusSchema],
     incomeLimits: [IncomeLimitSchema]
 }, opts);
 
