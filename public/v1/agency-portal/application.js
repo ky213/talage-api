@@ -197,12 +197,15 @@ async function getApplication(req, res, next) {
                 }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            // Change the name of autodeclined
-            if (quoteJSON.status === 'bind_requested'
+            // Do not overwrite the reasons for quote Obj if it is marked dead
+            if(quoteJSON.quoteStatusId !== quoteStatus.dead.id){
+                if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
                 || quoteJSON.status === 'quoted') {
-                quoteJSON.reasons = '';
+                    quoteJSON.reasons = '';
+                }
             }
+            // Change the name of autodeclined
             if (quoteJSON.status === 'autodeclined') {
                 quoteJSON.status = 'Out of Market';
                 quoteJSON.displayStatus = 'Out of Market';
@@ -212,6 +215,7 @@ async function getApplication(req, res, next) {
                 const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
                 quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
             }
+
             // can see log?
             try {
                 if (!req.authentication.permissions.applications.viewlogs) {
@@ -1881,6 +1885,92 @@ async function saveApplicationNotes(req, res, next){
         return next(serverHelper.internalError(new Error('No updated document')));
     }
 }
+async function markQuoteAsDead(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    let error = null;
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+    const quoteId = req.body.quoteId;
+
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+    if(applicationDB){
+        applicationId = applicationDB.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for mark as dead ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    const agents = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error)
+
+    }
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+    // Find userinfo
+    const id = stringFunctions.santizeNumber(req.authentication.userID, true);
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    // Load the request data into it
+    const userJSON = await agencyPortalUserBO.getById(id).catch(function(err) {
+        log.error("agencyPortalUserBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    let userName = null;
+    if (userJSON) {
+       userName = userJSON.clear_email;
+    }
+    else {
+        log.error(`Could not find user json for user id ${req.authentication.userID} : ` + __location);
+        return next(serverHelper.notFoundError('Error trying to find user information.'));
+    }
+
+    const quoteBO = new QuoteBO();
+    const markAsDeadResponse = await quoteBO.markQuoteAsDead(quoteId, applicationId, userName).catch(function(err){ 
+        log.error(`Error trying to mark quoteId #${quoteId} as dead on applicationId #${applicationId} ` + err + __location);
+    });
+    // Send back mark status.
+    if(markAsDeadResponse === true){
+        res.send(200, {"marked": true});
+    }
+    else {
+        res.send({'message': 'Failed to mark quote as dead. If this continues please contact us.'});
+    }
+        return next();
+}
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
@@ -1908,4 +1998,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
     server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
+    server.addPutAuth('PUT Mark Quote As Dead', `${basePath}/application/:id/mark-as-dead`, markQuoteAsDead, 'applications', 'manage');
 };
