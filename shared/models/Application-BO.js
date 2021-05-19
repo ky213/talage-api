@@ -1614,13 +1614,11 @@ module.exports = class ApplicationModel {
                     //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
                     if(applicationStatus && applicationStatus.appStatusId > -1){
                         applicationDoc.status = applicationStatus.appStatusDesc;
-                        applicationDoc.appStatusDesc = applicationStatus.appStatusDesc;
                         applicationDoc.appStatusId = applicationStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = 'error';
-                        applicationDoc.appStatusDesc = 'error';
-                        applicationDoc.appStatusId = "20";
+                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
                     }
 
                 }
@@ -2846,6 +2844,7 @@ module.exports = class ApplicationModel {
         let errorMessage = null;
         let missingTerritory = '';
         try{
+            const status = global.requireShared('./models/status/applicationStatus.js');
             const agencyLocationBO = new AgencyLocationBO();
             const appDoc = await ApplicationMongooseModel.findOne({applicationId: applicationId});
             if(appDoc && appDoc.locations){
@@ -2915,43 +2914,56 @@ module.exports = class ApplicationModel {
                                 log.error("Agency load error " + err + __location);
                             });
                             if (agencyJSON && agencyJSON.wholesale){
-                                log.info(`setAgencyLocation ${applicationId} setting to wholesale ` + __location)
+                                log.info(`setAgencyLocation ${applicationId} setting to wholesale ` + __location);
                                 appDoc.wholesale = true;
                                 await appDoc.save();
                             }
                             else {
-                                errorMessage = `Agency does not cover application territory ${missingTerritory}`
+                                // we dont cover the territory of this location, the application is out of market now.
+                                appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                                appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
+                                await appDoc.save();
+                                errorMessage = `Agency does not cover application territory ${missingTerritory}`;
                             }
                         }
                     }
                     else if(agenyLocationList && agenyLocationList.length === 1){
-                        //no update app
-                        errorMessage = `Agency does not cover application territory ${missingTerritory}`
+                        // we dont cover the territory of this location, the application is out of market now.
+                        appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                        appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
+                        await appDoc.save();
+                        errorMessage = `Agency does not cover application territory ${missingTerritory}`;
                     }
                     else {
-                        log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location)
-                        errorMessage = `Could not set agencylocation on ${applicationId}`
+                        log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
+                        errorMessage = `Could not set agencylocation on ${applicationId}`;
                     }
                 }
                 else if(needsUpdate && appDoc.lockAgencyLocationId === true){
                     //no update app
-                    log.info(`setAgencyLocation  locked Agencylocation does not cover application territories ${applicationId} ` + __location)
-                    errorMessage = `Agency Location does not cover application territory ${missingTerritory}`
+                    log.info(`setAgencyLocation  locked Agencylocation does not cover application territories ${applicationId} ` + __location);
+                    errorMessage = `Agency Location does not cover application territory ${missingTerritory}`;
                 }
             }
             else {
                 if(appDoc){
-                    log.error(`setAgencyLocation  Missing Application ${applicationId} locations ` + __location)
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} locations ` + __location);
                 }
                 else {
-                    log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location)
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location);
                 }
-                errorMessage = `Could not set agencylocation on ${applicationId}`
+                errorMessage = `Could not set agencylocation on ${applicationId}`;
+            }
+            if(!errorMessage && appDoc && appDoc.appStatusId === 4){
+                // we're no longer out of market, set back to incomplete
+                appDoc.appStatusId = status.applicationStatus.incomplete.appStatusId;
+                appDoc.status = status.applicationStatus.incomplete.appStatusDesc;
+                await appDoc.save();
             }
         }
         catch(err){
-            log.error(`setAgencyLocation  Error Application ${applicationId} - ${err}. ` + __location)
-            errorMessage(`Could not set agencylocation on ${applicationId}`)
+            log.error(`setAgencyLocation  Error Application ${applicationId} - ${err}. ` + __location);
+            errorMessage(`Could not set agencylocation on ${applicationId}`);
         }
 
         return errorMessage ? errorMessage : true;
