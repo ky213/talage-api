@@ -122,11 +122,10 @@ async function runFunction() {
 
     let quotes = null;
     let query = {
-        createdAt: {$lte: new Date('2020-10-26 04:00:29.693Z')},
         aggregatedStatus: {$exists: false},
         quoteStatusId: 0,
-        mysqlId: {$exists: true}
-    }
+        mysqlId: {$exists: true, $lte: 17214}
+    };
     try {
         quotes = await Quote.find(query);
     } catch (e) {
