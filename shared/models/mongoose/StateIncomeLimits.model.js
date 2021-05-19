@@ -38,8 +38,8 @@ const StateIncomeLimitsSchema = new Schema({
     stateEntityTypeDesc: {type: String, required: false},
     rules: {type: String, required: false},
     attributes: {type: Schema.Types.Mixed, required: false},
-    employeeInclusionStatus: [EmployeeInclusionStatusSchema],
-    incomeLimit: [IncomeLimitSchema]
+    employeeTitleInclusionStatuses: [EmployeeInclusionStatusSchema],
+    incomeLimits: [IncomeLimitSchema]
 }, opts);
 
 StateIncomeLimitsSchema.plugin(timestamps);
