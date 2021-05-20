@@ -13,11 +13,18 @@ const quoteStatus = {
     error: {
         id: 10,
         description: "Error"
+    }, 
+    outage: {
+        id: 15,
+        description: "Outage"
     },
-    // may want to include auto declined delineation? 
     declined: {
         id: 20,
         description: "Declined"
+    },
+    autodeclined: {
+        id: 25,
+        description: "Auto Declined"
     },
     ACORDEmailed: {
         id: 30,
@@ -121,9 +128,15 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
         // return 'acord_emailed';
         return quoteStatus.ACORDEmailed;
     }
-    else if (apiResult === 'declined' || apiResult === 'autodeclined') {
+    else if (apiResult === 'declined') {
         // return 'declined';
         return quoteStatus.declined;
+    }
+    else if (apiResult === 'autodeclined') {
+        return quoteStatus.autodeclined;
+    }
+    else if (apiResult === 'outage') {
+        return quoteStatus.outage;
     }
     else if (apiResult === quoteStatus.initiated.description && !timeout) {
         return quoteStatus.initiated;
@@ -133,7 +146,6 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
         return quoteStatus.error;
     }
 
-    // return 'error';
     return quoteStatus.error;
 }
 
@@ -163,8 +175,10 @@ const convertToAggregatedStatus = ({id, description}) => {
         case quoteStatus.ACORDEmailed.id:
             return 'acord_emailed';
         case quoteStatus.declined.id:
+        case quoteStatus.autodeclined.id:
             return 'declined';
         case quoteStatus.error.id:
+        case quoteStatus.outage.id:
             return 'error';
         default:
             // This will generally hit in cases where it's a new quote, which is considered initiated, but we used to not record this early, 
