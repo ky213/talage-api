@@ -2,7 +2,6 @@
 'use strict';
 
 
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -11,7 +10,6 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
 const tableName = 'clw_talage_insurers'
-const skipCheckRequired = false;
 module.exports = class InsurerBO{
 
 
@@ -70,11 +68,13 @@ module.exports = class InsurerBO{
     }
 
 
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            if(!queryJSON){
-                queryJSON = {};
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
             }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
             const queryProjection = {"__v": 0}
 
             let findCount = false;
@@ -116,7 +116,7 @@ module.exports = class InsurerBO{
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;

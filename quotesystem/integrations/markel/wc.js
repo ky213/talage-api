@@ -1,3 +1,5 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable no-trailing-spaces */
 /* eslint-disable no-console */
 
 /**
@@ -8,8 +10,110 @@
 
 const Integration = require('../Integration.js');
 const moment = require('moment');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+global.requireShared('./helpers/tracker.js');
+
+// NOTE: Many of these missing titles will be added 
+const ownerTitleMatrix = {
+    // Administrator: "com.markel.title.Administrator"
+    // Board Member: "OfcrBO"
+    // Executor: "com.markel.title.Executor"
+    // General Partner: "GenPtnr"
+    // Limited Partner: "LtdPtnr"
+    // Manager: "GenMgr"
+    // "Member": "Member",
+    // Non-Paid Officer (CA Only): "com.markel.title.NonPaidOfficer_CAonly"
+    // Non-subject Officer (NY only): "com.markel.title.NSO_NYonly"
+    // NY Non-Subject Executive Officer (President): "com.markel.title.NSEO.President_NYonly"
+    // NY Non-Subject Executive Officer (Secretary): "com.markel.title.NSEO.Secretary_NYonly"
+    // NY Non-Subject Executive Officer (Treasurer): "com.markel.title.NSEO.Treasurer_NYonly"
+    // NY Non-Subject Executive Officer (Vice President): "com.markel.title.NSEO.VicePresident_NYonly"
+    // Officer: "CorpOff"
+    "Other": "Ot",
+    // Owner: "Own"
+    // Partner: "Ptnr"
+    "President": "Pres",
+    "Chief Executive Officer": "Pres",
+    // Partner: "Ptnr"
+    "Secretary": "Sec",
+    // Sole Proprietor: "SolePrp"
+    "Treasurer": "Treas",
+    // Trustee: "Trustee"
+    "Vice President": "VP",
+    // BELOW ARE OWNER TITLES WE SUPPORT BUT MARKEL DOESN'T - SET TO "Ot" (OTHER)
+    "Chief Financial Officer": "Ot",
+    "Chief Operating Officer": "Ot",
+    "Director": "Ot",
+    "Executive Vice President": "Ot",
+    "Executive Secy-VP": "Ot",
+    "Executive Secretary": "Ot",
+    "Secy-Treas": "Ot",
+    "Pres-VP-Secy-Treas": "Ot",
+    "Pres-VP-Secy": "Ot",
+    "Pres-VP": "Ot",
+    "Pres-Treas": "Ot",
+    "Pres-Secy-Treas": "Ot",
+    "Pres-Secy": "Ot",
+    "VP-Treas": "Ot",
+    "VP-Secy-Treas": "Ot",
+    "VP-Secy": "Ot"
+}
+
+const entityTypeMatrix = {
+    "Association": "AS",
+    // Not applicable in GA, IL, KY
+    "C Corporation": "CCORP",
+    // Not applicable in AK, AL, AR, CA, CO, CT, DE, FL, GA, HI, IA, IL, IN, KS, KY, LA, MD, MI, MN, MO, MS, NC, NE, NH, NJ, NM, NV, OK, RI, SC, SD, TN, TX, UT, VA, VT, WI, WV
+    "Common Ownership": "CO",
+    // Not applicable in DC, ID, KY, MI, MT, ND, OH, OR, WA, WI, WY
+    "Corporation": "CP",
+    // Applicable in all states.
+    "Estate": "ES",
+    // Not applicable in GA, IL, NH
+    "Governmental Entity": "GE",
+    // Not applicable in GA, IL, KY, LA, UT
+    "Joint Venture": "JV",
+    // Not applicable in DC, GA, ID, IL, ND, NY, OH, OR, WA, WY
+    "Limited Liability Company": "LLC",
+    // Applicable in all states.
+    "Limited Partnership": "LP",
+    // Not applicable in AL, AR, CO, CT, DE, FL, GA, HI, IA, IL, IN, KS, KY, LA, MA MD, MI, MN, MO, MS, NC, NE, NH, NJ, NM, NV, OK, PA, RI, SC, SD, TN, TX, UT, VA, VT, WV
+    "Individual": "IN",
+    // Not applicable in NY.
+    "Nonprofit": "NP",
+    // Not applicable in MI, NY, WI
+    "Other": "OT",
+    // Not applicable in GA, IL, KY, MI, VA
+    "Professional Corporation": "PROF",
+    // Applicable only in CA.
+    "Partnership": "PT",
+    // Applicable in all states.
+    "Public Employer": "PUBLIC",
+    // Not applicable in AZ, DC, GA, ID, IL, KY, MA, ME, MT, ND, OH, OR, UT, WA, WI, WY
+    "Sole Proprietor": "SOLEPRP",
+    // Applicable in all states.
+    "S Corporation": "SS", // Markel's name: Subchapter S Corporation
+    // Not applicable in AK, AL, AR, CO, CT, DE, FL, GA, IA, IL, IN, KS, KY, LA, MD, MI, MN, MO, MS, NC, NE, NH, NM, NV, OK, RI, SC, SD, TN, TX, UT, VA, VT, WI, WV
+    "Trust": "TR",
+    // Not applicable in GA, IL
+    "Cooperative Corporation": "com.markel.coop",
+    // Applicable only in CA.
+    "Executor": "com.markel.exec",
+    // Not applicable in AZ, DC, GA, ID, IL, KY, MT, NC, ND, OH, OR, WA, WI, WY
+    "Limited Liability Partnership": "com.markel.llp",
+    // Not applicable in AL, AR, CO, CT, DE, FL, HI, IA, IN, KS, KY, MD, MN, MO, MS, NC, NE, NH, NM, NV, OK, RI, SC, SD, TN, TX, VA, VT, WV
+    "Religious Organization": "com.markel.religious",
+    // Not applicable in DC, GA, ID, IL, KY, MT, ND, OH, OR, WA, WY
+    "Trustee": "com.markel.trustee",
+    // Not applicable in AZ, CA, DC, GA, ID, IL, KY, MI, MT, ND, OH, OR, WA, WI, WY
+    "Registered Limited Liability Partnership": "com.markel.RLLP",
+    // Applicable only in NY
+    "Professional Service Liability Company": "com.markel.PSLC",
+    // Applicable only in NY
+    "Nonprofit Corporation": "com.markel.NPC",
+    // Applicable only in NY
+    "Unincorporated Nonprofit Association": "com.markel.UNPA"
+    // Applicable only in NY
+};
 
 module.exports = class MarkelWC extends Integration {
 
@@ -29,6 +133,8 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
+        const applicationDocData = this.app.applicationDocData;
+
         const special_activity_codes = {
             AK: [
                 '8842',
@@ -575,8 +681,6 @@ module.exports = class MarkelWC extends Integration {
         let path = '';
         let key = '';
 
-        const appDoc = this.app.applicationDocData
-
         //Determine API
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.markelcorp.com';
@@ -666,26 +770,30 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-
         const primaryAddress = this.app.business.locations[0];
 
-        // Define how legal entities are mapped for Markel
-        const entityMatrix = {
-            Association: 'AS',
-            Corporation: 'CP',
-            'Limited Liability Company': 'LLC',
-            'Limited Partnership': 'LP',
-            Partnership: 'PT',
-            'Sole Proprietorship': 'IN'
-        };
-        const entityType = entityMatrix[this.app.business.entity_type];
-        // Get the claims organized by year
-
-        if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`Markel (application ${this.app.id}): Invalid Entity Type ${__location}`);
-            // return this.return_result('autodeclined');
+        let entityType = null;
+        if (applicationDocData.entityType === "Corporation") {
+            switch(applicationDocData.corporationType) {
+                case "C":
+                    entityType = "CCORP";
+                    break;
+                case "S":
+                    entityType = "SS";
+                    break;
+                case "N":
+                    entityType = "NP";
+                    break;
+                default:
+                    entityType = "CP";
+                    break;
+            }
+        } 
+        else {
+            entityType = entityTypeMatrix[applicationDocData.entityType];
         }
 
+        // Get the claims organized by year
         const claims_by_year = this.claims_to_policy_years();
         let losses = 'No';
 
@@ -695,19 +803,7 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        let classificationCd = '';
-        let ownerPayroll = '';
-
-        // Add class code information
-        //TODO -  new activity code structure.
-        this.app.business.locations.forEach((location) => {
-            location.activity_codes.forEach((activity_code) => {
-                classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
-                ownerPayroll = activity_code.payroll;
-            });
-        });
-
-        // /* ---=== Begin Questions ===--- */
+        /* ---=== Begin Questions ===--- */
 
         const specialQuestions = ['CGL05',
             'GENRL22',
@@ -1126,51 +1222,112 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
+        // only include owner payroll (and as FTE) if we have 1 owner AND that owner is included
+        const includeOwnerPayroll = applicationDocData.owners.length === 1 && applicationDocData.owners[0].include;
+
+        // NOTE: we have to determine if there are multiple owner activities or not. If there are, even in excluded cases, we cannot properly assign
+        //       owners to their activities, which would mean we can't present accurate data for a bind, therefore, we will not include the owner activity
+        //       which will result in a non-bindable quote. If there is only one owner activity, even if there are multiple owners, we can properly assign 
+        //       the owner's activity for an accurate bindable quote
+        let ownerPayroll = 0;
+        let multipleOwnerActivities = false;
+        let ownerActivity = null;
+        applicationDocData.locations.forEach(location => {
+            location.activityPayrollList.forEach(activity => {
+                const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+
+                // if we've encountered our first owner activity, set it
+                if (owner && !ownerActivity && !multipleOwnerActivities) {
+                    ownerActivity = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
+                    ownerPayroll = parseInt(owner.employeeTypePayroll, 10);
+                }
+                // if we've encountered another owner activity, wipe our ownerActivity field... we cannot send owner activity information in the quote request
+                else if (owner && ownerActivity) {
+                    multipleOwnerActivities = true;
+                    ownerActivity = null;
+                    ownerPayroll = 0;
+                }
+            });
+        });
+
         // Populate the location list
         const locationList = [];
-        this.app.business.locations.forEach(location => {
-            // Get total payroll for this location
-            let locationPayroll = 0;
-            location.activity_codes.forEach((activityCode) => {
-                locationPayroll += activityCode.payroll;
-            });
-            locationList.push({
+        // for each location, push a location object into the locationList
+        applicationDocData.locations.forEach(location => {
+            const locationObj = {
                 "Location Address1":location.address,
-                "Location Zip": location.zip,
+                "Location Zip": location.zipcode,
                 "Location City": location.city,
-                "Location State": location.state_abbr,
-                "Payroll Section": [
-                    {
-                        Payroll: locationPayroll,
-                        "Full Time Employees": location.full_time_employees,
-                        "Part Time Employees": location.part_time_employees,
-                        "Class Code": classificationCd,
-                        "Class Code Description": this.app.business.industry_code_description
-                    }
-                ]
-            })
+                "Location State": location.state,
+                "Payroll Section": []
+            };
+
+            // for each activity, push a Payroll Section object into the Payroll Section list
+            location.activityPayrollList.forEach(activity => {
+                const fullTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Full Time");
+                const partTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Part Time");
+                const owners = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+                // we count owners as full time employees, so add them if they exist
+                let ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
+                ftCount += includeOwnerPayroll && owners ? owners.employeeTypeCount : 0;
+                const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
+
+                const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
+                
+                // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records.
+                //       In cases where there is only 1 owner, we can safely assume that the existing owner activity and payroll link to
+                //       the named owner entered in the owner information section of the application. In cases where there are more than 2 owners,
+                //       whether they belong to the same activity or not, we can not accurately and safely assign the owner entry to the owner record in payroll.
+                //       Therefore, in cases where there are 2 or more owners, we will NOT send owner information in the request, 
+                //       which will result in a non-bindable quote (via API).
+                const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+
+                // calculate total payroll from each employee type
+                const totalPayroll = (fullTimeEmployees ? fullTimeEmployees.employeeTypePayroll : 0) + 
+                    (partTimeEmployees ? partTimeEmployees.employeeTypePayroll : 0) + 
+                    (includeOwnerPayroll && owner ? owner.employeeTypePayroll : 0);
+
+                // only add a payroll section if there are employees to report on. 
+                // NOTE: 0 employee can happen when an owner is assigned to a unique activity but owners are excluded from coverage
+                if (ftCount + ptCount > 0) {
+                    locationObj["Payroll Section"].push({
+                        Payroll: totalPayroll,
+                        "Full Time Employees": ftCount,
+                        "Part Time Employees": ptCount,
+                        "Class Code": classCode ? classCode : ``,
+                        "Class Code Description": this.industry_code.description
+                    });
+                }
+            });
+
+            locationList.push(locationObj);
         });
 
         // Populate the owner / officer information section
-        let ownerOfficerInformationSection = null;
-        if (this.app.business.owners && this.app.business.owners.length > 0) {
-            ownerOfficerInformationSection = [
-                {
-                    "Owner First Name": this.app.business.owners[0].fname,
-                    "Owner Last Name": this.app.business.owners[0].lname,
-                    "Owner Title": this.app.business.owners[0].officerTitle,
-                    "Owner Ownership": this.app.business.owners[0].ownership,
-                    "Owner Class": 8001,
-                    "Owner Payroll": ownerPayroll,
-                    "Owner Include": 'Yes'
-                }
-            ];
+        const ownerOfficerInformationSection = [];
+
+        // NOTE: Not providing "Owner Payroll", even for excluded officers, results in a non-bindable quote. In those cases, we provide 0 instead.
+        // NOTE: If multiple owners fall under multiple activities, we omit "Owner Class" property, otherwise we include it 
+        // NOTE: We can only send owners if we have 1 owner OR all owners are excluded from coverage. More than one included and we are not able to provide 
+        //       accurate information for each owner's payroll and class (activity) code. Even if the owner's are electing to not be covered, 
+        //       the data structure still expects payroll and class code to be provided to bind, which is why regardless of whether they are included or not, 
+        //       we will only send if there is 1 owner, or ALL owners are excluded (so payroll is 0)
+        const canSendOwners = applicationDocData.owners.length > 1 ? !applicationDocData.owners.find(o => o.include === true) : true;
+
+        if (canSendOwners) {
+            applicationDocData.owners.forEach(owner => {
+                ownerOfficerInformationSection.push({
+                    "Owner First Name": owner.fname,
+                    "Owner Last Name": owner.lname,
+                    "Owner Title": ownerTitleMatrix[owner.officerTitle],
+                    "Owner Ownership": owner.ownership,
+                    "Owner Class": ownerActivity ? ownerActivity : ``,
+                    "Owner Payroll": owner.include ? ownerPayroll : 0,
+                    "Owner Include": owner.include ? 'Yes' : 'No'
+                });
+            });
         }
-        else {
-            ownerOfficerInformationSection = [
-                {"Owner Include": 'No'}
-            ];
-        }
+        
         if(!markelLimits){
             log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
         }
@@ -1191,7 +1348,7 @@ module.exports = class MarkelWC extends Integration {
                     name: this.app.business.name,
                     dba: this.app.business.dba,
                     website: this.app.business.website,
-                    fein: appDoc.ein,
+                    fein: applicationDocData.ein,
                     postalCode: this.app.business.mailing_zipcode,
                     state: this.app.business.mailing_territory
                 },
@@ -1220,7 +1377,7 @@ module.exports = class MarkelWC extends Integration {
                     "signaturePreference": "Electronic"
                 }
             }
-        ]}
+        ]};
 
         // let unansweredQ = null;
         // let declinedReasons = null;
@@ -1234,7 +1391,7 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('error');
         }
 
-        const rquIdKey = Object.keys(response)[0]
+        const rquIdKey = Object.keys(response)[0];
 
         try {
             if (response && (response[rquIdKey].underwritingDecisionCode === 'SUBMITTED' || response[rquIdKey].underwritingDecisionCode === 'QUOTED')) {
@@ -1299,7 +1456,14 @@ module.exports = class MarkelWC extends Integration {
         else if (response[rquIdKey].errors) {
             response[rquIdKey].errors.forEach((error) => {
                 if(typeof error === 'string'){
-                    this.reasons.push(`Markel Error ${error}`);
+                    if(error.indexOf("One or more class codes are Declined") > -1){
+                        this.reasons.push(`Markel Declined ${error}`);
+                        return this.return_result('declined');
+                    }
+                    else {
+                        this.reasons.push(`Markel: ${error}`);
+
+                    }
                 }
                 else {
                     this.reasons.push(`Markel Error ${JSON.stringify(error)}`);

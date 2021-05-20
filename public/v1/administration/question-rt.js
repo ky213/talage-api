@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -15,15 +16,25 @@ const tracker = global.requireShared('./helpers/tracker.js');
 async function findAll(req, res, next) {
     let error = null;
     const questionBO = new QuestionBO();
+
     const rows = await questionBO.getList(req.query).catch(function(err) {
+        log.error("admin agencynetwork error: " + err + __location);
         error = err;
     })
     if (error) {
         return next(error);
     }
-    if (rows) {
 
-        res.send(200, rows);
+    const countQuery = {...req.query, count: true};
+    const count = await questionBO.getList(countQuery).catch(function(err) {
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    if (rows) {
+        res.send(200, {rows, ...count});
         return next();
     }
     else {

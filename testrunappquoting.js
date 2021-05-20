@@ -221,11 +221,11 @@ async function runFunction() {
 
                 //save mongoinsert
                 const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
-                log.debug("Saved new sourceAppId " + newApplicationJSON.mysqlId + " applicationId " + newApplicationJSON.applicationId);
+                log.debug("Saved new sourceAppId " + sourceAppId + " applicationId " + newApplicationJSON.applicationId);
 
                 //run quote process
-                const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.mysqlId}/requote`;
-                const putBody = {"id": newApplicationJSON.mysqlId};
+                const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.applicationId}/requote`;
+                const putBody = {"id": newApplicationJSON.applicationId};
                 try{
                     const instance = axios.create();
                     instance.defaults.timeout = 4500;

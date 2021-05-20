@@ -34,6 +34,7 @@ module.exports = class Integration {
      * @param {Application} app - An object containing all of the application information
      * @param {object} insurer - An object containing all of the insurer information
      * @param {object} policy - The data related to the current policy
+     * @param {uuid} quoteId - This there is already an open quote.
      * @returns {void}
      */
     constructor(app, insurer, policy, quoteId) {
@@ -2039,7 +2040,7 @@ module.exports = class Integration {
                             }
                             // Log the request
                             this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>`;
-                            this.log += `URL: ${host}${path}<br><br>`;
+                            this.log += `URL: ${host}${path} - ${method}<br><br>`;
                             this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
                         }
                         headers[key] = additional_headers[key];
@@ -2081,6 +2082,7 @@ module.exports = class Integration {
                     this.seconds = process.hrtime(start_time)[0];
 
                     // Attempt to format the returned data
+                    //log.debug(` Appid: ${this.app.id} calling ${this.insurer.name} rawData ${rawData}`)
                     let formattedData = rawData;
                     if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
                         // Format XML to be readable

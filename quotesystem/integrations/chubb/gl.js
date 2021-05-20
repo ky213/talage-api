@@ -419,8 +419,8 @@ module.exports = class ChubbGL extends Integration {
             terrorism_CommlCoverage.ele('RatingClassificationCd', this.industry_code.cgl);
             // </CommlCoverage>
         }
-        else {
-            log.error(`Chubb GL (application ${this.app.id}): Error could not find terrorism question 1064 ` + __location);
+        else if(!this.questions[1064]) {
+            log.error(`Chubb GL (application ${this.app.id}): Error could not find terrorism question 1064 questions ${JSON.stringify(this.questions)} ` + __location);
         }
 
         // <LiabilityInfo>
@@ -693,7 +693,11 @@ module.exports = class ChubbGL extends Integration {
                     additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                 }
 
-                if (MsgStatusCd !== 'Success') {
+                if (MsgStatusCd === 'Decline') {
+                    return this.client_declined(additionalInfo.length > 0 ? additionalInfo : "Declined by Chubb");
+                }
+
+                if (MsgStatusCd !== 'Success' && MsgStatusCd !== 'Referral') {
                     errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
                         errorMessage += additionalInfo;

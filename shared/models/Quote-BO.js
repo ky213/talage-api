@@ -123,9 +123,14 @@ module.exports = class QuoteBO {
         }
     }
 
-    getList(queryJSON, getOptions = null) {
+    getList(requestQueryJSON, getOptions = null) {
         return new Promise(async(resolve, reject) => {
-            //
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
             // eslint-disable-next-line prefer-const
             let getListOptions = {getInsurerName: false}
 
@@ -178,7 +183,7 @@ module.exports = class QuoteBO {
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;
@@ -581,6 +586,38 @@ module.exports = class QuoteBO {
         return true;
     }
 
+    async markQuoteAsDead(quoteId, applicationId, markDeadUser) {
+        if(quoteId && applicationId && markDeadUser){
+            const deadStatusObj = quoteStatus.dead;
+
+            // update Mongo
+            const query = {
+                "quoteId": quoteId,
+                "applicationId": applicationId
+            };
+            let quoteDoc = null;
+            try{
+                quoteDoc = await Quote.findOne(query, '-__v');
+                if(!quoteDoc.bound && quoteDoc.quoteStatusId !== deadStatusObj.id){
+                    log.debug(`Marking ${quoteId} as dead for application ${applicationId}`);
+                    // eslint-disable-next-line prefer-const
+                    let updateJSON = {
+                        "quoteStatusId": deadStatusObj.id,
+                        "quoteStatusDescription": deadStatusObj.description,
+                        "reasons": `Marked as dead by user ${markDeadUser}`
+                    };
+                    await Quote.updateOne(query, updateJSON);
+                    log.info(`Update Mongo QuoteDoc marked as dead status on quoteId: ${quoteId}` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Could not update mongo quote ${quoteId} status to dead: ${err} ${__location}`);
+                throw err;
+            }
+        }
+
+        return true;
+    }
 
     // checks the status of the quote and fixes it if its timed out
     async checkAndFixQuoteStatus(quoteDoc){
@@ -599,7 +636,7 @@ module.exports = class QuoteBO {
                 const status = global.requireShared('./models/status/quoteStatus.js');
                 const duration = moment.duration(now.diff(moment(quoteDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
-                    log.error(`Quote: ${quoteDoc.quoteId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quote initiated.`);
+                    log.error(`AppId: ${quoteDoc.applicationId} Quote: ${quoteDoc.quoteId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quote initiated.`);
                     // This probably should just handle the update to mongo without the call to quotestatus.
                     // we know exactly what should happen.
                     await status.updateQuoteStatus(quoteDoc, true);

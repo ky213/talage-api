@@ -21,7 +21,6 @@ module.exports = class CompwestWC extends Integration {
     }
 
 
-
     /**
      * Requests a quote from Great America and returns. This request is not
      * intended to be called directly.
@@ -45,7 +44,7 @@ module.exports = class CompwestWC extends Integration {
                 "street": location.address,
                 "city": location.city,
                 "state": location.state,
-                "zip": location.zipcode
+                "zip": location.zipcode.slice(0,5)
             }
             if(this.policy.type.toUpperCase() === 'BOP'){
                 //log.debug(`this.policy ${JSON.stringify()}`)
@@ -91,7 +90,7 @@ module.exports = class CompwestWC extends Integration {
             "glAggregatePcoLimit": requestedLimits[4],
             "policyStartDate": this.policy.effective_date.toISOString(),
             //"policyEndDate": this.policy.expiration_date.toISOString(),
-            "zip": appDoc.mailingZipcode,
+            "zip": appDoc.mailingZipcode.slice(0,5),
             "numEmployees": this.get_total_employees(),
             "industryId": coterieIndustryId,
             "AKHash":this.insurerIndustryCode.code,
@@ -103,7 +102,7 @@ module.exports = class CompwestWC extends Integration {
             "mailingAddressStreet": appDoc.mailingAddress,
             "mailingAddressCity": appDoc.mailingCity,
             "mailingAddressState": appDoc.mailingState,
-            "mailingAddressZip": appDoc.mailingZipcode,
+            "mailingAddressZip": appDoc.mailingZipcode.slice(0,5),
             "locations": locationArray
         }
         let coterieDeductible = 0;

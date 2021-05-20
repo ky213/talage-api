@@ -6,8 +6,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 var InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const moment = require('moment');
 
-const tableName = 'InsurerIndustryCode';
+const collectionName = 'InsurerIndustryCode';
 module.exports = class InsurerIndustryCodeBO{
 
     constructor(){
@@ -25,13 +26,13 @@ module.exports = class InsurerIndustryCodeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
 
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -41,7 +42,7 @@ module.exports = class InsurerIndustryCodeBO{
                     await this.updateMongo(dbDocJSON.insurerIndustryCodeId,newObjectJSON);
                 }
                 else {
-                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location);
+                    log.error(`${collectionName} PUT object not found ` + newObjectJSON.id + __location);
                 }
             }
             if(newDoc === true) {
@@ -57,24 +58,23 @@ module.exports = class InsurerIndustryCodeBO{
         });
     }
 
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            if(!queryJSON){
-                queryJSON = {};
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
             }
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
 
             const queryProjection = {"__v": 0}
 
             let findCount = false;
-            let countOnly = false;
-            if(queryJSON.countOnly){
-                countOnly = true;
-                delete queryJSON.countOnly;
-
+            if(queryJSON.count){
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
             }
 
-
-            let rejected = false;
             // eslint-disable-next-line prefer-const
             let query = {active: true};
             let error = null;
@@ -114,13 +114,6 @@ module.exports = class InsurerIndustryCodeBO{
                 // offset by page number * max rows, so we go that many rows
                 queryOptions.skip = (page - 1) * queryOptions.limit;
                 delete queryJSON.page;
-            }
-
-            if (queryJSON.count) {
-                if (queryJSON.count === "1" || queryJSON.count === "true") {
-                    findCount = true;
-                }
-                delete queryJSON.count;
             }
 
             if(queryJSON.insurerIndustryCodeId && Array.isArray(queryJSON.insurerIndustryCodeId)){
@@ -167,6 +160,15 @@ module.exports = class InsurerIndustryCodeBO{
                 delete queryJSON.description;
             }
 
+            if(queryJSON.createdAfter){
+                // wrap it in a date to convert the date to iso if it isnt already
+                const createdAfterDate = moment(new Date(queryJSON.createdAfter));
+                if(createdAfterDate.isValid()){
+                    query.createdAt = {$gte: createdAfterDate};
+                }
+                delete queryJSON.createdAfter;
+            }
+
             if(queryJSON.notalageindustrycode){
                 query["talageIndustryCodeIdList.0"] = {$exists: false};
                 delete queryJSON.notalageindustrycode;
@@ -195,60 +197,38 @@ module.exports = class InsurerIndustryCodeBO{
                 }
             }
 
-            let docList = null;
-            let queryRowCount = 0;
             //log.debug(`InsurerIndustryCode getList query ${JSON.stringify(query)}` + __location)
-            // until we roll back BO for count to work like other BOs.
-            if(countOnly === true){
+            if(findCount === false){
+                let docList = null;
+                try {
+                    docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
+            }
+            else {
+                let queryRowCount = 0;
                 try {
                     queryRowCount = await InsurerIndustryCode.countDocuments(query);
                 }
                 catch (err) {
                     log.error(err + __location);
                     error = null;
-                    rejected = true;
-                }
-                if(rejected){
                     reject(error);
                     return;
                 }
                 resolve({count: queryRowCount});
             }
-            else {
-                try {
-                    docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
-                    if (findCount){
-                        queryRowCount = await InsurerIndustryCode.countDocuments(query);
-                    }
-                }
-                catch (err) {
-                    log.error(err + __location);
-                    error = null;
-                    rejected = true;
-                }
-                if(rejected){
-                    reject(error);
-                    return;
-                }
-                if(docList && docList.length > 0){
-                    // BAD - BREAK PATTERN TODO REVERT BACK TO PATTERN
-                    // no longer can just get count - expense mongoose processing for fill model and more expense db hit.
-                            // of the other BOs pass back the count as well for api paging (so we know how many total rows are)
-                    if (findCount){
-                        resolve({
-                            rows: mongoUtils.objListCleanup(docList),
-                            count: queryRowCount
-                        });
-                    }
-                    else{
-                        resolve(mongoUtils.objListCleanup(docList));
-                    }
-                }
-                else {
-                    resolve([]);
-                }
-            }
-            return;
         });
     }
 
@@ -344,7 +324,7 @@ module.exports = class InsurerIndustryCodeBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        
+
         const insurerIndustryCode = new InsurerIndustryCode(newObjectJSON);
         //Insert a doc
         await insurerIndustryCode.save().catch(function(err) {

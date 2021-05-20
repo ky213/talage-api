@@ -68,7 +68,7 @@ module.exports = class AcuityWC extends Integration {
                         locationClassification.totalAnnualPayroll += employeeType.employeeTypePayroll;
                         switch (employeeType.employeeType) {
                             case "Full Time":
-                            case "Owner":
+                            case "Owners":
                                 locationClassification.numberFullTimeEmployees += employeeType.employeeTypeCount;
                                 break;
                             case "Part Time":

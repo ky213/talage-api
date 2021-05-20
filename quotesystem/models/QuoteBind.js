@@ -111,10 +111,11 @@ module.exports = class QuoteBind{
 
         // Check that an integration file exists for this insurer and store a reference to it for later use
         const path = `${__dirname}/../integrations/${this.insurer.slug}/${this.quoteDoc.policyType.toLowerCase()}-bind.js`;
-
+        log.debug(`bindPolicy path ${path}` + __location);
         // Only do API-bind if we support API bind. Otherwise we will just do
         // manual bind.
         if (fs.existsSync(path)) {
+            log.debug("bindPolicy" + __location)
             // Create an instance of the Integration class
             const BindClass = require(path);
 
@@ -123,7 +124,7 @@ module.exports = class QuoteBind{
             try {
                 // response: "success", "error", "rejected"
                 const quoteResp = await bindWorker.bind();
-                //save log.
+                //save log and any other quote update like quote letter for AF
                 await this.quoteDoc.save().catch((err) => {
                     log.error(`failed to save quoteDoc after processing ${err}` + __location);
                 })
@@ -157,6 +158,12 @@ module.exports = class QuoteBind{
                 // } if(quoteResp = "error") {
                 //     //nothing to do
                 // }
+                else if(quoteResp === "rejected"){
+                    log.error(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} rejected submission ${__location}`)
+                }
+                else if(quoteResp === "updated"){
+                    log.info(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} updated submission ${__location}`)
+                }
                 else {
                     //unknown reponse.
                     log.error(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} Bind Unknown response from Bind Class ${__location}`);
@@ -185,7 +192,13 @@ module.exports = class QuoteBind{
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
     async load(id, payment_plan_id, requestUserId){
-        this.requestUserId = requestUserId;
+        if(requestUserId){
+            this.requestUserId = requestUserId;
+        }
+        else {
+            this.requestUserId = "applicant";
+        }
+
         // Attempt to get the details of this quote from the database
         //USE BO's
         const quoteModel = new QuoteBO();
@@ -213,7 +226,7 @@ module.exports = class QuoteBind{
         const ApplicationBO = global.requireShared('./models/Application-BO.js');
         const applicationBO = new ApplicationBO();
         try{
-            this.applicationDoc = await applicationBO.getfromMongoByAppId(this.quoteDoc.applicationId);
+            this.applicationDoc = await applicationBO.getById(this.quoteDoc.applicationId);
             log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
@@ -243,7 +256,13 @@ module.exports = class QuoteBind{
 
         // Load up an insurer based on the ID found
         const insurer = new Insurer();
-        this.insurer = await insurer.init(this.quoteDoc.insurerId);
+        try{
+            this.insurer = await insurer.init(this.quoteDoc.insurerId);
+        }
+        catch(err){
+            log.error("Insurer load for bind error " + err + __location);
+            throw err;
+        }
 
         // Validate the payment plan
         // - Only set payment plan if passed in.
@@ -288,6 +307,13 @@ module.exports = class QuoteBind{
             const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetwork = await agencyNetworkBO.getById(this.applicationDoc.agencyNetworkId);
             // Build out the 'attachment' for the Slack message
+            let amountStr = "";
+            try{
+                amountStr = this.quoteDoc.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+            }
+            catch(err){
+                log.error(`QuoteBind send_slack_notification amountStr process error ${err} ` + __location);
+            }
             const attachment = {
                 'application_id': this.applicationDoc.applicationId,
                 'fields': [
@@ -314,7 +340,7 @@ module.exports = class QuoteBind{
                     {
                         'short': true,
                         'title': 'Premium',
-                        'value': `$${this.quoteDoc.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+                        'value': `$${amountStr}`
                     },
                     {
                         'short': true,

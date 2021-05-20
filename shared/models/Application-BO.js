@@ -25,7 +25,8 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
-
+const utility = global.requireShared('./helpers/utility.js');
+const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
@@ -42,18 +43,13 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const convertToIntFields = [];
 
-const collectionName = 'applications';
+
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
 const QUOTE_MIN_TIMEOUT = 5;
 
 module.exports = class ApplicationModel {
-
-    #dbTableORM = null;
-    doNotSnakeCase = ['appStatusId',
-        'businessDataJSON',
-        'additionalInfo'];
 
     #applicationMongooseDB = null;
     #applicationMongooseJSON = {};
@@ -127,28 +123,27 @@ module.exports = class ApplicationModel {
             }
             if (applicationJSON.id) {
 
-                if(await validator.isUuid(applicationJSON.id)){
-                    log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
-                    this.applicationDoc = await this.loadfromMongoByAppId(applicationJSON.id).catch(function(err) {
-                        log.error("Error getting application from Database " + err + __location);
-                        reject(err);
-                        return;
-                    });
-                }
-                else {
-                    log.debug(`saveApplicationStep Loading by app integer ${applicationJSON.id} ` + __location)
-                    this.applicationDoc = await this.loadById(applicationJSON.id).catch(function(err) {
-                        log.error("Error getting application from Database " + err + __location);
-                        reject(err);
-                        return;
-                    });
-                }
+                log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
+                const getModelDoc = true;
+                this.applicationDoc = await this.loadDocfromMongoByAppId(applicationJSON.id, getModelDoc).catch(function(err) {
+                    log.error("Error getting application from Database " + err + __location);
+                    reject(err);
+                    return;
+                });
+
                 if(!this.applicationDoc){
-                    log.error(`saveApplicationStep cound nto find appId ${applicationJSON.id}` + __location);
+                    log.error(`saveApplicationStep cound not find appId ${applicationJSON.id}` + __location);
                     reject(new Error("Data Error: Application may not be updated."));
                     return;
 
                 }
+                if(this.applicationDoc.agencyNetworkId !== 2){
+                    log.error(`saveApplicationStep for non Digalent Application ${applicationJSON.id}` + __location);
+                    reject(new Error("Data Error: Application may not be updated with this request"));
+                    return;
+                }
+
+
                 this.id = this.applicationDoc.applicationId;
                 this.#applicationMongooseDB = this.applicationDoc;
                 this.updateProperty();
@@ -164,7 +159,7 @@ module.exports = class ApplicationModel {
                 }
                 // //Check that it is too old (1 hours) from creation
                 const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-                if (this.created && bypassAgeCheck === false) {
+                if (this.applicationDoc.createdAt && bypassAgeCheck === false) {
                     const dbCreated = moment(this.applicationDoc.createdAt);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
@@ -387,9 +382,38 @@ module.exports = class ApplicationModel {
                     //TODO quotes (Status) setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'bindRequest':
+                    log.debug(`bindRequest json ${JSON.stringify(applicationJSON)}` + __location)
+                    let updateDdDoc = false;
+                    const newappJson = {};
+                    if(applicationJSON.waiverSubrogation){
+                        //since only AF which is only WC - 1 policy.
+                        if(this.applicationDoc.policies[0]){
+                            //waiverSubrogation defaults false
+                            this.applicationDoc.policies[0].waiverSubrogation = true
+                            updateDdDoc = true;
+                        }
+                    }
+
+                    if(applicationJSON.additionalInsured === true){
+                        this.applicationDoc.additionalInsuredList = [];
+                        const additionalInsuredJSON = {
+                            namedInsured: applicationJSON.additionalNamedInsuredName,
+                            dba: applicationJSON.additionalDBA,
+                            entityType: applicationJSON.additionalEntityType,
+                            ein: applicationJSON.additionalEIN
+                        }
+                        this.applicationDoc.additionalInsuredList.push(additionalInsuredJSON)
+                        updateDdDoc = true;
+                    }
+                    if(updateDdDoc){
+                        log.debug(`App BO bindRequest updating appId ${this.applicationDoc.applicationId} with ${JSON.stringify(newappJson)} ` + __location)
+                        await this.applicationDoc.save();
+                    }
+
                     if (applicationJSON.quotes) {
                         applicationJSON.progress = 'complete';
                         applicationJSON.appStatusId = this.applicationDoc.appStatusId;
+
                         await this.processQuotes(applicationJSON).catch(function(err) {
                             log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
                             reject(err);
@@ -399,7 +423,11 @@ module.exports = class ApplicationModel {
                         resolve(true);
                         return;
                     }
-                    break;
+                    else {
+                        log.error(`AF Bindrequest no quotes appId ${this.applicationDoc.applicationId} ` + __location);
+                        resolve(true);
+                        return;
+                    }
                 default:
                     // not from old Web application application flow.
                     reject(new Error(`Unknown Application for appId ${appId} Workflow Step`))
@@ -860,6 +888,14 @@ module.exports = class ApplicationModel {
 
     }
 
+
+    /**
+    * porcess Request to Bind
+    *
+    * @param {object} applicationId - claims JSON
+    * @param {object} quoteJSON - claims JSON
+    * @returns {boolean} true if processed
+    */
     async processRequestToBind(applicationId, quoteJSON){
         if(!applicationId || !quoteJSON){
             log.error("processRequestToBind missing inputs" + __location)
@@ -868,7 +904,7 @@ module.exports = class ApplicationModel {
         const quote = quoteJSON;
         //log.debug("quote: " + JSON.stringify(quote) + __location)
         log.debug("Sending Bind Agency email for AppId " + applicationId + " quote " + quote.quoteId + __location);
-        log.debug(JSON.stringify(quoteJSON));
+        log.debug(`processRequestToBind quoteJSON ${JSON.stringify(quoteJSON)} ` + __location);
 
         let noCustomerEmail = false;
         if(quoteJSON.noCustomerEmail){
@@ -878,7 +914,7 @@ module.exports = class ApplicationModel {
         //Load application
         let applicationMongoDoc = null;
         try{
-            applicationMongoDoc = await this.loadfromMongoByAppId(applicationId)
+            applicationMongoDoc = await this.loadDocfromMongoByAppId(applicationId)
         }
         catch(err){
             log.error(`Application processRequestToBind error ${err}` + __location);
@@ -896,9 +932,12 @@ module.exports = class ApplicationModel {
                 //reject(err);
                 return;
             });
+            const status = quoteStatus.bind_requested;
             const quoteUpdate = {
                 "status": "bind_requested",
-                "paymentPlanId": quote.paymentPlanId
+                "paymentPlanId": quote.paymentPlanId,
+                "quoteStatusId": status.id,
+                "quoteStatusDescription": status.description
             }
             await quoteModel.updateMongo(quoteDBJSON.quoteId, quoteUpdate).catch(function(err) {
                 log.error(`Updating  quote with status and payment plan quote ${quote.quoteId} error:` + err + __location);
@@ -911,14 +950,38 @@ module.exports = class ApplicationModel {
                 // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
                 await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
-                await quoteBind.send_slack_notification("requested");
+                //isolate to not prevent Digalent bind request to update submission.
+                try{
+                    await quoteBind.send_slack_notification("requested");
+                }
+                catch(err){
+                    log.error(`appid ${this.id} quote ${quote.quoteId}  had Slack Bind Request error ${err}` + __location);
+                }
+
+                //AF special processing of Bind to Send DBA and additionalInsurered
+                let afInsurerList = [12,15];
+                if(applicationMongoDoc.agencyNetworkId === 2 && afInsurerList.indexOf(quoteDBJSON.insurerId) > -1){
+                    log.debug("Process Digalent request to bind POST AppId " + applicationId + " quote " + quote.quoteId + __location);
+                    //need to check policy effective inside of the bind
+                    // NOT a true bind, just a submission update.
+                    try{
+                        await quoteBind.bindPolicy();
+                    }
+                    catch(err){
+                        log.error(`appid ${this.id} Bind Request Digalent bindPolicy error ${err}` + __location);
+                    }
+                }
+                else {
+                    log.debug(`applicationMongoDoc.agencyNetworkId ${applicationMongoDoc.agencyNetworkId}` + __location)
+                    log.debug(`quoteDBJSON.insurerId ${quoteDBJSON.insurerId}` + __location)
+                }
             }
             catch(err){
-                log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
+                log.error(`appid ${this.id} Bind Request error ${err}` + __location);
             }
 
             let updateAppJSON = {};
-            updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
+            //updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
             if (applicationMongoDoc.appStatusId < 80) {
                 updateAppJSON.status = 'request_to_bind_referred';
                 updateAppJSON.appStatusId = 80;
@@ -1551,13 +1614,11 @@ module.exports = class ApplicationModel {
                     //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
                     if(applicationStatus && applicationStatus.appStatusId > -1){
                         applicationDoc.status = applicationStatus.appStatusDesc;
-                        applicationDoc.appStatusDesc = applicationStatus.appStatusDesc;
                         applicationDoc.appStatusId = applicationStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = 'error';
-                        applicationDoc.appStatusDesc = 'error';
-                        applicationDoc.appStatusId = "20";
+                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
                     }
 
                 }
@@ -1614,7 +1675,7 @@ module.exports = class ApplicationModel {
     loadById(id) {
         log.debug(`appBO id ${id} ` + __location)
         if(validator.isUuid(id)){
-            return this.loadfromMongoByAppId(id)
+            return this.loadDocfromMongoByAppId(id)
         }
         else {
             // nodoc, force mongo query.
@@ -1623,7 +1684,7 @@ module.exports = class ApplicationModel {
     }
 
 
-    loadfromMongoByAppId(id) {
+    loadDocfromMongoByAppId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id) {
@@ -1714,9 +1775,14 @@ module.exports = class ApplicationModel {
         });
     }
 
-    getList(queryJSON, getOptions = null) {
+    getList(requestQueryJSON, getOptions = null) {
         return new Promise(async(resolve, reject) => {
             //
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
             let getListOptions = {
                 getQuestions: false,
                 getAgencyName: false
@@ -1768,7 +1834,7 @@ module.exports = class ApplicationModel {
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1" || queryJSON.count === 1 || queryJSON.count === true) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
                 }
                 delete queryJSON.count;
@@ -2120,7 +2186,9 @@ module.exports = class ApplicationModel {
                                 application.agencyName = agencyMap[application.agencyId];
                             }
                             else {
-                                const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
+                                const returnDoc = false;
+                                const returnDeleted = true
+                                const agency = await agencyBO.getById(application.agencyId, returnDoc, returnDeleted).catch(function(err) {
                                     log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
                                 });
                                 if (agency) {
@@ -2197,22 +2265,7 @@ module.exports = class ApplicationModel {
     deleteSoftById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if (id && id > 0) {
-
-                //Remove old records.
-                const sql = `Update ${collectionName} 
-                        SET state = -2
-                        WHERE id = ${db.escape(id)}
-                `;
-                //let rejected = false;
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${collectionName} UPDATE State error : ` + err + __location);
-                });
-                // if (rejected) {
-                //     return false;
-                // }
-                //Mongo delete
+            if (id) {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await this.loadById(id);
@@ -2220,7 +2273,7 @@ module.exports = class ApplicationModel {
                     await applicationDoc.save();
                 }
                 catch (err) {
-                    log.error("Error get marking Application from mysqlId " + err + __location);
+                    log.error(`Error marking Application from uuid ${id} ` + err + __location);
                     reject(err);
                 }
                 resolve(true);
@@ -2234,7 +2287,7 @@ module.exports = class ApplicationModel {
 
     getAgencyNewtorkIdById(id) {
         return new Promise(async(resolve, reject) => {
-            if(id && id > 0){
+            if(id){
                 let agencyNetworkId = 0;
                 try{
                     const appDoc = await this.loadById(id)
@@ -2253,7 +2306,7 @@ module.exports = class ApplicationModel {
             }
             else {
                 log.error(`getAgencyNewtorkIdById no ID supplied  ${id}` + __location);
-                reject(new Error(`App Not Found mysqlId ${id}`));
+                reject(new Error(`App Not Found applicationId ${id}`));
             }
         });
     }
@@ -2329,13 +2382,13 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false){
-
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = []){
+        log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList} `)
         let passedAgencyCheck = false;
         let applicationDocDB = null;
         let questionsObject = {};
         try{
-            applicationDocDB = await this.loadfromMongoByAppId(appId);
+            applicationDocDB = await this.loadDocfromMongoByAppId(appId);
             if(skipAgencyCheck === true){
                 passedAgencyCheck = true;
             }
@@ -2355,6 +2408,7 @@ module.exports = class ApplicationModel {
         }
 
         // check SAQ to populate the answeredList with location answers if they are there
+        // This will need to up to switch as we add more subject areas
         if(questionSubjectArea === "location") {
             if(locationId){
                 const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
@@ -2379,9 +2433,9 @@ module.exports = class ApplicationModel {
         let industryCodeString = '';
         if(applicationDocDB.industryCode){
             industryCodeString = applicationDocDB.industryCode;
-
         }
         else {
+            log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Industry Code")
         }
 
@@ -2396,75 +2450,136 @@ module.exports = class ApplicationModel {
             }
         }
         else {
+            log.error(`Data problem prevented getting Application Policy Types for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Policy Types")
         }
 
-        //get activitycodes.
-        // activity codes are not required for GL or BOP. only WC.
+        // get activitycodes.
+        // activity codes are not required for For most GL or BOP. only WC.
+        // Future Enhance is to take insurers into account. For Example: Acuity mixes GL and WC concepts.
         // This check may need to become insurer aware.
         const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy === "WC").length);
-        let activityCodeArray = [];
-        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
-            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                if(applicationDocDB.activityCodes[i].activityCodeId){
-                    activityCodeArray.push(applicationDocDB.activityCodes[i].activityCodeId);
-                }
-                else {
-                    activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+        // for questionSubjectArea: general, always get the activity codes from the application.
+        // if it a location subject area should we be getting the activity codes from the location
+        //    not application wide.
+        // special overrides allowed.
+        const subjectAreaRequestOverrideAllowed = ["location"];
+        let activityCodeList = [];
+        // if locationId is sent the activity codes in the location should be used.
+        if(questionSubjectArea === "location" && locationId){
+            //Get question just that location's activity codes which may be a subset of appDoc.activityCodes
+            const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+            // if we found the location and there are questions populated on it, otherwise set to empty
+            for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
+                if(activityCodeList.indexOf(ActivtyCodeEmployeeType.activityCodeId) === -1){
+                    activityCodeList.push(ActivtyCodeEmployeeType.activityCodeId);
                 }
             }
-
+        }
+        // Specials case we allows the clients to get the questions before save the relate item
+        // as of 2021/05/08 this is only for location.
+        else if(requestActivityCodeList && requestActivityCodeList.length > 0 && !locationId
+                && subjectAreaRequestOverrideAllowed.indexOf(questionSubjectArea) > -1){
+            utility.addArrayToArray(activityCodeList,requestActivityCodeList)
+        }
+        // clean out activity codes in case they are there but we are general questionSubjectArea
+        else if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                if(applicationDocDB.activityCodes[i].activityCodeId){
+                    activityCodeList.push(applicationDocDB.activityCodes[i].activityCodeId);
+                }
+                else {
+                    activityCodeList.push(applicationDocDB.activityCodes[i].ncciCode);
+                }
+            }
         }
         else if(requireActivityCodes) {
             if(questionSubjectArea === 'general'){
+                log.error(`Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
                 throw new Error("Incomplete WC Application: Missing Application Activity Codes");
             }
         }
-
         //zipCodes
         let zipCodeArray = [];
+        let stateList = [];
         // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
         // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
-        if (!stateList || stateList.length === 0) {
-            if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
-                for (let i = 0; i < applicationDocDB.locations.length; i++) {
-                    zipCodeArray.push(applicationDocDB.locations[i].zipcode);
-                    if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
-                        stateList.push(applicationDocDB.locations[i].state)
-                    }
-                }
+        // need to trace calls.
+        // We probably should not be allow in the client to override the Application Data here.  At least, not in
+        // all requests.   "location" pre save override is probably OK.
+        if(questionSubjectArea === "location" && locationId){
+            //Get question just that location's activity codes which may be a subset of appDoc.activityCodes
+            const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+            if(location){
+                zipCodeArray.push(location.zipcode);
+                stateList.push(location.state)
             }
-            else if (applicationDocDB.mailingZipcode && questionSubjectArea !== 'general') {
+            else {
+                log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. using mailing` + __location)
                 zipCodeArray.push(applicationDocDB.mailingZipcode);
                 stateList.push(applicationDocDB.mailingState)
             }
-            else {
-                throw new Error("Incomplete Application: Application locations")
+        }
+        else if (requestStateList && requestStateList.length > 0 && subjectAreaRequestOverrideAllowed.indexOf(questionSubjectArea) > -1) {
+            //do nothing. do not need zip
+            utility.addArrayToArray(stateList,requestStateList)
+        }
+        else if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
+            for (let i = 0; i < applicationDocDB.locations.length; i++) {
+                zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
+                    stateList.push(applicationDocDB.locations[i].state)
+                }
             }
+        }
+        // should not be here. Must be getting questions before saving locations.
+        // use app mailing.
+        else if (applicationDocDB.mailingZipcode) {
+            zipCodeArray.push(applicationDocDB.mailingZipcode);
+            stateList.push(applicationDocDB.mailingState)
+        }
+        else {
+            log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
+            throw new Error("Incomplete Application: Application locations")
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
+            log.debug(`Getting  Primary Agency insurers ` + __location);
             //TODO Agency Prime
             const agencyLocationBO = new AgencyLocationBO();
             const getChildren = true;
             const addAgencyPrimaryLocation = true;
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+            let agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
-
-            if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+            if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
+                try{
+                    const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
+                    for(let i = 0; i < insurerObjList.length; i++){
+                        insurerArray.push(insurerObjList[i].insurerId)
+                    }
+                    log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
+                }
+                catch(err){
+                    log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                    throw new Error("Agency Network Error no Primary Agency Insurers")
+                }
+            }
+            else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
                     insurerArray.push(agencylocationJSON.insurers[i].insurerId)
                 }
             }
             else {
-                log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                log.error(`Data problem prevented getting App agency location insurers for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                throw new Error(`Agency setup error Agency Location ${applicationDocDB.agencyLocationId} Not Found in database or does not have Insurers setup`)
             }
         }
         else {
+            log.error(`Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
@@ -2475,10 +2590,10 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeList, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
@@ -2501,7 +2616,7 @@ module.exports = class ApplicationModel {
             applicationDoc = await this.loadById(appId);
         }
         catch (err) {
-            log.error("error calling loadfromMongoByAppId " + err + __location);
+            log.error("error calling loadById " + err + __location);
         }
 
         // Override the policyTypeArray from the application doc to get the policy type and effective dates (not passed in by the old quote app)
@@ -2573,15 +2688,14 @@ module.exports = class ApplicationModel {
                 log.error('Error getting AFConvrDataMapp Mapping ' + err + __location)
             }
             if (mappingJSON) {
-                //get AF questions
+                //get AF/Compwest questions
                 const compWestId = 12;
-                const sql = `select * 
-                                from clw_talage_insurer_questions 
-                                where insurer = ${compWestId}
-                        `;
                 let compWestQuestionList = null;
                 try {
-                    compWestQuestionList = await db.query(sql);
+                    //AF questions - Should be ok because CompWest & Af are duplicate sets based on identifiers  ?
+                    const insurerQuery = {"insurerId": compWestId}
+                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                    compWestQuestionList = await InsurerQuestionModel.find(insurerQuery)
                 }
                 catch (err) {
                     log.error("Error get compWestQuestionList " + err + __location);
@@ -2602,7 +2716,7 @@ module.exports = class ApplicationModel {
                                     const compWestQuestion = compWestQuestionList.find(compWestQuestionTest => mapping.afgIndicator === compWestQuestionTest.identifier);
                                     if (compWestQuestion) {
                                         //find in getQuestionsResult
-                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.question === questionTest.id);
+                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.talageQuestionId === questionTest.id);
                                         if (question && question.type === "Yes/No" && question.answers) {
                                             //gotHit = true;
                                             log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
@@ -2629,7 +2743,7 @@ module.exports = class ApplicationModel {
                                         }
                                     }
                                     else {
-                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicatora}`)
+                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicator}`)
                                     }
                                 }
                                 // else {
@@ -2714,6 +2828,146 @@ module.exports = class ApplicationModel {
         catch(err){
             log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
         }
+    }
+
+    // *********************************
+    //    AgencyLocation processing
+    // *********************************
+    // eslint-disable-next-line valid-jsdoc
+    /**
+     * Check and potentially resets agency location
+     *
+     * @param {number} applicationId The application UUID.
+     */
+    async setAgencyLocation(applicationId) {
+        log.debug(`Processing SetAgencyLocation ${applicationId} ` + __location)
+        let errorMessage = null;
+        let missingTerritory = '';
+        try{
+            const status = global.requireShared('./models/status/applicationStatus.js');
+            const agencyLocationBO = new AgencyLocationBO();
+            const appDoc = await ApplicationMongooseModel.findOne({applicationId: applicationId});
+            if(appDoc && appDoc.locations){
+                let needsUpdate = false;
+                if(appDoc.agencyLocationId){
+                    const agencylocationJSON = await agencyLocationBO.getById(appDoc.agencyLocationId).catch(function(err) {
+                        log.error(`Error getting Agency Location ${appDoc.applicationId} ` + err + __location);
+                    });
+                    if(agencylocationJSON){
+                        if(agencylocationJSON.territories && agencylocationJSON.territories.length > 0){
+                            appDoc.locations.forEach((location) => {
+                                log.debug(`SetAgencyLocation checking ${location.state}  against ${agencylocationJSON.territories} ${applicationId} ${appDoc.agencyLocationId}` + __location)
+                                if(agencylocationJSON.territories.indexOf(location.state) === -1){
+                                    missingTerritory = location.state;
+                                    needsUpdate = true;
+                                }
+                            });
+                        }
+                        else{
+                            log.error(`Application ${appDoc.applicationId} Agency Location ${appDoc.agencyLocationId} is not configured for any territories. ` + __location)
+                            needsUpdate = true;
+                        }
+
+                    }
+                    else {
+                        needsUpdate = true;
+                    }
+
+                }
+                else {
+                    needsUpdate = true;
+                }
+                if(needsUpdate && appDoc.lockAgencyLocationId !== true){
+                    //get agency's locations.
+                    const query = {agencyId: appDoc.agencyId};
+                    const agenyLocationList = await agencyLocationBO.getList(query).catch(function(err) {
+                        log.error(`Error getting Agency Location List ${appDoc.applicationId} ` + err + __location);
+                    });
+                    //loop through locaitons check application terrtories vs agency location territories.
+                    if(agenyLocationList && agenyLocationList.length > 1){
+                        for(let i = 0; i < agenyLocationList.length; i++){
+                            const agLoc = agenyLocationList[i];
+                            let newLocationId = agLoc.systemId;
+                            if(agLoc.territories && agLoc.territories.length > 0){
+                                appDoc.locations.forEach((location) => {
+                                    if(agLoc.territories.indexOf(location.state) === -1){
+                                        newLocationId = 0;
+                                    }
+                                });
+                            }
+                            if(newLocationId){
+                                needsUpdate = false;
+                                if(appDoc.agencyLocationId !== newLocationId){
+                                    log.info(`setAgencyLocation ${applicationId} switching locations ${appDoc.agencyLocationId} to ${newLocationId} ` + __location)
+                                    appDoc.agencyLocationId = newLocationId
+                                    await appDoc.save();
+                                }
+                                break;
+                            }
+                        }
+                        if(needsUpdate){
+                            // check if wholesale agency
+                            //state.agency.wholesale
+                            const agencyBO = new AgencyBO();
+                            // Load the request data into it
+                            const agencyJSON = await agencyBO.getById(appDoc.agencyId).catch(function(err) {
+                                log.error("Agency load error " + err + __location);
+                            });
+                            if (agencyJSON && agencyJSON.wholesale){
+                                log.info(`setAgencyLocation ${applicationId} setting to wholesale ` + __location);
+                                appDoc.wholesale = true;
+                                await appDoc.save();
+                            }
+                            else {
+                                // we dont cover the territory of this location, the application is out of market now.
+                                appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                                appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
+                                await appDoc.save();
+                                errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                            }
+                        }
+                    }
+                    else if(agenyLocationList && agenyLocationList.length === 1){
+                        // we dont cover the territory of this location, the application is out of market now.
+                        appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                        appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
+                        await appDoc.save();
+                        errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                    }
+                    else {
+                        log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
+                        errorMessage = `Could not set agencylocation on ${applicationId}`;
+                    }
+                }
+                else if(needsUpdate && appDoc.lockAgencyLocationId === true){
+                    //no update app
+                    log.info(`setAgencyLocation  locked Agencylocation does not cover application territories ${applicationId} ` + __location);
+                    errorMessage = `Agency Location does not cover application territory ${missingTerritory}`;
+                }
+            }
+            else {
+                if(appDoc){
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} locations ` + __location);
+                }
+                else {
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location);
+                }
+                errorMessage = `Could not set agencylocation on ${applicationId}`;
+            }
+            if(!errorMessage && appDoc && appDoc.appStatusId === 4){
+                // we're no longer out of market, set back to incomplete
+                appDoc.appStatusId = status.applicationStatus.incomplete.appStatusId;
+                appDoc.status = status.applicationStatus.incomplete.appStatusDesc;
+                await appDoc.save();
+            }
+        }
+        catch(err){
+            log.error(`setAgencyLocation  Error Application ${applicationId} - ${err}. ` + __location);
+            errorMessage(`Could not set agencylocation on ${applicationId}`);
+        }
+
+        return errorMessage ? errorMessage : true;
+
     }
 
 }

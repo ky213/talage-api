@@ -84,36 +84,44 @@ async function main(){
         return;
     }
 
+    // eslint-disable-next-line no-console
+    console.log(colors.green.bold('Settings loaded'));
+
     // Initialize the version
     if(!await version.load()){
         logLocalErrorMessage('Error initializing version. Stopping.');
         return;
     }
 
+    // eslint-disable-next-line no-console
+    console.log(colors.green.bold('version loaded'));
+
     // Connect to the logger
     if(!logger.connect()){
         logLocalErrorMessage('Error connecting to logger. Stopping.');
         return;
     }
-
+    log.info('Startup Logger setup')
     // Connect to the database
     if(!await db.connect()){
         logLocalErrorMessage('Error connecting to database. Stopping.');
         return;
     }
+    log.info('Startup db connected')
 
     // Connect to S3
     if(!await s3.connect()){
         logLocalErrorMessage('Error connecting to S3. Stopping.');
         return;
     }
+    log.info('Startup S3')
     // Connect to Cognito
     if(!await cognitoSvc.connect()){
         logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
         return;
     }
     global.cognitoSvc = cognitoSvc;
-
+    log.info('Startup cognitoSvc')
     // Connect to the redis
     if(!await redisSvc.connect()){
         logLocalErrorMessage('Error connecting to redis.');
@@ -123,12 +131,12 @@ async function main(){
     }
     //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
     global.redisSvc = redisSvc;
-
+    log.info('Startup Redis Svc')
 
     // Load the database module and make it globally available
     global.db = global.requireShared('./services/db.js');
 
-
+    log.info('Startup Global DB')
     // MONGO
     var mongoose = require('./mongoose');
     global.monogdb = mongoose();

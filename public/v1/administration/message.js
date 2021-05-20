@@ -109,7 +109,7 @@ async function findAll(req, res, next) {
         return serverHelper.sendError(res, next, 'Internal Error');
     }
 
-    res.send(200, {data: {data: mongoUtils.objListCleanup(docList), count: count}});
+    res.send(200, {rows: mongoUtils.objListCleanup(docList), count: count});
     return next();
 }
 

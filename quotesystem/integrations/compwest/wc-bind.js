@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 const Bind = require('../bind');
 const axios = require('axios');
 const builder = require('xmlbuilder');
@@ -14,7 +15,7 @@ class CompuwestBind extends Bind {
         try {
             //getById does uuid vs integer check...
             appDoc = await applicationBO.getById(this.quote.applicationId);
-            log.debug("Quote Application added applicationData" + __location)
+            log.debug("Compwest Bind Quote Application added applicationData" + __location)
         }
         catch(err){
             log.error(`Compwest Bind: Unable to get applicationData for binding quoteId: ${this.quote.quoteId} appId: ` + this.quote.applicationId + __location);
@@ -25,10 +26,40 @@ class CompuwestBind extends Bind {
             return "error";
         }
 
-        const requestACORD = await this.createRequestXML(appDoc, this.quote.requestId)
 
-        // Get the XML structure as a string
-        const xml = requestACORD.end({pretty: true});
+        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
+        const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
+        let notGwAPI = false;
+        if(policy){
+            try{
+                const policyEffectiveDate = moment(policy.effectiveDate).format('YYYY-MM-DD')
+                if(policyEffectiveDate < apiSwitchOverDateDT){
+                    notGwAPI = true;
+                }
+            }
+            catch(err){
+                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error processing policy dates ${err}` + __location);
+            }
+        }
+        else {
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} missing WC policy ` + __location);
+        }
+        if(notGwAPI || !this.insurer.useSandbox){
+            // only sent quotebind for GW API.
+            // return success so no error processing kick in.
+            return "updated";
+        }
+        let xml = null;
+        try{
+            const requestACORD = await this.createRequestXML(appDoc, this.quote.requestId)
+            // Get the XML structure as a string
+            xml = requestACORD.end({pretty: true});
+        }
+        catch(err){
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} XML Creation error ${err} ` + __location);
+            return "error";
+        }
 
         const username = await this.insurer.get_username();
         const password = await this.insurer.get_password();
@@ -51,46 +82,72 @@ class CompuwestBind extends Bind {
         let result = null;
         try {
             result = await axios.post(requestUrl, xml, axiosOptions);
+            log.debug(`${requestUrl} status ${result.status} `)
         }
         catch (error) {
-            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);
+            if(error.response) {
+                log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);
+            }
             this.quote.log += `--------======= Bind Response Error =======--------<br><br>`;
             this.quote.log += error;
             this.quote.log += "<br><br>";
             return "error";
             //throw new Error(JSON.stringify(error));
         }
-        if (result.data && !result.data.ACORD) {
-            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Rejected: ${JSON.stringify(result.data)} ${__location}`);
-            this.quote.log += `--------======= Bind Response Declined =======--------<br><br>`;
-            this.quote.log += `Response:\n <pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
-            this.quote.log += "<br><br>";
+        if (!result && !result.data || !result.data.ACORD) {
+            if(result){
+                log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response no ACORD node: ${JSON.stringify(result.data)} ${__location}`);
+                log.error(result.data);
+                log.error(typeof result.data);
+                this.quote.log += `--------======= Bind Response No Acord =======--------<br><br>`;
+                this.quote.log += `Response:\n <pre>${htmlentities.encode(result.data, null, 2)}</pre><br><br>`;
+                this.quote.log += "<br><br>";
+            }
+            else {
+                this.quote.log += `--------======= Bind Response No response =======--------<br><br>`;
+            }
             return "error";
-
         }
-        const res = result.ACORD;
+        log.debug(`typeof result.data.ACORD ${typeof result.data.ACORD}` + __location)
+        const res = result.data.ACORD;
         let status = ''
         try{
             status = res.SignonRs[0].Status[0].StatusCd[0];
         }
         catch(err){
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+            log.error(`Appid: ${this.quote.applicationId} ${this.insurer.name} WC. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
         }
 
         this.quote.log += `--------======= Bind Response =======--------<br><br>`;
-        this.quote.log += `Response:\n <pre>${JSON.stringify(res, null, 2)}</pre><br><br>`;
+        this.quote.log += `Response:\n <pre>${htmlentities.encode(res, null, 2)}</pre><br><br>`;
         this.quote.log += `--------======= End =======--------<br><br>`;
 
         //log response.
-        if(status === 'SUCCESS'){
-            ///ACORD/InsuranceSvcRs/WorkCompPolicyQuoteInqRs/com.csc_PDFContent/CommlPolicy/PolicyNumber
-            // this.policyId = employersResp.id;
-            // this.policyNumber = employersResp.policyNumber;
-            // this.policyUrl = employersResp.policyURL;
-            // // this.policyName = '';
-            // this.policyEffectiveDate = employersResp.effectiveDate;
-            // this.policyPremium = employersResp.totalPremium;
-            return "success"
+        if(status === 'QUOTED'){
+            // Document is updated - Replace quote letter?
+            //com.afg_Base64PDF
+            try {
+                const WorkCompPolicyAddRs = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+                this.quote.quote_letter = {
+                    content_type: 'application/pdf',
+                    data: WorkCompPolicyAddRs['com.afg_Base64PDF'][0],
+                    file_name: `${this.insurer.name}_${this.policy.type}_bind_quote_letter.pdf`,
+                    length: WorkCompPolicyAddRs['com.afg_Base64PDF'][0].length
+                };
+            }
+            catch (err) {
+                log.error(`Appid: ${this.quote.applicationId} ${this.insurer.name} integration error: could not locate quote letter attachments. ${JSON.stringify(res)} ${__location}`);
+                //return this.return_result('error');
+            }
+            //Not a real bind.  just an submission update.
+            return "updated"
+        }
+        else if (status === 'REFERRALNEEDED'){
+            return "updated"
+        }
+        else if (status === "ERROR"){
+            log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response ERROR: ${JSON.stringify(result.data)} ${__location}`);
+            return "rejected"
         }
         else{
             //unknown response
@@ -181,46 +238,188 @@ class CompuwestBind extends Bind {
         PaymentOption.ele('PaymentPlanCd', "bcpayplan:11");
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
-
-        if (appDoc.dba) {
-            const DBAAdditionalInterest = Location.ele('AdditionalInterest');
-            DBAAdditionalInterest.att('id', 'c2');
-            // <GeneralPartyInfo>
-            const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
-            // <NameInfo>
-            const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
-            const CommlNameAddInfo = DBANameInfo.ele('CommlName')
-            CommlNameAddInfo.ele('CommercialName', appDoc.dba.replace('’', "'").replace('+', '').replace('|', ''));
-            //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
-            CommlNameAddInfo.ele('Type',"Company");
-            const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
-            DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-            DBATaxIdentity.ele('TaxCd',appDoc.ein);
-            DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entity_type]);
-            // </NameInfo>
-            // <Addr>
-            const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
-            DBAAddr.ele('Addr1', appDoc.mailing_address);
-            if (appDoc.mailing_address2) {
-                DBAAddr.ele('Addr2', appDoc.mailing_address2);
+        try{
+            if (appDoc.dba.length > 0) {
+                const DBAAdditionalInterest = Location.ele('AdditionalInterest');
+                DBAAdditionalInterest.att('id', 'c2');
+                // <GeneralPartyInfo>
+                const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
+                // <NameInfo>
+                const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                const CommlNameAddInfo = DBANameInfo.ele('CommlName')
+                CommlNameAddInfo.ele('CommercialName', appDoc.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
+                CommlNameAddInfo.ele('Type',"Company");
+                const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
+                DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+                DBATaxIdentity.ele('TaxCd',appDoc.ein);
+                DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entity_type]);
+                // </NameInfo>
+                // <Addr>
+                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                DBAAddr.ele('Addr1', appDoc.mailingAddress);
+                if (appDoc.mailingAddress2) {
+                    DBAAddr.ele('Addr2', appDoc.mailingAddress2);
+                }
+                DBAAddr.ele('City', appDoc.mailingCity);
+                DBAAddr.ele('StateProvCd', appDoc.mailingState);
+                DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
+                if(isGuideWireAPI === true){
+                    DBAAddr.ele('CountryCd', 'US');
+                }
+                else {
+                    DBAAddr.ele('CountryCd', 'USA');
+                }
+                // </Addr>
+                // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
+                // </AdditionalInterestInfo>
             }
-            DBAAddr.ele('City', appDoc.mailing_city);
-            DBAAddr.ele('StateProvCd', appDoc.mailing_territory);
-            DBAAddr.ele('PostalCode', appDoc.mailing_zip);
-            if(isGuideWireAPI === true){
-                DBAAddr.ele('CountryCd', 'US');
+        }
+        catch(err){
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error dba processing ${err} ` + __location);
+        }
+        let additionalInsureredCount = 0;
+        try{
+            if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
+                appDoc.additionalInsuredList.forEach((additionalInsured) => {
+                    const addInsuredAdditionalInterest = Location.ele('AdditionalInterest');
+                    additionalInsureredCount++;
+                    addInsuredAdditionalInterest.att('id', 'i' + additionalInsureredCount.toString());
+                    // <GeneralPartyInfo>
+                    const DBAGeneralPartyInfo = addInsuredAdditionalInterest.ele('GeneralPartyInfo');
+                    // <NameInfo>
+                    const nameInsuredNameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                    const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
+                    CommlNameAddInfo.ele('CommercialName', additionalInsured.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                    //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
+                    const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
+                    let taxIdType = 'FEIN';
+                    if(additionalInsured.entityType === "Sole Proprietorship"){
+                        taxIdType = 'SSN';
+                    }
+                    CommlNameAddInfo.ele('Type',taxIdType === 'FEIN' ? "Company" : "Person");
+                    DBATaxIdentity.ele('TaxIdTypeCd', taxIdType);
+                    DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                    nameInsuredNameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
+                    // </NameInfo>
+                    // <Addr>
+                    const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                    DBAAddr.ele('Addr1', appDoc.mailingAddress);
+                    if (appDoc.mailingAddress2) {
+                        DBAAddr.ele('Addr2', appDoc.mailingAddress2);
+                    }
+                    DBAAddr.ele('City', appDoc.mailingCity);
+                    DBAAddr.ele('StateProvCd', appDoc.mailingState);
+                    DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
+                    if(isGuideWireAPI === true){
+                        DBAAddr.ele('CountryCd', 'US');
+                    }
+                    else {
+                        DBAAddr.ele('CountryCd', 'USA');
+                    }
+                    // </Addr>
+                    // </GeneralPartyInfo>
+                    // <AdditionalInterestInfo>
+                    addInsuredAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'NI');
+                    // </AdditionalInterestInfo>
+                });
             }
-            else {
-                DBAAddr.ele('CountryCd', 'USA');
-            }
-            // </Addr>
-            // </GeneralPartyInfo>
-            // <AdditionalInterestInfo>
-            DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
-            // </AdditionalInterestInfo>
+        }
+        catch(err){
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error additionalInsuredList processing ${err} ` + __location);
         }
 
+        try{
+            //Owners
+            if (appDoc.owners && appDoc.owners.length > 0){
+                for(const owner of appDoc.owners){
+                //appDoc.owners.forEach((owner) =>{
+                    const addInsuredAdditionalInterest = Location.ele('AdditionalInterest');
+                    additionalInsureredCount++;
+                    addInsuredAdditionalInterest.att('id', 'i' + additionalInsureredCount.toString());
+                    // <GeneralPartyInfo>
+                    const DBAGeneralPartyInfo = addInsuredAdditionalInterest.ele('GeneralPartyInfo');
+                    // <NameInfo>
+                    const nameInsuredNameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                    const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
+                    CommlNameAddInfo.ele('CommercialName', `${owner.fname}  ${owner.lname}`);
+                    CommlNameAddInfo.ele('Type',"Person");
+                    // const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
+                    // DBATaxIdentity.ele('TaxIdTypeCd', 'SSN');
+                    // DBATaxIdentity.ele('TaxCd',owner.ein);
+                    nameInsuredNameInfo.ele('LegalEntityCd', 'Individual');
+                    // </NameInfo>
+                    // <Addr>
+                    const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                    DBAAddr.ele('Addr1', appDoc.mailingAddress);
+                    if (appDoc.mailingAddress2) {
+                        DBAAddr.ele('Addr2', appDoc.mailingAddress2);
+                    }
+                    DBAAddr.ele('City', appDoc.mailingCity);
+                    DBAAddr.ele('StateProvCd', appDoc.mailingState);
+                    DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
+                    if(isGuideWireAPI === true){
+                        DBAAddr.ele('CountryCd', 'US');
+                    }
+                    else {
+                        DBAAddr.ele('CountryCd', 'USA');
+                    }
+                    // </Addr>
+                    // </GeneralPartyInfo>
+                    // <AdditionalInterestInfo>
+                    const AdditionalInterestInfo = addInsuredAdditionalInterest.ele('AdditionalInterestInfo')
+                    AdditionalInterestInfo.ele('NatureInterestCd', owner.include ? 'I' : 'E');
+                    if(owner.ownership > 0){
+                        const OwnershipPct = addInsuredAdditionalInterest.ele('OwnershipPct')
+                        const NumericValueNode = OwnershipPct.ele('NumericValue');
+                        NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
+                    }
 
+                    //Can only tie ActivityCode and payroll to Named Insured if there is one owner.
+                    if(owner.include && appDoc.owners.length === 1){
+                        if(appDoc.locations && appDoc.locations.length > 0){
+                            for (const location of appDoc.locations) {
+                                for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
+                                    // Find the entry for this activity code
+                                    const ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.employeeTypeList.find((acs) => acs.employeeType === "Owners" && acs.employeeTypeCount === 1);
+                                    if(ActivityCodeEmployeeTypeEntry){
+                                        const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                                        ActualRemunerationAmt.ele('Amt', ActivityCodeEmployeeTypeEntry.employeeTypePayroll);
+                                        //look up AF/C
+                                        const iAC_Query = {
+                                            insurerId: this.quote.insurerId,
+                                            talageActivityCodeIdList: ActivityCodeEmployeeTypeEntry.activityCodeId,
+                                            territoryList: appDoc.mailingState
+                                        }
+                                        const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
+                                        try{
+                                            const iacDocList = await InsurerActivityCodeBO.find(iAC_Query);
+                                            if(iacDocList && iacDocList.length === 1){
+                                                AdditionalInterestInfo.ele('ClassCD',iacDocList[0].code)
+                                            }
+                                            else if(iacDocList && iacDocList.length > 1){
+                                                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC multiple hits ${iAC_Query} ` + __location);
+                                            }
+                                            else {
+                                                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC no hits ${iAC_Query} ` + __location);
+                                            }
+                                        }
+                                        catch(err){
+                                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC ${err} ` + __location);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch(err){
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error additionalInsuredList owner processing ${err} ` + __location);
+        }
         // <WorkCompLineBusiness>
         const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
 

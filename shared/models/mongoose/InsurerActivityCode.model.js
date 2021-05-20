@@ -35,7 +35,6 @@ const InsurerActivityCodeSchema = new Schema({
     territoryList: [String],
     insurerQuestionIdList: [String],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
-    oldSystemIdList: [Number],
     active: {type: Boolean, default: true}
 },opts)
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-empty-function */
 /**
  * Parent class of any integrations that support the ability to bind policies
  * via API.

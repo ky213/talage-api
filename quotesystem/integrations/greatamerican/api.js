@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable init-declarations */
 /* eslint-disable valid-jsdoc */
 /* eslint-disable object-curly-newline */
@@ -12,7 +13,7 @@ const getApiUrl = (integration) => {
     return 'https://uat01.api.gaig.com';
 }
 
-const getToken = async (integration, username, password) => {
+const getToken = async(integration) => {
 
     const options = {
         headers: {
@@ -38,7 +39,7 @@ const getToken = async (integration, username, password) => {
     return out;
 };
 
-const getNcciFromClassCode = async (code, territory) => {
+const getNcciFromClassCode = async(code, territory) => {
 
     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
     const activityCodeQuery = {
@@ -65,12 +66,12 @@ const getNcciFromClassCode = async (code, territory) => {
  * session, then you can use this function to ask for a quote. If the policy is
  * rejected by Great American, then the object returned will have a failed
  * status.
- * 
- * @param {*} token 
- * @param {*} app 
- * @param {*} sessionId 
+ *
+ * @param {*} token
+ * @param {*} app
+ * @param {*} sessionId
  */
-const getPricing = async (token, integration, sessionId) => {
+const getPricing = async(token, integration, sessionId) => {
     const appData = integration.app.applicationDocData;
 
     // Map our entity types to the entity types of Great America.
@@ -112,7 +113,8 @@ const getPricing = async (token, integration, sessionId) => {
     let allPrimaryContacts = appData.contacts.filter(t => t.primary);
     if (allPrimaryContacts.length > 0) {
         primaryContact = allPrimaryContacts[0];
-    } else {
+    }
+    else {
         primaryContact = appData.contacts[0];
     }
 
@@ -123,6 +125,13 @@ const getPricing = async (token, integration, sessionId) => {
                 payroll.activtyCodeId = payroll.ncciCode;
             }
         });
+    });
+    let blankWaiver = false
+    appData.policies.forEach((policy) => {
+        if(policy.policyType === "WC"){
+            //Q: Prior Insurance?
+            blankWaiver = policy.blanketWaiver;
+        }
     });
 
 
@@ -146,16 +155,16 @@ const getPricing = async (token, integration, sessionId) => {
             currentPolicyExpiration: '',
             policyEffectiveDate: integration.policy.effective_date.format('YYYY-MM-DD'),
             policyExpirationDate: integration.policy.expiration_date.format('YYYY-MM-DD'),
-            includeBlanketWaiver: true,
+            includeBlanketWaiver: blankWaiver,
             producerCode: 648783,
-            locations: await Promise.all(appData.locations.map(async (location) => ({
+            locations: await Promise.all(appData.locations.map(async(location) => ({
                 id: location.locationId,
                 streetAddress: location.address,
                 addressLine2: location.address2,
                 city: location.city,
                 state: location.state,
                 zip: location.zipcode,
-                classCodes: await Promise.all(location.activityPayrollList.map(async (code) => ({
+                classCodes: await Promise.all(location.activityPayrollList.map(async(code) => ({
                     classCode: await getNcciFromClassCode(code.activityCodeId, location.state),
                     payroll: code.payroll,
                     numberOfEmployees: _.sum(code.employeeTypeList.map(t => t.employeeTypeCount))
@@ -170,7 +179,7 @@ const getPricing = async (token, integration, sessionId) => {
         apiCall = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/pricing`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
-                Accept: 'application/json',
+                Accept: 'application/json'
             }
         });
     }
@@ -192,7 +201,7 @@ const getPricing = async (token, integration, sessionId) => {
     }
 }
 
-const getQuote = async (integration, token, sessionId) => {
+const getQuote = async(integration, token, sessionId) => {
     const send = {
         newBusiness: {
             id: sessionId
@@ -206,7 +215,7 @@ const getQuote = async (integration, token, sessionId) => {
         apiCall = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/submit`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
-                Accept: 'application/json',
+                Accept: 'application/json'
             }
         });
     }
@@ -234,9 +243,9 @@ const getQuote = async (integration, token, sessionId) => {
  * @param {*} integration integration object
  * @param {*} token  auth token
  * @param {*} businessTypes An array of business types. Each entry should be in the format of:
- *    { id: ncciCode, value: 'GraphicDesign' } 
+ *    { id: ncciCode, value: 'GraphicDesign' }
  */
-const getSession = async (integration, token, businessTypes) => {
+const getSession = async(integration, token, businessTypes) => {
     // const uat = global.settings.GREAT_AMERICAN_UAT;
     // const uatId = global.settings.GREAT_AMERICAN_UAT_ID;
 
@@ -289,13 +298,13 @@ const getSession = async (integration, token, businessTypes) => {
  * This function will update the current question session with GreatAmerica
  * with the answers to the questions that you provided. Then return the new
  * question result (which will tell you if there are more follow-up questions).
- * @param {*} integration  
- * @param {*} token 
- * @param {*} fullQuestionSession 
+ * @param {*} integration
+ * @param {*} token
+ * @param {*} fullQuestionSession
  * @param {*} questionAnswers An object (key-value pair) where the key is the
  *   question ID and the value is the answer to the question.
  */
-const injectAnswers = async (integration, token, fullQuestionSession, questionAnswers) => {
+const injectAnswers = async(integration, token, fullQuestionSession, questionAnswers) => {
     let allGroups = null;
     let questionSession = null;
     let answerSession = null;

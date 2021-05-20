@@ -155,7 +155,7 @@ const validateBusiness = (applicationDocData) => {
         // Let different Insurers have different rules
         // reject and clean rules should be in insurer integrations files.
         if (!validator.isBusinessName(applicationDocData.businessName)) {
-            log.error(`Invalid characters in businessName applicationId: ${applicationDocData.applicationId}` + __location);
+            log.warn(`Invalid characters in businessName applicationId: ${applicationDocData.applicationId}` + __location);
         }
 
         // Check for max length
@@ -676,26 +676,34 @@ const validateClaims = async(applicationDocData) => {
 
 /**
  * Checks that the supplied Agency Location is valid
- * @param {string} agencyLocation - The agencyLocation
+ * @param {string} applicationDocData - The applicationData
+ * @param {string} agencyLocationModel - The agencyLocation
  * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
  */
-const validateAgencyLocation = async() => new Promise(async(fulfill) => {
+const validateAgencyLocation = async(applicationDocData, agencyLocationModel) => {
 
-    // this is not used. see agencylocation model.
-    /**
-         * Key (required) - This is how we uniquelly identify agents
-         */
-    // if (agencyLocation.key) {
-    //     // Check formatting
-    //     if (!await validator.agent(agencyLocation.key)) {
-    //         throw new Error('Invalid agent provided.');
-    //     }
-    // }
+    // Check that the agencylocation supplied is covers territory for applications.
+    if(applicationDocData.locations){
+        if(agencyLocationModel.territories && agencyLocationModel.territories.length > 0){
+            applicationDocData.locations.forEach((location) => {
+                if(agencyLocationModel.territories.indexOf(location.state) === -1){
+                    throw new Error(`Application's Agency Location does not cover -  ${location.state}  `)
+                }
+            });
+        }
+        else{
+            throw new Error(`Application's Agency Location is not configured for any territories.`)
+        }
+    }
+    else {
+        throw new Error('Application is missing location information')
+    }
 
-    fulfill(true);
+    // insurer check is done during agencylocation mdoel load.
+    return;
 
 
-})
+}
 
 module.exports = {
     validateActivityCodes: validateActivityCodes,

@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -11,7 +12,7 @@ const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+//const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 //const moment = require("moment")
 
 // MONGO
@@ -26,8 +27,18 @@ async function findAll(req, res, next) {
     if (error) {
         return next(error);
     }
+
+    const countQuery = {...req.query, count: true};
+    const count = await insurerActivityCodeBO.getList(countQuery).catch(function(err) {
+        log.error("admin agencynetwork error: " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
     if (rows) {
-        res.send(200, rows);
+        res.send(200, {rows, ...count});
         return next();
     }
     else {

@@ -80,6 +80,7 @@ module.exports = class AcuityWC extends Integration {
                 }
                 const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.activityCodeId];
                 if (insurerClassCode) {
+                    let addAmtrustClassCode = false;
                     let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
                     if (!amtrustClassCode) {
                         amtrustClassCode = {
@@ -89,7 +90,7 @@ module.exports = class AcuityWC extends Integration {
                             fullTimeEmployees: 0,
                             partTimeEmployees: 0
                         };
-                        amtrustClassCodeList.push(amtrustClassCode);
+                        addAmtrustClassCode = true;
                     }
                     for (const employeeType of activityPayroll.employeeTypeList) {
                         amtrustClassCode.payroll += employeeType.employeeTypePayroll;
@@ -103,6 +104,11 @@ module.exports = class AcuityWC extends Integration {
                             default:
                                 break;
                         }
+                    }
+                    //AMtrust will return an error if the classcode has zero for employees or zero for payroll.
+                    if(addAmtrustClassCode && amtrustClassCode.fullTimeEmployees > 0 && amtrustClassCode.partTimeEmployees > 0
+                        && amtrustClassCode.payroll > 0){
+                        amtrustClassCodeList.push(amtrustClassCode);
                     }
                 }
             }
@@ -147,7 +153,8 @@ module.exports = class AcuityWC extends Integration {
     getOfficers(officerInformationList) {
         const officersList = [];
         for (const owner of this.app.applicationDocData.owners) {
-            const state = this.app.applicationDocData.mailingState;
+            //Need to be primary state not mailing.
+            const state = this.app.business.locations[0].state_abbr;
             let officerType = null;
             let endorsementId = null;
             let formType = null;
@@ -337,6 +344,7 @@ module.exports = class AcuityWC extends Integration {
         // Format the FEIN
         const fein = appDoc.ein.replace(/\D/g, '');
 
+        let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
         const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
         if (einCheckResponse) {
@@ -345,24 +353,71 @@ module.exports = class AcuityWC extends Integration {
             if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
                 return this.client_declined("The EIN is blocked");
             }
+
+            log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
+            if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
+                && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
+                useQuotePut_OldQuoteId = true;
+            }
+        }
+        //find old quoteID
+        let quoteId = '';
+        if(useQuotePut_OldQuoteId){
+            try{
+                log.debug('AMTrust WC getting old quoteId' + __location)
+                const QuoteBO = global.requireShared('models/Quote-BO.js');
+                const quoteBO = new QuoteBO();
+
+                const quoteQuery = {
+                    applicationId: appDoc.applicationId,
+                    insurerId: this.insurer.id
+                }
+                const quoteList = await quoteBO.getList(quoteQuery);
+                for(const quote of quoteList){
+                    if(quote.quoteNumber){
+                        quoteId = quote.quoteNumber;
+                    }
+                }
+                if(!quoteId && appDoc.copiedFromAppId){
+                    const quoteQuery2 = {
+                        applicationId: appDoc.copiedFromAppId,
+                        insurerId: this.insurer.id
+                    }
+                    const quoteList2 = await quoteBO.getList(quoteQuery2);
+                    for(const quote of quoteList2){
+                        if(quote.quoteNumber){
+                            quoteId = quote.quoteNumber;
+                        }
+                    }
+                }
+                if(!quoteId){
+                    return this.client_declined("The EIN is blocked by earlier application");
+                }
+            }
+            catch(err){
+                log.error(`AMtrust WC (application ${this.app.id}): Error get old quote ID: ${err} ${__location}`);
+                return this.client_declined("The EIN is blocked By earlier application");
+            }
+
+
         }
 
         // =========================================================================================================
         // Create the quote request
-        const quoteRequestData = {"Quote": {
+        const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
             "Fein": fein,
             "PrimaryAddress": {
                 "Line1": this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : ""),
                 "City": this.app.business.locations[0].city,
                 "State": this.app.business.locations[0].state_abbr,
-                "Zip": this.app.business.locations[0].zip
+                "Zip": this.app.business.locations[0].zip.slice(0,5)
             },
             "MailingAddress": {
                 "Line1": this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : ""),
                 "City": this.app.business.mailing_city,
                 "State": this.app.business.mailing_state_abbr,
-                "Zip": this.app.business.mailing_zipcode
+                "Zip": this.app.business.mailing_zipcode.slice(0,5)
             },
             "BusinessName": this.app.business.name,
             "ContactInformation": {
@@ -392,7 +447,7 @@ module.exports = class AcuityWC extends Integration {
             if (this.app.business.locations[0].unemployment_number === 0) {
                 return this.client_error("AmTrust requires an unemployment number if located in MN, HI, RI, or ME.", __location);
             }
-            quoteRequestData.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
+            quoteRequestDataV2.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
         }
 
         // Add the rating zip if any location is in California
@@ -411,36 +466,103 @@ module.exports = class AcuityWC extends Integration {
             }
         }
         if (ratingZip) {
-            quoteRequestData.Quote.RatingZip = ratingZip;
+            quoteRequestDataV2.Quote.RatingZip = ratingZip;
         }
 
         // =========================================================================================================
         // Create the additional information request
-        let additionalInformationRequestData = {};
-        if(this.app.business && this.app.business.owners[0] && this.app.business.locations[0]){
-            additionalInformationRequestData = {"AdditionalInsureds": [{
-                "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-                "TaxId": fein,
-                "State": this.app.business.locations[0].state_abbr,
-                "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
-                "DbaName": this.app.business.dba,
-                "AdditionalLocations": this.getAdditionalLocationList()
-            }]};
+        const additionalInformationRequestData = {};
+        if(this.app.business && appDoc.owners[0] && this.app.business.locations[0]){
+            //Officer may be replaced below if we get a response back from /officer-information
+            additionalInformationRequestData.Officers = [];
+            additionalInformationRequestData.AdditionalInsureds = [];
+            appDoc.owners.forEach((owner) => {
+                const officerJSON = {
+                    "Name": owner.fname + " " + owner.lname,
+                    //"EndorsementId": "WC040303C",
+                    "Type": "Officers",
+                    "State": this.app.business.locations[0].state_abbr,
+                    "OwnershipPercent": owner.ownership//,
+                    //  "FormType": owner.include  ? "I" : "E"
+                }
+                try{
+                    if(owner.DateOfBirth){
+                        owner.DateOfBirth = moment(owner.birthdate).format("MM/DD/YYYY");
+                    }
+                }
+                catch(err){
+                    log.error(`owner DateOfBirth error ${err}` + __location)
+                }
+                additionalInformationRequestData.Officers.push(officerJSON)
+                if(owner.included){
+                    const additionalInsurerJSON = {
+                        "Name": owner.fname + " " + owner.lname,
+                        "TaxId": fein,
+                        "State": this.app.business.locations[0].state_abbr,
+                        "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+                        "DbaName": this.app.business.dba,
+                        "AdditionalLocations": this.getAdditionalLocationList()
+                    };
+                    additionalInformationRequestData.AdditionalInsureds.push(additionalInsurerJSON)
+                }
 
+            });
+            // if(additionalInformationRequestData.Officers.length === 0){
+            //     additionalInformationRequestData.Officers = null;
+            // }
+
+            // if(additionalInformationRequestData.AdditionalInsureds.length === 0){
+            //     additionalInformationRequestData.AdditionalInsureds = null;
+            // }
         }
         // console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
 
         // =========================================================================================================
         // Send the requests
         const successfulStatusCodes = [200, 201];
+        let createQuoteMethod = 'POST';
+        let createRoute = '/api/v2/quotes'
 
+        let quoteRequestJSON = JSON.parse(JSON.stringify(quoteRequestDataV2));
+        if(useQuotePut_OldQuoteId){
+            log.debug(`AMTrust WC using PUT with old quoteId ${quoteId}` + __location)
+            createQuoteMethod = "PUT";
+            createRoute = `/api/v1/quotes/${quoteId}`
+            this.number = quoteId;
+
+            //V1 JSON
+            quoteRequestJSON = quoteRequestJSON.Quote;
+            if(quoteRequestJSON.ContactInformation && quoteRequestJSON.ContactInformation.AgentContactId){
+                delete quoteRequestJSON.ContactInformation.AgentContactId
+            }
+            if(quoteRequestJSON.MailingAddress){
+                quoteRequestJSON.MailingAddress1 = quoteRequestJSON.MailingAddress.Line1;
+                quoteRequestJSON.MailingCity = quoteRequestJSON.MailingAddress.City;
+                quoteRequestJSON.MailingState = quoteRequestJSON.MailingAddress.State;
+                quoteRequestJSON.MailingZip = quoteRequestJSON.MailingAddress.Zip;
+
+                delete quoteRequestJSON.MailingAddress;
+
+            }
+            if(quoteRequestJSON.ClassCodes){
+                quoteRequestJSON.ClassCodes.forEach((classCode) => {
+                    if(classCode.Payroll){
+                        classCode.Payroll = classCode.Payroll.toString();
+                    }
+                });
+            }
+
+        }
         // Send the quote request
-        const quoteResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/quotes', quoteRequestData);
+        const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestJSON);
         if (!quoteResponse) {
             return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location);
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
+        if(useQuotePut_OldQuoteId){
+            statusCode = this.getChildProperty(quoteResponse, "HttpStatusCode");
+        }
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             if (quoteResponse.error) {
                 return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
@@ -457,10 +579,19 @@ module.exports = class AcuityWC extends Integration {
             return this.client_autodeclined_out_of_appetite();
         }
 
-        // Extract the quote ID
-        const quoteId = this.getChildProperty(quoteResponse, "Data.AccountInformation.QuoteId");
-        if (!quoteId) {
-            return this.client_error(`Could not find the quote ID in the response.`, __location);
+
+        if(useQuotePut_OldQuoteId === false){
+            // Extract the quote ID
+            if(useQuotePut_OldQuoteId === false){
+                quoteId = this.getChildProperty(quoteResponse, "Data.AccountInformation.QuoteId");
+                if (!quoteId) {
+                    return this.client_error(`Could not find the quote ID in the response.`, __location);
+                }
+            }
+            this.number = quoteId;
+        }
+        else {
+            quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
         }
 
         // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
@@ -511,7 +642,7 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                    log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${questionId} answer: ${error} ${__location}`);
                     //return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
                 // This question was not answered
@@ -549,21 +680,23 @@ module.exports = class AcuityWC extends Integration {
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
 
         // Send the additional information request
-        const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
-        if (!additionalInformationResponse) {
-            return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location);
-        }
-        // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
-        statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
-        if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-            if (additionalInformationResponse.Message) {
-                return this.client_error(additionalInformationResponse.Message, __location, {statusCode: statusCode});
+        if(additionalInformationRequestData.Officers || additionalInformationRequestData.AdditionalInsureds){
+            const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
+            if (!additionalInformationResponse) {
+                return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location);
             }
-            else if (quoteResponse.error) {
-                return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
-            }
-            else {
-                return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
+            // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
+            statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
+            if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
+                if (additionalInformationResponse.Message) {
+                    return this.client_error(additionalInformationResponse.Message, __location, {statusCode: statusCode});
+                }
+                else if (quoteResponse.error) {
+                    return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
+                }
+                else {
+                    return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
+                }
             }
         }
 
@@ -672,4 +805,3 @@ module.exports = class AcuityWC extends Integration {
 
     }
 };
-

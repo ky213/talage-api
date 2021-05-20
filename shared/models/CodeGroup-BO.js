@@ -2,10 +2,10 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var Mapping = require('mongoose').model('Mapping');
+var CodeGroup = require('mongoose').model('CodeGroup');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-module.exports = class MappingBO{
+module.exports = class CodeGroupBO{
 
     constructor(){
         this.id = 0;
@@ -22,11 +22,11 @@ module.exports = class MappingBO{
         return new Promise(async(resolve, reject) => {
             let updatedDoc = null;
             try{
-                if(newObjectJSON.mappingId){
-                    updatedDoc = await this.update(newObjectJSON.mappingId, newObjectJSON);
+                if(newObjectJSON.codeGroupId){
+                    updatedDoc = await this.updateMongo(newObjectJSON.codeGroupId, newObjectJSON);
                 }
                 else{
-                    updatedDoc = await this.insert(newObjectJSON);
+                    updatedDoc = await this.insertMongo(newObjectJSON);
                 }
             }
             catch(err){
@@ -36,39 +36,24 @@ module.exports = class MappingBO{
         });
     }
 
-    // /**
-    //  * saves model.
-    //  *
-    //  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved model , or an Error if rejected
-    //  */
 
-    // save(asNew = false){
-    //     return new Promise(async(resolve, reject) => {
-    //     //validate
-
-    //         resolve(true);
-    //     });
-    // }
-
-    async update(id, newObjectJSON){
+    async updateMongo(id, newObjectJSON){
         if(id){
             if(typeof newObjectJSON === "object"){
                 const changeNotUpdateList = ["active",
-                    "mappingId",
-                    "id",
-                    "systemId",
-                    "MappingId"]
+                    "codeGroupId",
+                    "id"]
                 for(let i = 0; i < changeNotUpdateList.length; i++){
                     if(newObjectJSON[changeNotUpdateList[i]]){
                         delete newObjectJSON[changeNotUpdateList[i]];
                     }
                 }
-                const query = {"mappingId": id};
+                const query = {"codeGroupId": id};
                 let newMappingJSON = null;
                 try {
-                    await Mapping.updateOne(query, newObjectJSON);
+                    await CodeGroup.updateOne(query, newObjectJSON);
 
-                    const mappingDocDB = await Mapping.findOne(query);
+                    const mappingDocDB = await CodeGroup.findOne(query);
                     newMappingJSON = mongoUtils.objCleanup(mappingDocDB);
                 }
                 catch (err) {
@@ -88,10 +73,10 @@ module.exports = class MappingBO{
 
     }
 
-    async insert(newObjecJSON){
+    async insertMongo(newObjecJSON){
 
 
-        const mapping = new Mapping(newObjecJSON);
+        const mapping = new CodeGroup(newObjecJSON);
         //Insert a doc
         await mapping.save().catch(function(err){
             log.error('Mongo Mapping Save err ' + err + __location);
@@ -119,7 +104,7 @@ module.exports = class MappingBO{
             // Run the query
             let docCleanList = null;
             try {
-                const doclist = await Mapping.find(query, '-__v');
+                const doclist = await CodeGroup.find(query, '-__v');
                 docCleanList = mongoUtils.objListCleanup(doclist);
             }
             catch (err) {
@@ -145,12 +130,12 @@ module.exports = class MappingBO{
             //validate
             if(id){
                 const query = {
-                    "mappingId": id,
+                    "codeGroupId": id,
                     active: true
                 };
                 let docCleanDB = null;
                 try {
-                    const docDB = await Mapping.findOne(query, '-__v');
+                    const docDB = await CodeGroup.findOne(query, '-__v');
                     if(docDB){
                         docCleanDB = mongoUtils.objCleanup(docDB);
                     }
@@ -177,7 +162,7 @@ module.exports = class MappingBO{
                 };
                 let docCleanDB = null;
                 try {
-                    const docDB = await Mapping.findOne(query, '-__v');
+                    const docDB = await CodeGroup.findOne(query, '-__v');
                     if(docDB){
                         docCleanDB = mongoUtils.objCleanup(docDB);
                     }
@@ -199,9 +184,9 @@ module.exports = class MappingBO{
             //validate
             if(id){
                 const activeJson = {active: false};
-                const query = {"mappingId": id};
+                const query = {"codeGroupId": id};
                 try {
-                    await Mapping.updateOne(query, activeJson);
+                    await CodeGroup.updateOne(query, activeJson);
                 }
                 catch (err) {
                     log.error("Soft Deleting Mapping error " + err + __location);

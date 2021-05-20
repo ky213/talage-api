@@ -8,6 +8,7 @@ var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 //const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const moment = require('moment');
 
 module.exports = class InsurerActivityCodeBO{
 
@@ -58,24 +59,23 @@ module.exports = class InsurerActivityCodeBO{
         });
     }
 
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            if(!queryJSON){
-                queryJSON = {};
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
             }
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
 
             const queryProjection = {"__v": 0}
 
             let findCount = false;
-            let countOnly = false;
-            if(queryJSON.countOnly){
-                // log.debug("have countOnly")
-                countOnly = true;
-                delete queryJSON.countOnly;
-
+            if(queryJSON.count){
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
             }
 
-            let rejected = false;
             // eslint-disable-next-line prefer-const
             let query = {active: true};
             let error = null;
@@ -115,13 +115,6 @@ module.exports = class InsurerActivityCodeBO{
                 // offset by page number * max rows, so we go that many rows
                 queryOptions.skip = (page - 1) * queryOptions.limit;
                 delete queryJSON.page;
-            }
-
-            if (queryJSON.count) {
-                if (queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true") {
-                    findCount = true;
-                }
-                delete queryJSON.count;
             }
 
             if(queryJSON.insurerActivityCodeId && Array.isArray(queryJSON.insurerActivityCodeId)){
@@ -180,6 +173,15 @@ module.exports = class InsurerActivityCodeBO{
                 delete queryJSON.description;
             }
 
+            if(queryJSON.createdAfter){
+                // wrap it in a date to convert the date to iso if it isnt already
+                const createdAfterDate = moment(new Date(queryJSON.createdAfter));
+                if(createdAfterDate.isValid()){
+                    query.createdAt = {$gte: createdAfterDate};
+                }
+                delete queryJSON.createdAfter;
+            }
+
             if (queryJSON) {
                 for (var key in queryJSON) {
                     if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
@@ -196,57 +198,38 @@ module.exports = class InsurerActivityCodeBO{
                 }
             }
 
-            let docList = null;
-            let queryRowCount = 0;
             //log.debug(`InsurerActivityCode query ${JSON.stringify(query)}` + __location)
-            // until we roll back BO for count to work like other BOs.
-            if(countOnly === true){
+            if(findCount === false){
+                let docList = null;
+                try {
+                    docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
+            }
+            else {
+                let queryRowCount = 0;
                 try {
                     queryRowCount = await InsurerActivityCode.countDocuments(query);
                 }
                 catch (err) {
                     log.error(err + __location);
                     error = null;
-                    rejected = true;
-                }
-                if(rejected){
                     reject(error);
                     return;
                 }
                 resolve({count: queryRowCount});
             }
-            else {
-                try {
-                    docList = await InsurerActivityCode.find(query, queryProjection, queryOptions);
-                    if (findCount){
-                        queryRowCount = await InsurerActivityCode.countDocuments(query);
-                    }
-                }
-                catch (err) {
-                    log.error(err + __location);
-                    error = null;
-                    rejected = true;
-                }
-                if(rejected){
-                    reject(error);
-                    return;
-                }
-                if(docList && docList.length > 0){
-                    if (findCount){
-                        resolve({
-                            rows: mongoUtils.objListCleanup(docList),
-                            count: queryRowCount
-                        });
-                    }
-                    else{
-                        resolve(mongoUtils.objListCleanup(docList));
-                    }
-                }
-                else {
-                    resolve([]);
-                }
-            }
-            return;
         });
     }
 

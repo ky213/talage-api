@@ -137,6 +137,8 @@ module.exports = class AgencyLocation {
             for (const insurer of alInsurerList) {
                 //if agency is using talageWholeSale with the insurer.
                 //user talage's main location (agencyLocation systemId: 1)
+                //Tracks if there is a wholesale miss.
+                let addInsurer = true;
                 if(insurer.talageWholesale){
                     if(!talageAgencyLocation){
                         const talageAgencyLocationSystemId = 1;
@@ -159,7 +161,8 @@ module.exports = class AgencyLocation {
                         log.info(`Agency ${agencyLocation.agencyId} using Talage Wholesale for insurerId ${insurer.insurerId}`);
                     }
                     else {
-                        log.error(`Agency ${agencyLocation.agencyId} could not retrieve Talage Wholesale for insurerId ${insurer.insurerId}`);
+                        log.warn(`Agency ${agencyLocation.agencyId} could not retrieve Talage Wholesale for insurerId ${insurer.insurerId}`);
+                        addInsurer = false;
                     }
                 }
                 else {
@@ -186,7 +189,9 @@ module.exports = class AgencyLocation {
                         }
                     }
                 }
-                this.insurers[insurer.id] = insurer;
+                if(addInsurer){
+                    this.insurers[insurer.id] = insurer;
+                }
             }
 
 
