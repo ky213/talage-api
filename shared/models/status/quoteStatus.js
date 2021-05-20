@@ -128,12 +128,12 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
         // return 'acord_emailed';
         return quoteStatus.ACORDEmailed;
     }
+    else if (apiResult === 'autodeclined') {
+        return quoteStatus.autodeclined;
+    }
     else if (apiResult === 'declined') {
         // return 'declined';
         return quoteStatus.declined;
-    }
-    else if (apiResult === 'autodeclined') {
-        return quoteStatus.autodeclined;
     }
     else if (apiResult === 'outage') {
         return quoteStatus.outage;
