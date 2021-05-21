@@ -274,7 +274,7 @@ module.exports = class LibertySBOP extends Integration {
             let decisionMessage = `Decision: "${decision}". \n`;
             if (result.data.hasOwnProperty("uwResults")) {
                 result.data.uwResults.forEach(reason => {
-                    decisionMessage += `${reason.trim()},\n`;
+                    decisionMessage += `${reason.trim()}.\n`;
                 });
             }
 
