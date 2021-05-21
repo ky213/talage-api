@@ -216,8 +216,8 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('Get Industry Code list', `${basePath}/industry-code`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('Get Industry Code Object', `${basePath}/industry-code/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('Post Industry Code Object', `${basePath}/industry-code`, add, 'administration', 'all');
-    server.addPutAuthAdmin('Put Industry Code Object', `${basePath}/industry-code/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get Industry Code list', `${basePath}/industry-code`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('Get Industry Code Object', `${basePath}/industry-code/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('Post Industry Code Object', `${basePath}/industry-code`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('Put Industry Code Object', `${basePath}/industry-code/:id`, update, 'TalageMapper', 'all');
 };

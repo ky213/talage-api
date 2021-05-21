@@ -128,7 +128,7 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('Get Agency Network list', `${basePath}/agency-network`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Network list', `${basePath}/agency-network`, findAll, 'TalageAdminUser', 'all');
     server.addGetAuthAdmin('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');

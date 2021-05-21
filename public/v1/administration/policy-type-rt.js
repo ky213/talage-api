@@ -43,7 +43,7 @@ async function findAll(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    server.addGetAuthAdmin('Get PolicyType list', `${basePath}/policy-type`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get PolicyType list', `${basePath}/policy-type`, findAll, 'TalageAdminUser', 'all');
 
 
     //server.addGet('Get PolicyType list', `${basePath}/policy-type`, findAll, 'administration', 'all');

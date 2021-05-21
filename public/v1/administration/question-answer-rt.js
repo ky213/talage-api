@@ -125,9 +125,9 @@ async function deleteObject(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/question-answer`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/question-answer/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/question-answer`, add, 'administration', 'all');
-    server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/question-answer/:id`, update, 'administration', 'all');
-    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/question-answer/:id`, deleteObject, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/question-answer`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/question-answer/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/question-answer`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/question-answer/:id`, update, 'TalageMapper', 'all');
+    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/question-answer/:id`, deleteObject, 'TalageMapper', 'all');
 };

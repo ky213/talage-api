@@ -221,8 +221,8 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Activity Code list', `${basePath}/activity-code`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Activity Code Object', `${basePath}/activity-code/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Activity Code Object', `${basePath}/activity-code`, add, 'administration', 'all');
-    server.addPutAuthAdmin('PUT Activity Code Object', `${basePath}/activity-code/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('GET Activity Code list', `${basePath}/activity-code`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Activity Code Object', `${basePath}/activity-code/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('POST Activity Code Object', `${basePath}/activity-code`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('PUT Activity Code Object', `${basePath}/activity-code/:id`, update, 'TalageMapper', 'all');
 };

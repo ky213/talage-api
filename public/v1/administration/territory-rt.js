@@ -118,10 +118,10 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('Get Territory Outage list', `${basePath}/territory`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Territory Outage  Object', `${basePath}/territory/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('Get Territory Outage list', `${basePath}/territory`, add, 'administration', 'all');
-    server.addPutAuthAdmin('GET Territory Outage  Object', `${basePath}/territory/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get Territory list', `${basePath}/territory`, findAll, 'TalageAdminUser', 'all');
+    server.addGetAuthAdmin('GET Territory Object', `${basePath}/territory/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Get Territory list', `${basePath}/territory`, add, 'administration', 'all');
+    server.addPutAuthAdmin('GET Territory Object', `${basePath}/territory/:id`, update, 'administration', 'all');
 
     // server.addGet('Get Territory Outage list', `${basePath}/territory`, findAll, 'administration', 'all');
     // server.addGet('GET Territory Outage  Object', `${basePath}/territory/:id`, findOne, 'administration', 'all');

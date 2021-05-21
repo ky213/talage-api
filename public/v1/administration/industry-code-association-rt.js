@@ -112,10 +112,10 @@ async function deleteObject(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/industry-code-association`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/industry-code-association`, findAll, 'TalageMapper', 'all');
     // does not make sense
     //server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/industry-code-association/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/industry-code-association`, add, 'administration', 'all');
+    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/industry-code-association`, add, 'TalageMapper', 'all');
     // server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/industry-code-association/:id`, update, 'administration', 'all');
-    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/industry-code-association`, deleteObject, 'administration', 'all');
+    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/industry-code-association`, deleteObject, 'TalageMapper', 'all');
 };

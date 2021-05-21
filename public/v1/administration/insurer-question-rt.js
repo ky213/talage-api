@@ -190,8 +190,8 @@ async function update(req, res, next) {
 exports.registerEndpoint = (server, basePath) => {
 
     // MONGO
-    server.addGetAuthAdmin('GET Insurer Question list', `${basePath}/insurer-question`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Insurer Question Object', `${basePath}/insurer-question/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Insurer Question Object', `${basePath}/insurer-question`, add, 'administration', 'all');
-    server.addPutAuthAdmin('PUT Insurer Question Object', `${basePath}/insurer-question/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Question list', `${basePath}/insurer-question`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Insurer Question Object', `${basePath}/insurer-question/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('POST Insurer Question Object', `${basePath}/insurer-question`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('PUT Insurer Question Object', `${basePath}/insurer-question/:id`, update, 'TalageMapper', 'all');
 };
