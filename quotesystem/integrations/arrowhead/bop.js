@@ -801,14 +801,14 @@ module.exports = class LibertySBOP extends Integration {
                 includeInd: true,
                 seasonalIncrease: "25",
                 valuationInd: false,
-                limit: `${location.buildingLimit}`
+                limit: `${location.businessPersonalPropertyLimit}`
             };
 
             // Business Personal Property Limit            
             building.coverages.bld = {
                 includeInd: true,
                 valuation: "Replacement Cost",
-                limit: location.businessPersonalPropertyLimit
+                limit: location.buildingLimit
             };
         }
     }
