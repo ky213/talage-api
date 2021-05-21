@@ -116,9 +116,9 @@ async function deleteObject(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/activity-code-association`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/activity-code-association/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/activity-code-association`, add, 'administration', 'all');
-    // server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/activity-code-association/:id`, update, 'administration', 'all');
-    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/activity-code-association`, deleteObject, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/activity-code-association`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/activity-code-association/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/activity-code-association`, add, 'TalageMapper', 'all');
+    // server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/activity-code-association/:id`, update, 'TalageMapper', 'all');
+    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/activity-code-association`, deleteObject, 'TalageMapper', 'all');
 };

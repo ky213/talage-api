@@ -39,5 +39,5 @@ async function getQuestionInsurerIndustryCodes(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAdmin('GET Question Insurer Industry Codes list', `${basePath}/question-insurer-industry-codes`, getQuestionInsurerIndustryCodes, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Insurer Industry Codes list', `${basePath}/question-insurer-industry-codes`, getQuestionInsurerIndustryCodes, 'TalageMapper', 'all');
 };

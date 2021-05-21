@@ -129,8 +129,8 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question list', `${basePath}/question`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Question Object', `${basePath}/question/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Question Object', `${basePath}/question`, add, 'administration', 'all');
-    server.addPutAuthAdmin('PUT Question Object', `${basePath}/question/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question list', `${basePath}/question`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Question Object', `${basePath}/question/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('POST Question Object', `${basePath}/question`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('PUT Question Object', `${basePath}/question/:id`, update, 'TalageMapper', 'all');
 };

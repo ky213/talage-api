@@ -142,8 +142,8 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('Get Insurer Industry Code list', `${basePath}/insurer-industry-code`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('Get Insurer Industry Code Object', `${basePath}/insurer-industry-code/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('Post Insurer Industry Code Object', `${basePath}/insurer-industry-code`, add, 'administration', 'all');
-    server.addPutAuthAdmin('Put Insurer Industry Code Object', `${basePath}/insurer-industry-code/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get Insurer Industry Code list', `${basePath}/insurer-industry-code`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('Get Insurer Industry Code Object', `${basePath}/insurer-industry-code/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('Post Insurer Industry Code Object', `${basePath}/insurer-industry-code`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('Put Insurer Industry Code Object', `${basePath}/insurer-industry-code/:id`, update, 'TalageMapper', 'all');
 };

@@ -52,5 +52,5 @@ async function getIdustryCodeActivityCodes(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAdmin('GET Industry Code Activity Code list', `${basePath}/industry-code-activity-codes`, getIdustryCodeActivityCodes, 'administration', 'all');
+    server.addGetAuthAdmin('GET Industry Code Activity Code list', `${basePath}/industry-code-activity-codes`, getIdustryCodeActivityCodes, 'TalageMapper', 'all');
 };

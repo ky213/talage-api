@@ -110,8 +110,8 @@ async function findOne(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question Type list', `${basePath}/question-type`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Question Type Object', `${basePath}/question-type/:id`, findOne, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Type list', `${basePath}/question-type`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Question Type Object', `${basePath}/question-type/:id`, findOne, 'TalageMapper', 'all');
     // server.addPostAuthAdmin('POST Question Object', `${basePath}/question`, add, 'administration', 'all');
     // server.addPutAuthAdmin('PUT Question Object', `${basePath}/question/:id`, update, 'administration', 'all');
 };
