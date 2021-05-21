@@ -15,16 +15,16 @@ const quoteStatus = {
         description: "Error"
     }, 
     outage: {
-        id: 15,
+        id: 12,
         description: "Outage"
+    },
+    autodeclined: {
+        id: 15,
+        description: "Auto Declined"
     },
     declined: {
         id: 20,
         description: "Declined"
-    },
-    autodeclined: {
-        id: 25,
-        description: "Auto Declined"
     },
     ACORDEmailed: {
         id: 30,
@@ -128,12 +128,12 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
         // return 'acord_emailed';
         return quoteStatus.ACORDEmailed;
     }
-    else if (apiResult === 'autodeclined') {
-        return quoteStatus.autodeclined;
-    }
     else if (apiResult === 'declined') {
         // return 'declined';
         return quoteStatus.declined;
+    }
+    else if (apiResult === 'autodeclined') {
+        return quoteStatus.autodeclined;
     }
     else if (apiResult === 'outage') {
         return quoteStatus.outage;
