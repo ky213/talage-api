@@ -264,22 +264,23 @@ module.exports = class LibertySBOP extends Integration {
         // log.info("=================== QUOTE RESULT ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         // log.info("=================== QUOTE RESULT ===================");
-        this.log += `--------======= ${logPrefix}  =======--------<br><br>`;
+        this.log += `--------======= ${logPrefix} =======--------<br><br>`;
         this.log += `<pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
 
         // if a decision was provided, a quote likely wasn't
         if (result.data.hasOwnProperty("decision")) {
             const decision = result.data.decision;
-            const declineMessage = `Arrowhead application did not quote. Decision: "${decision}. "`;
-            const extraReasons = [];
+            let decisionMessage = `Decision: "${decision}". \n`;
             if (result.data.hasOwnProperty("uwResults")) {
                 result.data.uwResults.forEach(reason => {
-                    extraReasons.push(reason.trim());
+                    decisionMessage += `${reason.trim()},\n`;
                 });
             }
 
-            return this.client_declined(declineMessage, extraReasons);
+            this.log += `--------======= ${logPrefix} =======--------<br><br>`;
+            this.log += `<pre>${decisionMessage}</pre><br><br>`;
+            this.log += `--------======= End =======--------<br><br>`;
         }
 
         let quoteNumber = null;
