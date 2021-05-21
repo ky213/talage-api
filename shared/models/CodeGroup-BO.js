@@ -93,7 +93,7 @@ module.exports = class CodeGroupBO{
             const query = {active: true};
             if(queryJSON){
 
-                if(queryJSON.active === false){
+                if(queryJSON.active === false || queryJSON.active === 'false'){
                     query.active = queryJSON.active
                 }
                 if(queryJSON.name){
