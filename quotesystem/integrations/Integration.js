@@ -264,12 +264,21 @@ module.exports = class Integration {
     async get_national_ncci_code_from_activity_code(territory, activityCode) {
         // Retrieve a national NCCI code.
         // NOTE: we do not currently have these mapped but are in process; Adam is getting them.
+        // Using Markel bigger set of codes than Liberty if liberty fails
         // Liberty codes mostly follow the national NCCI code numbering and we have most Liberty codes
         // mapped. So we use the Liberty code mapping for now until we have an official map of the
-        // national NCCI codes. -SF
-        const libertyRecord = await this.get_insurer_code_for_activity_code(14, territory, activityCode);
+        // national NCCI codes. 
+        const LibertyInsurerId = 14;
+        const MarkelInsurerId = 3
+        const libertyRecord = await this.get_insurer_code_for_activity_code(LibertyInsurerId, territory, activityCode);
         if (!libertyRecord) {
-            return null;
+            const MarkelRecord = await this.get_insurer_code_for_activity_code(MarkelInsurerId, territory, activityCode);
+            if (MarkelRecord) {
+                return MarkelRecord.code;
+            }
+            else {
+                return null;
+            }
         }
         return libertyRecord.code;
     }
