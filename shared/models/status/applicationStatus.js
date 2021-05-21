@@ -87,8 +87,9 @@ async function updateApplicationStatus(application, timeout) {
             log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
         }
         return applicationStatus;
-    }else {
-        log.info(`New appStatusId ${applicationStatus.appStatusId} is not greater than the current appStatusId ${applicationDocJson.appStatusId}. Not updating application: ${applicationDocJson.applicationId} `+ __location);
+    }
+    else {
+        log.info(`New appStatusId ${applicationStatus.appStatusId} is not greater than the current appStatusId ${applicationDocJson.appStatusId}. Not updating application: ${applicationDocJson.applicationId} ` + __location);
         return {applicationStatus: applicationDocJson.appStatusId, appStatusDesc: applicationDocJson.appStatusDesc};
     }
 }
@@ -135,9 +136,6 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
             //appStatusId = 70
             //return 'request_to_bind';
             return applicationStatus.requestToBind;
-        }
-        else if (quoteDocJsonList.every(quote => quote.aggregatedStatus === 'dead')) {
-            return applicationStatus.dead;
         }
         else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted')) {
             //appStatusId = 60
