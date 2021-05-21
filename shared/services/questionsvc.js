@@ -683,7 +683,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
  * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false, stateList = []){
+exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = true, stateList = []){
 
     const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden, stateList);
 
@@ -716,7 +716,7 @@ exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCode
  * @returns {array|false} An array of questions structured the way the back end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden = false, stateList = []){
+exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden = true, stateList = []){
     return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden, stateList);
 }
 
@@ -730,7 +730,7 @@ exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeS
  *
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = false){
+async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = true){
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
