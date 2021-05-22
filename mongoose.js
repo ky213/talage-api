@@ -42,7 +42,7 @@ module.exports = function() {
     var mongodb2 = mongoose.connection;
 
     mongodb2.on('connected', function() {
-        log.info('Mongoose connected to mongodb at ' + dataserver);
+        log.info('Mongoose connected to mongodb at ' + dataserver + ' DB: ' + databaseName);
         talageEvent.emit('mongo-connected', mongodb);
     });
 
