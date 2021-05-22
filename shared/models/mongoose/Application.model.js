@@ -126,6 +126,12 @@ const claimSchema = new Schema({
     missedWork: {type: Boolean, default: false}
 });
 
+const cyberPolicySchema = new Schema({
+    aggregateLimit: {type: Number, required: true},
+    businessIncomeCoverage: {type: Number, required: false},
+    domains: {type: String}
+})
+
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
     effectiveDate: {type: Date, required: false},
@@ -140,7 +146,8 @@ const PolicySchema = new Schema({
     waiverSubrogation: {type: Boolean, default: false},
     currentInsuranceCarrier: {type: String, required: false},
     currentPremium: {type: Number, required: false},
-    yearsWithCurrentInsurance: {type: Number, required: false}
+    yearsWithCurrentInsurance: {type: Number, required: false},
+    cyber: cyberPolicySchema
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
