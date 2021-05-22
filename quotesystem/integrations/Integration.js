@@ -58,6 +58,7 @@ module.exports = class Integration {
 
         // Integration Data
         this.app = app;
+        //this.industry_code is combination of Talage industrycode and insurer industry code.
         this.industry_code = {};
         this.insurerIndustryCode = {};
 
@@ -2368,51 +2369,48 @@ module.exports = class Integration {
                     }
                 }
                 // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
-                const sql = `
-                    SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
-                    FROM clw_talage_industry_codes AS ic 
-                    WHERE ic.id = ${this.app.applicationDocData.industryCode};
-                `;
-                let hadError = false;
-                const result = await db.query(sql).catch((error) => {
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
-                    hadError = true;
-                });
-                if (hadError) {
-                    // Query error
-                    fulfill(false);
-                    return;
-                }
-                //process attributes from mysql clw_talage_industry_codes
-                //backward compatible with old multi-table query.
-                if(this.industry_code){
-                    const industryCodeDB = result[0];
-                    // eslint-disable-next-line guard-for-in
-                    for(const prop in industryCodeDB){
-                        this.insurerIndustryCode[prop] = industryCodeDB[prop];
-                        this.industry_code[prop] = industryCodeDB[prop];
+               
+                // const sql = `
+                //     SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
+                //     FROM clw_talage_industry_codes AS ic 
+                //     WHERE ic.id = ${this.app.applicationDocData.industryCode};
+                // `;
+                // let hadError = false;
+                // const result = await db.query(sql).catch((error) => {
+                //     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
+                //     hadError = true;
+                // });
+                // if (hadError) {
+                //     // Query error
+                //     fulfill(false);
+                //     return;
+                // }
+                try{
+                    const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+                    const industryCodeBO = new IndustryCodeBO();
+                    const industryCodeJson = await industryCodeBO.getById(this.app.applicationDocData.industryCode);
+                    if(industryCodeJson){
+                        if(this.industry_code){
+                            //backward compatible with old multi-table query.
+                            // eslint-disable-next-line array-element-newline
+                            const propsToCopy = ['description','cgl', 'sic', 'hiscox', 'naics','iso'];
+                            // eslint-disable-next-line guard-for-in
+                            this.industry_code.id = industryCodeJson.industryCodeId;
+                            for(const prop in industryCodeJson){
+                                if(propsToCopy.indexOf(prop) > -1){
+                                    this.insurerIndustryCode[prop] = industryCodeJson[prop];
+                                    this.industry_code[prop] = industryCodeJson[prop];
+                                }
+                            }
+                        }
+                        else {
+                            this.industry_code = industryCodeJson;
+                            this.industry_code.id = industryCodeJson.industryCodeId;
+                        }
                     }
                 }
-                else {
-                    this.industry_code = result[0];
-
-                    // If there are attributes, parse them for later use
-                    if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
-                        try {
-                            this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-                        }
-                        catch (error) {
-                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
-                            this.industry_code.attributes = {};
-                        }
-                    }
-                    else {
-                        if (this.requiresInsurerIndustryCodes) {
-                            log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-                        }
-                        this.industry_code.attributes = {};
-                    }
-                    this.insurerIndustryCode = this.industry_code;
+                catch(err){
+                    log.error("Error getting industryCodeBO " + err + __location);
                 }
                 fulfill(true);
             }

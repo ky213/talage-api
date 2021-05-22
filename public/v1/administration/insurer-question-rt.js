@@ -122,14 +122,14 @@ async function add(req, res, next) {
     }
 
     //update cache
-    const questionSvc = global.requireShared('./services/questionsvc.js');
-    try{
-        //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.talageQuestionId);
-    }
-    catch(err){
-        log.error(`Error update question cache for ${insurerQuestionBO.talageQuestionId}`)
-    }
+    // const questionSvc = global.requireShared('./services/questionsvc.js');
+    // try{
+    //     //do not await not need to wait for response
+    //     questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.talageQuestionId);
+    // }
+    // catch(err){
+    //     log.error(`Error update question cache for ${insurerQuestionBO.talageQuestionId}`)
+    // }
     res.send(200, objectJSON);
     return next();
 }
@@ -175,14 +175,14 @@ async function update(req, res, next) {
     if(newJSON.talageQuestionId){
         questionId = newJSON.talageQuestionId;
     }
-    const questionSvc = global.requireShared('./services/questionsvc.js');
-    try{
-        //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(questionId);
-    }
-    catch(err){
-        log.error(`Error update question cache for ${questionId}`)
-    }
+    //const questionSvc = global.requireShared('./services/questionsvc.js');
+    // try{
+    //     //do not await not need to wait for response
+    //     questionSvc.UpdateRedisIndustryQuestionByQuestionId(questionId);
+    // }
+    // catch(err){
+    //     log.error(`Error update question cache for ${questionId}`)
+    // }
     res.send(200, newJSON);
     return next();
 }
