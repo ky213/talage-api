@@ -20,6 +20,11 @@ async function findAll(req, res, next) {
     const activityCodeBO = new ActivityCodeBO();
     const insurerActivityCodeBO = new InsurerActivityCodeBO();
 
+    if(req.query.activityCodeId && req.query.activityCodeId.indexOf(",") > -1){
+        req.query.activityCodeId = req.query.activityCodeId.split(',')
+    }
+
+
     if(req.query.unmapped){
         //get all activityCodes that are activity.
         let acQuery = {state: 1};
