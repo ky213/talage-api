@@ -1,6 +1,7 @@
 /* eslint-disable multiline-comment-style */
 /* eslint-disable one-var */
 const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
 const helper = global.requireShared('./helpers/helper.js');
 const log = global.log;
 
@@ -60,15 +61,19 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
 
     // Check if the industry code is valid
-    if (industry_code) {
-        sql = `SELECT id FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)} AND state = 1 LIMIT 1;`;
-        const industry_code_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (industry_code_result && industry_code_result.length !== 1) {
-            log.warn('Bad Request: Invalid Industry Code');
-        }
-    }
+    // if (industry_code) {
+    //      try{
+    //         const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+    //         const industryCodeBO = new IndustryCodeBO();
+    //         const industryCodeJson = await industryCodeBO.getById(industry_code);
+    //         if(!industryCodeJson){
+    //             log.warn(`Bad Request: Invalid Industry Code ${industry_code}` + __location);
+    //         }
+    //     }
+    //     catch(err){
+    //         log.error("Error getting industryCodeBO " + err + __location);
+    //     }
+    // }
     let territories = [];
     if(stateList.length > 0){
         territories = stateList;
@@ -273,83 +278,14 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
 
     // From this point forward, only get non-universal questions
-   // where += ' AND iq.universal = 0';
+    // where += ' AND iq.universal = 0';
 
     // ============================================================
     // // Get industry-based questions
     //log.debug("territories " + territories);
     log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
-    if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
-        const redisQuestions = await getRedisIndustryCodeQuestions(industry_code)
-        log.debug(`Redis questions ${redisQuestions.length} returned ` + __location)
-        if(redisQuestions.length > 0){
-            // eslint-disable-next-line space-before-function-paren
-            var filteredRedisQuestions = redisQuestions.filter(function(el) {
-                let returnValue = false;
-                try{
-                    let insurerMatch = false;
-                    if(el.insurerList){
-                        const qInsurerList = el.insurerList.split(',')
-                        for(let i = 0; i < qInsurerList.length; i++){
-                            const insurerId = parseInt(qInsurerList[i], 10);
-                            if(insurerArray.indexOf(insurerId) > -1){
-                                insurerMatch = true;
-                                break;
-                            }
-                        }
-                    }
-                    let policyTypeMatch = false;
-                    if(el.policyTypeList){
-                        const qPolicyTypeList = el.policyTypeList.split(',')
-                        const matched = qPolicyTypeList.filter(qPolicyTypeCd => policyTypes.indexOf(qPolicyTypeCd) > -1);
-                        if(matched && matched.length > 0){
-                            policyTypeMatch = true;
-                        }
-                    }
-                    let territoryMatch = false;
-                    if(el.territoryList){
-                        const qTerritoryList = el.territoryList.split(',')
-                        const matched = qTerritoryList.filter(qterritory => territories.indexOf(qterritory) > -1);
-                        if(matched && matched.length > 0){
-                            territoryMatch = true;
-                        }
-                    }
-
-                    //log.debug(`insurerMatch ${insurerMatch} territoryMatch ${territoryMatch} el.territory ${el.territory}     policyTypeMatch ${policyTypeMatch} el.universal ${el.universal} el.questionSubjectArea ${el.questionSubjectArea} ` + __location);
-                    if(insurerMatch === true
-                        && territoryMatch === true
-                        && policyTypeMatch === true
-                        && el.universal === 0
-                        && el.questionSubjectArea === questionSubjectArea){
-                        policyTypeArray.forEach(function(policyTypeJSON) {
-                            const policyEffDateMoment = moment(policyTypeJSON.effectiveDate);
-                            const insurerIndustryEffectiveDate = moment(el.insurerIndustryEffectiveDate);
-                            const insurerIndustryExpirationDate = moment(el.insurerIndustryExpirationDate);
-                            const insurerQuestionEffectiveDate = moment(el.insurerQuestionEffectiveDate);
-                            const insurerQuestionExpirationDate = moment(el.insurerQuestionExpirationDate);
-                            if(policyEffDateMoment >= insurerIndustryEffectiveDate
-                                    && policyEffDateMoment < insurerIndustryExpirationDate
-                                    && policyEffDateMoment >= insurerQuestionEffectiveDate
-                                    && policyEffDateMoment < insurerQuestionExpirationDate){
-                                returnValue = true;
-                            }
-
-                        });
-                    }
-                }
-                catch(err){
-                    log.error("Question filter error " + err + __location)
-                }
-
-                return returnValue;
-            });
-            log.debug(`Adding ${filteredRedisQuestions.length} redis industry questions ` + __location)
-            questions = questions.concat(filteredRedisQuestions);
-        }
-        else {
-            log.debug(`Adding ZERO redis industry questions - not found ` + __location)
-        }
-    }
+    // if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
+    // }
     const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
     let start = moment();
     // eslint-disable-next-line prefer-const
@@ -442,7 +378,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         // log.debug("talageQuestionIdArray " + talageQuestionIdArray)
         if(talageQuestionIdArray.length > 0) {
             const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
-            log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)    
+            log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)
             questions = questions.concat(industry_questions);
             //log.debug("industry_questions " + JSON.stringify(industry_questions));
         }
@@ -548,7 +484,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     catch(err){
         log.error(`Error get Mongo Activity questions ${JSON.stringify(activityCodeQuery)}  ${err}` + __location);
     }
-    
+
     log.debug("Getting missing questions " + __location);
     // Check for missing questions
     start = moment();
@@ -811,229 +747,36 @@ function find_missing_questions(questions) {
     return missing_questions.length ? missing_questions : false;
 }
 
-// eslint-disable-next-line require-jsdoc
-async function getRedisIndustryCodeQuestions(industryCodeId){
-
-    let questionList = [];
-    const redisKey = "question-industry-" + industryCodeId.toString();
-    const start = moment();
-    const resp = await global.redisSvc.getKeyValue(redisKey);
-    if(resp.found){
-        try{
-            questionList = JSON.parse(resp.value);
-        }
-        catch(err){
-            log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
-        }
-        const endRedis = moment();
-        var diff = endRedis.diff(start, 'milliseconds', true);
-        log.info(`Redis request ${redisKey} duration: ${diff} milliseconds`);
-    }
-    else {
-        log.warn(`#{redisKey} not found refreshing cache` + __location)
-        await CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId);
-        const resp2 = await global.redisSvc.getKeyValue(redisKey);
-        if(resp2.found && resp2.value){
-            try{
-                questionList = JSON.parse(resp2.value);
-            }
-            catch(err){
-                log.error(`Error Parsing question cache key ${redisKey} value: ${resp2.value} ${err} ` + __location);
-            }
-
-        }
-    }
-    //TODO filters for insuers, effective date
-
-    return questionList;
-}
-
-exports.CreateRedisIndustryCodeQuestionEntry = async function(industryCodeId){
-    // eslint-disable-next-line no-return-await
-    return await CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId)
-}
 
 // eslint-disable-next-line require-jsdoc
-async function CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId){
-
-    const now = moment();
-    const todayDateString = now.format(db.dbTimeFormat());
-    // ============================================================
-    // Get industry-based questions
-    // Notes:
-    //      questionId and id are same.  id is from backward compatibility.
-    const select = `ic.id as 'industryCodeId', iq.questionSubjectArea,
-         iic.effectiveDate as 'insurerIndustryEffectiveDate', iic.expirationDate as 'insurerIndustryExpirationDate',
-         iq.effectiveDate as 'insurerQuestionEffectiveDate', iq.expirationDate as 'insurerQuestionExpirationDate',
-         q.id  as 'questionId',q.id  as 'id', iq.universal, q.parent, q.parent_answer, q.sub_level, q.question AS 'text', q.hint, q.type AS type_id, qt.name AS type, q.hidden,
-         GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers,
-          GROUP_CONCAT(DISTINCT iq.insurer) AS insurerList,
-          GROUP_CONCAT(DISTINCT iq.policy_type) AS policyTypeList,
-          GROUP_CONCAT(DISTINCT iic.territory) AS territoryList`;
-
-    const sql = `
-        SELECT ${select}
-        FROM clw_talage_industry_codes AS ic
-        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-        INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
-        INNER JOIN clw_talage_questions AS q ON q.id = icq.talageQuestionId
-        INNER JOIN clw_talage_insurer_questions AS iq ON iq.question = q.id
-        INNER JOIN clw_talage_question_types AS qt ON qt.id = q.type
-        WHERE
-            ic.id = ${db.escape(industryCodeId)}
-            AND q.state = 1
-            AND (('${todayDateString}' >= iq.effectiveDate AND '${todayDateString}' < iq.expirationDate))
-            AND (('${todayDateString}' >= iic.effectiveDate AND '${todayDateString}' < iic.expirationDate))
-            GROUP BY iq.question;
-    `;
-    let error = null;
-    const industryCodeQuestions = await db.queryReadonlyCluster(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        log.error(`Error getting industry code questions industryCodeId ${industryCodeId} for Redis ${error}` + __location)
-        return false;
-    }
+// async function CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId){
 
 
-    let questionList = [];
-    questionList = questionList.concat(industryCodeQuestions);
-    const redisKey = "question-industry-" + industryCodeId.toString();
-    try{
-        //const ttlSeconds = 3600;
-        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(questionList))
-        if(redisResponse && redisResponse.saved){
-            log.debug(`Saved ${redisKey} to Redis ` + __location);
-        }
-    }
-    catch(err){
-        log.error(`Error save ${redisKey} to Redis JWT ` + err + __location);
-    }
-    return redisKey;
+//     const redisKey = "question-industry-" + industryCodeId.toString();
+//     try{
+//         //const ttlSeconds = 3600;
+//         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(questionList))
+//         if(redisResponse && redisResponse.saved){
+//             log.debug(`Saved ${redisKey} to Redis ` + __location);
+//         }
+//     }
+//     catch(err){
+//         log.error(`Error save ${redisKey} to Redis JWT ` + err + __location);
+//     }
+//     return redisKey;
 
 
-}
-
-// eslint-disable-next-line require-jsdoc
-async function CreateRedisIndustryCodeQuestionByArray(industryCodeList, listName){
-    if(industryCodeList && industryCodeList.length > 0){
-        for (let i = 0; i < industryCodeList.length; i++){
-            const industryCodeId = industryCodeList[i].industryCodeId;
-            try{
-                await CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId)
-            }
-            catch(err){
-                log.error(`Error Setting industry code questions cache industryCodeId ${industryCodeId} for Redis ${err}` + __location)
-            }
-            log.info(`Indusry Code Redis cached for industryCode ${industryCodeId} updated ${i + 1} of ${industryCodeList.length} in ${listName}`);
-        }
-    }
-    else {
-        log.info(`No industry code List to update` + __location)
-    }
-}
-
-// eslint-disable-next-line require-jsdoc
-async function processIndustryCodeList(industryCodeList){
-    if(industryCodeList && industryCodeList.length > 1 && global.settings.REDIS_QUESTION_CACHE_JOB_COUNT > 1){
-        // eslint-disable-next-line prefer-const
-        let subListSize = Math.floor(industryCodeList.length / global.settings.REDIS_QUESTION_CACHE_JOB_COUNT)
-        if(industryCodeList.length % global.settings.REDIS_QUESTION_CACHE_JOB_COUNT > 0){
-            subListSize += 1;
-        }
-        const subIndustryCodeLisArray = helper.splitArray(industryCodeList, subListSize);
-        const createRedisIndustryCodeQuestionCmdList = [];
-        for(let i = 0; i < subIndustryCodeLisArray.length; i++){
-            log.debug(`Adding sublist ${i + 1} length: ${subIndustryCodeLisArray[i].length}` + __location)
-            const listName = "list" + (i + 1);
-            createRedisIndustryCodeQuestionCmdList.push(CreateRedisIndustryCodeQuestionByArray(subIndustryCodeLisArray[i], listName))
-        }
-        await Promise.all(createRedisIndustryCodeQuestionCmdList);
-    }
-    else {
-        await CreateRedisIndustryCodeQuestionByArray(industryCodeList);
-    }
-    return industryCodeList.length;
-}
+// }
 
 
-exports.UpdateRedisIndustryQuestionByQuestionId = async function(questionId){
-    const sql = `SELECT distinct ic.id as 'industryCodeId'
-        FROM clw_talage_industry_codes AS ic
-        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-        INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
-        where icq.talageQuestionId = ${db.escape(questionId)}
-        order by ic.id`
+// exports.UpdateRedisIndustryQuestionByQuestionId = async function(questionId){
 
-    let error = null;
-    const industryCodeList = await db.queryReadonlyCluster(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        log.error(`Error getting industry code  for questionId  ${questionId} for Redis ${error}` + __location)
-        return false;
-    }
-    if(industryCodeList.length > 0){
-        await processIndustryCodeList(industryCodeList)
-    }
-    else {
-        log.info(`No industry code to update for QuestionId ${questionId} ` + __location)
-    }
-}
+// }
 
 
-exports.UpdateRedisIndustryQuestionByInsurer = async function(insurerId){
-    const sql = `SELECT distinct ic.id as 'industryCodeId'
-        FROM clw_talage_industry_codes AS ic
-        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-        where iic.insurer = ${db.escape(insurerId)}
-        order by ic.id`
+// exports.UpdateRedisIndustryQuestionByInsurer = async function(){
 
-    let error = null;
-    const industryCodeList = await db.queryReadonlyCluster(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        log.error(`Error getting industry code  for insurerId  ${insurerId} for Redis ${error}` + __location)
-        return false;
-    }
-    if(industryCodeList.length > 0){
-        await processIndustryCodeList(industryCodeList)
-    }
-    else {
-        log.info(`No industry code to update for insurerId ${insurerId} ` + __location)
-    }
-}
+// }
 
-exports.UpdateRedisIndustryQuestions = async function(industryCodeId){
-    let sql = ` SELECT distinct ic.id as 'industryCodeId'
-            FROM clw_talage_industry_codes AS ic
-            INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-            INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-            INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
-            where ic.state > 0 `;
-    if(industryCodeId){
-        sql += ` AND ic.id = ${db.escape(industryCodeId)}`
-    }
-    sql += ` order by ic.id`
-
-    let error = null;
-    const industryCodeList = await db.queryReadonlyCluster(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        log.error(`Error getting industry codes for Redis update ${error}` + __location)
-        return false;
-    }
-    await processIndustryCodeList(industryCodeList)
-
-    log.info("Redis Industry Code Question cached updated. processed " + industryCodeList.length + __location);
-
-
-    return industryCodeList.length;
-
-
-}
+// exports.UpdateRedisIndustryQuestions = async function(){
+// }
