@@ -943,7 +943,7 @@ module.exports = class CompwestWC extends Integration {
     // Determine how to send the answer
     //TODO look at attributies.afQuestionType
     if(addNode){
-        if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
+        if(question_attributes.afQuestionType === "PercentageInputOnYes"
                 || question_attributes.afQuestionType === "PercentageInput"){
                     //if value is greater then zero "Y" for answer
                 try{
@@ -1009,6 +1009,9 @@ module.exports = class CompwestWC extends Integration {
         }
         else if (question.type === 'Yes/No') {
             ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+        }
+        else if (question.type === 'Text - Single Line' || question.type === 'Text - Multiple Lines') {
+            ClassCodeQuestion.ele('ResponseInd', question.question.answer);
         }
 
         }
