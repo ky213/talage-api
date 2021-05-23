@@ -20,7 +20,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 async function findAll(req, res, next) {
     let error = null;
     const policyTypeBO = new PolicyTypeBO();
-
+    if(req.query.wheelhouse_support !== false){
+        req.query.wheelhouse_support = true;
+    }
     const rows = await policyTypeBO.getList(req.query).catch(function(err) {
         log.error("admin paymentPlanBO error: " + err + __location);
         error = err;

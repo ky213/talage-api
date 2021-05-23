@@ -154,27 +154,19 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
     }
 
-    //work around to not remap GL questions for BOP.  Question system should not care
-    // // Do not permit requests that include both BOP and GL
-    // if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
-    //     log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-    //     //return false; //work around to not remap GL questions for BOP.  Question system should not crea
-    // }
-
-    // Get Policy Types from the database
-    sql = 'SELECT abbr FROM clw_talage_policy_types;';
-    const policy_types_result = await db.queryReadonly(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        return false;
-    }
-
-    // Prepare the response
+    // Get Policy Types from the database - Is this necessary - bad policyType will just mean no questions.
     const supported_policy_types = [];
-    policy_types_result.forEach(function(policy_type) {
-        supported_policy_types.push(policy_type.abbr);
+    const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
+    const policyTypeBO = new PolicyTypeBO();
+    const policyTypeList = await policyTypeBO.getList({wheelhouse_support: true}).catch(function(err) {
+        // Check if this was
+        log.error(`policyTypeBO error on getList ` + err + __location);
     });
+    if (policyTypeList) {
+        policyTypeList.forEach(function(policy_type) {
+            supported_policy_types.push(policy_type.policyTypeCd);
+        });
+    }
 
     // Check that all policy types match
     policyTypes.forEach(function(policy_type) {

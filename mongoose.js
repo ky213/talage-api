@@ -85,6 +85,9 @@ module.exports = function() {
     require('./shared/models/mongoose/QuestionGroup.model');
 
 
+    require('./shared/models/mongoose/PolicyType.model');
+
+
     return mongodb;
 
 };
