@@ -586,6 +586,38 @@ module.exports = class QuoteBO {
         return true;
     }
 
+    async markQuoteAsDead(quoteId, applicationId, markDeadUser) {
+        if(quoteId && applicationId && markDeadUser){
+            const deadStatusObj = quoteStatus.dead;
+
+            // update Mongo
+            const query = {
+                "quoteId": quoteId,
+                "applicationId": applicationId
+            };
+            let quoteDoc = null;
+            try{
+                quoteDoc = await Quote.findOne(query, '-__v');
+                if(!quoteDoc.bound && quoteDoc.quoteStatusId !== deadStatusObj.id){
+                    log.debug(`Marking ${quoteId} as dead for application ${applicationId}`);
+                    // eslint-disable-next-line prefer-const
+                    let updateJSON = {
+                        "quoteStatusId": deadStatusObj.id,
+                        "quoteStatusDescription": deadStatusObj.description,
+                        "reasons": `Marked as dead by user ${markDeadUser}`
+                    };
+                    await Quote.updateOne(query, updateJSON);
+                    log.info(`Update Mongo QuoteDoc marked as dead status on quoteId: ${quoteId}` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Could not update mongo quote ${quoteId} status to dead: ${err} ${__location}`);
+                throw err;
+            }
+        }
+
+        return true;
+    }
 
     // checks the status of the quote and fixes it if its timed out
     async checkAndFixQuoteStatus(quoteDoc){

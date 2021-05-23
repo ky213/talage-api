@@ -14,7 +14,6 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
-//const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 /**
