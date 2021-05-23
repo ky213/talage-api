@@ -60,5 +60,5 @@ async function getQuestionActivityCodes(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAdmin('GET Question Activity Codes list', `${basePath}/question-activity-codes`, getQuestionActivityCodes, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Activity Codes list', `${basePath}/question-activity-codes`, getQuestionActivityCodes, 'TalageMapper', 'all');
 };

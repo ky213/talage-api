@@ -8,7 +8,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const moment = require('moment');
 
-const tableName = 'InsurerIndustryCode';
+const collectionName = 'InsurerIndustryCode';
 module.exports = class InsurerIndustryCodeBO{
 
     constructor(){
@@ -26,13 +26,13 @@ module.exports = class InsurerIndustryCodeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
 
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -42,7 +42,7 @@ module.exports = class InsurerIndustryCodeBO{
                     await this.updateMongo(dbDocJSON.insurerIndustryCodeId,newObjectJSON);
                 }
                 else {
-                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location);
+                    log.error(`${collectionName} PUT object not found ` + newObjectJSON.id + __location);
                 }
             }
             if(newDoc === true) {

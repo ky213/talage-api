@@ -79,14 +79,14 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    const questionSvc = global.requireShared('./services/questionsvc.js');
-    try{
-        //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(req.body.talageQuestionId);
-    }
-    catch(err){
-        log.error(`Error update question cache for ${req.body.talageQuestionId}`)
-    }
+    // const questionSvc = global.requireShared('./services/questionsvc.js');
+    // try{
+    //     //do not await not need to wait for response
+    //     questionSvc.UpdateRedisIndustryQuestionByQuestionId(req.body.talageQuestionId);
+    // }
+    // catch(err){
+    //     log.error(`Error update question cache for ${req.body.talageQuestionId}`)
+    // }
 
     res.send(200, industryCodeQuestionBO.cleanJSON());
     return next();
@@ -116,23 +116,23 @@ async function deleteObject(req, res, next) {
     if (error) {
         return next(error);
     }
-    const questionSvc = global.requireShared('./services/questionsvc.js');
-    try{
-        //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(talageQuestionId);
-    }
-    catch(err){
-        log.error(`Error update question cache for ${talageQuestionId}`)
-    }
+    //const questionSvc = global.requireShared('./services/questionsvc.js');
+    // try{
+    //     //do not await not need to wait for response
+    //     questionSvc.UpdateRedisIndustryQuestionByQuestionId(talageQuestionId);
+    // }
+    // catch(err){
+    //     log.error(`Error update question cache for ${talageQuestionId}`)
+    // }
     res.send(200, {"success": true});
     return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/industry-code-question`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/industry-code-question/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/industry-code-question`, add, 'administration', 'all');
-    // server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/industry-code-question/:id`, update, 'administration', 'all');
-    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/industry-code-question`, deleteObject, 'administration', 'all');
+    server.addGetAuthAdmin('GET Question Answer list', `${basePath}/industry-code-question`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('GET Question Answer Object', `${basePath}/industry-code-question/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('POST Question Answer Object', `${basePath}/industry-code-question`, add, 'TalageMapper', 'all');
+    // server.addPutAuthAdmin('PUT Question Answer Object', `${basePath}/industry-code-question/:id`, update, 'TalageMapper', 'all');
+    server.addDeleteAuthAdmin('DELETE Question Answer', `${basePath}/industry-code-question`, deleteObject, 'TalageMapper', 'all');
 };

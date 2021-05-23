@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable no-lonely-if */
 'use strict';
 
@@ -67,6 +68,9 @@ function validateJWT(options) {
  */
 function validateCognitoJWT(options) {
     return async(req, res, next) => {
+
+        const permission = options.permission;
+        //, options.permissionType
         // eslint-disable-next-line no-extra-parens
         let jwtToken = req.headers.authorization || (req.body && req.body.access_token) || (req.query && req.query.access_token) || req.headers.token;
         if(jwtToken){
@@ -88,17 +92,35 @@ function validateCognitoJWT(options) {
                     if(cognitoUser.Groups){
                         let hasAccess = false;
                         for(let i = 0; i < cognitoUser.Groups.length; i++){
-                            if(cognitoUser.Groups[i].GroupName === "TalageAdminUser"){
+                            //log.debug(`check ${cognitoUser.Groups[i].GroupName} === ${permission}` + __location)
+                            if(cognitoUser.Groups[i].GroupName === permission){
+                                hasAccess = true
+                            }
+                            if(cognitoUser.Groups[i].GroupName === "TalageFullAdmin"){
                                 hasAccess = true;
                             }
                         }
+
                         if(hasAccess){
-                            req.user = cognitoUser;
-                            //  log.debug("cognitoUser " + JSON.stringify(cognitoUser))
-                            options.handler(req, res, next);
+                            //environment check.
+                            let hasEnvAccess = false;
+                            for(let i = 0; i < cognitoUser.Groups.length; i++){
+                                if(cognitoUser.Groups[i].GroupName.toLowerCase() === global.settings.ENV.toLowerCase()){
+                                    hasEnvAccess = true
+                                }
+                            }
+                            if(hasEnvAccess){
+                                req.user = cognitoUser;
+                                //  log.debug("cognitoUser " + JSON.stringify(cognitoUser))
+                                options.handler(req, res, next);
+                            }
+                            else{
+                                log.error(`CognitoUser not approved for environment.` + __location)
+                                return next(new RestifyError.ForbiddenError("access denied"));
+                            }
                         }
                         else {
-                            log.warn(`CognitoUser on in approved a group.` + __location)
+                            log.warn(`CognitoUser not in approved a group.` + __location)
                             return next(new RestifyError.ForbiddenError("access denied"));
                         }
                     }

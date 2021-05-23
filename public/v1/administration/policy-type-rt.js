@@ -20,7 +20,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 async function findAll(req, res, next) {
     let error = null;
     const policyTypeBO = new PolicyTypeBO();
-
+    if(req.query.wheelhouse_support !== false){
+        req.query.wheelhouse_support = true;
+    }
     const rows = await policyTypeBO.getList(req.query).catch(function(err) {
         log.error("admin paymentPlanBO error: " + err + __location);
         error = err;
@@ -43,7 +45,7 @@ async function findAll(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    server.addGetAuthAdmin('Get PolicyType list', `${basePath}/policy-type`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get PolicyType list', `${basePath}/policy-type`, findAll, 'TalageAdminUser', 'all');
 
 
     //server.addGet('Get PolicyType list', `${basePath}/policy-type`, findAll, 'administration', 'all');
