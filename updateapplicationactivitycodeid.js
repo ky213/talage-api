@@ -19,8 +19,6 @@ const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const questionMigrationSvc = global.requireShared('/services/questionmigrationsvc.js');
-
 
 var mongoose = require('./mongoose');
 const colors = require('colors');
