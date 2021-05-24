@@ -12,22 +12,21 @@ const moment_timezone = require('moment-timezone');
 const clonedeep = require('lodash.clonedeep');
 
 // Add global helpers to load shared modules
-global.sharedPath = require('path').join(__dirname, 'shared');
+global.rootPath = require('path').join(__dirname, '..');
+global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-const talageEvent = global.requireShared('/services/talageeventemitter.js');
+const talageEvent = global.requireShared('services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
-var mongoose = require('./mongoose');
+var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
 
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
-const globalSettings = require('./settings.js');
+const globalSettings = global.requireRootPath('./settings.js');
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -118,146 +117,110 @@ async function main() {
  */
 async function runFunction() {
 
-    const IndustryCodeModel = require('mongoose').model('IndustryCode');
-    await moveIndustryCategories();
+    const PolicyTypeModel = require('mongoose').model('PolicyType');
+
     //load message model and get message list.
-    const sql = `select * from clw_talage_industry_codes `;
+    const sql = `select * from clw_talage_policy_types  `;
 
     let result = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error " + error);
         return false;
     });
-    log.debug("Got MySql IndustryCode - result.length - " + result.length);
+    log.debug("Got MySql PolicyType - result.length - " + result.length);
     const updateAbleProps = ['description',
-        'featured',
-        'naics',
-        'cgl',
-        'sic',
-        'ico',
-        'hiscox',
-        'activityCodeIdList',
+        'heading',
+        'wheelhouse_support',
         'active'];
+
+    //added new
+    const cyberJSON = {
+        policyTypeCd: "CYBER",
+        abbr: "CYBER",
+        name: "Cyber",
+        description: "Cyber insurance policy type",
+        heading: "Cyber",
+        wheelhouse_support: true
+
+    }
+    result.push(cyberJSON)
+
+    const plJSON = {
+        policyTypeCd: "PL",
+        abbr: "PL",
+        name: "Professional Liability",
+        description: "Professional Liability",
+        heading: "Professional Liability",
+        wheelhouse_support: true
+
+    }
+    result.push(plJSON)
+
+
     let updatedDocCount = 0;
     let newDocCount = 0;
+    // eslint-disable-next-line array-element-newline
+    const wheelhouseSupportPTList = ['WC', 'GL','BOP', 'CYBER', 'PL'];
     for(let i = 0; i < result.length; i++){
         try {
-            result[i].industryCodeId = result[i].id;
-            let industryCode = new IndustryCodeModel(result[i]);
+            let policyType = new PolicyTypeModel(result[i]);
+            policyType.policyTypeCd = result[i].abbr;
 
-            industryCode.talageStandard = true;
-            if(result[i].state < 1){
-                industryCode.active = false
+            if(wheelhouseSupportPTList.indexOf(policyType.policyTypeCd) > -1){
+                policyType.wheelhouse_support = true;
             }
-            industryCode.industryCodeCategoryId = result[i].category;
-            //get activityCodeList
-            let sqlAssoc = `select activityCodeId from clw_talage_industry_code_associations where frequency > 30 and industryCodeId = ${industryCode.industryCodeId}`
-
-            let resultAlt = await db.query(sqlAssoc).catch(function(error) {
-                // Check if this was
-                log.error(`activityCodeList clw_talage_industry_code_associations ${sqlAssoc} error ` + error);
-
-            });
-            if(resultAlt && resultAlt.length > 0){
-                const activityCodeList = resultAlt.map(row => row.activityCodeId)
-                if(activityCodeList && activityCodeList.length > 0 && activityCodeList[0]){
-                    industryCode.activityCodeIdList = activityCodeList
-                }
+            else {
+                policyType.wheelhouse_support = false;
             }
-
-
             // Determine if existing doc
             // by insurerId,  code, sub
-            const query = {industryCodeId: industryCode.industryCodeId}
-            const existingDoc = await IndustryCodeModel.findOne(query);
+            const query = {policyTypeCd: policyType.policyTypeCd}
+            const existingDoc = await PolicyTypeModel.findOne(query);
             if(existingDoc){
                 //update file
                 let updateHit = false;
                 //loop updateable array
                 updateAbleProps.forEach((updateAbleProp) => {
-                    if(industryCode[updateAbleProp] && industryCode[updateAbleProp] !== existingDoc[updateAbleProp]){
-                        existingDoc[updateAbleProp] = industryCode[updateAbleProp]
+                    if(policyType[updateAbleProp] && policyType[updateAbleProp] !== existingDoc[updateAbleProp]){
+                        existingDoc[updateAbleProp] = policyType[updateAbleProp]
                         updateHit = true;
                     }
                 });
                 if(updateHit){
                     await existingDoc.save().catch(function(err) {
-                        log.error('Mongo IndustryCode Save err ' + err + __location);
+                        log.error('Mongo PolicyType Save err ' + err + __location);
                         return false;
                     });
                     updatedDocCount++
                 }
             }
             else {
-                await industryCode.save().catch(function(err) {
-                    log.error('Mongo IndustryCode Save err ' + err + __location);
+                await policyType.save().catch(function(err) {
+                    log.error('Mongo PolicyType Save err ' + err + __location);
                     return false;
                 });
                 newDocCount++;
             }
 
-            // if(IndustryCode.insurerTerritoryQuestionList.length > 0){
-            //     log.debug("has territoryquestions " + IndustryCode.insurerActivityCodeId)
+            // if(PolicyType.insurerTerritoryQuestionList.length > 0){
+            //     log.debug("has territoryquestions " + PolicyType.insurerActivityCodeId)
             // }
             if((i + 1) % 100 === 0){
                 log.debug(`processed ${i + 1} of ${result.length} `)
             }
         }
         catch(err){
-            log.error("Updating IndustryCode List error " + err + __location);
+            log.error("Updating PolicyType List error " + err + __location);
             return false;
         }
     }
-    log.debug("IndustryCodes Import Done!");
-    log.debug(`Updated IndustryCodes: ${updatedDocCount}`);
-    log.debug(`New IndustryCodes: ${newDocCount}`);
+
+    log.debug("PolicyTypes Import Done!");
+    log.debug(`Updated PolicyTypes: ${updatedDocCount}`);
+    log.debug(`New PolicyTypes: ${newDocCount}`);
     log.debug("Done!");
     process.exit(1);
 
-}
-
-
-async function moveIndustryCategories() {
-
-    const IndustryCodeCategoryModel = require('mongoose').model('IndustryCodeCategory');
-    //load message model and get message list.
-    const sql = `select id as 'industryCodeCategoryId', name, featured from clw_talage_industry_code_categories `;
-
-    let result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        log.error("error " + error);
-        return false;
-    });
-    log.debug("Got MySql clw_talage_industry_code_categories - result.length - " + result.length);
-
-    let newDocCount = 0;
-    for(let i = 0; i < result.length; i++){
-        try {
-            let industryCodeCategory = new IndustryCodeCategoryModel(result[i]);
-            industryCodeCategory.talageStandard = true;
-            // Determine if existing doc
-            // by insurerId,  code, sub
-            const query = {industryCodeCategoryId: industryCodeCategory.industryCodeCategoryId}
-            const existingDoc = await IndustryCodeCategoryModel.findOne(query);
-            if(!existingDoc){
-                await industryCodeCategory.save().catch(function(err) {
-                    log.error('Mongo IndustryCodeCategoryModel Save err ' + err + __location);
-                    return false;
-                });
-                newDocCount++;
-            }
-
-            if((i + 1) % 100 === 0){
-                log.debug(`processed ${i + 1} of ${result.length} `)
-            }
-        }
-        catch(err){
-            log.error("Updating IndustryCode List error " + err + __location);
-            return false;
-        }
-    }
-    log.debug("IndustryCodeCategor Import Done!");
-    return;
 }
 
 main();

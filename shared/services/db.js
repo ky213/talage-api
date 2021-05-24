@@ -86,7 +86,7 @@ exports.connect = async() => {
         log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
         return false;
     }
-    log.info(colors.green(`\tMySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
+    log.info(colors.green(`\tMySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}:${colors.cyan(global.settings.DATABASE_NAME)}`)); // eslint-disable-line no-console
 
 
     if(useReadOnly === true){
@@ -97,7 +97,7 @@ exports.connect = async() => {
             log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
         }
         catch(error){
-            log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
+            log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST_READONLY)}:${colors.cyan(global.settings.DATABASE_NAME)}`)); // eslint-disable-line no-console
             return false;
         }
     }

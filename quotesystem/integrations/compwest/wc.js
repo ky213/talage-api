@@ -891,114 +891,117 @@ module.exports = class CompwestWC extends Integration {
     }
 
 
-    processActivtyCodeQuestion(ClassCodeQuestions, guideWireAPI, WorkCompRateClass, classCode, subCode, question_id, question, question_attributes){
-    log.debug('Adding Activity Code questions ' + __location)
-    let ClassCodeQuestion = null;
-    //Determine QuestionCd or questionId
-    let addNode = false;
-    if(guideWireAPI === true){
-        //to loop up publicId in attributes based on classcode
-        let publicId = '';
-        if(question_attributes && !question_attributes.parentQuestionId
-            && question_attributes.classCodeList
-            && question_attributes.classCodeList.length > 0){
-            for(let i = 0; i < question_attributes.classCodeList.length; i++){
-                if(question_attributes.classCodeList[i].classCode === classCode){
-                    if(subCode === question_attributes.classCodeList[i].sub){
-                        publicId = question_attributes.classCodeList[i].PublicId;
-                        break;
-                    }
-                    else if(!subCode || !question_attributes.classCodeList[i].sub){
-                        publicId = question_attributes.classCodeList[i].PublicId;
-                        break;
+    processActivtyCodeQuestion(ClassCodeQuestionsNode, guideWireAPI, WorkCompRateClass, classCode, subCode, question_id, question, question_attributes){
+        // log.debug('Adding Activity Code questions ' + __location)
+        // log.debug(`question_id ${JSON.stringify(question_id)}  question_attributes ${JSON.stringify(question_attributes)}  question ${JSON.stringify(question)}` + __location)
+        let ClassCodeQuestion = null;
+        //Determine QuestionCd or questionId
+        let addNode = false;
+        if(guideWireAPI === true){
+            //to loop up publicId in attributes based on classcode
+            let publicId = '';
+            if(question_attributes && !question_attributes.parentQuestionId
+                && question_attributes.classCodeList
+                && question_attributes.classCodeList.length > 0){
+                for(let i = 0; i < question_attributes.classCodeList.length; i++){
+                    if(question_attributes.classCodeList[i].classCode === classCode){
+                        if(subCode === question_attributes.classCodeList[i].sub){
+                            publicId = question_attributes.classCodeList[i].PublicId;
+                            break;
+                        }
+                        else if(!subCode || !question_attributes.classCodeList[i].sub){
+                            publicId = question_attributes.classCodeList[i].PublicId;
+                            break;
+                        }
                     }
                 }
             }
-        }
-        else if(!question_attributes.parentQuestionId){
-            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
-        }
-        if(publicId){
-            if(!ClassCodeQuestions){
-                ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+            else if(!question_attributes.parentQuestionId){
+                log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
             }
-            ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-            ClassCodeQuestion.ele('QuestionId', publicId);
+            if(publicId){
+                if(!ClassCodeQuestionsNode){
+                    ClassCodeQuestionsNode = WorkCompRateClass.ele('ClassCodeQuestions');
+                }
+                ClassCodeQuestion = ClassCodeQuestionsNode.ele('ClassCodeQuestion');
+                ClassCodeQuestion.ele('QuestionId', publicId);
+                addNode = true;
+            }
+            else if(!question_attributes.parentQuestionId){
+                log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Did not find PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
+                //TODO Throw Error?
+            }
+        }
+        else if(question_attributes.code){
+           // log.debug(`question_id ${JSON.stringify(question_id)}  question_attributes ${JSON.stringify(question_attributes)}  question ${JSON.stringify(question)}` + __location)
+            if(!ClassCodeQuestionsNode){
+                ClassCodeQuestionsNode = WorkCompRateClass.ele('ClassCodeQuestions');
+            }
+            ClassCodeQuestion = ClassCodeQuestionsNode.ele('ClassCodeQuestion');
+            ClassCodeQuestion.ele('QuestionId', question_attributes.id);
+            ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
             addNode = true;
         }
-        else if(!question_attributes.parentQuestionId){
-            log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Did not find PublicId for ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
-            //TODO Throw Error?
-        }
-    }
-    else if(question_attributes.code){
-        if(!ClassCodeQuestions){
-            ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
-        }
-        ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-        ClassCodeQuestion.ele('QuestionId', question_attributes.id);
-        ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
-        addNode = true;
-    }
-    // Determine how to send the answer
-    //TODO look at attributies.afQuestionType
-    if(addNode){
-        if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
-                || question_attributes.afQuestionType === "PercentageInput"){
-                    //if value is greater then zero "Y" for answer
-                try{
-                    let value = 0;
-                    if(question.answer){
-                        try{
-                            value = parseInt(question.answer,10);
+        // Determine how to send the answer
+        //TODO look at attributies.afQuestionType
+        if(addNode){
+            if(question_attributes.afQuestionType === "PercentageInputOnYes"
+                    || question_attributes.afQuestionType === "PercentageInput"){
+                        //if value is greater then zero "Y" for answer
+                    try{
+                        let value = 0;
+                        if(question.answer){
+                            try{
+                                value = parseInt(question.answer,10);
+                            }
+                            catch(err){
+                                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} bad input for numeric question QuestionId ${question.id} value ${question.answer} ` + __location)
+                            }
                         }
-                        catch(err){
-                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} bad input for numeric question QuestionId ${question.id} value ${question.answer} ` + __location)
+                        const responseYes = value > 0 ? 'Y' : 'N';
+                        ClassCodeQuestion.ele('ResponseInd', responseYes);
+                        if(responseYes === 'Y'){
+                            ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
                         }
                     }
-                    const responseYes = value > 0 ? 'Y' : 'N';
-                    ClassCodeQuestion.ele('ResponseInd', responseYes);
-                    if(responseYes === 'Y'){
-                        ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
-                    }
-                }
-                catch(err){
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} error creating PercentageAnswerValue node - ${err}` + __location)
+                    catch(err){
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} error creating PercentageAnswerValue node - ${err}` + __location)
 
-                }
-        }
-        else if(question_attributes.afQuestionType === "OptionsOnYes"){
-            const answerBoolean = question.get_answer_as_boolean()
-            ClassCodeQuestion.ele('ResponseInd', answerBoolean ? 'Y' : 'N');
-            //find the child with the answers
-                if(answerBoolean){
-                log.debug("checking for OptionsOnYes childen")
-                const insurerParentQuestionId = this.question_details[question_id].insurerQuestionId;
-                for (const childQuestionId in this.questions) {
-                    const childTalageQuestion = this.questions[childQuestionId]
-                    const childInsurerQuestion = this.question_details[childQuestionId]
-                    if(childInsurerQuestion && childInsurerQuestion.attributes
-                        && childInsurerQuestion.attributes.optionList
-                        && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
-                        log.debug(`Processing OptionsOnYes child ${childQuestionId}` + __location)
-                        const optionList = childInsurerQuestion.attributes.optionList
-                        // eslint-disable-next-line prefer-const
-                        const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
-                        if(childQuestionAnswerStr !== false){
-                            let childAnswerList = childQuestionAnswerStr.split(',');
-                            childAnswerList = childAnswerList.map(s => s.trim());
-                            log.debug("childAnswerList " + JSON.stringify(childAnswerList))
-                            log.debug("optionList " + JSON.stringify(optionList))
-                            if(childAnswerList.length > 0){
-                                for (let i = 0; i < childAnswerList.length; i++){
-                                    log.debug("Search optionList for answer " + childAnswerList[i]);
-                                    const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
-                                    if(optionAnswer){
-                                        log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
-                                        // eslint-disable-next-line prefer-const
-                                        let childQuestionAnswer = ClassCodeQuestions.ele('OptionResponse');
-                                        childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
-                                        childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                    }
+            }
+            else if(question_attributes.afQuestionType === "OptionsOnYes"){
+                const answerBoolean = question.get_answer_as_boolean()
+                ClassCodeQuestion.ele('ResponseInd', answerBoolean ? 'Y' : 'N');
+                //find the child with the answers
+                    if(answerBoolean){
+                    log.debug("checking for OptionsOnYes childen")
+                    const insurerParentQuestionId = this.question_details[question_id].insurerQuestionId;
+                    for (const childQuestionId in this.questions) {
+                        const childTalageQuestion = this.questions[childQuestionId]
+                        const childInsurerQuestion = this.question_details[childQuestionId]
+                        if(childInsurerQuestion && childInsurerQuestion.attributes
+                            && childInsurerQuestion.attributes.optionList
+                            && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
+                            log.debug(`Processing OptionsOnYes child ${childQuestionId}` + __location)
+                            const optionList = childInsurerQuestion.attributes.optionList
+                            // eslint-disable-next-line prefer-const
+                            const childQuestionAnswerStr = this.determine_question_answer(childTalageQuestion);
+                            if(childQuestionAnswerStr !== false){
+                                let childAnswerList = childQuestionAnswerStr.split(',');
+                                childAnswerList = childAnswerList.map(s => s.trim());
+                                log.debug("childAnswerList " + JSON.stringify(childAnswerList))
+                                log.debug("optionList " + JSON.stringify(optionList))
+                                if(childAnswerList.length > 0){
+                                    for (let i = 0; i < childAnswerList.length; i++){
+                                        log.debug("Search optionList for answer " + childAnswerList[i]);
+                                        const optionAnswer = optionList.find((optionJSON) => optionJSON.talageAnswerText === childAnswerList[i].trim())
+                                        if(optionAnswer){
+                                            log.debug("AF Adding OptionResponse for " + childAnswerList[i] + __location)
+                                            // eslint-disable-next-line prefer-const
+                                            let childQuestionAnswer = ClassCodeQuestionsNode.ele('OptionResponse');
+                                            childQuestionAnswer.ele('YesOptionResponse', optionAnswer["ns2:PublicId"]);
+                                            childQuestionAnswer.ele('OtherOptionResponse',"Y");
+                                        }
                                     }
                                 }
                             }
@@ -1006,10 +1009,12 @@ module.exports = class CompwestWC extends Integration {
                     }
                 }
             }
-        }
-        else if (question.type === 'Yes/No') {
-            ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-        }
+            else if (question.type === 'Yes/No') {
+                ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+            }
+            else {
+                ClassCodeQuestion.ele('ResponseInd', question.question.answer);
+            }
 
         }
     }

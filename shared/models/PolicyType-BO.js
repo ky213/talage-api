@@ -1,24 +1,16 @@
-'use strict';
 
 
-const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const moment = require('moment');
-const moment_timezone = require('moment-timezone');
-const {debug} = require('request');
+var PolicyTypeModel = require('mongoose').model('PolicyType');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
-const tableName = 'clw_talage_policy_types'
-const skipCheckRequired = false;
+const collectionName = 'PolicyTypes'
 module.exports = class PolicyTypeBO{
 
-    #dbTableORM = null;
-
     constructor(){
-        this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        this.id = '';
     }
 
 
@@ -31,114 +23,115 @@ module.exports = class PolicyTypeBO{
     // Use SaveMessage
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+            let updatedDoc = null;
+            try{
+                if(newObjectJSON.policyTypeId){
+                    updatedDoc = await this.updateMongo(newObjectJSON.policyTypeId, newObjectJSON);
+                }
+                else{
+                    updatedDoc = await this.insertMongo(newObjectJSON);
+                }
             }
-            await this.cleanupInput(newObjectJSON);
-            if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
+            catch(err){
                 reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
-
-
-            resolve(true);
-
+            }
+            resolve(updatedDoc);
         });
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
 
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
+    async updateMongo(id, newObjectJSON){
+        if(id){
+            if(typeof newObjectJSON === "object"){
+                const changeNotUpdateList = ["active",
+                    "policyTypeId",
+                    "id"]
+                for(let i = 0; i < changeNotUpdateList.length; i++){
+                    if(newObjectJSON[changeNotUpdateList[i]]){
+                        delete newObjectJSON[changeNotUpdateList[i]];
+                    }
+                }
+                const query = {"policyTypeId": id};
+                let newMappingJSON = null;
+                try {
+                    await PolicyTypeModel.updateOne(query, newObjectJSON);
+
+                    const mappingDocDB = await PolicyTypeModel.findOne(query);
+                    newMappingJSON = mongoUtils.objCleanup(mappingDocDB);
+                }
+                catch (err) {
+                    log.error(`Updating ${collectionName} error ` + err + __location);
+                    throw err;
+                }
+                return newMappingJSON;
             }
             else {
-                reject(new Error('no id supplied'))
+                throw new Error('no newObjectJSON supplied')
             }
-        });
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+
     }
+
+    async insertMongo(newObjecJSON){
+
+
+        const PolicyType = new PolicyTypeModel(newObjecJSON);
+        //Insert a doc
+        await PolicyType.save().catch(function(err){
+            log.error(`Mongo ${collectionName} Save err ` + err + __location);
+            throw err;
+        });
+        const docDB = mongoUtils.objCleanup(PolicyType);
+        return docDB;
+    }
+
 
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
-
-            let rejected = false;
             // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
+            const query = {active: true};
             if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.name){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(queryJSON.name)} `
-                    hasWhere = true;
-                }
-            }
-            // Run the query
-            //log.debug("PolicyTypeBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const policyTypeBO = new PolicyTypeBO();
-                    await policyTypeBO.#dbTableORM.decryptFields(result[i]);
-                    await policyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await policyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    boList.push(policyTypeBO);
+                if(queryJSON.active === false || queryJSON.active === 'false'){
+                    query.active = queryJSON.active
                 }
-                resolve(boList);
+                if(queryJSON.name){
+                    query.name = queryJSON.name
+                }
+            }
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            // Run the query
+            let docCleanList = null;
+            try {
+                const doclist = await PolicyTypeModel.find(query, '-__v');
+                docCleanList = mongoUtils.objListCleanup(doclist);
+            }
+            catch (err) {
+                log.error(`Getting ${collectionName} error ` + err + __location);
+                reject(err);
+            }
+
+            if(docCleanList && docCleanList.length > 0){
+                resolve(docCleanList);
             }
             else {
                 //Search so no hits ok.
@@ -149,17 +142,27 @@ module.exports = class PolicyTypeBO{
         });
     }
 
+
     getById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if(id){
+                const query = {
+                    "policyTypeId": id,
+                    active: true
+                };
+                let docCleanDB = null;
+                try {
+                    const docDB = await PolicyTypeModel.findOne(query, '-__v');
+                    if(docDB){
+                        docCleanDB = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error(`Getting ${collectionName} error ` + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                }
+                resolve(docCleanDB);
             }
             else {
                 reject(new Error('no id supplied'))
@@ -167,97 +170,55 @@ module.exports = class PolicyTypeBO{
         });
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
+    getByPolicyTypeCd(policyTypeCd) {
+        return new Promise(async(resolve, reject) => {
+            //validate
+            if(policyTypeCd){
+                const query = {
+                    "policyTypeCd": policyTypeCd,
+                    active: true
+                };
+                let docCleanDB = null;
+                try {
+                    const docDB = await PolicyTypeModel.findOne(query, '-__v');
+                    if(docDB){
+                        docCleanDB = mongoUtils.objCleanup(docDB);
                     }
                 }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+                catch (err) {
+                    log.error(`Getting ${collectionName} error ` + err + __location);
+                    reject(err);
                 }
+                resolve(docCleanDB);
             }
-        }
+            else {
+                reject(new Error('no policyTypeCd supplied'))
+            }
+        });
     }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
+    deleteSoftById(id) {
+        return new Promise(async(resolve, reject) => {
+            //validate
+            if(id){
+                const activeJson = {active: false};
+                const query = {"policyTypeId": id};
+                try {
+                    await PolicyTypeModel.updateOne(query, activeJson);
+                }
+                catch (err) {
+                    log.error(`Soft Deleting ${collectionName} error ` + err + __location);
+                    reject(err);
+                }
+
+                resolve(true);
+
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
     }
 
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
-
-}
-
-const properties = {
-    "abbr": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(24)"
-    },
-    "heading": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "description": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(255)"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    constructor(tableName){
-        super(tableName, properties);
-    }
 
 }
