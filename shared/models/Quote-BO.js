@@ -600,13 +600,16 @@ module.exports = class QuoteBO {
                 quoteDoc = await Quote.findOne(query, '-__v');
                 if(!quoteDoc.bound && quoteDoc.quoteStatusId !== deadStatusObj.id){
                     log.debug(`Marking ${quoteId} as dead for application ${applicationId}`);
-                    let prependedReason = `Marked as dead by user ${markDeadUser}. ${quoteDoc.reasons}`;
+                    let markAsDeadReasons = `Marked as dead by user ${markDeadUser}.`;
+                    if(quoteDoc.reasons){
+                        markAsDeadReasons += `  ${quoteDoc.reasons}`;
+                    }
                     // eslint-disable-next-line prefer-const
                     let updateJSON = {
                         "quoteStatusId": deadStatusObj.id,
                         "status": deadStatusObj.description,
                         "quoteStatusDescription": deadStatusObj.description,
-                        "reasons": prependedReason
+                        "reasons": markAsDeadReasons
                     };
                     await Quote.updateOne(query, updateJSON);
                     log.info(`Update Mongo QuoteDoc marked as dead status on quoteId: ${quoteId}` + __location);
