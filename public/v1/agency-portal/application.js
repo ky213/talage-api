@@ -197,7 +197,8 @@ async function getApplication(req, res, next) {
                 }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            // Do not overwrite the reasons for quote Obj if it is marked dead
+            // Do not overwrite the reasons for quote Obj if it is marked dead, 
+            // mark as dead has reasons "Marked as Dead by XXX (user-email)" that need to be displayed.
             if(quoteJSON.quoteStatusId !== quoteStatus.dead.id){
                 if (quoteJSON.status === 'bind_requested'
                 || quoteJSON.bound
