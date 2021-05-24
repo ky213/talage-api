@@ -2381,7 +2381,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], returnHidden = true){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], returnHidden = false){
         log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList} `)
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2582,7 +2582,6 @@ module.exports = class ApplicationModel {
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
-        //const returnHidden = true;
 
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;

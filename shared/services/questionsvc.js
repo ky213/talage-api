@@ -726,11 +726,11 @@ exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeS
  *
  * @param {array} talageQuestionIdArray - An array of question IDs
  * @param {array} insurerQuestionList - An array of insureQuestion objects
- * @param {boolean} return_hidden - true = getting Insurer-PolicyType
+ * @param {boolean} return_hidden - true = get hidden questions
  *
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = true){
+async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = false){
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
