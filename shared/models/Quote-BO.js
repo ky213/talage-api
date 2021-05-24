@@ -607,8 +607,8 @@ module.exports = class QuoteBO {
                     // eslint-disable-next-line prefer-const
                     let updateJSON = {
                         "quoteStatusId": deadStatusObj.id,
-                        "status": deadStatusObj.description,
-                        "quoteStatusDescription": deadStatusObj.description,
+                        "status": 'dead', // keep lowercase to be consistent with rest of the status values being lowercase
+                        "quoteStatusDescription": deadStatusObj.description, // is capitalized 'Dead'
                         "reasons": markAsDeadReasons
                     };
                     await Quote.updateOne(query, updateJSON);
