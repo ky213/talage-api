@@ -99,7 +99,7 @@ module.exports = class InsurerPaymentPlanBO{
                 }
             }
             // Run the query
-            log.debug("InsurerPaymentPlanBO getlist sql: " + sql);
+            //log.debug("InsurerPaymentPlanBO getlist sql: " + sql);
             const result = await db.query(sql).catch(function(error) {
                 // Check if this was
 
