@@ -131,6 +131,16 @@ const cyberPolicySchema = new Schema({
     businessIncomeCoverage: {type: Number, required: false},
     domains: {type: String}
 })
+const professionalLiabilityPolicySchema = new Schema({
+    aggregateLimit: {type: Number, required: true},
+    occurrenceLimit: {type: Number, required: true},
+    certificationsRequired: {type: Boolean, default: false},
+    certificationsMaintained: {type: Boolean, default: false},
+    yearsOfPriorActs: {type: Number, required: false}, //previous years covered
+    periodLoading: {type: Number, required: false}, //years covered after policy end
+    yearsOfProfessionalExperience: {type: Number, required: false}
+})
+
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
@@ -148,6 +158,7 @@ const PolicySchema = new Schema({
     currentPremium: {type: Number, required: false},
     yearsWithCurrentInsurance: {type: Number, required: false},
     cyber: cyberPolicySchema
+    profLiability: professionalLiabilityPolicySchema
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
