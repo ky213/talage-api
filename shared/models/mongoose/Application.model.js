@@ -157,7 +157,7 @@ const PolicySchema = new Schema({
     currentInsuranceCarrier: {type: String, required: false},
     currentPremium: {type: Number, required: false},
     yearsWithCurrentInsurance: {type: Number, required: false},
-    cyber: cyberPolicySchema
+    cyber: cyberPolicySchema,
     profLiability: professionalLiabilityPolicySchema
 });
 
