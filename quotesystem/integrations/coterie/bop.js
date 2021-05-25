@@ -25,7 +25,7 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
         const gl = require('./gl.js');
-        const integration = new gl(this.app, this.insurer, this.policy);
+        const integration = new gl(this.app, this.insurer, this.policy, this.quoteId);
 
         // Run the quote
         return integration.quote();
