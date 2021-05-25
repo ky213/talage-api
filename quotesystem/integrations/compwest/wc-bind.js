@@ -211,6 +211,8 @@ class CompuwestBind extends Bind {
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
 
+        const txnDate = moment();
+        WorkCompPolicyAddRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
 
         // <CommlPolicy>
         const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
