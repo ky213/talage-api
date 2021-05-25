@@ -197,14 +197,9 @@ async function getApplication(req, res, next) {
                 }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            // Do not overwrite the reasons for quote Obj if it is marked dead
-            if(quoteJSON.quoteStatusId !== quoteStatus.dead.id){
-                if (quoteJSON.status === 'bind_requested'
-                || quoteJSON.bound
-                || quoteJSON.status === 'quoted') {
+                if (quoteJSON.status === 'bind_requested'|| quoteJSON.bound || quoteJSON.status === 'quoted') {
                     quoteJSON.reasons = '';
                 }
-            }
             // Change the name of autodeclined
             if (quoteJSON.status === 'autodeclined') {
                 quoteJSON.status = 'Out of Market';
