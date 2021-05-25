@@ -129,8 +129,23 @@ const claimSchema = new Schema({
 const cyberPolicySchema = new Schema({
     aggregateLimit: {type: Number, required: true},
     businessIncomeCoverage: {type: Number, required: false},
-    domains: {type: String}
-})
+    hardwareReplCostEndorsement: {type: Boolean, default: false},
+    hardwareReplCostLimit: {type: Number, required: false},
+    computerFraudEndorsement: {type: Boolean, default: false},
+    postBreachRemediationEndorsement: {type: Boolean, default: false},
+    postBreachRemediationLimit: {type: Number, required: false},
+    ransomPaymentEndorsement: {type: Boolean, default: false},
+    ransomPaymentLimit: {type: Number, required: false},
+    socialEngEndorsement: {type: Boolean, default: false},
+    socialEngLimit: {type: Number, required: false},
+    socialEngDeductible: {type: Number, required: false},
+    websiteMediaContentLiabilityEndorsement: {type: Boolean, default: false},
+    websiteMediaContentLiabilityLimit: {type: Number, required: false},
+    domains: {type: String},
+    yearsOfPriorActs: {type: Number, required: false}, //previous years covered
+    waitingPeriod: {type: Number, required: false} //hours
+});
+
 const professionalLiabilityPolicySchema = new Schema({
     aggregateLimit: {type: Number, required: true},
     occurrenceLimit: {type: Number, required: true},
@@ -139,7 +154,8 @@ const professionalLiabilityPolicySchema = new Schema({
     yearsOfPriorActs: {type: Number, required: false}, //previous years covered
     periodLoading: {type: Number, required: false}, //years covered after policy end
     yearsOfProfessionalExperience: {type: Number, required: false}
-})
+});
+
 
 
 const PolicySchema = new Schema({
@@ -164,7 +180,9 @@ const PolicySchema = new Schema({
 const ApplicationMetricsPremiumSchema = new Schema({
     WC: {type: Number, required: false},
     GL: {type: Number, required: false},
-    BOP: {type: Number, required: false}
+    BOP: {type: Number, required: false},
+    CYBER: {type: Number, required: false},
+    PL: {type: Number, required: false}
 });
 
 const ApplicationMetricsSchema = new Schema({
