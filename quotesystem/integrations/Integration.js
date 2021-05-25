@@ -1503,7 +1503,7 @@ module.exports = class Integration {
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving qoute letter. error ${err} ` + __location)
         }
-
+    
         // quoteStatusId and quoteStatusDescription
         const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;
