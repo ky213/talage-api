@@ -84,9 +84,8 @@ module.exports = function() {
     require('./shared/models/mongoose/CodeGroup.model');
     require('./shared/models/mongoose/QuestionGroup.model');
 
-
     require('./shared/models/mongoose/PolicyType.model');
-
+    require('./shared/models/mongoose/ZipCode.model');
 
     return mongodb;
 

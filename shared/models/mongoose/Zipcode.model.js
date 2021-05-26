@@ -5,10 +5,10 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
-var timestamps = require('mongoose-timestamp');
-var uuid = require('uuid');
-var mongooseHistory = require('mongoose-history');
+const mongoose = require('mongoose'), Schema = mongoose.Schema;
+const timestamps = require('mongoose-timestamp');
+const uuid = require('uuid');
+const mongooseHistory = require('mongoose-history');
 
 global.requireShared('./helpers/tracker.js');
 
@@ -23,17 +23,22 @@ const zipCodeTypes = [
 const ZipCodeSchema = new Schema({
     zipCodeId: {type: String, required: [true, 'zipCodeId required'], unique: true},
     zipCode: {type: String, required: true, unique: false},
-    extendedZipCode: {type: String, required: false, unique: true},
+    // This enforces extended zip code uniqueness, while dually allowing for duplicate null values
+    extendedZipCode: {
+        type: String, sparse: true, index: {
+            unique: true,
+            partialFilterExpression: {extendedZipCode: {$type: "string"}}
+        }
+    },
     type: {type: String, enum: zipCodeTypes, default: 'STANDARD'},
-    city: {type: String},
+    city: {type: String, trim: true},
     state: {type: String},
-    county: {type: String},
+    county: {type: String, trim: true},
     getUpdate: {type: Boolean, required: true, default: false}
-}, {_id: false});
+});
 
 ZipCodeSchema.plugin(timestamps);
 ZipCodeSchema.plugin(mongooseHistory);
-
 
 ZipCodeSchema.pre('validate', function(next) {
     if (this.isNew) {

@@ -11,20 +11,19 @@
 
 
 // Add global helpers to load shared modules
-global.sharedPath = require('path').join(__dirname, 'shared');
+global.rootPath = require('path').join(__dirname, '..');
+global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-const talageEvent = global.requireShared('/services/talageeventemitter.js');
+const talageEvent = global.requireShared('services/talageeventemitter.js');
 global.requireShared('./helpers/tracker.js');
-const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 
-var mongoose = require('./mongoose');
+var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
-const globalSettings = require('./settings.js');
+const globalSettings = global.requireRootPath('./settings.js');
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -146,6 +145,10 @@ async function main() {
 async function runFunction() {
     const ZipCodeModel = require('mongoose').model('ZipCode');
 
+    let successes = 0;
+    let failures = 0;
+    let duplicates = 0;
+
     const sql = `
         SELECT * 
         FROM clw_talage_zip_codes
@@ -153,7 +156,7 @@ async function runFunction() {
 
     let zipCodes = null;
     try {
-        zipCodes = db.query(sql);
+        zipCodes = await db.query(sql);
     } catch (e) {
         logErrorAndExit(`Error retreiving list of zip codes from SQL: ${e}. Exiting.`);
     }
@@ -162,8 +165,12 @@ async function runFunction() {
         logErrorAndExit(`No zip codes were returned. Exiting.`);
     }
 
-    for (const zipCodeSQL of zipCodes) {
-        const zipCodeMongo = {
+    logInfo(`Found ${zipCodes.length} ZIP codes to migrate to Mongo...`);
+
+    for (let i = 0; i < zipCodes.length; i++) {
+        const zipCodeSQL = zipCodes[i];
+
+        const zipCode = {
             zipCode: zipCodeSQL.zip,
             type: zipCodeSQL.type,
             city: zipCodeSQL.city,
@@ -171,12 +178,40 @@ async function runFunction() {
             county: zipCodeSQL.county
         };
 
-        const zipCode = ZipCodeModel(zipCodeMongo);
+        const zipCodeMongo = ZipCodeModel(zipCode);
 
-        console.log(JSON.stringify(zipCode, null, 4));
-        process.exit(-1);
+        let found = false;
+        try {
+            found = await ZipCodeModel.findOne(zipCode);
+        } catch (e) {
+            logError(`Couldn't check if ZIP code ${zipCode.zipCode} already exists: ${e}. Skipping.`);
+            failures++;
+            continue;
+        }
+
+        if (!found) {
+            try {
+                await zipCodeMongo.save();
+                process.exit(-1);
+                successes++;
+            } catch (e) {
+                logError(`There was an error inserting the new record for ZIP code ${zipCode.zipCode}: ${e}.`);
+                console.log(JSON.stringify(zipCodeMongo, null, 4));
+                process.exit(-1);
+                failures++;
+            }
+        }
+        else {
+            logWarning(`Found a matching ZIP code in Mongo for ${zipCode.zipCode}, skipping.`);
+            duplicates++;
+        }
+
+        if (i % 100 === 0 && i !== 0) {
+            logInfo(`${i} records migrated out of ${zipCodes.length}.`);
+        }
     }
 
+    logInfo(`ZIP code records migrated to Mongo. Exiting.`);
     process.exit(0);
 }
 
