@@ -53,7 +53,7 @@ module.exports = class GreatAmericanWC extends Integration {
             id: c.code,
             value: c.attributes.classIndustry
         }));
-        if(!sessionCodes.id || !sessionCodes.value){
+        if(!sessionCodes[0].id || !sessionCodes[0].value){
             log.error(`Appid: ${this.app.id} Great American WC: Bad session Code ${JSON.stringify(sessionCodes)} ` + __location);
             this.reasons.push(` Great American WC: Bad session Code ${JSON.stringify(sessionCodes)}`);
         }
@@ -270,7 +270,9 @@ module.exports = class GreatAmericanWC extends Integration {
         const logPrefix = `Appid: ${applicationDocData.applicationId} ${this.insurer.name} WC Request Error: `;
         const recipients = `AltSubmissions@gaig.com,mdowd@gaig.com`;
         const emailSubject = `WC Application - ${this.number} - ${applicationDocData.businessName}`;
-        const emailBody = `Application Information:`;
+        const emailBody = `See attached PDF`;
+
+        log.info(`Sending underwriting email to Great American with subject: ${emailSubject}.`);
 
         // Prepare keys so that the record of the email being sent is written (currently not doing this)
         // const email_keys = {
@@ -308,7 +310,7 @@ module.exports = class GreatAmericanWC extends Integration {
             emailBody,
             {}, // default keys
             1, // default agency network
-            '', // default brand override
+            'talage', // brandOverride - this sets the template and the from email address.
             1, // default agency
             attachments
         );
