@@ -25,38 +25,39 @@ const IncomeLimitSchema = new Schema({
     maxIncomeLimit: {type: Number, required: false}
 }, optsNoId);
 
-const EmployeeTitleInclusionStatusSchema = new Schema({
-    employeeTitle: {type: String, required: true},
-    stateEmployeeTitle: {type: String, required: false},
+const OfficerTitleInclusionStatusSchema = new Schema({
+    officerTitle: {type: String, required: true},
+    stateOfficerTitle: {type: String, required: false},
     mustInclude: {type: Boolean, required: true}
 }, optsNoId);
 
-const StateIncomeLimitsSchema = new Schema({
-    stateIncomeLimitsId : {type: String, required: [true, 'state income limit id required'], unique: true},
+const WCStateIncomeLimitsSchema = new Schema({
+    wcStateIncomeLimitsId : {type: String, required: [true, 'state income limit id required'], unique: true},
     state: {type: String, required: [true, 'state required']},
     entityType: {type: String, required: [true, 'entity type required']},
     stateEntityTypeDesc: {type: String, required: false},
-    rules: {type: String, required: false},
+    rulesDesc: {type: String, required: false},
+    isCustom: {type: Boolean, default: false},
     attributes: {type: Schema.Types.Mixed, required: false},
-    employeeTitleInclusionStatuses: [EmployeeTitleInclusionStatusSchema],
+    officerTitleInclusionStatuses: [OfficerTitleInclusionStatusSchema],
     incomeLimits: [IncomeLimitSchema]
 }, opts);
 
-StateIncomeLimitsSchema.plugin(timestamps);
-StateIncomeLimitsSchema.plugin(mongooseHistory);
+WCStateIncomeLimitsSchema.plugin(timestamps);
+WCStateIncomeLimitsSchema.plugin(mongooseHistory);
 
-StateIncomeLimitsSchema.pre('validate', next => {
+WCStateIncomeLimitsSchema.pre('validate', next => {
     if (this.isNew) {
-        if (!this.stateIncomeLimitsId) {
-            this.stateIncomeLimitsId = uuid.v4();
+        if (!this.wcStateIncomeLimitsId) {
+            this.wcStateIncomeLimitsId = uuid.v4();
         }
     }
     next();
 });
 
-StateIncomeLimitsSchema.pre('save', next => {
+WCStateIncomeLimitsSchema.pre('save', next => {
     next();
 });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('OwnerIncomeLimits', StateIncomeLimitsSchema);
+mongoose.model('OwnerIncomeLimits', WCStateIncomeLimitsSchema);
