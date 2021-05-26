@@ -16,14 +16,15 @@ global.requireShared('./helpers/tracker.js');
 const zipCodeTypes = [
     "UNIQUE",
     "STANDARD",
-    "PO BOX"
+    "PO BOX",
+    "MILITARY"
 ];
 
 const ZipCodeSchema = new Schema({
     zipCodeId: {type: String, required: [true, 'zipCodeId required'], unique: true},
     zipCode: {type: String, required: true, unique: false},
     extendedZipCode: {type: String, required: false, unique: true},
-    type: {type: String, enum: zipCodeTypes, default: 'UNIQUE'}, // is this correct?
+    type: {type: String, enum: zipCodeTypes, default: 'STANDARD'},
     city: {type: String},
     state: {type: String},
     county: {type: String},
