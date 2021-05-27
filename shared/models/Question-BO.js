@@ -106,7 +106,7 @@ module.exports = class QuestionBO{
                 }
                 if(queryJSON.id){
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` id like %${db.escape(queryJSON.id)}% `;
+                    sqlWhere += ` id = ${queryJSON.id} `;
                     hasWhere = true;
                 }
                 if(queryJSON.parent){
