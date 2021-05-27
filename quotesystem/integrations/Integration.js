@@ -78,6 +78,7 @@ module.exports = class Integration {
         this.request_id = '';
         this.seconds = 0;
         this.universal_questions = [];
+        this.insurerQuestionList = []; //insurerQuestionModel
         this.writer = '';
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -672,7 +673,7 @@ module.exports = class Integration {
     }
 
     /**
-     * Get insurer questions for given talage questions
+     * Get insurer questions for given talage questions 
      *
      * @param {string} questionSubjectArea - The question subject area ("general", "location", ...) Default is "general".
      * @param {Array} talageQuestionIdList - Array of Talage question IDs
@@ -680,24 +681,26 @@ module.exports = class Integration {
      */
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
+            
+            talageQuestionIdList = talageQuestionIdList.map(Number)
             const query = {
                 "insurerId": this.insurer.id,
                 "questionSubjectArea": questionSubjectArea,
                 "talageQuestionId": {$in: talageQuestionIdList}
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-            let insurerQuestionList = null;
+            let insurerQuestionListSA = null;
             try{
-                insurerQuestionList = await InsurerQuestionModel.find(query);
+                insurerQuestionListSA = await InsurerQuestionModel.find(query);
             }
             catch(err){
                 throw err
             }
-            insurerQuestionList.forEach((insurerQuestion) => {
+            insurerQuestionListSA.forEach((insurerQuestion) => {
                 insurerQuestion.question = insurerQuestion.talageQuestionId;
                 insurerQuestion.id = insurerQuestion.insurerQuestionId;
             });
-            return insurerQuestionList;
+            return insurerQuestionListSA;
         }
         else {
             return [];
@@ -774,7 +777,7 @@ module.exports = class Integration {
                     let newInsurerQuestionList = [];
                     for(let i = 0; i < territoryList.length; i++){
                         const tQFound = insurerActivtyCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territoryList[i]);
-                        if(tQFound){
+                        if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
                             newInsurerQuestionList = tQFound.insurerQuestionIdList
                             break;
                         }
@@ -829,26 +832,27 @@ module.exports = class Integration {
     }
 
     /**
-     * Gets the identifiers for each question for the current insurer
+     * Gets the identifiers for each question for the current insurer also populates also populates insurerQuestionList
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
      */
     get_question_identifiers() {
-        // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
         return new Promise(async(fulfill) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
+            const talageQuestionIdList = question_ids.map(Number)
 
             if (question_ids.length > 0) {
                 const query = {
                     "insurerId": this.insurer.id,
-                    "talageQuestionId": {$in: question_ids}
+                    "talageQuestionId": {$in: talageQuestionIdList}
                 }
                 const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                let insurerQuestionList = null;
+                //let insurerQuestionList = null;
                 try{
-                    insurerQuestionList = await InsurerQuestionModel.find(query);
-                    if(insurerQuestionList && insurerQuestionList.length === 0){
+                    log.debug(`get_question_identifiers query ${JSON.stringify(query)}`)
+                    this.insurerQuestionList = await InsurerQuestionModel.find(query);
+                    if(this.insurerQuestionList && this.insurerQuestionList.length === 0){
                         log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
                     }
                 }
@@ -856,7 +860,7 @@ module.exports = class Integration {
                     throw err
                 }
                 const identifiers = {};
-                insurerQuestionList.forEach((insurerQuestion) => {
+                this.insurerQuestionList.forEach((insurerQuestion) => {
                     identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
                     if (insurerQuestion.universal) {
                         this.universal_questions.push(insurerQuestion.talageQuestionId);
@@ -1503,7 +1507,7 @@ module.exports = class Integration {
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving qoute letter. error ${err} ` + __location)
         }
-
+    
         // quoteStatusId and quoteStatusDescription
         const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;

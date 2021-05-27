@@ -251,6 +251,8 @@ module.exports = class CompwestWC extends Integration {
                      if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
                         wcEmodEmail.sendEmodEmail(this.app.id);
                     }
+                    const resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
+                    this.number = resWorkCompPolicy.PolicyNumber[0];
                 }
                 catch(err){
                     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Error: ${err}` + __location);
@@ -385,6 +387,7 @@ module.exports = class CompwestWC extends Integration {
         }
 
           // <ACORD>
+          //<TransactionRequestDt>2021-05-24</TransactionRequestDt> 
         const requestACORD = builder.create('ACORD');
         if(guideWireAPI === true){
             requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
@@ -417,10 +420,10 @@ module.exports = class CompwestWC extends Integration {
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-        if(guideWireAPI === true){
+        //if(guideWireAPI === true){
             const txnDate = moment();
             WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
-        }
+        //}
         // <Producer>
         const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
 

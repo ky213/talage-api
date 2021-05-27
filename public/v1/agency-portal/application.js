@@ -1322,12 +1322,15 @@ async function bindQuote(req, res, next) {
                 if(applicationDB.appStatusId !== 90){
                     // Update application status
                     await applicationBO.updateStatus(applicationId,"bound", 90);
-                    // Update Application-level quote metrics when we do a bind.
-                    await applicationBO.recalculateQuoteMetrics(applicationId);
-                }else {
+                   
+                }
+                else {
                     log.info(`Application ${applicationId} is already bound with appStatusId ${applicationDB.appStatusId} ` + __location);
                 }
-            } catch (err) {
+                // Update Application-level quote metrics when we do a bind. Need to pickup the new bound quote.
+                await applicationBO.recalculateQuoteMetrics(applicationId);
+            }
+            catch (err) {
                 // We Do not pass error object directly to Client - May cause info leak.
                 log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
                 res.send({'message': "Failed to mark quote as bound. If this continues please contact us."});
