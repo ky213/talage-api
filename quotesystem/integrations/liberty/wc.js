@@ -271,14 +271,14 @@ module.exports = class LibertyWC extends Integration {
                 if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
                     //const question = this.questions[question_id];
                     const question = this.questions[insurerQuestion.talageQuestionId];
-                    const QuestionCd = insurerQuestion.identifier;
+
 
                     /**
                      * Don't process questions:
                      *  - without a code (not for this insurer)
                      *  - coded questions (one that has a structure hard-coded elsehwere in this file)
                      */
-                    if (!QuestionCd || codedQuestionsByIdentifier.includes(QuestionCd)) {
+                    if (!insurerQuestion.identifier || codedQuestionsByIdentifier.includes(insurerQuestion.identifier)) {
                         continue;
                     }
                     //do not process universal questions
@@ -309,13 +309,13 @@ module.exports = class LibertyWC extends Integration {
 
                     // Build out the question structure
                     QuestionAnswer = Policy.ele('QuestionAnswer');
-                    QuestionAnswer.ele('QuestionCd', QuestionCd);
+                    QuestionAnswer.ele('QuestionCd', insurerQuestion.identifier);
 
                     if (question.type === 'Yes/No') {
                         let boolean_answer = question.get_answer_as_boolean() ? 'YES' : 'NO';
 
                         // For the question GENRL06, flip the answer
-                        if (QuestionCd === 'GENRL06') {
+                        if (insurerQuestion.identifier === 'GENRL06') {
                             boolean_answer = !boolean_answer;
                         }
 
@@ -386,7 +386,6 @@ module.exports = class LibertyWC extends Integration {
                     const WorkCompLocInfo = WorkCompRateState.ele('WorkCompLocInfo');
                     WorkCompLocInfo.att('LocationRef', `l${index + 1}`);
 
-                    //location.activity_codes.forEach((activity_code) => 
                     for (const activity_code of location.activity_codes){
                         // <WorkCompRateClass>
                         const WorkCompRateClass = WorkCompLocInfo.ele('WorkCompRateClass');
@@ -415,11 +414,11 @@ module.exports = class LibertyWC extends Integration {
                         }
 
                         // </WorkCompRateClass>
-                    };
+                    }
                     // </WorkCompLocInfo>
-                };
+                }
                 // </WorkCompRateState>
-            };
+            }
 
             // <Coverage>
             const Coverage = WorkCompLineBusiness.ele('Coverage');
