@@ -68,7 +68,7 @@ function generateCSV(applicationList){
             'quoting': 'Quoting',
             'quoted': 'Quoted',
             'quoted_referred': 'Quoted (referred)',
-            'questions_done': 'Questions Done', // Do we want to add this or was it left out intentionally
+            'questions_done': 'Questions Done',
             'referred': 'Referred',
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
