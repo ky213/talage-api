@@ -68,6 +68,7 @@ function generateCSV(applicationList){
             'quoting': 'Quoting',
             'quoted': 'Quoted',
             'quoted_referred': 'Quoted (referred)',
+            'questions_done': 'Questions Done', // Do we want to add this or was it left out intentionally
             'referred': 'Referred',
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
@@ -138,6 +139,12 @@ function generateCSV(applicationList){
             }
             const createdAtMoment = moment(applicationDoc.createdAt)
             applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
+
+            // get referrer information, if none then default to agency portal
+            if(!applicationDoc.referrer){
+                applicationDoc.referrer = 'Agency Portal';
+            }
+            
         }
 
         // Define the columns (and column order) in the CSV file and their user friendly titles
@@ -146,6 +153,7 @@ function generateCSV(applicationList){
             'dba': 'DBA',
             'status': 'Application Status',
             'agencyName': 'Agency',
+            'referrer': 'Source', 
             'mailingAddress': 'Mailing Address',
             'mailingCity': 'Mailing City',
             'mailingState': 'Mailing State',
