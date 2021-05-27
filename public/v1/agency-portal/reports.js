@@ -382,7 +382,7 @@ async function getReports(req) {
     if(!req.query.endDate || (req.query.endDate && req.query.endDate.startsWith('T23:59:59.999'))){
         // now....
         log.debug('AP getReports resetting end date' + __location);
-        endDate= moment().toISOString();
+        endDate = moment().toISOString();
     }else {
         endDate = req.query.endDate;
     }
