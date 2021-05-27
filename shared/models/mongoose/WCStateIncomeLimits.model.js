@@ -46,7 +46,7 @@ const WCStateIncomeLimitsSchema = new Schema({
 WCStateIncomeLimitsSchema.plugin(timestamps);
 WCStateIncomeLimitsSchema.plugin(mongooseHistory);
 
-WCStateIncomeLimitsSchema.pre('validate', next => {
+WCStateIncomeLimitsSchema.pre('validate', function(next) {
     if (this.isNew) {
         if (!this.wcStateIncomeLimitsId) {
             this.wcStateIncomeLimitsId = uuid.v4();
@@ -55,7 +55,7 @@ WCStateIncomeLimitsSchema.pre('validate', next => {
     next();
 });
 
-WCStateIncomeLimitsSchema.pre('save', next => {
+WCStateIncomeLimitsSchema.pre('save', function(next) {
     next();
 });
 

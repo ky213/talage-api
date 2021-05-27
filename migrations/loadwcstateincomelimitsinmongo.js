@@ -98,17 +98,17 @@ function logErrorAndExit(message) {
     console.log(Date());
 
     // eslint-disable-next-line no-console
-    console.log(colors.yellow('\nScript usage includes no optional params: node <path-to-script>/updatequotestatusfromaggregate.js\n'));
+    console.log(colors.yellow('\nScript usage includes no optional params: node <path-to-script>/loadwcstateincomelimitsinmongo.js\n'));
 
     // Load the settings from a .env file - Settings are loaded first
     if (!globalSettings.load()) {
-        logLocalErrorMessage('Error loading variables. Stopping.');
+        logError('Error loading variables. Stopping.');
         return;
     }
 
     // Connect to the logger
     if (!logger.connect()) {
-        logLocalErrorMessage('Error connecting to log. Stopping.');
+        logError('Error connecting to log. Stopping.');
         return;
     }
 
@@ -136,34 +136,57 @@ function logErrorAndExit(message) {
 })();
 
 async function runFunction() {
-    const WCStateIncomeLimitModel = require('mongoose').model('WCStateIncomeLimits');
+    const WCStateIncomeLimitsModel = require('mongoose').model('WCStateIncomeLimits');
     const wcStateIncomeLimitsData = require('./data/WCStateIncomeLimits.json');
-    for (const wcStateIncomeLimit of wcStateIncomeLimitsData) {
+
+    let successes = 0;
+    let failures = 0;
+    let duplicates = 0;
+
+    for (let i = 0; i < wcStateIncomeLimitsData.length; i++) {
+        const wcStateIncomeLimit = wcStateIncomeLimitsData[i];
+
         let found = null;
         const query = {
             state: wcStateIncomeLimit.state,
             entityType: wcStateIncomeLimit.entityType
         };
         try{
-            found = await WCStateIncomeLimitModel.findOne(query);
+            found = await WCStateIncomeLimitsModel.findOne(query);
         }
         catch (err) {
             logError(`Error when searching for wcStateIncomeLimit in the mongo database: ${err}`);
+            failures++;
             continue;
         }
 
         if (found) {
+            duplicates++;
             continue;
         }
 
-        const newWCStateIncomeLimit = new WCStateIncomeLimitModel(wcStateIncomeLimit);
+        const newWCStateIncomeLimit = new WCStateIncomeLimitsModel(wcStateIncomeLimit);
         try {
             await newWCStateIncomeLimit.save();
+            successes++;
         }
         catch (err) {
             logError(`Error occurred when saving newWCStateIncomeLimit to mongodb: ${err}`)
             logError(`  State: ${newWCStateIncomeLimit.state}, Entity Type: ${newWCStateIncomeLimit.entityType}`);
+            failures++;
         }
-        process.exit(-1);
+
+        if (i % 10 === 0 && i !== 0) {
+            logInfo(`${i} records migrated out of ${wcStateIncomeLimitsData.length}.`);
+        }
     }
+
+    logDebug("=================================");
+    logDebug(`Successful Imports ........ : ${successes}`);
+    logDebug(`Failed Imports ............ : ${failures}`);
+    logDebug(`Skipped Imports (duplicate) : ${duplicates}`);
+    logDebug("=================================");
+
+    logInfo(`WC State Limits for Owners finished importing into Mongo. Exiting.`);
+    process.exit(0);
 }
