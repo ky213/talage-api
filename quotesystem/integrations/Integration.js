@@ -681,6 +681,8 @@ module.exports = class Integration {
      */
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
+            
+            talageQuestionIdList = talageQuestionIdList.map(Number)
             const query = {
                 "insurerId": this.insurer.id,
                 "questionSubjectArea": questionSubjectArea,
@@ -770,12 +772,13 @@ module.exports = class Integration {
             try{
                 // eslint-disable-next-line prefer-const
                 let insurerQuestionIdList = [];
+                log.debug(`get_insurer_questions_by_activitycodes InsurerActivityCodeModel query ${JSON.stringify(activityCodeQuery)}`)
                 const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
                 insurerActivityCodeList.forEach((insurerActivtyCode) => {
                     let newInsurerQuestionList = [];
                     for(let i = 0; i < territoryList.length; i++){
                         const tQFound = insurerActivtyCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territoryList[i]);
-                        if(tQFound){
+                        if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
                             newInsurerQuestionList = tQFound.insurerQuestionIdList
                             break;
                         }
@@ -794,6 +797,7 @@ module.exports = class Integration {
                 }
                 const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
                 try{
+                    log.debug(`get_insurer_questions_by_activitycodes InsurerQuestionModel query ${JSON.stringify(query)}`)
                     insurerQuestionList = await InsurerQuestionModel.find(query);
                 }
                 catch(err){
@@ -838,15 +842,17 @@ module.exports = class Integration {
         return new Promise(async(fulfill) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
+            const talageQuestionIdList = question_ids.map(Number)
 
             if (question_ids.length > 0) {
                 const query = {
                     "insurerId": this.insurer.id,
-                    "talageQuestionId": {$in: question_ids}
+                    "talageQuestionId": {$in: talageQuestionIdList}
                 }
                 const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
                 //let insurerQuestionList = null;
                 try{
+                    log.debug(`get_question_identifiers query ${JSON.stringify(query)}`)
                     this.insurerQuestionList = await InsurerQuestionModel.find(query);
                     if(this.insurerQuestionList && this.insurerQuestionList.length === 0){
                         log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
