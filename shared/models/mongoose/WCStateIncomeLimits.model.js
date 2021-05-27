@@ -32,7 +32,7 @@ const OfficerTitleInclusionStatusSchema = new Schema({
 }, optsNoId);
 
 const WCStateIncomeLimitsSchema = new Schema({
-    wcStateIncomeLimitsId : {type: String, required: [true, 'state income limit id required'], unique: true},
+    wcStateIncomeLimitsId: {type: String, required: [true, 'state income limit id required'], unique: true},
     state: {type: String, required: [true, 'state required']},
     entityType: {type: String, required: [true, 'entity type required']},
     stateEntityTypeDesc: {type: String, required: false},
@@ -60,4 +60,4 @@ WCStateIncomeLimitsSchema.pre('save', next => {
 });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('OwnerIncomeLimits', WCStateIncomeLimitsSchema);
+mongoose.model('WCStateIncomeLimits', WCStateIncomeLimitsSchema);
