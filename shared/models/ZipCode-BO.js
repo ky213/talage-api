@@ -9,9 +9,18 @@ const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
 module.exports = class ZipCodeBO{
 
+    // Don't think we need a constructor anymore, since we're handling this w/ mongoose
+    // constructor(){
+    //     this.id = 0;
+    //     this.#dbTableORM = new DbTableOrm(tableName);
+    // }
+
+    // inserts a new record into the mongo collection
     async insertMongo(newObjectJSON) {
         if (!newObjectJSON) {
-            throw new Error("no data supplied");
+            const error = `ZipCode-BO: No data supplied in insertMongo. ${__location}`;
+            log.error(error);
+            throw new Error(error);
         }
 
         const zipCode = new ZipCodeModel(newObjectJSON);
@@ -21,13 +30,15 @@ module.exports = class ZipCodeBO{
             await ZipCodeModel.save();
         }
         catch (e) {
-            log.error('Mongo Application Save err ' + err + __location);
-            throw (e);
+            const error = `ZipCode-BO: Error: Failed to insert new ZipCode record into Mongo: ${e}. ${__location}`;
+            log.error(error);
+            throw new Error(error);
         }
 
         return mongoUtils.objCleanup(zipCode);
     }
 
+    // updates an existing record in the mongo collection, only for those props that are updateable
     async updateMongo(zipCodeId, newObjectJSON) {
         if (zipCodeId) {
             if (typeof newObjectJSON === "object") {
@@ -48,25 +59,31 @@ module.exports = class ZipCodeBO{
                 // Add updatedAt
                 newObjectJSON.updatedAt = new Date();
 
-                const query = { zipCodeId };
+                const query = {zipCodeId: zipCodeId};
+                let newZipCodeJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.
                     await ZipCodeModel.updateOne(query, newObjectJSON);
-                    newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
+                    newZipCodeJSON = mongoUtils.objCleanup(newZipCodeJSON);
                 }
-                catch (err) {
-                    log.error("ZipCode-BO: Error: Failed to update " + err + __location);
-                    throw err;
+                catch (e) {
+                    const error = `ZipCode-BO: Error: Failed to update ZipCode object in updateMongo: ${e}. ${__location}`;
+                    log.error(error);
+                    throw new Error(error);
                 }
-                
-                return newQuoteJSON;
+
+                return newZipCodeJSON;
             }
             else {
-                throw new Error('ZipCode-BO: Error: No newObjectJSON supplied in updateMongo');
+                const error = `ZipCode-BO: Error: No newObjectJSON supplied in updateMongo. ${__location}`;
+                log.error(error);
+                throw new Error(error);
             }
         }
         else {
-            throw new Error('ZipCode-BO: Error: No id supplied in updateMongo');
+            const error = `ZipCode-BO: Error: No id supplied in updateMongo. ${__location}`;
+            log.error(error);
+            throw new Error(error);
         }
     }
 
@@ -80,135 +97,154 @@ module.exports = class ZipCodeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ZipCode object given`));
+                const error = `ZipCode-BO: Error: Empty ZipCode object given. ${__location}`;
+                log.error(error);
+                return reject(new Error(error));
             }
 
             await this.cleanupInput(newObjectJSON);
 
-            if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            let mongoZipCodeDoc = null;
+            let insert = true;
+            if (newObjectJSON.zipCodeId) {
+                insert = false;
+                const query = {zipCodeId: newObjectJSON.zipCodeId};
+                try {
+                    mongoZipCodeDoc = await ZipCodeModel.findOne(query);
+                }
+                catch (e) {
+                    log.error(`ZipCode-BO: Error: Couldn't find existing ZIP code object from id in saveModel. ${__location}`);
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+
+            try {
+                if (insert) {
+                    await this.insertMongo(newObjectJSON);
+                }
+                else {
+                    await this.updateMongo(mongoZipCodeDoc.zipCodeId, newObjectJSON);
+                }
+            }
+            catch (e) {
+                const error = `ZipCode-BO: Error: Failed to save ZipCode record: ${e}. ${__location}`;
+                log.error(error);
+                return reject(new Error(error));
             }
 
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
-
-
-            resolve(true);
-
+            return resolve(true);
         });
     }
 
+    // I didn't see this used anywhere. Do we need this?
     /**
 	 * saves this object.
      *
 	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
 	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
+    // save(asNew = false){
+    //     return new Promise(async(resolve, reject) => {
+    //         //validate
+    //         this.#dbTableORM.load(this, skipCheckRequired);
+    //         await this.#dbTableORM.save().catch(function(err){
+    //             reject(err);
+    //         });
+    //         resolve(true);
+    //     });
+    // }
 
     async loadByZipCode(zipCode) {
-        let zip = zipCode;
-       
-        if(zipCode){
+        if (zipCode) {
+            let zip = zipCode;
+            let extendedZip = null;
 
-           if(zipCode.length === 9){
-               zip = zipCode.slice(0,5);
-           }
-            if(  typeof zipCode === 'string'){
-                zipCode = parseInt(zipCode, 10);
-            }
-            let rejected = false;
-            // Create the update query
-            const sql = `
-                select *  from clw_talage_zip_codes where zip = ${zip}
-            `;
+            if (zipCode.length > 5) {
+                zip = zipCode.slice(0, 5);
 
-            // Run the query
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
-                rejected = true;
-                log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
-                throw error;
-            });
-            if (rejected) {
-                return;
-            }
-            if(result && result.length > 0){
-                const i = 0;
-                const resp = await this.loadORM(result[i], skipCheckRequired).catch(function(err){
-                    log.error(`loadByZipCode error loading object: ` + err + __location);
-                })
-                if(!resp){
-                    log.debug("Bad BO load" + __location)
+                if (zipCode.length === 9) {
+                    extendedZip = zipCode;
                 }
-                return this.cleanJSON();
+            }
+
+            // if we have the more precise zip code (9 digits), use that instead
+            let query = null;
+            if (extendedZip) {
+                query = {extendedZipCode: extendedZip};
             }
             else {
-                log.debug("not found loadByZipCode in DB check ZipCodeSvc: " + sql);
-                //Call to zipcode service to lookup zip.
-                const newZip = await this.checkZipCodeSvc(zipCode).catch(function(err){
-                    log.error("checkZipCodeSvc error " + err + __location);
-                    rejected = true;
-                    throw err;
-                })
-                if (rejected) {
-                    return;
-                }
-                if(newZip){
-                    return this.cleanJSON();
-                }
-                else {
-                    throw new Error("not found");
-                }
+                query = {zipCode: zip};
             }
 
+            // Run the query
+            let zipCodeDoc = null;
+            try {
+                zipCodeDoc = await ZipCodeModel.find(query);
+            }
+            catch (e) {
+                const error = `ZipCode-BO: Error: Failed to lookup ZIP code: ${e}. ${__location}`;
+                log.error(error);
+                throw new Error(error);
+            }
+
+            if (zipCodeDoc && zipCodeDoc.length > 0) {
+                return zipCodeDoc[0];
+            }
+            else {
+                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${query}`);
+
+                //Call to zipcode service to lookup zip.
+                let newZip = null;
+                try {
+                    // sending the 5-digit zip only, as smartystreets only takes 5 digit zips in their zipcode lookup
+                    newZip = await this.checkZipCodeSvc(zip);
+                }
+                catch (e) {
+                    const error = `ZipCode-BO: Error: Failed ZIP validation in checkZipCodeSvc: ${e}. ${__location}`;
+                    log.error(error);
+                    throw new Error(error);
+                }
+
+                if (newZip) {
+                    return newZip;
+                }
+                else {
+                    const error = `ZipCode-BO: Error: ZIP code now found. ${__location}`;
+                    log.error(error);
+                    throw new Error(error);
+                }
+            }
         }
         else {
-            throw new Error('no zipCode supplied');
+            const error = `ZipCode-BO: Error: No ZIP code supplied. ${__location}`;
+            log.error(error);
+            throw new Error(error);
         }
 
     }
 
-    async checkZipCodeSvc(zipCode){
-        let error = null;
-        let response = await smartystreetSvc.checkZipCode(zipCode.toString()).catch(function(err){
-            log.error("smartystreetSvc error: " + err + __location);
-            error = err;
-        })
-        if(error){
-            throw error
+    async checkZipCodeSvc(zipCode) {
+        let response = null;
+        try {
+            response = await smartystreetSvc.checkZipCode(zipCode.toString());
+
+            if (response.error) {
+                log.error(`ZipCode-BO: Error: smartystreetSvc encountered an error: ${response.error}. ${__location}`);
+                return null;
+            }
         }
-        if(response.error){
+        catch (e) {
+            log.error(`ZipCode-BO: Error: smartystreetSvc encountered an error: ${e}. ${__location}`);
             return null;
         }
-        //Got a zip code.
-        if(response.zipcode){
-            //populate BO and save.
-            let newJSON ={};
-            newJSON.zip = response.zipcode;
+
+        // Got a zip code.
+        if (response.zipcode) {
+            // populate BO and save.
+            const newJSON = {
+                city: response.city,
+                state: response.state_abbreviation,
+                county: response.county_name
+            };
+
             switch(response.zipcode_type){
                 case "S":
                     newJSON.type = "STANDARD";
@@ -219,153 +255,186 @@ module.exports = class ZipCodeBO{
                 case "P":
                     newJSON.type = "PO BOX";
                     break;
+                case "M":
+                    newJSON.type = "MILITARY";
+                    break;
                 default:
+                    log.debug(`ZipCode-BO: Encountered unknown ZIP code type from smartystreetSvc response: ${response.zipcode_type}.`);
                     newJSON.type = response.zipcode_type;
+                    break;
             }
-            newJSON.city = response.city;
-            newJSON.territory = response.state_abbreviation;
-            newJSON.county = response.county_name;
-            this.loadORM(newJSON);
-    
-            if(response.zipCode.length < 6){
-                await this.#dbTableORM.insert();
+
+            // these are just safeguards. smartystreets should only ever return a 5 digit <string> ZIP code
+            if (response.zipcode.length === 9) {
+                newJSON.extendedZipCode = response.zipcode;
             }
-            return this.#dbTableORM.cleanJSON();
-    
-            
+
+            if (response.zipcode.length > 5) {
+                newJSON.zipCode = response.zipcode.slice(0, 5);
+            }
+            else {
+                newJSON.zipCode = response.zipcode;
+            }
+
+            // insert into mongo
+            try {
+                await this.insertMongo(newJSON);
+            }
+            catch (e) {
+                log.error(`ZipCode-BO: Error: Failed to insert new ZIP code record: ${e}. ${__location}`);
+                return null;
+            }
+
+            // retrieve and return from mongo
+            let newZipDoc = null;
+            try {
+                newZipDoc = await ZipCodeModel.findOne(newJSON);
+            }
+            catch (e) {
+                log.error(`ZipCode-BO: Error: Failed to retrieve newly inserted ZIP code record: ${e}. Returning raw insert JSON. ${__location}`);
+                return newJSON;
+            }
+
+            return newZipDoc;
         }
         else {
+            log.debug(`ZipCode-BO: smartystreetSvc response did not contain a ZIP code. ${__location}`);
             return null;
         }
-    
-       }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
     }
 
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
+    // not using orm, so we don't have this cleanJSON function. Should we be using the mongoUtils.objCleanup instead?
+    // cleanJSON(noNulls = true){
+    //     return this.#dbTableORM.cleanJSON(noNulls);
+    // }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
+    // don't think we need this anymore. All zip code values are strings now in schema
+    // async cleanupInput(inputJSON){
+    //     for (const property in properties) {
+    //         if(inputJSON[property]){
+    //             // Convert to number
+    //             try{
+    //                 if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
+    //                     if (properties[property].dbType.indexOf("int") > -1){
+    //                         inputJSON[property] = parseInt(inputJSON[property], 10);
+    //                     }
+    //                     else if (properties[property].dbType.indexOf("float") > -1){
+    //                         inputJSON[property] = parseFloat(inputJSON[property]);
+    //                     }
+    //                 }
+    //             }
+    //             catch(e){
+    //                 log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+    //             }
+    //         }
+    //     }
+    // }
 
+    // don't think we need this anymore
+    // updateProperty(){
+    //     const dbJSON = this.#dbTableORM.cleanJSON()
+    //     // eslint-disable-next-line guard-for-in
+    //     for (const property in properties) {
+    //         this[property] = dbJSON[property];
+    //     }
+    // }
+
+    // no need to loadORM when we're not using it
     /**
 	 * Load new object JSON into ORM. can be used to filter JSON to object properties
      *
 	 * @param {object} inputJSON - input JSON
 	 * @returns {void}
 	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
+    // async loadORM(inputJSON){
+    //     await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+    //     this.updateProperty();
+    //     return true;
+    // }
 }
 
-const properties = {
-    "zip": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "type": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(8)"
-    },
-    "city": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "territory": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "char(2)"
-    },
-    "county": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "num_tax_returns": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "est_population": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "total_wages": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    }
-}
+// Don't need these properties referenced in here now. Schema is in ZipCode.model
+// const properties = {
+//     "zip": {
+//         "default": 0,
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": true,
+//         "rules": null,
+//         "type": "number",
+//         "dbType": "mediumint(5) unsigned"
+//     },
+//     "type": {
+//         "default": "",
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": true,
+//         "rules": null,
+//         "type": "string",
+//         "dbType": "varchar(8)"
+//     },
+//     "city": {
+//         "default": "",
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": true,
+//         "rules": null,
+//         "type": "string",
+//         "dbType": "varchar(30)"
+//     },
+//     "territory": {
+//         "default": "",
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": true,
+//         "rules": null,
+//         "type": "string",
+//         "dbType": "char(2)"
+//     },
+//     "county": {
+//         "default": null,
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": false,
+//         "rules": null,
+//         "type": "string",
+//         "dbType": "varchar(30)"
+//     },
+//     "num_tax_returns": {
+//         "default": null,
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": false,
+//         "rules": null,
+//         "type": "number",
+//         "dbType": "mediumint(5) unsigned"
+//     },
+//     "est_population": {
+//         "default": null,
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": false,
+//         "rules": null,
+//         "type": "number",
+//         "dbType": "mediumint(5) unsigned"
+//     },
+//     "total_wages": {
+//         "default": null,
+//         "encrypted": false,
+//         "hashed": false,
+//         "required": false,
+//         "rules": null,
+//         "type": "number",
+//         "dbType": "int(10) unsigned"
+//     }
+// }
 
-class DbTableOrm extends DatabaseObject {
+// don't need an orm class if we're not using it
+// class DbTableOrm extends DatabaseObject {
 
-    constructor(tableName){
-        super(tableName, properties);
-    }
+//     constructor(tableName){
+//         super(tableName, properties);
+//     }
 
-}
+// }
