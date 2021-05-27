@@ -762,7 +762,6 @@ module.exports = class Integration {
             try{
                 // eslint-disable-next-line prefer-const
                 let insurerQuestionIdList = [];
-                log.debug(`get_insurer_questions_by_activitycodes InsurerActivityCodeModel query ${JSON.stringify(activityCodeQuery)}`)
                 const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
                 insurerActivityCodeList.forEach((insurerActivtyCode) => {
                     let newInsurerQuestionList = [];
@@ -787,7 +786,6 @@ module.exports = class Integration {
                 }
                 const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
                 try{
-                    log.debug(`get_insurer_questions_by_activitycodes InsurerQuestionModel query ${JSON.stringify(query)}`)
                     insurerQuestionList = await InsurerQuestionModel.find(query);
                 }
                 catch(err){
