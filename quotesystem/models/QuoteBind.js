@@ -158,6 +158,9 @@ module.exports = class QuoteBind{
                 // } if(quoteResp = "error") {
                 //     //nothing to do
                 // }
+                else if(quoteResp === "rejected"){
+                    log.error(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} rejected submission ${__location}`)
+                }
                 else if(quoteResp === "updated"){
                     log.info(`Binding Error AppId: ${this.quoteDoc.applicationId} QuoteId: ${this.quoteDoc.quoteId} Insurer: ${this.insurer.name} updated submission ${__location}`)
                 }

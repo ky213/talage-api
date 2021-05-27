@@ -110,10 +110,10 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    server.addGetAuthAdmin('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('Get InsurerContact Object', `${basePath}/insurer-contact/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('Post InsurerContact Object', `${basePath}/insurer-contact`, add, 'administration', 'all');
-    server.addPutAuthAdmin('Put InsurerContact Object', `${basePath}/insurer-contact/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'TalageMapper', 'all');
+    server.addGetAuthAdmin('Get InsurerContact Object', `${basePath}/insurer-contact/:id`, findOne, 'TalageMapper', 'all');
+    server.addPostAuthAdmin('Post InsurerContact Object', `${basePath}/insurer-contact`, add, 'TalageMapper', 'all');
+    server.addPutAuthAdmin('Put InsurerContact Object', `${basePath}/insurer-contact/:id`, update, 'TalageMapper', 'all');
 
 
     // server.addGet('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'administration', 'all');

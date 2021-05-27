@@ -26,7 +26,7 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const utility = global.requireShared('./helpers/utility.js');
-
+const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
@@ -932,9 +932,12 @@ module.exports = class ApplicationModel {
                 //reject(err);
                 return;
             });
+            const status = quoteStatus.bind_requested;
             const quoteUpdate = {
                 "status": "bind_requested",
-                "paymentPlanId": quote.paymentPlanId
+                "paymentPlanId": quote.paymentPlanId,
+                "quoteStatusId": status.id,
+                "quoteStatusDescription": status.description
             }
             await quoteModel.updateMongo(quoteDBJSON.quoteId, quoteUpdate).catch(function(err) {
                 log.error(`Updating  quote with status and payment plan quote ${quote.quoteId} error:` + err + __location);
@@ -1611,13 +1614,11 @@ module.exports = class ApplicationModel {
                     //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
                     if(applicationStatus && applicationStatus.appStatusId > -1){
                         applicationDoc.status = applicationStatus.appStatusDesc;
-                        applicationDoc.appStatusDesc = applicationStatus.appStatusDesc;
                         applicationDoc.appStatusId = applicationStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = 'error';
-                        applicationDoc.appStatusDesc = 'error';
-                        applicationDoc.appStatusId = "20";
+                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
                     }
 
                 }
@@ -2381,7 +2382,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = []){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], returnHidden = false){
         log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList} `)
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2582,7 +2583,6 @@ module.exports = class ApplicationModel {
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
-        const returnHidden = false;
 
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;
@@ -2843,6 +2843,7 @@ module.exports = class ApplicationModel {
         let errorMessage = null;
         let missingTerritory = '';
         try{
+            const status = global.requireShared('./models/status/applicationStatus.js');
             const agencyLocationBO = new AgencyLocationBO();
             const appDoc = await ApplicationMongooseModel.findOne({applicationId: applicationId});
             if(appDoc && appDoc.locations){
@@ -2912,43 +2913,56 @@ module.exports = class ApplicationModel {
                                 log.error("Agency load error " + err + __location);
                             });
                             if (agencyJSON && agencyJSON.wholesale){
-                                log.info(`setAgencyLocation ${applicationId} setting to wholesale ` + __location)
+                                log.info(`setAgencyLocation ${applicationId} setting to wholesale ` + __location);
                                 appDoc.wholesale = true;
                                 await appDoc.save();
                             }
                             else {
-                                errorMessage = `Agency does not cover application territory ${missingTerritory}`
+                                // we dont cover the territory of this location, the application is out of market now.
+                                appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                                appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
+                                await appDoc.save();
+                                errorMessage = `Agency does not cover application territory ${missingTerritory}`;
                             }
                         }
                     }
                     else if(agenyLocationList && agenyLocationList.length === 1){
-                        //no update app
-                        errorMessage = `Agency does not cover application territory ${missingTerritory}`
+                        // we dont cover the territory of this location, the application is out of market now.
+                        appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
+                        appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
+                        await appDoc.save();
+                        errorMessage = `Agency does not cover application territory ${missingTerritory}`;
                     }
                     else {
-                        log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location)
-                        errorMessage = `Could not set agencylocation on ${applicationId}`
+                        log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
+                        errorMessage = `Could not set agencylocation on ${applicationId}`;
                     }
                 }
                 else if(needsUpdate && appDoc.lockAgencyLocationId === true){
                     //no update app
-                    log.info(`setAgencyLocation  locked Agencylocation does not cover application territories ${applicationId} ` + __location)
-                    errorMessage = `Agency Location does not cover application territory ${missingTerritory}`
+                    log.info(`setAgencyLocation  locked Agencylocation does not cover application territories ${applicationId} ` + __location);
+                    errorMessage = `Agency Location does not cover application territory ${missingTerritory}`;
                 }
             }
             else {
                 if(appDoc){
-                    log.error(`setAgencyLocation  Missing Application ${applicationId} locations ` + __location)
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} locations ` + __location);
                 }
                 else {
-                    log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location)
+                    log.error(`setAgencyLocation  Missing Application ${applicationId} ` + __location);
                 }
-                errorMessage = `Could not set agencylocation on ${applicationId}`
+                errorMessage = `Could not set agencylocation on ${applicationId}`;
+            }
+            if(!errorMessage && appDoc && appDoc.appStatusId === 4){
+                // we're no longer out of market, set back to incomplete
+                appDoc.appStatusId = status.applicationStatus.incomplete.appStatusId;
+                appDoc.status = status.applicationStatus.incomplete.appStatusDesc;
+                await appDoc.save();
             }
         }
         catch(err){
-            log.error(`setAgencyLocation  Error Application ${applicationId} - ${err}. ` + __location)
-            errorMessage(`Could not set agencylocation on ${applicationId}`)
+            log.error(`setAgencyLocation  Error Application ${applicationId} - ${err}. ` + __location);
+            errorMessage(`Could not set agencylocation on ${applicationId}`);
         }
 
         return errorMessage ? errorMessage : true;

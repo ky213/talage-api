@@ -45,10 +45,10 @@ class CompuwestBind extends Bind {
         else {
             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} missing WC policy ` + __location);
         }
-        if(notGwAPI || this.insurer.useSandbox){
+        if(notGwAPI || !this.insurer.useSandbox){
             // only sent quotebind for GW API.
             // return success so no error processing kick in.
-            return "success";
+            return "updated";
         }
         let xml = null;
         try{
@@ -139,6 +139,7 @@ class CompuwestBind extends Bind {
                 log.error(`Appid: ${this.quote.applicationId} ${this.insurer.name} integration error: could not locate quote letter attachments. ${JSON.stringify(res)} ${__location}`);
                 //return this.return_result('error');
             }
+            //Not a real bind.  just an submission update.
             return "updated"
         }
         else if (status === 'REFERRALNEEDED'){
@@ -210,6 +211,8 @@ class CompuwestBind extends Bind {
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
 
+        const txnDate = moment();
+        WorkCompPolicyAddRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
 
         // <CommlPolicy>
         const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
@@ -237,10 +240,12 @@ class CompuwestBind extends Bind {
         PaymentOption.ele('PaymentPlanCd', "bcpayplan:11");
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
+        let cCount = 1;
         try{
             if (appDoc.dba.length > 0) {
+                cCount++;
                 const DBAAdditionalInterest = Location.ele('AdditionalInterest');
-                DBAAdditionalInterest.att('id', 'c2');
+                DBAAdditionalInterest.att('id', 'c' + cCount.toString());
                 // <GeneralPartyInfo>
                 const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
                 // <NameInfo>
@@ -284,8 +289,9 @@ class CompuwestBind extends Bind {
             if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
                 appDoc.additionalInsuredList.forEach((additionalInsured) => {
                     const addInsuredAdditionalInterest = Location.ele('AdditionalInterest');
-                    additionalInsureredCount++;
-                    addInsuredAdditionalInterest.att('id', 'i' + additionalInsureredCount.toString());
+                    //additionalInsureredCount++;
+                    cCount++;
+                    addInsuredAdditionalInterest.att('id', 'c' + cCount.toString());
                     // <GeneralPartyInfo>
                     const DBAGeneralPartyInfo = addInsuredAdditionalInterest.ele('GeneralPartyInfo');
                     // <NameInfo>
