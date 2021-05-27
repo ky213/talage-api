@@ -279,9 +279,21 @@ module.exports = class LibertyWC extends Integration {
                     if (!QuestionCd || codedQuestionsByIdentifier.includes(QuestionCd)) {
                         continue;
                     }
+                    //do not process universal questions
+                    const insurerQuestion = this.insurerQuestionList.find(iq => iq.talageQuestionId = question.id);
+                    if(!insurerQuestion){
+                        //something is wrong.
+                        log.warn(`Liberty WC (application ${this.app.id}): Could not determine get insurerQuestion for talageQuestionId ${question_id} ${__location}`)
+                        continue;
+                    }
+                    //Do no process univseral questions here.
+                    if(insurerQuestion.universal){
+                        continue;
+                    }
 
                     // For Yes/No questions, if they are not required and the user answered 'No', simply don't send them
-                    if (question.type === 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()) {
+                    // not nothing change question.required from false.  There are all false
+                    if (question.type === 'Yes/No' && !question.hidden && !question.get_answer_as_boolean()) {
                         continue;
                     }
 
@@ -407,13 +419,16 @@ module.exports = class LibertyWC extends Integration {
             Limit.ele('LimitAppliesToCd', 'DisPol');
             // </Limit>
             // </Coverage>
-
+            //. Policy.
+            //WorkCompLineBusiness
+            const processedUniversalQList = [];
             // Loop through each of the special questions separated by identifier and print them here (all are boolean)
             for (const index in codedQuestionsByIdentifier) {
                 if (Object.prototype.hasOwnProperty.call(codedQuestionsByIdentifier, index)) {
                     const identifier = codedQuestionsByIdentifier[index];
                     const question = this.get_question_by_identifier(identifier);
                     if (question) {
+                        processedUniversalQList.push(question.id);
                         // <QuestionAnswer>
                         QuestionAnswer = WorkCompLineBusiness.ele('QuestionAnswer');
                         QuestionAnswer.ele('QuestionCd', identifier);
@@ -422,6 +437,21 @@ module.exports = class LibertyWC extends Integration {
                     }
                 }
             }
+            // process universal.s
+            this.insurerQuestionList.forEach((iq) => {
+                if(processedUniversalQList.indexOf(iq.talageQuestionId) === -1){
+                    const question = this.get_question_by_identifier(iq.identifier);
+                    if (question) {
+                        processedUniversalQList.push(question.id);
+                        // <QuestionAnswer>
+                        QuestionAnswer = Policy.ele('QuestionAnswer');
+                        QuestionAnswer.ele('QuestionCd', iq.identifier);
+                        QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                        // </QuestionAnswer>
+                    }
+
+                }
+            });
             // </WorkCompLineBusiness>
             // </PolicyRq>
             // </InsuranceSvcRq>
