@@ -1,24 +1,74 @@
 'use strict';
 
 
-const DatabaseObject = require('./DatabaseObject.js');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+global.requireShared('./helpers/tracker.js');
+const ZipCodeModel = require('mongoose').model('ZipCode');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
-
-const tableName = 'clw_talage_zip_codes'
-const skipCheckRequired = false;
 module.exports = class ZipCodeBO{
 
-    #dbTableORM = null;
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
 
-    constructor(){
-        this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        const zipCode = new ZipCodeModel(newObjectJSON);
+
+        //Insert a doc
+        try {
+            await ZipCodeModel.save();
+        }
+        catch (e) {
+            log.error('Mongo Application Save err ' + err + __location);
+            throw (e);
+        }
+
+        return mongoUtils.objCleanup(zipCode);
     }
 
+    async updateMongo(zipCodeId, newObjectJSON) {
+        if (zipCodeId) {
+            if (typeof newObjectJSON === "object") {
+                const updateableProps = [
+                    "type",
+                    "getUpdate",
+                    "city",
+                    "state",
+                    "county"
+                ];
+
+                Object.keys(newObjectJSON).forEach(prop => {
+                    if (!updateableProps.includes(prop)) {
+                        delete newObjectJSON[prop];
+                    }
+                });
+
+                // Add updatedAt
+                newObjectJSON.updatedAt = new Date();
+
+                const query = { zipCodeId };
+                try {
+                    //because Virtual Sets.  new need to get the model and save.
+                    await ZipCodeModel.updateOne(query, newObjectJSON);
+                    newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
+                }
+                catch (err) {
+                    log.error("ZipCode-BO: Error: Failed to update " + err + __location);
+                    throw err;
+                }
+                
+                return newQuoteJSON;
+            }
+            else {
+                throw new Error('ZipCode-BO: Error: No newObjectJSON supplied in updateMongo');
+            }
+        }
+        else {
+            throw new Error('ZipCode-BO: Error: No id supplied in updateMongo');
+        }
+    }
 
     /**
 	 * Save Model
@@ -30,10 +80,11 @@ module.exports = class ZipCodeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ZipCode object given`));
             }
+
             await this.cleanupInput(newObjectJSON);
-            newObjectJSON.state = 1;
+
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);

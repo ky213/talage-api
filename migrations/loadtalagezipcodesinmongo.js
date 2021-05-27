@@ -171,12 +171,17 @@ async function runFunction() {
         const zipCodeSQL = zipCodes[i];
 
         const zipCode = {
-            zipCode: zipCodeSQL.zip,
+            zipCode: `${zipCodeSQL.zip}`,
             type: zipCodeSQL.type,
             city: zipCodeSQL.city,
             state: zipCodeSQL.territory,
             county: zipCodeSQL.county
         };
+
+        // pad zipcode w/ 0's in front if length < 5 (f.e. 501 becomes 00501)
+        while (zipCode.zipCode.length < 5) {
+            zipCode.zipCode = `0${zipCode.zipCode}`;
+        }
 
         const zipCodeMongo = ZipCodeModel(zipCode);
 
@@ -192,12 +197,9 @@ async function runFunction() {
         if (!found) {
             try {
                 await zipCodeMongo.save();
-                process.exit(-1);
                 successes++;
             } catch (e) {
                 logError(`There was an error inserting the new record for ZIP code ${zipCode.zipCode}: ${e}.`);
-                console.log(JSON.stringify(zipCodeMongo, null, 4));
-                process.exit(-1);
                 failures++;
             }
         }
@@ -206,10 +208,16 @@ async function runFunction() {
             duplicates++;
         }
 
-        if (i % 100 === 0 && i !== 0) {
+        if (i % 1000 === 0 && i !== 0) {
             logInfo(`${i} records migrated out of ${zipCodes.length}.`);
         }
     }
+
+    logDebug("====================================");
+    logDebug(`Successful Migrations ....... : ${successes}`);
+    logDebug(`Failed Migrations ........... : ${failures}`);
+    logDebug(`Skipped Migrations (duplicate): ${duplicates}`);
+    logDebug("====================================");
 
     logInfo(`ZIP code records migrated to Mongo. Exiting.`);
     process.exit(0);

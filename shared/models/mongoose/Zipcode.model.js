@@ -22,10 +22,10 @@ const zipCodeTypes = [
 
 const ZipCodeSchema = new Schema({
     zipCodeId: {type: String, required: [true, 'zipCodeId required'], unique: true},
-    zipCode: {type: String, required: true, unique: false},
+    zipCode: {type: String, required: true, unique: false, minlength: 5, maxlength: 5},
     // This enforces extended zip code uniqueness, while dually allowing for duplicate null values
     extendedZipCode: {
-        type: String, sparse: true, index: {
+        type: String, sparse: true, minLength: 9, maxLength: 9, index: {
             unique: true,
             partialFilterExpression: {extendedZipCode: {$type: "string"}}
         }
