@@ -27,7 +27,7 @@ module.exports = class ZipCodeBO{
 
         //Insert a doc
         try {
-            await ZipCodeModel.save();
+            await zipCode.save();
         }
         catch (e) {
             const error = `ZipCode-BO: Error: Failed to insert new ZipCode record into Mongo: ${e}. ${__location}`;
@@ -189,7 +189,7 @@ module.exports = class ZipCodeBO{
                 return zipCodeDoc[0];
             }
             else {
-                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${query}`);
+                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${JSON.stringify(query)}`);
 
                 //Call to zipcode service to lookup zip.
                 let newZip = null;
