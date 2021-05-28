@@ -135,6 +135,10 @@ async function applicationSave(req, res, next) {
                 req.body.agencyLocationId = locationPrimaryJSON.systemId;
             }
         }
+        //referrer check - if nothing sent set to API.
+        if(!req.body.referrer){
+            req.body.referrer = "API";
+        }
     }
     else {
         // Need to now if we get locations for the first thiem
@@ -165,7 +169,7 @@ async function applicationSave(req, res, next) {
 
     let responseAppDoc = null;
     try {
-        const updateMysql = true;
+        const updateMysql = false;
 
         // if activityPayrollList exists, populate activityCode data from it
         // extract location part_time_employees and full_time_employees from location payroll data.
@@ -224,16 +228,14 @@ async function applicationSave(req, res, next) {
         if (req.body.applicationId) {
             log.debug("App Doc UPDATE.....");
             responseAppDoc = await applicationBO.updateMongo(req.body.applicationId,
-                req.body,
-                updateMysql);
+                req.body);
         }
         else {
             //insert.
             log.debug("App Doc INSERT.....");
             req.body.agencyPortalCreatedUser = "applicant";
             req.body.agencyPortalCreated = false;
-            responseAppDoc = await applicationBO.insertMongo(req.body,
-                updateMysql);
+            responseAppDoc = await applicationBO.insertMongo(req.body);
 
             // update JWT
             if(responseAppDoc && req.userTokenData && req.userTokenData.quoteApp){
