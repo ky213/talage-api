@@ -1,3 +1,5 @@
+/* eslint-disable array-element-newline */
+/* eslint-disable object-curly-newline */
 /* eslint-disable multiline-comment-style */
 /* eslint-disable one-var */
 const moment = require('moment');
@@ -83,36 +85,39 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         /*
         * Validate Zip Codes
         */
+        const ZipCodeModel = require('mongoose').model('ZipCode');
         const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
 
         // Check that the zip code is valid
-
         if (!zipCodeArray || !zipCodeArray.length) {
             log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
             return false;
         }
-        // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
-        // are cut down to 5.
-        zipCodeArray.forEach((zip) => {
-            if(zip.length > 5){
-                zip = zip.substring(0,5)
-            }
-        })
-        sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
-        const zip_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
+
+        // We now support 9 digit ZIP codes, so $or will check the quote with two conditions in case the list has a mix of 5 and 9 digit ZIP codes
+        const query = {
+            $or: [
+                {extendedZipCode: {$in: zipCodeArray}},
+                {zipCode: {$in: zipCodeArray}}
+            ]
+        };
+
+        let states = null;
+        try {
+            states = await ZipCodeModel.distinct("state", query);
+        }
+        catch (e) {
+            log.error(`Question Service: An error occurred while attempting to look up zipCodeArray: ${e}. ${__location}`);
             return false;
         }
-        if (zip_result && zip_result.length >= 1) {
-            zip_result.forEach(function(result) {
-                territories.push(result.territory);
+
+        if (states && states.length > 0) {
+            states.forEach(state => {
+                territories.push(state);
             });
         }
         else {
-            log.warn(`Question Service: Bad Request: Zip Code ${zipCodeArray.join(',')} ` + __location);
-            //return false;
+            log.warn(`Question Service: Bad Request: No states found for ZIP codes: ${zipCodeArray.join(',')}. ${__location}`);
         }
     }
 
