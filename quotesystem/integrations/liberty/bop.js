@@ -36,11 +36,14 @@ module.exports = class LibertySBOP extends Integration {
 	async _insurer_quote() {
 
         const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy, this.quoteId);
-        const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
-
         let quoteResponses = [];
         quoteResponses.push(BOPSimple.quote());
-        quoteResponses.push(BOPCommercial.quote());
+
+        // TODO removed with BOP Commerical pass carrier UAT.
+        if(this.insurer.useSandbox){
+            const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy);
+            quoteResponses.push(BOPCommercial.quote());
+        }
 
         quoteResponses = await Promise.all(quoteResponses);
         
