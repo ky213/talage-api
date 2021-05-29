@@ -48,6 +48,7 @@ async function createToken(req, res, next){
     req.body.email = req.body.email.replace(' ', '+');
 
     // Authenticate the information provided by the user
+    //TODO move to BO/Mongo
     const emailHash = await crypt.hash(req.body.email);
     const agencySQL = `
 		SELECT

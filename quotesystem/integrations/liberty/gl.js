@@ -48,19 +48,19 @@ module.exports = class LibertyGL extends Integration{
 			'1000000/2000000/2000000'
 		];
 
-		// The structure for these questions were hard coded into the request and should not be asked with the general class specific questions
-		const codedQuestionsByIdentifier = [
-			'CCP123',
-			'UWQ5944',
-			'UWQ5943',
-			'UWQ5946'
-		];
-		const codedQuestionsById = [
-			'1306',
-			'1307',
-			'1308',
-			'1309'
-		];
+		// // The structure for these questions were hard coded into the request and should not be asked with the general class specific questions
+		// const codedQuestionsByIdentifier = [
+		// 	'CCP123',
+		// 	'UWQ5944',
+		// 	'UWQ5943',
+		// 	'UWQ5946'
+		// ];
+		// const codedQuestionsById = [
+		// 	'1306',
+		// 	'1307',
+		// 	'1308',
+		// 	'1309'
+		// ];
 
 		// An association list tying the Talage entity list (left) to the codes used by this insurer (right)
 		const entityMatrix = {
@@ -330,7 +330,7 @@ module.exports = class LibertyGL extends Integration{
                                         }
 										// Find the attributes for this question
                                         const attributes = insurerQuestion.attributes;
-										if(attributes){
+										if(typeof attributes === 'object'){
 											// Make sure the question has the appropriate attributes
 											if(Object.prototype.hasOwnProperty.call(attributes, 'Underwriting Question Code')){
 												if(insurerQuestion.identifier === attributes['Underwriting Question Code']){

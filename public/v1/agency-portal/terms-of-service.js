@@ -17,6 +17,7 @@ const version = 3;
 async function PutAcceptTermsOfService(req, res, next){
     // Construct the query
     let error = false;
+    // TODO BO/Mongo - put in user doc in mongo.
     const sql = `
 			INSERT INTO \`#__legal_acceptances\` (\`agency_portal_user\`, \`ip\`, \`version\`)
 			VALUES (${req.authentication.userID}, ${db.escape(req.connection.remoteAddress)}, ${version});
