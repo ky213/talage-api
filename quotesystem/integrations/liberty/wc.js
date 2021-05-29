@@ -271,6 +271,9 @@ module.exports = class LibertyWC extends Integration {
                 if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
                     //const question = this.questions[question_id];
                     const question = this.questions[insurerQuestion.talageQuestionId];
+                    if(!question){
+                        continue;
+                    }
 
 
                     /**
@@ -400,9 +403,14 @@ module.exports = class LibertyWC extends Integration {
                             acivityCodeInsurerQuestions.forEach((iq) => {
                                 const question = this.questions[iq.talageQuestionId];
                                 if(question){
-                                    QuestionAnswer = WorkCompRateClassExt.ele('QuestionAnswer');
-                                    QuestionAnswer.ele('QuestionCd', iq.identifier);
-                                    QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                                    try{
+                                        QuestionAnswer = WorkCompRateClassExt.ele('QuestionAnswer');
+                                        QuestionAnswer.ele('QuestionCd', iq.identifier);
+                                        QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                                    }
+                                    catch(err){
+                                        log.error(`Liberty WC (application ${this.app.id}): Issue withTalage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err}${__location}`);
+                                    }
                                 }
                                 else {
                                     log.error(`Liberty WC (application ${this.app.id}): Missing expected Talage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} ${__location}`);
@@ -451,12 +459,17 @@ module.exports = class LibertyWC extends Integration {
                     const identifier = codedQuestionsByIdentifier[index];
                     const question = this.get_question_by_identifier(identifier);
                     if (question) {
-                        processedUniversalQList.push(question.id);
-                        // <QuestionAnswer>
-                        QuestionAnswer = WorkCompLineBusiness.ele('QuestionAnswer');
-                        QuestionAnswer.ele('QuestionCd', identifier);
-                        QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-                        // </QuestionAnswer>
+                        try{
+                            processedUniversalQList.push(question.id);
+                            // <QuestionAnswer>
+                            QuestionAnswer = WorkCompLineBusiness.ele('QuestionAnswer');
+                            QuestionAnswer.ele('QuestionCd', identifier);
+                            QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                            // </QuestionAnswer>
+                        }
+                        catch(err){
+                            log.error(`Liberty WC (application ${this.app.id}): Issue withTalage Question ${question.id} for InsurerQuestion : ${identifier} error: ${err}${__location}`);
+                        }
                     }
                 }
             }
@@ -465,12 +478,17 @@ module.exports = class LibertyWC extends Integration {
                 if(processedUniversalQList.indexOf(iq.talageQuestionId) === -1){
                     const question = this.get_question_by_identifier(iq.identifier);
                     if (question) {
-                        processedUniversalQList.push(question.id);
-                        // <QuestionAnswer>
-                        QuestionAnswer = Policy.ele('QuestionAnswer');
-                        QuestionAnswer.ele('QuestionCd', iq.identifier);
-                        QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-                        // </QuestionAnswer>
+                        try{
+                            processedUniversalQList.push(question.id);
+                            // <QuestionAnswer>
+                            QuestionAnswer = Policy.ele('QuestionAnswer');
+                            QuestionAnswer.ele('QuestionCd', iq.identifier);
+                            QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                            // </QuestionAnswer>
+                        }
+                        catch(err){
+                            log.error(`Liberty WC (application ${this.app.id}): Issue withTalage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err}${__location}`);
+                        }
                     }
 
                 }
