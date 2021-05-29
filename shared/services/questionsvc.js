@@ -42,20 +42,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Prep industry code for validation
     const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
 
-    // Check if the industry code is valid
-    // if (industry_code) {
-    //      try{
-    //         const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
-    //         const industryCodeBO = new IndustryCodeBO();
-    //         const industryCodeJson = await industryCodeBO.getById(industry_code);
-    //         if(!industryCodeJson){
-    //             log.warn(`Bad Request: Invalid Industry Code ${industry_code}` + __location);
-    //         }
-    //     }
-    //     catch(err){
-    //         log.error("Error getting industryCodeBO " + err + __location);
-    //     }
-    // }
     let territories = [];
     if(stateList.length > 0){
         territories = stateList;
