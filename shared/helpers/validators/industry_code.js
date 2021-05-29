@@ -1,7 +1,7 @@
 'use strict';
 
 const positive_integer = /^[1-9]\d*$/;
-const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+
 
 /**
  * Checks whether an industry code is valid (exists in our database)
@@ -11,7 +11,7 @@ const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
  */
 module.exports = async function(industryCodeId){
     if(positive_integer.test(industryCodeId)){
-
+        const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
         const industryCodeBO = new IndustryCodeBO();
         let industryCodeJson = null;
         try{

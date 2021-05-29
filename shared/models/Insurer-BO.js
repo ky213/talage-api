@@ -383,7 +383,7 @@ module.exports = class InsurerBO{
             }
         }
         catch(err){
-            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
+            log.error("Getting mongo insurerPolicyTypeBO error " + err + __location)
         }
         if(territoryArray && territoryArray.length > 0){
             return territoryArray.sort();

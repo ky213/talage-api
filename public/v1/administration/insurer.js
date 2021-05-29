@@ -173,7 +173,7 @@ async function getSelectionList(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    server.addGetAuthAdmin('Get Insurer list', `${basePath}/insurer`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get Insurer list', `${basePath}/insurer`, findAll, 'TalageAdminUser', 'all');
     server.addGetAuthAdmin('Get Insurer Object', `${basePath}/insurer/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post Insurer Object', `${basePath}/insurer`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Insurer Object', `${basePath}/insurer/:id`, update, 'administration', 'all');

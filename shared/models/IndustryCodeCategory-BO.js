@@ -1,19 +1,15 @@
-'use strict';
-
-
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const tableName = 'clw_talage_industry_code_categories'
-const skipCheckRequired = false;
-module.exports = class IndustryCodeCategoryBO{
+var IndustryCodeCategory = require('mongoose').model('IndustryCodeCategory');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-    #dbTableORM = null;
+const collectionName = 'IndustryCodeCategory'
+module.exports = class IndustryCodeCategoryBO{
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
     }
 
 
@@ -27,287 +23,330 @@ module.exports = class IndustryCodeCategoryBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
+
+            let newDoc = true;
+            if(newObjectJSON.industryCodeCategoryId){
+                newObjectJSON.id = newObjectJSON.industryCodeCategoryId;
+            }
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    this.id = dbDocJSON.industryCodeCategoryId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.industryCodeCategoryId,newObjectJSON);
+                }
+                else {
+                    log.error(`${collectionName} PUT object not found ` + newObjectJSON.id + __location);
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            if(newDoc === true) {
+                const insertedDoc = await this.insertMongo(newObjectJSON);
+                this.id = insertedDoc.industryCodeCategoryId;
+                this.mongoDoc = insertedDoc;
             }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-
-
+            else {
+                this.mongoDoc = this.getById(this.id);
+            }
             resolve(true);
 
         });
     }
 
-
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-    getList(queryJSON) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
 
-            let rejected = false;
-            // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.name){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(queryJSON.name)} `
-                    hasWhere = true;
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            const queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
+            const queryProjection = {
+                "__v": 0,
+                "_id": 0,
+                "id": 0
+            }
+
+            let findCount = false;
+            if(queryJSON.count){
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {industryCodeCategoryId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+
+            const queryLimit = 5000;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
                 }
             }
-            // Run the query
-            log.debug("AgencyNetworkBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
+            else {
+                queryOptions.limit = queryLimit;
             }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    // eslint-disable-next-line prefer-const
-                    let industryCodeCategoryBO = new IndustryCodeCategoryBO();
-                    await industryCodeCategoryBO.#dbTableORM.decryptFields(result[i]);
-                    await industryCodeCategoryBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await industryCodeCategoryBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+
+            if(queryJSON.industryCodeCategoryId && Array.isArray(queryJSON.industryCodeCategoryId)){
+                query.industryCodeCategoryId = {$in: queryJSON.industryCodeCategoryId};
+                delete queryJSON.insurerIndustryCodeId;
+            }
+            else if(queryJSON.industryCodeCategoryId){
+                query.industryCodeCategoryId = queryJSON.industryCodeCategoryId;
+                delete queryJSON.industryCodeCategoryId;
+            }
+
+            if(queryJSON.id && Array.isArray(queryJSON.id)){
+                query.industryCodeCategoryId = {$in: queryJSON.id};
+                delete queryJSON.id;
+            }
+            else if(queryJSON.id){
+                query.industryCodeCategoryId = queryJSON.id;
+                delete queryJSON.industryCodeCategoryId;
+            }
+
+            if(queryJSON.ncciCode && Array.isArray(queryJSON.ncciCode)){
+                query.ncciCode = {$in: queryJSON.ncciCode};
+                delete queryJSON.ncciCode;
+            }
+            else if(queryJSON.ncciCode){
+                query.ncciCode = queryJSON.ncciCode;
+                delete queryJSON.ncciCode;
+            }
+
+            if(queryJSON.codeGroupList && Array.isArray(queryJSON.codeGroupList)){
+                query.codeGroupList = {$in: queryJSON.codeGroupList};
+                delete queryJSON.codeGroupList;
+            }
+            else if(queryJSON.codeGroupList){
+                query.codeGroupList = queryJSON.codeGroupList;
+                delete queryJSON.codeGroupList;
+            }
+
+            if(queryJSON.description){
+                query.description = {
+                    "$regex": queryJSON.description,
+                    "$options": "i"
+                };
+                delete queryJSON.description;
+            }
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else{
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            //log.debug(`${collectionName} getList query ${JSON.stringify(query)}` + __location)
+            if(findCount === false){
+                let docList = null;
+                try {
+                    docList = await IndustryCodeCategory.find(query, queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    docList.forEach((doc) => {
+                        doc.id = doc.industryCodeCategoryId
                     })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    boList.push(industryCodeCategoryBO);
+                    resolve(docList);
                 }
-                resolve(boList);
+                else {
+                    resolve([]);
+                }
             }
             else {
-                //Search so no hits ok.
-                resolve([]);
-            }
-
-
-        });
-    }
-
-    getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
+                let queryRowCount = 0;
+                try {
+                    queryRowCount = await IndustryCodeCategory.countDocuments(query);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    reject(error);
                     return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
+                }
+                resolve({count: queryRowCount});
             }
         });
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
+    getById(id, returnMongooseModel = false) {
+        return new Promise(async(resolve, reject) => {
+            if (id > 0) {
+                const query = {
+                    "industryCodeCategoryId": id,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await IndustryCodeCategory.findOne(query, '-__v');
                 }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const industryCodeDoc = mongoUtils.objCleanup(docDB);
+                    resolve(industryCodeDoc);
+                }
+                else {
+                    resolve(null);
                 }
             }
+            else {
+                reject(new Error('no or invalid id supplied'))
+            }
+        });
+    }
+
+    async updateMongo(industryCodeCategoryId, newObjectJSON) {
+        if (industryCodeCategoryId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"industryCodeCategoryId": industryCodeCategoryId};
+                let newActivityCodeJSON = null;
+                try {
+                    const changeNotUpdateList = [
+                        "active",
+                        "id",
+                        "createdAt",
+                        "industryCodeCategoryId",
+                        "talageIndustryCodeCategoryUuid"
+                    ];
+
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await IndustryCodeCategory.updateOne(query, newObjectJSON);
+                    const newActivityCode = await IndustryCodeCategory.findOne(query);
+                    //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});
+
+                    newActivityCodeJSON = mongoUtils.objCleanup(newActivityCode);
+                }
+                catch (err) {
+                    log.error(`Updating ${collectionName} error appId: ${industryCodeCategoryId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newActivityCodeJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${industryCodeCategoryId}`)
+            }
+
         }
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
+        else {
+            throw new Error('no id supplied');
         }
+        // return true;
+
     }
 
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-}
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        //maxid
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.industryCodeCategoryId = newSystemId;
 
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "featured": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    constructor(tableName){
-        super(tableName, properties);
+        const activityCode = new IndustryCodeCategory(newObjectJSON);
+        //Insert a doc
+        await activityCode.save().catch(function(err) {
+            log.error(`Mongo ${collectionName} Save err ` + err + __location);
+            throw err;
+        });
+        return mongoUtils.objCleanup(activityCode);
     }
 
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"industryCodeCategoryId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.industryCodeCategoryId = -1;
+            queryOptions.limit = 1;
+            const docList = await IndustryCodeCategory.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].industryCodeCategoryId > maxId){
+                        maxId = docList[i].industryCodeCategoryId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error(`${collectionName} Get max system id ` + err + __location)
+            throw err;
+        }
+        //log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
 }

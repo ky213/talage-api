@@ -6,7 +6,7 @@ const insurerBO = global.requireShared('./models/Insurer-BO.js');
 const activityCodeBO = global.requireShared('./models/ActivityCode-BO.js');
 const agencyBO = global.requireShared('./models/Agency-BO.js');
 const agencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-const industryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const questionBO = global.requireShared('./models/Question-BO.js');
 const insurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
 
@@ -121,9 +121,9 @@ module.exports = class ACORD{
                 log.error(`Agency location ID: ${this.applicationDoc.agencyLocationId} not found. Continuing Acord generation`)
             }
 
-            const industryCode = new industryCodeBO();
+            const industryCodeBO = new IndustryCodeBO();
             try {
-                this.industryCodeDoc = await industryCode.getById(this.applicationDoc.industryCode);
+                this.industryCodeDoc = await industryCodeBO.getById(this.applicationDoc.industryCode);
             }
             catch (err) {
                 log.error(`Failed getting industry code with ID: ${this.applicationDoc.industryCode}` + err + __location);

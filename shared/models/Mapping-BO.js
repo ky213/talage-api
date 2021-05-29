@@ -7,13 +7,13 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class MappingBO{
 
-	constructor(){
+    constructor(){
         this.id = 0;
     }
 
 
     /**
-	 * Save Model 
+	 * Save Model
      *
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
@@ -37,10 +37,10 @@ module.exports = class MappingBO{
     }
 
     // /**
-	//  * saves model.
+    //  * saves model.
     //  *
-	//  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved model , or an Error if rejected
-	//  */
+    //  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved model , or an Error if rejected
+    //  */
 
     // save(asNew = false){
     //     return new Promise(async(resolve, reject) => {
@@ -51,10 +51,14 @@ module.exports = class MappingBO{
     // }
 
     async update(id, newObjectJSON){
-        if(id ){
+        if(id){
             if(typeof newObjectJSON === "object"){
-                const changeNotUpdateList = ["active","mappingId", "id","systemId", "MappingId"]
-                for(let i = 0;i < changeNotUpdateList.length; i++ ){
+                const changeNotUpdateList = ["active",
+                    "mappingId",
+                    "id",
+                    "systemId",
+                    "MappingId"]
+                for(let i = 0; i < changeNotUpdateList.length; i++){
                     if(newObjectJSON[changeNotUpdateList[i]]){
                         delete newObjectJSON[changeNotUpdateList[i]];
                     }
@@ -76,76 +80,77 @@ module.exports = class MappingBO{
             else {
                 throw new Error('no newObjectJSON supplied')
             }
-          
+
         }
         else {
             throw new Error('no id supplied')
         }
-        return true;
 
     }
 
     async insert(newObjecJSON){
-       
-          
-            let mapping = new Mapping(newObjecJSON);
-            //Insert a doc
-            await mapping.save().catch(function(err){
-                log.error('Mongo Mapping Save err ' + err + __location);
-                throw err;
-            });
-            let docDB = mongoUtils.objCleanup(mapping);
-            return docDB;
+
+
+        const mapping = new Mapping(newObjecJSON);
+        //Insert a doc
+        await mapping.save().catch(function(err){
+            log.error('Mongo Mapping Save err ' + err + __location);
+            throw err;
+        });
+        const docDB = mongoUtils.objCleanup(mapping);
+        return docDB;
     }
-    
+
 
     getList(queryJSON) {
-        return new Promise(async (resolve, reject) => {
-                let rejected = false;
-                // Create the update query
-                let query = {active: true};
-                if(queryJSON){
-                  
-                    if(queryJSON.active){
-                       query.active = queryJSON.active
-                    }
-                    if(queryJSON.name){
-                        query.name = queryJSON.name
-                     } 
+        return new Promise(async(resolve, reject) => {
+            // Create the update query
+            const query = {active: true};
+            if(queryJSON){
+
+                if(queryJSON.active === false){
+                    query.active = queryJSON.active
                 }
-               
-                // Run the query
-                let docCleanList = null;
-                try {
-                    let doclist = await Mapping.find(query, '-__v');
-                    docCleanList = mongoUtils.objListCleanup(doclist);
+                if(queryJSON.name){
+                    query.name = queryJSON.name
                 }
-                catch (err) {
-                    log.error("Getting Mapping error " + err + __location);
-                    reject(err);
-                }
-                
-                if(docCleanList && docCleanList.length > 0 ){
-                    resolve(docCleanList);
-                }
-                else {
-                    //Search so no hits ok.
-                    resolve([]);
-                }
-               
-            
+            }
+
+            // Run the query
+            let docCleanList = null;
+            try {
+                const doclist = await Mapping.find(query, '-__v');
+                docCleanList = mongoUtils.objListCleanup(doclist);
+            }
+            catch (err) {
+                log.error("Getting Mapping error " + err + __location);
+                reject(err);
+            }
+
+            if(docCleanList && docCleanList.length > 0){
+                resolve(docCleanList);
+            }
+            else {
+                //Search so no hits ok.
+                resolve([]);
+            }
+
+
         });
     }
 
 
     getById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id ){
-                const query = {"mappingId": id, active: true};
+            if(id){
+                const query = {
+                    "mappingId": id,
+                    active: true
+                };
                 let docCleanDB = null;
                 try {
-                    let docDB = await Mapping.findOne(query, '-__v');
+                    const docDB = await Mapping.findOne(query, '-__v');
                     if(docDB){
                         docCleanDB = mongoUtils.objCleanup(docDB);
                     }
@@ -163,13 +168,16 @@ module.exports = class MappingBO{
     }
 
     getByName(name) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(name ){
-                const query = {"name": name, active: true};
+            if(name){
+                const query = {
+                    "name": name,
+                    active: true
+                };
                 let docCleanDB = null;
                 try {
-                    let docDB = await Mapping.findOne(query, '-__v');
+                    const docDB = await Mapping.findOne(query, '-__v');
                     if(docDB){
                         docCleanDB = mongoUtils.objCleanup(docDB);
                     }
@@ -187,9 +195,9 @@ module.exports = class MappingBO{
     }
 
     deleteSoftById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id ){
+            if(id){
                 const activeJson = {active: false};
                 const query = {"mappingId": id};
                 try {
@@ -199,9 +207,9 @@ module.exports = class MappingBO{
                     log.error("Soft Deleting Mapping error " + err + __location);
                     reject(err);
                 }
-               
+
                 resolve(true);
-              
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -209,6 +217,3 @@ module.exports = class MappingBO{
         });
     }
 }
-
-
-

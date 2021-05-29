@@ -241,14 +241,15 @@ async function GetResources(req, res, next){
         responseObj.legalArticles = legalArticles;
     }
     rejected = false;
-    const sql2 = `select abbr as type,description,heading, name from clw_talage_policy_types where abbr in ('BOP', 'GL', 'WC')`
-    const result2 = await db.query(sql2).catch(function(error) {
+    const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
+    const policyTypeBO = new PolicyTypeBO();
+    const policyTypeList = await policyTypeBO.getList({wheelhouse_support: true}).catch(function(error) {
         // Check if this was
         rejected = true;
-        log.error(`clw_talage_policy_types error on select ` + error + __location);
+        log.error(`policyTypeBO error on getList ` + error + __location);
     });
-    if (!rejected) {
-        responseObj.policyTypes = result2;
+    if (!rejected && policyTypeList) {
+        responseObj.policyTypes = policyTypeList;
     }
 
     rejected = false;

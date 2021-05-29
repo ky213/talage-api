@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
@@ -58,7 +59,6 @@ module.exports = class QuestionBO{
     }
 
 
-
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
@@ -100,8 +100,22 @@ module.exports = class QuestionBO{
                 }
                 let hasWhere = false;
                 if(queryJSON.question){
+                    let isNumber = false;
+                    try{
+                        const testNumber = parseInt(queryJSON.question, 10);
+                        isNumber = testNumber > 0;
+                    }
+                    catch(err){
+                        //do nothing.
+                    }
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` question like ${db.escape(`%${queryJSON.question}%`)} `;
+                    if(isNumber){
+                        sqlWhere += ` (question like ${db.escape(`%${queryJSON.question}%`)} OR id = ${queryJSON.question}) `;
+                    }
+                    else {
+                        sqlWhere += ` question like ${db.escape(`%${queryJSON.question}%`)} `;
+                    }
+
                     hasWhere = true;
                 }
                 if(queryJSON.id){
@@ -236,8 +250,8 @@ module.exports = class QuestionBO{
     async getSelectionList(){
 
         let rejected = false;
-        const responseLandingPageJSON = {};
-        const reject = false;
+        //const responseLandingPageJSON = {};
+        //const reject = false;
         const sql = `select id, name, logo  
             from clw_talage_questions
             where state > 0
