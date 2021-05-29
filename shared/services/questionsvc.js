@@ -35,24 +35,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Filter out duplicate codes
     activityCodeArray = activityCodeArray.filter((code, index) => activityCodeArray.indexOf(code) === index);
 
-    // Check that each activity code is valid
-    if (activityCodeArray.length) {
-        sql = `SELECT id FROM clw_talage_activity_codes WHERE id IN (${activityCodeArray.join(',')}) AND state = 1;`;
-        const activity_code_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (activity_code_result && activity_code_result.length !== activityCodeArray.length) {
-            log.warn('GetQuestions - Invalid Activity Code(s)' + __location);
-            //error = 'One or more of the activity codes supplied is invalid';
-        }
-        //Might be old Activity codes from copied application.
-        // no need to stop.  Activity Code question logic will get no hits.
-        // that is OK.
-        // if (error) {
-        //     return false;
-        // }
-    }
-
     /*
      * Validate Industry Code
      */
