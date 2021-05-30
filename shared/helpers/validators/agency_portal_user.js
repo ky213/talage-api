@@ -2,18 +2,20 @@
 
 const positive_integer = /^[1-9]\d*$/;
 
+
 /**
  * Checks whether an agency portal user is valid (exists in our database). Valid agents are active
  * A valid agent is identified by ID
  *
- * @param {number} agency_portal_user - The ID of the agency portal user
+ * @param {number} agencyPortalUserId - The ID of the agency portal user
  * @returns {boolean} - True if valid, false otherwise
  */
-module.exports = async function(agency_portal_user){
-    if(positive_integer.test(agency_portal_user)){
+module.exports = async function(agencyPortalUserId){
+    if(positive_integer.test(agencyPortalUserId)){
         let had_error = false;
-        const sql = `SELECT id FROM clw_talage_agency_portal_users WHERE id = ${db.escape(parseInt(agency_portal_user, 10))} AND state > 0 LIMIT 1;`;
-        const rows = await db.query(sql).catch(function(error){
+        const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        const agencyPortalUserJSON = await agencyPortalUserBO.getById(parseInt(agencyPortalUserId, 10)).catch(function(error){
             log.error(error + __location);
             had_error = true;
         });
@@ -21,7 +23,7 @@ module.exports = async function(agency_portal_user){
             return false;
         }
 
-        if(rows && rows.length === 1 && rows[0].id > 0){
+        if(agencyPortalUserJSON && agencyPortalUserJSON.agencyPortalUserId > 0){
             return true;
         }
         else {

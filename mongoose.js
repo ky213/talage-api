@@ -87,6 +87,8 @@ module.exports = function() {
 
     require('./shared/models/mongoose/PolicyType.model');
 
+    require('./shared/models/mongoose/AgencyPortalUser.model');
+
 
     return mongodb;
 
