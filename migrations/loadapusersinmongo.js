@@ -7,7 +7,7 @@
 
 'use strict';
 
-
+const moment = require('moment');
 
 // Add global helpers to load shared modules
 global.rootPath = require('path').join(__dirname, '..');
@@ -148,6 +148,32 @@ async function runFunction() {
                 }
 
             }
+            agencyPortalUser.legalAcceptance = [];
+            //get legal acceptance
+            const sqlLA = `select * from clw_talage_legal_acceptances where agency_portal_user = ${result[i].id}`
+            try {
+                let resultLA = await db.query(sqlLA)
+                if(resultLA && resultLA.length > 0){
+                    // eslint-disable-next-line no-loop-func
+                    resultLA.forEach((la) => {
+                        if(!la.version){
+                            la.version = 1;
+                        }
+                        const laJSON = {
+                            ip: la.ip,
+                            version: la.version,
+                            acceptanceDate: moment(la.timestamp)
+                        }
+                        agencyPortalUser.legalAcceptance.push(laJSON);
+                        agencyPortalUser.requiredLegalAcceptance = false;
+                    })
+                }
+            }
+            catch(err){
+                log.debug(`Error Legal Acceptance user ${result[i].id} email `)
+            }
+
+
             // Determine if existing doc
             // by insurerId,  code, sub
             const query = {agencyPortalUserId: result[i].id}

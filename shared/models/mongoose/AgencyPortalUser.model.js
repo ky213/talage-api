@@ -24,6 +24,12 @@ const opts = {toJSON: {virtuals: true}};
 //     type: {type: String, required: false}
 // });
 
+const legalAcceptanceSchema = new Schema({
+    ip: {type: String, required: false},
+    version: {type: Number, required: false},
+    acceptanceDate: {type: Date, required: true}
+});
+
 
 const AgencyPortalUserSchema = new Schema({
     agencyPortalUserUuidId: {type: String, required: [true, 'agencyPortalUserUuidId required'], unique: true},
@@ -40,6 +46,8 @@ const AgencyPortalUserSchema = new Schema({
     lastLogin: {type: Date},
     timezoneId: {type: Number, required: false, default: 0},
     timezoneName: {type: String, required: false},
+    requiredLegalAcceptance: {type: Boolean, default: false},
+    legalAcceptance: [legalAcceptanceSchema],
     additionalInfo: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)
