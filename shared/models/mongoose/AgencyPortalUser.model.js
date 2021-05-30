@@ -25,8 +25,8 @@ const opts = {toJSON: {virtuals: true}};
 // });
 
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: false},
-    version: {type: Number, required: false},
+    ip: {type: String, required: true},
+    version: {type: Number, required: true},
     acceptanceDate: {type: Date, required: true}
 });
 
@@ -180,6 +180,24 @@ AgencyPortalUserSchema.virtual('timezone_name').
     }).
     set(function(v){
         this.timezoneName = v;
+    });
+
+AgencyPortalUserSchema.virtual('termsOfServiceVersion').
+    get(function() {
+        if(this.legalAcceptance && this.legalAcceptance.length > 0){
+            let maxVersion = 0;
+            this.legalAcceptance.forEach((la) => {
+                if(la.version > maxVersion){
+                    maxVersion = la.version;
+                }
+
+            });
+
+            return maxVersion;
+        }
+        else {
+            return 0;
+        }
     });
 
 

@@ -25,32 +25,36 @@ async function getToken(req, res, next) {
     // Validate the passed-in user and key
     if (req.body && req.body.user && req.body.password) {
         // Authenticate the information provided by the user
-        const sql = `SELECT id, password FROM clw_talage_agency_portal_users WHERE clear_email = ${db.escape(req.body.user)} LIMIT 1;`;
-        const result = await db.query(sql).catch(function(e) {
-            log.error(e.message);
+
+
+        const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        const agencyPortalUserJSON = await agencyPortalUserBO.getByEmail(req.body.user).catch(function(err){
+            log.error(err + __location);
             res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
             error = true;
         });
+
         if (error) {
             return next(false);
         }
 
         // Check that the key was valid
-        if (!result.length) {
+        if (!agencyPortalUserJSON) {
             log.info('Authentication failed - No DB record' + __location);
             res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
             return next();
         }
 
         // Check the key
-        if (!await crypt.verifyPassword(result[0].password, req.body.password)) {
+        if (!await crypt.verifyPassword(agencyPortalUserJSON.password, req.body.password)) {
             log.info('Authentication failed - No Password chck' + __location);
             res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
             return next();
         }
         // TODO check API access and Application manage rights
 
-        payload.userId = result[0].id;
+        payload.userId = agencyPortalUserJSON.agencyPortalUserId;
     }
     else {
         log.info('Authentication failed - Bad Request ' + __location);

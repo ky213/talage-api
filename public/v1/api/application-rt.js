@@ -439,17 +439,17 @@ async function getApplicationList(req, res, next) {
 
     // check which agencies the user has access to
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
+    const agencyPortalUserJSON = await agencyPortalUserBO.getById(req.userTokenData.userId);
 
     let agencyNetworkId = null;
     let agencyId = null;
     // if the user is part of an agency network, use the network id
-    if(agencyPortalUserBO.agencyNetworkId){
-        agencyNetworkId = agencyPortalUserBO.agencyNetworkId;
+    if(agencyPortalUserJSON.agencyNetworkId){
+        agencyNetworkId = agencyPortalUserJSON.agencyNetworkId;
     }
     // if not part of a network, just look at the single agency
-    else if(agencyPortalUserBO.agencyId) {
-        agencyId = agencyPortalUserBO.agencyId;
+    else if(agencyPortalUserJSON.agencyId) {
+        agencyId = agencyPortalUserJSON.agencyId;
     }
 
     // not currently filtering out any applications via doNotReport

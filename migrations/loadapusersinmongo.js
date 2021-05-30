@@ -137,11 +137,15 @@ async function runFunction() {
 
             agencyPortalUser.agencyPortalUserId = result[i].id;
             if(result[i].clear_email && result[i].clear_email.length > 0){
-                agencyPortalUser.email = result[i].clear_email;
+                agencyPortalUser.email = result[i].clear_email.toLowerCase();
             }
             else {
                 try{
-                    agencyPortalUser.email = await crypt.decrypt(result[i].email);
+                    agencyPortalUser.email = await crypt.decrypt(result[i].email)
+                    if(agencyPortalUser.email === result[i].email){
+                        log.error(`did not decrypt email`);
+                    }
+                    agencyPortalUser.email = agencyPortalUser.email.toLowerCase();
                 }
                 catch(err){
                     log.debug(`Error decrypting user ${result[i].id} email `)
