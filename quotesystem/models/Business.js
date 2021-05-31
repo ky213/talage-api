@@ -181,7 +181,7 @@ module.exports = class Business {
 
         //this.owners_included = applicationDocJSON.ownersCovered;
         //looks in ApplicationDoc.owners array
-        if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0 ){
+        if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0){
             for (let i = 0; i < applicationDocJSON.owners.length; i++) {
                 if(applicationDocJSON.owners[i].include === true){
                     this.owners_included = true;
@@ -191,7 +191,7 @@ module.exports = class Business {
         }
 
         this.years_of_exp = applicationDocJSON.yearsOfExp;
-        this.primary_territory = applicationDocJSON.mailingState;
+        this.primary_territory = applicationDocJSON.primaryState;
         this.num_owners = applicationDocJSON.numOwners;
         //owner number fix
         if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0){
