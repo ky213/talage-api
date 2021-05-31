@@ -372,18 +372,20 @@ async function getReports(req) {
     let endDate = null;
 
     //Fix bad dates coming in.
-    if(!req.query.startDate || (req.query.startDate && req.query.startDate.startsWith('T00:00:00.000'))){
+    if(!req.query.startDate || req.query.startDate && req.query.startDate.startsWith('T00:00:00.000')){
         log.debug('AP getReports resetting start date' + __location);
         startDate = moment('2017-01-01').toISOString();
-    }else {
+    }
+    else {
         startDate = req.query.startDate;
     }
 
-    if(!req.query.endDate || (req.query.endDate && req.query.endDate.startsWith('T23:59:59.999'))){
+    if(!req.query.endDate || req.query.endDate && req.query.endDate.startsWith('T23:59:59.999')){
         // now....
         log.debug('AP getReports resetting end date' + __location);
         endDate = moment().toISOString();
-    }else {
+    }
+    else {
         endDate = req.query.endDate;
     }
 
