@@ -140,6 +140,8 @@ const cyberPolicySchema = new Schema({
     socialEngEndorsement: {type: Boolean, default: false},
     socialEngLimit: {type: Number, required: false},
     socialEngDeductible: {type: Number, required: false},
+    telecomsFraudEndorsement: {type: Boolean, default: false},
+    telecomsFraudEndorsementLimit: {type: Number, required: false},
     websiteMediaContentLiabilityEndorsement: {type: Boolean, default: false},
     websiteMediaContentLiabilityLimit: {type: Number, required: false},
     domains: {type: String},
@@ -156,7 +158,6 @@ const professionalLiabilityPolicySchema = new Schema({
     periodLoading: {type: Number, required: false}, //years covered after policy end
     yearsOfProfessionalExperience: {type: Number, required: false}
 });
-
 
 
 const PolicySchema = new Schema({
@@ -240,7 +241,6 @@ const ApplicationSchema = new Schema({
     mailingZipcode: {type: String, required: false},
     mailingSameAsPrimary: {type: Boolean, required: false, default: null},
     phone: {type: String, required: false},
-    //primaryTerritory: {type: String, required: false},
     primaryState: {type: String, required: false},
     website: {type: String, required: false},
     yearsOfExp: {type: Number, required: false},
@@ -275,7 +275,7 @@ const ApplicationSchema = new Schema({
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
-    handledByTalage: {type: Boolean, default: false},
+    handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
     copiedFromAppId: {type: String, required: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
