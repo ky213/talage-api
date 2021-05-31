@@ -5,8 +5,6 @@ const validator = global.requireShared('./helpers/validator.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-//const hasOtherOwner = require('./user').hasOtherOwner;
-//const hasOtherSigningAuthority = require('./user').hasOtherSigningAuthority;
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 /**
@@ -62,20 +60,6 @@ async function deleteAgencyUser(req, res, next){
         log.warn('You do not have permission to manage users from this agency');
         return next(serverHelper.forbiddenError('You do not have permission to manage users from this agency'));
     }
-
-    // Make sure there is an owner for this agency (we are not removing the last owner)
-    // if (!await hasOtherOwner(userAgency, id)){
-    //     // Log a warning and return an error
-    //     log.warn('This user is the account owner. You must assign ownership to another user before deleting this account');
-    //     return next(serverHelper.requestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
-    // }
-
-    // // Make sure there is another signing authority (we are not removing the last one)
-    // if (!await hasOtherSigningAuthority(userAgency, id)){
-    //     // Log a warning and return an error
-    //     log.warn('This user is the account signing authority. You must assign signing authority to another user before deleting this account');
-    //     return next(serverHelper.requestError('This user is the account signing authority. You must assign signing authority to another user before deleting this account.'));
-    // }
 
     await agencyPortalUserBO.deleteSoftById(parseInt(id, 10)).catch(function(err){
         log.error(err.message);

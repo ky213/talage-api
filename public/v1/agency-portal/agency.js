@@ -315,7 +315,7 @@ async function postAgency(req, res, next) {
 
     let insurers = [];
     if(useAgencyPrime === false){
-        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || (Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1)){
+        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1){
             log.warn('agencyId or Talage Wholesale are required');
             return next(serverHelper.requestError('You must enter at least one Agency ID or Talage Wholesale'));
         }
