@@ -622,15 +622,6 @@ async function postAgency(req, res, next) {
     //Agency already created not return error over landing page.
 
 
-    // Create a user for agency portal access
-    // // Encrypt the user's information
-    const encrypted = {
-        "firstName": firstName,
-        "lastName": lastName
-    };
-    await crypt.batchProcessObject(encrypted, 'encrypt', ['email',
-        'firstName',
-        'lastName']);
     const password = generatePassword();
     const hashedPassword = await crypt.hashPassword(password);
 
