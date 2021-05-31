@@ -14,106 +14,6 @@ const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js')
 const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
- * Checks whether the provided agency has an owner other than the current user
- *
- * @param {int} agency - The ID of the agency to check
- * @param {int} user - The ID of the user to exempt from the check
- * @param {boolean} agencyNetwork - (optional) Whether or not this is an agency network
- *
- * @return {boolean} - True if the agency has an owner; false otherwise
- */
-// function hasOtherOwner(agency, user, agencyNetwork = false) {
-//     return new Promise(async function(fulfill) {
-//         let error = false;
-//         //TODO Replace with direct model use
-//         // Determine which where statement is needed
-//         let where = '';
-//         if (agencyNetwork) {
-//             where = `\`agency_network\` = ${parseInt(agency, 10)}`;
-//         }
-//         else {
-//             where = `\`agency\` = ${parseInt(agency, 10)}`;
-//         }
-
-//         const sql = `
-// 				SELECT id
-
-// 				WHERE
-// 					\`group\` = 1 AND
-// 					\`id\` != ${parseInt(user, 10)} AND
-// 					\`state\` > 0 AND
-// 					${where}
-// 				LIMIT 1;
-// 			`;
-
-//         // Run the query
-//         const result = await db.query(sql).catch(function(err) {
-//             log.error('agencyPortalUser error ' + err + __location);
-//             error = true;
-//             fulfill(false);
-//         });
-//         if (error) {
-//             return;
-//         }
-
-//         // Check the result
-//         if (!result || !result.length) {
-//             fulfill(false);
-//             return;
-//         }
-
-//         fulfill(true);
-//     });
-// }
-
-// exports.hasOtherOwner = hasOtherOwner;
-
-/**
- * Checks whether the provided agency has a signing authority other than the current user
- *
- * @param {int} agency - The ID of the agency to check
- * @param {int} user - The ID of the user to exempt from the check
- *
- * @return {boolean} - True if the agency has a signing authority; false otherwise
- */
-// function hasOtherSigningAuthority(agency, user) {
-//     return new Promise(async function(fulfill) {
-//         let error = false;
-//         //TODO Replace with direct model use
-//         const sql = `
-// 				SELECT id
-
-// 				WHERE
-// 					\`can_sign\` = 1 AND
-// 					\`id\` != ${parseInt(user, 10)} AND
-// 					\`state\` > 0 AND
-// 					\`agency\` = ${parseInt(agency, 10)}
-// 				LIMIT 1;
-// 			`;
-
-//         // Run the query
-//         const result = await db.query(sql).catch(function(err) {
-//             log.error('agencyPortalUser error ' + err + __location);
-//             error = true;
-//             fulfill(false);
-//         });
-//         if (error) {
-//             return;
-//         }
-
-//         // Check the result
-//         if (!result || !result.length) {
-//             fulfill(false);
-//             return;
-//         }
-
-//         fulfill(true);
-//     });
-// }
-
-// exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
-
-/**
  * Validates a user and returns a clean data object
  *
  * @param {object} user - User Object
@@ -206,51 +106,6 @@ async function createUser(req, res, next) {
         }
         agencyId = agents[0];
     }
-
-    // If this user is to be set as owner, remove the current owner (they will become a super administrator)
-    // if (data.group === 1) {
-    //     const removeOwnerSQL = `
-    // 			UPDATE
-    // 			SET
-    // 				\`group\` = 2
-    // 			WHERE
-    // 				\`group\` = 1 AND
-    // 				${where}
-    // 			LIMIT 1;
-    // 		`;
-
-    //     // Run the query
-    //     await db.query(removeOwnerSQL, connection).catch(function(err) {
-    //         log.error('agencyPortalUser error ' + err + __location);
-    //         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    //     });
-    //     if (error) {
-    //         return next(error);
-    //     }
-    // }
-
-    // If the user is being set as the signing authority, remove the current signing authority
-    // if (data.canSign) {
-    //     const removeCanSignSQL = `
-    // 			UPDATE
-    //
-    // 			SET
-    // 				\`can_sign\` = NULL
-    // 			WHERE
-    // 				${where};
-    // 		`;
-
-    //     // Run the query
-    //     await db.query(removeCanSignSQL, connection).catch(function(err) {
-    //         log.error('agencyPortalUser error ' + err + __location);
-    //         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    //     });
-    //     if (error) {
-    //         return next(error);
-    //     }
-    // }
-
-    // Prepare the email address
 
     // Generate a random password for this user (they won't be using it anyway)
     const passwordHash = await crypt.hashPassword(Math.random().toString(36).substring(2, 15));
@@ -411,21 +266,6 @@ async function deleteUser(req, res, next) {
     }
     const id = req.query.id;
 
-    // Make sure there is an owner for this agency (we are not removing the last owner)
-    // if (!await hasOtherOwner(agencyOrNetworkID, id, isThisAgencyNetwork)) {
-    //     // Log a warning and return an error
-    //     log.warn('This user is the account owner. You must assign ownership to another user before deleting this account.');
-    //     return next(serverHelper.requestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
-    // }
-
-    // // Make sure there is another signing authority (we are not removing the last one) (this setting does not apply to agency networks)
-    // if (!req.authentication.isAgencyNetworkUser) {
-    //     if (!await hasOtherSigningAuthority(agencyOrNetworkID, id)) {
-    //         // Log a warning and return an error
-    //         log.warn('This user is the account signing authority. You must assign signing authority to another user before deleting this account.');
-    //         return next(serverHelper.requestError('This user is the account signing authority. You must assign signing authority to another user before deleting this account.'));
-    //     }
-    // }
     //TODO need rights check
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
@@ -553,72 +393,6 @@ async function updateUser(req, res, next) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     data.id = userObj.id;
-
-    // If this user is to be set as owner, remove the current owner (they will become a super administrator)
-    // Delete all other owners in case a state is reached where there was/is more than one (it's happened before)
-    // if (data.group === 1) {
-    // const removeOwnerSQL = `
-    // 		UPDATE
-    // 		SET
-    // 			\`group\` = 2
-    // 		WHERE
-    // 			\`group\` = 1 AND
-    // 			${where};
-    // 	`;
-
-    // // Run the query
-    // await db.query(removeOwnerSQL, connection).catch(function(err) {
-    //     log.error('agencyPortalUser error ' + err + __location);
-    //     error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    // });
-    // if (error) {
-    //     return next(error);
-    // }
-
-    // // Make sure there is an owner for this agency (we are not removing the last owner)
-    // }
-    // else if (!await hasOtherOwner(agencyOrNetworkID, data.id, isThisAgencyNetwork)) {
-    //     // Rollback the transaction
-    //     db.rollback(connection);
-
-    //     // Log a warning and return an error
-    //     log.warn('This user must be an owner as no other owners exist. Create a new owner first.');
-    //     return next(serverHelper.requestError('This user must be an owner as no other owners exist. Create a new owner first.'));
-    // }
-
-    // If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
-    // However adding functionality to update user from agency network so also need to make sure no agency id was sent in the req.body
-    // if (!req.authentication.isAgencyNetworkUser && !req.body.agency) {
-    //     if (data.canSign) {
-    //         const removeCanSignSQL = `
-    // 				UPDATE
-    // 					\`#agencyPortalUser\`
-    // 				SET
-    // 					\`can_sign\` = NULL
-    // 				WHERE
-    // 					${where};
-    // 			`;
-
-    //         // Run the query
-    //         await db.query(removeCanSignSQL, connection).catch(function(err) {
-    //             log.error('agencyPortalUser error ' + err + __location);
-    //             error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    //         });
-    //         if (error) {
-    //             return next(error);
-    //         }
-
-    //         // Make sure there is another signing authority (we are not removing the last one)
-    //     }
-    //     else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id)) {
-    //         // Rollback the transaction
-    //         db.rollback(connection);
-
-    //         // Log a warning and return an error
-    //         log.warn('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.');
-    //         return next(serverHelper.requestError('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.'));
-    //     }
-    // }
 
     // Prepare the email address
     const newUserJSON = {

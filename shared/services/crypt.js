@@ -95,12 +95,10 @@ exports.decrypt = function(val) {
         if (hadError) {
             return;
         }
- 
         // Return the decrypted result
         resolve(result);
     });
 };
-
 
 
 /**
