@@ -73,7 +73,8 @@ const locationSchema = new Schema({
     part_time_employees:  {type: Number, required: false},
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
-    billing: {type: Boolean, required: false, default: false},
+    billing: {type: Boolean, required: false, default: false}, //For new app for  AP this primary.  Billing is a Mailing address.
+    primary: {type: Boolean, required: false, default: false}, //Primary and Billing are different. Primary is physical
     own: {type: Boolean, required:false},
     businessPersonalPropertyLimit: {type: Number, required:false},
     buildingLimit: {type: Number, required:false},
