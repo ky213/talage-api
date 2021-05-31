@@ -211,6 +211,8 @@ class CompuwestBind extends Bind {
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
 
+        const txnDate = moment();
+        WorkCompPolicyAddRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
 
         // <CommlPolicy>
         const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
@@ -238,10 +240,12 @@ class CompuwestBind extends Bind {
         PaymentOption.ele('PaymentPlanCd', "bcpayplan:11");
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
+        let cCount = 1;
         try{
             if (appDoc.dba.length > 0) {
+                cCount++;
                 const DBAAdditionalInterest = Location.ele('AdditionalInterest');
-                DBAAdditionalInterest.att('id', 'c2');
+                DBAAdditionalInterest.att('id', 'c' + cCount.toString());
                 // <GeneralPartyInfo>
                 const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
                 // <NameInfo>
@@ -285,8 +289,9 @@ class CompuwestBind extends Bind {
             if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
                 appDoc.additionalInsuredList.forEach((additionalInsured) => {
                     const addInsuredAdditionalInterest = Location.ele('AdditionalInterest');
-                    additionalInsureredCount++;
-                    addInsuredAdditionalInterest.att('id', 'i' + additionalInsureredCount.toString());
+                    //additionalInsureredCount++;
+                    cCount++;
+                    addInsuredAdditionalInterest.att('id', 'c' + cCount.toString());
                     // <GeneralPartyInfo>
                     const DBAGeneralPartyInfo = addInsuredAdditionalInterest.ele('GeneralPartyInfo');
                     // <NameInfo>

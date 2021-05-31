@@ -1,25 +1,23 @@
+/* eslint-disable prefer-const */
 'use strict';
 
-const DatabaseObject = require('./DatabaseObject.js');
+
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const crypt = global.requireShared('./services/crypt.js');
+const moment = require('moment');
+var AgencyPortalUserModel = require('mongoose').model('AgencyPortalUser');
 var AgencyPortalUserGroup = require('mongoose').model('AgencyPortalUserGroup');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-const tableName = 'clw_talage_agency_portal_users'
-const skipCheckRequired = false;
-const passwordProperty = "password";
-
-const propToNotReturn = ['password','email_hash']
+const collectionName = 'AgencyPortalUsers'
 module.exports = class AgencyPortalUserBO{
 
-    #dbTableORM = null;
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        this.mongoDoc = null;
     }
+
 
     /**
 	 * Save Model
@@ -27,202 +25,283 @@ module.exports = class AgencyPortalUserBO{
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
 	 */
+    // Use SaveMessage
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
-            if(newObjectJSON.email){
-                newObjectJSON.email_hash = await crypt.hash(newObjectJSON.email);
-                newObjectJSON.clear_email = newObjectJSON.email;
-            }
-            await this.cleanupInput(newObjectJSON);
-            //password hashing is do not outside Savemodel
-            // do to needing to knowledge the workflow causing the save.
-            // user created save password process by Account PUT for AgencyPortal
-            //admin/agency-user for administration.
-
-
+            log.debug(`AgencyPortalUser savemodel ${JSON.stringify(newObjectJSON)}`)
+            let newDoc = true;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    newObjectJSON.agencyPortalUserId = dbDocJSON.agencyPortalUserId;
+                    this.id = dbDocJSON.agencyPortalUserId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.agencyPortalUserUuidId,newObjectJSON)
+                }
+                else {
+                    log.error("AgencyPortalUser PUT object not found " + newObjectJSON.id + __location)
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            if(newDoc === true) {
+                newDoc = await this.insertMongo(newObjectJSON).catch((err) => {
+                    log.error("AgencyPortalUser POST object error " + err + __location);
+                    reject(err);
+                });
+                this.id = newDoc.agencyPortalUserId;
+                this.mongoDoc = newDoc;
+
             }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-
-
+            else {
+                this.mongoDoc = this.getById(this.id);
+            }
             resolve(true);
 
         });
     }
 
-    /**
-	 * saves businessContact.
-     *
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
 
-    save(asNew = false){
+    getList(requestQueryJSON, addPermissions = false, includeDisabled = false) {
         return new Promise(async(resolve, reject) => {
-        //validate
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+            const queryProjection = {
+                "__v": 0,
+                "_id": 0
+            }
 
-            resolve(true);
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+
+            let query = {};
+            if (!includeDisabled) {
+                query.active = true;
+            }
+
+            let error = null;
+
+
+            var queryOptions = {};
+            queryOptions.sort = {agencyPortalUserId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.id && Array.isArray(queryJSON.id)){
+                query.agencyPortalUserId = {$in: queryJSON.id};
+                delete queryJSON.id
+            }
+            else if(queryJSON.id){
+                query.agencyPortalUserId = queryJSON.id;
+                delete queryJSON.id
+            }
+
+            if(queryJSON.agencyPortalUserId && Array.isArray(queryJSON.agencyPortalUserId)){
+                query.agencyPortalUserId = {$in: queryJSON.agencyPortalUserId};
+                delete queryJSON.agencyPortalUserId
+            }
+            else if(queryJSON.agencyPortalUserId){
+                query.agencyPortalUserId = queryJSON.agencyPortalUserId;
+                delete queryJSON.agencyPortalUserId
+            }
+
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId
+            }
+
+            if(queryJSON.agencyNetworkId && Array.isArray(queryJSON.agencyNetworkId)){
+                query.agencyNetworkId = {$in: queryJSON.agencyNetworkId};
+                delete queryJSON.agencyNetworkId
+            }
+            else if(queryJSON.agencyNetworkId){
+                query.agencyNetworkId = queryJSON.agencyNetworkId;
+                delete queryJSON.agencyNetworkId
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    // log.debug("AgencyPortalUserModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    if(addPermissions){
+                        for(let i = 0; i < docList.length; i++){
+                            const userGroupQuery = {"systemId": docList[i].agencyPortalUserGroupId};
+                            const userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
+                            if(userGroup){
+                                docList[i].groupRole = userGroup.name;
+                                docList[i].permissions = userGroup.permissions;
+                            }
+                        }
+                    }
+                    resolve(docList);
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await AgencyPortalUserModel.countDocuments(query).catch(err => {
+                    log.error("AgencyPortalUserModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
         });
     }
 
-    loadFromId(id) {
+
+    async getMongoDocbyUserId(agencyPortalUserId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if (agencyPortalUserId) {
+                const query = {
+                    "agencyPortalUserId": agencyPortalUserId,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await AgencyPortalUserModel.findOne(query, '-__v');
+                    if(docDB){
+                        docDB.id = docDB.agencyPortalUserId;
+                    }
+                }
+                catch (err) {
+                    log.error("Getting agencyPortalUser error " + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const agencyPortalUserDoc = mongoUtils.objCleanup(docDB);
+                    resolve(agencyPortalUserDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-    getList(queryJSON, addPermissions = false, includeDisabled = false) {
-        return new Promise(async(resolve, reject) => {
-            let rejected = false;
-            // Create the update query
-            let sql = `
-                    select * from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.state){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` state = ${db.escape(queryJSON.state)} `
-                    hasWhere = true;
-                }
-                else if (!includeDisabled) {
-                    sql += 'where state > 0';
-                    hasWhere = true;
-                }
-                if(queryJSON.agencynetworkid){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency_network = ${db.escape(queryJSON.agencynetworkid)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.agency_network){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.agencyid){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency = ${db.escape(queryJSON.agencyid)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.agency){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency = ${db.escape(queryJSON.agencyid)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.agencylocationid){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.agency_location){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.cansign){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` can_sign = ${db.escape(queryJSON.cansign)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.group){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` \`group\` = ${db.escape(queryJSON.group)} `
-                    hasWhere = true;
-                }
-            }
-            else if (!includeDisabled) {
-                sql += 'where state > 0';
-            }
-            // Run the query
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const agencyPortalUserBO = new AgencyPortalUserBO();
-                    await agencyPortalUserBO.#dbTableORM.decryptFields(result[i]);
-                    await agencyPortalUserBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await agencyPortalUserBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    const cleanJSON = agencyPortalUserBO.#dbTableORM.cleanJSON();
-                    const outputJSON = this.cleanOuput(cleanJSON)
-                    outputJSON.lastLogin = outputJSON.last_login;
-                    outputJSON.canSign = outputJSON.can_sign ? outputJSON.can_sign : null;
-
-                    if(addPermissions){
-                        const userGroupQuery = {"systemId": outputJSON.group};
-                        const userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
-                        if(userGroup){
-                            outputJSON.groupRole = userGroup.name;
-                            outputJSON.permissions = userGroup.permissions;
-                        }
-                    }
-                    boList.push(outputJSON);
-                }
-                resolve(boList);
-            }
-            else {
-                //Search so no hits ok.
-                resolve([]);
             }
         });
     }
 
     getById(id) {
+        return this.getMongoDocbyUserId(id);
+    }
+
+
+    async getByEmail(email, activeUser = true) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if (email) {
+                const query = {
+                    "email": email.toLowerCase(),
+                    active: activeUser
+                };
+                log.debug(`getByEmail ${JSON.stringify(query)}` + __location);
+                let docDB = null;
+                try {
+                    docDB = await AgencyPortalUserModel.findOne(query, '-__v');
+                    if(docDB){
+                        docDB.id = docDB.agencyPortalUserId;
+                    }
+                }
+                catch (err) {
+                    log.error("Getting AgencyPortalUser error " + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                const cleanJSON = this.#dbTableORM.cleanJSON();
-                this.cleanOuput(cleanJSON)
-                resolve(cleanJSON);
+                }
+                if(docDB){
+                    const agencyPortalUserDoc = mongoUtils.objCleanup(docDB);
+                    resolve(agencyPortalUserDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -230,10 +309,116 @@ module.exports = class AgencyPortalUserBO{
         });
     }
 
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"agencyPortalUserUuidId": docId};
+                let newAgencyJSON = null;
+                //allow reset to active = true only.
+                if(newObjectJSON.active === false){
+                    delete newObjectJSON.active;
+                }
+                try {
+                    const changeNotUpdateList = [
+                        "id",
+                        "agencyPortalUserId",
+                        "agencyPortalUserUuidId",
+                        "agencyPortalUserId"
+                    ]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await AgencyPortalUserModel.updateOne(query, newObjectJSON);
+                    const newAgencyDoc = await AgencyPortalUserModel.findOne(query);
+
+                    newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
+                }
+                catch (err) {
+                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newAgencyJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
+
+    }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        if(newObjectJSON.email){
+            newObjectJSON.email = newObjectJSON.email.toLowerCase();
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.agencyPortalUserId = newSystemId;
+        const agencyPortalUser = new AgencyPortalUserModel(newObjectJSON);
+        //Insert a doc
+        await agencyPortalUser.save().catch(function(err) {
+            log.error('Mongo AgencyPortalUser Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = newSystemId;
+        return mongoUtils.objCleanup(agencyPortalUser);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"agencyPortalUserId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.agencyPortalUserId = -1;
+            queryOptions.limit = 1;
+            const docList = await AgencyPortalUserModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].agencyPortalUserId > maxId){
+                        maxId = docList[i].agencyPortalUserId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
+
     async getByAgencyId(agencyId, addPermissions = false) {
         if(agencyId){
-            const addPermissions = true;
-            const query = {'agencyid': agencyId};
+            addPermissions = true;
+            const query = {'agencyId': agencyId};
             const userList = await this.getList(query, addPermissions).catch(function(err){
                 throw err;
             })
@@ -247,22 +432,17 @@ module.exports = class AgencyPortalUserBO{
     deleteSoftById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id > 0){
-
-                //Remove old records.
-                const sql = `Update ${tableName} 
-                        SET state = -2
-                        WHERE id = ${id}
-                `;
-                let rejected = false;
-                const result = await db.query(sql).catch(function(error) {
-                    // Check if this was
-                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
-                    rejected = true;
-                    reject(error);
-                });
-                if (rejected) {
-                    return false;
+            if (id) {
+                let agencyPortalUserDoc = null;
+                try {
+                    const getDoc = true;
+                    agencyPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                    agencyPortalUserDoc.active = false;
+                    await agencyPortalUserDoc.save();
+                }
+                catch (err) {
+                    log.error(`Error marking agencyPortalUserDoc from id ${id} ` + err + __location);
+                    reject(err);
                 }
                 resolve(true);
 
@@ -271,62 +451,6 @@ module.exports = class AgencyPortalUserBO{
                 reject(new Error('no id supplied'))
             }
         });
-    }
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
-
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    cleanOuput(outputJSON){
-        for(let i = 0; i < propToNotReturn.length; i++){
-            if(outputJSON[propToNotReturn[i]]){
-                delete outputJSON[propToNotReturn[i]]
-            }
-        }
-        return outputJSON;
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        this.agencyNetworkId = dbJSON.agency_network;
-        this.agencyId = dbJSON.agency;
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
     }
 
     getGroupList(forTalageAdmin = false, agencyNetworkRoles = false) {
@@ -354,213 +478,78 @@ module.exports = class AgencyPortalUserBO{
             resolve(userGroupList);
         });
     }
-}
 
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "agency": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "agency_location": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "agency_network": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "can_sign": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "email": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "email_hash": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(40)"
-    },
-    "group": {
-        "default": "5",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "password": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(97)"
-    },
-    "require_reset": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "last_login": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "reset_required": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "timezone": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "timezone_name": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(100)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "clear_email": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(255)"
+    async updateLastLogin(agencyPortalUserId){
+        try{
+            const query = {agencyPortalUserId: agencyPortalUserId};
+            const apuDoc = await AgencyPortalUserModel.findOne(query)
+            if(apuDoc){
+                apuDoc.lastLogin = new moment();
+                await apuDoc.save()
+            }
+        }
+        catch(err){
+            log.error(`Error saving last log for ${agencyPortalUserId} error: ` + err + __location)
+            return false
+        }
+        return true;
     }
-}
 
-class DbTableOrm extends DatabaseObject {
+    /**
+	 * checkForDuplicateEmail
+     *
+	 * @param {object} agencyPortalUserId - new or updating userId -999 for new
+     * @param {object} chkEmail - chkEmail to check
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+	 */
+    async checkForDuplicateEmail(agencyPortalUserId, chkEmail){
+        let hasDuplicate = false;
+        //new user
+        if(!agencyPortalUserId){
+            agencyPortalUserId = -999;
+        }
 
-    constructor(tableName){
-        super(tableName, properties);
+        try{
+            const query = {
+                agencyPortalUserId: {$ne: agencyPortalUserId},
+                active: true,
+                email: chkEmail
+            };
+            const apuDoc = await AgencyPortalUserModel.findOne(query)
+            // eslint-disable-next-line no-unneeded-ternary
+            hasDuplicate = apuDoc ? true : false;
+        }
+        catch(err){
+            log.error(`Error saving last log for ${agencyPortalUserId} error: ` + err + __location)
+            return false
+        }
+        return hasDuplicate;
     }
+
+    setPasword(id, newHashedPassword) {
+        return new Promise(async(resolve, reject) => {
+            //validate
+            if (id) {
+                let agencyPortalUserDoc = null;
+                try {
+                    const getDoc = true;
+                    agencyPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                    agencyPortalUserDoc.password = newHashedPassword;
+                    agencyPortalUserDoc.resetRequired = false;
+                    await agencyPortalUserDoc.save();
+                }
+                catch (err) {
+                    log.error(`Error marking agencyPortalUserDoc from id ${id} ` + err + __location);
+                    reject(err);
+                }
+                resolve(true);
+
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
 
 }

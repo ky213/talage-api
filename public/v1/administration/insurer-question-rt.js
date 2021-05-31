@@ -26,7 +26,6 @@ async function findAll(req, res, next) {
         delete req.query.question
     }
 
-    log.debug(JSON.stringify(req.query));
     const rows = await insurerQuestionBO.getList(req.query).catch(function(err) {
         error = err;
     })
@@ -122,14 +121,14 @@ async function add(req, res, next) {
     }
 
     //update cache
-    const questionSvc = global.requireShared('./services/questionsvc.js');
-    try{
-        //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.talageQuestionId);
-    }
-    catch(err){
-        log.error(`Error update question cache for ${insurerQuestionBO.talageQuestionId}`)
-    }
+    // const questionSvc = global.requireShared('./services/questionsvc.js');
+    // try{
+    //     //do not await not need to wait for response
+    //     questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.talageQuestionId);
+    // }
+    // catch(err){
+    //     log.error(`Error update question cache for ${insurerQuestionBO.talageQuestionId}`)
+    // }
     res.send(200, objectJSON);
     return next();
 }
@@ -145,7 +144,7 @@ async function update(req, res, next) {
 
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
-    let questionId = null;
+    //let questionId = null;
 
     // if there is no expirationDate or effectiveDate provided, default them
     if(!req.body.hasOwnProperty("expirationDate")){
@@ -172,17 +171,17 @@ async function update(req, res, next) {
         return next(error);
     }
     //update cache
-    if(newJSON.talageQuestionId){
-        questionId = newJSON.talageQuestionId;
-    }
-    const questionSvc = global.requireShared('./services/questionsvc.js');
-    try{
-        //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(questionId);
-    }
-    catch(err){
-        log.error(`Error update question cache for ${questionId}`)
-    }
+    // if(newJSON.talageQuestionId){
+    //     questionId = newJSON.talageQuestionId;
+    // }
+    //const questionSvc = global.requireShared('./services/questionsvc.js');
+    // try{
+    //     //do not await not need to wait for response
+    //     questionSvc.UpdateRedisIndustryQuestionByQuestionId(questionId);
+    // }
+    // catch(err){
+    //     log.error(`Error update question cache for ${questionId}`)
+    // }
     res.send(200, newJSON);
     return next();
 }

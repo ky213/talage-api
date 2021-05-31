@@ -317,6 +317,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error("Error processing Agency locations " + err + __location);
     }
     // Retrieve Officer Titles
+    // TODO use BO
     const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
 
     // Including an require statements.

@@ -197,13 +197,8 @@ async function getApplication(req, res, next) {
                 }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            // Do not overwrite the reasons for quote Obj if it is marked dead
-            if(quoteJSON.quoteStatusId !== quoteStatus.dead.id){
-                if (quoteJSON.status === 'bind_requested'
-                || quoteJSON.bound
-                || quoteJSON.status === 'quoted') {
-                    quoteJSON.reasons = '';
-                }
+            if (quoteJSON.status === 'bind_requested' || quoteJSON.bound || quoteJSON.status === 'quoted') {
+                quoteJSON.reasons = '';
             }
             // Change the name of autodeclined
             if (quoteJSON.status === 'autodeclined') {
@@ -1327,12 +1322,15 @@ async function bindQuote(req, res, next) {
                 if(applicationDB.appStatusId !== 90){
                     // Update application status
                     await applicationBO.updateStatus(applicationId,"bound", 90);
-                    // Update Application-level quote metrics when we do a bind.
-                    await applicationBO.recalculateQuoteMetrics(applicationId);
-                }else {
+                   
+                }
+                else {
                     log.info(`Application ${applicationId} is already bound with appStatusId ${applicationDB.appStatusId} ` + __location);
                 }
-            } catch (err) {
+                // Update Application-level quote metrics when we do a bind. Need to pickup the new bound quote.
+                await applicationBO.recalculateQuoteMetrics(applicationId);
+            }
+            catch (err) {
                 // We Do not pass error object directly to Client - May cause info leak.
                 log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
                 res.send({'message': "Failed to mark quote as bound. If this continues please contact us."});
@@ -1497,14 +1495,15 @@ async function GetResources(req, res, next){
         responseObj.legalArticles = legalArticles;
     }
     rejected = false;
-    const sql2 = `select abbr as type,description,heading, name from clw_talage_policy_types where abbr in ('BOP', 'GL', 'WC')`
-    const result2 = await db.query(sql2).catch(function(error) {
+    //const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
+    const policyTypeBO = new PolicyTypeBO();
+    const policyTypeList = await policyTypeBO.getList({wheelhouse_support: true}).catch(function(error) {
         // Check if this was
         rejected = true;
-        log.error(`clw_talage_policy_types error on select ` + error + __location);
+        log.error(`policyTypeBO error on getList ` + error + __location);
     });
-    if (!rejected) {
-        responseObj.policyTypes = result2;
+    if (!rejected && policyTypeList) {
+        responseObj.policyTypes = policyTypeList;
     }
 
     rejected = false;
@@ -1518,6 +1517,7 @@ async function GetResources(req, res, next){
         responseObj.territories = result3;
     }
     rejected = false;
+    // TODO Use BO
     const sql4 = `SELECT officerTitle FROM \`officer_titles\``;
     const result4 = await db.query(sql4).catch(function(error) {
         // Check if this was
@@ -1951,7 +1951,7 @@ async function markQuoteAsDead(req, res, next){
     }
     let userName = null;
     if (userJSON) {
-       userName = userJSON.clear_email;
+        userName = userJSON.clear_email;
     }
     else {
         log.error(`Could not find user json for user id ${req.authentication.userID} : ` + __location);
@@ -1969,7 +1969,7 @@ async function markQuoteAsDead(req, res, next){
     else {
         res.send({'message': 'Failed to mark quote as dead. If this continues please contact us.'});
     }
-        return next();
+    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {

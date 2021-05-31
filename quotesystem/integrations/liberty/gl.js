@@ -48,19 +48,19 @@ module.exports = class LibertyGL extends Integration{
 			'1000000/2000000/2000000'
 		];
 
-		// The structure for these questions were hard coded into the request and should not be asked with the general class specific questions
-		const codedQuestionsByIdentifier = [
-			'CCP123',
-			'UWQ5944',
-			'UWQ5943',
-			'UWQ5946'
-		];
-		const codedQuestionsById = [
-			'1306',
-			'1307',
-			'1308',
-			'1309'
-		];
+		// // The structure for these questions were hard coded into the request and should not be asked with the general class specific questions
+		// const codedQuestionsByIdentifier = [
+		// 	'CCP123',
+		// 	'UWQ5944',
+		// 	'UWQ5943',
+		// 	'UWQ5946'
+		// ];
+		// const codedQuestionsById = [
+		// 	'1306',
+		// 	'1307',
+		// 	'1308',
+		// 	'1309'
+		// ];
 
 		// An association list tying the Talage entity list (left) to the codes used by this insurer (right)
 		const entityMatrix = {
@@ -297,59 +297,55 @@ module.exports = class LibertyGL extends Integration{
 								}
 
 								const policySupplementQuestions = [];
-                                const question_attributes = {};
-                                let had_error = false;
-								// Get the question attributes
-                                const query = {
-                                        "insurerId": this.insurer.id,
-                                        "policyType": this.policy.type,
-                                        "talageQuestionId": {$in: Object.keys(this.questions)}
-                                }
-                                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                                const insurerQuestionList = await InsurerQuestionModel.find(query).catch((error) => {
-                                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
-                                    this.reasons.push('System error - Unable to get question attributes');
-                                    had_error = true;
-                                });
-                                if(had_error){
-                                    fulfill(this.return_result('error'));
-                                    return;
-                                }
-                                insurerQuestionList.forEach((insurerQuestion) => {
-                                    if(insurerQuestion.attributes){
-                                        question_attributes[insurerQuestion.talageQuestionId] = insurerQuestion.attributes;
-                                    }
-                                });
+                                // const question_attributes = {};
+                                // let had_error = false;
+								// // Get the question attributes
+                                // const query = {
+                                //         "insurerId": this.insurer.id,
+                                //         "policyType": this.policy.type,
+                                //         "talageQuestionId": {$in: Object.keys(this.questions)}
+                                // }
+                                // const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                // const insurerQuestionList = await InsurerQuestionModel.find(query).catch((error) => {
+                                //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
+                                //     this.reasons.push('System error - Unable to get question attributes');
+                                //     had_error = true;
+                                // });
+                                // if(had_error){
+                                //     fulfill(this.return_result('error'));
+                                //     return;
+                                // }
+                                // insurerQuestionList.forEach((insurerQuestion) => {
+                                //     if(insurerQuestion.attributes){
+                                //         question_attributes[insurerQuestion.talageQuestionId] = insurerQuestion.attributes;
+                                //     }
+                                // });
 
-								for(const question_id in this.questions){
-									if(Object.prototype.hasOwnProperty.call(this.questions, question_id)){
-										const question = this.questions[question_id];
-
+								//for(const question_id in this.questions){
+                                for(const insurerQuestion of this.insurerQuestionList){
+									if(Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+										const question = this.questions[insurerQuestion.talageQuestionId];
+                                        if(!question){
+                                            continue;
+                                        }
 										// Find the attributes for this question
-										if(Object.prototype.hasOwnProperty.call(question_attributes, question_id)){
-											const attributes = question_attributes[question_id];
-
+                                        const attributes = insurerQuestion.attributes;
+										if(typeof attributes === 'object'){
 											// Make sure the question has the appropriate attributes
 											if(Object.prototype.hasOwnProperty.call(attributes, 'Underwriting Question Code')){
-												if(question.identifier === attributes['Underwriting Question Code']){
+												if(insurerQuestion.identifier === attributes['Underwriting Question Code']){
 													if(Object.prototype.hasOwnProperty.call(attributes, 'XML Path')){
 														question['XML Path'] = attributes['XML Path'];
 														policySupplementQuestions.push(question);
 													}
                                                     else{
-														log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing required XML Path attribute.` + __location);
-														this.reasons.push('Insurer question missing required XML Path');
-														fulfill(this.return_result('error'));
-														return;
+														log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing required XML Path attribute. (Insurer Question ${insurerQuestion.identifier})` + __location);
 													}
 												}
 											}
 										}
                                         else{
-											log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing attributes (Question ID ${question_id}).` + __location);
-											this.reasons.push('Insurer question missing required XML Path');
-											fulfill(this.return_result('error'));
-											return;
+											log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing attributes (Insurer Question ${insurerQuestion.identifier}).` + __location);
 										}
 									}
 								}
@@ -383,23 +379,30 @@ module.exports = class LibertyGL extends Integration{
 							// </QuestionAnswer>
 
 							// Loop through each question
-							for(const question_id in this.questions){
-								if(Object.prototype.hasOwnProperty.call(this.questions, question_id)){
-									const question = this.questions[question_id];
-									const QuestionCd = this.question_identifiers[question.id];
+							//for(const question_id in this.questions){
+                            for(const insurerQuestion of this.insurerQuestionList){
+								if(Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+									const question = this.questions[insurerQuestion.talageQuestionId];
+                                    if(!question){
+                                        continue;
+                                    }
 
 									/** Don't process questions:
 									 *  - without a code (not for this insurer)
 									 *  - coded questions (one that has a structure hard-coded elsehwere in this file)
 									 */
-									if(!QuestionCd || codedQuestionsById.includes(question.id) || codedQuestionsByIdentifier.includes(QuestionCd)){
+									// if(!insurerQuestion.identifier || codedQuestionsById.includes(question.id) || codedQuestionsByIdentifier.includes(insurerQuestion.identifier)){
+									// 	continue;
+									// }
+
+                                    if(!insurerQuestion.identifier){
 										continue;
 									}
 
 									// For Yes/No questions, if they are not required and the user answered 'No', simply don't send them
-									if(question.type === 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()){
-										continue;
-									}
+									// if(question.type === 'Yes/No' && !question.required && !question.get_answer_as_boolean()){
+									// 	continue;
+									// }
 
 									// Get the answer
 									let answer = '';
@@ -407,7 +410,7 @@ module.exports = class LibertyGL extends Integration{
 										answer = this.determine_question_answer(question);
 									}
                                     catch(error){
-                                        log.error(`Liberty GL (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                                        log.error(`Liberty GL (application ${this.app.id}): Could not determine question ${insurerQuestion.talageQuestionId} answer: ${error} ${__location}`);
 										//this.reasons.push('Talage was unable to determine the answer to a question');
 										//fulfill(this.return_result('error'));
 										//return;
@@ -420,7 +423,7 @@ module.exports = class LibertyGL extends Integration{
 
 									// Build out the question structure
 									QuestionAnswer = Policy.ele('QuestionAnswer');
-										QuestionAnswer.ele('QuestionCd', QuestionCd);
+										QuestionAnswer.ele('QuestionCd', insurerQuestion.identifier);
 
 									if(question.type === 'Yes/No'){
 										QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');

@@ -264,26 +264,23 @@ module.exports = class Application {
         for (const location of this.business.locations) {
             for (const activityCode of location.activity_codes) {
                 // Check that the ID is valid
-                let result = null;
                 try {
-                    result = await db.query(`SELECT description FROM clw_talage_activity_codes WHERE id = ${activityCode.id} LIMIT 1;`);
-                    if (!result || result.length !== 1) {
-                        throw new Error(`Data Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
+
+                    const ActivityCodeBO = global.requireShared('./models/ActivityCode-BO.js');
+                    const activityCodeBO = new ActivityCodeBO();
+                    const activityCodeJson = await activityCodeBO.getById(activityCode.id)
+                    if(activityCodeJson){
+                        activityCode.description = activityCodeJson.description;
+                    }
+                    else {
+                        // this should never hit, but putting a log just in case...
+                        log.warn("Translate Warning: activity code result does not contain a description, skipping...")
                     }
                 }
                 catch (e) {
                     log.error(`Translation Error: DB SELECT activity codes error: ${e}. ` + __location);
                     //TODO Consistent error types
                     throw e;
-                }
-
-                // assign the description to the activity code
-                if (result[0].description) {
-                    activityCode.description = result[0].description;
-                }
-                else {
-                    // this should never hit, but putting a log just in case...
-                    log.warn("Translate Warning: activity code result does not contain a description, skipping...")
                 }
             }
         }

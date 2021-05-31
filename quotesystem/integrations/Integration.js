@@ -58,6 +58,7 @@ module.exports = class Integration {
 
         // Integration Data
         this.app = app;
+        //this.industry_code is combination of Talage industrycode and insurer industry code.
         this.industry_code = {};
         this.insurerIndustryCode = {};
 
@@ -77,6 +78,7 @@ module.exports = class Integration {
         this.request_id = '';
         this.seconds = 0;
         this.universal_questions = [];
+        this.insurerQuestionList = []; //insurerQuestionModel
         this.writer = '';
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -671,7 +673,7 @@ module.exports = class Integration {
     }
 
     /**
-     * Get insurer questions for given talage questions
+     * Get insurer questions for given talage questions 
      *
      * @param {string} questionSubjectArea - The question subject area ("general", "location", ...) Default is "general".
      * @param {Array} talageQuestionIdList - Array of Talage question IDs
@@ -679,24 +681,26 @@ module.exports = class Integration {
      */
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
+            
+            talageQuestionIdList = talageQuestionIdList.map(Number)
             const query = {
                 "insurerId": this.insurer.id,
                 "questionSubjectArea": questionSubjectArea,
                 "talageQuestionId": {$in: talageQuestionIdList}
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-            let insurerQuestionList = null;
+            let insurerQuestionListSA = null;
             try{
-                insurerQuestionList = await InsurerQuestionModel.find(query);
+                insurerQuestionListSA = await InsurerQuestionModel.find(query);
             }
             catch(err){
                 throw err
             }
-            insurerQuestionList.forEach((insurerQuestion) => {
+            insurerQuestionListSA.forEach((insurerQuestion) => {
                 insurerQuestion.question = insurerQuestion.talageQuestionId;
                 insurerQuestion.id = insurerQuestion.insurerQuestionId;
             });
-            return insurerQuestionList;
+            return insurerQuestionListSA;
         }
         else {
             return [];
@@ -773,7 +777,7 @@ module.exports = class Integration {
                     let newInsurerQuestionList = [];
                     for(let i = 0; i < territoryList.length; i++){
                         const tQFound = insurerActivtyCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territoryList[i]);
-                        if(tQFound){
+                        if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
                             newInsurerQuestionList = tQFound.insurerQuestionIdList
                             break;
                         }
@@ -828,26 +832,27 @@ module.exports = class Integration {
     }
 
     /**
-     * Gets the identifiers for each question for the current insurer
+     * Gets the identifiers for each question for the current insurer also populates also populates insurerQuestionList
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
      */
     get_question_identifiers() {
-        // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
         return new Promise(async(fulfill) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
+            const talageQuestionIdList = question_ids.map(Number)
 
             if (question_ids.length > 0) {
                 const query = {
                     "insurerId": this.insurer.id,
-                    "talageQuestionId": {$in: question_ids}
+                    "talageQuestionId": {$in: talageQuestionIdList}
                 }
                 const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                let insurerQuestionList = null;
+                //let insurerQuestionList = null;
                 try{
-                    insurerQuestionList = await InsurerQuestionModel.find(query);
-                    if(insurerQuestionList && insurerQuestionList.length === 0){
+                    log.debug(`get_question_identifiers query ${JSON.stringify(query)}`)
+                    this.insurerQuestionList = await InsurerQuestionModel.find(query);
+                    if(this.insurerQuestionList && this.insurerQuestionList.length === 0){
                         log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
                     }
                 }
@@ -855,7 +860,7 @@ module.exports = class Integration {
                     throw err
                 }
                 const identifiers = {};
-                insurerQuestionList.forEach((insurerQuestion) => {
+                this.insurerQuestionList.forEach((insurerQuestion) => {
                     identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
                     if (insurerQuestion.universal) {
                         this.universal_questions.push(insurerQuestion.talageQuestionId);
@@ -1502,7 +1507,7 @@ module.exports = class Integration {
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving qoute letter. error ${err} ` + __location)
         }
-
+    
         // quoteStatusId and quoteStatusDescription
         const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;
@@ -2368,51 +2373,48 @@ module.exports = class Integration {
                     }
                 }
                 // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
-                const sql = `
-                    SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
-                    FROM clw_talage_industry_codes AS ic 
-                    WHERE ic.id = ${this.app.applicationDocData.industryCode};
-                `;
-                let hadError = false;
-                const result = await db.query(sql).catch((error) => {
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
-                    hadError = true;
-                });
-                if (hadError) {
-                    // Query error
-                    fulfill(false);
-                    return;
-                }
-                //process attributes from mysql clw_talage_industry_codes
-                //backward compatible with old multi-table query.
-                if(this.industry_code){
-                    const industryCodeDB = result[0];
-                    // eslint-disable-next-line guard-for-in
-                    for(const prop in industryCodeDB){
-                        this.insurerIndustryCode[prop] = industryCodeDB[prop];
-                        this.industry_code[prop] = industryCodeDB[prop];
+               
+                // const sql = `
+                //     SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
+                //     FROM clw_talage_industry_codes AS ic 
+                //     WHERE ic.id = ${this.app.applicationDocData.industryCode};
+                // `;
+                // let hadError = false;
+                // const result = await db.query(sql).catch((error) => {
+                //     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
+                //     hadError = true;
+                // });
+                // if (hadError) {
+                //     // Query error
+                //     fulfill(false);
+                //     return;
+                // }
+                try{
+                    const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+                    const industryCodeBO = new IndustryCodeBO();
+                    const industryCodeJson = await industryCodeBO.getById(this.app.applicationDocData.industryCode);
+                    if(industryCodeJson){
+                        if(this.industry_code){
+                            //backward compatible with old multi-table query.
+                            // eslint-disable-next-line array-element-newline
+                            const propsToCopy = ['description','cgl', 'sic', 'hiscox', 'naics','iso'];
+                            // eslint-disable-next-line guard-for-in
+                            this.industry_code.id = industryCodeJson.industryCodeId;
+                            for(const prop in industryCodeJson){
+                                if(propsToCopy.indexOf(prop) > -1){
+                                    this.insurerIndustryCode[prop] = industryCodeJson[prop];
+                                    this.industry_code[prop] = industryCodeJson[prop];
+                                }
+                            }
+                        }
+                        else {
+                            this.industry_code = industryCodeJson;
+                            this.industry_code.id = industryCodeJson.industryCodeId;
+                        }
                     }
                 }
-                else {
-                    this.industry_code = result[0];
-
-                    // If there are attributes, parse them for later use
-                    if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
-                        try {
-                            this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-                        }
-                        catch (error) {
-                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
-                            this.industry_code.attributes = {};
-                        }
-                    }
-                    else {
-                        if (this.requiresInsurerIndustryCodes) {
-                            log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
-                        }
-                        this.industry_code.attributes = {};
-                    }
-                    this.insurerIndustryCode = this.industry_code;
+                catch(err){
+                    log.error("Error getting industryCodeBO " + err + __location);
                 }
                 fulfill(true);
             }

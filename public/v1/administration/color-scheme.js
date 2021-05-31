@@ -7,6 +7,7 @@ const serverHelper = global.requireRootPath('server.js');
 async function readColorSchemeList(req, res, next) {
     // Retrieve the color schemes from the database.
     // Obviously this is only quick and dirty just to test the administration client API. This code should go into a model object.
+    //TODO use BO
     const sql = `
 		SELECT id, state, name, \`primary\`, primary_accent, secondary, secondary_accent
 		FROM clw_talage_color_schemes
