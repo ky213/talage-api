@@ -204,7 +204,7 @@ var agencyReportTask = async function(){
     }
     else {
         log.info("Agency Inactvity Report: No agencies to report ");
-        let toEmail = 'customersuccess@talageins.com';
+        let toEmail = 'service@talageins.com';
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
