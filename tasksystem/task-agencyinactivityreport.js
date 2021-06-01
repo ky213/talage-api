@@ -178,7 +178,7 @@ var agencyReportTask = async function(){
             // send email
             // Production email goes to Adam.
             // non production Brian so we can test it.
-            let toEmail = 'customersuccess@talageins.com';
+            let toEmail = 'service@talageins.com';
             if(global.settings.ENV !== 'production'){
                 toEmail = 'brian@talageins.com';
             }
