@@ -4,41 +4,39 @@ const validator = global.requireShared('./helpers/validator.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-module.exports = async function(val, agency, agencyNetwork){
-    if(!validator.integer(val) || agency && !validator.integer(agency)){
+module.exports = async function(val, agencyId, isAgencyNetwork){
+    if(!validator.integer(val) || agencyId && !validator.integer(agencyId)){
         return false;
     }
 
-    // If the agency ID was supplied, make sure the user belongs to that agency
-    let where = '';
-    if(agency){
-        if(agencyNetwork){
-            where = ` AND \`agency_network\` = ${parseInt(agency, 10)}`;
+    const query = {agencyPortalUserId: parseInt(val, 10)};
+    if(agencyId){
+        if(isAgencyNetwork){
+            query.agencyNetworkId = parseInt(agencyId, 10);
         }
         else{
-            where = ` AND \`agency\` = ${parseInt(agency, 10)}`;
+            query.agencyId = parseInt(agencyId, 10);
         }
     }
 
-    // Make sure this user exists in the database
-    const sql = `
-		SELECT \`id\`
-		FROM \`#__agency_portal_users\`
-		WHERE \`id\` = ${parseInt(val, 10)}
-		${where}
-		LIMIT 1;
-	`;
 
-    // Run the query
-    let error = false;
-    const result = await db.query(sql).catch(function(err){
-        log.error('__agency_portal_users error ' + err + __location);
-        error = true;
+    let had_error = false;
+    const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    log.debug(`Validator UserId query ${JSON.stringify(query)}`);
+    const result = await agencyPortalUserBO.getList(query).catch(function(error){
+        log.error(error + __location);
+        had_error = true;
     });
-    if(error){
+    if(had_error){
         return false;
     }
 
-    // Check the result
-    return Boolean(result.length);
+    if(result && result.length > 0){
+        return true;
+    }
+    else {
+        return false;
+    }
+
 };

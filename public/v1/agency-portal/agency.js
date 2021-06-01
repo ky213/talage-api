@@ -315,7 +315,7 @@ async function postAgency(req, res, next) {
 
     let insurers = [];
     if(useAgencyPrime === false){
-        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || (Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1)){
+        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1){
             log.warn('agencyId or Talage Wholesale are required');
             return next(serverHelper.requestError('You must enter at least one Agency ID or Talage Wholesale'));
         }
@@ -420,21 +420,18 @@ async function postAgency(req, res, next) {
     const talageWholesaleJson = req.body.talageWholesale;
 
     // Make sure we don't already have an user tied to this email address
-    const emailHash = await crypt.hash(email);
-    const emailHashSQL = `
-			SELECT ${db.quoteName('id')}
-			FROM \`#__agency_portal_users\`
-			WHERE \`email_hash\` = ${db.escape(emailHash)}
-			LIMIT 1;
-		`;
-    const emailHashResult = await db.query(emailHashSQL).catch(function(e) {
-        log.error(e.message);
+    const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const chkUserId = -999
+    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(chkUserId, email).catch(function(err){
+        log.error('create agency user check error ' + err + __location);
         error = serverHelper.internalError('Error querying database. Check logs.');
     });
     if (error) {
         return next(error);
     }
-    if (emailHashResult.length > 0) {
+
+    if (doesDupExist) {
         return next(serverHelper.requestError('The email address you specified is already associated with another agency. Please check the email address.'));
     }
 
@@ -628,7 +625,6 @@ async function postAgency(req, res, next) {
     // Create a user for agency portal access
     // // Encrypt the user's information
     const encrypted = {
-        "email": email,
         "firstName": firstName,
         "lastName": lastName
     };
@@ -637,18 +633,22 @@ async function postAgency(req, res, next) {
         'lastName']);
     const password = generatePassword();
     const hashedPassword = await crypt.hashPassword(password);
-    const createUserSQL = `
-			INSERT INTO \`#__agency_portal_users\` (\`agency\`, \`can_sign\`, \`email\`, \`email_hash\`, \`group\`, \`password\`)
-			VALUES (${db.escape(agencyId)}, 1, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, 1, ${db.escape(hashedPassword)});
-		`;
+
+    const newUserJSON = {
+        agencyId: agencyId,
+        email: email,
+        password: hashedPassword,
+        canSign: true,
+        agencyPortalUserGroupId: 1
+    };
     log.info('creating user');
-    const createUserResult = await db.query(createUserSQL).catch(function(e) {
-        log.error(e.message);
+    await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
+        log.error('agency create user create error ' + err + __location);
         return next(serverHelper.internalError('Error querying database. Check logs.'));
     });
 
     // Get the ID of the new agency user
-    const userID = createUserResult.insertId;
+    const userID = agencyPortalUserBO.id;
 
     const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetworkId, userID, firstName, lastName, name, slug, email);
 

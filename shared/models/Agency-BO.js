@@ -2,7 +2,6 @@
 'use strict';
 
 const moment = require('moment');
-const DatabaseObject = require('./DatabaseObject.js');
 const AgencyNetworkBO = require('./AgencyNetwork-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -16,18 +15,12 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const s3AgencyLogoPath = "public/agency-logos/";
 const s3AgencyFaviconPath = "public/agency-logos/favicon/";
-const tableName = 'clw_talage_agencies'
+const collectionName = 'Agencies'
 
 module.exports = class AgencyBO {
 
-    #dbTableORM = null;
-
-    doNotSnakeCase = ['additionalInfo'];
-
     constructor() {
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
-        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
 
@@ -40,7 +33,7 @@ module.exports = class AgencyBO {
     saveModel(newObjectJSON) {
         return new Promise(async(resolve, reject) => {
             if (!newObjectJSON) {
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
             //convert old snake case to new camel case
             const alPropMappings = {
@@ -60,7 +53,7 @@ module.exports = class AgencyBO {
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
@@ -533,35 +526,6 @@ module.exports = class AgencyBO {
         });
     }
 
-    /**** Support Data Migration ************/
-
-    loadFromIdMysql(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-    updateProperty() {
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**** END Support Data Migration ************/
 
     getById(id, getAgencyNetwork = false, returnDeleted = false) {
         const returnDoc = false;
@@ -796,7 +760,7 @@ module.exports = class AgencyBO {
                 const query = {slug: slug};
                 const docList = await this.getList(query).catch(function(err) {
                     // Check if this was
-                    log.error(`Database Object ${tableName} Selete checkIfSlugExists error : ` + err + __location);
+                    log.error(`Database Object ${collectionName} Selete checkIfSlugExists error : ` + err + __location);
                     reject(err);
                 });
                 if (rejected) {
@@ -940,249 +904,4 @@ module.exports = class AgencyBO {
             throw new Error("No agencyId bad getEmailContent");
         }
     }
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "agency_network": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "ca_license_number": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "email": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "fname": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "lname": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "logo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(75)"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "phone": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "slug": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "website": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "wholesale": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "wholesale_agreement_signed": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    },
-    "docusign_envelope_id":{
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "enable_optout": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    },
-    "do_not_report": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    constructor(tableName) {
-        super(tableName, properties);
-    }
-
 }
