@@ -9,11 +9,61 @@ const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
 module.exports = class ZipCodeBO{
 
+
     // Don't think we need a constructor anymore, since we're handling this w/ mongoose
     // constructor(){
     //     this.id = 0;
     //     this.#dbTableORM = new DbTableOrm(tableName);
     // }
+
+    /**
+	 * Save Model
+     *
+	 * @param {object} newObjectJSON - newObjectJSON JSON
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+	 */
+    // Use SaveMessage
+    saveModel(newObjectJSON){
+        return new Promise(async(resolve, reject) => {
+            if(!newObjectJSON){
+                const error = `ZipCode-BO: Error: Empty ZipCode object given. ${__location}`;
+                log.error(error);
+                return reject(new Error(error));
+            }
+
+            await this.cleanupInput(newObjectJSON);
+
+            let mongoZipCodeDoc = null;
+            let insert = true;
+            if (newObjectJSON.zipCodeId) {
+                insert = false;
+                const query = {zipCodeId: newObjectJSON.zipCodeId};
+                try {
+                    mongoZipCodeDoc = await ZipCodeModel.findOne(query);
+                }
+                catch (e) {
+                    log.error(`ZipCode-BO: Error: Couldn't find existing ZIP code object from id in saveModel. ${__location}`);
+                }
+            }
+
+            try {
+                if (insert) {
+                    await this.insertMongo(newObjectJSON);
+                }
+                else {
+                    await this.updateMongo(mongoZipCodeDoc.zipCodeId, newObjectJSON);
+                }
+            }
+            catch (e) {
+                const error = `ZipCode-BO: Error: Failed to save ZipCode record: ${e}. ${__location}`;
+                log.error(error);
+                return reject(new Error(error));
+            }
+
+            return resolve(true);
+        });
+    }
+
 
     // inserts a new record into the mongo collection
     async insertMongo(newObjectJSON) {
@@ -87,71 +137,7 @@ module.exports = class ZipCodeBO{
         }
     }
 
-    /**
-	 * Save Model
-     *
-	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-    // Use SaveMessage
-    saveModel(newObjectJSON){
-        return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
-                const error = `ZipCode-BO: Error: Empty ZipCode object given. ${__location}`;
-                log.error(error);
-                return reject(new Error(error));
-            }
-
-            await this.cleanupInput(newObjectJSON);
-
-            let mongoZipCodeDoc = null;
-            let insert = true;
-            if (newObjectJSON.zipCodeId) {
-                insert = false;
-                const query = {zipCodeId: newObjectJSON.zipCodeId};
-                try {
-                    mongoZipCodeDoc = await ZipCodeModel.findOne(query);
-                }
-                catch (e) {
-                    log.error(`ZipCode-BO: Error: Couldn't find existing ZIP code object from id in saveModel. ${__location}`);
-                }
-            }
-
-            try {
-                if (insert) {
-                    await this.insertMongo(newObjectJSON);
-                }
-                else {
-                    await this.updateMongo(mongoZipCodeDoc.zipCodeId, newObjectJSON);
-                }
-            }
-            catch (e) {
-                const error = `ZipCode-BO: Error: Failed to save ZipCode record: ${e}. ${__location}`;
-                log.error(error);
-                return reject(new Error(error));
-            }
-
-            return resolve(true);
-        });
-    }
-
-    // I didn't see this used anywhere. Do we need this?
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    // save(asNew = false){
-    //     return new Promise(async(resolve, reject) => {
-    //         //validate
-    //         this.#dbTableORM.load(this, skipCheckRequired);
-    //         await this.#dbTableORM.save().catch(function(err){
-    //             reject(err);
-    //         });
-    //         resolve(true);
-    //     });
-    // }
-
+    // Returns JSON, not Doc
     async loadByZipCode(zipCode) {
         if (zipCode) {
             let zip = zipCode;
@@ -177,7 +163,7 @@ module.exports = class ZipCodeBO{
             // Run the query
             let zipCodeDoc = null;
             try {
-                zipCodeDoc = await ZipCodeModel.find(query);
+                zipCodeDoc = await ZipCodeModel.find(query).lean();
             }
             catch (e) {
                 const error = `ZipCode-BO: Error: Failed to lookup ZIP code: ${e}. ${__location}`;
@@ -189,12 +175,10 @@ module.exports = class ZipCodeBO{
                 return zipCodeDoc[0];
             }
             else {
-                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${JSON.stringify(query)}`);
-
+                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${JSON.stringify(query)}` +__location);
                 //Call to zipcode service to lookup zip.
                 let newZip = null;
                 try {
-                    // sending the 5-digit zip only, as smartystreets only takes 5 digit zips in their zipcode lookup
                     newZip = await this.checkZipCodeSvc(zip);
                 }
                 catch (e) {
@@ -304,137 +288,27 @@ module.exports = class ZipCodeBO{
 
     }
 
-    // not using orm, so we don't have this cleanJSON function. Should we be using the mongoUtils.objCleanup instead?
-    // cleanJSON(noNulls = true){
-    //     return this.#dbTableORM.cleanJSON(noNulls);
-    // }
+    async getStatesForZipCodeList(zipCodeArray) {
+        const query = {$or: [
+            {extendedZipCode: {$in: zipCodeArray}}, {zipCode: {$in: zipCodeArray}}
+        ]};
 
-    // don't think we need this anymore. All zip code values are strings now in schema
-    // async cleanupInput(inputJSON){
-    //     for (const property in properties) {
-    //         if(inputJSON[property]){
-    //             // Convert to number
-    //             try{
-    //                 if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-    //                     if (properties[property].dbType.indexOf("int") > -1){
-    //                         inputJSON[property] = parseInt(inputJSON[property], 10);
-    //                     }
-    //                     else if (properties[property].dbType.indexOf("float") > -1){
-    //                         inputJSON[property] = parseFloat(inputJSON[property]);
-    //                     }
-    //                 }
-    //             }
-    //             catch(e){
-    //                 log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-    //             }
-    //         }
-    //     }
-    // }
+        let states = null;
+        try {
+            states = await ZipCodeModel.distinct("state", query);
+        }
+        catch (e) {
+            log.error(`Question Service: An error occurred while attempting to look up zipCodeArray: ${e}. ${__location}`);
+            return false;
+        }
 
-    // don't think we need this anymore
-    // updateProperty(){
-    //     const dbJSON = this.#dbTableORM.cleanJSON()
-    //     // eslint-disable-next-line guard-for-in
-    //     for (const property in properties) {
-    //         this[property] = dbJSON[property];
-    //     }
-    // }
+        if (states && states.length > 0) {
+            return states
+        }
+        else {
+            log.warn(`Question Service: Bad Request: No states found for ZIP codes: ${zipCodeArray.join(',')}. ${__location}`);
+            return [];
+        }
 
-    // no need to loadORM when we're not using it
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    // async loadORM(inputJSON){
-    //     await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-    //     this.updateProperty();
-    //     return true;
-    // }
+    }
 }
-
-// Don't need these properties referenced in here now. Schema is in ZipCode.model
-// const properties = {
-//     "zip": {
-//         "default": 0,
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": true,
-//         "rules": null,
-//         "type": "number",
-//         "dbType": "mediumint(5) unsigned"
-//     },
-//     "type": {
-//         "default": "",
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": true,
-//         "rules": null,
-//         "type": "string",
-//         "dbType": "varchar(8)"
-//     },
-//     "city": {
-//         "default": "",
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": true,
-//         "rules": null,
-//         "type": "string",
-//         "dbType": "varchar(30)"
-//     },
-//     "territory": {
-//         "default": "",
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": true,
-//         "rules": null,
-//         "type": "string",
-//         "dbType": "char(2)"
-//     },
-//     "county": {
-//         "default": null,
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": false,
-//         "rules": null,
-//         "type": "string",
-//         "dbType": "varchar(30)"
-//     },
-//     "num_tax_returns": {
-//         "default": null,
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": false,
-//         "rules": null,
-//         "type": "number",
-//         "dbType": "mediumint(5) unsigned"
-//     },
-//     "est_population": {
-//         "default": null,
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": false,
-//         "rules": null,
-//         "type": "number",
-//         "dbType": "mediumint(5) unsigned"
-//     },
-//     "total_wages": {
-//         "default": null,
-//         "encrypted": false,
-//         "hashed": false,
-//         "required": false,
-//         "rules": null,
-//         "type": "number",
-//         "dbType": "int(10) unsigned"
-//     }
-// }
-
-// don't need an orm class if we're not using it
-// class DbTableOrm extends DatabaseObject {
-
-//     constructor(tableName){
-//         super(tableName, properties);
-//     }
-
-// }
