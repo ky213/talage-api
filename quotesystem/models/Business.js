@@ -13,8 +13,6 @@ const moment = require('moment');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-//const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
-
 
 module.exports = class Business {
 

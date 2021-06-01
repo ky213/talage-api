@@ -397,14 +397,14 @@ async function applicationLocationSave(req, res, next) {
             const resp = await applicationBO.setAgencyLocation(appId)
             if(resp !== true){
                 log.error(`applicationLocationSave Error: setAgencyLocation: ${resp} for appId ${appId} ` + __location);
-                throw new Error(`Application Error: ${resp}`);
+                throw new Error(`Application Error: setAgencyLocation: ${resp}`);
             }
         }
     }
     catch (err) {
         //mongoose parse errors will end up there.
         log.error("Error saving application Location " + err + __location);
-        return next(serverHelper.requestError(`Save error ${err}`));
+        return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
     await setupReturnedApplicationJSON(responseAppDoc);
 

@@ -1568,7 +1568,7 @@ async function CheckZip(req, res, next){
             return next(serverHelper.requestError('The zip code you entered is invalid.'));
         }
 
-        await zipCodeBO.loadByZipCode(zipCode).catch(function(err) {
+        const zipCodeDoc = await zipCodeBO.loadByZipCode(zipCode).catch(function(err) {
             error = err;
             log.error("Unable to get ZipCode records for " + req.body.zip + err + __location);
         });
@@ -1587,8 +1587,8 @@ async function CheckZip(req, res, next){
                 return next(serverHelper.requestError('internal error'));
             }
         }
-        if(zipCodeBO.territory){
-            responseObj.territory = zipCodeBO.territory;
+        if(zipCodeDoc.state){
+            responseObj.territory = zipCodeDoc.state;
             res.send(200, responseObj);
             return next();
         }
