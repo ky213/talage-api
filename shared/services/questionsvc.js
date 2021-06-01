@@ -81,43 +81,22 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         territories = stateList;
     }
     else {
-
-        /*
-        * Validate Zip Codes
-        */
-        const ZipCodeModel = require('mongoose').model('ZipCode');
+        // get territories from zipcodes
+        const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+        const zipCodeBO = new ZipCodeBO();
         const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
-
         // Check that the zip code is valid
-        if (!zipCodeArray || !zipCodeArray.length) {
-            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
-            return false;
-        }
-
-        // We now support 9 digit ZIP codes, so $or will check the quote with two conditions in case the list has a mix of 5 and 9 digit ZIP codes
-        const query = {
-            $or: [
-                {extendedZipCode: {$in: zipCodeArray}},
-                {zipCode: {$in: zipCodeArray}}
-            ]
-        };
-
-        let states = null;
-        try {
-            states = await ZipCodeModel.distinct("state", query);
-        }
-        catch (e) {
-            log.error(`Question Service: An error occurred while attempting to look up zipCodeArray: ${e}. ${__location}`);
-            return false;
-        }
-
-        if (states && states.length > 0) {
-            states.forEach(state => {
-                territories.push(state);
-            });
+        if (zipCodeArray && zipCodeArray.length > 0) {
+            const zipStateList = await zipCodeBO.getStatesForZipCodeList(zipCodeArray)
+            zipStateList.forEach((zipState) => {
+                territories.push(zipState)
+            })
         }
         else {
-            log.warn(`Question Service: Bad Request: No states found for ZIP codes: ${zipCodeArray.join(',')}. ${__location}`);
+            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
+            //Do not kill process.  There are questions for "All States" See Univeral question processing.
+            // no code base questions will come back
+            // return false;
         }
     }
 
