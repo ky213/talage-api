@@ -387,7 +387,7 @@ module.exports = class CompwestWC extends Integration {
         }
 
           // <ACORD>
-          //<TransactionRequestDt>2021-05-24</TransactionRequestDt> 
+          //<TransactionRequestDt>2021-05-24</TransactionRequestDt>
         const requestACORD = builder.create('ACORD');
         if(guideWireAPI === true){
             requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
