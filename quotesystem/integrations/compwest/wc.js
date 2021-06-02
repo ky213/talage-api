@@ -251,7 +251,9 @@ module.exports = class CompwestWC extends Integration {
                      if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
                         wcEmodEmail.sendEmodEmail(this.app.id);
                     }
-                    const resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
+                    let WorkCompPolicyAddRsError = null;
+                    WorkCompPolicyAddRsError = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+                    const resWorkCompPolicy = WorkCompPolicyAddRsError['com.afg_PDFContent'][0].CommlPolicy[0];
                     this.number = resWorkCompPolicy.PolicyNumber[0];
                 }
                 catch(err){
