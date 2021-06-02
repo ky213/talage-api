@@ -551,39 +551,42 @@ async function postAgency(req, res, next) {
         }
         //talage wholesale
         for (const insurerID in talageWholesaleJson) {
-            const insurerIdInt = parseInt(insurerID, 10)
-            // Do not default to WC only.
-            // base it on the insurer setup.
-            //Find insurer in insurelist
-            try{
-                const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
-                if(insurerJSON){
-                    //insurerDB.policyTypes = insurerPtDBList;
-                    const insurerAL = {
-                        "insurerId": insurerIdInt,
-                        talageWholesale: true,
-                        policyTypeInfo: {}
-                    };
-                    if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
-                        for(const insurerPolicyType of insurerJSON.policyTypes){
-                            insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
-                                "enabled": true,
-                                "useAcord": false,
-                                "acordInfo": {"sendToEmail": ""}
+            // only add insurer if the the talageWholeSale setting is equal to true;
+            if(talageWholesaleJson[insurerID] === true){
+                const insurerIdInt = parseInt(insurerID, 10)
+                // Do not default to WC only.
+                // base it on the insurer setup.
+                //Find insurer in insurelist
+                try{
+                    const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
+                    if(insurerJSON){
+                        //insurerDB.policyTypes = insurerPtDBList;
+                        const insurerAL = {
+                            "insurerId": insurerIdInt,
+                            talageWholesale: true,
+                            policyTypeInfo: {}
+                        };
+                        if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
+                            for(const insurerPolicyType of insurerJSON.policyTypes){
+                                insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
+                                    "enabled": true,
+                                    "useAcord": false,
+                                    "acordInfo": {"sendToEmail": ""}
+                                }
                             }
                         }
+                        else {
+                            log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
+                        }
+                        insurerArray.push(insurerAL);
                     }
                     else {
-                        log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
+                        log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
                     }
-                    insurerArray.push(insurerAL);
                 }
-                else {
-                    log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
+                catch(err){
+                    log.error(`Create Agency add agency location insurer ` + err + __location)
                 }
-            }
-            catch(err){
-                log.error(`Create Agency add agency location insurer ` + err + __location)
             }
         }
 
