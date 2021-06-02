@@ -273,15 +273,15 @@ module.exports = class QuoteBind{
                 insurerPaymentPlan = await insurerPaymentPlanBO.getById(parseInt(payment_plan_id, 10));
             }
             catch (err) {
-                log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan_id}:` + err + __location);
+                log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${payment_plan_id}:` + err + __location);
             }
             if(!insurerPaymentPlan){
-                throw new Error('Payment plan does not belong to the insurer who provided this quote');
+                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${id} payment_plan: ${payment_plan_id}`);
             }
             this.payment_plan = payment_plan_id;
         }
         else{
-            log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan_id}:` + __location);
+            log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${payment_plan_id}:` + __location);
         }
     }
 
