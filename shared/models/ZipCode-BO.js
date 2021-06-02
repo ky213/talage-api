@@ -175,7 +175,7 @@ module.exports = class ZipCodeBO{
                 return zipCodeDoc[0];
             }
             else {
-                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${JSON.stringify(query)}` +__location);
+                log.debug(`ZipCode-BO: ZIP code not found in DB by loadByZipCode. Checking ZipCodeSvc: ${JSON.stringify(query)}` + __location);
                 //Call to zipcode service to lookup zip.
                 let newZip = null;
                 try {
