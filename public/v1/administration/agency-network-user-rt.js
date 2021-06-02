@@ -99,7 +99,7 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
                 error = err;
             })
             if (error) {
-                log.error(`Error retrieving list of users for agency id ${agencyIdList[i]}: ` + err + __location);
+                log.error(`Error retrieving list of users for agency id ${agencyIdList[i]}: ` + error + __location);
                 break;
             }
             if(agencyUserList && agencyUserList.length > 0){
@@ -132,6 +132,9 @@ async function findOne(req, res, next) {
     });
     if (error) {
         return next(error);
+    }
+    if(userJSON.password){
+        delete userJSON.password
     }
     // Send back a success response
     if (userJSON) {
@@ -217,6 +220,10 @@ async function add(req, res, next) {
         if (error) {
             return next(error);
         }
+        if(userJSON.password){
+            delete userJSON.password
+        }
+
         res.send(200, userJSON);
         return next();
     }
@@ -281,6 +288,10 @@ async function update(req, res, next) {
         });
         if (error) {
             return next(error);
+        }
+
+        if(userJSON.password){
+            delete userJSON.password
         }
 
         res.send(200, userJSON);

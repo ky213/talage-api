@@ -76,7 +76,8 @@ module.exports = class AgencyPortalUserBO{
             let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
             const queryProjection = {
                 "__v": 0,
-                "_id": 0
+                "_id": 0,
+                "password": 0
             }
 
             let findCount = false;
