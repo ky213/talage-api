@@ -19,7 +19,16 @@ const SocialMediaSchema = new Schema({
     socialMediaTag: {type: String, required: true},
     tagLabel:{type: String, required:false},
     tagType: {type: String, required:true}
-},opts)
+}, opts);
+
+const faqSchema = new Schema({
+    question: {type: String, required: false},
+    answer: {type: String, required: false}
+}, opts);
+
+const landingPageSchema = new Schema({
+    faq: [faqSchema]
+}, opts);
 
 const AgencySchema = new Schema({
     agencyId: {type: String, required: [true, 'agencyId required'], unique: true},
@@ -47,11 +56,12 @@ const AgencySchema = new Schema({
     agencyPortalDeletedUser: {type: String},
     primaryAgency: {type: Boolean, default: false},
     favicon: {type: String, required: false},
+    landingPageContent: landingPageSchema,
     deletedAt: {type: Date, required: false},
     deletedByUser: {type: String, required: false},
-    socialMediaTags : [SocialMediaSchema],
+    socialMediaTags: [SocialMediaSchema],
     active: {type: Boolean, default: true}
-},opts)
+}, opts);
 
 
 // //***** Virtuals old field names ****************** */
