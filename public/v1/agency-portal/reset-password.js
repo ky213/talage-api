@@ -1,4 +1,4 @@
-const crypt = global.requireShared('./services/crypt.js');
+
 const jwt = require('jsonwebtoken');
 //const request = require('request');
 const serverHelper = global.requireRootPath('server.js');
@@ -6,6 +6,7 @@ const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 /**
  * Returns a limited life JWT for restting a user's password
@@ -32,39 +33,29 @@ async function PostResetPassword(req, res, next){
         return next();
     }
 
-    // Authenticate the information provided by the user
-    const emailHash = await crypt.hash(req.body.email);
-    const sql = `
-			SELECT
-				id,
-                agency_network,
-                agency
-			FROM clw_talage_agency_portal_users
-			WHERE email_hash = ${db.escape(emailHash)} LIMIT 1;
-		`;
-    const result = await db.query(sql).catch(function(e){
-        log.error(e.message);
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const agencyPortalUserDBJson = await agencyPortalUserBO.getByEmail(req.body.email).catch(function(e) {
+        log.error(e.message + __location);
         res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
         error = true;
     });
-    if(error){
+    if (error) {
         return next(false);
     }
-
     // Make sure we found a result before doing more processing
-    if(result && result.length){
+    if(agencyPortalUserDBJson){
         log.info('Email found');
 
         // Create a limited life JWT
-        const token = jwt.sign({'userID': result[0].id}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
-        let agencyNetworkId = result[0].agency_network
+        const token = jwt.sign({'userID': agencyPortalUserDBJson.agencyPortalUserId}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
+        let agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId
         //load agencyBO if we do not have
-        if(!agencyNetworkId && result[0].agency){
+        if(!agencyNetworkId && agencyPortalUserDBJson.agencyId){
             try{
             // Load the request data into it
                 const agencyBO = new AgencyBO();
-                const agency = await agencyBO.getById(result[0].agency);
-                agencyNetworkId = agency.agency_network;
+                const agency = await agencyBO.getById(agencyPortalUserDBJson.agencyId);
+                agencyNetworkId = agency.agencyNetworkId;
             }
             catch(err){
                 log.error("agencyBO.getById load error " + err + __location);
@@ -75,7 +66,7 @@ async function PostResetPassword(req, res, next){
         const agencyNetworkBO = new AgencyNetworkBO();
         //just so getEmailContent works.
         const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(agencyNetworkId).catch(function(err){
-            log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
+            log.error(`Unable to get email content for Agency Portal User. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
             error = true;
         });
         if(error){

@@ -1,3 +1,5 @@
+/* eslint-disable array-element-newline */
+/* eslint-disable object-curly-newline */
 /* eslint-disable multiline-comment-style */
 /* eslint-disable one-var */
 const moment = require('moment');
@@ -35,24 +37,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Filter out duplicate codes
     activityCodeArray = activityCodeArray.filter((code, index) => activityCodeArray.indexOf(code) === index);
 
-    // Check that each activity code is valid
-    if (activityCodeArray.length) {
-        sql = `SELECT id FROM clw_talage_activity_codes WHERE id IN (${activityCodeArray.join(',')}) AND state = 1;`;
-        const activity_code_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (activity_code_result && activity_code_result.length !== activityCodeArray.length) {
-            log.warn('GetQuestions - Invalid Activity Code(s)' + __location);
-            //error = 'One or more of the activity codes supplied is invalid';
-        }
-        //Might be old Activity codes from copied application.
-        // no need to stop.  Activity Code question logic will get no hits.
-        // that is OK.
-        // if (error) {
-        //     return false;
-        // }
-    }
-
     /*
      * Validate Industry Code
      */
@@ -60,59 +44,27 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Prep industry code for validation
     const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
 
-    // Check if the industry code is valid
-    // if (industry_code) {
-    //      try{
-    //         const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
-    //         const industryCodeBO = new IndustryCodeBO();
-    //         const industryCodeJson = await industryCodeBO.getById(industry_code);
-    //         if(!industryCodeJson){
-    //             log.warn(`Bad Request: Invalid Industry Code ${industry_code}` + __location);
-    //         }
-    //     }
-    //     catch(err){
-    //         log.error("Error getting industryCodeBO " + err + __location);
-    //     }
-    // }
     let territories = [];
     if(stateList.length > 0){
         territories = stateList;
     }
     else {
-
-        /*
-        * Validate Zip Codes
-        */
+        // get territories from zipcodes
+        const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+        const zipCodeBO = new ZipCodeBO();
         const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
-
         // Check that the zip code is valid
-
-        if (!zipCodeArray || !zipCodeArray.length) {
-            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
-            return false;
-        }
-        // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
-        // are cut down to 5.
-        zipCodeArray.forEach((zip) => {
-            if(zip.length > 5){
-                zip = zip.substring(0,5)
-            }
-        })
-        sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
-        const zip_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
-            return false;
-        }
-        if (zip_result && zip_result.length >= 1) {
-            zip_result.forEach(function(result) {
-                territories.push(result.territory);
-            });
+        if (zipCodeArray && zipCodeArray.length > 0) {
+            const zipStateList = await zipCodeBO.getStatesForZipCodeList(zipCodeArray)
+            zipStateList.forEach((zipState) => {
+                territories.push(zipState)
+            })
         }
         else {
-            log.warn(`Question Service: Bad Request: Zip Code ${zipCodeArray.join(',')} ` + __location);
-            //return false;
+            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
+            //Do not kill process.  There are questions for "All States" See Univeral question processing.
+            // no code base questions will come back
+            // return false;
         }
     }
 

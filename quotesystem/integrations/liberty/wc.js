@@ -266,22 +266,33 @@ module.exports = class LibertyWC extends Integration {
 
             // Loop through each question
             let QuestionAnswer = '';
-            for (const question_id in this.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                    const question = this.questions[question_id];
-                    const QuestionCd = this.question_identifiers[question.id];
+            for(const insurerQuestion of this.insurerQuestionList){
+           //for (const question_id in this.questions) {
+                if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                    //const question = this.questions[question_id];
+                    const question = this.questions[insurerQuestion.talageQuestionId];
+                    if(!question){
+                        continue;
+                    }
+
 
                     /**
                      * Don't process questions:
                      *  - without a code (not for this insurer)
                      *  - coded questions (one that has a structure hard-coded elsehwere in this file)
                      */
-                    if (!QuestionCd || codedQuestionsByIdentifier.includes(QuestionCd)) {
+                    if (!insurerQuestion.identifier || codedQuestionsByIdentifier.includes(insurerQuestion.identifier)) {
+                        continue;
+                    }
+                    //do not process universal questions
+                    //Do no process univseral questions here.
+                    if(insurerQuestion.universal){
                         continue;
                     }
 
                     // For Yes/No questions, if they are not required and the user answered 'No', simply don't send them
-                    if (question.type === 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()) {
+                    // not nothing change question.required from false.  There are all false
+                    if (question.type === 'Yes/No' && !question.hidden && !question.get_answer_as_boolean()) {
                         continue;
                     }
 
@@ -291,7 +302,7 @@ module.exports = class LibertyWC extends Integration {
                         answer = this.determine_question_answer(question);
                     }
                     catch (error) {
-                        log.error(`Liberty WC (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                        log.error(`Liberty WC (application ${this.app.id}): Could not determine question ${insurerQuestion.talageQuestionId} answer: ${error} ${__location}`);
                     }
 
                     // This question was not answered
@@ -301,13 +312,13 @@ module.exports = class LibertyWC extends Integration {
 
                     // Build out the question structure
                     QuestionAnswer = Policy.ele('QuestionAnswer');
-                    QuestionAnswer.ele('QuestionCd', QuestionCd);
+                    QuestionAnswer.ele('QuestionCd', insurerQuestion.identifier);
 
                     if (question.type === 'Yes/No') {
                         let boolean_answer = question.get_answer_as_boolean() ? 'YES' : 'NO';
 
                         // For the question GENRL06, flip the answer
-                        if (QuestionCd === 'GENRL06') {
+                        if (insurerQuestion.identifier === 'GENRL06') {
                             boolean_answer = !boolean_answer;
                         }
 
@@ -326,7 +337,11 @@ module.exports = class LibertyWC extends Integration {
                         }
                     }
                 }
-            }
+                else {
+                   log.error(`Liberty WC (application ${this.app.id}): Missing expected Talage Question ${insurerQuestion.talageQuestionId} for InsurerQuestion : ${insurerQuestion.identifier} ${__location}`);
+                }
+            //}
+             }
 
             // Governing Class Codes
             const governing_class = this.determine_governing_activity_code();
@@ -355,13 +370,16 @@ module.exports = class LibertyWC extends Integration {
 
             // Separate out the states
             const territories = this.app.business.getTerritories();
-            territories.forEach((territory) => {
+            //territories.forEach((territory) => {
+            for(const territory of territories) {
 
                 // <WorkCompRateState>
                 const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
                 WorkCompRateState.ele('StateProvCd', territory);
 
-                this.app.business.locations.forEach((location, index) => {
+                //this.app.business.locations.forEach((location, index) => {
+                for(let index = 0; index < this.app.business.locations.length; index++) {
+                    const location = this.app.business.locations[index]
                     // Make sure this location is in the current territory, if not, skip it
                     if (location.territory !== territory) {
                         return;
@@ -371,19 +389,44 @@ module.exports = class LibertyWC extends Integration {
                     const WorkCompLocInfo = WorkCompRateState.ele('WorkCompLocInfo');
                     WorkCompLocInfo.att('LocationRef', `l${index + 1}`);
 
-                    location.activity_codes.forEach((activity_code) => {
+                    for (const activity_code of location.activity_codes){
                         // <WorkCompRateClass>
                         const WorkCompRateClass = WorkCompLocInfo.ele('WorkCompRateClass');
                         WorkCompRateClass.att('InsuredOrPrincipalRef', InsuredOrPrincipalUUID);
 
                         WorkCompRateClass.ele('RatingClassificationCd', this.insurer_wc_codes[location.territory + activity_code.id]);
                         WorkCompRateClass.ele('Exposure', activity_code.payroll);
+                        const acivityCodeInsurerQuestions = await this.get_insurer_questions_by_activitycodes([activity_code.id]);
+                        if(acivityCodeInsurerQuestions && acivityCodeInsurerQuestions.length > 0){
+                            const WorkCompRateClassExt = WorkCompRateClass.ele('WorkCompRateClassExt');
+                            // eslint-disable-next-line no-loop-func
+                            acivityCodeInsurerQuestions.forEach((iq) => {
+                                const question = this.questions[iq.talageQuestionId];
+                                if(question){
+                                    try{
+                                        QuestionAnswer = WorkCompRateClassExt.ele('QuestionAnswer');
+                                        QuestionAnswer.ele('QuestionCd', iq.identifier);
+                                        QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                                    }
+                                    catch(err){
+                                        log.error(`Liberty WC (application ${this.app.id}): Issue withTalage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err}${__location}`);
+                                    }
+                                }
+                                else {
+                                    log.error(`Liberty WC (application ${this.app.id}): Missing expected Talage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} ${__location}`);
+                                }
+                            });
+                        }
+                        else {
+                            log.error(`Liberty WC (application ${this.app.id}): No Activity Code questions for activityCodeId ${activity_code.id} ${__location}`);
+                        }
+
                         // </WorkCompRateClass>
-                    });
+                    }
                     // </WorkCompLocInfo>
-                });
+                }
                 // </WorkCompRateState>
-            });
+            }
 
             // <Coverage>
             const Coverage = WorkCompLineBusiness.ele('Coverage');
@@ -407,21 +450,49 @@ module.exports = class LibertyWC extends Integration {
             Limit.ele('LimitAppliesToCd', 'DisPol');
             // </Limit>
             // </Coverage>
-
+            //. Policy.
+            //WorkCompLineBusiness
+            const processedUniversalQList = [];
             // Loop through each of the special questions separated by identifier and print them here (all are boolean)
             for (const index in codedQuestionsByIdentifier) {
                 if (Object.prototype.hasOwnProperty.call(codedQuestionsByIdentifier, index)) {
                     const identifier = codedQuestionsByIdentifier[index];
                     const question = this.get_question_by_identifier(identifier);
                     if (question) {
-                        // <QuestionAnswer>
-                        QuestionAnswer = WorkCompLineBusiness.ele('QuestionAnswer');
-                        QuestionAnswer.ele('QuestionCd', identifier);
-                        QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-                        // </QuestionAnswer>
+                        try{
+                            processedUniversalQList.push(question.id);
+                            // <QuestionAnswer>
+                            QuestionAnswer = WorkCompLineBusiness.ele('QuestionAnswer');
+                            QuestionAnswer.ele('QuestionCd', identifier);
+                            QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                            // </QuestionAnswer>
+                        }
+                        catch(err){
+                            log.error(`Liberty WC (application ${this.app.id}): Issue withTalage Question ${question.id} for InsurerQuestion : ${identifier} error: ${err}${__location}`);
+                        }
                     }
                 }
             }
+            // process universal.s
+            this.insurerQuestionList.forEach((iq) => {
+                if(processedUniversalQList.indexOf(iq.talageQuestionId) === -1){
+                    const question = this.get_question_by_identifier(iq.identifier);
+                    if (question) {
+                        try{
+                            processedUniversalQList.push(question.id);
+                            // <QuestionAnswer>
+                            QuestionAnswer = Policy.ele('QuestionAnswer');
+                            QuestionAnswer.ele('QuestionCd', iq.identifier);
+                            QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
+                            // </QuestionAnswer>
+                        }
+                        catch(err){
+                            log.error(`Liberty WC (application ${this.app.id}): Issue withTalage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err}${__location}`);
+                        }
+                    }
+
+                }
+            });
             // </WorkCompLineBusiness>
             // </PolicyRq>
             // </InsuranceSvcRq>

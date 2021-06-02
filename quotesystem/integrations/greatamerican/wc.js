@@ -1,3 +1,4 @@
+/* eslint-disable function-paren-newline */
 /* eslint-disable dot-notation */
 //const builder = require('xmlbuilder');
 const moment = require('moment');
@@ -8,6 +9,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 //const superagent = require('superagent');
 const _ = require('lodash');
 const GreatAmericanApi = require('./api');
+const acordsvc = global.requireShared('./services/acordsvc.js');
+const emailsvc = global.requireShared('./services/emailsvc.js');
 
 module.exports = class GreatAmericanWC extends Integration {
 
@@ -50,9 +53,9 @@ module.exports = class GreatAmericanWC extends Integration {
             id: c.code,
             value: c.attributes.classIndustry
         }));
-        if(!sessionCodes.id || !sessionCodes.value){
-            log.error(`Appid: ${this.app.id} Great American WC:Bad session Code ${JSON.stringify(sessionCodes)} ` + __location);
-            this.reasons.push(` Great American WC:Bad session Code ${JSON.stringify(sessionCodes)}`);
+        if(!sessionCodes[0].id || !sessionCodes[0].value){
+            log.error(`Appid: ${this.app.id} Great American WC: Bad session Code ${JSON.stringify(sessionCodes)} ` + __location);
+            this.reasons.push(` Great American WC: Bad session Code ${JSON.stringify(sessionCodes)}`);
         }
         // GA only wants the first activity code passed to their API endpoint.
         sessionCodes = [sessionCodes[0]];
@@ -240,16 +243,80 @@ module.exports = class GreatAmericanWC extends Integration {
             this.writer = _.get(quote, 'rating.data.policy.company.name');
             this.number = _.get(quote, 'rating.data.policy.id');
 
+            // Generate ACORD form and send in email to Great American UW team
+            try {
+                await this.generateAndSendACORD();
+            }
+            catch (e) {
+                log.error(`Appid: ${this.app.id} Great American WC: Error generating and sending ACORD form: ${e}.`);
+            }
+
             if (quote.newBusiness.status === 'REFERRAL' &&
                 _.get(quote, 'rating.data.policy.company.name') !== 'Great American Insurance Company') {
                 return this.return_result('referred');
             }
+
             this.log += 'Finished quoted!';
             return this.return_result('quoted');
         }
         else {
             this.log += 'Finished declined';
             return this.return_result('declined');
+        }
+    }
+
+    async generateAndSendACORD() {
+        const applicationDocData = this.app.applicationDocData;
+        const logPrefix = `Appid: ${applicationDocData.applicationId} ${this.insurer.name} WC Request Error: `;
+        const recipients = `AltSubmissions@gaig.com,mdowd@gaig.com`;
+        const emailSubject = `WC Application - ${this.number} - ${applicationDocData.businessName}`;
+        const emailBody = `See attached PDF`;
+
+        log.info(`Sending underwriting email to Great American with subject: ${emailSubject}.`);
+
+        // Prepare keys so that the record of the email being sent is written (currently not doing this)
+        // const email_keys = {
+        //     'applicationId': this.app.applicationDocData.applicationId,
+        //     'agencyLocationId': this.app.agencyLocation.id,
+        //     'applicationDoc': this.app.applicationDocData
+        // };
+
+        // generate the ACORD form
+        let ACORDForm = null;
+        try {
+            ACORDForm = await acordsvc.create(this.app.id, this.insurer.id, 'wc');
+        }
+        catch (e) {
+            log.error(`${logPrefix}An error occurred while generating the ACORD form: ${e}.`);
+            return;
+        }
+
+        // Check the acord generated successfully
+        if(!ACORDForm || ACORDForm.error){
+            log.error(`${logPrefix}ACORD form could not be generated: ${ACORDForm.error}.`);
+            return;
+        }
+
+        const attachments = [{
+            'content': ACORDForm.doc.toString('base64'),
+            'filename': 'acordWC.pdf',
+            'type': 'application/pdf',
+            'disposition': 'attachment'
+        }];
+
+        const emailResp = await emailsvc.send(
+            recipients,
+            emailSubject,
+            emailBody,
+            {}, // default keys
+            1, // default agency network
+            'talage', // brandOverride - this sets the template and the from email address.
+            1, // default agency
+            attachments
+        );
+
+        if (!emailResp) {
+            log.error(`${logPrefix}email with attached ACORD form failed to send.`);
         }
     }
 };

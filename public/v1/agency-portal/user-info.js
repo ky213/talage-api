@@ -5,6 +5,7 @@ const serverHelper = global.requireRootPath('server.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 
 /**
@@ -24,58 +25,52 @@ async function GetUserInfo(req, res, next){
     // Default logoName
     let logoName = '1-wheelhouse.png';
 
-    // Prepare to get the information for this user, building a query based on their user type
-    let userInfoSQL = '';
-    if(isAgencyNetworkUser){
-        userInfoSQL = `
-            SELECT
-                au.agency_network AS agencyNetwork,
-                au.timezone_name as tz
-            FROM clw_talage_agency_portal_users AS au 
-            WHERE au.id = ${parseInt(req.authentication.userID, 10)}
-            LIMIT 1;
-			`;
+    let userId = 0;
+    try{
+        userId = parseInt(req.authentication.userID, 10)
     }
-    else{
-        userInfoSQL = `
-                SELECT
-                    agency,
-                    timezone_name as tz
-                FROM clw_talage_agency_portal_users
-                WHERE id = ${parseInt(req.authentication.userID, 10)}
-                LIMIT 1;
-			`;
+    catch(err){
+        log.error(`Could not convert userID ${req.authentication.userID} to int. error ${err} ` + __location);
     }
-
-    // Going to the database to get the user's
-    let error = null;
-    const userInfo = await db.query(userInfoSQL).catch(function(err){
-        log.error(err.message + __location);
-        error = err;
-    });
-    if(error){
+    if(userId === 0){
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
+    let error = null;
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const userInfo = await agencyPortalUserBO.getById(userId).catch(function(e) {
+        log.error(e.message + __location);
+        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
+        error = true;
+    });
+    if (error) {
+        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+    }
+    if(!userInfo.timezoneName){
+        userInfo.timezoneName = "America/Los_Angeles"
+        userInfo.timezone_name = "America/Los_Angeles"
+    }
+    userInfo.tz = userInfo.timezoneName;
+
     let agencyNetworkId = null;
     if(isAgencyNetworkUser){
-        agencyNetworkId = userInfo[0].agencyNetwork;
+        agencyNetworkId = userInfo.agencyNetworkId;
     }
     else {
         //load AgencyBO
         try{
             // Load the request data into it
             const agencyBO = new AgencyBO();
-            const agency = await agencyBO.getById(userInfo[0].agency);
+            const agency = await agencyBO.getById(userInfo.agencyId);
             if(agency){
                 agencyNetworkId = agency.agencyNetworkId;
                 if(agency.hasOwnProperty('logo')){
                     logoName = agency.logo;
                 }
-                userInfo[0].logo = logoName; // TODO: DELETE -- keep for backward compat till next sprint
-                userInfo[0].logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`
-                userInfo[0].name = agency.name;
-                userInfo[0].slug = agency.slug;
-                userInfo[0].wholesale = agency.wholesale;
+                userInfo.logo = logoName; // TODO: DELETE -- keep for backward compat till next sprint
+                userInfo.logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`
+                userInfo.name = agency.name;
+                userInfo.slug = agency.slug;
+                userInfo.wholesale = agency.wholesale;
             }
         }
         catch(err){
@@ -93,7 +88,7 @@ async function GetUserInfo(req, res, next){
         log.error("Get AgencyNetwork Error " + err + __location);
     })
     if(agencyNetworkJSON){
-        userInfo[0].feature_json = agencyNetworkJSON.feature_json;
+        userInfo.feature_json = agencyNetworkJSON.feature_json;
         if(!agencyNetworkJSON.additionalInfo){
             log.error("additionalInfo was not present on agencyNetwork: " + agencyNetworkJSON.id);
         }
@@ -101,22 +96,22 @@ async function GetUserInfo(req, res, next){
             log.error("contactEmailAddress was not present on additionalInfo for agencyNetwork: " + agencyNetworkJSON.id);
         }
         else {
-            userInfo[0].contactEmailAddress = agencyNetworkJSON.additionalInfo.contactEmailAddress;
+            userInfo.contactEmailAddress = agencyNetworkJSON.additionalInfo.contactEmailAddress;
         }
         if(agencyNetwork){
             if(agencyNetworkJSON.hasOwnProperty('logo')){
                 logoName = agencyNetworkJSON.logo;
             }
-            userInfo[0].logo = logoName; // TODO: DELETE -- keep for backward compat till next sprint
-            userInfo[0].logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
-            userInfo[0].name = agencyNetworkJSON.name;
+            userInfo.logo = logoName; // TODO: DELETE -- keep for backward compat till next sprint
+            userInfo.logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
+            userInfo.name = agencyNetworkJSON.name;
         }
         else {
-            userInfo[0].helpText = agencyNetworkJSON.help_text
+            userInfo.helpText = agencyNetworkJSON.help_text
         }
     }
     // Send the user's data back
-    res.send(200, userInfo[0]);
+    res.send(200, userInfo);
     return next();
 }
 
