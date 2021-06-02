@@ -99,6 +99,25 @@ function parseQuoteURL(url) {
 }
 
 /**
+ * Merges landing page content
+ *
+ * @param {object} primaryLandingPageContent - the landingPageContent to prioritize
+ * @param {object} secondaryLandingPageContent - the landingPageContent to default to if no value is provided in the primary
+ *
+ * @returns {object} a merged landing page content object
+ */
+function mergeLandingPageContent(primaryLandingPageContent, secondaryLandingPageContent){
+    // TODO: this might be easier in the future to make into a generalized function, but for now we know we're just looking for FAQ
+    const landingPageContent = JSON.parse(JSON.stringify(secondaryLandingPageContent));
+
+    if(primaryLandingPageContent.faq && primaryLandingPageContent.faq.length > 0){
+        landingPageContent.faq = JSON.parse(JSON.stringify(primaryLandingPageContent.faq));
+    }
+
+    return landingPageContent;
+}
+
+/**
  * Retrieves the agency information from a given agency/page slug.
  *
  * @param {string} agencySlug - agency slug
@@ -231,7 +250,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             agencyWebInfo.footer_logo = agencyNetworkJSON.footer_logo
         }
         if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
-            agencyWebInfo.landingPageContent = agencyNetworkJSON.landing_page_content;
+            agencyWebInfo.landingPageContent = mergeLandingPageContent(agencyWebInfo.landingPageContent, agencyNetworkJSON.landing_page_content);
         }
         else {
             //get from default AgencyNetwork
@@ -242,7 +261,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             });
 
             if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
-                agencyWebInfo.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
+                agencyWebInfo.landingPageContent = mergeLandingPageContent(agencyWebInfo.landingPageContent, agencyNetworkJSONDefault.landing_page_content);
                 if(!agencyWebInfo.footer_logo){
                     agencyWebInfo.footer_logo = agencyNetworkJSONDefault.footer_logo;
                 }
