@@ -575,7 +575,13 @@ async function postAgency(req, res, next) {
                         else {
                             log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
                         }
-                        insurerArray.push(insurerAL);
+                        // if the insurer already exists in the insurerArray then replace the insurer
+                        const existingInsurerIndex = insurerArray.findIndex(ins => ins.insurerId && ins.insurerId === insurerAL.insurerId);
+                        if(existingInsurerIndex >= 0){
+                            insurerArray.splice(existingInsurerIndex, 1, insurerAL);
+                        }else {
+                            insurerArray.push(insurerAL);
+                        }
                     }
                     else {
                         log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
