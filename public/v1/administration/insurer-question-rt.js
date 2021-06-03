@@ -26,7 +26,11 @@ async function findAll(req, res, next) {
         delete req.query.question
     }
 
-    log.debug(JSON.stringify(req.query));
+    if(req.query.policyType){
+        req.query.policyTypeList = req.query.policyType
+        delete req.query.policyType
+    }
+
     const rows = await insurerQuestionBO.getList(req.query).catch(function(err) {
         error = err;
     })
