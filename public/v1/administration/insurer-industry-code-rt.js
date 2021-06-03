@@ -19,6 +19,10 @@ const tracker = global.requireShared('./helpers/tracker.js');
 async function findAll(req, res, next) {
     let error = null;
     const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+    if(req.query.policyType){
+        req.query.policyTypeList = req.query.policyType
+        delete req.query.policyType
+    }
 
     const rows = await insurerIndustryCodeBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
