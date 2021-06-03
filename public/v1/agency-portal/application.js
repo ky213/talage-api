@@ -468,8 +468,8 @@ async function setupReturnedApplicationJSON(applicationJSON){
     if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
-            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
-            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+            const apUser = await agencyPortalUserBO.getById(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = apUser.email;
         }
         catch(err){
             log.error("Error getting agencyPortalUserBO " + err + __location);

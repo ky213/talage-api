@@ -35,7 +35,7 @@ async function isAuthForApplication(req, applicationId){
         if(req.userTokenData.userId){
             // check which agencies the user has access to
             const agencyPortalUserBO = new AgencyPortalUserBO();
-            await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
+            const apUser = await agencyPortalUserBO.getById(req.userTokenData.userId);
 
             // get the application to check against
             const applicationBO = new ApplicationBO();
@@ -46,12 +46,12 @@ async function isAuthForApplication(req, applicationId){
                 log.warn("Application requested not found " + __location);
             }
             // if the user is part of an agency network, get the list of agencies
-            else if(agencyPortalUserBO.agencyNetworkId){
-                canAccessApp = applicationDB.agencyNetworkId === agencyPortalUserBO.agencyNetworkId;
+            else if(apUser.agencyNetworkId){
+                canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
             }
             // if not part of a network, just look at the single agency
-            else if(agencyPortalUserBO.agencyId) {
-                canAccessApp = applicationDB.agencyId === agencyPortalUserBO.agencyId;
+            else if(apUser.agencyId) {
+                canAccessApp = applicationDB.agencyId === apUser.agencyId;
             }
         }
         else {
