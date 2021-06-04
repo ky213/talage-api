@@ -7,109 +7,11 @@ const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-const AgencyBO = global.requireShared('./models/Agency-BO.js');
+//const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-
-/**
- * Checks whether the provided agency has an owner other than the current user
- *
- * @param {int} agency - The ID of the agency to check
- * @param {int} user - The ID of the user to exempt from the check
- * @param {boolean} agencyNetwork - (optional) Whether or not this is an agency network
- *
- * @return {boolean} - True if the agency has an owner; false otherwise
- */
-function hasOtherOwner(agency, user, agencyNetwork = false) {
-    return new Promise(async function(fulfill) {
-        let error = false;
-
-        // Determine which where statement is needed
-        let where = '';
-        if (agencyNetwork) {
-            where = `\`agency_network\` = ${parseInt(agency, 10)}`;
-        }
-        else {
-            where = `\`agency\` = ${parseInt(agency, 10)}`;
-        }
-
-        const sql = `
-				SELECT id
-				FROM \`#__agency_portal_users\`
-				WHERE
-					\`group\` = 1 AND
-					\`id\` != ${parseInt(user, 10)} AND
-					\`state\` > 0 AND
-					${where}
-				LIMIT 1;
-			`;
-
-        // Run the query
-        const result = await db.query(sql).catch(function(err) {
-            log.error('__agency_portal_users error ' + err + __location);
-            error = true;
-            fulfill(false);
-        });
-        if (error) {
-            return;
-        }
-
-        // Check the result
-        if (!result || !result.length) {
-            fulfill(false);
-            return;
-        }
-
-        fulfill(true);
-    });
-}
-
-exports.hasOtherOwner = hasOtherOwner;
-
-/**
- * Checks whether the provided agency has a signing authority other than the current user
- *
- * @param {int} agency - The ID of the agency to check
- * @param {int} user - The ID of the user to exempt from the check
- *
- * @return {boolean} - True if the agency has a signing authority; false otherwise
- */
-function hasOtherSigningAuthority(agency, user) {
-    return new Promise(async function(fulfill) {
-        let error = false;
-
-        const sql = `
-				SELECT id
-				FROM \`#__agency_portal_users\`
-				WHERE
-					\`can_sign\` = 1 AND
-					\`id\` != ${parseInt(user, 10)} AND
-					\`state\` > 0 AND
-					\`agency\` = ${parseInt(agency, 10)}
-				LIMIT 1;
-			`;
-
-        // Run the query
-        const result = await db.query(sql).catch(function(err) {
-            log.error('__agency_portal_users error ' + err + __location);
-            error = true;
-            fulfill(false);
-        });
-        if (error) {
-            return;
-        }
-
-        // Check the result
-        if (!result || !result.length) {
-            fulfill(false);
-            return;
-        }
-
-        fulfill(true);
-    });
-}
-
-exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 
 /**
  * Validates a user and returns a clean data object
@@ -144,23 +46,12 @@ async function validate(user) {
 
     data.group = user.group;
 
-    // Prepare the email hash
-    const emailHash = await crypt.hash(user.email);
-
-    // Check for duplicate email address
-    const duplicateSQL = `
-			SELECT \`id\`
-			FROM \`#__agency_portal_users\`
-			WHERE \`email_hash\` = ${db.escape(emailHash)}
-				AND \`state\` > -2
-				${user.id ? `AND \`id\` != ${db.escape(user.id)}` : ''}
-			;
-		`;
-    const duplicateResult = await db.query(duplicateSQL).catch(function(err) {
-        log.error('__agency_portal_users error ' + err + __location);
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(user.id, user.email).catch(function(err){
+        log.error('agencyPortalUser error ' + err + __location);
         throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
-    if (duplicateResult.length > 0) {
+    if (doesDupExist) {
         throw new Error('This email address is already in use for another user account. Choose a different one.');
     }
 
@@ -197,12 +88,13 @@ async function createUser(req, res, next) {
     }
 
     // Determine if this is an agency or agency network
-    let where = ``;
+    let agencyId = null;
+    let agencyNetworkId = null;
     if (req.authentication.isAgencyNetworkUser && req.body.agency) {
-        where = `\`agency\`= ${parseInt(req.body.agency, 10)}`;
+        agencyId = parseInt(req.body.agency, 10);
     }
     else if (req.authentication.isAgencyNetworkUser){
-        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetworkId, 10)}`;
+        agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10)
     }
     else {
         // Get the agents that we are permitted to view
@@ -212,155 +104,43 @@ async function createUser(req, res, next) {
         if (error) {
             return next(error);
         }
-        where = ` \`agency\` = ${parseInt(agents[0], 10)}`;
+        agencyId = agents[0];
     }
-
-    // Begin a database transaction
-    const connection = await db.beginTransaction().catch(function(err) {
-        log.error('db beginTransaction error ' + err + __location);
-        error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    });
-    if (error) {
-        return next(error);
-    }
-
-    // If this user is to be set as owner, remove the current owner (they will become a super administrator)
-    if (data.group === 1) {
-        const removeOwnerSQL = `
-				UPDATE
-					\`#__agency_portal_users\`
-				SET
-					\`group\` = 2
-				WHERE
-					\`group\` = 1 AND
-					${where}
-				LIMIT 1;
-			`;
-
-        // Run the query
-        await db.query(removeOwnerSQL, connection).catch(function(err) {
-            log.error('__agency_portal_users error ' + err + __location);
-            error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        });
-        if (error) {
-            return next(error);
-        }
-    }
-
-    // If the user is being set as the signing authority, remove the current signing authority
-    if (data.canSign) {
-        const removeCanSignSQL = `
-				UPDATE
-					\`#__agency_portal_users\`
-				SET
-					\`can_sign\` = NULL
-				WHERE
-					${where};
-			`;
-
-        // Run the query
-        await db.query(removeCanSignSQL, connection).catch(function(err) {
-            log.error('__agency_portal_users error ' + err + __location);
-            error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        });
-        if (error) {
-            return next(error);
-        }
-    }
-
-    // Prepare the email address
-    const emailHash = await crypt.hash(data.email);
-    const clearEmail = data.email;
-    const encryptedEmail = await crypt.encrypt(data.email);
 
     // Generate a random password for this user (they won't be using it anyway)
     const passwordHash = await crypt.hashPassword(Math.random().toString(36).substring(2, 15));
 
     // Add this user to the database
-    let controlColumn = '';
-    let controlValue = '';
-    if (req.authentication.isAgencyNetworkUser && req.body.agency) {
-        controlColumn = 'agency';
-        controlValue = req.body.agency;
-    }
-    else if (req.authentication.isAgencyNetworkUser) {
-        controlColumn = 'agency_network';
-        controlValue = req.authentication.agencyNetworkId;
-    }
-    else {
-        // Get the agents that we are permitted to view
-        const agents = await auth.getAgents(req).catch(function(e) {
-            error = e;
-        });
-        if (error) {
-            return next(error);
-        }
+    const newUserJSON = {
+        agencyId: agencyId,
+        agencyNetworkId: agencyNetworkId,
+        email: userObj.email,
+        password: passwordHash,
+        canSign: data.canSign,
+        agencyPortalUserGroupId: parseInt(data.group, 10)
+    };
 
-        controlColumn = 'agency';
-        controlValue = agents[0];
-    }
 
-    // check if this user exists already but their state === -2 (they were created, then deleted)
-    const deletedUserSQL = `
-        SELECT id
-        FROM \`#__agency_portal_users\`
-        WHERE \`email_hash\` = ${db.escape(emailHash)}
-            AND state = -2
-    `;
-
-    let deletedUser = null;
-    try {
-        const result = await db.query(deletedUserSQL, connection);
-        deletedUser = result[0];
-    } catch (e) {
-        log.error(`__agency_portal_users error: ${e}. ${__location}`);
+    // validate already fa
+    // check if this user exists already but has been soft deleted.
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const deActiveUser = false;
+    const oldDoc = await agencyPortalUserBO.getByEmail(userObj.email, deActiveUser).catch(function(err){
+        log.error('agencyPortalUser error ' + err + __location);
+        throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+    });
+    if(oldDoc){
+        newUserJSON.active = true;
     }
 
-    let userSQL = '';
-    if (deletedUser) {
-        // If we have a deleted user, update them instead of trying to insert them (as they already exist)
-        // don't need to set: 
-        // \`email\` = \`${db.escape(encryptedEmail)}\`
-        // \`email_hash\` = \`${db.escape(emailHash)}\`
-        userSQL = `
-            UPDATE \`#__agency_portal_users\`
-            SET \`state\` = 1,
-                \`${controlColumn}\` = ${parseInt(controlValue, 10)},
-                \`can_sign\` = ${data.canSign},
-                \`group\` = ${parseInt(data.group, 10)},
-                \`password\` = ${db.escape(passwordHash)},
-                \`reset_required\` = 1
-            WHERE id = ${deletedUser.id}
-        `;
-    } else {
-        // else we don't have a deleted user. This is a new user, so insert them
-        userSQL = `
-            INSERT INTO \`#__agency_portal_users\` (\`state\`, \`${controlColumn}\`, \`can_sign\`, \`email\`, \`clear_email\`, \`email_hash\`, \`group\`, \`password\`, \`reset_required\`)
-            VALUES (1, ${parseInt(controlValue, 10)}, ${data.canSign}, ${db.escape(encryptedEmail)}, ${db.escape(clearEmail)}, ${db.escape(emailHash)}, ${parseInt(data.group, 10)}, ${db.escape(passwordHash)}, 1);
-	    `;
-    }
-
-    // Run the query
-    const result = await db.query(userSQL, connection).catch(function(err) {
-        log.error('__agency_portal_users error ' + err + __location);
-        error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+    await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
+        log.error('agencyPortalUser error ' + err + __location);
+        throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error) {
         return next(error);
     }
-    const userID = result.insertId;
-
-    // Make sure the query was successful
-    if (!result || result.affectedRows !== 1) {
-        // Rollback the transaction
-        db.rollback(connection);
-
-        log.error('User update failed.');
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    }
-
-    // Commit the transaction
-    db.commit(connection);
+    const userID = agencyPortalUserBO.id;
 
     // Return the response
     res.send(200, {
@@ -370,8 +150,8 @@ async function createUser(req, res, next) {
     });
 
     // Check if this is an agency network
-    const agencyNetworkId = req.authentication.agencyNetworkId;
-  
+    agencyNetworkId = req.authentication.agencyNetworkId;
+
 
     // Get the content of the new user email
     let jsonEmailProp = '';
@@ -449,15 +229,12 @@ async function deleteUser(req, res, next) {
     // Determine if this is an agency or agency network
     let agencyOrNetworkID = 0;
 
-    let where = ``;
 
     if (req.authentication.isAgencyNetworkUser && req.query.agency) {
         agencyOrNetworkID = parseInt(req.query.agency,10);
-        where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
     else if (req.authentication.isAgencyNetworkUser) {
         agencyOrNetworkID = parseInt(req.authentication.agencyNetworkId, 10);
-        where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
     else {
         // Get the agents that we are permitted to view
@@ -468,7 +245,6 @@ async function deleteUser(req, res, next) {
             return next(error);
         }
         agencyOrNetworkID = parseInt(agents[0], 10);
-        where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
 
     // Check that query parameters were received
@@ -490,44 +266,19 @@ async function deleteUser(req, res, next) {
     }
     const id = req.query.id;
 
-    // Make sure there is an owner for this agency (we are not removing the last owner)
-    if (!await hasOtherOwner(agencyOrNetworkID, id, isThisAgencyNetwork)) {
-        // Log a warning and return an error
-        log.warn('This user is the account owner. You must assign ownership to another user before deleting this account.');
-        return next(serverHelper.requestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
-    }
+    //TODO need rights check
 
-    // Make sure there is another signing authority (we are not removing the last one) (this setting does not apply to agency networks)
-    if (!req.authentication.isAgencyNetworkUser) {
-        if (!await hasOtherSigningAuthority(agencyOrNetworkID, id)) {
-            // Log a warning and return an error
-            log.warn('This user is the account signing authority. You must assign signing authority to another user before deleting this account.');
-            return next(serverHelper.requestError('This user is the account signing authority. You must assign signing authority to another user before deleting this account.'));
-        }
-    }
-
-    // Update the user (we set the state to -2 to signify that the user is deleted)
-    const updateSQL = `
-			UPDATE \`#__agency_portal_users\`
-			SET
-				\`state\` = -2
-			WHERE
-				\`id\` = ${parseInt(id, 10)} AND
-				${where}
-			LIMIT 1;
-		`;
-
-    // Run the query
-    const result = await db.query(updateSQL).catch(function(err) {
-        log.error('__agency_portal_users error ' + err + __location);
-        error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const result = await agencyPortalUserBO.deleteSoftById(parseInt(id, 10)).catch(function(err){
+        log.error('agencyPortalUser error ' + err + __location);
+        error = Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error) {
         return next(error);
     }
 
     // Make sure the query was successful
-    if (result.affectedRows !== 1) {
+    if (!result) {
         log.error('User delete failed');
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
@@ -557,11 +308,10 @@ async function getUser(req, res, next) {
         log.info('Bad Request: You must specify a user');
         return next(serverHelper.requestError('You must specify a user'));
     }
-
+    const userQuery = {id: parseInt(req.query.id, 10)};
     // Determine if this is an agency or agency network
-    let where = ``;
     if (req.authentication.isAgencyNetworkUser) {
-        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetworkId, 10)}`;
+        userQuery.agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
     }
     else {
         // Get the agents that we are permitted to view
@@ -571,31 +321,15 @@ async function getUser(req, res, next) {
         if (error) {
             return next(error);
         }
-        where = ` \`agency\` = ${parseInt(agents[0], 10)}`;
+        userQuery.agencyId = parseInt(agents[0], 10);
     }
 
-    // Get the user from the database
-    const userSQL = `
-			SELECT
-				\`id\`,
-				\`email\`,
-				\`group\`,
-				\`last_login\` AS \`lastLogin\`,
-				\`can_sign\` = 1 AS \`canSign\`
-			FROM
-				\`#__agency_portal_users\`
-			WHERE
-				\`id\` = ${parseInt(req.query.id, 10)} AND
-				${where};
-		`;
-
-    const userInfo = await db.query(userSQL).catch(function(err) {
-        log.error('__agency_portal_users error ' + err + __location);
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const userInfo = await agencyPortalUserBO.getList(userQuery).catch(function(err){
+        log.error('agencyPortalUser error ' + err + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
 
-    // Decrypt everything we need
-    await crypt.batchProcessObjectArray(userInfo, 'decrypt', ['email']);
+    });
 
     res.send(200, userInfo[0]);
 }
@@ -630,14 +364,11 @@ async function updateUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let agencyOrNetworkID = 0;
-    let where = ``;
     if(req.authentication.isAgencyNetworkUser && req.body.agency){
         agencyOrNetworkID = parseInt(req.body.agency, 10);
-        where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
     else if (req.authentication.isAgencyNetworkUser) {
         agencyOrNetworkID = parseInt(req.authentication.agencyNetworkId, 10);
-        where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
     else {
         // Get the agents that we are permitted to view
@@ -648,7 +379,6 @@ async function updateUser(req, res, next) {
             return next(error);
         }
         agencyOrNetworkID = parseInt(agents[0], 10);
-        where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
 
     // Validate the ID
@@ -659,127 +389,26 @@ async function updateUser(req, res, next) {
         return next(serverHelper.requestError('ID missing'));
     }
     if (!await validator.userId(userObj.id, agencyOrNetworkID, isThisAgencyNetwork)) {
+        log.error(`update user did not pass ID validation ${userObj.id} agencyOrNetworkID ${agencyOrNetworkID}`)
         return next(serverHelper.requestError('ID is invalid'));
     }
     data.id = userObj.id;
 
-    // Begin a database transaction
-    const connection = await db.beginTransaction().catch(function(err) {
-        log.error('db beginTransaction error ' + err + __location);
-        error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    });
-    if (error) {
-        return next(error);
-    }
-
-
-    // If this user is to be set as owner, remove the current owner (they will become a super administrator)
-    // Delete all other owners in case a state is reached where there was/is more than one (it's happened before)
-    if (data.group === 1) {
-        const removeOwnerSQL = `
-				UPDATE
-					\`#__agency_portal_users\`
-				SET
-					\`group\` = 2
-				WHERE
-					\`group\` = 1 AND
-					${where};
-			`;
-
-        // Run the query
-        await db.query(removeOwnerSQL, connection).catch(function(err) {
-            log.error('__agency_portal_users error ' + err + __location);
-            error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        });
-        if (error) {
-            return next(error);
-        }
-
-        // Make sure there is an owner for this agency (we are not removing the last owner)
-    }
-    else if (!await hasOtherOwner(agencyOrNetworkID, data.id, isThisAgencyNetwork)) {
-        // Rollback the transaction
-        db.rollback(connection);
-
-        // Log a warning and return an error
-        log.warn('This user must be an owner as no other owners exist. Create a new owner first.');
-        return next(serverHelper.requestError('This user must be an owner as no other owners exist. Create a new owner first.'));
-    }
-
-    // If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
-    // However adding functionality to update user from agency network so also need to make sure no agency id was sent in the req.body
-    if (!req.authentication.isAgencyNetworkUser && !req.body.agency) {
-        if (data.canSign) {
-            const removeCanSignSQL = `
-					UPDATE
-						\`#__agency_portal_users\`
-					SET
-						\`can_sign\` = NULL
-					WHERE
-						${where};
-				`;
-
-            // Run the query
-            await db.query(removeCanSignSQL, connection).catch(function(err) {
-                log.error('__agency_portal_users error ' + err + __location);
-                error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-            });
-            if (error) {
-                return next(error);
-            }
-
-            // Make sure there is another signing authority (we are not removing the last one)
-        }
-        else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id)) {
-            // Rollback the transaction
-            db.rollback(connection);
-
-            // Log a warning and return an error
-            log.warn('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.');
-            return next(serverHelper.requestError('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.'));
-        }
-    }
-
     // Prepare the email address
-    const emailHash = await crypt.hash(data.email);
-    const clearEmail = data.email;
-    data.email = await crypt.encrypt(data.email);
-
-    // Update the user
-    const updateSQL = `
-			UPDATE \`#__agency_portal_users\`
-			SET
-				\`can_sign\` = ${data.canSign},
-                \`email\` = ${db.escape(data.email)},
-                \`clear_email\` = ${db.escape(clearEmail)},
-				\`email_hash\` = ${db.escape(emailHash)},
-				\`group\` = ${parseInt(data.group, 10)}
-			WHERE
-				\`id\` = ${parseInt(data.id, 10)} AND
-				${where}
-			LIMIT 1;
-		`;
-
-    // Run the query
-    const result = await db.query(updateSQL, connection).catch(function(err) {
-        log.error('__agency_portal_users error ' + err + __location);
+    const newUserJSON = {
+        id: parseInt(data.id, 10),
+        canSign: data.canSign,
+        email: data.email,
+        agencyPortalUserGroupId: data.group
+    }
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err) {
+        log.error('agencyPortalUser error ' + err + __location);
         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error) {
         return next(error);
     }
-
-    // Make sure the query was successful
-    if (result.affectedRows !== 1) {
-        // Rollback the transaction
-        db.rollback(connection);
-
-        log.error('User update failed.');
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    }
-
-    // Commit the transaction
-    db.commit(connection);
     res.send(200, 'Saved');
 }
 

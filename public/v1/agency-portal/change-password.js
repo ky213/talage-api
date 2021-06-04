@@ -56,11 +56,14 @@ async function putChangePassword(req, res, next){
     }
 
     // Create and run the UPDATE query
-    const sql = `UPDATE \`#__agency_portal_users\` SET \`password\`=${db.escape(password)}, \`reset_required\`=0 WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
-    await db.query(sql).catch(function(err){
-        log.error(err.message);
+
+    const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    await agencyPortalUserBO.setPasword(parseInt(req.authentication.userID, 10), password).catch(function(err){
+        log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     });
+
 
     // Everything went okay, send a success response
     res.send(200, 'Account Updated');

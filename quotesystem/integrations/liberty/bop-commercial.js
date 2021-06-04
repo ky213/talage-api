@@ -247,13 +247,19 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
+        const applicationDocData = this.app.applicationDocData;
+        const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
+        logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.applicationId}): `;
+
         // liberty can have multiple insurer industry codes tied to a single talage industry code
         // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
         await this._getLibertyIndustryCodes();
 
-        const applicationDocData = this.app.applicationDocData;
-        const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
-        logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.applicationId}): `;
+        if (!this.industry_code) {
+            const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
+            log.error(`${errorMessage} ` + __location)
+            return this.client_error(errorMessage, __location);
+        }
 
         // if there's no BOP policy
         if (!BOPPolicy) {
@@ -1431,12 +1437,6 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         this.industry_code = this.industry_code.find(ic => ic.attributes.commercialBOP);
-        if (!this.industry_code) {
-            const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
-            log.error(`${errorMessage} ` + __location)
-            return this.client_error(errorMessage, __location);
-        }
-
     }
 
     getCoverages(coverages, category) {
