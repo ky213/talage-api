@@ -78,13 +78,14 @@ module.exports = class AcuityWC extends Integration {
                 if(!activityPayroll.activityCodeId){
                     activityPayroll.activityCodeId = activityPayroll.ncciCode;
                 }
-                const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.activityCodeId];
-                if (insurerClassCode) {
+                const insurerClassCodeDoc = await this.get_insurer_code_for_activity_code(this.insurer.id,location.state, activityPayroll.activityCodeId)
+                if (insurerClassCodeDoc && insurerClassCodeDoc.code) {
                     let addAmtrustClassCode = false;
-                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
+                    const amTrustCodeSub = insurerClassCodeDoc.code + insurerClassCodeDoc.sub;
+                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === amTrustCodeSub && acc.state === location.state);
                     if (!amtrustClassCode) {
                         amtrustClassCode = {
-                            ncciCode: insurerClassCode,
+                            ncciCode: amTrustCodeSub,
                             state: location.state,
                             payroll: 0,
                             fullTimeEmployees: 0,
@@ -106,10 +107,13 @@ module.exports = class AcuityWC extends Integration {
                         }
                     }
                     //AMtrust will return an error if the classcode has zero for employees or zero for payroll.
-                    if(addAmtrustClassCode && amtrustClassCode.fullTimeEmployees > 0 && amtrustClassCode.partTimeEmployees > 0
+                    if(addAmtrustClassCode && (amtrustClassCode.fullTimeEmployees > 0 || amtrustClassCode.partTimeEmployees > 0)
                         && amtrustClassCode.payroll > 0){
                         amtrustClassCodeList.push(amtrustClassCode);
                     }
+                }
+                else {
+                    log.error(`AMtrust WC (application ${this.app.id}): Error no AMtrust InsurerActivityCode for: ${location.state} - ${activityPayroll.activityCodeId} ${__location}`);
                 }
             }
         }
@@ -126,7 +130,6 @@ module.exports = class AcuityWC extends Integration {
                 "PartTimeEmployees": amtrustClassCode.partTimeEmployees
             });
         }
-
         return classCodeList;
     }
 
