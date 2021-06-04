@@ -169,7 +169,7 @@ async function applicationSave(req, res, next) {
 
     let responseAppDoc = null;
     try {
-        const updateMysql = false;
+        //const updateMysql = false;
 
         // if activityPayrollList exists, populate activityCode data from it
         // extract location part_time_employees and full_time_employees from location payroll data.
@@ -381,7 +381,7 @@ async function applicationLocationSave(req, res, next) {
                 applicationDB.locations.push(reqLocation)
             }
 
-            const updateMysql = false;
+
             //updateMongo seems to wipping out the appid sent
             if(applicationDB.agencyLocationId){
                 log.debug(`applicationLocationSave applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
@@ -389,8 +389,7 @@ async function applicationLocationSave(req, res, next) {
 
             const appId = applicationDB.applicationId
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
-                applicationDB,
-                updateMysql);
+                applicationDB);
 
             //Check/select Agencylocation Choice with new location
             log.debug('applicationDB.applicationId ' + appId + __location)
