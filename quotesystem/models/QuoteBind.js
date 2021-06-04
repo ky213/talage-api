@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 /**
  * Defines a single quote
  */
@@ -267,21 +268,24 @@ module.exports = class QuoteBind{
         // Validate the payment plan
         // - Only set payment plan if passed in.
         if (payment_plan_id) {
+            // //payment_plan_id is talage payment plan Id. not insurer
             const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
             let insurerPaymentPlan = null;
             try {
-                insurerPaymentPlan = await insurerPaymentPlanBO.getById(parseInt(payment_plan_id, 10));
+                // eslint-disable-next-line object-property-newline
+                const query = {insurer: this.quoteDoc.insurerId, payment_plan:  payment_plan_id};
+                insurerPaymentPlan = await insurerPaymentPlanBO.getList(query);
             }
             catch (err) {
-                log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan_id}:` + err + __location);
+                log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${payment_plan_id}:` + err + __location);
             }
-            if(!insurerPaymentPlan){
-                throw new Error('Payment plan does not belong to the insurer who provided this quote');
+            if(!insurerPaymentPlan || !insurerPaymentPlan.length > 0){
+                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${id} payment_plan: ${payment_plan_id} insurer ${this.quoteDoc.insurerId}`);
             }
             this.payment_plan = payment_plan_id;
         }
         else{
-            log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan_id}:` + __location);
+            log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${payment_plan_id}:` + __location);
         }
     }
 

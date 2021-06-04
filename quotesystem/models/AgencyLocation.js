@@ -70,7 +70,7 @@ module.exports = class AgencyLocation {
             let agencyLocation = null;
             const agencyLocationBO = new AgencyLocationBO();
             const getChildren = true;
-            
+
             try{
                 const addAgencyPrimaryLocation = true;
                 agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation);

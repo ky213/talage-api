@@ -26,7 +26,7 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const utility = global.requireShared('./helpers/utility.js');
-const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
@@ -1432,9 +1432,9 @@ module.exports = class ApplicationModel {
         }
     }
 
-    async checkExpiration(applicationJSON){
-        if(applicationJSON.policies && applicationJSON.policies.length > 0){
-            for(let policy of applicationJSON.policies){
+    async checkExpiration(newObjectJSON){
+        if(newObjectJSON.policies && newObjectJSON.policies.length > 0){
+            for(let policy of newObjectJSON.policies){
                 log.debug("policy " + JSON.stringify(policy))
                 if(policy.effectiveDate && !policy.expirationDate){
                     try{
@@ -1451,17 +1451,40 @@ module.exports = class ApplicationModel {
         return true;
 
     }
-    async checkLocations(applicationJSON){
-        if(applicationJSON.locations && applicationJSON.locations.length > 0){
+    //Note this working on the newObjectJSON.
+    // which might not be the full ApplicationDoc.
+    async checkLocations(newObjectJSON){
+        if(newObjectJSON.locations && newObjectJSON.locations.length > 0){
             let hasBillingLocation = false;
-            for(let location of applicationJSON.locations){
+            let hasPrimaryLocation = false;
+            let receivedPrimaryLocation = false;
+            //Note does not check for more than 1.
+            const primaryLocation = newObjectJSON.locations.find((newLoc) => newLoc.primary === true)
+            if(primaryLocation){
+                receivedPrimaryLocation = true;
+            }
+            for(let location of newObjectJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
-                    log.warn(`Application will multiple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    log.warn(`Application will multiple billing received AppId ${newObjectJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
                     location.billing = false;
                 }
                 else if(location.billing === true){
                     hasBillingLocation = true;
                 }
+                // primaryLocation
+                if(receivedPrimaryLocation === false){
+                    //client did not send primary, so use Billing
+                    log.debug(`setting primary from billing ${newObjectJSON.applicationId} ` + __location)
+                    location.primary = location.billing
+                }
+                if(location.primary === true && hasPrimaryLocation === false){
+                    hasPrimaryLocation = true;
+                    newObjectJSON.primaryState = location.state
+                }
+                else {
+                    location.primary = false;
+                }
+
             }
         }
         return true;

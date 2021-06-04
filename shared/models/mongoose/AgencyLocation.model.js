@@ -29,6 +29,8 @@ const PolicyTypeInfoSchema = new Schema({
     WC: PolicyTypeInfoDetailsSchema,
     BOP: PolicyTypeInfoDetailsSchema,
     GL: PolicyTypeInfoDetailsSchema,
+    CYBER: PolicyTypeInfoDetailsSchema,
+    PL: PolicyTypeInfoDetailsSchema,
     notifyTalage: {type: Boolean, required: true, default: false}
 },{_id : false})
 

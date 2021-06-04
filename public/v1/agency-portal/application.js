@@ -197,9 +197,9 @@ async function getApplication(req, res, next) {
                 }
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-                if (quoteJSON.status === 'bind_requested'|| quoteJSON.bound || quoteJSON.status === 'quoted') {
-                    quoteJSON.reasons = '';
-                }
+            if (quoteJSON.status === 'bind_requested' || quoteJSON.bound || quoteJSON.status === 'quoted') {
+                quoteJSON.reasons = '';
+            }
             // Change the name of autodeclined
             if (quoteJSON.status === 'autodeclined') {
                 quoteJSON.status = 'Out of Market';
@@ -468,8 +468,8 @@ async function setupReturnedApplicationJSON(applicationJSON){
     if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
-            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
-            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+            const apUser = await agencyPortalUserBO.getById(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = apUser.email;
         }
         catch(err){
             log.error("Error getting agencyPortalUserBO " + err + __location);
@@ -1568,7 +1568,7 @@ async function CheckZip(req, res, next){
             return next(serverHelper.requestError('The zip code you entered is invalid.'));
         }
 
-        await zipCodeBO.loadByZipCode(zipCode).catch(function(err) {
+        const zipCodeDoc = await zipCodeBO.loadByZipCode(zipCode).catch(function(err) {
             error = err;
             log.error("Unable to get ZipCode records for " + req.body.zip + err + __location);
         });
@@ -1587,8 +1587,8 @@ async function CheckZip(req, res, next){
                 return next(serverHelper.requestError('internal error'));
             }
         }
-        if(zipCodeBO.territory){
-            responseObj.territory = zipCodeBO.territory;
+        if(zipCodeDoc.state){
+            responseObj.territory = zipCodeDoc.state;
             res.send(200, responseObj);
             return next();
         }
@@ -1951,7 +1951,7 @@ async function markQuoteAsDead(req, res, next){
     }
     let userName = null;
     if (userJSON) {
-       userName = userJSON.clear_email;
+        userName = userJSON.clear_email;
     }
     else {
         log.error(`Could not find user json for user id ${req.authentication.userID} : ` + __location);
@@ -1969,7 +1969,7 @@ async function markQuoteAsDead(req, res, next){
     else {
         res.send({'message': 'Failed to mark quote as dead. If this continues please contact us.'});
     }
-        return next();
+    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {

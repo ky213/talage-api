@@ -46,7 +46,7 @@ async function getUsers(req, res, next){
         retrievingAgencyUsersForAgencyNetwork = true;
     }
     else if (req.authentication.isAgencyNetworkUser){
-        query.agencynetworkid = parseInt(req.authentication.agencyNetworkId, 10);
+        query.agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
         getAgencyNetworkRoles = true;
     }
     else {
@@ -58,7 +58,7 @@ async function getUsers(req, res, next){
             return next(error);
         }
 
-        query.agencyid = parseInt(agents[0], 10);
+        query.agencyId = parseInt(agents[0], 10);
     }
 
     let users = null;
@@ -66,6 +66,9 @@ async function getUsers(req, res, next){
         try{
             const agencyPortalUserBO = new AgencyPortalUserBO();
             users = await agencyPortalUserBO.getByAgencyId(parseInt(req.query.agency, 10));
+            users.forEach((user) => {
+                user.id = user.agencyPortalUserId
+            })
         }
         catch(err){
             log.error('DB query failed while retrieving agency users for agency network: ' + err.message + __location);
@@ -74,9 +77,13 @@ async function getUsers(req, res, next){
     }
     else {
         try{
+            log.debug(`agencyPortalUserBO.getList(query ${JSON.stringify(query)}` + __location)
             const agencyPortalUserBO = new AgencyPortalUserBO();
             const addPermissions = true;
             users = await agencyPortalUserBO.getList(query, addPermissions);
+            users.forEach((user) => {
+                user.id = user.agencyPortalUserId
+            })
         }
         catch(err){
             log.error('DB query failed while trying to retrieve users' + err.message + __location);

@@ -149,7 +149,7 @@ async function update(req, res, next) {
 
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
-    let questionId = null;
+    //let questionId = null;
 
     // if there is no expirationDate or effectiveDate provided, default them
     if(!req.body.hasOwnProperty("expirationDate")){
@@ -176,9 +176,9 @@ async function update(req, res, next) {
         return next(error);
     }
     //update cache
-    if(newJSON.talageQuestionId){
-        questionId = newJSON.talageQuestionId;
-    }
+    // if(newJSON.talageQuestionId){
+    //     questionId = newJSON.talageQuestionId;
+    // }
     //const questionSvc = global.requireShared('./services/questionsvc.js');
     // try{
     //     //do not await not need to wait for response

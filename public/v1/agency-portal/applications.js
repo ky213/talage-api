@@ -212,7 +212,7 @@ async function getApplications(req, res, next){
     if(error){
         return next(error);
     }
-
+    log.debug(`get Application req.auth ${JSON.stringify(req.authentication)} ` + __location);
     // Localize data variables that the user is permitted to access
     const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
