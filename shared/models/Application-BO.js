@@ -1655,9 +1655,24 @@ module.exports = class ApplicationModel {
 
     async setDocEinClear(applicationDoc){
         if(applicationDoc){
-            if(applicationDoc.einEncrypted){
-                applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
-                applicationDoc.ein = applicationDoc.einClear;
+            if(applicationDoc.einEncryptedT2 && applicationDoc.einEncryptedT2.length > 0){
+                try{
+                    log.debug(`Using new decrypt ` + __location);
+                    applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncryptedT2);
+                    applicationDoc.ein = applicationDoc.einClear;
+                }
+                catch(err){
+                    log.error(`ApplicationBO error decrypting ein ${this.applicationId} ` + err + __location);
+                }
+            }
+            else if(applicationDoc.einEncrypted){
+                try{
+                    applicationDoc.einClear = await crypt.decryptSodium(applicationDoc.einEncrypted);
+                    applicationDoc.ein = applicationDoc.einClear;
+                }
+                catch(err){
+                    log.error(`ApplicationBO error decrypting ein ${this.applicationId} ` + err + __location);
+                }
             }
             else {
                 applicationDoc.ein = "";
@@ -1670,7 +1685,7 @@ module.exports = class ApplicationModel {
         //Only modified if EIN has been given.
         if(applicationDoc && applicationDoc.ein && applicationDoc.ein.length > 1){
             try{
-                applicationDoc.einEncrypted = await crypt.encrypt(applicationDoc.ein);
+                applicationDoc.einEncryptedT2 = await crypt.encrypt(applicationDoc.ein);
                 applicationDoc.einHash = await crypt.hash(applicationDoc.ein);
             }
             catch(err){
@@ -1720,6 +1735,15 @@ module.exports = class ApplicationModel {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     if(applicationDoc){
                         await this.setDocEinClear(applicationDoc);
+                        if(applicationDoc.einEncrypted){
+                            delete applicationDoc.einEncrypted
+                        }
+                        if(applicationDoc.einEncryptedT2){
+                            delete applicationDoc.einEncryptedT2
+                        }
+                        if(applicationDoc.einHash){
+                            delete applicationDoc.einHash
+                        }
                         if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
                             await this.checkAndFixAppStatus(applicationDoc);
                         }
@@ -1749,6 +1773,15 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     await this.setDocEinClear(applicationDoc);
+                    if(applicationDoc.einEncrypted){
+                        delete applicationDoc.einEncrypted
+                    }
+                    if(applicationDoc.einEncryptedT2){
+                        delete applicationDoc.einEncryptedT2
+                    }
+                    if(applicationDoc.einHash){
+                        delete applicationDoc.einHash
+                    }
                     if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
                         await this.checkAndFixAppStatus(applicationDoc);
                     }
@@ -1776,13 +1809,22 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
+                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v').lean();
                     if (docDB) {
                         await this.setDocEinClear(docDB);
                         if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
                             await this.checkAndFixAppStatus(applicationDoc);
                         }
                         applicationDoc = mongoUtils.objCleanup(docDB);
+                        if(applicationDoc.einEncrypted){
+                            delete applicationDoc.einEncrypted
+                        }
+                        if(applicationDoc.einEncryptedT2){
+                            delete applicationDoc.einEncryptedT2
+                        }
+                        if(applicationDoc.einHash){
+                            delete applicationDoc.einHash
+                        }
                     }
                 }
                 catch (err) {
@@ -1808,7 +1850,8 @@ module.exports = class ApplicationModel {
 
             let getListOptions = {
                 getQuestions: false,
-                getAgencyName: false
+                getAgencyName: false,
+                getEin: false
             }
 
             if(getOptions){
@@ -1956,7 +1999,18 @@ module.exports = class ApplicationModel {
                     // log.debug("docList.length: " + docList.length);
                     // log.debug("docList: " + JSON.stringify(docList));
                     for (const application of docList) {
-                        await this.setDocEinClear(application);
+                        if(getListOptions.getEin){
+                            await this.setDocEinClear(application);
+                        }
+                        if(application.einEncrypted){
+                            delete application.einEncrypted
+                        }
+                        if(application.einEncryptedT2){
+                            delete application.einEncryptedT2
+                        }
+                        if(application.einHash){
+                            delete application.einHash
+                        }
                         if (application && application.appStatusId === QUOTING_STATUS) {
                             await this.checkAndFixAppStatus(application);
                         }

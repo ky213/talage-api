@@ -89,7 +89,7 @@ exports.registerEndpoints = (server) => {
     // Auth
     registerEndpoint(server, 'auth', 'administration');
     registerEndpoint(server, 'auth', 'agency-portal');
-    registerEndpoint(server, 'auth', 'token');
+
 
     // Code
     registerEndpoint(server, 'code', 'activity-codes');
