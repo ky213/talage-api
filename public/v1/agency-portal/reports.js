@@ -411,10 +411,16 @@ async function getReports(req) {
     if (!initialRequest) {
         // Process the dates if they were included in the request or return an error if they werent
         if (startDate && endDate) {
+            // where.createdAt = {
+            //     $gte: mysqlDateToJsDate(startDate, offSetHours),
+            //     $lte: mysqlDateToJsDate(endDate, offSetHours)
+            // };
+
             where.createdAt = {
-                $gte: mysqlDateToJsDate(startDate, offSetHours),
-                $lte: mysqlDateToJsDate(endDate, offSetHours)
+                $gte: moment(startDate).toDate(),
+                $lte: moment(endDate).toDate()
             };
+            log.debug(`Date Where ${JSON.stringify(where.createdAt)}`)
 
             const startMoment = moment(startDate)
             const endMoment = moment(endDate)
