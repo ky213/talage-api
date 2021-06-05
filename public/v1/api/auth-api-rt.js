@@ -47,10 +47,22 @@ async function getToken(req, res, next) {
         }
 
         // Check the key
-        if (!await crypt.verifyPassword(agencyPortalUserJSON.password, req.body.password)) {
-            log.info('Authentication failed - No Password chck' + __location);
-            res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-            return next();
+        if (!crypt.verifyPassword(agencyPortalUserJSON.password, req.body.password)) {
+            // Check if maybe still using old Sodium hash
+            log.debug(`checking sodium hash for user  ${agencyPortalUserJSON.agencyPortalUserId}` + __location)
+            if (await crypt.verifyPasswordSodium(agencyPortalUserJSON.password, req.body.password)) {
+                // If so, lets move over to crypto hash.
+                const newPasswordHash = await crypt.hashPassword(req.body.password);
+                const updateJson = {password: newPasswordHash};
+                await agencyPortalUserBO.updateMongo(agencyPortalUserJSON.agencyPortalUserUuidId, updateJson);
+                log.debug(`update user ${agencyPortalUserJSON.agencyPortalUserId} pwdHash ` + __location);
+
+            }
+            else {
+                log.info('Authentication failed');
+                res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
+                return next();
+            }
         }
         // TODO check API access and Application manage rights
 

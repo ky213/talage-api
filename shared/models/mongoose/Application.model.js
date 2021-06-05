@@ -14,7 +14,7 @@ var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
-const crypt = global.requireShared('./services/crypt.js');
+//const crypt = global.requireShared('./services/crypt.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -233,6 +233,7 @@ const ApplicationSchema = new Schema({
     hasEin: {type: Boolean, default: true},
     ein: {type: String, required: false},
     einEncrypted: {type: String, required: false},
+    einEncryptedT2: {type: String, required: false},
     einHash: {type: String, required: false},
     mailingAddress: {type: String, required: false},
     mailingAddress2: {type: String, required: false},
@@ -338,22 +339,22 @@ ApplicationSchema.pre('updateOne', async function(next) {
 });
 
 
-ApplicationSchema.post('find', async function(result) {
-    if(result && result.length > 0){
-        // eslint-disable-next-line prefer-const
-        for(let doc of result){
-            if(doc && doc.einEncrypted){
-                doc.ein = await crypt.decrypt(doc.einEncrypted);
-            }
-        }
-    }
-});
+// ApplicationSchema.post('find', async function(result) {
+//     if(result && result.length > 0){
+//         // eslint-disable-next-line prefer-const
+//         for(let doc of result){
+//             if(doc && doc.einEncryptedT2){
+//                 doc.ein = await crypt.decrypt(doc.einEncryptedT2);
+//             }
+//         }
+//     }
+// });
 
-ApplicationSchema.post('findOne', async function(result) {
-    if(result && result.einEncrypted){
-        result.ein = await crypt.decrypt(result.einEncrypted);
-    }
-});
+// ApplicationSchema.post('findOne', async function(result) {
+//     if(result && result.einEncryptedT2){
+//         result.ein = await crypt.decrypt(result.einEncryptedT2);
+//     }
+// });
 
 
 mongoose.set('useCreateIndex', true);
