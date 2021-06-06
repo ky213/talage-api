@@ -2,6 +2,7 @@
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 
+const moment = require('moment');
 
 // const cowbellStagingHost = "https://api.morecowbell.ai";
 // const cowbellStagingBasePath = "/api";
@@ -164,8 +165,8 @@ module.exports = class cowbellCyber extends Integration {
             primaryContact = {};
         }
         // fall back to outside phone IFF we cannot find primary contact phone
-        const constactPhone = primaryContact.phone ? constactPhone : applicationDocData.phone.toString();
-        const formattedContactPhone = `+1-${constactPhone.substring(0, 3)}-${constactPhone.substring(constactPhone.length - 7)}`;
+        const contactPhone = primaryContact.phone ? primaryContact.phone : applicationDocData.phone.toString();
+        const formattedContactPhone = `+1-${contactPhone.substring(0, 3)}-${contactPhone.substring(contactPhone.length - 7)}`;
 
         const primaryLocation = applicationDocData.locations.find(l => l.primary)
 
@@ -190,6 +191,7 @@ module.exports = class cowbellCyber extends Integration {
                 }
             }
         }
+        //this.policy.effective_date.format('YYYY-MM-DD')
 
         // Create the quote request
         const quoteRequestData = {
@@ -207,9 +209,11 @@ module.exports = class cowbellCyber extends Integration {
             "address1": primaryLocation.address,
             "address2": primaryLocation.address2,
             "city": primaryLocation.city,
-            "state": primaryLocation.states,
+            "state": primaryLocation.state,
             "zipCode": primaryLocation.zipcode.slice(0,5),
             "phoneNumber": primaryContact.phone,
+            "companyType": "Private",
+            "ownershipType": "Private",
             "claimHistory": claimHistory,
             //"daAgencyId": "string",
             "dbaOrTradestyle": appDoc.dba,
@@ -217,9 +221,13 @@ module.exports = class cowbellCyber extends Integration {
             "domainName": mainDomain,
             "domains": cyberPolicy.domains,
             //"dunsNumber": "string",
-            "effectiveDate": policy.effectiveDate.format('YYYY-MM-DD').toISOString(),
+            "effectiveDate": moment(policy.effectiveDate).toISOString(),
             "entityType": "Independent",
             //Questions....
+            "questionTraining":  true,
+            "questionLeadership": true,
+            "questionEncryption": true,
+            "questionCloud": true,
             "isAuthenticatingFundTransferRequests": true,
             "isFranchise": false,
             "isPreventingUnauthorizedWireTransfers": true,
@@ -230,10 +238,11 @@ module.exports = class cowbellCyber extends Integration {
             "useEncryption": true,
             // end questions
             "limit": policyaggregateLimit,
+            "aggregateLimit": policyaggregateLimit,
             "naicsCode": naicsNumber,
             "natureOfBusiness": this.industry_code.description,
             "noOfEmployeesAll": this.get_total_employees(),
-            "ownershipType": "Public",
+            "numberOfEmployees": this.get_total_employees(),
             "policyContactEmail": primaryContact.email,
             "policyContactFirstName": primaryContact.firstName,
             "policyContactLastName": primaryContact.lastName,
@@ -246,6 +255,7 @@ module.exports = class cowbellCyber extends Integration {
             "ransomPaymentEndorsement": cyberPolicy.ransomPaymentEndorsement ? true : false,
             "ransomPaymentLimit": cyberPolicy.ransomPaymentEndorsement ? cyberPolicy.ransomPaymentLimit : null,
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
+            "retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
             "revenue": appDoc.grossSalesAmt,
             "socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
@@ -254,7 +264,8 @@ module.exports = class cowbellCyber extends Integration {
             "telecomsFraudEndorsement":  cyberPolicy.telecomsFraudEndorsement ? true : false,
             "telecomsFraudSubLimit": cyberPolicy.telecomsFraudEndorsement ? cyberPolicy.telecomsFraudEndorsementLimit : null,
             "url": appDoc.website,
-            "yearEstablished": appDoc.founded.year()
+            "yearEstablished": moment(appDoc.founded).year(),
+            "yearsInBusiness": this.get_years_in_business()
             // "additionalInsureds": [
             //     {
             //         "address1": "string",
@@ -282,6 +293,10 @@ module.exports = class cowbellCyber extends Integration {
         //     "useEncryption": true,
 
         //TODO Additional Insurered
+
+
+        //"companyType": "Private" override....
+
 
         log.debug(`Cowbel submission \n ${JSON.stringify(quoteRequestData)} \n` + __location);
         return this.client_error(`Did not send`);
