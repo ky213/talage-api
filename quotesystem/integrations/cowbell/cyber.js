@@ -188,6 +188,7 @@ module.exports = class cowbellCyber extends Integration {
                 // any claim within five years is rejection per Cowbell.
                 // Cyber enum based on within years.
                 // if any cyber claims just set it to 1 - Recommended by Cowbell
+                // any claim will cause a rejection
                 if(cyberClaimsList.length > 0){
                     claimHistory = 1;
                 }
@@ -226,18 +227,18 @@ module.exports = class cowbellCyber extends Integration {
             "effectiveDate": moment(policy.effectiveDate).toISOString(),
             "entityType": "Independent",
             //Questions....
-            "questionTraining":  true,
-            "questionLeadership": true,
-            "questionEncryption": true,
-            "questionCloud": true,
-            "isAuthenticatingFundTransferRequests": true,
-            "isFranchise": false,
-            "isPreventingUnauthorizedWireTransfers": true,
-            "isSecurityOfficer": true,
-            "isSecurityTraining": true,
-            "isVerifyingBankAccounts": true,
-            "useCloudStorage": true,
-            "useEncryption": true,
+            // "questionTraining":  true,
+            // "questionLeadership": true,
+            // "questionEncryption": true,
+            // "questionCloud": true,
+            // "isAuthenticatingFundTransferRequests": true,
+            // "isFranchise": false,
+            // "isPreventingUnauthorizedWireTransfers": true,
+            // "isSecurityOfficer": true,
+            // "isSecurityTraining": true,
+            // "isVerifyingBankAccounts": true,
+            // "useCloudStorage": true,
+            // "useEncryption": true,
             // end questions
             "limit": policyaggregateLimit,
             "aggregateLimit": policyaggregateLimit,
@@ -295,16 +296,23 @@ module.exports = class cowbellCyber extends Integration {
         //     "useEncryption": true,
 
         //TODO Additional Insurered
+        //Question Processing.
+        for(const insurerQuestion of this.insurerQuestionList){
+            if(Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+                if(insurerQuestion.identifier){
+                    const question = this.questions[insurerQuestion.talageQuestionId];
+                    if(!question){
+                        continue;
+                    }
+                    quoteRequestData[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                }
+            }
+        }
 
 
         //"companyType": "Private" override....
 
-
         log.debug(`Cowbell submission \n ${JSON.stringify(quoteRequestData)} \n` + __location);
-
-        // if (claimObjects) {
-        //     quoteRequestData.losses = claimObjects;
-        // }
 
         // =========================================================================================================
         // request to get token
