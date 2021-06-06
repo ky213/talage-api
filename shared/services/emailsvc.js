@@ -8,7 +8,6 @@ const Sendgrid = require('@sendgrid/mail');
 const imageSize = require('image-size');
 const url = require('url');
 const https = require('https');
-const crypt = require('./crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const fs = require('fs');
 //const imgSize = require('./emailhelpers/imgSize.js');
