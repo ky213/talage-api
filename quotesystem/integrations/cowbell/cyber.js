@@ -1,14 +1,16 @@
 /* eslint-disable no-unneeded-ternary */
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const axios = require('axios');
 
 const moment = require('moment');
 
-// const cowbellStagingHost = "https://api.morecowbell.ai";
-// const cowbellStagingBasePath = "/api";
+const cowbellStagingHost = "https://api.morecowbell.ai";
+const cowbellStagingBasePath = "/api";
 
-// const cowbellProductionHost = "https://api.cowbellcyber.ai";
-// const cowbellProductionBasePath = "/api";
+const cowbellProductionHost = "https://api.cowbellcyber.ai";
+const cowbellProductionBasePath = "/api";
 
 
 module.exports = class cowbellCyber extends Integration {
@@ -298,46 +300,140 @@ module.exports = class cowbellCyber extends Integration {
         //"companyType": "Private" override....
 
 
-        log.debug(`Cowbel submission \n ${JSON.stringify(quoteRequestData)} \n` + __location);
-        return this.client_error(`Did not send`);
+        log.debug(`Cowbell submission \n ${JSON.stringify(quoteRequestData)} \n` + __location);
+
         // if (claimObjects) {
         //     quoteRequestData.losses = claimObjects;
         // }
 
         // =========================================================================================================
-        //request to get token
-        //  {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
+        // request to get token
+        const clientId = this.username
+        const clientSecret = this.password;
+        const authBody = {
+            "clientId": clientId,
+            "secret": clientSecret
+        }
         // Send the request - use Oauth2 for with token.
-        // const host = this.insurer.useSandbox ? cowbellStagingHost : cowbellProductionHost;
-        // const basePath = this.insurer.useSandbox ? cowbellStagingBasePath : cowbellProductionBasePath;
-        // let response = null;
-        // try {
-        //     response = await this.send_json_request(host, basePath + "/quote",
-        //         JSON.stringify(quoteRequestData),
-        //         {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
-        //         "POST");
-        // }
-        // catch (error) {
-        //     try {
-        //         response = JSON.parse(error.response);
-        //     }
-        //     catch (error2) {
-        //         return this.client_error(`The insurer returned an error code of ${error.httpStatusCode}`, __location, {error: error});
-        //     }
-        // }
+        const host = this.insurer.useSandbox ? cowbellStagingHost : cowbellProductionHost;
+        const basePath = this.insurer.useSandbox ? cowbellStagingBasePath : cowbellProductionBasePath;
+        let responseAuth = null;
+        let authToken = null;
+        const authUrl = `${host}${basePath}/auth/v1/api/token`;
+        try {
+            const options = {headers: {Accept: 'application/json'}};
 
-        // // console.log("response", JSON.stringify(response, null, 4));
+            //let responseAuth = null;
+            try{
+                const apiCall = await axios.post(authUrl, authBody, options);
+                responseAuth = apiCall.data;
+            }
+            catch(err){
+                //console.log(err);
+                this.log += `----auth ${authUrl} -----\n`
+                this.log += `<pre>${JSON.stringify(authBody, null, 2)}</pre>`;
+                log.error(`Error getting token from Cowbell ${err} @ ${__location}`)
+                this.log += "\nError Response: \n ";
+                this.log += err;
+                this.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
+                this.log += "\n";
+                return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${responseAuth}`, __location, {error: error});
+            }
 
-        // // Check for internal errors where the request format is incorrect
-        // if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
-        //     return this.client_error(`The insurer returned an internal error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
-        // }
+            if(responseAuth && responseAuth.accessToken){
+                authToken = responseAuth.accessToken;
+            }
 
-        // // =========================================================================================================
-        // // Process the quote information response
+            // responseAuth = await this.send_json_request(host, basePath + "/auth/v1/api/token",
+            //     JSON.stringify(authBody),
+            //     null,
+            //     "POST");
+            // if(responseAuth && responseAuth.accessToken){
+            //     authToken = responseAuth.accessToken;
+            // }
+
+        }
+        catch (error) {
+            try {
+                responseAuth = JSON.parse(error.response);
+                return this.client_error(`The Cowbell returned an error code of ${error.httpStatusCode} response: ${responseAuth}`, __location, {error: error});
+            }
+            catch (error2) {
+                return this.client_error(`The Cowbell returned an error code of ${error.httpStatusCode}`, __location, {error: error});
+            }
+        }
+        if(authToken){
+            let response = null;
+            try {
+
+                const options = {headers: {
+                    Accept: 'application/json',
+                    "Authorization": `Bearer ${authToken}`
+                }};
+                const indicatorUrl = `${host}${basePath}/calculator/v1/calculate`;
+
+                this.log += `----indication url ${indicatorUrl} -----\n`
+                this.log += `<pre>${JSON.stringify(quoteRequestData, null, 2)}</pre>`;
+                const apiCall = await axios.post(indicatorUrl, quoteRequestData, options);
+                response = apiCall.data;
+
+                this.log += `----Response -----\n`
+                this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+            }
+            catch (err) {
+                try {
+                    response = err.response.data;
+                    return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response}`, __location, {error: err});
+                }
+                catch (error2) {
+                    return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
+                }
+            }
+            if(response && response.finalPremium){
+                // const exampleReponse = {
+                //     "id": null,
+                //     "cumCoveragePremium": 294.0,
+                //     "endorsementPremium": 178.0,
+                //     "totalPremium": 478.0,
+                //     "totalAdjustedPremium": 1100.0,
+                //     "stateFeeAmount": 0.0,
+                //     "brokerFee": 50.0,
+                //     "finalPremium": 1150.0
+                // }
+                const quotePremium = response.finalPremium;
+
+                const quoteLimits = {};
+                quoteLimits[11] = policyaggregateLimit;
+                quoteLimits[12] = this.deductible;
+
+                const quoteCoverages = [];
+                let coverageSort = 0;
+                quoteCoverages.push({
+                    description: `Aggregate`,
+                    value: convertToDollarFormat(policyaggregateLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                quoteCoverages.push({
+                    description: `Deductible`,
+                    value: convertToDollarFormat(this.deductible, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
 
 
-        // // Unrecognized quote status
-        // return this.client_error(`Received an unknown quote status of `);
+                return this.client_referred(response.id, quoteLimits, quotePremium, null,null, quoteCoverages);
+
+            }
+            else {
+                return this.client_error(`The Cowbell returned unexpected response ${JSON.stringify(response)}`, __location);
+            }
+
+
+        }
+        else {
+            return this.client_error(`Cowbell request failure - no authToken is response `, __location);
+        }
+
     }
 };
