@@ -142,11 +142,8 @@ module.exports = class CompwestWC extends Integration {
             }
             if(this.policy.type.toUpperCase() === 'BOP'){
                 submissionJSON.bppDeductible = coterieDeductible;
+                submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
             }
-            // else {
-            //     submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
-            // }
-            submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
             // what is "propertyDamageLiabilityDeductible" Assuming GL Deductible.
             //"propertyDamageLiabilityDeductible": 500,
         }
