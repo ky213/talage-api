@@ -138,7 +138,6 @@ module.exports = class cowbellCyber extends Integration {
             'Limited Partnership': 'Partnership',
             'Partnership': 'Partnership',
             'Sole Proprietorship': 'Non-Corporates',
-            'Other': 'OT',
             "Corporation (C-Corp)": "Private",
             "Corporation (S-Corp)": 'Private',
             "Non Profit Corporation": "Non-Profit",
@@ -445,10 +444,13 @@ module.exports = class cowbellCyber extends Integration {
                         return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
                     }
                 }
+                if(this.number && quotePremium){
+                    return this.client_quoted(this.number, quoteLimits, quotePremium, null,null, quoteCoverages);
+                }
+                else {
 
-                return this.client_quoted(this.number, quoteLimits, quotePremium, null,null, quoteCoverages);
-
-
+                    return this.client_error(`The Cowbell did not return totalPremium `, __location);
+                }
             }
             else if(response && response.message) {
                 return this.client_declined(response.message);
