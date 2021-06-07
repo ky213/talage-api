@@ -12,7 +12,7 @@ module.exports = class WCStateIncomeLimitsBO {
      * @param {object} newObjectJSON - JSON Model to be saved
      * @returns {Boolean} - true if document save was successful
      */
-    saveModel(newObjectJSON) {
+    async saveModel(newObjectJSON) {
         return new Promise(async(resolve, reject) => {
             if (!newObjectJSON || typeof newObjectJSON !== "object" || newObjectJSON === {}) {
                 const error = `WCStateIncomeLimits-BO: Error: Empty WCStateIncomeLimits object given. ${__location}`;
@@ -26,7 +26,7 @@ module.exports = class WCStateIncomeLimitsBO {
                 insert = false;
                 const query = {wcStateIncomeLimitsId: newObjectJSON.wcStateIncomeLimitsId};
                 try {
-                    mongoWCStateIncomeLimitsDoc = WCStateIncomeLimitsModel.findOne(query);
+                    mongoWCStateIncomeLimitsDoc = await WCStateIncomeLimitsModel.findOne(query);
                 }
                 catch (err) {
                     const error = `WCStateIncomeLimits-BO: Error: Could not find exisitng WCStateIncomeLimits document from id in saveModel: ${err}. ${__location}`;
@@ -133,7 +133,7 @@ module.exports = class WCStateIncomeLimitsBO {
         };
         let wcStateIncomeLimitsDoc = null;
         try {
-            wcStateIncomeLimitsDoc = WCStateIncomeLimitsModel.findOne(query);
+            wcStateIncomeLimitsDoc = await WCStateIncomeLimitsModel.findOne(query);
         }
         catch (err) {
             const error = `WCStateIncomeLimits-BO: Error: Could not find WCStateIncomeLimits document in database: ${err}. ${__location}`;

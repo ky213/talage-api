@@ -1,8 +1,6 @@
 'use strict';
 
-// const WCStateIncomeLimitsBO = require('../models/WCStateIncomeLimits-BO');
 const WCStateIncomeLimitsBO = global.requireShared('./models/WCStateIncomeLimits-BO');
-const colors = require('colors');
 
 /**
  *
@@ -11,13 +9,13 @@ const colors = require('colors');
  * @returns {object} - Object including effectiveDate and minimum income limit, maximum income limit, or both
  */
 exports.getIncomeLimits = async function(state, entityType) {
-    console.log(JSON.stringify(WCStateIncomeLimitsBO));
+    const wcStateIncomeLimitsBO = new WCStateIncomeLimitsBO();
     let wcStateIncomeLimitsDoc = null;
     try {
-        wcStateIncomeLimitsDoc = await WCStateIncomeLimitsBO.getWCStateIncomeLimitsDoc(state, entityType);
+        wcStateIncomeLimitsDoc = await wcStateIncomeLimitsBO.getWCStateIncomeLimitsDoc(state, entityType);
     }
     catch (err) {
-        log.error(`WCStateIncomeLimitsSvc: Error: Failed to get document from WCStateIncomeLimitsBO: ${err}. ${__location}`);
+        log.error(`WCStateIncomeLimitsSvc: Error: Failed to get document from wcStateIncomeLimitsBO: ${err}. ${__location}`);
         return null;
     }
 
@@ -42,7 +40,6 @@ function getEffectiveIncomeLimitsEntry(incomeLimits) {
         log.error(error);
         throw new Error(error);
     }
-    console.log(JSON.stringify(incomeLimits).brightMagenta); // zy DEBUG Remove
     return incomeLimits.reduce((effectiveLimit, limit) => {
         if (limit.effectiveDate > effectiveLimit.effectiveDate && limit.effectiveDate < Date.now()) {
             return limit;
