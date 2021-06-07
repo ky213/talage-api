@@ -71,9 +71,11 @@ module.exports = class DatabaseObject {
                 set: (value) => {
 
                     let expectedDataType = this.#properties[property].type;
+                    if(typeof value === 'undefined'){
+                        value = null;
+                    }
 
                     if (this.hasValue(value) || this.allowNulls.includes(property)) {
-
                         // Verify the data type
                         // Special timestamp and Date processing
                         if (expectedDataType === "timestamp"
@@ -277,7 +279,9 @@ module.exports = class DatabaseObject {
                 try {
                     //skip nulls
                     if (this.hasValue(data[property]) || this.allowNulls.includes(property)) {
-                        this[property] = data[property];
+                        if(data[property] !== "undefined"){
+                            this[property] = data[property];
+                        }
                     }
                 }
                 catch (error) {
@@ -702,6 +706,10 @@ module.exports = class DatabaseObject {
     }
 
     hasValue(testValue) {
-        return (testValue || testValue === '' || testValue === 0);
+        if(testValue === 'undefined'){
+            return false
+        }
+
+        return ((testValue || testValue === '' || testValue === 0) && (typeof testValue !== 'undefined'))
     }
 };

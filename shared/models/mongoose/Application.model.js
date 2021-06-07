@@ -19,6 +19,7 @@ var mongooseHistory = require('mongoose-history');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
+const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 const contactSchema = new Schema({
     email: {type: String, required: true},
@@ -26,13 +27,13 @@ const contactSchema = new Schema({
     lastName: {type: String, required: false},
     phone: {type: String, required: false},
     primary: {type: Boolean, required: true, default: false}
-});
+},optsNoId);
 
 const ActivityCodeEmployeeTypeEntrySchema = new Schema({
     employeeTypePayroll: { type: Number, required: true },
     employeeType: { type: String, required: true },
     employeeTypeCount: { type: Number, required: true }
-})
+},optsNoId)
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
     activityCodeId: {type: Number, required: true},
@@ -40,14 +41,14 @@ const ActivtyCodeEmployeeTypeSchema = new Schema({
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
-})
+},optsNoId)
 
 const ActivtyCodePayrollSchema = new Schema({
     activityCodeId: {type: Number, required: true},
     ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false}
-});
+},optsNoId);
 
 const QuestionSchema = new Schema({
     questionId: {type: Number, required: [true, 'questionId required']},
@@ -58,7 +59,7 @@ const QuestionSchema = new Schema({
     answerId: {type: Number, required: false},
     answerValue: {type: String, required: false},
     answerList: [String]
-});
+},optsNoId);
 
 const locationSchema = new Schema({
     address: {type: String, required: false},
@@ -83,7 +84,7 @@ const locationSchema = new Schema({
     yearBuilt: {type: Number, required:false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
     questions: [QuestionSchema]
-},opts);
+},optsNoId);
 
 locationSchema.virtual('locationId').
     get(function() {
@@ -111,12 +112,12 @@ const ownerSchema = new Schema({
     ownership: {type: Number, required: false},
     officerTitle: {type: String},
     include: {type: Boolean, required: false}
-});
+},optsNoId);
 
 const legalAcceptanceSchema = new Schema({
     ip: {type: String, required: true},
     version: {type: Number, required: true}
-});
+},optsNoId);
 
 const claimSchema = new Schema({
     policyType: {type: String, required: true},
@@ -125,7 +126,7 @@ const claimSchema = new Schema({
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false}
-});
+},optsNoId);
 
 const cyberPolicySchema = new Schema({
     aggregateLimit: {type: Number, required: true},
@@ -147,7 +148,7 @@ const cyberPolicySchema = new Schema({
     domains: {type: String},
     yearsOfPriorActs: {type: Number, required: false}, //previous years covered
     waitingPeriod: {type: Number, required: false} //hours
-});
+},optsNoId);
 
 const professionalLiabilityPolicySchema = new Schema({
     aggregateLimit: {type: Number, required: true},
@@ -157,7 +158,7 @@ const professionalLiabilityPolicySchema = new Schema({
     yearsOfPriorActs: {type: Number, required: false}, //previous years covered
     periodLoading: {type: Number, required: false}, //years covered after policy end
     yearsOfProfessionalExperience: {type: Number, required: false}
-});
+},optsNoId);
 
 
 const PolicySchema = new Schema({
@@ -177,7 +178,7 @@ const PolicySchema = new Schema({
     yearsWithCurrentInsurance: {type: Number, required: false},
     cyber: cyberPolicySchema,
     profLiability: professionalLiabilityPolicySchema
-});
+},optsNoId);
 
 const ApplicationMetricsPremiumSchema = new Schema({
     WC: {type: Number, required: false},
@@ -185,12 +186,12 @@ const ApplicationMetricsPremiumSchema = new Schema({
     BOP: {type: Number, required: false},
     CYBER: {type: Number, required: false},
     PL: {type: Number, required: false}
-});
+},optsNoId);
 
 const ApplicationMetricsSchema = new Schema({
     lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
     lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
-});
+},optsNoId);
 
 
 const AdditionalInsuredSchema = new Schema({

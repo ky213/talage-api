@@ -1,13 +1,16 @@
 /* eslint-disable no-unneeded-ternary */
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const axios = require('axios');
 
+const moment = require('moment');
 
-// const cowbellStagingHost = "https://api.morecowbell.ai";
-// const cowbellStagingBasePath = "/api";
+const cowbellStagingHost = "https://api.morecowbell.ai";
+const cowbellStagingBasePath = "/api";
 
-// const cowbellProductionHost = "https://api.cowbellcyber.ai";
-// const cowbellProductionBasePath = "/api";
+const cowbellProductionHost = "https://api.cowbellcyber.ai";
+const cowbellProductionBasePath = "/api";
 
 
 module.exports = class cowbellCyber extends Integration {
@@ -129,13 +132,13 @@ module.exports = class cowbellCyber extends Integration {
         // Ensure we have a supported legal entity.
         const legalEntityMap = {
             'Association': 'Private',
-            'Corporation': 'Public',
+            'Corporation': 'Private',
             'Limited Liability Company': 'Private',
             'Limited Partnership': 'Partnership',
             'Partnership': 'Partnership',
             'Sole Proprietorship': 'Non-Corporates',
             'Other': 'OT',
-            "Corporation (C-Corp)": "Public",
+            "Corporation (C-Corp)": "Private",
             "Corporation (S-Corp)": 'Private',
             "Non Profit Corporation": "Non-Profit",
             "Limited Liability Company (Member Managed)": "Private",
@@ -164,8 +167,8 @@ module.exports = class cowbellCyber extends Integration {
             primaryContact = {};
         }
         // fall back to outside phone IFF we cannot find primary contact phone
-        const constactPhone = primaryContact.phone ? constactPhone : applicationDocData.phone.toString();
-        const formattedContactPhone = `+1-${constactPhone.substring(0, 3)}-${constactPhone.substring(constactPhone.length - 7)}`;
+        const contactPhone = primaryContact.phone ? primaryContact.phone : applicationDocData.phone.toString();
+        const formattedContactPhone = `+1-${contactPhone.substring(0, 3)}-${contactPhone.substring(contactPhone.length - 7)}`;
 
         const primaryLocation = applicationDocData.locations.find(l => l.primary)
 
@@ -185,18 +188,20 @@ module.exports = class cowbellCyber extends Integration {
                 // any claim within five years is rejection per Cowbell.
                 // Cyber enum based on within years.
                 // if any cyber claims just set it to 1 - Recommended by Cowbell
+                // any claim will cause a rejection
                 if(cyberClaimsList.length > 0){
                     claimHistory = 1;
                 }
             }
         }
+        //this.policy.effective_date.format('YYYY-MM-DD')
 
         // Create the quote request
         const quoteRequestData = {
 
             //"accountDescription": "string",
             //"accountId": "string",
-            //"accountName": "string",
+            "accountName": appDoc.businessName,
             "agencyId": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
             "agencyName": this.app.agencyLocation.agency,
             "agentEmail": this.app.agencyLocation.agencyEmail,
@@ -207,9 +212,11 @@ module.exports = class cowbellCyber extends Integration {
             "address1": primaryLocation.address,
             "address2": primaryLocation.address2,
             "city": primaryLocation.city,
-            "state": primaryLocation.states,
+            "state": primaryLocation.state,
             "zipCode": primaryLocation.zipcode.slice(0,5),
             "phoneNumber": primaryContact.phone,
+            "companyType": legalEntityMap[appDoc.entityType],
+            "ownershipType": legalEntityMap[appDoc.entityType],
             "claimHistory": claimHistory,
             //"daAgencyId": "string",
             "dbaOrTradestyle": appDoc.dba,
@@ -217,23 +224,28 @@ module.exports = class cowbellCyber extends Integration {
             "domainName": mainDomain,
             "domains": cyberPolicy.domains,
             //"dunsNumber": "string",
-            "effectiveDate": policy.effectiveDate.format('YYYY-MM-DD').toISOString(),
-            "entityType": "Independent",
+            "effectiveDate": moment(policy.effectiveDate).toISOString(),
+            // "entityType": "Independent",
             //Questions....
-            "isAuthenticatingFundTransferRequests": true,
-            "isFranchise": false,
-            "isPreventingUnauthorizedWireTransfers": true,
-            "isSecurityOfficer": true,
-            "isSecurityTraining": true,
-            "isVerifyingBankAccounts": true,
-            "useCloudStorage": true,
-            "useEncryption": true,
+            // "questionTraining":  true,
+            // "questionLeadership": true,
+            // "questionEncryption": true,
+            // "questionCloud": true,
+            // "isAuthenticatingFundTransferRequests": true,
+            // "isFranchise": false,
+            // "isPreventingUnauthorizedWireTransfers": true,
+            // "isSecurityOfficer": true,
+            // "isSecurityTraining": true,
+            // "isVerifyingBankAccounts": true,
+            // "useCloudStorage": true,
+            // "useEncryption": true,
             // end questions
             "limit": policyaggregateLimit,
+            "aggregateLimit": policyaggregateLimit,
             "naicsCode": naicsNumber,
             "natureOfBusiness": this.industry_code.description,
             "noOfEmployeesAll": this.get_total_employees(),
-            "ownershipType": "Public",
+            "numberOfEmployees": this.get_total_employees(),
             "policyContactEmail": primaryContact.email,
             "policyContactFirstName": primaryContact.firstName,
             "policyContactLastName": primaryContact.lastName,
@@ -246,6 +258,7 @@ module.exports = class cowbellCyber extends Integration {
             "ransomPaymentEndorsement": cyberPolicy.ransomPaymentEndorsement ? true : false,
             "ransomPaymentLimit": cyberPolicy.ransomPaymentEndorsement ? cyberPolicy.ransomPaymentLimit : null,
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
+            "retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
             "revenue": appDoc.grossSalesAmt,
             "socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
@@ -254,7 +267,8 @@ module.exports = class cowbellCyber extends Integration {
             "telecomsFraudEndorsement":  cyberPolicy.telecomsFraudEndorsement ? true : false,
             "telecomsFraudSubLimit": cyberPolicy.telecomsFraudEndorsement ? cyberPolicy.telecomsFraudEndorsementLimit : null,
             "url": appDoc.website,
-            "yearEstablished": appDoc.founded.year()
+            "yearEstablished": moment(appDoc.founded).year(),
+            "yearsInBusiness": this.get_years_in_business()
             // "additionalInsureds": [
             //     {
             //         "address1": "string",
@@ -282,47 +296,152 @@ module.exports = class cowbellCyber extends Integration {
         //     "useEncryption": true,
 
         //TODO Additional Insurered
+        //Question Processing.
+        for(const insurerQuestion of this.insurerQuestionList){
+            if(Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+                if(insurerQuestion.identifier){
+                    const question = this.questions[insurerQuestion.talageQuestionId];
+                    if(!question){
+                        continue;
+                    }
+                    quoteRequestData[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                }
+            }
+        }
 
-        log.debug(`Cowbel submission \n ${JSON.stringify(quoteRequestData)} \n` + __location);
-        return this.client_error(`Did not send`);
-        // if (claimObjects) {
-        //     quoteRequestData.losses = claimObjects;
-        // }
+
+        //"companyType": "Private" override....
+
+        log.debug(`Cowbell submission \n ${JSON.stringify(quoteRequestData)} \n` + __location);
 
         // =========================================================================================================
-        //request to get token
-        //  {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
+        // request to get token
+        const clientId = this.username
+        const clientSecret = this.password;
+        const authBody = {
+            "clientId": clientId,
+            "secret": clientSecret
+        }
         // Send the request - use Oauth2 for with token.
-        // const host = this.insurer.useSandbox ? cowbellStagingHost : cowbellProductionHost;
-        // const basePath = this.insurer.useSandbox ? cowbellStagingBasePath : cowbellProductionBasePath;
-        // let response = null;
-        // try {
-        //     response = await this.send_json_request(host, basePath + "/quote",
-        //         JSON.stringify(quoteRequestData),
-        //         {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
-        //         "POST");
-        // }
-        // catch (error) {
-        //     try {
-        //         response = JSON.parse(error.response);
-        //     }
-        //     catch (error2) {
-        //         return this.client_error(`The insurer returned an error code of ${error.httpStatusCode}`, __location, {error: error});
-        //     }
-        // }
+        const host = this.insurer.useSandbox ? cowbellStagingHost : cowbellProductionHost;
+        const basePath = this.insurer.useSandbox ? cowbellStagingBasePath : cowbellProductionBasePath;
+        let responseAuth = null;
+        let authToken = null;
+        const authUrl = `${host}${basePath}/auth/v1/api/token`;
+        try {
+            const options = {headers: {Accept: 'application/json'}};
 
-        // // console.log("response", JSON.stringify(response, null, 4));
+            //let responseAuth = null;
+            try{
+                const apiCall = await axios.post(authUrl, authBody, options);
+                responseAuth = apiCall.data;
+            }
+            catch(err){
+                //console.log(err);
+                this.log += `----auth ${authUrl} -----\n`
+                this.log += `<pre>${JSON.stringify(authBody, null, 2)}</pre>`;
+                log.error(`Error getting token from Cowbell ${err} @ ${__location}`)
+                this.log += "\nError Response: \n ";
+                this.log += err;
+                this.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
+                this.log += "\n";
+                return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${responseAuth}`, __location, {error: err});
+            }
 
-        // // Check for internal errors where the request format is incorrect
-        // if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
-        //     return this.client_error(`The insurer returned an internal error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
-        // }
+            if(responseAuth && responseAuth.accessToken){
+                authToken = responseAuth.accessToken;
+            }
 
-        // // =========================================================================================================
-        // // Process the quote information response
+            // responseAuth = await this.send_json_request(host, basePath + "/auth/v1/api/token",
+            //     JSON.stringify(authBody),
+            //     null,
+            //     "POST");
+            // if(responseAuth && responseAuth.accessToken){
+            //     authToken = responseAuth.accessToken;
+            // }
+
+        }
+        catch (error) {
+            try {
+                responseAuth = JSON.stringify(error.response);
+                return this.client_error(`The Cowbell returned an error code of ${error.httpStatusCode} response: ${responseAuth}`, __location, {error: error});
+            }
+            catch (error2) {
+                return this.client_error(`The Cowbell returned an error code of ${error.httpStatusCode}`, __location, {error: error});
+            }
+        }
+        if(authToken){
+            let response = null;
+            try {
+
+                const options = {headers: {
+                    Accept: 'application/json',
+                    "Authorization": `Bearer ${authToken}`
+                }};
+                const indicatorUrl = `${host}${basePath}/calculator/v1/calculate`;
+
+                this.log += `----indication url ${indicatorUrl} -----\n`
+                this.log += `<pre>${JSON.stringify(quoteRequestData, null, 2)}</pre>`;
+                const apiCall = await axios.post(indicatorUrl, quoteRequestData, options);
+                response = apiCall.data;
+
+                this.log += `----Response -----\n`
+                this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+            }
+            catch (err) {
+                try {
+                    response = err.response.data;
+                    return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response}`, __location, {error: err});
+                }
+                catch (error2) {
+                    return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
+                }
+            }
+            if(response && response.finalPremium){
+                // const exampleReponse = {
+                //     "id": null,
+                //     "cumCoveragePremium": 294.0,
+                //     "endorsementPremium": 178.0,
+                //     "totalPremium": 478.0,
+                //     "totalAdjustedPremium": 1100.0,
+                //     "stateFeeAmount": 0.0,
+                //     "brokerFee": 50.0,
+                //     "finalPremium": 1150.0
+                // }
+                const quotePremium = response.finalPremium;
+
+                const quoteLimits = {};
+                quoteLimits[11] = policyaggregateLimit;
+                quoteLimits[12] = this.deductible;
+
+                const quoteCoverages = [];
+                let coverageSort = 0;
+                quoteCoverages.push({
+                    description: `Aggregate`,
+                    value: convertToDollarFormat(policyaggregateLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                quoteCoverages.push({
+                    description: `Deductible`,
+                    value: convertToDollarFormat(this.deductible, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
 
 
-        // // Unrecognized quote status
-        // return this.client_error(`Received an unknown quote status of `);
+                return this.client_referred(response.id, quoteLimits, quotePremium, null,null, quoteCoverages);
+
+            }
+            else {
+                return this.client_error(`The Cowbell returned unexpected response ${JSON.stringify(response)}`, __location);
+            }
+
+
+        }
+        else {
+            return this.client_error(`Cowbell request failure - no authToken is response `, __location);
+        }
+
     }
 };
