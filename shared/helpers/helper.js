@@ -31,6 +31,9 @@ exports.convert_to_boolean = function(val){
     return false;
 };
 
+
+// TODO need to be database driven not hardcoded.
+// Only called from application validation code
 exports.supportedLimits = {
     'BOP': [
         '300000/300000/300000',
