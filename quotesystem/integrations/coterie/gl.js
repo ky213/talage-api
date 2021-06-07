@@ -114,14 +114,14 @@ module.exports = class CompwestWC extends Integration {
             if(plPolicy){
                 const plJSON = {
                     grossRevenue: appDoc.grossSalesAmt,
-                    occurrenceLimit: plPolicy.occurrenceLimit,
+                    occurrenceLimit: plPolicy.profLiability.occurrenceLimit,
                     deductibleAmount: this.policy.deductible,
-                    aggregateLimit: plPolicy.grossSalesAmt,
-                    certificationsRequired: plPolicy.certificationsRequired,
-                    certificationsMaintained: plPolicy.certificationsMaintained,
-                    yearsOfPriorActs: plPolicy.yearsOfPriorActs,
-                    periodLoading: plPolicy.periodLoading,
-                    yearsOfProfessionalExperience: plPolicy.yearsOfProfessionalExperience
+                    aggregateLimit: plPolicy.profLiability.aggregateLimit,
+                    certificationsRequired: plPolicy.profLiability.certificationsRequired,
+                    certificationsMaintained: plPolicy.profLiability.certificationsMaintained,
+                    yearsOfPriorActs: plPolicy.profLiability.yearsOfPriorActs,
+                    periodLoading: plPolicy.profLiability.periodLoading,
+                    yearsOfProfessionalExperience: plPolicy.profLiability.yearsOfProfessionalExperience
                 }
                 submissionJSON.professionalLiability = plJSON;
             }
