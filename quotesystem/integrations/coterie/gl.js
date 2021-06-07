@@ -73,21 +73,13 @@ module.exports = class CompwestWC extends Integration {
         if(this.insurerIndustryCode && this.insurerIndustryCode.attributes){
             coterieIndustryId = parseInt(this.insurerIndustryCode.attributes["Coterie ID"],10);
         }
-        log.debug('this.policy.limits ' + this.policy.limits + __location)
-        const requestedLimits = this.getSplitLimits(this.policy.limits);
-        log.debug('requestedLimits ' + requestedLimits + __location)
-        this.limits[4] = parseInt(requestedLimits[0],10);
-        this.limits[8] = parseInt(requestedLimits[3],10);
-        this.limits[9] = parseInt(requestedLimits[4],10);
+
 
         //leave out policyEnddate per coterie - Defaults to yearly.
         let submissionJSON = {
             "metadata": appDoc.applicationId,
             "applicationTypes": policyTypeArray,
             "grossAnnualSales": appDoc.grossSalesAmt,
-            "glLimit": requestedLimits[0],
-            "glAggregateLimit": requestedLimits[3],
-            "glAggregatePcoLimit": requestedLimits[4],
             "policyStartDate": this.policy.effective_date.toISOString(),
             //"policyEndDate": this.policy.expiration_date.toISOString(),
             "zip": appDoc.mailingZipcode.slice(0,5),
@@ -105,6 +97,38 @@ module.exports = class CompwestWC extends Integration {
             "mailingAddressZip": appDoc.mailingZipcode.slice(0,5),
             "locations": locationArray
         }
+        if(policyTypeArray.includes("GL") || policyTypeArray.includes("BOP")){
+            log.debug('this.policy.limits ' + this.policy.limits + __location)
+            const requestedLimits = this.getSplitLimits(this.policy.limits);
+            log.debug('requestedLimits ' + requestedLimits + __location)
+            this.limits[4] = parseInt(requestedLimits[0],10);
+            this.limits[8] = parseInt(requestedLimits[3],10);
+            this.limits[9] = parseInt(requestedLimits[4],10);
+            submissionJSON.glLimit = requestedLimits[0]
+            submissionJSON.glAggregateLimit = requestedLimits[3]
+            submissionJSON.glAggregatePcoLimit = requestedLimits[4]
+        }
+
+        if(policyTypeArray.includes("PL")){
+            const plPolicy = appDoc.policies.find(p => p.policyType.toUpperCase() === "PL");
+            if(plPolicy){
+                const plJSON = {
+                    grossRevenue: appDoc.grossSalesAmt,
+                    occurrenceLimit: plPolicy.occurrenceLimit,
+                    deductibleAmount: this.policy.deductible,
+                    aggregateLimit: plPolicy.grossSalesAmt,
+                    certificationsRequired: plPolicy.certificationsRequired,
+                    certificationsMaintained: plPolicy.certificationsMaintained,
+                    yearsOfPriorActs: plPolicy.yearsOfPriorActs,
+                    periodLoading: plPolicy.periodLoading,
+                    yearsOfProfessionalExperience: plPolicy.yearsOfProfessionalExperience
+                }
+                submissionJSON.professionalLiability = plJSON;
+            }
+
+        }
+
+
         let coterieDeductible = 0;
         if(this.policy.deductible >= 0){
             //submissionJSON.bppDeductible = appDoc.policies[].deductible
