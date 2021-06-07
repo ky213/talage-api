@@ -101,6 +101,7 @@ const policiesEnabled = async(resources, applicationDB) => {
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
 
+// does it match helpers.limits ?
 const limitsSelectionAmounts = async(resources, applicationDB) => {
     const limits = {
         bop: [

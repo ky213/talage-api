@@ -468,17 +468,7 @@ const validateActivityCodes = (applicationDocData) => {
  */
 const validatePolicies = (applicationDocData) => {
     for (const policy of applicationDocData.policies) {
-        // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
-        const indexes = [];
-        for (let i = 1; i < policy.limits.length; i++) {
-            if (policy.limits[i] !== "0") {
-                indexes.push(i);
-            }
-        }
-        let limits = policy.limits.split("");
-        limits.splice(indexes[1], 0, "/");
-        limits.splice(indexes[0], 0, "/");
-        limits = limits.join("");
+
 
         // Validate effective_date
         if (policy.effectiveDate) {
@@ -507,7 +497,9 @@ const validatePolicies = (applicationDocData) => {
             const validTypes = [
                 'BOP',
                 'GL',
-                'WC'
+                'WC',
+                "CYBER",
+                "PL"
             ];
             if (!validTypes.includes(policy.policyType)) {
                 throw new Error('Invalid policy type');
@@ -540,9 +532,32 @@ const validatePolicies = (applicationDocData) => {
             }
         }
 
-        // Limits
-        if (!validator.limits(limits, policy.policyType)) {
-            throw new Error('The policy limits you supplied are invalid.');
+        const policyTypesWithLimits = [
+            'BOP',
+            'GL',
+            'WC'
+        ];
+
+        if (policyTypesWithLimits.includes(policy.policyType)) {
+            // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
+            //
+            const indexes = [];
+            for (let i = 1; i < policy.limits.length; i++) {
+                if (policy.limits[i] !== "0") {
+                    indexes.push(i);
+                }
+            }
+            let limits = policy.limits.split("");
+            limits.splice(indexes[1], 0, "/");
+            limits.splice(indexes[0], 0, "/");
+            limits = limits.join("");
+            // Limits
+            // Do not check against list.
+            // carrier best matching should allow more flexibility.
+            // with API product we will need more flexibility.
+            // if (!validator.limits(limits, policy.policyType)) {
+            //     throw new Error('The policy limits you supplied are invalid.');
+            // }
         }
     }
 }

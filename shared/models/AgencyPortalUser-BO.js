@@ -31,7 +31,6 @@ module.exports = class AgencyPortalUserBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${collectionName} object given`));
             }
-            log.debug(`AgencyPortalUser savemodel ${JSON.stringify(newObjectJSON)}`)
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {

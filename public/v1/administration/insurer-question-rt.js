@@ -85,7 +85,7 @@ async function findOne(req, res, next) {
 
 async function add(req, res, next) {
 
-    log.debug("insurer question post " + JSON.stringify(req.body));
+    log.debug("insurer question post " + JSON.stringify(req.body) + __location);
     //TODO Validate
     if(!req.body.text){
         return next(serverHelper.requestError("bad missing question"));
