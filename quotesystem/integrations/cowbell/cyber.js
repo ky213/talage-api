@@ -2,6 +2,7 @@
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const axios = require('axios');
 
 const moment = require('moment');
@@ -168,7 +169,6 @@ module.exports = class cowbellCyber extends Integration {
         }
         // fall back to outside phone IFF we cannot find primary contact phone
         const contactPhone = primaryContact.phone ? primaryContact.phone : applicationDocData.phone.toString();
-        const formattedContactPhone = `+1-${contactPhone.substring(0, 3)}-${contactPhone.substring(contactPhone.length - 7)}`;
 
         const primaryLocation = applicationDocData.locations.find(l => l.primary)
 
@@ -200,21 +200,21 @@ module.exports = class cowbellCyber extends Integration {
         const quoteRequestData = {
 
             //"accountDescription": "string",
-            //"accountId": "string",
+            //"accountId":
             "accountName": appDoc.businessName,
             "agencyId": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
             "agencyName": this.app.agencyLocation.agency,
             "agentEmail": this.app.agencyLocation.agencyEmail,
             "agentFirstName": this.app.agencyLocation.first_name,
             "agentLastName": this.app.agencyLocation.last_name,
-            "agentPhone":this.app.agencyLocation.agencyPhone,
+            "agentPhone":stringFunctions.santizeNumber(this.app.agencyLocation.agencyPhone),
             "businessIncomeCoverage": businessIncomeCoverage,
             "address1": primaryLocation.address,
             "address2": primaryLocation.address2,
             "city": primaryLocation.city,
             "state": primaryLocation.state,
             "zipCode": primaryLocation.zipcode.slice(0,5),
-            "phoneNumber": primaryContact.phone,
+            "phoneNumber": stringFunctions.santizeNumber(primaryContact.phone),
             "companyType": legalEntityMap[appDoc.entityType],
             "ownershipType": legalEntityMap[appDoc.entityType],
             "claimHistory": claimHistory,
@@ -225,7 +225,7 @@ module.exports = class cowbellCyber extends Integration {
             "domains": cyberPolicy.domains,
             //"dunsNumber": "string",
             "effectiveDate": moment(policy.effectiveDate).toISOString(),
-            // "entityType": "Independent",
+            "entityType": "Independent",
             //Questions....
             // "questionTraining":  true,
             // "questionLeadership": true,
@@ -249,7 +249,7 @@ module.exports = class cowbellCyber extends Integration {
             "policyContactEmail": primaryContact.email,
             "policyContactFirstName": primaryContact.firstName,
             "policyContactLastName": primaryContact.lastName,
-            "policyContactPhone": formattedContactPhone,
+            "policyContactPhone": stringFunctions.santizeNumber(contactPhone),
             "hardwareReplCostEndorsement": cyberPolicy.hardwareReplCostEndorsement ? true : false,
             "hardwareReplCostSubLimit": cyberPolicy.hardwareReplCostEndorsement ? cyberPolicy.hardwareReplCostLimit : null,
             "computerFraudEndorsement": cyberPolicy.computerFraudEndorsement ? true : false,
@@ -372,21 +372,22 @@ module.exports = class cowbellCyber extends Integration {
         }
         if(authToken){
             let response = null;
+
+            const options = {headers: {
+                Accept: 'application/json',
+                "Authorization": `Bearer ${authToken}`
+            }};
             try {
 
-                const options = {headers: {
-                    Accept: 'application/json',
-                    "Authorization": `Bearer ${authToken}`
-                }};
-                const indicatorUrl = `${host}${basePath}/calculator/v1/calculate`;
+                const quoteUrl = `${host}${basePath}/quote/v1`;
 
-                this.log += `----indication url ${indicatorUrl} -----\n`
+                this.log += `----quote url ${quoteUrl} -----\n`
                 this.log += `<pre>${JSON.stringify(quoteRequestData, null, 2)}</pre>`;
-                const apiCall = await axios.post(indicatorUrl, quoteRequestData, options);
-                response = apiCall.data;
+                const apiCall = await axios.post(quoteUrl, quoteRequestData, options);
+                response = JSON.parse(JSON.stringify(apiCall.data));
 
                 this.log += `----Response -----\n`
-                this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+                this.log += `<pre>${JSON.stringify(response, null, 2)}</pre>`;
             }
             catch (err) {
                 try {
@@ -397,19 +398,9 @@ module.exports = class cowbellCyber extends Integration {
                     return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
                 }
             }
-            if(response && response.finalPremium){
-                // const exampleReponse = {
-                //     "id": null,
-                //     "cumCoveragePremium": 294.0,
-                //     "endorsementPremium": 178.0,
-                //     "totalPremium": 478.0,
-                //     "totalAdjustedPremium": 1100.0,
-                //     "stateFeeAmount": 0.0,
-                //     "brokerFee": 50.0,
-                //     "finalPremium": 1150.0
-                // }
-                const quotePremium = response.finalPremium;
-
+            if(response && response.id){
+                this.number = response.id
+                let quotePremium = null
                 const quoteLimits = {};
                 quoteLimits[11] = policyaggregateLimit;
                 quoteLimits[12] = this.deductible;
@@ -430,8 +421,38 @@ module.exports = class cowbellCyber extends Integration {
                 });
 
 
-                return this.client_referred(response.id, quoteLimits, quotePremium, null,null, quoteCoverages);
+                try{
+                    const quoteUrl = `${host}${basePath}/quote/v1/${response.id}`;
 
+                    this.log += `----quote url ${quoteUrl} -----\n`
+                    this.log += `GET Request`;
+                    const apiCall = await axios.get(quoteUrl, options);
+                    const responseQD = apiCall.data;
+
+                    this.log += `----Response -----\n`
+                    this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+
+                    this.number = responseQD.quoteNumber;
+                    quotePremium = responseQD.totalPremium;
+
+                }
+                catch(err){
+                    try {
+                        response = err.response.data;
+                        return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response}`, __location, {error: err});
+                    }
+                    catch (error2) {
+                        return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
+                    }
+                }
+
+                return this.client_quoted(this.number, quoteLimits, quotePremium, null,null, quoteCoverages);
+
+
+            }
+            else if(response && response.message) {
+                return this.client_declined(response.message);
+                //return this.client_error(`The Cowbell returned unexpected response ${JSON.stringify(response)}`, __location);
             }
             else {
                 return this.client_error(`The Cowbell returned unexpected response ${JSON.stringify(response)}`, __location);
