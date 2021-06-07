@@ -177,6 +177,11 @@ async function add(req, res, next) {
         return next(serverHelper.requestError('Missing group'))
     }
 
+    if (req.body.password) {
+        //process hashing
+        req.body.password = await crypt.hashPassword(req.body.password);
+    }
+
     const allowedPropsInsert = ['password',
         'email',
         'group',
