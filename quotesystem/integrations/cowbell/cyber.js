@@ -132,13 +132,13 @@ module.exports = class cowbellCyber extends Integration {
         // Ensure we have a supported legal entity.
         const legalEntityMap = {
             'Association': 'Private',
-            'Corporation': 'Public',
+            'Corporation': 'Private',
             'Limited Liability Company': 'Private',
             'Limited Partnership': 'Partnership',
             'Partnership': 'Partnership',
             'Sole Proprietorship': 'Non-Corporates',
             'Other': 'OT',
-            "Corporation (C-Corp)": "Public",
+            "Corporation (C-Corp)": "Private",
             "Corporation (S-Corp)": 'Private',
             "Non Profit Corporation": "Non-Profit",
             "Limited Liability Company (Member Managed)": "Private",
@@ -201,7 +201,7 @@ module.exports = class cowbellCyber extends Integration {
 
             //"accountDescription": "string",
             //"accountId": "string",
-            //"accountName": "string",
+            "accountName": appDoc.businessName,
             "agencyId": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
             "agencyName": this.app.agencyLocation.agency,
             "agentEmail": this.app.agencyLocation.agencyEmail,
@@ -215,8 +215,8 @@ module.exports = class cowbellCyber extends Integration {
             "state": primaryLocation.state,
             "zipCode": primaryLocation.zipcode.slice(0,5),
             "phoneNumber": primaryContact.phone,
-            "companyType": "Private",
-            "ownershipType": "Private",
+            "companyType": legalEntityMap[appDoc.entityType],
+            "ownershipType": legalEntityMap[appDoc.entityType],
             "claimHistory": claimHistory,
             //"daAgencyId": "string",
             "dbaOrTradestyle": appDoc.dba,
@@ -225,7 +225,7 @@ module.exports = class cowbellCyber extends Integration {
             "domains": cyberPolicy.domains,
             //"dunsNumber": "string",
             "effectiveDate": moment(policy.effectiveDate).toISOString(),
-            "entityType": "Independent",
+            // "entityType": "Independent",
             //Questions....
             // "questionTraining":  true,
             // "questionLeadership": true,
@@ -345,7 +345,7 @@ module.exports = class cowbellCyber extends Integration {
                 this.log += err;
                 this.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
                 this.log += "\n";
-                return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${responseAuth}`, __location, {error: error});
+                return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${responseAuth}`, __location, {error: err});
             }
 
             if(responseAuth && responseAuth.accessToken){
