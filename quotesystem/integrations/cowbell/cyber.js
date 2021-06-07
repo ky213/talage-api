@@ -363,7 +363,7 @@ module.exports = class cowbellCyber extends Integration {
         }
         catch (error) {
             try {
-                responseAuth = error.response;
+                responseAuth = JSON.stringify(error.response);
                 return this.client_error(`The Cowbell returned an error code of ${error.httpStatusCode} response: ${responseAuth}`, __location, {error: error});
             }
             catch (error2) {
