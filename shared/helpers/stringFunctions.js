@@ -408,6 +408,10 @@ exports.trimString = function(str, toTrim, trimOptions = {
  * @returns {String} - A string representation of the dollar amount of the string passed in, or the passed-in value if validation fails
  */
 exports.convertToDollarFormat = (str, trimDecimal = false) => {
+    if (typeof str === "number") {
+        str = str.toString();
+    }
+    
     if (typeof str !== "string") {
         log.error(`convertToDollarFormat: Parameter str is not type string.`);
         return str;
