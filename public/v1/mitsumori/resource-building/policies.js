@@ -42,7 +42,7 @@ exports.policyTypes = resources => {
 const socialEngDeductibleList = [
     10000, 25000, 50000
 ];
-const cyberDeductableList = [
+const cyberDeductibleList = [
     1000, 1500, 2500, 5000, 10000, 25000, 50000
 ];
 const bopAndGlDeductibles = ['$1500','$1000','$500'];
@@ -51,7 +51,7 @@ const deductibleAmounts = resources => {
     resources.deductibleAmounts = {
         bop: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
         gl: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
-        cyberDeductableList,
+        cyberDeductibleList,
         socialEngDeductibleList
     };
 };
