@@ -32,27 +32,42 @@ exports.policyTypes = resources => {
         {
             value: "WC",
             label: "Workers' Compensation (WC)"
+        },
+        {
+            value: "CYBER",
+            label: "Cyber Liability"
         }
     ];
 };
+const socialEngDeductibleList = [
+    10000, 25000, 50000
+];
+const cyberDeductableList = [
+    1000, 1500, 2500, 5000, 10000, 25000, 50000
+];
+const bopAndGlDeductibles = ['$1500','$1000','$500'];
 
 const deductibleAmounts = resources => {
     resources.deductibleAmounts = {
-        bop: ["$1500",
-            "$1000",
-            "$500"],
-        gl: ["$1500",
-            "$1000",
-            "$500"]
+        bop: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
+        gl: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
+        cyberDeductableList,
+        socialEngDeductibleList
     };
 };
+// TODO: the following lists were not defined anywhere in the docs
+// hardwareReplCostLimit
+// postBreachRemediationLimit
+// websiteMediaContentLiabilityLimit
 
 const policiesEnabled = async(resources, applicationDB) => {
     // defaultEnabledPolicies is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
     const defaultEnabledPolicies = [
         "BOP",
         "GL",
-        "WC"
+        "WC",
+        "CYBER",
+        "PL"
     ];
     const enabledPoliciesSet = new Set();
 
@@ -101,37 +116,43 @@ const policiesEnabled = async(resources, applicationDB) => {
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
 
+const aggregateLimitList = [
+    50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
+];
+const businessIncomeCoverageList = [
+    100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000, 650000, 700000, 750000, 800000, 850000, 900000, 950000, 1000000
+];
+const ransomPaymentLimitList = [
+    250000, 500000, 1000000
+];
+const waitingPeriodList = [
+    6, 8, 12, 24
+];
+const occurrenceLimitList = [
+    25000, 50000, 100000, 250000, 500000, 750000, 1000000
+];
+const socialEngLimitList = [
+    50000, 100000, 250000
+];
+const bopAndGlLimits = [
+    {
+        "key": "1000000/1000000/1000000",
+        "value": "$1,000,000 / $1,000,000 / $1,000,000"
+    },
+    {
+        "key": "1000000/2000000/1000000",
+        "value": "$1,000,000 / $2,000,000 / $1,000,000"
+    },
+    {
+        "key": "1000000/2000000/2000000",
+        "value": "$1,000,000 / $2,000,000 / $2,000,000"
+    }
+]
 // does it match helpers.limits ?
 const limitsSelectionAmounts = async(resources, applicationDB) => {
     const limits = {
-        bop: [
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/1000000",
-                "value": "$1,000,000 / $2,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/2000000",
-                "value": "$1,000,000 / $2,000,000 / $2,000,000"
-            }
-        ],
-        gl: [
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/1000000",
-                "value": "$1,000,000 / $2,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/2000000",
-                "value": "$1,000,000 / $2,000,000 / $2,000,000"
-            }
-        ],
+        bop: bopAndGlLimits,
+        gl: bopAndGlLimits,
         wc: [
             {
                 "key": "100000/500000/100000",
@@ -149,7 +170,18 @@ const limitsSelectionAmounts = async(resources, applicationDB) => {
                 "key": "1000000/1000000/1000000",
                 "value": "$1,000,000 / $1,000,000 / $1,000,000"
             }
-        ]
+        ],
+        cyber: {
+            aggregateLimitList,
+            businessIncomeCoverageList,
+            ransomPaymentLimitList,
+            socialEngLimitList,
+            waitingPeriodList
+        },
+        pl: {
+            aggregateLimitList,
+            occurrenceLimitList
+        }
     };
 
     if(applicationDB && applicationDB.hasOwnProperty('agencyId')){
