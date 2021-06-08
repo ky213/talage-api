@@ -135,7 +135,7 @@ module.exports = class CompwestWC extends Integration {
         else if (this.insurer.useSandbox) {
                 host = 'npsv.afgroup.com';
                 path = '/TEST_DigitalAq/rest/getworkcompquote';
-        }
+        } 
         else {
             host = 'psv.afgroup.com';
             path = '/DigitalAq/rest/getworkcompquote';
@@ -675,79 +675,85 @@ module.exports = class CompwestWC extends Integration {
                         log.debug(`!classCode ${classCode} || !subCode ${subCode}) && guideWireAPI ${guideWireAPI} === true || guideWireAPI === false`)
                         //if((classCode || subCode) && guideWireAPI === false || guideWireAPI === true){
 
+                        
+                        //get insurerActivityCode doc.
+                        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+                        const activityCodeQuery = {
+                            insurerId: this.insurer.id,
+                            code: classCode,
+                            sub: subCode,
+                            effectiveDate: {$lte: this.policy.effective_date},
+                            expirationDate: {$gte: this.policy.effective_date},
+                            territoryList: location.territory,
+                            active: true
+                        }
+                        try{
+                            log.debug(`AF activityCodeQuery \n ${JSON.stringify(activityCodeQuery)} \n ` + __location)
+                            const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
                             // eslint-disable-next-line prefer-const
-                            let ClassCodeQuestions = null;
-                            //get insurerActivityCode doc.
-                            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-                            const activityCodeQuery = {
-                                insurerId: this.insurer.id,
-                                code: classCode,
-                                sub: subCode,
-                                effectiveDate: {$lte: this.policy.effective_date},
-                                expirationDate: {$gte: this.policy.effective_date},
-                                territoryList: location.territory,
-                                active: true
+                            let talageQuestionList = [];
+                            let insurerQuestionIdList = [];
+                            if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
+                                insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
+                                log.debug(`Using AF insurerActivityCode.insurerQuestionIdList`)
                             }
-                            try{
-                                const insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery);
-                                // eslint-disable-next-line prefer-const
-                                let talageQuestionList = [];
-                                let insurerQuestionIdList = [];
-                                if(insurerActivityCode && insurerActivityCode.insurerQuestionIdList){
-                                    insurerQuestionIdList = insurerActivityCode.insurerQuestionIdList
-                                }
-                                if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
+                            if (insurerActivityCode && insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length) {
+                                const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
+                                if(territoryQuestion){
                                     //override
                                     insurerQuestionIdList = [];
-                                    const territoryQuestion = insurerActivityCode.insurerTerritoryQuestionList.find((itq) => itq.territory === location.territory);
-                                    if(territoryQuestion){
-                                        territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
-                                            if(!insurerQuestionIdList.includes(insurerQuestionId)){
-                                                insurerQuestionIdList.push(insurerQuestionId);
-                                            }
+                                    territoryQuestion.insurerQuestionIdList.forEach((insurerQuestionId) => {
+                                        if(!insurerQuestionIdList.includes(insurerQuestionId)){
+                                            insurerQuestionIdList.push(insurerQuestionId);
+                                        }
+                                    });
+                                }
+                            }
+                            //get insurerQuestions
+                            if(insurerQuestionIdList.length > 0){
+                                    const query = {
+                                    "insurerId": this.insurer.id,
+                                    "insurerQuestionId": {$in: insurerQuestionIdList},
+                                    effectiveDate: {$lte: this.policy.effective_date},
+                                    expirationDate: {$gte: this.policy.effective_date}
+                                }
+                                log.debug(`AF InsurerQuestionModel query \n ${JSON.stringify(query)} \n ` + __location)
+                                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                let insurerQuestionList = null;
+                                try{
+                                    insurerQuestionList = await InsurerQuestionModel.find(query);
+                                    if(insurerQuestionList){
+                                        insurerQuestionList.forEach((insurerQuestion) => {
+                                            talageQuestionList.push(insurerQuestion.talageQuestionId);
                                         });
                                     }
                                 }
-                                //get insurerQuestions
-                                if(insurerQuestionIdList.length > 0){
-                                        const query = {
-                                        "insurerId": this.insurer.id,
-                                        "insurerQuestionId": {$in: insurerQuestionIdList},
-                                        effectiveDate: {$lte: this.policy.effective_date},
-                                        expirationDate: {$gte: this.policy.effective_date}
-                                    }
-                                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                                    let insurerQuestionList = null;
-                                    try{
-                                        insurerQuestionList = await InsurerQuestionModel.find(query);
-                                        if(insurerQuestionList){
-                                            insurerQuestionList.forEach((insurerQuestion) => {
-                                                talageQuestionList.push(insurerQuestion.talageQuestionId);
-                                            });
-                                        }
-                                    }
-                                    catch(err){
-                                        throw err
-                                    }
+                                catch(err){
+                                    throw err
                                 }
-
-                                talageQuestionList.forEach((talageQuestionId) => {
-                                    const question = this.questions[talageQuestionId];
-                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
-                                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
-                                        return;
-                                    }
-                                    //const question_attributes = question.attributes;
-                                    const question_attributes = this.question_details[talageQuestionId].attributes;
-                                    log.debug(`${this.insurer.name} WC calling processActivtyCodeQuestion`);
-                                    this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
-                                        classCode, subCode, talageQuestionId, question, question_attributes);
-
-                                });
                             }
-                            catch(err){
-                                log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
+
+                            let ClassCodeQuestions = null;
+                            if(talageQuestionList.length > 0){
+                                ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
                             }
+                            talageQuestionList.forEach((talageQuestionId) => {
+                                const question = this.questions[talageQuestionId];
+                                if (!Object.prototype.hasOwnProperty.call(this.question_details, talageQuestionId)) {
+                                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: did not have talageQuestionId ${talageQuestionId} in question_details: ${JSON.stringify(this.question_details)} `)
+                                    return;
+                                }
+                                //const question_attributes = question.attributes;
+                                const question_attributes = this.question_details[talageQuestionId].attributes;
+                                log.debug(`${this.insurer.name} WC calling processActivtyCodeQuestion`);
+                                this.processActivtyCodeQuestion(ClassCodeQuestions,guideWireAPI, WorkCompRateClass,
+                                    classCode, subCode, talageQuestionId, question, question_attributes);
+
+                            });
+                        }
+                        catch(err){
+                            log.error(`CompWest WC processActivityCode Qeustions error ${err}` + __location)
+                        }
                        // }//have classcode and sub
                         // </WorkCompRateClass>
                     }
@@ -925,9 +931,6 @@ module.exports = class CompwestWC extends Integration {
                 log.error(`AF - AppId ${this.app.id} ${this.insurer.name} Missing classCodeList from ${classCode}-${subCode} QuestionId ${question_id} attributes ${JSON.stringify(question_attributes)}` + __location)
             }
             if(publicId){
-                if(!ClassCodeQuestionsNode){
-                    ClassCodeQuestionsNode = WorkCompRateClass.ele('ClassCodeQuestions');
-                }
                 ClassCodeQuestion = ClassCodeQuestionsNode.ele('ClassCodeQuestion');
                 ClassCodeQuestion.ele('QuestionId', publicId);
                 addNode = true;
@@ -939,9 +942,6 @@ module.exports = class CompwestWC extends Integration {
         }
         else if(question_attributes.code){
            // log.debug(`question_id ${JSON.stringify(question_id)}  question_attributes ${JSON.stringify(question_attributes)}  question ${JSON.stringify(question)}` + __location)
-            if(!ClassCodeQuestionsNode){
-                ClassCodeQuestionsNode = WorkCompRateClass.ele('ClassCodeQuestions');
-            }
             ClassCodeQuestion = ClassCodeQuestionsNode.ele('ClassCodeQuestion');
             ClassCodeQuestion.ele('QuestionId', question_attributes.id);
             ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
