@@ -41,6 +41,10 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+
+
+       
+
         //const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
@@ -774,18 +778,17 @@ module.exports = class CompwestWC extends Integration {
         Limit.ele('LimitAppliesToCd', 'EachClaim');
         // </Limit>
 
+         // <Limit>
+        Limit = CommlCoverage.ele('Limit');
+        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[1]);
+        Limit.ele('LimitAppliesToCd', 'PolicyLimit');
+
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
         Limit.ele('FormatCurrencyAmt').ele('Amt', limits[2]);
         Limit.ele('LimitAppliesToCd', 'EachEmployee');
         // </Limit>
 
-        // <Limit>
-        Limit = CommlCoverage.ele('Limit');
-        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[1]);
-        Limit.ele('LimitAppliesToCd', 'PolicyLimit');
-        // </Limit>
-        // </CommlCoverage>
 
         /* ---=== Begin Ineligibility and Statement Questions ===--- */
         // Make a list of embedded questions need by WC questions for Guidwire api.
