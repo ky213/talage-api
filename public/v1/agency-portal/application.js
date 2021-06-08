@@ -1518,7 +1518,7 @@ async function GetResources(req, res, next){
     }
     rejected = false;
     // TODO Use BO
-    const sql4 = `SELECT officerTitle FROM \`officer_titles\``;
+    const sql4 = `SELECT officerTitle FROM officer_titles`;
     const result4 = await db.query(sql4).catch(function(error) {
         // Check if this was
         rejected = true;
