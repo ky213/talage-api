@@ -23,9 +23,10 @@ async function findAll(req, res, next) {
     const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
     if(req.query.unmapped){
+        delete req.query.unmapped
         log.debug("in unmapped");
         //get all activityCodes that are activity.
-        let icQuery = {state: 1};
+        let icQuery = {};
         const industryCodeList = await industryCodeBO.getList(icQuery).catch(function(err) {
             error = err;
         })
@@ -34,27 +35,30 @@ async function findAll(req, res, next) {
         }
         let notMappedList = [];
         //Build list that have nothing mapped in insurerActivityCodes collection
+        let iicQuery = {count: true};
+        if(req.query.insurerId){
+            try{
+                iicQuery.insurerId = parseInt(req.query.insurerId,10);
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.insurerId
+        }
+        if(req.query.territory){
+            try{
+                iicQuery.territoryList = req.query.territory;
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.territory
+        }
         for(let i = 0; i < industryCodeList.length; i++){
             const industryCodeJSON = industryCodeList[i];
-            let iacQuery = {count: true, talageIndustryCodeIdList: industryCodeJSON.id};
-            if(req.query.insurerId){
-                try{
-                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
-            if(req.query.territory){
-                try{
-                    iacQuery.territoryList = req.query.territory;
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
+            iicQuery.talageIndustryCodeIdList = industryCodeJSON.id
             //log.debug(JSON.stringify(iacQuery))
-            const respJson = await insurerIndustryCodeBO.getList(iacQuery).catch(function(err) {
+            const respJson = await insurerIndustryCodeBO.getList(iicQuery).catch(function(err) {
                 log.error("admin insurerIndustryCodeBO error: " + err + __location);
                 error = err;
             });
@@ -64,7 +68,6 @@ async function findAll(req, res, next) {
             }
         }
         //filter user query on the notMappedList.
-        req.query.state = 1; //we only want active codes.
         if(notMappedList.length > 0){
             req.query.industryCodeId = notMappedList;
         }
@@ -72,35 +75,37 @@ async function findAll(req, res, next) {
     else if(req.query.insurerId || req.query.territory){
         //TODO optimize by going just to IAC collection
         //get all activityCodes that are activity.
-        let icQuery = {state: 1};
-        const industryCodeList = await industryCodeBO.getList(icQuery).catch(function(err) {
+        const industryCodeList = await industryCodeBO.getList({}).catch(function(err) {
             error = err;
         })
         if (error) {
             return next(error);
         }
         let mappedtoInsurerList = [];
+        let iicQuery = {count: true};
+        if(req.query.insurerId){
+            try{
+                iicQuery.insurerId = parseInt(req.query.insurerId,10);
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.insurerId
+        }
+        if(req.query.territory){
+            try{
+                iicQuery.territoryList = req.query.territory;
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.territory
+        }
         //Build list that have nothing mapped in insurerActivityCodes collection
         for(let i = 0; i < industryCodeList.length; i++){
             const industryCodeJSON = industryCodeList[i];
-            let iacQuery = {count: true, talageIndustryCodeIdList: industryCodeJSON.id};
-            if(req.query.insurerId){
-                try{
-                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
-            if(req.query.territory){
-                try{
-                    iacQuery.territoryList = req.query.territory;
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
-            const respJson = await insurerIndustryCodeBO.getList(iacQuery).catch(function(err) {
+            iicQuery.talageIndustryCodeIdList = industryCodeJSON.id
+            const respJson = await insurerIndustryCodeBO.getList(iicQuery).catch(function(err) {
                 log.error("admin insurerIndustryCodeBO error: " + err + __location);
                 error = err;
             });
@@ -110,7 +115,6 @@ async function findAll(req, res, next) {
             }
         }
         //filter user query on the notMappedList.
-        req.query.state = 1; //we only want active codes.
         if(mappedtoInsurerList.length > 0){
             req.query.industryCodeId = mappedtoInsurerList;
         }
