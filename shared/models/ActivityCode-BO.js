@@ -177,7 +177,7 @@ module.exports = class ActivityCodeBO{
                 }
             }
 
-            //log.debug(`${collectionName} getList query ${JSON.stringify(query)}` + __location)
+            // log.debug(`${collectionName} getList query ${JSON.stringify(query)}` + __location)
             if(findCount === false){
                 let docList = null;
                 try {
