@@ -441,6 +441,7 @@ module.exports = class cowbellCyber extends Integration {
                         if(responseQD.totalPremium){
                             this.number = responseQD.quoteNumber;
                             quotePremium = responseQD.totalPremium;
+                            this.isBindable = true
                             break;
                         }
                         if(i < NUMBER_OF_TRIES - 1){
