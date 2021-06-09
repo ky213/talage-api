@@ -5,6 +5,7 @@ const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const axios = require('axios');
 
+const utility = global.requireShared('./helpers/utility.js');
 const moment = require('moment');
 
 const cowbellStagingHost = "https://api.morecowbell.ai";
@@ -412,27 +413,41 @@ module.exports = class cowbellCyber extends Integration {
                     sort: coverageSort++,
                     category: "Liability Coverages"
                 });
-                quoteCoverages.push({
-                    description: `Deductible`,
-                    value: convertToDollarFormat(this.deductible, true),
-                    sort: coverageSort++,
-                    category: "Liability Coverages"
-                });
+                if(policy.deductible){
+                    quoteCoverages.push({
+                        description: `Deductible`,
+                        value: convertToDollarFormat(policy.deductible, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+
+                // Give Cowbell 5 seconds to run there process.
+                await utility.Sleep(5000);
 
 
                 try{
                     const quoteUrl = `${host}${basePath}/quote/v1/${response.id}`;
+                    //5 tries with 5 seconds waits
+                    const NUMBER_OF_TRIES = 12;
+                    for(let i = 0; i < NUMBER_OF_TRIES; i++){
+                        this.log += `----quote url ${quoteUrl} ----- try count: ${i + 1}\n`
+                        this.log += `GET Request`;
+                        const apiCall = await axios.get(quoteUrl, options);
+                        const responseQD = apiCall.data;
 
-                    this.log += `----quote url ${quoteUrl} -----\n`
-                    this.log += `GET Request`;
-                    const apiCall = await axios.get(quoteUrl, options);
-                    const responseQD = apiCall.data;
-
-                    this.log += `----Response -----\n`
-                    this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
-
-                    this.number = responseQD.quoteNumber;
-                    quotePremium = responseQD.totalPremium;
+                        this.log += `----Response -----\n`
+                        this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+                        if(responseQD.totalPremium){
+                            this.number = responseQD.quoteNumber;
+                            quotePremium = responseQD.totalPremium;
+                            this.isBindable = true
+                            break;
+                        }
+                        if(i < NUMBER_OF_TRIES - 1){
+                            await utility.Sleep(5000);
+                        }
+                    }
 
                 }
                 catch(err){
