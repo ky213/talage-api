@@ -26,36 +26,40 @@ async function findAll(req, res, next) {
 
 
     if(req.query.unmapped){
+        delete req.query.unmapped;
         //get all activityCodes that are activity.
-        let acQuery = {state: 1};
+        let acQuery = {};
         const activityCodeList = await activityCodeBO.getList(acQuery).catch(function(err) {
             error = err;
         })
         if (error) {
             return next(error);
         }
+
         let notMappedList = [];
         //Build list that have nothing mapped in insurerActivityCodes collection
+        let iacQuery = {count: true};
+        if(req.query.insurerId){
+            try{
+                iacQuery.insurerId = parseInt(req.query.insurerId,10);
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.insurerId
+        }
+        if(req.query.territory){
+            try{
+                iacQuery.territoryList = req.query.territory;
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.territory
+        }
         for(let i = 0; i < activityCodeList.length; i++){
             const activityCodeJSON = activityCodeList[i];
-            let iacQuery = {count: true, talageActivityCodeIdList: activityCodeJSON.id};
-            if(req.query.insurerId){
-                try{
-                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
-            if(req.query.territory){
-                try{
-                    iacQuery.territoryList = req.query.territory;
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
-            //log.debug(JSON.stringify(iacQuery))
+            iacQuery.talageActivityCodeIdList = activityCodeJSON.id
             const respJson = await insurerActivityCodeBO.getList(iacQuery).catch(function(err) {
                 log.error("admin insurerActivityCodeBO error: " + err + __location);
                 error = err;
@@ -66,7 +70,6 @@ async function findAll(req, res, next) {
             }
         }
         //filter user query on the notMappedList.
-        req.query.state = 1; //we only want active codes.
         if(notMappedList.length > 0){
             req.query.activityCodeId = notMappedList;
         }
@@ -77,7 +80,7 @@ async function findAll(req, res, next) {
     else if(req.query.insurerId || req.query.territory){
         //TODO optimize by going just to IAC collection
         //get all activityCodes that are activity.
-        let acQuery = {state: 1};
+        let acQuery = {};
         const activityCodeList = await activityCodeBO.getList(acQuery).catch(function(err) {
             error = err;
         })
@@ -85,26 +88,29 @@ async function findAll(req, res, next) {
             return next(error);
         }
         let mappedtoInsurerList = [];
+        let iacQuery = {count: true};
+        if(req.query.insurerId){
+            try{
+                iacQuery.insurerId = parseInt(req.query.insurerId,10);
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.insurerId
+        }
+        if(req.query.territory){
+            try{
+                iacQuery.territoryList = req.query.territory;
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.territory
+        }
         //Build list that have nothing mapped in insurerActivityCodes collection
         for(let i = 0; i < activityCodeList.length; i++){
             const activityCodeJSON = activityCodeList[i];
-            let iacQuery = {count: true, talageActivityCodeIdList: activityCodeJSON.id};
-            if(req.query.insurerId){
-                try{
-                    iacQuery.insurerId = parseInt(req.query.insurerId,10);
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
-            if(req.query.territory){
-                try{
-                    iacQuery.territoryList = req.query.territory;
-                }
-                catch(err){
-                    log.error("bad query");
-                }
-            }
+            iacQuery.talageActivityCodeIdList = activityCodeJSON.id
             const respJson = await insurerActivityCodeBO.getList(iacQuery).catch(function(err) {
                 log.error("admin insurerActivityCodeBO error: " + err + __location);
                 error = err;
@@ -115,7 +121,6 @@ async function findAll(req, res, next) {
             }
         }
         //filter user query on the notMappedList.
-        req.query.state = 1; //we only want active codes.
         if(mappedtoInsurerList.length > 0){
             req.query.activityCodeId = mappedtoInsurerList;
         }
