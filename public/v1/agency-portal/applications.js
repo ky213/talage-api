@@ -283,11 +283,11 @@ async function getApplications(req, res, next){
 
 
     //Fix bad dates coming in.
-    if(!req.params.startDate || (req.params.startDate && req.params.startDate.startsWith('T00:00:00.000'))){
+    if(!req.params.startDate){
         req.params.startDate = moment('2017-01-01').toISOString();
     }
 
-    if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
+    if(!req.params.endDate){
         // now....
         log.debug('AP Application Search resetting end date' + __location);
         req.params.endDate = moment().toISOString();
@@ -558,7 +558,7 @@ async function getApplications(req, res, next){
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
         applicationsSearchCount = applicationsSearchCountJSON.count;
-
+        log.debug(`app list ${JSON.stringify(query)}`)
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
         for (const application of applicationList) {
             application.business = application.businessName;
