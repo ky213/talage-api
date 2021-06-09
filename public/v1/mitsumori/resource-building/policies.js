@@ -55,11 +55,6 @@ const deductibleAmounts = resources => {
         socialEngDeductibleList
     };
 };
-// TODO: the following lists were not defined anywhere in the docs
-// hardwareReplCostLimit
-// postBreachRemediationLimit
-// websiteMediaContentLiabilityLimit
-
 const policiesEnabled = async(resources, applicationDB) => {
     // defaultEnabledPolicies is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
     const defaultEnabledPolicies = [
