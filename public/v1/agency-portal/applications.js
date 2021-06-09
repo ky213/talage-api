@@ -370,6 +370,32 @@ async function getApplications(req, res, next){
                         $lte: endDateMoment.toDate()
                     }
                 }
+                if(req.params.searchText.toLowerCase().startsWith("iq:")){
+                    const searchWords2 = req.params.searchText.split(" ");
+                    const insurerStatusIdText = searchWords2[0].substring(3);
+                    req.params.searchText = '';
+                    if(searchWords2.length > 1){
+                        //reset searchtext to remove insurer
+
+                        searchWords2.forEach((searchWord,index) => {
+                            if(index > 0){
+                                req.params.searchText += ' ' + searchWord;
+                            }
+                        })
+                        req.params.searchText = req.params.searchText.trim();
+                    }
+
+                    try{
+                        log.debug(`quoteStatus filter ${insurerStatusIdText}`)
+                        const quoteStatusId = parseInt(insurerStatusIdText,10);
+                        if(typeof quoteStatusId === 'number'){
+                            matchClause.quoteStatusId = quoteStatusId
+                        }
+                    }
+                    catch(err){
+                        log.info(`bad iq parameter ${insurerStatusIdText} ` + __location);
+                    }
+                }
                 log.debug('Insurer match clause ' + JSON.stringify(matchClause))
                 const applicationIdJSONList = await Quote.aggregate([
                     {$match: matchClause},
@@ -526,7 +552,7 @@ async function getApplications(req, res, next){
                     orClauseArray.push(agencyListFilter);
                 }
                 else {
-                    log.warn("Application Search no agencies found " + __location);
+                    log.debug("Application Search no agencies found " + __location);
                 }
             }
         }
