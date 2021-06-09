@@ -2242,8 +2242,8 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
-                    // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
+                    log.debug("ApplicationList query " + JSON.stringify(query))
+                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){

@@ -31,9 +31,9 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //     return _.sum(Object.values(amounts));
 // }
 
-const mysqlDateToJsDate = (date, offSetHours) => moment(date).
-    add(-1 * offSetHours, 'h').
-    toDate()
+// const mysqlDateToJsDate = (date, offSetHours) => moment(date).
+//     add(-1 * offSetHours, 'h').
+//     toDate()
 
 // eslint-disable-next-line valid-jsdoc
 /** Round to 2 decimal places. */
@@ -393,11 +393,11 @@ async function getReports(req) {
     if (!utcOffset) {
         utcOffset = '+00:00';
     }
-    const offSetParts = utcOffset.split(":");
-    let offSetHours = 0;
-    if(offSetParts.length > 0){
-        offSetHours = parseInt(offSetParts[0],10);
-    }
+    // const offSetParts = utcOffset.split(":");
+    // let offSetHours = 0;
+    // if(offSetParts.length > 0){
+    //     offSetHours = parseInt(offSetParts[0],10);
+    // }
 
     // When the static query parameter is set only the queries keyed under 'static' will be executed
     let initialRequest = false;
