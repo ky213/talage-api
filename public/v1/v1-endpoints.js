@@ -91,6 +91,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'auth', 'agency-portal');
     registerEndpoint(server, 'auth', 'token');
 
+
     // Code
     registerEndpoint(server, 'code', 'activity-codes');
     registerEndpoint(server, 'code', 'industry-categories');
@@ -117,7 +118,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-outage');
     registerEndpoint(server, 'administration', 'insurer-payment-plan-rt');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
-    registerEndpoint(server, 'administration', 'insurer-writer-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-network-user-rt');
     registerEndpoint(server, 'administration', 'agency-rt');

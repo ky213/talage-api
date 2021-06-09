@@ -158,6 +158,29 @@ class CompuwestBind extends Bind {
 
     // Bind XML different than quote request...
     async createRequestXML(appDoc, request_id, isGuideWireAPI = true){
+         const officerMap = {
+            "Chief Executive Officer":"CEO",
+            "Chief Financial Officer":"CFO",
+            "Chief Operating Officer":"COO",
+            "Director":"Dir",
+            "Executive Secretary":"ExecSec_Ext",
+            "Executive Vice President":"ExecVP_Ext",
+            "Executive Secy-VP":"VP",
+            "Pres-VP-Secy-Treas":"VP",
+            "Pres-VP-Secy":"VP",
+            "Pres-Treas":"VP",
+            "President":"Pres",
+            "Pres-Secy-Treas":"VP",
+            "Pres-VP":"VP",
+            "Pres-Secy":"VP",
+            "Secretary":"Sec",
+            "Secy-Treas":"SECYTREAS_Ext",
+            "Treasurer":"Treas",
+            "Vice President":"VP",
+            "VP-Secy":"VP",
+            "VP-Treas":"VP",
+            "VP-Secy-Treas":"VP"
+        }
 
         // Define how legal entities are mapped for Employers
         let entityMatrix = {
@@ -351,6 +374,11 @@ class CompuwestBind extends Bind {
                     const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
                     CommlNameAddInfo.ele('CommercialName', `${owner.fname}  ${owner.lname}`);
                     CommlNameAddInfo.ele('Type',"Person");
+
+                    if(officerMap[owner.officerTitle]){
+                        const SupplementaryNameInfo = CommlNameAddInfo.ele('SupplementaryNameInfo');
+                        SupplementaryNameInfo.ele('SupplementaryName',officerMap[owner.officerTitle]);
+                    }
                     // const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
                     // DBATaxIdentity.ele('TaxIdTypeCd', 'SSN');
                     // DBATaxIdentity.ele('TaxCd',owner.ein);
@@ -382,7 +410,7 @@ class CompuwestBind extends Bind {
                         NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
                     }
 
-                    //Can only tie ActivityCode and payroll to Named Insured if there is one owner.
+                    //Can only tie ActivityCodeand payroll to Named Insured if there is one owner.
                     if(owner.include && appDoc.owners.length === 1){
                         if(appDoc.locations && appDoc.locations.length > 0){
                             for (const location of appDoc.locations) {

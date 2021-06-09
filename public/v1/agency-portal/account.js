@@ -22,6 +22,9 @@ async function get_account(req, res, next){
         log.error(err.message);
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     });
+    if(agencyPortalUserJSON.password){
+        delete agencyPortalUserJSON.password
+    }
 
     // const account_sql = `SELECT \`a\`.\`email\`
 

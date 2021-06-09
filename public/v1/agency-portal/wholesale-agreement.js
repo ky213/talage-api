@@ -68,9 +68,6 @@ async function getWholesaleAgreementLink(req, res, next) {
         return next();
     }
 
-    // // Decrypt the agent's information
-    // const firstName = await crypt.decrypt(agentInfo.fname);
-    // const lastName = await crypt.decrypt(agentInfo.lname);
 
     const user = req.authentication.userID;
     const name = `${agentInfo.firstName} ${agentInfo.lastName}`;

@@ -78,13 +78,14 @@ module.exports = class AcuityWC extends Integration {
                 if(!activityPayroll.activityCodeId){
                     activityPayroll.activityCodeId = activityPayroll.ncciCode;
                 }
-                const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.activityCodeId];
-                if (insurerClassCode) {
+                const insurerClassCodeDoc = await this.get_insurer_code_for_activity_code(this.insurer.id,location.state, activityPayroll.activityCodeId)
+                if (insurerClassCodeDoc && insurerClassCodeDoc.code) {
                     let addAmtrustClassCode = false;
-                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
+                    const amTrustCodeSub = insurerClassCodeDoc.code + insurerClassCodeDoc.sub;
+                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === amTrustCodeSub && acc.state === location.state);
                     if (!amtrustClassCode) {
                         amtrustClassCode = {
-                            ncciCode: insurerClassCode,
+                            ncciCode: amTrustCodeSub,
                             state: location.state,
                             payroll: 0,
                             fullTimeEmployees: 0,
@@ -106,10 +107,13 @@ module.exports = class AcuityWC extends Integration {
                         }
                     }
                     //AMtrust will return an error if the classcode has zero for employees or zero for payroll.
-                    if(addAmtrustClassCode && amtrustClassCode.fullTimeEmployees > 0 && amtrustClassCode.partTimeEmployees > 0
+                    if(addAmtrustClassCode && (amtrustClassCode.fullTimeEmployees > 0 || amtrustClassCode.partTimeEmployees > 0)
                         && amtrustClassCode.payroll > 0){
                         amtrustClassCodeList.push(amtrustClassCode);
                     }
+                }
+                else {
+                    log.error(`AMtrust WC (application ${this.app.id}): Error no AMtrust InsurerActivityCode for: ${location.state} - ${activityPayroll.activityCodeId} ${__location}`);
                 }
             }
         }
@@ -126,7 +130,6 @@ module.exports = class AcuityWC extends Integration {
                 "PartTimeEmployees": amtrustClassCode.partTimeEmployees
             });
         }
-
         return classCodeList;
     }
 
@@ -139,8 +142,8 @@ module.exports = class AcuityWC extends Integration {
         for (let i = 0; i < this.app.business.locations.length; i++) {
             const location = this.app.business.locations[i];
             additionalLocationList.push({
-                "Address1": location.address,
-                "Address2": location.address2 ? location.address2 : "",
+                "Address1": location.address.slice(0,51),
+                "Address2": location.address2 ? location.address2.slice(0,51) : "",
                 "City": location.city,
                 "State": location.state_abbr,
                 "Zip": location.zip,
@@ -404,17 +407,20 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
+        //no corrrect for primary. cannot assume if it is the 1st position in array.
+        const primaryAddressLine = this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : "");
+        const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
             "Fein": fein,
             "PrimaryAddress": {
-                "Line1": this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : ""),
+                "Line1": primaryAddressLine.slice(0,51),
                 "City": this.app.business.locations[0].city,
                 "State": this.app.business.locations[0].state_abbr,
                 "Zip": this.app.business.locations[0].zip.slice(0,5)
             },
             "MailingAddress": {
-                "Line1": this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : ""),
+                "Line1": mailingAddressLine.slice(0,51),
                 "City": this.app.business.mailing_city,
                 "State": this.app.business.mailing_state_abbr,
                 "Zip": this.app.business.mailing_zipcode.slice(0,5)

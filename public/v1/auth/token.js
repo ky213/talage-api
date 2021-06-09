@@ -5,7 +5,7 @@
 'use strict';
 
 const crypt = global.requireShared('services/crypt.js');
-const serverHelper = global.requireRootPath('server.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -50,9 +50,19 @@ async function getToken(req, res, next) {
 
         // Check the key
         if (!await crypt.verifyPassword(result[0].key, req.query.key)) {
-            log.info('Authentication failed');
-            res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-            return next();
+            // Check if maybe still using old Sodium hash
+            if (await crypt.verifyPasswordSodium(result[0].key, req.query.key)) {
+                // If so, lets move over to crypto hash.
+                await db.query(`
+                    UPDATE \`#__api_users\`
+                    SET \`key\` = '${await crypt.hashPassword(req.query.key)}'
+                    WHERE \`user\` = ${db.escape(req.query.user)}
+                    `);
+            } else {
+                log.info('Authentication failed');
+                res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
+                return next();
+            }
         }
         payload.api_id = result[0].id;
     }

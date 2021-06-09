@@ -286,38 +286,49 @@ module.exports = class Application {
         }
 
         /************** POLICY DATA TRANSLATION ***************/
-
+        //  THIS IS FOR BACKWARD CAPABILITY WITH OLDER INTEGRATIONS.
+        // NEW INTEGRATIONS  Should use the AppDoc data directly.
         this.policies.forEach(policy => {
+            // other policy type stores limit differently.
+            const policyTypesWithLimits = [
+                'BOP',
+                'GL',
+                'WC'
+            ];
+
             // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
-            let indexes = [];
-            for (let i = 1; i < policy.limits.length; i++) {
-                if (policy.limits[i] !== "0") {
-                    indexes.push(i);
-                }
-            }
-            let limits = policy.limits.split("");
-            limits.splice(indexes[1], 0, "/");
-            limits.splice(indexes[0], 0, "/");
-            limits = limits.join("");
-
-            // Limits: If this is a WC policy, check if further limit controls are needed (IFF we have territory information)
-            if (policy.type === 'WC' && policy.territories) {
-                if (policy.territories.includes('CA')) {
-                    // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
-                    if (limits !== '2000000/2000000/2000000') {
-                        limits = '1000000/1000000/1000000';
+            if (policyTypesWithLimits.includes(policy.policyType)) {
+                let indexes = [];
+                for (let i = 1; i < policy.limits.length; i++) {
+                    if (policy.limits[i] !== "0") {
+                        indexes.push(i);
                     }
                 }
-                else if (policy.territories.includes('OR')) {
-                    // In OR force limits to be at least 500,000/500,000/500,000
-                    if (limits === '100000/500000/100000') {
-                        limits = '500000/500000/500000';
+                let limits = policy.limits.split("");
+                limits.splice(indexes[1], 0, "/");
+                limits.splice(indexes[0], 0, "/");
+                limits = limits.join("");
+                // Limits: If this is a WC policy, check if further limit controls are needed (IFF we have territory information)
+                if (policy.type === 'WC' && policy.territories) {
+                    if (policy.territories.includes('CA')) {
+                        // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
+                        // needs to update appDoc data.
+                        if (limits !== '2000000/2000000/2000000') {
+                            limits = '1000000/1000000/1000000';
+                        }
+                    }
+                    else if (policy.territories.includes('OR')) {
+                        // In OR force limits to be at least 500,000/500,000/500,000
+                        // needs to update appDoc data.
+                        if (limits === '100000/500000/100000') {
+                            limits = '500000/500000/500000';
+                        }
                     }
                 }
-            }
 
-            // explicitly set the policy's limits
-            policy.limits = limits;
+                // explicitly set the policy's limits
+                policy.limits = limits;
+            }
 
             // Determine the deductible
             if (typeof policy.deductible === "string") {
@@ -1129,9 +1140,7 @@ module.exports = class Application {
                     return reject(new Error(`Failed validating activity codes: ${e}`));
                 }
             }
-            else {
-                log.debug('No WC policy type found, skipping Activity Code validation...');
-            }
+
 
             /**
              * Rules related Business rules based on application level data.

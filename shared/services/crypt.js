@@ -1,3 +1,5 @@
+/* eslint-disable init-declarations */
+/* eslint-disable space-before-function-paren */
 /**
  * Encryption/Decryption Service (based on Sodium)
  *
@@ -8,60 +10,27 @@
 
 'use strict';
 
+
+const CRYPT_ENCRYPTION_ALGORITHM = 'aes-256-ctr';
+
 // const request = require('request');
 const php_serialize = require('php-serialize');
 const sha1 = require('sha1');
 const sodium = require('sodium').api;
+const crypto = require('crypto');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-/**
- * Returns a unique encryption nonce (number only used once).
- * Also manages the security_nonce table of our database to ensure nonces are only used once.
- *
- * @returns {Promise.<object, Error>} - A promise that returns an object containing the nonce as a string if resolved, or an Error if rejected
- */
-function getUniqueNonce() {
-    return new Promise(async function(fulfill, reject) {
-        let duplicate = true;
-        let nonce = '';
-
-        while (duplicate) {
-            // Generate a random nonce
-            nonce = Buffer.allocUnsafe(sodium.crypto_secretbox_NONCEBYTES);
-            sodium.randombytes(nonce, sodium.crypto_secretbox_NONCEBYTES);
-
-            // Query the database to check if the nonce is unique
-            const sql = `SELECT id FROM #__security_nonces WHERE nonce = '${nonce.toString('hex')}';`;
-            const rows = await db.query(sql).catch(function(error) {
-                // eslint-disable-line no-await-in-loop
-                reject(error);
-            });
-            if (!rows || rows.length === 0) {
-                duplicate = false;
-            }
-        }
-
-        fulfill(nonce);
-
-        // Store this nonce so we know it was used
-        const sql = `INSERT INTO #__security_nonces (nonce) VALUES ('${nonce.toString('hex')}');`;
-        await db.query(sql).catch(function(error) {
-            reject(error);
-        });
-    });
-}
-
 // Public Interfaces
 
 /**
- * Decrypts a value. Must be called synchronously using 'await.'
+ * Decrypts a value from Sodium. Must be called synchronously using 'await.'
  *
  * @param {string} val - The encrypted value
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.decrypt = function(val) {
+exports.decryptSodium = function(val) {
     return new Promise(async function(resolve) {
         // If this is a buffer, convert it to a string
         if(!val){
@@ -130,9 +99,12 @@ var decryptInternal = async function(val) {
     if (nonce.length !== 24) {
         return false;
     }
-
+    let encryptionKey = global.settings.ENCRYPTION_KEY_OLD;
+    if(!encryptionKey){
+        encryptionKey = global.settings.ENCRYPTION_KEY;
+    }
     // Decrypt
-    val = sodium.crypto_secretbox_open(val, nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
+    val = sodium.crypto_secretbox_open(val, nonce, Buffer.from(encryptionKey));
 
     // Check if decryption was successful, if not, return
     if (!val) {
@@ -146,49 +118,46 @@ var decryptInternal = async function(val) {
     return php_serialize.unserialize(val);
 };
 
+
+// eslint-disable-next-line valid-jsdoc
 /**
- * Encrypts a value. Must be called synchronously using 'await.'
- *
- * @param {mixed} val - Any value to be encrypted
- * @returns {Promise.<object, Error>} - A promise that returns an object containing the encrypted value as a string if resolved, or an Error if rejected
+ * Encryption key must be exactly 32 characters. So we'll hash the global
+ * encryption key and split off the first 32 characters.
  */
-exports.encrypt = function(val) {
-    return new Promise(async function(fulfill, reject) {
-        if (val || val === '') {
-            // Serialize the value for easy storage
-            val = php_serialize.serialize(val);
+const getEncryptionKey = async () => exports.hashPassword(global.settings.ENCRYPTION_KEY).substr(0, 32);
 
-            // Get a nonce to use
-            let hadError = false;
-            const nonce = await getUniqueNonce().catch(function(error) {
-                reject(error);
-                hadError = true;
-            });
-            if (hadError) {
-                fulfill(false);
-                return;
-            }
+exports.encrypt = async (val) => {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(CRYPT_ENCRYPTION_ALGORITHM, await getEncryptionKey(), iv);
+    const encrypted = Buffer.concat([cipher.update(val), cipher.final()]);
 
-            // Encrypt
-            val = sodium.crypto_secretbox(Buffer.from(val), nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
+    return [
+        iv.toString('hex'), encrypted.toString('hex')
+    ].join('.');
+}
 
-            // Convert the value buffer to hex
-            val = Buffer.from(val).toString('hex');
+exports.decrypt = async (val) => {
+    let hashObj;
+    try {
+        hashObj = val.split('.');
+    }
+    catch (ex) {
+        return false;
+    }
+    let returnVal = '';
+    try{
+        const decipher = crypto.createDecipheriv(CRYPT_ENCRYPTION_ALGORITHM, await getEncryptionKey(), Buffer.from(hashObj[0], 'hex'));
+        const decrypted = Buffer.concat([decipher.update(Buffer.from(hashObj[1], 'hex')), decipher.final()]);
+        returnVal = decrypted.toString();
+    }
+    catch(err){
+        log.debug(`Decrypt val ${val} error ${err}` + __location);
+        throw err;
+    }
 
-            // Remove 32 zeros
-            val = val.substring(32);
+    return returnVal;
+}
 
-            // Append the nonce to the value
-            val = `${val}|${Buffer.from(nonce).toString('hex')}`;
-
-            fulfill(val);
-        }
-        else {
-            fulfill(false);
-            return;
-        }
-    });
-};
 
 /**
  * Creates a hash for a value. This function should only be used to create hashes for matching purposes. No security should be assumed.
@@ -214,13 +183,27 @@ exports.hash = async function(val) {
     return sha1(val);
 };
 
+
+/**
+ * Hashes a password. Must be called synchronously using 'await.'
+ *
+ * @param {string} val - A password string to be hashed
+ * @return {string} - A string containing the hashed password if successful, or an Error if rejected
+ */
+exports.hashPassword = function(val) {
+    // eslint-disable-next-line prefer-const
+    let hash = crypto.createHmac('sha512', global.settings.SALT);
+    hash.update(val);
+    return hash.digest('hex');
+}
+
 /**
  * Hashes a password. Must be called synchronously using 'await.'
  *
  * @param {string} val - A password string to be hashed
  * @return {Promise.<string, Error>} - A promise that returns an string containing the hashed password if successful, or an Error if rejected
  */
-exports.hashPassword = function(val) {
+exports.hashPasswordSodium = function(val) {
     return new Promise(function(fulfill, reject) {
         // Make sure we have a value to work with
         if (!val || typeof val !== 'string') {
@@ -254,7 +237,7 @@ exports.hashPassword = function(val) {
  * @param {string} password - A string entered by the user which will be checked against the hash
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.verifyPassword = function(hash, password) {
+exports.verifyPasswordSodium = function(hash, password) {
     return new Promise(async function(resolve) {
         // Make sure this is a string and that it is not empty
         if (typeof hash !== 'string' || hash === '' || typeof password !== 'string' || password === '') {
@@ -277,67 +260,8 @@ exports.verifyPassword = function(hash, password) {
     });
 };
 
-// ==========================================================
-// Docs-api, quote-api, agency-portal/api
 
-/**
- * Takes in an array of objects and decrypts all encrypted values in each object
- *
- * @param {Array} objectArray - An array of objects
- * @param {String} action - Either decrypt, encrypt, or hash
- * @param {Array} encryptedKeys - An array of strings corresponding to key names of encrypted fields
- *
- * @return {mixed} - Returns null for invalid input, promise otherwise
- */
-exports.batchProcessObjectArray = function(objectArray, action, encryptedKeys) {
-    // Make sure an array was provided
-    if (!Array.isArray(objectArray) || objectArray.length === 0) {
-        return null;
-    }
-
-    // Batch decrypt each object in the array
-    return Promise.all(objectArray.map((object) => module.exports.batchProcessObject(object, action, encryptedKeys)));
-};
-
-/**
- * Takes in an object and decrypts all encrypted values in the object
- *
- * @param {Array} object - An object containing keys with encrypted values
- * @param {String} action - Either decrypt, encrypt, or hash
- * @param {Array} encryptedKeys - An array of strings corresponding to key names of encrypted fields
- *
- * @return {mixed} - Returns null for invalid input, promise otherwise
- */
-exports.batchProcessObject = function(object, action, encryptedKeys) {
-    // Make sure we got valid arguments
-    if (typeof object !== 'object' || object === null) {
-        return null;
-    }
-
-    // Map each encrypted property to a promise that resolves once decryption is complete
-    return Promise.all(encryptedKeys.map((key) => new Promise((resolve) => {
-        // Make sure a valid action was provided
-        if (!Object.prototype.hasOwnProperty.call(module.exports, action)) {
-            resolve();
-        }
-
-        // Skip this value if its empty or doesn't exist
-        if (!Object.prototype.hasOwnProperty.call(object, key) || object[key] === null || object[key].length === 0) {
-            resolve();
-        }
-
-        // Get the action handler and ping the encryption service
-        const handler = module.exports[action];
-        handler(object[key]).then((decryptedValue) => {
-            // Set the value if everything went smootly, null otherwise
-            if (decryptedValue) {
-                object[key] = decryptedValue;
-            }
-            else {
-                object[key] = null;
-            }
-
-            resolve();
-        });
-    })));
+// eslint-disable-next-line arrow-body-style
+exports.verifyPassword = function(hash, password) {
+    return exports.hashPassword(password) === hash;
 };

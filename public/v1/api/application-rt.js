@@ -35,7 +35,7 @@ async function isAuthForApplication(req, applicationId){
         if(req.userTokenData.userId){
             // check which agencies the user has access to
             const agencyPortalUserBO = new AgencyPortalUserBO();
-            await agencyPortalUserBO.loadFromId(req.userTokenData.userId);
+            const apUser = await agencyPortalUserBO.getById(req.userTokenData.userId);
 
             // get the application to check against
             const applicationBO = new ApplicationBO();
@@ -46,12 +46,12 @@ async function isAuthForApplication(req, applicationId){
                 log.warn("Application requested not found " + __location);
             }
             // if the user is part of an agency network, get the list of agencies
-            else if(agencyPortalUserBO.agencyNetworkId){
-                canAccessApp = applicationDB.agencyNetworkId === agencyPortalUserBO.agencyNetworkId;
+            else if(apUser.agencyNetworkId){
+                canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
             }
             // if not part of a network, just look at the single agency
-            else if(agencyPortalUserBO.agencyId) {
-                canAccessApp = applicationDB.agencyId === agencyPortalUserBO.agencyId;
+            else if(apUser.agencyId) {
+                canAccessApp = applicationDB.agencyId === apUser.agencyId;
             }
         }
         else {
@@ -169,7 +169,7 @@ async function applicationSave(req, res, next) {
 
     let responseAppDoc = null;
     try {
-        const updateMysql = false;
+        //const updateMysql = false;
 
         // if activityPayrollList exists, populate activityCode data from it
         // extract location part_time_employees and full_time_employees from location payroll data.
@@ -381,7 +381,7 @@ async function applicationLocationSave(req, res, next) {
                 applicationDB.locations.push(reqLocation)
             }
 
-            const updateMysql = false;
+
             //updateMongo seems to wipping out the appid sent
             if(applicationDB.agencyLocationId){
                 log.debug(`applicationLocationSave applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
@@ -389,8 +389,7 @@ async function applicationLocationSave(req, res, next) {
 
             const appId = applicationDB.applicationId
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
-                applicationDB,
-                updateMysql);
+                applicationDB);
 
             //Check/select Agencylocation Choice with new location
             log.debug('applicationDB.applicationId ' + appId + __location)

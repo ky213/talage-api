@@ -31,7 +31,6 @@ module.exports = class AgencyPortalUserBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${collectionName} object given`));
             }
-            log.debug(`AgencyPortalUser savemodel ${JSON.stringify(newObjectJSON)}`)
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
@@ -76,7 +75,8 @@ module.exports = class AgencyPortalUserBO{
             let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
             const queryProjection = {
                 "__v": 0,
-                "_id": 0
+                "_id": 0,
+                "password": 0
             }
 
             let findCount = false;
