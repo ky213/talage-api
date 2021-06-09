@@ -214,7 +214,7 @@ async function getApplications(req, res, next){
     }
     log.debug(`get Application req.auth ${JSON.stringify(req.authentication)} ` + __location);
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
+    const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
     // Use same query builder.
     // Check if we are exporting a CSV instead of the JSON list
@@ -485,32 +485,49 @@ async function getApplications(req, res, next){
     try{
 
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = agencyNetwork;
+            query.agencyNetworkId = agencyNetworkId;
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
-                doNotReport: false,
-                agencyNetworkId: agencyNetwork
+                doNotReport: true,
+                agencyNetworkId: agencyNetworkId
+            }
+            // eslint-disable-next-line prefer-const
+            let donotReportAgencyIdArray = []
+            const noReportAgencyList = await agencyBO.getList(agencyQuery);
+            if(noReportAgencyList && noReportAgencyList.length > 0){
+                for(const agencyJSON of noReportAgencyList){
+                    donotReportAgencyIdArray.push(agencyJSON.systemId);
+                }
+                if (donotReportAgencyIdArray.length > 0) {
+                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
+                    query.agencyId = {$nin: donotReportAgencyIdArray};
+                }
             }
             if(req.params.searchText){
                 agencyQuery.name = req.params.searchText + "%"
-            }
-            const noActiveCheck = true;
-            const agencyList = await agencyBO.getList(agencyQuery, noActiveCheck).catch(function(err) {
-                log.error("Agency List load error " + err + __location);
-                error = err;
-            });
-            if (agencyList && agencyList.length > 0) {
-                // eslint-disable-next-line prefer-const
-                let agencyIdArray = [];
-                for (const agency of agencyList) {
-                    agencyIdArray.push(agency.systemId);
+                agencyQuery.doNotReport = false;
+                const noActiveCheck = true;
+                const donotGetAGencyNetowork = false;
+                const agencyList = await agencyBO.getList(agencyQuery,donotGetAGencyNetowork, noActiveCheck).catch(function(err) {
+                    log.error("Agency List load error " + err + __location);
+                    error = err;
+                });
+                if (agencyList && agencyList.length > 0) {
+                    // eslint-disable-next-line prefer-const
+                    let agencyIdArray = [];
+                    for (const agency of agencyList) {
+                        agencyIdArray.push(agency.systemId);
+                    }
+                    agencyIdArray = agencyIdArray.filter(function(value){
+                        return donotReportAgencyIdArray.indexOf(value) === -1;
+                    });
+                    const agencyListFilter = {agencyId: {$in: agencyIdArray}};
+                    orClauseArray.push(agencyListFilter);
                 }
-                const agencyListFilter = {agencyId: {$in: agencyIdArray}};
-                orClauseArray.push(agencyListFilter);
-            }
-            else {
-                log.warn("Application Search no agencies found " + __location);
+                else {
+                    log.warn("Application Search no agencies found " + __location);
+                }
             }
         }
         else {
