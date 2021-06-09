@@ -18,6 +18,7 @@ global.requireShared('./helpers/tracker.js');
 
 var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
+const fs = require('fs');
 
 const logger = global.requireShared('/services/logger.js');
 const globalSettings = global.requireRootPath('./settings.js');
@@ -140,7 +141,7 @@ async function runFunction() {
     const wcStateIncomeLimitsData = require('./data/WCStateIncomeLimits.json');
 
     let successes = 0;
-    let failures = 0;
+    let failedDocs = [];
     let duplicates = 0;
 
     for (let i = 0; i < wcStateIncomeLimitsData.length; i++) {
@@ -156,7 +157,7 @@ async function runFunction() {
         }
         catch (err) {
             logError(`Error when searching for wcStateIncomeLimit in the mongo database: ${err}`);
-            failures++;
+            failedDocs.push(wcStateIncomeLimit);
             continue;
         }
 
@@ -173,7 +174,7 @@ async function runFunction() {
         catch (err) {
             logError(`Error occurred when saving newWCStateIncomeLimit to mongodb: ${err}`)
             logError(`  State: ${newWCStateIncomeLimit.state}, Entity Type: ${newWCStateIncomeLimit.entityType}`);
-            failures++;
+            failedDocs.push(wcStateIncomeLimit);
         }
 
         if (i % 10 === 0 && i !== 0) {
@@ -181,12 +182,27 @@ async function runFunction() {
         }
     }
 
+    if (failedDocs.length > 0) {
+        const failedDocFilePath = `${__dirname}/data/WCStateIncomeLimitsThatFailedToLoad.json`;
+        // eslint-disable-next-line no-console
+        logDebug(`Writing WCStateIncomeLimits that failed to be loaded into Mongo to ${failedDocFilePath}`);
+        let failedDocsString = `WCStateIncomeLimits documents that failed to be loaded into Mongo:\n`;
+        failedDocsString += JSON.stringify(failedDocs, null, 4);
+        try {
+            fs.writeFileSync(failedDocFilePath, failedDocsString);
+        }
+        catch (err) {
+            // eslint-disable-next-line no-console
+            logDebug(`Failed to write to file those WCStateIncomeLimits docs which failed to load into Mongo: ${err}`);
+        }
+    }
+
     logDebug("=================================");
-    logDebug(`Successful Imports ........ : ${successes}`);
-    logDebug(`Failed Imports ............ : ${failures}`);
+    logDebug(`Successful Imports ........ : ${successes} / ${wcStateIncomeLimitsData.length}`);
+    logDebug(`Failed Imports ............ : ${failedDocs.length}`);
     logDebug(`Skipped Imports (duplicate) : ${duplicates}`);
     logDebug("=================================");
 
-    logInfo(`WC State Limits for Owners finished importing into Mongo. Exiting.`);
+    logInfo(`WC State Income Limits for Owners finished importing into Mongo. Exiting.`);
     process.exit(0);
 }

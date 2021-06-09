@@ -31,7 +31,7 @@ exports.getIncomeLimits = async function(state, entityType) {
 
 /**
  *
- * @param {Array} incomeLimits - Array of income limits and their effective dates
+ * @param {Array} incomeLimits - Array of effective min/max income limits
  * @returns {object} - effectiveLimits
  */
 function getEffectiveIncomeLimitsEntry(incomeLimits) {
@@ -40,6 +40,8 @@ function getEffectiveIncomeLimitsEntry(incomeLimits) {
         log.error(error);
         throw new Error(error);
     }
+
+    // Find the latest effective date that is not in the future
     return incomeLimits.reduce((effectiveLimit, limit) => {
         if (limit.effectiveDate > effectiveLimit.effectiveDate && limit.effectiveDate < Date.now()) {
             return limit;

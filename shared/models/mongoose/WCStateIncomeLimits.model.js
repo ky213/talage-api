@@ -40,7 +40,8 @@ const WCStateIncomeLimitsSchema = new Schema({
     isCustom: {type: Boolean, default: false},
     attributes: {type: Schema.Types.Mixed, required: false},
     officerTitleInclusionStatuses: [OfficerTitleInclusionStatusSchema],
-    incomeLimits: [IncomeLimitSchema]
+    incomeLimits: [IncomeLimitSchema],
+    active: {type: Boolean, default: true}
 }, opts);
 
 WCStateIncomeLimitsSchema.plugin(timestamps);
