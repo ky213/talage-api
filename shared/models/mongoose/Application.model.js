@@ -84,7 +84,7 @@ const locationSchema = new Schema({
     yearBuilt: {type: Number, required:false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
     questions: [QuestionSchema]
-},optsNoId);
+});
 
 locationSchema.virtual('locationId').
     get(function() {
