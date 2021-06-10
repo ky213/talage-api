@@ -224,16 +224,16 @@ module.exports = class Integration {
      *
      * @param {number} insurerId - The insurer ID
      * @param {string} territory - The 2 character territory code
-     * @param {number} activityCode - The Talage activity code
+     * @param {number} activityCodeId - The Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
-    async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
+    async get_insurer_code_for_activity_code(insurerId, territory, activityCodeId) {
 
         const policyEffectiveDate = moment(this.policy.effective_date);
         const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
         const activityCodeQuery = {
             insurerId: insurerId,
-            talageActivityCodeIdList: parseInt(activityCode,10),
+            talageActivityCodeIdList: parseInt(activityCodeId,10),
             territoryList: territory,
             effectiveDate: {$lte: policyEffectiveDate},
             expirationDate: {$gte: policyEffectiveDate},
@@ -243,6 +243,7 @@ module.exports = class Integration {
         try{
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
+                log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
                 insurerActivityCode = {attributes: {}};
             }
             if(typeof insurerActivityCode.attributes === 'string'){
@@ -250,7 +251,7 @@ module.exports = class Integration {
             }
         }
         catch(err){
-            log.warn(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+            log.error(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for  InsurerId: ${insurerId},  ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}  error ${err}` + __location);
         }
         return insurerActivityCode;
 
@@ -273,7 +274,7 @@ module.exports = class Integration {
         const LibertyInsurerId = 14;
         const MarkelInsurerId = 3
         const libertyRecord = await this.get_insurer_code_for_activity_code(LibertyInsurerId, territory, activityCode);
-        if (!libertyRecord) {
+        if (!libertyRecord || !libertyRecord.code) {
             const MarkelRecord = await this.get_insurer_code_for_activity_code(MarkelInsurerId, territory, activityCode);
             if (MarkelRecord) {
                 return MarkelRecord.code;

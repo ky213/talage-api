@@ -1,3 +1,5 @@
+/* eslint-disable multiline-ternary */
+/* eslint-disable radix */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable no-console */
@@ -1266,26 +1268,34 @@ module.exports = class MarkelWC extends Integration {
             location.activityPayrollList.forEach(activity => {
                 const fullTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Full Time");
                 const partTimeEmployees = activity.employeeTypeList.find(type => type.employeeType === "Part Time");
-                const owners = activity.employeeTypeList.find(type => type.employeeType === "Owners");
-                // we count owners as full time employees, so add them if they exist
-                let ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
-                ftCount += includeOwnerPayroll && owners ? owners.employeeTypeCount : 0;
-                const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
-
-                const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
-                
                 // NOTE: We have a gap in how we store owner information, and cannot link owner payroll/activity to actual owner records.
                 //       In cases where there is only 1 owner, we can safely assume that the existing owner activity and payroll link to
                 //       the named owner entered in the owner information section of the application. In cases where there are more than 2 owners,
                 //       whether they belong to the same activity or not, we can not accurately and safely assign the owner entry to the owner record in payroll.
                 //       Therefore, in cases where there are 2 or more owners, we will NOT send owner information in the request, 
                 //       which will result in a non-bindable quote (via API).
-                const owner = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+                const owners = activity.employeeTypeList.find(type => type.employeeType === "Owners");
+                
+                // we count owners as full time employees, so add them if they exist
+                let ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
+                ftCount += includeOwnerPayroll && owners ? owners.employeeTypeCount : 0;
+                const ptCount = partTimeEmployees ? partTimeEmployees.employeeTypeCount : 0;
+
+                const classCode = this.insurer_wc_codes[`${applicationDocData.mailingState}${activity.activityCodeId}`];
 
                 // calculate total payroll from each employee type
-                const totalPayroll = (fullTimeEmployees ? fullTimeEmployees.employeeTypePayroll : 0) + 
-                    (partTimeEmployees ? partTimeEmployees.employeeTypePayroll : 0) + 
-                    (includeOwnerPayroll && owner ? owner.employeeTypePayroll : 0);
+                const ftPayroll = !fullTimeEmployees || isNaN(parseInt(fullTimeEmployees.employeeTypePayroll)) 
+                    ? 0 
+                    : parseInt(fullTimeEmployees.employeeTypePayroll);
+                const ptPayroll = !partTimeEmployees || isNaN(parseInt(partTimeEmployees.employeeTypePayroll)) 
+                    ? 0 
+                    : parseInt(partTimeEmployees.employeeTypePayroll);
+                const oPayroll = !includeOwnerPayroll || !owners || isNaN(owners.employeeTypePayroll) 
+                    ? 0
+                    : parseInt(owners.employeeTypePayroll);
+
+                // total the payroll
+                const totalPayroll = ftPayroll + ptPayroll + oPayroll;
 
                 // only add a payroll section if there are employees to report on. 
                 // NOTE: 0 employee can happen when an owner is assigned to a unique activity but owners are excluded from coverage

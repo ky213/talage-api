@@ -145,9 +145,6 @@ async function Save(req, res, next){
         const applicationModel = new ApplicationBO();
         await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
-                // const tokenPayload = {applicationID: applicationModel.id};
-                // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
-                // responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
                 //look for business data to send back.
                 try{

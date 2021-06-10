@@ -26,6 +26,11 @@ async function findAll(req, res, next) {
         delete req.query.question
     }
 
+    if(req.query.policyType){
+        req.query.policyTypeList = req.query.policyType
+        delete req.query.policyType
+    }
+
     const rows = await insurerQuestionBO.getList(req.query).catch(function(err) {
         error = err;
     })
@@ -80,7 +85,7 @@ async function findOne(req, res, next) {
 
 async function add(req, res, next) {
 
-    log.debug("insurer question post " + JSON.stringify(req.body));
+    log.debug("insurer question post " + JSON.stringify(req.body) + __location);
     //TODO Validate
     if(!req.body.text){
         return next(serverHelper.requestError("bad missing question"));

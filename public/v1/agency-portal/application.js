@@ -468,8 +468,8 @@ async function setupReturnedApplicationJSON(applicationJSON){
     if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
-            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
-            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+            const apUser = await agencyPortalUserBO.getById(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = apUser.email;
         }
         catch(err){
             log.error("Error getting agencyPortalUserBO " + err + __location);
@@ -1518,7 +1518,7 @@ async function GetResources(req, res, next){
     }
     rejected = false;
     // TODO Use BO
-    const sql4 = `SELECT officerTitle FROM \`officer_titles\``;
+    const sql4 = `SELECT officerTitle FROM officer_titles`;
     const result4 = await db.query(sql4).catch(function(error) {
         // Check if this was
         rejected = true;

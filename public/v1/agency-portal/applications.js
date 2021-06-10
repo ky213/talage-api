@@ -214,7 +214,7 @@ async function getApplications(req, res, next){
     }
     log.debug(`get Application req.auth ${JSON.stringify(req.authentication)} ` + __location);
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
+    const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
     // Use same query builder.
     // Check if we are exporting a CSV instead of the JSON list
@@ -283,11 +283,11 @@ async function getApplications(req, res, next){
 
 
     //Fix bad dates coming in.
-    if(!req.params.startDate || (req.params.startDate && req.params.startDate.startsWith('T00:00:00.000'))){
+    if(!req.params.startDate){
         req.params.startDate = moment('2017-01-01').toISOString();
     }
 
-    if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
+    if(!req.params.endDate){
         // now....
         log.debug('AP Application Search resetting end date' + __location);
         req.params.endDate = moment().toISOString();
@@ -368,6 +368,32 @@ async function getApplications(req, res, next){
                 else if(endDateMoment && endDateMoment.isValid()){
                     matchClause.createdAt = {
                         $lte: endDateMoment.toDate()
+                    }
+                }
+                if(req.params.searchText.toLowerCase().startsWith("iq:")){
+                    const searchWords2 = req.params.searchText.split(" ");
+                    const insurerStatusIdText = searchWords2[0].substring(3);
+                    req.params.searchText = '';
+                    if(searchWords2.length > 1){
+                        //reset searchtext to remove insurer
+
+                        searchWords2.forEach((searchWord,index) => {
+                            if(index > 0){
+                                req.params.searchText += ' ' + searchWord;
+                            }
+                        })
+                        req.params.searchText = req.params.searchText.trim();
+                    }
+
+                    try{
+                        log.debug(`quoteStatus filter ${insurerStatusIdText}`)
+                        const quoteStatusId = parseInt(insurerStatusIdText,10);
+                        if(typeof quoteStatusId === 'number'){
+                            matchClause.quoteStatusId = quoteStatusId
+                        }
+                    }
+                    catch(err){
+                        log.info(`bad iq parameter ${insurerStatusIdText} ` + __location);
                     }
                 }
                 log.debug('Insurer match clause ' + JSON.stringify(matchClause))
@@ -485,32 +511,49 @@ async function getApplications(req, res, next){
     try{
 
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = agencyNetwork;
+            query.agencyNetworkId = agencyNetworkId;
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
-                doNotReport: false,
-                agencyNetworkId: agencyNetwork
+                doNotReport: true,
+                agencyNetworkId: agencyNetworkId
+            }
+            // eslint-disable-next-line prefer-const
+            let donotReportAgencyIdArray = []
+            const noReportAgencyList = await agencyBO.getList(agencyQuery);
+            if(noReportAgencyList && noReportAgencyList.length > 0){
+                for(const agencyJSON of noReportAgencyList){
+                    donotReportAgencyIdArray.push(agencyJSON.systemId);
+                }
+                if (donotReportAgencyIdArray.length > 0) {
+                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
+                    query.agencyId = {$nin: donotReportAgencyIdArray};
+                }
             }
             if(req.params.searchText){
                 agencyQuery.name = req.params.searchText + "%"
-            }
-            const noActiveCheck = true;
-            const agencyList = await agencyBO.getList(agencyQuery, noActiveCheck).catch(function(err) {
-                log.error("Agency List load error " + err + __location);
-                error = err;
-            });
-            if (agencyList && agencyList.length > 0) {
-                // eslint-disable-next-line prefer-const
-                let agencyIdArray = [];
-                for (const agency of agencyList) {
-                    agencyIdArray.push(agency.systemId);
+                agencyQuery.doNotReport = false;
+                const noActiveCheck = true;
+                const donotGetAGencyNetowork = false;
+                const agencyList = await agencyBO.getList(agencyQuery,donotGetAGencyNetowork, noActiveCheck).catch(function(err) {
+                    log.error("Agency List load error " + err + __location);
+                    error = err;
+                });
+                if (agencyList && agencyList.length > 0) {
+                    // eslint-disable-next-line prefer-const
+                    let agencyIdArray = [];
+                    for (const agency of agencyList) {
+                        agencyIdArray.push(agency.systemId);
+                    }
+                    agencyIdArray = agencyIdArray.filter(function(value){
+                        return donotReportAgencyIdArray.indexOf(value) === -1;
+                    });
+                    const agencyListFilter = {agencyId: {$in: agencyIdArray}};
+                    orClauseArray.push(agencyListFilter);
                 }
-                const agencyListFilter = {agencyId: {$in: agencyIdArray}};
-                orClauseArray.push(agencyListFilter);
-            }
-            else {
-                log.warn("Application Search no agencies found " + __location);
+                else {
+                    log.debug("Application Search no agencies found " + __location);
+                }
             }
         }
         else {
@@ -558,7 +601,7 @@ async function getApplications(req, res, next){
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
         applicationsSearchCount = applicationsSearchCountJSON.count;
-
+        log.debug(`app list ${JSON.stringify(query)}`)
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
         for (const application of applicationList) {
             application.business = application.businessName;
