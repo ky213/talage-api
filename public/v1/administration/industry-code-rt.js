@@ -72,7 +72,8 @@ async function findAll(req, res, next) {
             req.query.industryCodeId = notMappedList;
         }
     }
-    else if(req.query.insurerId || req.query.territory){
+    else if(req.query.multipleMappings){
+        delete req.query.multipleMappings;
         //TODO optimize by going just to IAC collection
         //get all activityCodes that are activity.
         const industryCodeList = await industryCodeBO.getList({}).catch(function(err) {
@@ -111,6 +112,56 @@ async function findAll(req, res, next) {
             });
 
             if(respJson.count > 1){
+                mappedtoInsurerList.push(industryCodeJSON.id);
+            }
+        }
+        //filter user query on the notMappedList.
+        if(mappedtoInsurerList.length > 0){
+            req.query.industryCodeId = mappedtoInsurerList;
+        }
+        else {
+            req.query.industryCodeId = -999;
+        }
+    }
+    else if(req.query.insurerId || req.query.territory){
+        //TODO optimize by going just to IAC collection
+        //get all activityCodes that are activity.
+        const industryCodeList = await industryCodeBO.getList({}).catch(function(err) {
+            error = err;
+        })
+        if (error) {
+            return next(error);
+        }
+        let mappedtoInsurerList = [];
+        let iicQuery = {count: true};
+        if(req.query.insurerId){
+            try{
+                iicQuery.insurerId = parseInt(req.query.insurerId,10);
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.insurerId
+        }
+        if(req.query.territory){
+            try{
+                iicQuery.territoryList = req.query.territory;
+            }
+            catch(err){
+                log.error("bad query");
+            }
+            delete req.query.territory
+        }
+        //Build list that have nothing mapped in insurerActivityCodes collection
+        for(let i = 0; i < industryCodeList.length; i++){
+            const industryCodeJSON = industryCodeList[i];
+            iicQuery.talageIndustryCodeIdList = industryCodeJSON.id
+            const respJson = await insurerIndustryCodeBO.getList(iicQuery).catch(function(err) {
+                log.error("admin insurerIndustryCodeBO error: " + err + __location);
+                error = err;
+            });
+
+            if(respJson.count > 0){
                 mappedtoInsurerList.push(industryCodeJSON.id);
             }
         }
