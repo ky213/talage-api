@@ -1809,7 +1809,7 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v').lean();
+                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v')
                     if (docDB) {
                         await this.setDocEinClear(docDB);
                         if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
