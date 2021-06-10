@@ -1809,7 +1809,7 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v').lean();
+                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v')
                     if (docDB) {
                         await this.setDocEinClear(docDB);
                         if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
@@ -2343,11 +2343,12 @@ module.exports = class ApplicationModel {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id) {
-                let applicationDoc = null;
                 try {
-                    applicationDoc = await this.loadById(id);
-                    applicationDoc.active = false;
-                    await applicationDoc.save();
+                    const query = {"applicationId": id};
+                    const newObjectJSON = {active: false}
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+                    await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                 }
                 catch (err) {
                     log.error(`Error marking Application from uuid ${id} ` + err + __location);

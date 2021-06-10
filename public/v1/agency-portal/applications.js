@@ -144,7 +144,6 @@ function generateCSV(applicationList){
             if(!applicationDoc.referrer){
                 applicationDoc.referrer = 'Agency Portal';
             }
-            
         }
 
         // Define the columns (and column order) in the CSV file and their user friendly titles
@@ -153,7 +152,7 @@ function generateCSV(applicationList){
             'dba': 'DBA',
             'status': 'Application Status',
             'agencyName': 'Agency',
-            'referrer': 'Source', 
+            'referrer': 'Source',
             'mailingAddress': 'Mailing Address',
             'mailingCity': 'Mailing City',
             'mailingState': 'Mailing State',
