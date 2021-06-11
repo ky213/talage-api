@@ -1,6 +1,6 @@
 /* eslint-disable guard-for-in */
 /**
- * Worker's Compensation for Acuity
+ * Worker's Compensation for AMTrust
  *
  * This integration file has answers to the following questions hard-coded in:
  * - Any bankruptcies, tax, or credit liens in the past 5 years? (NO) - Derived from our disqualification question
@@ -25,7 +25,7 @@ const amtrustTestBasePath = "/DigitalAPI_Usertest";
 const amtrustProductionHost = "gateway.amtrustgroup.com";
 const amtrustProductionBasePath = "/DigitalAPI";
 
-module.exports = class AcuityWC extends Integration {
+module.exports = class AMTrustWC extends Integration {
 
     /**
      * Initializes this integration.
@@ -157,7 +157,8 @@ module.exports = class AcuityWC extends Integration {
         const officersList = [];
         for (const owner of this.app.applicationDocData.owners) {
             //Need to be primary state not mailing.
-            const state = this.app.business.locations[0].state_abbr;
+            const primaryLocation = this.app.applicationDocData.locations.find(location => location.primary);
+            const state = primaryLocation.state;
             let officerType = null;
             let endorsementId = null;
             let formType = null;
@@ -244,13 +245,13 @@ module.exports = class AcuityWC extends Integration {
     }
 
     /**
-	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
+	 * Requests a quote from AMTrust and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
 
-        const appDoc = this.app.applicationDocData
+        const applicationDocData = this.app.applicationDocData
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',
@@ -345,7 +346,7 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Format the FEIN
-        const fein = appDoc.ein.replace(/\D/g, '');
+        const fein = applicationDocData.ein.replace(/\D/g, '');
 
         let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
@@ -372,7 +373,7 @@ module.exports = class AcuityWC extends Integration {
                 const quoteBO = new QuoteBO();
 
                 const quoteQuery = {
-                    applicationId: appDoc.applicationId,
+                    applicationId: applicationDocData.applicationId,
                     insurerId: this.insurer.id
                 }
                 const quoteList = await quoteBO.getList(quoteQuery);
@@ -381,9 +382,9 @@ module.exports = class AcuityWC extends Integration {
                         quoteId = quote.quoteNumber;
                     }
                 }
-                if(!quoteId && appDoc.copiedFromAppId){
+                if(!quoteId && applicationDocData.copiedFromAppId){
                     const quoteQuery2 = {
-                        applicationId: appDoc.copiedFromAppId,
+                        applicationId: applicationDocData.copiedFromAppId,
                         insurerId: this.insurer.id
                     }
                     const quoteList2 = await quoteBO.getList(quoteQuery2);
@@ -407,17 +408,17 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
-        //no corrrect for primary. cannot assume if it is the 1st position in array.
-        const primaryAddressLine = this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : "");
+        const primaryLocation = applicationDocData.locations.find(location => location.primary);
+        const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
             "Fein": fein,
             "PrimaryAddress": {
                 "Line1": primaryAddressLine.slice(0,50),
-                "City": this.app.business.locations[0].city,
-                "State": this.app.business.locations[0].state_abbr,
-                "Zip": this.app.business.locations[0].zip.slice(0,5)
+                "City": primaryLocation.city,
+                "State": primaryLocation.state,
+                "Zip": primaryLocation.zipcode.slice(0,5)
             },
             "MailingAddress": {
                 "Line1": mailingAddressLine.slice(0,50),
@@ -434,7 +435,7 @@ module.exports = class AcuityWC extends Integration {
                 "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,
-            "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+            "LegalEntity": amtrustLegalEntityMap[applicationDocData.entityType],
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
@@ -478,11 +479,11 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Create the additional information request
         const additionalInformationRequestData = {};
-        if(this.app.business && appDoc.owners[0] && this.app.business.locations[0]){
+        if(this.app.business && applicationDocData.owners[0] && this.app.business.locations[0]){
             //Officer may be replaced below if we get a response back from /officer-information
             additionalInformationRequestData.Officers = [];
             additionalInformationRequestData.AdditionalInsureds = [];
-            appDoc.owners.forEach((owner) => {
+            applicationDocData.owners.forEach((owner) => {
                 const officerJSON = {
                     "Name": owner.fname + " " + owner.lname,
                     //"EndorsementId": "WC040303C",
