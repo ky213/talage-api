@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -12,6 +13,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
+const {getLibertyQuoteProposal, getLibertyOAuthToken} = require('./api');
 
 // The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM
 const supportedLimits = [
@@ -378,16 +380,26 @@ module.exports = class LibertySBOP extends Integration {
         // log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
         // log.debug("=================== QUOTE REQUEST ===================");
 
-        // Determine which URL to use
-        const host = 'ci-policyquoteapi.libertymutual.com';
-        const path = `/v1/quotes?partnerID=${this.username}`;
+        let auth = null;
+        try {
+            auth = await getLibertyOAuthToken();
+        }
+        catch (e) {
+            log.error(`${logPrefix}${e}${__location}`);
+            return this.client_error(`${logPrefix}${e}`, __location);
+        }
+
+        const host = 'apis.us-east-1.libertymutual.com';
+        const quotePath = `/bl-partnerships/quotes?partnerID=${this.username}`;
 
         let result = null;
         try {
-            result = await this.send_xml_request(host, path, xml, {'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`});
+            result = await this.send_xml_request(host, quotePath, xml, {
+                'Authorization': `Bearer ${auth.access_token}`
+            });
         }
         catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to retrieve the quote proposal letter: ${e}. `;
+            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
             log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
@@ -588,23 +600,29 @@ module.exports = class LibertySBOP extends Integration {
             });
         }
 
-        const quotePath = `/v1/quoteProposal?quoteProposalId=${quoteProposalId}`;
-
-        // attempt to get the quote proposal letter
+        // Liberty's quote proposal endpoint has a tendency to throw 503 (service unavailable), retry up to 5 times to get the quote proposal
+        const MAX_RETRY_ATTEMPTS = 5;
+        let retry = 0;
+        let error = false;
         let quoteResult = null;
-        try {
-            quoteResult = await this.send_request(host,
-                quotePath,
-                null,
-                {
-                    'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-                    'Content-Type': 'application/xml'
-                });
-        }
-        catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to retrieve the quote proposal letter: ${e}.`;
-            log.error(errorMessage + __location);
-        }
+        do {
+            retry++;
+            try {
+                quoteResult = await getLibertyQuoteProposal(quoteProposalId, auth);
+            }
+            catch (e) {
+                log.error(`${logPrefix}ATTEMPT ${retry}: ${e}${__location}`);
+                error = true;
+                if (retry <= MAX_RETRY_ATTEMPTS) {
+                    continue;
+                }
+                else {
+                    break;
+                }
+            }
+
+            error = false;
+        } while (error);
 
         // comes back as a string, so we search for the XML BinData field and substring it out
         if (quoteResult !== null) {
