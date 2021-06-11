@@ -323,9 +323,12 @@ module.exports = class AMTrustWC extends Integration {
         // =========================================================================================================
         // Validation
 
+        // Get primary location
+        const primaryLocation = appDoc.locations.find(location => location.primary);
+
         // Per AmTrust e-mail from 2/4/2021, Partnerships in CA require at least 2 partners/owners
-        if (this.app.business.locations[0].business_entity_type === "Partnership" &&
-            this.app.business.locations[0].state_abbr === "CA" &&
+        if (appDoc.entityType === "Partnership" &&
+            primaryLocation.state === "CA" &&
             this.app.business.owners.length < 2) {
             return this.client_declined("AmTrust requires partnerships in CA to have at least 2 partners.");
         }
@@ -341,8 +344,8 @@ module.exports = class AMTrustWC extends Integration {
             'Sole Proprietorship': 1
             // 'Other': null <- Not supported
         };
-        if (!amtrustLegalEntityMap.hasOwnProperty(this.app.business.locations[0].business_entity_type)) {
-            return this.client_error(`The business entity type '${this.app.business.locations[0].business_entity_type}' is not supported by this insurer.`, __location);
+        if (!amtrustLegalEntityMap.hasOwnProperty(appDoc.entityType)) {
+            return this.client_error(`The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
         }
 
         // Format the FEIN
@@ -408,7 +411,6 @@ module.exports = class AMTrustWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
-        const primaryLocation = appDoc.locations.find(location => location.primary);
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
@@ -450,11 +452,11 @@ module.exports = class AMTrustWC extends Integration {
             "HI",
             "RI",
             "ME"];
-        if (requiredUnemploymentNumberStates.includes(this.app.business.locations[0].state_abbr)) {
-            if (this.app.business.locations[0].unemployment_number === 0) {
+        if (requiredUnemploymentNumberStates.includes(primaryLocation.state)) {
+            if (primaryLocation.unemployment_num === 0) {
                 return this.client_error("AmTrust requires an unemployment number if located in MN, HI, RI, or ME.", __location);
             }
-            quoteRequestDataV2.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
+            quoteRequestDataV2.Quote.UnemploymentId = primaryLocation.unemployment_num.toString();
         }
 
         // Add the rating zip if any location is in California
@@ -479,7 +481,7 @@ module.exports = class AMTrustWC extends Integration {
         // =========================================================================================================
         // Create the additional information request
         const additionalInformationRequestData = {};
-        if(this.app.business && appDoc.owners[0] && this.app.business.locations[0]){
+        if(this.app.business && appDoc.owners[0] && primaryLocation){
             //Officer may be replaced below if we get a response back from /officer-information
             additionalInformationRequestData.Officers = [];
             additionalInformationRequestData.AdditionalInsureds = [];
@@ -488,7 +490,7 @@ module.exports = class AMTrustWC extends Integration {
                     "Name": owner.fname + " " + owner.lname,
                     //"EndorsementId": "WC040303C",
                     "Type": "Officers",
-                    "State": this.app.business.locations[0].state_abbr,
+                    "State": primaryLocation.state,
                     "OwnershipPercent": owner.ownership//,
                     //  "FormType": owner.include  ? "I" : "E"
                 }
@@ -505,8 +507,8 @@ module.exports = class AMTrustWC extends Integration {
                     const additionalInsurerJSON = {
                         "Name": owner.fname + " " + owner.lname,
                         "TaxId": fein,
-                        "State": this.app.business.locations[0].state_abbr,
-                        "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+                        "State": primaryLocation.state,
+                        "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
                         "DbaName": this.app.business.dba,
                         "AdditionalLocations": this.getAdditionalLocationList()
                     };
