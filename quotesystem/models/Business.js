@@ -190,6 +190,10 @@ module.exports = class Business {
 
         this.years_of_exp = applicationDocJSON.yearsOfExp;
         this.primary_territory = applicationDocJSON.primaryState;
+        if(!this.primary_territory){
+            //work around for old AF/Compwest Quote V1 path
+            this.primary_territory = applicationDocJSON.mailingState;
+        }
         this.num_owners = applicationDocJSON.numOwners;
         //owner number fix
         if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0){
