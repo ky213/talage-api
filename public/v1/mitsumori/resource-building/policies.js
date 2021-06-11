@@ -42,7 +42,7 @@ exports.policyTypes = resources => {
 const socialEngDeductibleList = [
     10000, 25000, 50000
 ];
-const cyberAggregateDeductibleList = [
+const cyberDeductibleList = [
     1000, 1500, 2500, 5000, 10000, 25000, 50000
 ];
 const bopAndGlDeductibles = ['$1500','$1000','$500'];
@@ -52,9 +52,10 @@ const deductibleAmounts = resources => {
         bop: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
         gl: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
         cyber: {
-            cyberAggregateDeductibleList,
+            cyberDeductibleList,
             socialEngDeductibleList
-        }
+        },
+        pl: cyberDeductibleList
     };
 };
 const policiesEnabled = async(resources, applicationDB) => {
@@ -113,8 +114,11 @@ const policiesEnabled = async(resources, applicationDB) => {
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
 
-const aggregateLimitList = [
+const cyberAggregateLimitList = [
     50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
+];
+const plAggregateLimitList = [
+    50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000
 ];
 const businessIncomeCoverageList = [
     100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000, 650000, 700000, 750000, 800000, 850000, 900000, 950000, 1000000
@@ -169,14 +173,14 @@ const limitsSelectionAmounts = async(resources, applicationDB) => {
             }
         ],
         cyber: {
-            aggregateLimitList,
+            aggregateLimitList: cyberAggregateLimitList,
             businessIncomeCoverageList,
             ransomPaymentLimitList,
             socialEngLimitList,
             waitingPeriodList
         },
         pl: {
-            aggregateLimitList,
+            aggregateLimitList: plAggregateLimitList,
             occurrenceLimitList
         }
     };
