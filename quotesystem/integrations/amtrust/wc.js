@@ -251,7 +251,7 @@ module.exports = class AMTrustWC extends Integration {
 	 */
     async _insurer_quote() {
 
-        const applicationDocData = this.app.applicationDocData
+        const appDoc = this.app.applicationDocData
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',
@@ -346,7 +346,7 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // Format the FEIN
-        const fein = applicationDocData.ein.replace(/\D/g, '');
+        const fein = appDoc.ein.replace(/\D/g, '');
 
         let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
@@ -373,7 +373,7 @@ module.exports = class AMTrustWC extends Integration {
                 const quoteBO = new QuoteBO();
 
                 const quoteQuery = {
-                    applicationId: applicationDocData.applicationId,
+                    applicationId: appDoc.applicationId,
                     insurerId: this.insurer.id
                 }
                 const quoteList = await quoteBO.getList(quoteQuery);
@@ -382,9 +382,9 @@ module.exports = class AMTrustWC extends Integration {
                         quoteId = quote.quoteNumber;
                     }
                 }
-                if(!quoteId && applicationDocData.copiedFromAppId){
+                if(!quoteId && appDoc.copiedFromAppId){
                     const quoteQuery2 = {
-                        applicationId: applicationDocData.copiedFromAppId,
+                        applicationId: appDoc.copiedFromAppId,
                         insurerId: this.insurer.id
                     }
                     const quoteList2 = await quoteBO.getList(quoteQuery2);
@@ -408,7 +408,7 @@ module.exports = class AMTrustWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
-        const primaryLocation = applicationDocData.locations.find(location => location.primary);
+        const primaryLocation = appDoc.locations.find(location => location.primary);
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
@@ -435,7 +435,7 @@ module.exports = class AMTrustWC extends Integration {
                 "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,
-            "LegalEntity": amtrustLegalEntityMap[applicationDocData.entityType],
+            "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
@@ -479,11 +479,11 @@ module.exports = class AMTrustWC extends Integration {
         // =========================================================================================================
         // Create the additional information request
         const additionalInformationRequestData = {};
-        if(this.app.business && applicationDocData.owners[0] && this.app.business.locations[0]){
+        if(this.app.business && appDoc.owners[0] && this.app.business.locations[0]){
             //Officer may be replaced below if we get a response back from /officer-information
             additionalInformationRequestData.Officers = [];
             additionalInformationRequestData.AdditionalInsureds = [];
-            applicationDocData.owners.forEach((owner) => {
+            appDoc.owners.forEach((owner) => {
                 const officerJSON = {
                     "Name": owner.fname + " " + owner.lname,
                     //"EndorsementId": "WC040303C",
