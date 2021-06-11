@@ -142,8 +142,8 @@ module.exports = class AcuityWC extends Integration {
         for (let i = 0; i < this.app.business.locations.length; i++) {
             const location = this.app.business.locations[i];
             additionalLocationList.push({
-                "Address1": location.address,
-                "Address2": location.address2 ? location.address2 : "",
+                "Address1": location.address.slice(0,50),
+                "Address2": location.address2 ? location.address2.slice(0,50) : "",
                 "City": location.city,
                 "State": location.state_abbr,
                 "Zip": location.zip,
@@ -394,7 +394,7 @@ module.exports = class AcuityWC extends Integration {
                     }
                 }
                 if(!quoteId){
-                    return this.client_declined("The EIN is blocked by earlier application");
+                    useQuotePut_OldQuoteId = false;
                 }
             }
             catch(err){
@@ -407,17 +407,20 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
+        //no corrrect for primary. cannot assume if it is the 1st position in array.
+        const primaryAddressLine = this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : "");
+        const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
             "Fein": fein,
             "PrimaryAddress": {
-                "Line1": this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : ""),
+                "Line1": primaryAddressLine.slice(0,50),
                 "City": this.app.business.locations[0].city,
                 "State": this.app.business.locations[0].state_abbr,
                 "Zip": this.app.business.locations[0].zip.slice(0,5)
             },
             "MailingAddress": {
-                "Line1": this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : ""),
+                "Line1": mailingAddressLine.slice(0,50),
                 "City": this.app.business.mailing_city,
                 "State": this.app.business.mailing_state_abbr,
                 "Zip": this.app.business.mailing_zipcode.slice(0,5)
