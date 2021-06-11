@@ -1,3 +1,4 @@
+/* eslint-disable no-unneeded-ternary */
 /* eslint-disable prefer-const */
 /* eslint-disable no-extra-parens */
 /* eslint-disable dot-notation */
@@ -30,9 +31,13 @@ exports.process = async function(requestJSON) {
             locationJSON.address = stringFunctions.santizeString(locationJSON.address);
             locationJSON.address2 = stringFunctions.santizeString(locationJSON.address2);
             locationJSON.billing = stringFunctions.santizeNumber(locationJSON.billing);
+            locationJSON.primary = stringFunctions.santizeNumber(locationJSON.billing);
             if (locationJSON.billing && locationJSON.billing > 1) {
                 delete locationJSON.billing
             }
+            locationJSON.billing = locationJSON.billing > 0 ? true : false;
+            locationJSON.primary = locationJSON.primary > 0 ? true : false;
+
             // locationJSON.full_time_employees = locationJSON.full_time_employees;
             // locationJSON.part_time_employees = stringFunctions.santizeNumber(locationJSON.part_time_employees, makeInt);
             //locationJSON.square_footage = stringFunctions.santizeNumber(locationJSON.square_footage);
