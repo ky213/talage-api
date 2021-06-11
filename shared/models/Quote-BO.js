@@ -522,13 +522,14 @@ module.exports = class QuoteBO {
     }
 
     // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
-    async updateQuoteAggregatedStatus({quoteId, mysqlId}, status) {
-        if(quoteId && mysqlId && status){
+    async updateQuoteAggregatedStatus(quote, status) {
+        const {quoteId} = quote;
+        if(quoteId && status){
             // update Mongo
             try{
                 const query = {quoteId: quoteId};
                 const updateJSON = {
-                    "aggregatedStatus": convertToAggregatedStatus(status),
+                    "aggregatedStatus": quote.aggregatedStatus,
                     "quoteStatusId": status.id, 
                     "quoteStatusDescription": status.description
                 };
