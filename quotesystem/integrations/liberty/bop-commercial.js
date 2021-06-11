@@ -1283,6 +1283,7 @@ module.exports = class LibertySBOP extends Integration {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
+        
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
             log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
@@ -1327,29 +1328,31 @@ module.exports = class LibertySBOP extends Integration {
             this.getCoverages(coverages, "Liability Coverages");
         }
 
-        // Liberty's quote proposal endpoint has a tendency to throw 503 (service unavailable), retry up to 5 times to get the quote proposal
-        const MAX_RETRY_ATTEMPTS = 5;
-        let retry = 0;
-        let error = false;
         let quoteResult = null;
-        do {
-            retry++;
-            try {
-                quoteResult = await getLibertyQuoteProposal(quoteProposalId, auth);
-            }
-            catch (e) {
-                log.error(`${logPrefix}ATTEMPT ${retry}: ${e}${__location}`);
-                error = true;
-                if (retry <= MAX_RETRY_ATTEMPTS) {
-                    continue;
+        if (quoteProposalId) {
+            // Liberty's quote proposal endpoint has a tendency to throw 503 (service unavailable), retry up to 5 times to get the quote proposal
+            const MAX_RETRY_ATTEMPTS = 5;
+            let retry = 0;
+            let error = false;
+            do {
+                retry++;
+                try {
+                    quoteResult = await getLibertyQuoteProposal(quoteProposalId, auth);
                 }
-                else {
-                    break;
+                catch (e) {
+                    log.error(`${logPrefix}ATTEMPT ${retry}: ${e}${__location}`);
+                    error = true;
+                    if (retry <= MAX_RETRY_ATTEMPTS) {
+                        continue;
+                    }
+                    else {
+                        break;
+                    }
                 }
-            }
 
-            error = false;
-        } while (error);
+                error = false;
+            } while (error);
+        }
 
         // comes back as a string, so we search for the XML BinData field and substring it out
         if (quoteResult !== null) {

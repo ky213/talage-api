@@ -33,13 +33,13 @@ const getLibertyOAuthToken = async() => {
 }
 
 const getLibertyQuoteProposal = async(quoteProposalId, auth) => {
-    const url = `${prefix}${host}${proposalPath}`;
-    log.debug(`Getting Quote Proposal for Liberty from: ${url}<access_token>`);
+    const url = `${prefix}${host}${proposalPath}${quoteProposalId}`;
+    log.debug(`Getting Quote Proposal for Liberty from: ${url}`);
 
     // attempt to get the quote proposal letter
     let proposalResult = null;
     try {
-        proposalResult = await axios.get(url + quoteProposalId, {headers: {Authorization: `Bearer ${auth.access_token}`}});
+        proposalResult = await axios.get(url, {headers: {Authorization: `Bearer ${auth.access_token}`}});
     }
     catch (e) {
         throw new Error(`An error occurred while trying to retrieve the quote proposal letter: ${e}. `);
