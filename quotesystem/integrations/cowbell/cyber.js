@@ -441,6 +441,7 @@ module.exports = class cowbellCyber extends Integration {
                         if(responseQD.totalPremium){
                             this.number = responseQD.quoteNumber;
                             quotePremium = responseQD.totalPremium;
+                            this.quoteLink = responseQD.agencyDeepLinkURL
                             this.isBindable = true
                             break;
                         }
