@@ -141,7 +141,7 @@ async function runFunction() {
             }
             else {
                 try{
-                    agencyPortalUser.email = await crypt.decrypt(result[i].email)
+                    agencyPortalUser.email = await crypt.decryptSodium(result[i].email)
                     if(agencyPortalUser.email === result[i].email){
                         log.error(`did not decrypt email`);
                     }
