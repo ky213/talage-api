@@ -14,11 +14,12 @@ var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
-const crypt = global.requireShared('./services/crypt.js');
+//const crypt = global.requireShared('./services/crypt.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
+//const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 const contactSchema = new Schema({
     email: {type: String, required: true},
@@ -49,6 +50,7 @@ const ActivtyCodePayrollSchema = new Schema({
     ownerPayRoll: {type: Number, required: false}
 });
 
+
 const QuestionSchema = new Schema({
     questionId: {type: Number, required: [true, 'questionId required']},
     questionType: {type: String, required: false},
@@ -73,7 +75,8 @@ const locationSchema = new Schema({
     part_time_employees:  {type: Number, required: false},
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
-    billing: {type: Boolean, required: false, default: false},
+    billing: {type: Boolean, required: false, default: false}, //For new app for  AP this primary.  Billing is a Mailing address.
+    primary: {type: Boolean, required: false, default: false}, //Primary and Billing are different. Primary is physical
     own: {type: Boolean, required:false},
     businessPersonalPropertyLimit: {type: Number, required:false},
     buildingLimit: {type: Number, required:false},
@@ -126,6 +129,39 @@ const claimSchema = new Schema({
     missedWork: {type: Boolean, default: false}
 });
 
+const cyberPolicySchema = new Schema({
+    aggregateLimit: {type: Number, required: true},
+    businessIncomeCoverage: {type: Number, required: false},
+    hardwareReplCostEndorsement: {type: Boolean, default: false},
+    hardwareReplCostLimit: {type: Number, required: false},
+    computerFraudEndorsement: {type: Boolean, default: false},
+    postBreachRemediationEndorsement: {type: Boolean, default: false},
+    postBreachRemediationLimit: {type: Number, required: false},
+    ransomPaymentEndorsement: {type: Boolean, default: false},
+    ransomPaymentLimit: {type: Number, required: false},
+    socialEngEndorsement: {type: Boolean, default: false},
+    socialEngLimit: {type: Number, required: false},
+    socialEngDeductible: {type: Number, required: false},
+    telecomsFraudEndorsement: {type: Boolean, default: false},
+    telecomsFraudEndorsementLimit: {type: Number, required: false},
+    websiteMediaContentLiabilityEndorsement: {type: Boolean, default: false},
+    websiteMediaContentLiabilityLimit: {type: Number, required: false},
+    domains: {type: String},
+    yearsOfPriorActs: {type: Number, required: false}, //previous years covered
+    waitingPeriod: {type: Number, required: false} //hours
+});
+
+const professionalLiabilityPolicySchema = new Schema({
+    aggregateLimit: {type: Number, required: true},
+    occurrenceLimit: {type: Number, required: true},
+    certificationsRequired: {type: Boolean, default: false},
+    certificationsMaintained: {type: Boolean, default: false},
+    yearsOfPriorActs: {type: Number, required: false}, //previous years covered
+    periodLoading: {type: Number, required: false}, //years covered after policy end
+    yearsOfProfessionalExperience: {type: Number, required: false}
+});
+
+
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
     effectiveDate: {type: Date, required: false},
@@ -140,13 +176,17 @@ const PolicySchema = new Schema({
     waiverSubrogation: {type: Boolean, default: false},
     currentInsuranceCarrier: {type: String, required: false},
     currentPremium: {type: Number, required: false},
-    yearsWithCurrentInsurance: {type: Number, required: false}
+    yearsWithCurrentInsurance: {type: Number, required: false},
+    cyber: cyberPolicySchema,
+    profLiability: professionalLiabilityPolicySchema
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
     WC: {type: Number, required: false},
     GL: {type: Number, required: false},
-    BOP: {type: Number, required: false}
+    BOP: {type: Number, required: false},
+    CYBER: {type: Number, required: false},
+    PL: {type: Number, required: false}
 });
 
 const ApplicationMetricsSchema = new Schema({
@@ -195,6 +235,7 @@ const ApplicationSchema = new Schema({
     hasEin: {type: Boolean, default: true},
     ein: {type: String, required: false},
     einEncrypted: {type: String, required: false},
+    einEncryptedT2: {type: String, required: false},
     einHash: {type: String, required: false},
     mailingAddress: {type: String, required: false},
     mailingAddress2: {type: String, required: false},
@@ -203,7 +244,6 @@ const ApplicationSchema = new Schema({
     mailingZipcode: {type: String, required: false},
     mailingSameAsPrimary: {type: Boolean, required: false, default: null},
     phone: {type: String, required: false},
-    //primaryTerritory: {type: String, required: false},
     primaryState: {type: String, required: false},
     website: {type: String, required: false},
     yearsOfExp: {type: Number, required: false},
@@ -238,7 +278,7 @@ const ApplicationSchema = new Schema({
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
-    handledByTalage: {type: Boolean, default: false},
+    handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
     copiedFromAppId: {type: String, required: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
@@ -301,22 +341,22 @@ ApplicationSchema.pre('updateOne', async function(next) {
 });
 
 
-ApplicationSchema.post('find', async function(result) {
-    if(result && result.length > 0){
-        // eslint-disable-next-line prefer-const
-        for(let doc of result){
-            if(doc && doc.einEncrypted){
-                doc.ein = await crypt.decrypt(doc.einEncrypted);
-            }
-        }
-    }
-});
+// ApplicationSchema.post('find', async function(result) {
+//     if(result && result.length > 0){
+//         // eslint-disable-next-line prefer-const
+//         for(let doc of result){
+//             if(doc && doc.einEncryptedT2){
+//                 doc.ein = await crypt.decrypt(doc.einEncryptedT2);
+//             }
+//         }
+//     }
+// });
 
-ApplicationSchema.post('findOne', async function(result) {
-    if(result && result.einEncrypted){
-        result.ein = await crypt.decrypt(result.einEncrypted);
-    }
-});
+// ApplicationSchema.post('findOne', async function(result) {
+//     if(result && result.einEncryptedT2){
+//         result.ein = await crypt.decrypt(result.einEncryptedT2);
+//     }
+// });
 
 
 mongoose.set('useCreateIndex', true);

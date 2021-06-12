@@ -26,7 +26,7 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const utility = global.requireShared('./helpers/utility.js');
-const { quoteStatus } = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
@@ -1432,9 +1432,9 @@ module.exports = class ApplicationModel {
         }
     }
 
-    async checkExpiration(applicationJSON){
-        if(applicationJSON.policies && applicationJSON.policies.length > 0){
-            for(let policy of applicationJSON.policies){
+    async checkExpiration(newObjectJSON){
+        if(newObjectJSON.policies && newObjectJSON.policies.length > 0){
+            for(let policy of newObjectJSON.policies){
                 log.debug("policy " + JSON.stringify(policy))
                 if(policy.effectiveDate && !policy.expirationDate){
                     try{
@@ -1451,17 +1451,40 @@ module.exports = class ApplicationModel {
         return true;
 
     }
-    async checkLocations(applicationJSON){
-        if(applicationJSON.locations && applicationJSON.locations.length > 0){
+    //Note this working on the newObjectJSON.
+    // which might not be the full ApplicationDoc.
+    async checkLocations(newObjectJSON){
+        if(newObjectJSON.locations && newObjectJSON.locations.length > 0){
             let hasBillingLocation = false;
-            for(let location of applicationJSON.locations){
+            let hasPrimaryLocation = false;
+            let receivedPrimaryLocation = false;
+            //Note does not check for more than 1.
+            const primaryLocation = newObjectJSON.locations.find((newLoc) => newLoc.primary === true)
+            if(primaryLocation){
+                receivedPrimaryLocation = true;
+            }
+            for(let location of newObjectJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
-                    log.warn(`Application will multiple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    log.warn(`Application will multiple billing received AppId ${newObjectJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
                     location.billing = false;
                 }
                 else if(location.billing === true){
                     hasBillingLocation = true;
                 }
+                // primaryLocation
+                if(receivedPrimaryLocation === false){
+                    //client did not send primary, so use Billing
+                    log.debug(`setting primary from billing ${newObjectJSON.applicationId} ` + __location)
+                    location.primary = location.billing
+                }
+                if(location.primary === true && hasPrimaryLocation === false){
+                    hasPrimaryLocation = true;
+                    newObjectJSON.primaryState = location.state
+                }
+                else {
+                    location.primary = false;
+                }
+
             }
         }
         return true;
@@ -1632,9 +1655,24 @@ module.exports = class ApplicationModel {
 
     async setDocEinClear(applicationDoc){
         if(applicationDoc){
-            if(applicationDoc.einEncrypted){
-                applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
-                applicationDoc.ein = applicationDoc.einClear;
+            if(applicationDoc.einEncryptedT2 && applicationDoc.einEncryptedT2.length > 0){
+                try{
+                    log.debug(`Using new decrypt ` + __location);
+                    applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncryptedT2);
+                    applicationDoc.ein = applicationDoc.einClear;
+                }
+                catch(err){
+                    log.error(`ApplicationBO error decrypting ein ${this.applicationId} ` + err + __location);
+                }
+            }
+            else if(applicationDoc.einEncrypted){
+                try{
+                    applicationDoc.einClear = await crypt.decryptSodium(applicationDoc.einEncrypted);
+                    applicationDoc.ein = applicationDoc.einClear;
+                }
+                catch(err){
+                    log.error(`ApplicationBO error decrypting ein ${this.applicationId} ` + err + __location);
+                }
             }
             else {
                 applicationDoc.ein = "";
@@ -1647,7 +1685,7 @@ module.exports = class ApplicationModel {
         //Only modified if EIN has been given.
         if(applicationDoc && applicationDoc.ein && applicationDoc.ein.length > 1){
             try{
-                applicationDoc.einEncrypted = await crypt.encrypt(applicationDoc.ein);
+                applicationDoc.einEncryptedT2 = await crypt.encrypt(applicationDoc.ein);
                 applicationDoc.einHash = await crypt.hash(applicationDoc.ein);
             }
             catch(err){
@@ -1697,6 +1735,15 @@ module.exports = class ApplicationModel {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     if(applicationDoc){
                         await this.setDocEinClear(applicationDoc);
+                        if(applicationDoc.einEncrypted){
+                            delete applicationDoc.einEncrypted
+                        }
+                        if(applicationDoc.einEncryptedT2){
+                            delete applicationDoc.einEncryptedT2
+                        }
+                        if(applicationDoc.einHash){
+                            delete applicationDoc.einHash
+                        }
                         if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
                             await this.checkAndFixAppStatus(applicationDoc);
                         }
@@ -1726,6 +1773,15 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     await this.setDocEinClear(applicationDoc);
+                    if(applicationDoc.einEncrypted){
+                        delete applicationDoc.einEncrypted
+                    }
+                    if(applicationDoc.einEncryptedT2){
+                        delete applicationDoc.einEncryptedT2
+                    }
+                    if(applicationDoc.einHash){
+                        delete applicationDoc.einHash
+                    }
                     if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
                         await this.checkAndFixAppStatus(applicationDoc);
                     }
@@ -1753,13 +1809,22 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
+                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v')
                     if (docDB) {
                         await this.setDocEinClear(docDB);
                         if (applicationDoc && applicationDoc.appStatusId === QUOTING_STATUS) {
                             await this.checkAndFixAppStatus(applicationDoc);
                         }
                         applicationDoc = mongoUtils.objCleanup(docDB);
+                        if(applicationDoc.einEncrypted){
+                            delete applicationDoc.einEncrypted
+                        }
+                        if(applicationDoc.einEncryptedT2){
+                            delete applicationDoc.einEncryptedT2
+                        }
+                        if(applicationDoc.einHash){
+                            delete applicationDoc.einHash
+                        }
                     }
                 }
                 catch (err) {
@@ -1785,7 +1850,8 @@ module.exports = class ApplicationModel {
 
             let getListOptions = {
                 getQuestions: false,
-                getAgencyName: false
+                getAgencyName: false,
+                getEin: false
             }
 
             if(getOptions){
@@ -1933,7 +1999,18 @@ module.exports = class ApplicationModel {
                     // log.debug("docList.length: " + docList.length);
                     // log.debug("docList: " + JSON.stringify(docList));
                     for (const application of docList) {
-                        await this.setDocEinClear(application);
+                        if(getListOptions.getEin){
+                            await this.setDocEinClear(application);
+                        }
+                        if(application.einEncrypted){
+                            delete application.einEncrypted
+                        }
+                        if(application.einEncryptedT2){
+                            delete application.einEncryptedT2
+                        }
+                        if(application.einHash){
+                            delete application.einHash
+                        }
                         if (application && application.appStatusId === QUOTING_STATUS) {
                             await this.checkAndFixAppStatus(application);
                         }
@@ -2165,8 +2242,8 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
-                    // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
+                    log.debug("ApplicationList query " + JSON.stringify(query))
+                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){

@@ -91,6 +91,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'auth', 'agency-portal');
     registerEndpoint(server, 'auth', 'token');
 
+
     // Code
     registerEndpoint(server, 'code', 'activity-codes');
     registerEndpoint(server, 'code', 'industry-categories');
@@ -114,11 +115,9 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
     registerEndpoint(server, 'administration', 'insurer');
-    registerEndpoint(server, 'administration', 'insurer-contact-rt');
     registerEndpoint(server, 'administration', 'insurer-outage');
     registerEndpoint(server, 'administration', 'insurer-payment-plan-rt');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
-    registerEndpoint(server, 'administration', 'insurer-writer-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-network-user-rt');
     registerEndpoint(server, 'administration', 'agency-rt');
@@ -129,7 +128,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'activity-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-association-rt');
-    registerEndpoint(server, 'administration', 'industry-code-question-rt');
     registerEndpoint(server, 'administration', 'industry-code-category-rt');
     registerEndpoint(server, 'administration', 'industry-code-activity-codes-rt');
     registerEndpoint(server, 'administration', 'activity-code-industry-codes-rt');
@@ -139,9 +137,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-logo-rt');
     registerEndpoint(server, 'administration', 'question-answer-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
-    registerEndpoint(server, 'administration', 'question-activity-codes-rt');
-    registerEndpoint(server, 'administration', 'activity-code-questions-rt');
-    registerEndpoint(server, 'administration', 'activity-code-association-rt');
     registerEndpoint(server, 'administration', 'payment-plan-rt');
     registerEndpoint(server, 'administration', 'policy-type-rt');
     registerEndpoint(server, 'administration', 'user-group-rt');

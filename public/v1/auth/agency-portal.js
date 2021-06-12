@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
@@ -48,24 +49,9 @@ async function createToken(req, res, next){
     req.body.email = req.body.email.replace(' ', '+');
 
     // Authenticate the information provided by the user
-    const emailHash = await crypt.hash(req.body.email);
-    const agencySQL = `
-		SELECT
-			apu.agency_network,
-			apu.agency,
-			apu.can_sign,
-			apu.id,
-			apu.last_login,
-			apu.password,
-			apu.reset_required,
-            apu.group as apugId,
-			la.version AS 'termsOfServiceVersion'
-		FROM clw_talage_agency_portal_users AS apu
-		LEFT JOIN clw_talage_legal_acceptances AS la ON la.agency_portal_user = apu.id
-		WHERE apu.email_hash = ${db.escape(emailHash)} AND apu.state > 0
-		LIMIT 1;
-	`;
-    const agencyPortalUserResult = await db.query(agencySQL).catch(function(e) {
+    //TODO move to BO/Mongo
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const agencyPortalUserDBJson = await agencyPortalUserBO.getByEmail(req.body.email).catch(function(e) {
         log.error(e.message + __location);
         res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
         error = true;
@@ -75,26 +61,38 @@ async function createToken(req, res, next){
     }
 
     // Make sure we found the user
-    if (!agencyPortalUserResult || !agencyPortalUserResult.length) {
-        log.info('Authentication failed - Account not found');
-        log.verbose(emailHash);
+    if (!agencyPortalUserDBJson) {
+        log.info('Authentication failed - Account not found ' + req.body.email);
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
     }
 
     // Check the password
-    if (!await crypt.verifyPassword(agencyPortalUserResult[0].password, req.body.password)) {
-        log.info('Authentication failed - Bad password');
-        res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-        return next();
+    if (!crypt.verifyPassword(agencyPortalUserDBJson.password, req.body.password)) {
+        // Check if maybe still using old Sodium hash
+        log.debug(`checking sodium hash for user  ${agencyPortalUserDBJson.agencyPortalUserId}` + __location)
+        if (await crypt.verifyPasswordSodium(agencyPortalUserDBJson.password, req.body.password)) {
+            // If so, lets move over to crypto hash.
+            const newPasswordHash = await crypt.hashPassword(req.body.password);
+            const updateJson = {password: newPasswordHash};
+            await agencyPortalUserBO.updateMongo(agencyPortalUserDBJson.agencyPortalUserUuidId, updateJson);
+            log.debug(`update user ${agencyPortalUserDBJson.agencyPortalUserId} pwdHash ` + __location);
+
+        }
+        else {
+            log.info('Authentication failed');
+            res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
+            return next();
+        }
+
     }
 
     //get Permissions from Mongo UserGroup Permission
     // if error go with mySQL permissions.
     try{
         const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
-        const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserResult[0].apugId);
-        agencyPortalUserResult[0].permissions = agencyPortalUserGroupDB.permissions;
+        const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserDBJson.agencyPortalUserGroupId);
+        agencyPortalUserDBJson.permissions = agencyPortalUserGroupDB.permissions;
     }
     catch(err){
         log.error("Error get permissions from Mongo " + err + __location);
@@ -107,25 +105,19 @@ async function createToken(req, res, next){
         //undo double use of agency_network.
         isAgencyNetworkUser: false
     };
-
-    // Record the time this user logged in
-    const lastLoginSQL = `
-		UPDATE \`#__agency_portal_users\`
-		SET \`last_login\` = NOW()
-		WHERE \`id\` = ${agencyPortalUserResult[0].id}
-		LIMIT 1;
-	`;
-    db.query(lastLoginSQL).catch(function(e) {
-        // If this fails, log the failure but do nothing else
-        log.error(e.message);
+    await agencyPortalUserBO.updateLastLogin(agencyPortalUserDBJson.agencyPortalUserId).catch(function(e) {
+        log.error(e.message + __location);
+        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
+        error = true;
     });
+
 
     payload.isAgencyNetworkUser = false;
     // Check if this was an agency network
-    if (agencyPortalUserResult[0].agency_network) {
-        payload.agencyNetwork = agencyPortalUserResult[0].agency_network;
+    if (agencyPortalUserDBJson.agency_network) {
+        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
         //agency network ID now in payload for consistency between network and agency.
-        payload.agencyNetworkId = agencyPortalUserResult[0].agency_network;
+        payload.agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId;
 
         payload.isAgencyNetworkUser = true;
     }
@@ -159,16 +151,16 @@ async function createToken(req, res, next){
     }
     else{
         // Just allow access to the current agency
-        payload.agents.push(agencyPortalUserResult[0].agency);
+        payload.agents.push(agencyPortalUserDBJson.agencyId);
 
         // Add the signing authority permission to the payload
-        payload.canSign = Boolean(agencyPortalUserResult[0].can_sign);
+        payload.canSign = Boolean(agencyPortalUserDBJson.canSign);
 
         // Determine whether or not the user needs to sign a wholesale agreement
         let agency = null;
         try{
             // Load the request data into it
-            agency = await agencyBO.getById(agencyPortalUserResult[0].agency);
+            agency = await agencyBO.getById(agencyPortalUserDBJson.agencyId);
         }
         catch(err){
             log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
@@ -193,19 +185,22 @@ async function createToken(req, res, next){
 
 
     // Add the user ID to the payload
-    payload.userID = agencyPortalUserResult[0].id;
+    payload.userID = agencyPortalUserDBJson.id;
 
     // Add the permissions to the payload
-    payload.permissions = agencyPortalUserResult[0].permissions;
+    payload.permissions = agencyPortalUserDBJson.permissions;
 
     // Check whether or not this is the first time the user is logging in
-    payload.firstLogin = Boolean(agencyPortalUserResult[0].last_login);
+    payload.firstLogin = Boolean(agencyPortalUserDBJson.lastLogin);
 
     // Report back whether or not a password reset is required
-    payload.resetRequired = Boolean(agencyPortalUserResult[0].reset_required);
+    payload.resetRequired = Boolean(agencyPortalUserDBJson.resetRequired);
 
     // Return the version of the Terms of Service
-    payload.termsOfServiceVersion = agencyPortalUserResult[0].termsOfServiceVersion;
+    payload.termsOfServiceVersion = agencyPortalUserDBJson.termsOfServiceVersion;
+    if(payload.termsOfServiceVersion === 0){
+        payload.termsOfServiceVersion = null
+    }
 
     // This is a valid user, generate and return a token
     try{

@@ -41,6 +41,10 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+
+
+       
+
         //const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
@@ -251,7 +255,9 @@ module.exports = class CompwestWC extends Integration {
                      if (typeof statusDescription === 'string' && statusDescription.toLowerCase().includes("experience mod")) {
                         wcEmodEmail.sendEmodEmail(this.app.id);
                     }
-                    const resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
+                    let WorkCompPolicyAddRsError = null;
+                    WorkCompPolicyAddRsError = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+                    const resWorkCompPolicy = WorkCompPolicyAddRsError['com.afg_PDFContent'][0].CommlPolicy[0];
                     this.number = resWorkCompPolicy.PolicyNumber[0];
                 }
                 catch(err){
@@ -387,7 +393,7 @@ module.exports = class CompwestWC extends Integration {
         }
 
           // <ACORD>
-          //<TransactionRequestDt>2021-05-24</TransactionRequestDt> 
+          //<TransactionRequestDt>2021-05-24</TransactionRequestDt>
         const requestACORD = builder.create('ACORD');
         if(guideWireAPI === true){
             requestACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
@@ -772,18 +778,17 @@ module.exports = class CompwestWC extends Integration {
         Limit.ele('LimitAppliesToCd', 'EachClaim');
         // </Limit>
 
+         // <Limit>
+        Limit = CommlCoverage.ele('Limit');
+        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[1]);
+        Limit.ele('LimitAppliesToCd', 'PolicyLimit');
+
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
         Limit.ele('FormatCurrencyAmt').ele('Amt', limits[2]);
         Limit.ele('LimitAppliesToCd', 'EachEmployee');
         // </Limit>
 
-        // <Limit>
-        Limit = CommlCoverage.ele('Limit');
-        Limit.ele('FormatCurrencyAmt').ele('Amt', limits[1]);
-        Limit.ele('LimitAppliesToCd', 'PolicyLimit');
-        // </Limit>
-        // </CommlCoverage>
 
         /* ---=== Begin Ineligibility and Statement Questions ===--- */
         // Make a list of embedded questions need by WC questions for Guidwire api.

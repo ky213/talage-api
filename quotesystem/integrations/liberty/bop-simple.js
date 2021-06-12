@@ -65,13 +65,19 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
+        const applicationDocData = this.app.applicationDocData;
+        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `;
+        const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
+
         // liberty can have multiple insurer industry codes tied to a single talage industry code
         // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
         await this._getLibertyIndustryCodes();
 
-        const applicationDocData = this.app.applicationDocData;
-        const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
-        const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `
+        if (!this.industry_code) {
+            const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
+            log.error(`${errorMessage} ` + __location);
+            return this.client_error(errorMessage, __location);
+        }
 
         if (!SBOPPolicy) {
             const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
@@ -678,12 +684,6 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         this.industry_code = this.industry_code.find(ic => ic.attributes.simpleBOP);
-        if (!this.industry_code) {
-            const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
-            log.error(`${errorMessage} ` + __location);
-            return this.client_error(errorMessage, __location);
-        }
-
     }
 
     getSupportedLimit(limits) {

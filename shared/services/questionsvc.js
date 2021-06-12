@@ -1,3 +1,5 @@
+/* eslint-disable array-element-newline */
+/* eslint-disable object-curly-newline */
 /* eslint-disable multiline-comment-style */
 /* eslint-disable one-var */
 const moment = require('moment');
@@ -42,59 +44,27 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Prep industry code for validation
     const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
 
-    // Check if the industry code is valid
-    // if (industry_code) {
-    //      try{
-    //         const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
-    //         const industryCodeBO = new IndustryCodeBO();
-    //         const industryCodeJson = await industryCodeBO.getById(industry_code);
-    //         if(!industryCodeJson){
-    //             log.warn(`Bad Request: Invalid Industry Code ${industry_code}` + __location);
-    //         }
-    //     }
-    //     catch(err){
-    //         log.error("Error getting industryCodeBO " + err + __location);
-    //     }
-    // }
     let territories = [];
     if(stateList.length > 0){
         territories = stateList;
     }
     else {
-
-        /*
-        * Validate Zip Codes
-        */
+        // get territories from zipcodes
+        const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+        const zipCodeBO = new ZipCodeBO();
         const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
-
         // Check that the zip code is valid
-
-        if (!zipCodeArray || !zipCodeArray.length) {
-            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
-            return false;
-        }
-        // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
-        // are cut down to 5.
-        zipCodeArray.forEach((zip) => {
-            if(zip.length > 5){
-                zip = zip.substring(0,5)
-            }
-        })
-        sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
-        const zip_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
-            return false;
-        }
-        if (zip_result && zip_result.length >= 1) {
-            zip_result.forEach(function(result) {
-                territories.push(result.territory);
-            });
+        if (zipCodeArray && zipCodeArray.length > 0) {
+            const zipStateList = await zipCodeBO.getStatesForZipCodeList(zipCodeArray)
+            zipStateList.forEach((zipState) => {
+                territories.push(zipState)
+            })
         }
         else {
-            log.warn(`Question Service: Bad Request: Zip Code ${zipCodeArray.join(',')} ` + __location);
-            //return false;
+            log.warn('Question Service: Bad Request: Zip Codes - no zip codes' + __location);
+            //Do not kill process.  There are questions for "All States" See Univeral question processing.
+            // no code base questions will come back
+            // return false;
         }
     }
 

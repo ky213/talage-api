@@ -82,7 +82,7 @@ const unemploymentNumberStates = resources => {
 }
 
 const officerTitles = resources => {
-    // TODO: pull from officer_titles table (sql db)
+    // TODO: pull from officer_titles BO
     resources.officerTitles =
     [
         "Chief Executive Officer",

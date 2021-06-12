@@ -10,5 +10,7 @@ const helper = global.requireShared('helpers/helper.js');
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(limits, policyType){
+    // Only called from application validation code
+    // should be database driven.  not hardcoded helper.
     return helper.supportedLimits[policyType].includes(limits);
 };

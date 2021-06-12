@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 /* eslint-disable object-property-newline */
 /* eslint-disable block-scoped-var */
 /* eslint-disable object-curly-newline */
@@ -20,8 +21,18 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 
 async function findAll(req, res, next) {
-
+    log.debug(`Admin users find all ${JSON.stringify(req.query)}`)
     let error = null;
+    if(req.query.agency_network){
+        req.query.agencyNetworkId = req.query.agency_network;
+        delete req.query.agency_network
+    }
+
+    if(req.query.agencynetworkid){
+        req.query.agencyNetworkId = req.query.agencynetworkid;
+        delete req.query.agencynetworkid
+    }
+
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const rows = await agencyPortalUserBO.getList(req.query).catch(function(err) {
         error = err;
@@ -69,7 +80,7 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     let error = null;
     // get list of all agencies for this network
     const agencyBO = new AgencyBO();
-    const agencyList  = await agencyBO.getByAgencyNetwork(agencyNetworkId).catch(function(err){
+    const agencyList = await agencyBO.getByAgencyNetwork(agencyNetworkId).catch(function(err){
         log.error(`Error retrieving list of agencies for agency network id ${agencyNetworkId}: ` + err + __location);
         error = err;
     });
@@ -79,7 +90,7 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     // for each agency grab the agency users
     const allAgencyUserList = [];
     if(agencyList.length > 0){
-         const agencyIdList = agencyList.map(function(agency) {
+        const agencyIdList = agencyList.map(function(agency) {
             return agency.systemId;
         })
         const agencyPortalUserBO = new AgencyPortalUserBO();
@@ -88,9 +99,9 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
                 error = err;
             })
             if (error) {
-                log.error(`Error retrieving list of users for agency id ${agencyIdList[i]}: ` + err + __location);
+                log.error(`Error retrieving list of users for agency id ${agencyIdList[i]}: ` + error + __location);
                 break;
-            };
+            }
             if(agencyUserList && agencyUserList.length > 0){
                 allAgencyUserList.push(agencyUserList);
             }
@@ -102,7 +113,8 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     if(allAgencyUserList.length > 0){
         const flattenedArrayOfAllUsers = allAgencyUserList.flat();
         res.send(200, flattenedArrayOfAllUsers);
-    }else {
+    }
+    else {
         return next(serverHelper.notFoundError('Agency users not found'));
     }
 }
@@ -120,6 +132,9 @@ async function findOne(req, res, next) {
     });
     if (error) {
         return next(error);
+    }
+    if(userJSON.password){
+        delete userJSON.password
     }
     // Send back a success response
     if (userJSON) {
@@ -145,12 +160,7 @@ async function add(req, res, next) {
         return next(serverHelper.requestError('Missing agencynetworkid'))
     }
 
-    if (req.body.password) {
-        //process hashing
-        req.body.password = await crypt.hashPassword(req.body.password);
-
-    }
-    else {
+    if (!req.body.password) {
         return next(serverHelper.requestError('Missing password'))
     }
 
@@ -167,6 +177,11 @@ async function add(req, res, next) {
         return next(serverHelper.requestError('Missing group'))
     }
 
+    if (req.body.password) {
+        //process hashing
+        req.body.password = await crypt.hashPassword(req.body.password);
+    }
+
     const allowedPropsInsert = ['password',
         'email',
         'group',
@@ -181,8 +196,18 @@ async function add(req, res, next) {
             needToUpdate = true
         }
     }
+    if(req.body.group){
+        insertJSON.agencyPortalUserGroupId = req.body.group
+    }
+    if(req.body.reset_required){
+        insertJSON.resetRequired = req.body.reset_required
+    }
+    if(req.body.agency_network){
+        insertJSON.agencyNetworkId = req.body.agency_network
+    }
+
+
     if(needToUpdate){
-        insertJSON.clear_email = req.body['email'];
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
         await agencyPortalUserBO.saveModel(insertJSON).catch(function(err) {
@@ -193,9 +218,18 @@ async function add(req, res, next) {
             return next(error);
         }
 
-        let cleanJSON = agencyPortalUserBO.cleanJSON();
-        agencyPortalUserBO.cleanOuput(cleanJSON)
-        res.send(200, cleanJSON);
+        const userJSON = await agencyPortalUserBO.getById(agencyPortalUserBO.id).catch(function(err) {
+            log.error("agencyPortalUserBO load error " + err + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
+        if(userJSON.password){
+            delete userJSON.password
+        }
+
+        res.send(200, userJSON);
         return next();
     }
     else{
@@ -233,9 +267,16 @@ async function update(req, res, next) {
         }
     }
 
+    if(req.body.group){
+        updateJSON.agencyPortalUserGroupId = req.body.group
+    }
+    if(req.body.reset_required){
+        updateJSON.resetRequired = req.body.reset_required
+    }
+
     if(needToUpdate){
-        if(req.body['email']){
-            updateJSON.clear_email = req.body['email'];
+        if(req.body.email){
+            updateJSON.clear_email = req.body.email;
         }
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
@@ -246,9 +287,19 @@ async function update(req, res, next) {
         if (error) {
             return next(error);
         }
-        let cleanJSON = agencyPortalUserBO.cleanJSON();
-        agencyPortalUserBO.cleanOuput(cleanJSON)
-        res.send(200, cleanJSON);
+        const userJSON = await agencyPortalUserBO.getById(id).catch(function(err) {
+            log.error("agencyPortalUserBO load error " + err + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
+
+        if(userJSON.password){
+            delete userJSON.password
+        }
+
+        res.send(200, userJSON);
         return next();
     }
     else {

@@ -97,6 +97,12 @@ module.exports = class InsurerPaymentPlanBO{
                     sql += ` insurer = ${db.escape(queryJSON.insurer)} `
                     hasWhere = true;
                 }
+
+                if(queryJSON.payment_plan){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` payment_plan = ${db.escape(queryJSON.payment_plan)} `
+                    hasWhere = true;
+                }
             }
             // Run the query
             //log.debug("InsurerPaymentPlanBO getlist sql: " + sql);

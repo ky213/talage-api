@@ -158,6 +158,11 @@ var agencyReportTask = async function(){
         "lastAppDt": "Last App Date"
     };
 
+
+    let toEmail = 'service@talageins.com';
+    if(global.settings.ENV !== 'production'){
+        toEmail = 'brian@talageins.com';
+    }
     // Loop locations setting up activity codes.
     if(agencyList && agencyList.length > 0){
         //Map list of agencies to CSV
@@ -171,17 +176,13 @@ var agencyReportTask = async function(){
             return;
         });
 
-
         if(csvData){
             var b = Buffer.from(csvData);
             const csvContent = b.toString('base64');
             // send email
             // Production email goes to Adam.
             // non production Brian so we can test it.
-            let toEmail = 'service@talageins.com';
-            if(global.settings.ENV !== 'production'){
-                toEmail = 'brian@talageins.com';
-            }
+
             const attachmentJson = {
                 'content': csvContent,
                 'filename': 'AgencyInactvityReport.csv',
@@ -204,10 +205,6 @@ var agencyReportTask = async function(){
     }
     else {
         log.info("Agency Inactvity Report: No agencies to report ");
-        let toEmail = 'service@talageins.com';
-        if(global.settings.ENV !== 'production'){
-            toEmail = 'brian@talageins.com';
-        }
         const emailResp = await emailSvc.send(toEmail, 'Agency Inactivity Report', 'Your "Agency Inactivity Report report: No Agencies.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID , 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send "Agency Inactivity Report email.`);
