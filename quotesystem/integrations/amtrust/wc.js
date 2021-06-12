@@ -1,6 +1,6 @@
 /* eslint-disable guard-for-in */
 /**
- * Worker's Compensation for Acuity
+ * Worker's Compensation for AMTrust
  *
  * This integration file has answers to the following questions hard-coded in:
  * - Any bankruptcies, tax, or credit liens in the past 5 years? (NO) - Derived from our disqualification question
@@ -25,7 +25,7 @@ const amtrustTestBasePath = "/DigitalAPI_Usertest";
 const amtrustProductionHost = "gateway.amtrustgroup.com";
 const amtrustProductionBasePath = "/DigitalAPI";
 
-module.exports = class AcuityWC extends Integration {
+module.exports = class AMTrustWC extends Integration {
 
     /**
      * Initializes this integration.
@@ -157,7 +157,8 @@ module.exports = class AcuityWC extends Integration {
         const officersList = [];
         for (const owner of this.app.applicationDocData.owners) {
             //Need to be primary state not mailing.
-            const state = this.app.business.locations[0].state_abbr;
+            const primaryLocation = this.app.applicationDocData.locations.find(location => location.primary);
+            const state = primaryLocation.state;
             let officerType = null;
             let endorsementId = null;
             let formType = null;
@@ -244,7 +245,7 @@ module.exports = class AcuityWC extends Integration {
     }
 
     /**
-	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
+	 * Requests a quote from AMTrust and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
@@ -322,9 +323,12 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Validation
 
+        // Get primary location
+        const primaryLocation = appDoc.locations.find(location => location.primary);
+
         // Per AmTrust e-mail from 2/4/2021, Partnerships in CA require at least 2 partners/owners
-        if (this.app.business.locations[0].business_entity_type === "Partnership" &&
-            this.app.business.locations[0].state_abbr === "CA" &&
+        if (appDoc.entityType === "Partnership" &&
+            primaryLocation.state === "CA" &&
             this.app.business.owners.length < 2) {
             return this.client_declined("AmTrust requires partnerships in CA to have at least 2 partners.");
         }
@@ -340,8 +344,8 @@ module.exports = class AcuityWC extends Integration {
             'Sole Proprietorship': 1
             // 'Other': null <- Not supported
         };
-        if (!amtrustLegalEntityMap.hasOwnProperty(this.app.business.locations[0].business_entity_type)) {
-            return this.client_error(`The business entity type '${this.app.business.locations[0].business_entity_type}' is not supported by this insurer.`, __location);
+        if (!amtrustLegalEntityMap.hasOwnProperty(appDoc.entityType)) {
+            return this.client_error(`The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
         }
 
         // Format the FEIN
@@ -407,17 +411,16 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
-        //no corrrect for primary. cannot assume if it is the 1st position in array.
-        const primaryAddressLine = this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : "");
+        const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
             "Fein": fein,
             "PrimaryAddress": {
                 "Line1": primaryAddressLine.slice(0,50),
-                "City": this.app.business.locations[0].city,
-                "State": this.app.business.locations[0].state_abbr,
-                "Zip": this.app.business.locations[0].zip.slice(0,5)
+                "City": primaryLocation.city,
+                "State": primaryLocation.state,
+                "Zip": primaryLocation.zipcode.slice(0,5)
             },
             "MailingAddress": {
                 "Line1": mailingAddressLine.slice(0,50),
@@ -434,7 +437,7 @@ module.exports = class AcuityWC extends Integration {
                 "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,
-            "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+            "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
@@ -449,11 +452,11 @@ module.exports = class AcuityWC extends Integration {
             "HI",
             "RI",
             "ME"];
-        if (requiredUnemploymentNumberStates.includes(this.app.business.locations[0].state_abbr)) {
-            if (this.app.business.locations[0].unemployment_number === 0) {
+        if (requiredUnemploymentNumberStates.includes(primaryLocation.state)) {
+            if (primaryLocation.unemployment_num === 0) {
                 return this.client_error("AmTrust requires an unemployment number if located in MN, HI, RI, or ME.", __location);
             }
-            quoteRequestDataV2.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
+            quoteRequestDataV2.Quote.UnemploymentId = primaryLocation.unemployment_num.toString();
         }
 
         // Add the rating zip if any location is in California
@@ -478,7 +481,7 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Create the additional information request
         const additionalInformationRequestData = {};
-        if(this.app.business && appDoc.owners[0] && this.app.business.locations[0]){
+        if(this.app.business && appDoc.owners[0] && primaryLocation){
             //Officer may be replaced below if we get a response back from /officer-information
             additionalInformationRequestData.Officers = [];
             additionalInformationRequestData.AdditionalInsureds = [];
@@ -487,7 +490,7 @@ module.exports = class AcuityWC extends Integration {
                     "Name": owner.fname + " " + owner.lname,
                     //"EndorsementId": "WC040303C",
                     "Type": "Officers",
-                    "State": this.app.business.locations[0].state_abbr,
+                    "State": primaryLocation.state,
                     "OwnershipPercent": owner.ownership//,
                     //  "FormType": owner.include  ? "I" : "E"
                 }
@@ -504,8 +507,8 @@ module.exports = class AcuityWC extends Integration {
                     const additionalInsurerJSON = {
                         "Name": owner.fname + " " + owner.lname,
                         "TaxId": fein,
-                        "State": this.app.business.locations[0].state_abbr,
-                        "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+                        "State": primaryLocation.state,
+                        "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
                         "DbaName": this.app.business.dba,
                         "AdditionalLocations": this.getAdditionalLocationList()
                     };
