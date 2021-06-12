@@ -150,7 +150,9 @@ async function runFunction() {
                 catch(err){
                     log.debug(`Error decrypting user ${result[i].id} email `)
                 }
-
+            }
+            if(result[i].state < 1){
+                agencyPortalUser.active = false;
             }
             agencyPortalUser.legalAcceptance = [];
             //get legal acceptance
