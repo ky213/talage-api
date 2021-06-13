@@ -115,11 +115,13 @@ module.exports = class Policy {
 
 
     formatLimits(dbLimit) {
+        // eslint-disable-next-line array-element-newline
+        const useFormatedLimits = ['WC','GL','BOP'];
         if(dbLimit){
             const individualLimits = dbLimit.match(/[1-9]+0*/g);
             return individualLimits.join('/');
         }
-        else {
+        else if(useFormatedLimits.includes(this.type.toUpperCase())){
             log.error("Quote Policy formatLimits missing dbLimit " + __location)
         }
     }
