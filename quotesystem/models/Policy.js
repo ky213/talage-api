@@ -77,7 +77,6 @@ module.exports = class Policy {
         this.territories = appBusiness.getTerritories();
         this.primary_territory = appBusiness.primary_territory;
 
- 
         //make moment objects.
         try{
             this.effective_date = moment(this.effective_date);

@@ -1,3 +1,4 @@
+/* eslint-disable implicit-arrow-linebreak */
 /**
  * Provides functions for validating data
  */
@@ -41,24 +42,6 @@ exports.is_valid_id = function(id){
     return false;
 };
 
-exports.is_valid_business = async function(id){
-    if(positive_integer.test(id)){
-        let had_error = false;
-        const sql = `SELECT COUNT(id) FROM #__businesses WHERE id = ${parseInt(id, 10)};`;
-        const rows = await db.query(sql).catch(function(error){
-            log.error(error + __location);
-            had_error = true;
-        });
-        if(had_error){
-            return false;
-        }
-        if(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1){
-            return false;
-        }
-        return true;
-    }
-    return false;
-};
 
 exports.is_valid_zip = function(given_zip){
     return positive_integer.test(given_zip) && zip.test(given_zip);
