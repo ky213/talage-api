@@ -1,5 +1,5 @@
 'use strict';
-const AgencyNetworkModel = require('mongoose').model('AgencyNetwork');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
 
 /**
  * Gets the current server uptime
@@ -16,8 +16,8 @@ async function getUptime(req, res, next){
 
     // Check the database connection by getting agencyNetworkID: 1
     let error = false;
-    const query = {agencyNetworkId: 1};
-    await AgencyNetworkModel.find(query).catch(function(e){
+    const agencyNetworkBO = new AgencyNetworkBO();
+    await agencyNetworkBO.getById(1).catch(function(e){
         log.error(e.message + __location);
         error = true;
     });
