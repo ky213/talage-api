@@ -1,3 +1,4 @@
+/* eslint-disable function-paren-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable no-empty */
@@ -16,6 +17,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const {getLibertyOAuthToken, getLibertyQuoteProposal} = require('./api');
 
 /*
 QUESTION SPECIAL CASES:
@@ -258,7 +260,7 @@ module.exports = class LibertySBOP extends Integration {
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
             log.error(`${errorMessage} ` + __location)
-            return this.client_error(errorMessage, __location);
+            return this.client_autodeclined_out_of_appetite();
         }
 
         // if there's no BOP policy
@@ -1115,16 +1117,26 @@ module.exports = class LibertySBOP extends Integration {
         // log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
         // log.debug("=================== QUOTE REQUEST ===================");
 
-        // Determine which URL to use
-        const host = 'ci-policyquoteapi.libertymutual.com';
-        const path = `/v1/quotes?partnerID=${this.username}`;
+        let auth = null;
+        try {
+            auth = await getLibertyOAuthToken();
+        }
+        catch (e) {
+            log.error(`${logPrefix}${e}${__location}`);
+            return this.client_error(`${logPrefix}${e}`, __location);
+        }
+
+        const host = 'apis.us-east-1.libertymutual.com';
+        const quotePath = `/bl-partnerships/quotes?partnerID=${this.username}`;
 
         let result = null;
         try {
-            result = await this.send_xml_request(host, path, xml, {'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`});
+            result = await this.send_xml_request(host, quotePath, xml, {
+                'Authorization': `Bearer ${auth.access_token}`
+            });
         }
         catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to retrieve the quote proposal letter: ${e}. `;
+            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
             log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
@@ -1271,6 +1283,7 @@ module.exports = class LibertySBOP extends Integration {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
+        
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
             log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
@@ -1308,29 +1321,37 @@ module.exports = class LibertySBOP extends Integration {
 
         // ===================== LIABILITY COVERAGES =====================
         if (!result.BOPLineBusiness || !result.BOPLineBusiness[0].LiabilityInfo) {
-            log.warn(`${logPrefix}No Liability Limit Coverages provided, or result structure has changed. ` + __location);
+            log.warn(`${logPrefix}No Liability Limit Coverages provided, or result structure has changed. ${__location}`);
         }
         else {
             const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].Coverage;
             this.getCoverages(coverages, "Liability Coverages");
         }
 
-        const quotePath = `/v1/quoteProposal?quoteProposalId=${quoteProposalId}`;
-
-        // attempt to get the quote proposal letter
         let quoteResult = null;
-        try {
-            quoteResult = await this.send_request(host,
-                quotePath,
-                null,
-                {
-                    'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-                    'Content-Type': 'application/xml'
-                });
-        }
-        catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to retrieve the quote proposal letter: ${e}.`;
-            log.error(errorMessage + __location);
+        if (quoteProposalId) {
+            // Liberty's quote proposal endpoint has a tendency to throw 503 (service unavailable), retry up to 5 times to get the quote proposal
+            const MAX_RETRY_ATTEMPTS = 5;
+            let retry = 0;
+            let error = false;
+            do {
+                retry++;
+                try {
+                    quoteResult = await getLibertyQuoteProposal(quoteProposalId, auth);
+                }
+                catch (e) {
+                    log.error(`${logPrefix}ATTEMPT ${retry}: ${e}${__location}`);
+                    error = true;
+                    if (retry <= MAX_RETRY_ATTEMPTS) {
+                        continue;
+                    }
+                    else {
+                        break;
+                    }
+                }
+
+                error = false;
+            } while (error);
         }
 
         // comes back as a string, so we search for the XML BinData field and substring it out
@@ -1339,7 +1360,7 @@ module.exports = class LibertySBOP extends Integration {
             const end = quoteResult.indexOf("</BinData>");
 
             if (start === 8 || end === -1) {
-                log.warn(`${logPrefix}Quote Proposal Letter not provided, or quote result structure has changed. ` + __location);
+                log.warn(`${logPrefix}Quote Proposal Letter not provided, or quote result structure has changed. ${__location}`);
             }
             else {
                 quoteLetter = quoteResult.substring(start, end).toString('base64');
