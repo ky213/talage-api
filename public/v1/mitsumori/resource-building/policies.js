@@ -113,7 +113,6 @@ const policiesEnabled = async(resources, applicationDB) => {
     }
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
-
 const cyberAggregateLimitList = [
     50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
 ];
@@ -149,6 +148,12 @@ const bopAndGlLimits = [
         "value": "$1,000,000 / $2,000,000 / $2,000,000"
     }
 ]
+
+// hard coded limits, user not able to change, if they select endorsement these values are set
+const hardwareReplCostLimit = [50000];
+const postBreachRemediationLimit = [50000];
+const telecomsFraudEndorsementLimit = [50000];
+
 // does it match helpers.limits ?
 const limitsSelectionAmounts = async(resources, applicationDB) => {
     const limits = {
@@ -177,7 +182,12 @@ const limitsSelectionAmounts = async(resources, applicationDB) => {
             businessIncomeCoverageList,
             ransomPaymentLimitList,
             socialEngLimitList,
-            waitingPeriodList
+            waitingPeriodList,
+            hardcodedLimits: {
+                hardwareReplCostLimit,
+                postBreachRemediationLimit,
+                telecomsFraudEndorsementLimit
+            }
         },
         pl: {
             aggregateLimitList: plAggregateLimitList,
