@@ -1,5 +1,5 @@
 'use strict';
-const AgencyNetworkModel = require('mongoose').model('WCStateIncomeLimits');
+const AgencyNetworkModel = require('mongoose').model('AgencyNetwork');
 
 /**
  * Gets the current server uptime
