@@ -86,11 +86,8 @@ module.exports = class cowbellCyber extends Integration {
             1000000];
 
 
-        const applicationDocData = this.app.applicationDocData;
-
-
         //get Cyber policy from appDoc.
-        const policy = applicationDocData.policies.find(p => p.policyType.toUpperCase() === "CYBER");
+        const policy = appDoc.policies.find(p => p.policyType.toUpperCase() === "CYBER");
         if(!policy){
             log.error(`Cowbell AppId ${appDoc.applicationId} does not have a CYBER policy`, __location);
             return this.client_error(`NO Cyber policy for AppId ${appDoc.applicationId}`, __location);
@@ -163,14 +160,14 @@ module.exports = class cowbellCyber extends Integration {
             log.error(`Cowbell Cyber requires an NAICS code '${appDoc.industryCode}' does not have one.`, __location);
         }
 
-        let primaryContact = applicationDocData.contacts.find(c => c.primary);
+        let primaryContact = appDoc.contacts.find(c => c.primary);
         if(!primaryContact){
             primaryContact = {};
         }
         // fall back to outside phone IFF we cannot find primary contact phone
-        const contactPhone = primaryContact.phone ? primaryContact.phone : applicationDocData.phone.toString();
+        const contactPhone = primaryContact.phone ? primaryContact.phone : appDoc.phone.toString();
 
-        const primaryLocation = applicationDocData.locations.find(l => l.primary)
+        const primaryLocation = appDoc.locations.find(l => l.primary)
 
         //Main Domai - 1st in list.
         let mainDomain = "";
@@ -398,8 +395,10 @@ module.exports = class cowbellCyber extends Integration {
                     return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
                 }
             }
+            let cowbellQuoteId = null
             if(response && response.id){
                 this.number = response.id
+                cowbellQuoteId = response.id
                 let quotePremium = null
                 const quoteLimits = {};
                 quoteLimits[11] = policyaggregateLimit;
@@ -425,9 +424,9 @@ module.exports = class cowbellCyber extends Integration {
                 // Give Cowbell 5 seconds to run there process.
                 await utility.Sleep(5000);
 
-
+                let accountId = null;
                 try{
-                    const quoteUrl = `${host}${basePath}/quote/v1/${response.id}`;
+                    const quoteUrl = `${host}${basePath}/quote/v1/${cowbellQuoteId}`;
                     //5 tries with 5 seconds waits
                     const NUMBER_OF_TRIES = 12;
                     for(let i = 0; i < NUMBER_OF_TRIES; i++){
@@ -438,9 +437,13 @@ module.exports = class cowbellCyber extends Integration {
 
                         this.log += `----Response -----\n`
                         this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+                        this.quoteResponseJSON = responseQD;
+                        this.quoteResponseJSON.quoteId = cowbellQuoteId;
                         if(responseQD.totalPremium){
                             this.number = responseQD.quoteNumber;
                             quotePremium = responseQD.totalPremium;
+                            this.quoteLink = responseQD.agencyDeepLinkURL
+                            accountId = responseQD.accountId
                             this.isBindable = true
                             break;
                         }
@@ -460,6 +463,50 @@ module.exports = class cowbellCyber extends Integration {
                     }
                 }
                 if(this.number && quotePremium){
+                    // Get proposal doc...
+                    //await utility.Sleep(2000);
+                    const createdTS = moment(this.quoteResponseJSON.created).unix();
+                    const quoteDocUrl = `${host}${basePath}/docs/v1/quote/${accountId}/proposal/${cowbellQuoteId}?createdDate=${createdTS}`;
+                    //5 tries with 5 seconds waits
+                    const NUMBER_OF_TRIES = 12;
+                    for(let i = 0; i < NUMBER_OF_TRIES; i++){
+                        try{
+                            this.log += `----Get quote proposal url ${quoteDocUrl} ----- try count: ${i + 1}\n`
+                            this.log += `GET Request`;
+                            const apiCall = await axios.get(quoteDocUrl, options);
+                            const responseQD = apiCall.data;
+
+                            this.log += `----Response -----\n`
+                            this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+                            if(responseQD){
+                                log.debug(`qoute doc response ${JSON.stringify(responseQD)}`)
+                                const quoteProposalUrl = responseQD;
+                                //call to get the doc.
+                                try{
+                                    const config = {
+                                        "Content-Type": 'application/pdf',
+                                        responseType: 'arraybuffer'
+                                    };
+                                    this.log += `----Get quote proposal doc url ${quoteProposalUrl} ----- \n`
+                                    this.log += `GET Request`;
+                                    const quoteDocResponse = await axios.get(quoteProposalUrl, config);
+                                    const buff = Buffer.from(quoteDocResponse.data);
+                                    this.quote_letter.data = buff.toString('base64');
+                                }
+                                catch(err){
+                                    log.error(`Appid: ${this.app.id} Cowbell Cyber: Error getting quote proposal ${err} ` + __location)
+                                }
+                                break;
+                            }
+                        }
+                        catch(err){
+                            log.info(`Cowbell Qoute Proposal request error ${err}` + __location)
+                        }
+                        if(i < NUMBER_OF_TRIES - 1){
+                            await utility.Sleep(5000);
+                        }
+
+                    }
                     return this.client_quoted(this.number, quoteLimits, quotePremium, null,null, quoteCoverages);
                 }
                 else {

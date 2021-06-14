@@ -22,6 +22,11 @@ async function findAll(req, res, next) {
     const industryCodeBO = new IndustryCodeBO();
     const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
+    // if the industryCodeId was provided as a string list, make it into an array
+    if(req.query.industryCodeId && typeof req.query.industryCodeId === "string" && req.query.industryCodeId.includes(",")){
+        req.query.industryCodeId = req.query.industryCodeId.split(",");
+    }
+
     if(req.query.unmapped){
         delete req.query.unmapped
         log.debug("in unmapped");
@@ -180,9 +185,12 @@ async function findAll(req, res, next) {
     if (error) {
         return next(error);
     }
-    industryCodeList.forEach((icDoc) => {
-        icDoc.category = icDoc.industryCodeCategoryId;
-    });
+
+    if(industryCodeList){
+        industryCodeList.forEach((icDoc) => {
+            icDoc.category = icDoc.industryCodeCategoryId;
+        });
+    }
 
     const countQuery = {...req.query, count: true};
     const count = await industryCodeBO.getList(countQuery).catch(function(err) {
