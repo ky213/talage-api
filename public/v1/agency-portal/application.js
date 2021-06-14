@@ -1480,20 +1480,21 @@ async function GetResources(req, res, next){
     }
     const responseObj = {};
     let rejected = false;
-    const sql = `select id, introtext from clw_content where id in (10,11)`
-    const result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_content error on select ` + error + __location);
-    });
-    if (!rejected) {
-        const legalArticles = {};
-        for(let i = 0; i < result.length; i++){
-            const dbRec = result[0];
-            legalArticles[dbRec.id] = dbRec
-        }
-        responseObj.legalArticles = legalArticles;
-    }
+    // not used by Agency Porta.
+    // const sql = `select id, introtext from clw_content where id in (10,11)`
+    // const result = await db.query(sql).catch(function(error) {
+    //     // Check if this was
+    //     rejected = true;
+    //     log.error(`clw_content error on select ` + error + __location);
+    // });
+    // if (!rejected) {
+    //     const legalArticles = {};
+    //     for(let i = 0; i < result.length; i++){
+    //         const dbRec = result[0];
+    //         legalArticles[dbRec.id] = dbRec
+    //     }
+    //     responseObj.legalArticles = legalArticles;
+    // }
     rejected = false;
     //const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
     const policyTypeBO = new PolicyTypeBO();
@@ -1507,26 +1508,47 @@ async function GetResources(req, res, next){
     }
 
     rejected = false;
-    const sql3 = `select abbr, name from clw_talage_territories`
-    const result3 = await db.query(sql3).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_talage_territories error on select ` + error + __location);
+    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+    const territoryBO = new TerritoryBO();
+    let error = null;
+    const allTerritories = await territoryBO.getAbbrNameList().catch(function(err) {
+        log.error("territory get getAbbrNameList " + err + __location);
+        error = err;
     });
-    if (!rejected) {
-        responseObj.territories = result3;
+    if(error){
+        log.error('DB query for territories list failed: ' + error.message + __location);
+    }
+    if (allTerritories) {
+        responseObj.territories = allTerritories;
     }
     rejected = false;
-    // TODO Use BO
-    const sql4 = `SELECT officerTitle FROM officer_titles`;
-    const result4 = await db.query(sql4).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`officer_titles error on select ` + error + __location);
-    });
-    if (!rejected) {
-        responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
-    }
+   
+    // TODO: pull from officer_titles BO
+    responseObj.officerTitles =
+    [
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
+        "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
+        "Treasurer",
+        "Secy-Treas",
+        "Secretary",
+        "President",
+        "Pres-VP-Secy-Treas",
+        "Pres-VP-Secy",
+        "Pres-VP",
+        "Pres-Treas",
+        "Pres-Secy-Treas",
+        "Pres-Secy",
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
+    ];
+
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
     responseObj.limits = await GetPolicyLimits(agencyId);
 

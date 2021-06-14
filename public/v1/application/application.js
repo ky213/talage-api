@@ -223,6 +223,7 @@ async function Save(req, res, next){
 async function GetResources(req, res, next){
     const responseObj = {};
     let rejected = false;
+
     const sql = `select id, introtext from clw_content where id in (10,11)`
     const result = await db.query(sql).catch(function(error) {
         // Check if this was
@@ -250,14 +251,14 @@ async function GetResources(req, res, next){
     }
 
     rejected = false;
-    const sql3 = `select abbr, name from clw_talage_territories`
-    const result3 = await db.query(sql3).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_talage_territories error on select ` + error + __location);
+    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+    const territoryBO = new TerritoryBO();
+    const territories = await territoryBO.getAbbrNameList().catch(function(err) {
+        log.error("territory get getAbbrNameList " + err + __location);
     });
-    if (!rejected) {
-        responseObj.territories = result3;
+
+    if (territories) {
+        responseObj.territories = territories;
     }
 
     res.send(200, responseObj);

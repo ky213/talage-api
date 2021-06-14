@@ -88,6 +88,7 @@ module.exports = function() {
     require('./shared/models/mongoose/WCStateIncomeLimits.model');
     require('./shared/models/mongoose/ZipCode.model');
     require('./shared/models/mongoose/AgencyPortalUser.model');
+    require('./shared/models/mongoose/Territory.model');
 
     return mongodb;
 
