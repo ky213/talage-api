@@ -1,4 +1,5 @@
 'use strict';
+const AgencyNetworkModel = require('mongoose').model('WCStateIncomeLimits');
 
 /**
  * Gets the current server uptime
@@ -13,9 +14,10 @@ async function getUptime(req, res, next){
     res.setHeader('content-type', 'application/xml');
     const startTime = process.hrtime();
 
-    // Check the database connection by selecting all active activity codes
+    // Check the database connection by getting agencyNetworkID: 1
     let error = false;
-    await db.query('SELECT COUNT(*) FROM `#__api_users`').catch(function(e){
+    const query = {agencyNetworkId: 1};
+    await AgencyNetworkModel.find(query).catch(function(e){
         log.error(e.message + __location);
         error = true;
     });
