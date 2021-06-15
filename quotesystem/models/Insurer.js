@@ -4,11 +4,9 @@
 
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
 //const moment_timezone = require('moment-timezone');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('./models/InsurerPolicyType-BO.js');
-const InsurerOutageBO = global.requireShared('./models/InsurerOutage-BO.js');
 
 
 module.exports = class Insurer {
@@ -122,9 +120,6 @@ module.exports = class Insurer {
             log.error(`Empty results when querying the database for insurer ${id} information ${__location}`);
             return new Error('Invalid insurer');
         }
-
-        const insurerOutageBO = new InsurerOutageBO();
-        this.outage = await insurerOutageBO.isInOutage(parseInt(id, 10));
 
         return this;
     }
