@@ -1236,11 +1236,9 @@ async function markQuoteAsBound(req, res, next) {
     let markAsBoundSuccess = false;
     const markAsBoundFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
     try {
-        // BRIAN CHECK: in the api endpoint is it valid to use req.authentication.userID?
         markAsBoundSuccess = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
         if(applicationDB.appStatusId !== 90){
             // Update application status
-            // BRIAN CHECK: just making sure that we want to call update status here (since we're had issues around it in the past)
             await applicationBO.updateStatus(applicationId, "bound", 90);
         }
         else {
@@ -1303,13 +1301,8 @@ async function bindQuote(req, res, next) {
             log.error("Error getting quote for bindQuote " + err + __location);
         }
         //setup quoteObj for applicationBO.processRequestToBind
+        // 1 is annual
         let paymentPlanId = 1;
-        // BRIAN CHECK: do we want to default to 1 or do we want to require they pass the paymentPlanId on the body:
-        // obviously this would go above, placing comment here for convenience
-        // if (!Object.prototype.hasOwnProperty.call(req.body, 'paymentPlanId')) {
-        //     log.warn('Some required data is missing' + __location);
-        //     return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-        // }
         if(req.body.paymentPlanId){
             paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
         }
