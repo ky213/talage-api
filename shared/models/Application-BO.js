@@ -16,7 +16,6 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
-const MappingBO = global.requireShared('./models/Mapping-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
