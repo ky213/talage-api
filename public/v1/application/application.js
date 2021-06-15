@@ -341,41 +341,12 @@ async function GetAssociations(req, res, next){
     if(req.query && req.query.territories){
 
         const territoryList = req.query.territories.split(',')
-        var inList = new Array(territoryList.length).fill('?').join(',');
-        let rejected = false;
-        const sql = `select  a.id, a.name
-            from clw_talage_associations a
-            inner join clw_talage_association_territories at on at.association = a.id
-            where a.state  = 1
-            AND at.territory in (${inList})
-            order by a.name ASC`;
-
-        const result = await db.queryParam(sql,territoryList).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`clw_content error on select ` + error + __location);
-        });
-        if (!rejected) {
-            if(result && result.length > 0){
-                responseObj['error'] = false;
-                responseObj['message'] = '';
-                responseObj['associations'] = result;
-                res.send(200, responseObj);
-                return next();
-
-            }
-            else {
-                responseObj['error'] = true;
-                responseObj['message'] = 'No associations returned.';
-                res.send(404, responseObj);
-            }
-        }
-        else {
-            responseObj['error'] = true;
-            responseObj['message'] = 'internal error.';
-            res.send(500, responseObj);
-            return next(serverHelper.requestError('internal error'));
-        }
+        const AssociationSvc = global.requireShared('./services/associationsvc.js');
+        responseObj['error'] = false;
+        responseObj['message'] = '';
+        responseObj['associations'] = AssociationSvc.GetAssociationList(territoryList);
+        res.send(200, responseObj);
+        return next();
     }
     else {
         responseObj['error'] = true;
