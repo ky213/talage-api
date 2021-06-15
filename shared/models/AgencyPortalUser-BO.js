@@ -482,7 +482,8 @@ module.exports = class AgencyPortalUserBO{
     async updateLastLogin(agencyPortalUserId){
         try{
             const query = {agencyPortalUserId: agencyPortalUserId};
-            const apuDoc = await AgencyPortalUserModel.findOne(query)
+            const queryProjection = {"__v": 0}
+            const apuDoc = await AgencyPortalUserModel.findOne(query,queryProjection)
             if(apuDoc){
                 apuDoc.lastLogin = new moment();
                 await apuDoc.save()
