@@ -336,13 +336,10 @@ module.exports = class LibertyGL extends Integration{
                                                     policySupplementQuestions.push(question);
                                                 }
                                                 else{
-                                                    log.error(`${logPrefix}Encountered an error. Insurer question missing required XML Path attribute. (Insurer Question ${insurerQuestion.identifier})` + __location);
+                                                    log.warn(`${logPrefix}Encountered an error. Insurer question missing required XML Path attribute. (Insurer Question ${insurerQuestion.identifier})` + __location);
                                                 }
                                             }
                                         }
-                                    }
-                                    else{
-                                        log.error(`${logPrefix}Encountered an error. Insurer question missing attributes (Insurer Question ${insurerQuestion.identifier}).` + __location);
                                     }
                                 }
                             }

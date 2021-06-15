@@ -316,19 +316,34 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     catch(err){
         log.error("Error processing Agency locations " + err + __location);
     }
-    // Retrieve Officer Titles
-    // TODO use BO
-    const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
 
-    // Including an require statements.
-    const officerTitlesResult = await db.query(officerTitlesSql).catch(function(err){
-        log.error('officer_titles ' + err + __location);
-    });
-    const officerTitleArr = [];
-    officerTitlesResult.forEach(officerTitleObj => officerTitleArr.push(officerTitleObj.officerTitle));
-    if(officerTitleArr.length > 0){
-        agencyWebInfo.officerTitles = officerTitleArr;
-    }
+    // TODO: pull from officer_titles BO
+    agencyWebInfo.officerTitles =
+    [
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
+        "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
+        "Treasurer",
+        "Secy-Treas",
+        "Secretary",
+        "President",
+        "Pres-VP-Secy-Treas",
+        "Pres-VP-Secy",
+        "Pres-VP",
+        "Pres-Treas",
+        "Pres-Secy-Treas",
+        "Pres-Secy",
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
+    ];
+
+
 
     try{
         await agencyLandingPageBO.addPageHit(agencyWebInfo.landingPageID)
