@@ -224,20 +224,7 @@ async function GetResources(req, res, next){
     const responseObj = {};
     let rejected = false;
 
-    const sql = `select id, introtext from clw_content where id in (10,11)`
-    const result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_content error on select ` + error + __location);
-    });
-    if (!rejected) {
-        const legalArticles = {};
-        for(let i = 0; i < result.length; i++){
-            const dbRec = result[i];
-            legalArticles[dbRec.id] = dbRec
-        }
-        responseObj.legalArticles = legalArticles;
-    }
+    responseObj.legalArticles = {};
     rejected = false;
     const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
     const policyTypeBO = new PolicyTypeBO();
