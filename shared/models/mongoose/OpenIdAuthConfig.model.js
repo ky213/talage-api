@@ -6,19 +6,9 @@
 /* eslint-disable one-var */
 
 const mongoose = require('mongoose'), Schema = mongoose.Schema;
-const timestamps = require('mongoose-timestamp');
 const uuid = require('uuid');
-const mongooseHistory = require('mongoose-history');
 
 global.requireShared('./helpers/tracker.js');
-
-// enum for zipcode type
-const zipCodeTypes = [
-    "UNIQUE",
-    "STANDARD",
-    "PO BOX",
-    "MILITARY"
-];
 
 const OpenIdAuthConfigSchema = new Schema({
     subdomain: {type: String, required: false},
@@ -28,7 +18,7 @@ const OpenIdAuthConfigSchema = new Schema({
     clientSecret: {type: String, required: true},
     type: {type: String, enum: ['azure'], required: true},
     agencyId: {type: Number, required: false},
-    agencyNetworkId: {type: Number, required: false},
+    agencyNetworkId: {type: Number, required: false}
 });
 
 OpenIdAuthConfigSchema.set('toJSON', {

@@ -10,9 +10,7 @@ const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
-const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
-const AgencyBO = global.requireShared('./models/Agency-BO.js');
-const { createToken } = require('./auth-helper');
+const {createToken} = require('./auth-helper');
 
 /**
  * Responds to get requests for an authorization token
@@ -89,8 +87,8 @@ async function createTokenEndpoint(req, res, next){
     }
 
     try {
-        const jwt = await createToken(req.body.email);
-        const token = `Bearer ${jwt}`;
+        const jwtToken = await createToken(req.body.email);
+        const token = `Bearer ${jwtToken}`;
         res.send(201, {
             status: 'Created',
             token: token
