@@ -558,7 +558,7 @@ module.exports = class ACORD{
                 page1Obj["WorkersCompensation_Individual_FullName_" + currentLetter] = owner.fname + ' ' + owner.lname;
                 page1Obj["WorkersCompensation_Individual_BirthDate_" + currentLetter] = owner.birthdate ? moment(owner.birthdate).format('L') : '';
                 page1Obj["WorkersCompensation_Individual_OwnershipPercent_" + currentLetter] = owner.ownership;
-                page1Obj["WorkersCompensation_Individual_IncludedExcludedCode_" + currentLetter] = 'EXC';
+                page1Obj["WorkersCompensation_Individual_IncludedExcludedCode_" + currentLetter] = owner.include ? 'INC' : 'EXC';
                 pdfKey += 1;
             })
         }
