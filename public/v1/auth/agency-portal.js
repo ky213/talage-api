@@ -12,6 +12,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const { createToken } = require('./auth-helper');
 
 /**
  * Responds to get requests for an authorization token
@@ -22,7 +23,7 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function createToken(req, res, next){
+async function createTokenEndpoint(req, res, next){
     let error = false;
 
     // Check for data
@@ -87,134 +88,18 @@ async function createToken(req, res, next){
 
     }
 
-    //get Permissions from Mongo UserGroup Permission
-    // if error go with mySQL permissions.
-    try{
-        const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
-        const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserDBJson.agencyPortalUserGroupId);
-        agencyPortalUserDBJson.permissions = agencyPortalUserGroupDB.permissions;
-    }
-    catch(err){
-        log.error("Error get permissions from Mongo " + err + __location);
-    }
-    // Begin constructing the payload
-    const payload = {
-        agencyNetwork: false,
-        agents: [],
-        signatureRequired: false,
-        //undo double use of agency_network.
-        isAgencyNetworkUser: false
-    };
-    await agencyPortalUserBO.updateLastLogin(agencyPortalUserDBJson.agencyPortalUserId).catch(function(e) {
-        log.error(e.message + __location);
-        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-        error = true;
-    });
-
-
-    payload.isAgencyNetworkUser = false;
-    // Check if this was an agency network
-    if (agencyPortalUserDBJson.agency_network) {
-        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
-        //agency network ID now in payload for consistency between network and agency.
-        payload.agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId;
-
-        payload.isAgencyNetworkUser = true;
-    }
-
-    // Store a local copy of the agency network ID .
-    //let agencyNetworkId = payload.agencyNetwork;
-    const agencyBO = new AgencyBO();
-    // For agency networks get the agencies they are allowed to access
-    if (payload.isAgencyNetworkUser) {
-        let agencyJSONList = null;
-        try{
-
-            // Load the request data into it
-            agencyJSONList = await agencyBO.getByAgencyNetwork(payload.agencyNetworkId);
-        }
-        catch(err){
-            log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
-            error = serverHelper.internalError('Error querying database. Check logs.');
-        }
-
-        if (error) {
-            res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-            return next(false);
-        }
-
-        // Store the agencies in the payload
-        payload.agents = [];
-        agencyJSONList.forEach((agencyJSON) => {
-            payload.agents.push(agencyJSON.systemId);
+    try {
+        const jwt = await createToken(req.body.email);
+        const token = `Bearer ${jwt}`;
+        res.send(201, {
+            status: 'Created',
+            token: token
         });
+        return next();
+    } catch (ex) {
+        res.send(500, serverHelper.internalError('Internal error when authenticating. Check logs.'));
+        return next(false);
     }
-    else{
-        // Just allow access to the current agency
-        payload.agents.push(agencyPortalUserDBJson.agencyId);
-
-        // Add the signing authority permission to the payload
-        payload.canSign = Boolean(agencyPortalUserDBJson.canSign);
-
-        // Determine whether or not the user needs to sign a wholesale agreement
-        let agency = null;
-        try{
-            // Load the request data into it
-            agency = await agencyBO.getById(agencyPortalUserDBJson.agencyId);
-        }
-        catch(err){
-            log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
-            error = serverHelper.internalError('Error querying database. Check logs.');
-        }
-        if (error) {
-            return next(false);
-        }
-
-        if(agency){
-            // Only agencies who have wholesale enabled and have not signed before should be required to sign
-            // Only for for Digalent is the process handle in the software.
-            if (agency.agencyNetworkId === 2 && agency.wholesale && !agency.wholesaleAgreementSigned) {
-                payload.signatureRequired = true;
-            }
-
-            // Store the agency network ID locally for later use
-            payload.agencyNetworkId = agency.agencyNetworkId;
-        }
-
-    }
-
-
-    // Add the user ID to the payload
-    payload.userID = agencyPortalUserDBJson.id;
-
-    // Add the permissions to the payload
-    payload.permissions = agencyPortalUserDBJson.permissions;
-
-    // Check whether or not this is the first time the user is logging in
-    payload.firstLogin = Boolean(agencyPortalUserDBJson.lastLogin);
-
-    // Report back whether or not a password reset is required
-    payload.resetRequired = Boolean(agencyPortalUserDBJson.resetRequired);
-
-    // Return the version of the Terms of Service
-    payload.termsOfServiceVersion = agencyPortalUserDBJson.termsOfServiceVersion;
-    if(payload.termsOfServiceVersion === 0){
-        payload.termsOfServiceVersion = null
-    }
-
-    // This is a valid user, generate and return a token
-    try{
-        log.debug("payload: " + JSON.stringify(payload))
-    }
-    catch(err){
-        log.error(err);
-    }
-    const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
-    res.send(201, {
-        status: 'Created',
-        token: token
-    });
-    return next();
 }
 
 /**
@@ -260,6 +145,7 @@ async function updateToken(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addPost('Create Token', `${basePath}/agency-portal`, createToken);
+    server.addPost('Create Token', `${basePath}/agency-portal`, createTokenEndpoint);
     server.addPut('Refresh Token', `${basePath}/agency-portal`, updateToken);
 };
+exports.createToken = createToken;

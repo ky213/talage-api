@@ -243,6 +243,7 @@ function handlerWrapper(path, handler) {
             result = await handler(req, res, next);
         }
         catch (error) {
+            console.log(error);
             log.error(`Unhandled exception in endpoint ${path}: ${error}`);
             return next(new RestifyError.InternalServerError('Internal Server Error'));
         }
