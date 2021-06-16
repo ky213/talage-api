@@ -1153,14 +1153,6 @@ module.exports = class Integration {
                 return;
             }
 
-            // Check for outage - "outages" in Insurer class and database SQL
-            if (this.insurer.outage) {
-                const error_message = `Appid: ${this.app.id} ${this.insurer.name} is currently unavailable to planned outage`;
-                this.reasons.push(error_message);
-                fulfill(this.return_error('outage'));
-                return;
-            }
-
             // Check that industry codes codes are supported by the insurer if required
             if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
                 // No industry codes when they are required

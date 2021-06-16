@@ -1,5 +1,3 @@
-/* eslint-disable object-curly-newline */
-/* eslint-disable object-property-newline */
 /* eslint-disable no-lonely-if */
 /* eslint-disable require-jsdoc */
 /* eslint-disable no-unused-vars */
@@ -14,24 +12,21 @@ const moment_timezone = require('moment-timezone');
 const clonedeep = require('lodash.clonedeep');
 
 // Add global helpers to load shared modules
-global.sharedPath = require('path').join(__dirname, 'shared');
+global.rootPath = require('path').join(__dirname, '..');
+global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-const talageEvent = global.requireShared('/services/talageeventemitter.js');
+const talageEvent = global.requireShared('services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
-var mongoose = require('./mongoose');
+var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
 
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
-const globalSettings = require('./settings.js');
-const {debug} = require('request');
-
+const globalSettings = global.requireRootPath('./settings.js');
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -64,8 +59,6 @@ async function main() {
     console.log(colors.green.bold('-'.padEnd(80, '-')));
     // eslint-disable-next-line no-console
     console.log(Date());
-
-    console.log(colors.yellow('\nScript usage includes optional param insurerId: node <path-to-script>/loadinsurerquestionsinmongo.js <insurerId>\n'));
 
     // Load the settings from a .env file - Settings are loaded first
     if (!globalSettings.load()) {
@@ -124,38 +117,82 @@ async function main() {
  */
 async function runFunction() {
 
-    //get all agencyLocations
-    const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-    const ApplicationBO = global.requireShared('models/Application-BO.js');
-    const QuoteBO = global.requireShared('models/Quote-BO.js');
-    const quoteBO = new QuoteBO();
-    const applicationBO = new ApplicationBO();
-    const agencyLocationBO = new AgencyLocationBO();
+    const TerritoryModel = require('mongoose').model('Territory');
 
-    const agencyLocationList = await agencyLocationBO.getList({});
-    log.info(`Working on agency locations Count: ${agencyLocationList.length}`)
+    //load message model and get message list.
+    const sql = `select * from clw_talage_territories  `;
 
-    for(const agencyLocation of agencyLocationList){
-        log.info(`Working on agency location ${agencyLocation.systemId}`)
-        //skip talage location
-        if(agencyLocation.systemId === 1 || agencyLocation.insurers.length === 0){
-            log.debug(`Skpping ${agencyLocation.systemId}`)
-            continue;
-        }
-        let talageWholesale = false;
-        // eslint-disable-next-line no-loop-func
-        for(const alInsurer of agencyLocation.insurers){
-            if(alInsurer.policyTypeInfo && alInsurer.policyTypeInfo.notifyTalage === true){
-                talageWholesale = true;
-                alInsurer.talageWholesale = true;
+    let result = await db.query(sql).catch(function(error) {
+        // Check if this was
+        log.error("error " + error);
+        return false;
+    });
+    log.debug("Got MySql Territory - result.length - " + result.length);
+    const updateAbleProps = ['name',
+        'licensed',
+        'resource',
+        'individual_license_expiration_date',
+        'individual_license_number',
+        'talage_license_expiration_date',
+        'talage_license_number',
+        'active'];
+
+    let updatedDocCount = 0;
+    let newDocCount = 0;
+    // eslint-disable-next-line array-element-newline
+
+    for(let i = 0; i < result.length; i++){
+        try {
+            let territory = new TerritoryModel(result[i]);
+            territory.territoryCd = result[i].abbr;
+
+            // Determine if existing doc
+            const query = {abbr: territory.abbr}
+            const existingDoc = await TerritoryModel.findOne(query);
+            if(existingDoc){
+                //update file
+                let updateHit = false;
+                //loop updateable array
+                updateAbleProps.forEach((updateAbleProp) => {
+                    if(territory[updateAbleProp] && territory[updateAbleProp] !== existingDoc[updateAbleProp]){
+                        existingDoc[updateAbleProp] = territory[updateAbleProp]
+                        updateHit = true;
+                    }
+                });
+                if(updateHit){
+                    await existingDoc.save().catch(function(err) {
+                        log.error('Mongo Territory Save err ' + err + __location);
+                        return false;
+                    });
+                    updatedDocCount++
+                }
+            }
+            else {
+                await territory.save().catch(function(err) {
+                    log.error('Mongo Territory Save err ' + err + __location);
+                    return false;
+                });
+                newDocCount++;
+            }
+
+            // if(Territory.insurerTerritoryQuestionList.length > 0){
+            //     log.debug("has territoryquestions " + Territory.insurerActivityCodeId)
+            // }
+            if((i + 1) % 100 === 0){
+                log.debug(`processed ${i + 1} of ${result.length} `)
             }
         }
-        if(talageWholesale){
-            await agencyLocationBO.updateMongo(agencyLocation.agencyLocationId, agencyLocation);
+        catch(err){
+            log.error("Updating Territory List error " + err + __location);
+            return false;
         }
     }
+
+    log.debug("Territories Import Done!");
+    log.debug(`Updated Territories: ${updatedDocCount}`);
+    log.debug(`New Territories: ${newDocCount}`);
     log.debug("Done!");
-    process.exit(0);
+    process.exit(1);
 
 }
 

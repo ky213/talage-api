@@ -198,8 +198,11 @@ module.exports = class AgencyPortalUserBO{
                     return;
                 }
                 if(docList && docList.length > 0){
-                    if(addPermissions){
-                        for(let i = 0; i < docList.length; i++){
+                    for(let i = 0; i < docList.length; i++){
+                        if(docList[i].password){
+                            delete docList[i].password;
+                        }
+                        if(addPermissions){
                             const userGroupQuery = {"systemId": docList[i].agencyPortalUserGroupId};
                             const userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
                             if(userGroup){
@@ -241,9 +244,14 @@ module.exports = class AgencyPortalUserBO{
                     "agencyPortalUserId": agencyPortalUserId,
                     active: true
                 };
+                const queryProjection = {
+                    "__v": 0,
+                    "password": 0
+                }
+
                 let docDB = null;
                 try {
-                    docDB = await AgencyPortalUserModel.findOne(query, '-__v');
+                    docDB = await AgencyPortalUserModel.findOne(query, queryProjection);
                     if(docDB){
                         docDB.id = docDB.agencyPortalUserId;
                     }
@@ -482,7 +490,8 @@ module.exports = class AgencyPortalUserBO{
     async updateLastLogin(agencyPortalUserId){
         try{
             const query = {agencyPortalUserId: agencyPortalUserId};
-            const apuDoc = await AgencyPortalUserModel.findOne(query)
+            const queryProjection = {"__v": 0}
+            const apuDoc = await AgencyPortalUserModel.findOne(query,queryProjection)
             if(apuDoc){
                 apuDoc.lastLogin = new moment();
                 await apuDoc.save()
