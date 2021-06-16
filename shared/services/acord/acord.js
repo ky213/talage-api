@@ -560,7 +560,7 @@ module.exports = class ACORD{
                 page1Obj["WorkersCompensation_Individual_OwnershipPercent_" + currentLetter] = owner.ownership;
                 page1Obj["WorkersCompensation_Individual_IncludedExcludedCode_" + currentLetter] = owner.include ? 'INC' : 'EXC';
                 pdfKey += 1;
-            })
+            });
         }
 
         // State rating sheets
