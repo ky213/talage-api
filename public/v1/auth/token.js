@@ -17,9 +17,9 @@ async function getToken(req, res, next) {
     //let error = false;
     // used by Quote V1 to getting a JWT for calling API.
     // Query parameters user, key, and joomla_user are all optional now since the quoting engine was broken out
-    var ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress 
-    log.debug(`GET TOKEN:  ${ip}` + __location);
-    if(ip === '127.0.0.1'){
+    var localPort = req.socket.localPort
+    log.debug(`GET TOKEN:  localPort ${localPort}` + __location);
+    if(localPort === 3000){
         const payload = {};
 
         payload.quote = true;
