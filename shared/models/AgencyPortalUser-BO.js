@@ -246,7 +246,6 @@ module.exports = class AgencyPortalUserBO{
                 };
                 const queryProjection = {
                     "__v": 0,
-                    "_id": 0,
                     "password": 0
                 }
 
