@@ -17,17 +17,23 @@ async function getToken(req, res, next) {
     //let error = false;
     // used by Quote V1 to getting a JWT for calling API.
     // Query parameters user, key, and joomla_user are all optional now since the quoting engine was broken out
-    const payload = {};
+    log.debug(`GET TOKEN:  ${req.connection.remoteAddress}` + __location);
+    if(req.connection.remoteAddress === '127.0.0.1'){
+        const payload = {};
 
-    payload.quote = true;
+        payload.quote = true;
 
-    // This is a valid user, generate and return a token
-    const jwt = require('jsonwebtoken');
-    const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
-    res.send(201, {
-        status: 'Created',
-        token: token
-    });
+        // This is a valid user, generate and return a token
+        const jwt = require('jsonwebtoken');
+        const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
+        res.send(201, {
+            status: 'Created',
+            token: token
+        });
+    }
+    else {
+        res.send(403);
+    }
     return next();
 }
 
