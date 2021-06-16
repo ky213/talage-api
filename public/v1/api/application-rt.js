@@ -20,6 +20,7 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
+const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const clonedeep = require('lodash.clonedeep');
 
@@ -1282,6 +1283,7 @@ async function bindQuote(req, res, next) {
     const applicationBO = new ApplicationBO();
     const applicationId = req.body.applicationId;
     const quoteId = req.body.quoteId;
+    let error = null;
 
     // make sure the caller has the correct rights
     const rightsToApp = await isAuthForApplication(req, applicationId);
@@ -1289,46 +1291,64 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
+    //assume uuid input
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+
+    if (error) {
+        return next(Error);
+    }
+
     let bindSuccess = false;
-    const bindFailureMessage = "Failed to request bind. If this continues please contact us.";
-    const quoteBO = new QuoteBO();
-    try {
-        let quoteDoc = null;
-        try {
-            quoteDoc = await quoteBO.getById(quoteId);
-        }
-        catch(err){
-            log.error("Error getting quote for bindQuote " + err + __location);
-        }
-        //setup quoteObj for applicationBO.processRequestToBind
+    let bindFailureMessage = "Failed to bind. If this continues please contact us.";
+    const quoteBind = new QuoteBind();
+    try{
         // 1 is annual
         let paymentPlanId = 1;
         if(req.body.paymentPlanId){
-            paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
+            paymentPlanId = req.body.paymentPlanId
         }
-        const quoteObj = {
-            quote: quoteDoc.quoteId,
-            quoteId: quoteDoc.quoteId,
-            paymentPlanId: paymentPlanId,
-            noCustomerEmail: true
+        await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+        const bindResp = await quoteBind.bindPolicy();
+        if(bindResp === "success"){
+            log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location);
+            bindSuccess = true;
         }
-        bindSuccess = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){
-            log.error(`Error trying to request bind for quoteId #${quoteId} on applicationId #${applicationId} ` + err + __location);
-        });
+        else if(bindResp === "updated"){
+            log.info(`succesfully API update via bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location);
+            bindSuccess = true;
+        }
+        else if(bindResp === "cannot_bind_quote" || bindResp === "rejected"){
+            log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: cannot_bind_quote` + __location);
+            bindFailureMessage = "Cannot Bind Quote";
+        }
+        else {
+            log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: BindQuote did not return a response` + __location);
+            bindFailureMessage = "Could not confirm Bind Quote";
+        }
     }
     catch (err) {
         // We Do not pass error object directly to Client - May cause info leak.
         log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: ${err}` + __location);
-        res.send({'message': "Failed To Bind"});
+        res.send({'message': bindFailureMessage});
         return next();
     }
 
     if(bindSuccess){
-        res.send(200, {"bound": true});
+        log.debug("quoteBind.policyInfo " + JSON.stringify(quoteBind.policyInfo));
+        res.send(200, {
+            "bound": true,
+            policyNumber: quoteBind.policyInfo.policyNumber
+        });
     }
     else {
-        res.send({'message': bindFailureMessage});
+        res.send(bindFailureMessage);
     }
+
     return next();
 }
 
