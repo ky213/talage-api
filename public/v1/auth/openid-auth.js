@@ -26,7 +26,7 @@ async function getAzureClient(openidAuthConfigId) {
     return new azureIssuer.Client({
         client_id: config.clientId,
         client_secret: config.clientSecret,
-        redirect_uris: [config.callbackUrl],
+        redirect_uris: [`${global.settings.API_URL}/v1/auth/openid-auth/${openidAuthConfigId}/callback`],
         response_type: 'token'
     });
 }
