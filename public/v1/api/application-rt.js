@@ -20,6 +20,8 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
+const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const clonedeep = require('lodash.clonedeep');
 
 const moment = require('moment');
@@ -1180,13 +1182,175 @@ async function requestToBindQuote(req, res, next) {
         return next(serverHelper.requestError('Invalid id'));
     }
 
-
     res.send(200, {"bound": true});
-
     return next();
-
 }
 
+async function markQuoteAsBound(req, res, next) {
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+    const quoteId = req.body.quoteId;
+
+    // make sure the caller has the correct rights
+    const rightsToApp = await isAuthForApplication(req, applicationId);
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //assume uuid input
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location);
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+
+    if(applicationDB){
+        applicationId = applicationDB.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for bound ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    //Mark Quote Doc as bound.
+    const quoteBO = new QuoteBO();
+    let markAsBoundSuccess = false;
+    const markAsBoundFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
+    try {
+        markAsBoundSuccess = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
+        if(applicationDB.appStatusId !== 90){
+            // Update application status
+            await applicationBO.updateStatus(applicationId, "bound", 90);
+        }
+        else {
+            log.info(`Application ${applicationId} is already bound with appStatusId ${applicationDB.appStatusId} ` + __location);
+        }
+        // Update Application-level quote metrics when we do a bind. Need to pickup the new bound quote.
+        await applicationBO.recalculateQuoteMetrics(applicationId);
+    }
+    catch (err) {
+        // We Do not pass error object directly to Client - May cause info leak.
+        log.error(`Error trying to mark quoteId #${quoteId} as bound on applicationId #${applicationId} ` + err + __location);
+        res.send({'message': markAsBoundFailureMessage});
+        return next();
+    }
+
+    if(markAsBoundSuccess){
+        res.send(200, {"bound": true});
+    }
+    else {
+        res.send({'message': markAsBoundFailureMessage});
+    }
+    return next();
+}
+
+async function bindQuote(req, res, next) {
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    const applicationId = req.body.applicationId;
+    const quoteId = req.body.quoteId;
+    let error = null;
+
+    // make sure the caller has the correct rights
+    const rightsToApp = await isAuthForApplication(req, applicationId);
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //assume uuid input
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+
+    if (error) {
+        return next(Error);
+    }
+
+    let bindSuccess = false;
+    let bindFailureMessage = "Failed to bind. If this continues please contact us.";
+    const quoteBind = new QuoteBind();
+    try{
+        // 1 is annual
+        let paymentPlanId = 1;
+        if(req.body.paymentPlanId){
+            paymentPlanId = req.body.paymentPlanId
+        }
+        await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+        const bindResp = await quoteBind.bindPolicy();
+        if(bindResp === "success"){
+            log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location);
+            bindSuccess = true;
+        }
+        else if(bindResp === "updated"){
+            log.info(`succesfully API update via bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location);
+            bindSuccess = true;
+        }
+        else if(bindResp === "cannot_bind_quote" || bindResp === "rejected"){
+            log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: cannot_bind_quote` + __location);
+            bindFailureMessage = "Cannot Bind Quote";
+        }
+        else {
+            log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: BindQuote did not return a response` + __location);
+            bindFailureMessage = "Could not confirm Bind Quote";
+        }
+    }
+    catch (err) {
+        // We Do not pass error object directly to Client - May cause info leak.
+        log.error(`Error Binding Quote ${quoteId} application ${applicationId ? applicationId : ''}: ${err}` + __location);
+        res.send({'message': bindFailureMessage});
+        return next();
+    }
+
+    if(bindSuccess){
+        log.debug("quoteBind.policyInfo " + JSON.stringify(quoteBind.policyInfo));
+        res.send(200, {
+            "bound": true,
+            policyNumber: quoteBind.policyInfo.policyNumber
+        });
+    }
+    else {
+        res.send(bindFailureMessage);
+    }
+
+    return next();
+}
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
@@ -1200,5 +1364,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, requestToBindQuote);
+    server.addPutAuthAppApi('PUT Request Bind Quote', `${basePath}/application/request-bind-quote`, requestToBindQuote);
+    server.addPutAuthAppApi('PUT Mark Quote Bound', `${basePath}/application/mark-quote-bound`, markQuoteAsBound);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
 }

@@ -280,7 +280,7 @@ class CompuwestBind extends Bind {
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
                 DBATaxIdentity.ele('TaxCd',appDoc.ein);
-                DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entity_type]);
+                DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entityType]);
                 // </NameInfo>
                 // <Addr>
                 const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
@@ -404,31 +404,51 @@ class CompuwestBind extends Bind {
                     // <AdditionalInterestInfo>
                     const AdditionalInterestInfo = addInsuredAdditionalInterest.ele('AdditionalInterestInfo')
                     AdditionalInterestInfo.ele('NatureInterestCd', owner.include ? 'I' : 'E');
-                    if(owner.ownership > 0){
-                        const OwnershipPct = addInsuredAdditionalInterest.ele('OwnershipPct')
-                        const NumericValueNode = OwnershipPct.ele('NumericValue');
-                        NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
+                    if(owner.ownership){
+                        try{
+                            const OwnershipPct = addInsuredAdditionalInterest.ele('OwnershipPct')
+                            const NumericValueNode = OwnershipPct.ele('NumericValue');
+                            NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
+                        }
+                        catch(err){
+                            log.error(`Compwest bind ownership application: ${this.quote.applicationId} error ${err}` + __location)
+                        }
                     }
 
                     //Can only tie ActivityCodeand payroll to Named Insured if there is one owner.
-                    if(owner.include && appDoc.owners.length === 1){
+                    // && appDoc.owners.length === 1
+                    if(owner.include){
                         if(appDoc.locations && appDoc.locations.length > 0){
                             for (const location of appDoc.locations) {
                                 for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
-                                    // Find the entry for this activity code
-                                    const ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.employeeTypeList.find((acs) => acs.employeeType === "Owners" && acs.employeeTypeCount === 1);
-                                    if(ActivityCodeEmployeeTypeEntry){
-                                        const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
-                                        ActualRemunerationAmt.ele('Amt', ActivityCodeEmployeeTypeEntry.employeeTypePayroll);
-                                        //look up AF/C
-                                        const iAC_Query = {
-                                            insurerId: this.quote.insurerId,
-                                            talageActivityCodeIdList: ActivityCodeEmployeeTypeEntry.activityCodeId,
-                                            territoryList: appDoc.mailingState
+                                    const activityCodeId = ActivtyCodeEmployeeType.activityCodeId;
+                                    let ownerPayroll = null;
+                                    if(ActivtyCodeEmployeeType.ownerPayRoll && ActivtyCodeEmployeeType.ownerPayRoll > 0){
+                                        ownerPayroll = ActivtyCodeEmployeeType.ownerPayRoll;
+                                        if(appDoc.owners.length > 1){
+                                            ownerPayroll /= appDoc.owners.length;
                                         }
+                                    }
+                                    else {
+                                        const ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.employeeTypeList.find((acs) => acs.employeeType === "Owners" && acs.employeeTypeCount === 1);
+                                        if(ActivityCodeEmployeeTypeEntry){
+                                            ownerPayroll = ActivityCodeEmployeeTypeEntry.employeeTypePayroll;
+                                            if(ActivityCodeEmployeeTypeEntry.employeeTypeCount > 0){
+                                                ownerPayroll /= ActivityCodeEmployeeTypeEntry.employeeTypeCount;
+                                            }
+                                        }
+                                    }
+                                    if(ownerPayroll){
+                                        // Find the entry for this activity code
                                         const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
+                                        const insurerActivityCodeBO = new InsurerActivityCodeBO();
                                         try{
-                                            const iacDocList = await InsurerActivityCodeBO.find(iAC_Query);
+                                            const iAC_Query = {
+                                                insurerId: this.quote.insurerId,
+                                                talageActivityCodeIdList: activityCodeId,
+                                                territoryList: appDoc.mailingState
+                                            }
+                                            const iacDocList = await insurerActivityCodeBO.getList(iAC_Query);
                                             if(iacDocList && iacDocList.length === 1){
                                                 AdditionalInterestInfo.ele('ClassCD',iacDocList[0].code)
                                             }
@@ -441,6 +461,13 @@ class CompuwestBind extends Bind {
                                         }
                                         catch(err){
                                             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC ${err} ` + __location);
+                                        }
+                                        if(ownerPayroll > 0){
+                                            const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                                            ActualRemunerationAmt.ele('Amt', ownerPayroll);
+                                        }
+                                        else {
+                                            AdditionalInterestInfo.ele('ActualRemunerationAmt');
                                         }
                                     }
                                 }

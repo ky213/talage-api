@@ -32,27 +32,40 @@ exports.policyTypes = resources => {
         {
             value: "WC",
             label: "Workers' Compensation (WC)"
+        },
+        {
+            value: "CYBER",
+            label: "Cyber Liability"
         }
     ];
 };
+const socialEngDeductibleList = [
+    10000, 25000, 50000
+];
+const cyberDeductibleList = [
+    1000, 1500, 2500, 5000, 10000, 25000, 50000
+];
+const bopAndGlDeductibles = ['$1500','$1000','$500'];
 
 const deductibleAmounts = resources => {
     resources.deductibleAmounts = {
-        bop: ["$1500",
-            "$1000",
-            "$500"],
-        gl: ["$1500",
-            "$1000",
-            "$500"]
+        bop: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
+        gl: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
+        cyber: {
+            cyberDeductibleList,
+            socialEngDeductibleList
+        },
+        pl: cyberDeductibleList
     };
 };
-
 const policiesEnabled = async(resources, applicationDB) => {
     // defaultEnabledPolicies is the list of policies that can be enabled so if we add more policy types that we are supporting THOSE NEED TO BE INCLUDED in this list
     const defaultEnabledPolicies = [
         "BOP",
         "GL",
-        "WC"
+        "WC",
+        "CYBER",
+        "PL"
     ];
     const enabledPoliciesSet = new Set();
 
@@ -100,38 +113,52 @@ const policiesEnabled = async(resources, applicationDB) => {
     }
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
+const cyberAggregateLimitList = [
+    50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
+];
+const plAggregateLimitList = [
+    50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000
+];
+const businessIncomeCoverageList = [
+    100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000, 650000, 700000, 750000, 800000, 850000, 900000, 950000, 1000000
+];
+const ransomPaymentLimitList = [
+    250000, 500000, 1000000
+];
+const waitingPeriodList = [
+    6, 8, 12, 24
+];
+const occurrenceLimitList = [
+    25000, 50000, 100000, 250000, 500000, 750000, 1000000
+];
+const socialEngLimitList = [
+    50000, 100000, 250000
+];
+const bopAndGlLimits = [
+    {
+        "key": "1000000/1000000/1000000",
+        "value": "$1,000,000 / $1,000,000 / $1,000,000"
+    },
+    {
+        "key": "1000000/2000000/1000000",
+        "value": "$1,000,000 / $2,000,000 / $1,000,000"
+    },
+    {
+        "key": "1000000/2000000/2000000",
+        "value": "$1,000,000 / $2,000,000 / $2,000,000"
+    }
+]
+
+// hard coded limits, user not able to change, if they select endorsement these values are set
+const hardwareReplCostLimit = [50000];
+const postBreachRemediationLimit = [50000];
+const telecomsFraudEndorsementLimit = [50000];
 
 // does it match helpers.limits ?
 const limitsSelectionAmounts = async(resources, applicationDB) => {
     const limits = {
-        bop: [
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/1000000",
-                "value": "$1,000,000 / $2,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/2000000",
-                "value": "$1,000,000 / $2,000,000 / $2,000,000"
-            }
-        ],
-        gl: [
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/1000000",
-                "value": "$1,000,000 / $2,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/2000000",
-                "value": "$1,000,000 / $2,000,000 / $2,000,000"
-            }
-        ],
+        bop: bopAndGlLimits,
+        gl: bopAndGlLimits,
         wc: [
             {
                 "key": "100000/500000/100000",
@@ -149,7 +176,23 @@ const limitsSelectionAmounts = async(resources, applicationDB) => {
                 "key": "1000000/1000000/1000000",
                 "value": "$1,000,000 / $1,000,000 / $1,000,000"
             }
-        ]
+        ],
+        cyber: {
+            aggregateLimitList: cyberAggregateLimitList,
+            businessIncomeCoverageList,
+            ransomPaymentLimitList,
+            socialEngLimitList,
+            waitingPeriodList,
+            hardcodedLimits: {
+                hardwareReplCostLimit,
+                postBreachRemediationLimit,
+                telecomsFraudEndorsementLimit
+            }
+        },
+        pl: {
+            aggregateLimitList: plAggregateLimitList,
+            occurrenceLimitList
+        }
     };
 
     if(applicationDB && applicationDB.hasOwnProperty('agencyId')){

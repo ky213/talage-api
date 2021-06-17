@@ -343,8 +343,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         "VP-Secy"
     ];
 
-
-
     try{
         await agencyLandingPageBO.addPageHit(agencyWebInfo.landingPageID)
     }
