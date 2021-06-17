@@ -2,7 +2,7 @@
 'use strict';
 
 const moment = require('moment');
-const { last } = require('pdf-lib');
+const {last} = require('pdf-lib');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
@@ -15,6 +15,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
 /**
  * Quotereport Task processor
@@ -89,6 +90,17 @@ var quoteReportTask = async function(){
         return false;
     }
 
+    // Get All Industry Codes
+    const industryCodeBO = new IndustryCodeBO();
+    let industryCodeDocs = null;
+    try {
+        industryCodeDocs = await industryCodeBO.getList({});
+    }
+    catch (err) {
+        const error = `quotereportTask: ERROR: Could not get industry codes ${err}. ${__location}`;
+        log.error(error);
+    }
+
     // send email
     // Production email goes to quotereport.
     // non production Brian so we can test it.
@@ -154,6 +166,11 @@ var quoteReportTask = async function(){
                 if(lastAppDoc){
                     newRow.territory = lastAppDoc.mailingState;
                 }
+                if(lastAppDoc && industryCodeDocs && industryCodeDocs.length > 0){
+                    const appIndustryCode = lastAppDoc.industryCode;
+                    const industryCode = industryCodeDocs.find(doc => doc.industryCodeId === Number(appIndustryCode));
+                    newRow.industry_code_desc = industryCode.hasOwnProperty('description') ? industryCode.description : "";
+                }
                 newRow.api_result = quoteDoc.apiResult;
                 newRow.reasons = quoteDoc.reasons;
                 newRow.seconds = quoteDoc.quoteTimeSeconds;
@@ -192,6 +209,7 @@ var quoteReportTask = async function(){
             "api_result": "Result",
             "reasons": "Reasons",
             "seconds": "Seconds",
+            "industry_code_desc": "Industry Code Description",
             "activitycode1": "Activity Code 1",
             "activitycode2": "Activity Code 2",
             "activitycode3": "Activity Code 3"
