@@ -1215,7 +1215,7 @@ async function markQuoteAsBound(req, res, next) {
 
     //assume uuid input
     log.debug(`Getting app id  ${applicationId} from mongo` + __location);
-    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
         log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
         log.error('Bad Request: Invalid id ' + __location);
         error = err;
@@ -1293,7 +1293,7 @@ async function bindQuote(req, res, next) {
 
     //assume uuid input
     log.debug(`Getting app id  ${applicationId} from mongo` + __location)
-    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
         log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
         log.error('Bad Request: Invalid id ' + __location);
         error = err;
