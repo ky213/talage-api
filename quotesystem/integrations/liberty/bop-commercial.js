@@ -623,6 +623,11 @@ module.exports = class LibertySBOP extends Integration {
             }
         });
 
+        console.log("+++++++ SPECIAL ++++++++")
+        console.log(JSON.stringify(specialPolicyQuestions, null, 4));
+        console.log("+++++++ NORMAL ++++++++++")
+        console.log(JSON.stringify(standardPolicyQuestions, null, 4));
+
         //                 <AnyLossesAccidentsConvictionsInd>0</AnyLossesAccidentsConvictionsInd>
 
         Policy.ele('AnyLossesAccidentsConvictionsInd', applicationDocData.claims.length);
@@ -927,6 +932,9 @@ module.exports = class LibertySBOP extends Integration {
             let BldgImprovementExt = null;
             let BldgOccupancyExt = null;
 
+            let unoccupied = 0;
+            let occupiedByOther = 0;
+
             // handle special case questions first
             specialLocationQuestions.forEach(question => {
                 switch (question.insurerQuestionIdentifier) {
@@ -1013,51 +1021,81 @@ module.exports = class LibertySBOP extends Integration {
                             BOP55GrossReceipts.ele('ProductDesc', BOP56.answerValue);
                         }
                         break;
-                    case "BOP17_YesNo":
-                        if (question.answerValue.toLowerCase() === "no") {
-                            const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
-                            const BOP17_AreaUnoccupied = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
-                            const BOP17 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17");
+                    case "BOP17_AreaOccupiedByOther":
+                        const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
 
-                            let occupiedByOther = 0;
-                            let unoccupied = 0;
-
-                            if (BOP17_AreaOccupiedByOther) {
-                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
-                                const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
-                                AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
-                                AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
-
-                            }
-
-                            if (BOP17_AreaUnoccupied) {
-                                unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue, 10);
-                                const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
-                                AreaUnoccupied.ele('NumUnits', unoccupied);
-                                AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
-                            }
-
-                            if (BOP17) {
-                                if (!BldgOccupancyExt) {
-                                    BldgOccupancyExt = BldgOccupancy.ele('BldgOccupancyExt');
-                                }
-                                BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
-                            }
-
-                            const occupied = location.square_footage - (occupiedByOther + unoccupied);
-                            AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
-                            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        if (BOP17_AreaOccupiedByOther) {
+                            occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
+                            const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
+                            AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
+                            AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
                         }
-                        else {
-                            AreaOccupied.ele('NumUnits', location.square_footage);
-                            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        break;
+                    case "BOP17_AreaUnoccupied":
+                        const BOP17_AreaUnoccupied = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+
+                        if (BOP17_AreaUnoccupied) {
+                            unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue, 10);
+                            const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
+                            AreaUnoccupied.ele('NumUnits', unoccupied);
+                            AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
                         }
                         break;
                     case "BOP17":
-                    case "BOP17_AreaOccupiedByOther":
-                    case "BOP17_AreaUnoccupied":
-                        // handled in BOP17_YesNo
+                        const BOP17 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17");
+
+                        if (BOP17) {
+                            if (!BldgOccupancyExt) {
+                                BldgOccupancyExt = BldgOccupancy.ele('BldgOccupancyExt');
+                            }
+                            BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
+                        }
                         break;
+                    // case "BOP17_YesNo":
+                        // if (question.answerValue.toLowerCase() === "no") {
+                        //     const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
+                        //     const BOP17_AreaUnoccupied = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                        //     const BOP17 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17");
+
+                        //     let occupiedByOther = 0;
+                        //     let unoccupied = 0;
+
+                        //     if (BOP17_AreaOccupiedByOther) {
+                        //         occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
+                        //         const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
+                        //         AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
+                        //         AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
+
+                        //     }
+
+                        //     if (BOP17_AreaUnoccupied) {
+                        //         unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue, 10);
+                        //         const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
+                        //         AreaUnoccupied.ele('NumUnits', unoccupied);
+                        //         AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        //     }
+
+                        //     if (BOP17) {
+                        //         if (!BldgOccupancyExt) {
+                        //             BldgOccupancyExt = BldgOccupancy.ele('BldgOccupancyExt');
+                        //         }
+                        //         BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
+                        //     }
+
+                        //     const occupied = location.square_footage - (occupiedByOther + unoccupied);
+                        //     AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
+                        //     AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        // }
+                        // else {
+                        //     AreaOccupied.ele('NumUnits', location.square_footage);
+                        //     AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                        // }
+                        // break;
+                    // case "BOP17":
+                    // case "BOP17_AreaOccupiedByOther":
+                    // case "BOP17_AreaUnoccupied":
+                    //     // handled in BOP17_YesNo
+                        // break;
                     case "LMBOP_Interest":
                         LocationUWInfo.ele('InterestCd', question.answerValue.trim().toUpperCase());
                         break;
@@ -1092,6 +1130,10 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                 }
             });
+
+            const occupied = location.square_footage - (occupiedByOther + unoccupied);
+            AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
+            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
 
             // then create general questions
             standardLocationQuestions.forEach(question => {
