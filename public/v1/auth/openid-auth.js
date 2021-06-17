@@ -3,20 +3,18 @@ const {
     createToken,
     getUser
 } = require('./auth-helper');
-const mongoose = require('mongoose');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 const {Issuer} = require('openid-client');
-const OpenIdAuthConfig = mongoose.model('OpenIdAuthConfig');
+const OpenIdAuthConfigBO = global.requireShared('models/OpenIDAuthConfig-BO.js');
+const openIdAuthConfigBO = new OpenIdAuthConfigBO();
 
 /**
  * Returns the "client" from the openid-client library for the specified
  * openidAuthConfig.
  */
 async function getAzureClient(openidAuthConfigId) {
-    let config = await OpenIdAuthConfig.findOne({
-        configId: openidAuthConfigId
-    });
+    const config = await openIdAuthConfigBO.getById(openidAuthConfigId);
     if (!config) {
         log.error(`Config does not exist: ${openidAuthConfigId} ${__location}`);
         throw new Error(`Config does not exist: ${openidAuthConfigId} ${__location}`);
@@ -39,10 +37,10 @@ async function getLoginUrl(req) {
         const client = await getAzureClient(req.params.configId);
         const url = client.authorizationUrl({
             scope: 'User.Read openid profile email',
-            response_mode: 'form_post',
+            response_mode: 'form_post'
         });
         log.info(`User login for client ${req.params.configId} goes to ${url}`);
-        return {url};
+        return {url: url};
     } catch (ex) {
         log.error(`OpenID client might be down. Error thrown: ${ex} ${__location}`);
         throw ex;
@@ -54,9 +52,7 @@ async function getLoginUrl(req) {
  */
 async function callback(req, res, next) {
     log.info(`Received OpenID callback: ${JSON.stringify(req.body, null, 2)}`);
-    const config = await OpenIdAuthConfig.findOne({
-        configId: req.params.configId
-    });
+    const config = await openIdAuthConfigBO.getById(req.params.configId);
     const client = await getAzureClient(req.params.configId);
     const params = client.callbackParams(req);
     const jwtBlob = params.access_token.split('.')[1]
@@ -89,7 +85,6 @@ async function callback(req, res, next) {
         return res.redirect(`${global.settings.PORTAL_URL}/openid/${req.params.configId}/callback?token=${token}`, next);
     } catch (ex) {
         log.error("OpenID callback error: " + ex + __location);
-        console.log(ex);
 
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
@@ -97,13 +92,13 @@ async function callback(req, res, next) {
 }
 
 const wrapper = (func) => {
-    return async (req, res, next) => {
+    return async(req, res, next) => {
         try {
             const out = await func(req);
             res.send(200, out);
         } catch (ex) {
             log.error("API server error: " + ex + __location);
-            res.send(500, ex.getMessage());
+            res.send(500, ex);
         }
         next();
     };
