@@ -280,7 +280,7 @@ class CompuwestBind extends Bind {
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
                 DBATaxIdentity.ele('TaxCd',appDoc.ein);
-                DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entity_type]);
+                DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entityType]);
                 // </NameInfo>
                 // <Addr>
                 const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
