@@ -24,7 +24,7 @@ async function findAll(req, res, next) {
         req.query.wheelhouse_support = true;
     }
     const rows = await policyTypeBO.getList(req.query).catch(function(err) {
-        log.error("admin paymentPlanBO error: " + err + __location);
+        log.error("admin policyTypeBO error: " + err + __location);
         error = err;
     })
     if (error) {

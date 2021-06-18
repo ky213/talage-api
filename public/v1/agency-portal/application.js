@@ -20,7 +20,6 @@ const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
-const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const ApplicationNotesCollectionBO = global.requireShared('models/ApplicationNotesCollection-BO.js');
@@ -172,14 +171,9 @@ async function getApplication(req, res, next) {
         }
 
         let paymentPlanList = null;
-        const paymentPlanBO = new PaymentPlanBO()
-        try{
-            paymentPlanList = await paymentPlanBO.getList();
-        }
-        catch(err){
-            log.error("Error get paymentPlanList " + err + __location)
-        }
-
+        const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+        paymentPlanList = PaymentPlanSvc.getList();
+       
         for (let i = 0; i < quoteList.length; i++) {
             // eslint-disable-next-line prefer-const
             let quoteJSON = quoteList[i];
@@ -1663,11 +1657,12 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
     const quoteAmount = req.query.quoteAmount ? req.query.quoteAmount : 0;
     // Retrieve the payment plans and create the payment options object
     const paymentOptions = [];
-    const paymentPlanModel = new PaymentPlanBO();
+    
     for (const insurerPaymentPlan of insurerPaymentPlanList) {
         if (quoteAmount > insurerPaymentPlan.premium_threshold) {
             try {
-                const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+                const paymentPlan = PaymentPlanSvc.getById(insurerPaymentPlan.payment_plan);
                 paymentOptions.push({
                     id: paymentPlan.id,
                     name: paymentPlan.name,
