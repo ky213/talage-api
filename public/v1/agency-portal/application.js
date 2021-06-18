@@ -18,7 +18,6 @@ const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
-const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
@@ -1642,17 +1641,16 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
         return next(new Error("bad parameter"));
     }
     let error = null;
-    const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
-    // Load the request data into it
-    const queryJSON = {};
-    queryJSON.insurer = id;
-    const insurerPaymentPlanList = await insurerPaymentPlanBO.getList(queryJSON).catch(function(err) {
+    const insurerBO = new InsurerBO();
+    const insurer = await insurerBO.getById(id).catch(function(err) {
         log.error("admin insurercontact error: " + err + __location);
         error = err;
     })
     if (error) {
         return next(error);
     }
+    const insurerPaymentPlanList = insurer.paymentPlans;
+    
     // TODO: Review if this is this valid, if quote amount not returned set to zero this will result in an empty paymentOptionsList
     const quoteAmount = req.query.quoteAmount ? req.query.quoteAmount : 0;
     // Retrieve the payment plans and create the payment options object
