@@ -23,19 +23,23 @@ exports.policyTypes = resources => {
     resources.policyTypes = [
         {
             value: "BOP",
-            label: "Business Owners Policy (BOP)"
+            label: "Business Owners Policy"
         },
         {
             value: "GL",
-            label: "General Liability (GL)"
+            label: "General Liability"
         },
         {
             value: "WC",
-            label: "Workers' Compensation (WC)"
+            label: "Workers' Compensation"
         },
         {
             value: "CYBER",
-            label: "Cyber Liability"
+            label: "Cyber Liability "
+        },
+        {
+            value: "PL",
+            label: "Professional Liability"
         }
     ];
 };
