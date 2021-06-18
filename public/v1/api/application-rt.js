@@ -18,10 +18,8 @@ const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
-const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const clonedeep = require('lodash.clonedeep');
 
 const moment = require('moment');
@@ -956,11 +954,12 @@ async function createQuoteSummary(quote) {
 
             // Retrieve the payment plans and create the payment options object
             const paymentOptions = [];
-            const paymentPlanModel = new PaymentPlanBO();
             for (const insurerPaymentPlan of insurerPaymentPlanList) {
                 if (quote.amount > insurerPaymentPlan.premium_threshold) {
                     try {
-                        const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                        const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+                        const paymentPlan = PaymentPlanSvc.getById(insurerPaymentPlan.payment_plan);
+                        log.debug(`payment plan service added ` + __location);
                         paymentOptions.push({
                             id: paymentPlan.id,
                             name: paymentPlan.name,

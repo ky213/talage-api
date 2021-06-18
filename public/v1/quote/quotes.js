@@ -8,7 +8,6 @@ const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
-const PaymentPlanBO = global.requireShared('./models/PaymentPlan-BO.js');
 const LimitsBO = global.requireShared('./models/Limits-BO.js');
 
 
@@ -83,11 +82,11 @@ async function createQuoteSummary(quote) {
 
             // Retrieve the payment plans and create the payment options object
             const paymentOptions = [];
-            const paymentPlanModel = new PaymentPlanBO();
             for (const insurerPaymentPlan of insurerPaymentPlanList) {
                 if (quote.amount > insurerPaymentPlan.premium_threshold) {
                     try {
-                        const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                        const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+                        const paymentPlan = PaymentPlanSvc.getById(insurerPaymentPlan.payment_plan);
                         paymentOptions.push({
                             id: paymentPlan.id,
                             name: paymentPlan.name,
