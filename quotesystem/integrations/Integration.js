@@ -678,9 +678,10 @@ module.exports = class Integration {
      *
      * @param {string} questionSubjectArea - The question subject area ("general", "location", ...) Default is "general".
      * @param {Array} talageQuestionIdList - Array of Talage question IDs
+     * @param {Array} policyTypes - [optional] Array of policy types to filter on
      * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
      */
-    async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
+    async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList, policyTypes = []) {
         if (talageQuestionIdList.length > 0) {
             
             talageQuestionIdList = talageQuestionIdList.map(Number)
@@ -689,6 +690,11 @@ module.exports = class Integration {
                 "questionSubjectArea": questionSubjectArea,
                 "talageQuestionId": {$in: talageQuestionIdList}
             }
+
+            if (policyTypes.length > 0) {
+                query.policyTypeList = {$in: policyTypes}
+            }
+
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             let insurerQuestionListSA = null;
             try{
