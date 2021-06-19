@@ -1,5 +1,3 @@
-/* eslint-disable object-curly-newline */
-/* eslint-disable object-property-newline */
 /* eslint-disable no-lonely-if */
 /* eslint-disable require-jsdoc */
 /* eslint-disable no-unused-vars */
@@ -14,24 +12,21 @@ const moment_timezone = require('moment-timezone');
 const clonedeep = require('lodash.clonedeep');
 
 // Add global helpers to load shared modules
-global.sharedPath = require('path').join(__dirname, 'shared');
+global.rootPath = require('path').join(__dirname, '..');
+global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-const talageEvent = global.requireShared('/services/talageeventemitter.js');
+const talageEvent = global.requireShared('services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
-var mongoose = require('./mongoose');
+var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
 
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
-const globalSettings = require('./settings.js');
-const {debug} = require('request');
-
+const globalSettings = global.requireRootPath('./settings.js');
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -64,8 +59,6 @@ async function main() {
     console.log(colors.green.bold('-'.padEnd(80, '-')));
     // eslint-disable-next-line no-console
     console.log(Date());
-
-    console.log(colors.yellow('\nScript usage includes optional param insurerId: node <path-to-script>/loadinsurerquestionsinmongo.js <insurerId>\n'));
 
     // Load the settings from a .env file - Settings are loaded first
     if (!globalSettings.load()) {
@@ -124,38 +117,46 @@ async function main() {
  */
 async function runFunction() {
 
-    //get all agencyLocations
-    const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-    const ApplicationBO = global.requireShared('models/Application-BO.js');
-    const QuoteBO = global.requireShared('models/Quote-BO.js');
-    const quoteBO = new QuoteBO();
-    const applicationBO = new ApplicationBO();
-    const agencyLocationBO = new AgencyLocationBO();
+    //const InsurerModel = global.requireShared('./models/mongoose/Insurer.model');
+    const InsurerModel = require('mongoose').model('Insurer');
+    const query = {};
+    const queryProjection = {"__v": 0};
+    const insurerList = await InsurerModel.find(query, queryProjection);
+    let insurerCount = 0;
+    for (const insurerDoc of insurerList){
 
-    const agencyLocationList = await agencyLocationBO.getList({});
-    log.info(`Working on agency locations Count: ${agencyLocationList.length}`)
+        //load message model and get message list.
+        const sql = `select * from clw_talage_insurer_payment_plans  where insurer = ${insurerDoc.insurerId} `;
 
-    for(const agencyLocation of agencyLocationList){
-        log.info(`Working on agency location ${agencyLocation.systemId}`)
-        //skip talage location
-        if(agencyLocation.systemId === 1 || agencyLocation.insurers.length === 0){
-            log.debug(`Skpping ${agencyLocation.systemId}`)
-            continue;
-        }
-        let talageWholesale = false;
-        // eslint-disable-next-line no-loop-func
-        for(const alInsurer of agencyLocation.insurers){
-            if(alInsurer.policyTypeInfo && alInsurer.policyTypeInfo.notifyTalage === true){
-                talageWholesale = true;
-                alInsurer.talageWholesale = true;
+        let result = await db.query(sql).catch(function(error) {
+            // Check if this was
+            log.error("error " + error);
+            return false;
+        });
+        // eslint-disable-next-line array-element-newline
+        insurerDoc.paymentPlans = [];
+        for(let i = 0; i < result.length; i++){
+            try {
+                const paymentPlanJSON = {
+                    payment_plan: result[i].payment_plan,
+                    premium_threshold: result[i].premium_threshold
+                }
+                insurerDoc.paymentPlans.push(paymentPlanJSON)
+            }
+            catch(err){
+                log.error("Updating Insurer paymentplans error " + err + __location);
+                return false;
             }
         }
-        if(talageWholesale){
-            await agencyLocationBO.updateMongo(agencyLocation.agencyLocationId, agencyLocation);
+        await insurerDoc.save();
+        insurerCount++;
+        if((insurerCount) % 10 === 0){
+            log.debug(`processed ${insurerCount} of ${insurerList.length} `)
         }
     }
+
     log.debug("Done!");
-    process.exit(0);
+    process.exit(1);
 
 }
 

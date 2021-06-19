@@ -2,6 +2,7 @@
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO');
 
 /**
  * Responds to get requests for the getCityTerritory endpoint
@@ -27,30 +28,27 @@ async function getCityTerritory(req, res, next) {
     }
 
     // Get the user groups, excluding 'Administrator' for now as this permission is currently unused. It will be added soon.
-    const sql = `
-			SELECT
-				\`city\`,
-				\`territory\`
-			FROM \`#__zip_codes\`
-			WHERE \`zip\` = ${db.escape(req.query.zip)}
-			LIMIT 1;
-        `;
+    const zipCodeBO = new ZipCodeBO();
+    let result = null;
     let error = null;
-    const result = await db.query(sql).catch(function(err) {
+    try {
+        result = await zipCodeBO.loadByZipCode(req.query.zip);
+    }
+    catch (err) {
         error = err;
         log.error("getCityTerritory by Zipcode error " + err + __location)
         //this will not stop the processing of this function.
         // return....
+    }
 
-    });
     if (error) {
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
-    else if (result && result.length > 0) {
+    else if (result) {
         // Return the response
         res.send(200, {
-            'city': result[0].city,
-            'territory': result[0].territory
+            'city': result.city,
+            'territory': result.state
         });
         return next();
 

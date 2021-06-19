@@ -18,9 +18,7 @@ const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
-const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
-const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const ApplicationNotesCollectionBO = global.requireShared('models/ApplicationNotesCollection-BO.js');
@@ -172,14 +170,9 @@ async function getApplication(req, res, next) {
         }
 
         let paymentPlanList = null;
-        const paymentPlanBO = new PaymentPlanBO()
-        try{
-            paymentPlanList = await paymentPlanBO.getList();
-        }
-        catch(err){
-            log.error("Error get paymentPlanList " + err + __location)
-        }
-
+        const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+        paymentPlanList = PaymentPlanSvc.getList();
+       
         for (let i = 0; i < quoteList.length; i++) {
             // eslint-disable-next-line prefer-const
             let quoteJSON = quoteList[i];
@@ -1480,20 +1473,8 @@ async function GetResources(req, res, next){
     }
     const responseObj = {};
     let rejected = false;
-    const sql = `select id, introtext from clw_content where id in (10,11)`
-    const result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_content error on select ` + error + __location);
-    });
-    if (!rejected) {
-        const legalArticles = {};
-        for(let i = 0; i < result.length; i++){
-            const dbRec = result[0];
-            legalArticles[dbRec.id] = dbRec
-        }
-        responseObj.legalArticles = legalArticles;
-    }
+
+    responseObj.legalArticles = {};
     rejected = false;
     //const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
     const policyTypeBO = new PolicyTypeBO();
@@ -1507,26 +1488,47 @@ async function GetResources(req, res, next){
     }
 
     rejected = false;
-    const sql3 = `select abbr, name from clw_talage_territories`
-    const result3 = await db.query(sql3).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_talage_territories error on select ` + error + __location);
+    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+    const territoryBO = new TerritoryBO();
+    let error = null;
+    const allTerritories = await territoryBO.getAbbrNameList().catch(function(err) {
+        log.error("territory get getAbbrNameList " + err + __location);
+        error = err;
     });
-    if (!rejected) {
-        responseObj.territories = result3;
+    if(error){
+        log.error('DB query for territories list failed: ' + error.message + __location);
+    }
+    if (allTerritories) {
+        responseObj.territories = allTerritories;
     }
     rejected = false;
-    // TODO Use BO
-    const sql4 = `SELECT officerTitle FROM officer_titles`;
-    const result4 = await db.query(sql4).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`officer_titles error on select ` + error + __location);
-    });
-    if (!rejected) {
-        responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
-    }
+   
+    // TODO: pull from officer_titles BO
+    responseObj.officerTitles =
+    [
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
+        "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
+        "Treasurer",
+        "Secy-Treas",
+        "Secretary",
+        "President",
+        "Pres-VP-Secy-Treas",
+        "Pres-VP-Secy",
+        "Pres-VP",
+        "Pres-Treas",
+        "Pres-Secy-Treas",
+        "Pres-Secy",
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
+    ];
+
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
     responseObj.limits = await GetPolicyLimits(agencyId);
 
@@ -1615,43 +1617,13 @@ async function CheckZip(req, res, next){
 async function GetAssociations(req, res, next){
     const responseObj = {};
     if(req.query && req.query.territories){
-
         const territoryList = req.query.territories.split(',')
-        var inList = new Array(territoryList.length).fill('?').join(',');
-        let rejected = false;
-        const sql = `select  a.id, a.name
-            from clw_talage_associations a
-            inner join clw_talage_association_territories at on at.association = a.id
-            where a.state  = 1
-            AND at.territory in (${inList})
-            order by a.name ASC`;
-
-        const result = await db.queryParam(sql,territoryList).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`clw_content error on select ` + error + __location);
-        });
-        if (!rejected) {
-            if(result && result.length > 0){
-                responseObj['error'] = false;
-                responseObj['message'] = '';
-                responseObj['associations'] = result;
-                res.send(200, responseObj);
-                return next();
-
-            }
-            else {
-                responseObj['error'] = true;
-                responseObj['message'] = 'No associations returned.';
-                res.send(404, responseObj);
-            }
-        }
-        else {
-            responseObj['error'] = true;
-            responseObj['message'] = 'internal error.';
-            res.send(500, responseObj);
-            return next(serverHelper.requestError('internal error'));
-        }
+        const AssociationSvc = global.requireShared('./services/associationsvc.js');
+        responseObj['error'] = false;
+        responseObj['message'] = '';
+        responseObj['associations'] = AssociationSvc.GetAssociationList(territoryList);
+        res.send(200, responseObj);
+        return next();        
     }
     else {
         responseObj['error'] = true;
@@ -1669,26 +1641,26 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
         return next(new Error("bad parameter"));
     }
     let error = null;
-    const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
-    // Load the request data into it
-    const queryJSON = {};
-    queryJSON.insurer = id;
-    const insurerPaymentPlanList = await insurerPaymentPlanBO.getList(queryJSON).catch(function(err) {
+    const insurerBO = new InsurerBO();
+    const insurer = await insurerBO.getById(id).catch(function(err) {
         log.error("admin insurercontact error: " + err + __location);
         error = err;
     })
     if (error) {
         return next(error);
     }
+    const insurerPaymentPlanList = insurer.paymentPlans;
+    
     // TODO: Review if this is this valid, if quote amount not returned set to zero this will result in an empty paymentOptionsList
     const quoteAmount = req.query.quoteAmount ? req.query.quoteAmount : 0;
     // Retrieve the payment plans and create the payment options object
     const paymentOptions = [];
-    const paymentPlanModel = new PaymentPlanBO();
+    
     for (const insurerPaymentPlan of insurerPaymentPlanList) {
         if (quoteAmount > insurerPaymentPlan.premium_threshold) {
             try {
-                const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+                const paymentPlan = PaymentPlanSvc.getById(insurerPaymentPlan.payment_plan);
                 paymentOptions.push({
                     id: paymentPlan.id,
                     name: paymentPlan.name,
