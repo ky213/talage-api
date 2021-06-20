@@ -156,7 +156,6 @@ async function runFunction() {
                     }
                     mQuestion.answers.push(answerJSON)
                 }
-                
             }
             catch(err){
                 log.error("Adding question answers error " + err + __location);

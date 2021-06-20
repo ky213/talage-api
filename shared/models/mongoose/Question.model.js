@@ -15,13 +15,13 @@ const opts = {toJSON: {virtuals: true}};
 const Answerschema = new Schema({
     answerId: {type: Number, required: [true, 'answerId required']},
     answer: {type: String, required: true},
-    default: {type: Boolean, default: false}
+    default: {type: Boolean, default: false, required: true}
 },opts)
 
 
 const QuestionSchema = new Schema({
     talageQuestionUuid: {type: String, required: [true, 'talageQuestionUuid required'], unique: true},
-    talageQuestionId: {type: Number, required: [true, 'talageQuestionId required']},
+    talageQuestionId: {type: Number, required: [true, 'talageQuestionId required'], unique: true},
     parent: {type: Number, required: false},
     parent_answer: {type: Number, required: false},
     typeId: {type: Number, required: true},
