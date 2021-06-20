@@ -90,6 +90,8 @@ module.exports = function() {
     require('./shared/models/mongoose/AgencyPortalUser.model');
     require('./shared/models/mongoose/Territory.model');
 
+    require('./shared/models/mongoose/Question.model');
+
     return mongodb;
 
 };
