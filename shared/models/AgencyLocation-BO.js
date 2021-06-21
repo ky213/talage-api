@@ -267,7 +267,7 @@ module.exports = class AgencyLocationBO{
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
