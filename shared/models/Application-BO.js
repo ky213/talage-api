@@ -13,7 +13,6 @@ const _ = require('lodash');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
-const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
@@ -821,35 +820,45 @@ module.exports = class ApplicationModel {
                 else if (questionRequest.type === 'array') {
                     const arrayString = "|" + questionRequest.answer.join('|');
                     questionJSON.answerValue = arrayString;
-                    const questionAnswerBO = new QuestionAnswerBO();
-                    const questionAnswerListDB = await questionAnswerBO.getListByAnswerIDList(questionRequest.answer).catch(function(err) {
-                        log.error("questionBO load error " + err + __location);
-                    });
-                    if (questionAnswerListDB && questionAnswerListDB.length > 0) {
-                        questionJSON.answerList = [];
-                        for (let j = 0; j < questionAnswerListDB.length; j++) {
-                            questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                    questionJSON.answerList = [];
+                    questionRequest.answer.forEach((requestAnswer) => {
+                        const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = requestAnswer )
+                        if(answerValue){
+                            questionJSON.answerList.push(answerValue.answer);
                         }
 
-                    }
-                    else {
-                        log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
-                    }
+                    });
+                    // const questionAnswerListDB = await .getListByAnswerIDList(questionRequest.answer).catch(function(err) {
+                    //     log.error("questionBO load error " + err + __location);
+                    // });
+                    // if (questionAnswerListDB && questionAnswerListDB.length > 0) {
+                    //     questionJSON.answerList = [];
+                    //     for (let j = 0; j < questionAnswerListDB.length; j++) {
+                    //         questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                    //     }
+
+                    // }
+                    // else {
+                    //     log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
+                    // }
                 }
                 else {
                     questionJSON.answerId = questionRequest.answer;
+                    const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = questionJSON.answerId)
+                    if(answerValue){
+                        questionJSON.answerValue = answerValue.answer;
+                    }
                     // Need answer value
-                    const questionAnswerBO = new QuestionAnswerBO();
                     // Load the request data into it
-                    const questionAnswerDB = await questionAnswerBO.getById(questionJSON.answerId).catch(function(err) {
-                        log.error("questionBO load error " + err + __location);
-                    });
-                    if (questionAnswerDB) {
-                        questionJSON.answerValue = questionAnswerDB.answer;
-                    }
-                    else {
-                        log.error(`no question record for id ${questionJSON.questionId} ` + __location);
-                    }
+                    // const questionAnswerDB = await .getById(questionJSON.answerId).catch(function(err) {
+                    //     log.error("questionBO load error " + err + __location);
+                    // });
+                    // if (questionAnswerDB) {
+                    //     questionJSON.answerValue = questionAnswerDB.answer;
+                    // }
+                    // else {
+                    //     log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                    // }
 
                 }
                 processedQuestionList.push(questionJSON);
