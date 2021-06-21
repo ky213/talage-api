@@ -14,7 +14,7 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
-const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
+
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -779,11 +779,9 @@ module.exports = class ApplicationModel {
         return new Promise(async(resolve) => {
             ///delete existing ?? old system did not.
 
-            const questionTypeBO = new QuestionTypeBO();
+            const QuestionTypeSvc = global.requireShared('./services/questiontypesvc.js');
             // Load the request data into it
-            const questionTypeListDB = await questionTypeBO.getList().catch(function(err) {
-                log.error("questionTypeBO load error " + err + __location);
-            });
+            const questionTypeList = QuestionTypeSvc.getList()
 
             const processedQuestionList = []
             //get text and turn into list of question objects.
@@ -805,8 +803,8 @@ module.exports = class ApplicationModel {
                     questionJSON.hint = questionDB.hint;
                     questionJSON.hidden = questionDB.hidden;
                     questionJSON.questionType = questionDB.type;
-                    if (questionTypeListDB) {
-                        const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
+                    if (questionTypeList) {
+                        const questionType = questionTypeList.find(questionTypeTest => questionTypeTest.id === questionDB.type);
                         if (questionType) {
                             questionJSON.questionType = questionType.name;
                         }
