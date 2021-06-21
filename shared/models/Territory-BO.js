@@ -136,12 +136,12 @@ module.exports = class TerritoryBO{
                 name: 1,
                 "_id": 0
             };
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.name = 1;
             let doclist = null;
             try {
-                doclist = await TerritoryModel.find(query, queryProjection,queryOptions)
+                doclist = await TerritoryModel.find(query, queryProjection,queryOptions).lean()
 
                 //save to redis
 

@@ -18,7 +18,6 @@ const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
-const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const clonedeep = require('lodash.clonedeep');
 
@@ -942,15 +941,7 @@ async function createQuoteSummary(quote) {
             }
 
             // Retrieve the insurer's payment plan
-            const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
-            let insurerPaymentPlanList = null;
-            try {
-                insurerPaymentPlanList = await insurerPaymentPlanModel.getList({"insurer": quote.insurerId});
-            }
-            catch (error) {
-                log.error(`Could not get insurer payment plan for ${quote.insurerId}:` + error + __location);
-                return null;
-            }
+            const insurerPaymentPlanList = insurer.paymentPlans;
 
             // Retrieve the payment plans and create the payment options object
             const paymentOptions = [];

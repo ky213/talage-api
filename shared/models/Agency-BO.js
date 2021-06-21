@@ -624,11 +624,11 @@ module.exports = class AgencyBO {
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"systemId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.systemId = -1;
             queryOptions.limit = 1;
-            const docList = await AgencyModel.find(query, queryProjection, queryOptions)
+            const docList = await AgencyModel.find(query, queryProjection, queryOptions).lean()
             if(docList && docList.length > 0){
                 for(let i = 0; i < docList.length; i++){
                     if(docList[i].systemId > maxId){

@@ -8,6 +8,7 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
+const QuestionTypeSvc = global.requireShared('./services/questiontypesvc.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
@@ -17,7 +18,16 @@ async function findAll(req, res, next) {
     let error = null;
     const questionBO = new QuestionBO();
 
-    const rows = await questionBO.getList(req.query).catch(function(err) {
+    if(req.query.question){
+        req.query.text = req.query.question;
+        delete req.query.question;
+    }
+    if(req.query.id){
+        req.query.talageQuestionId = req.query.id;
+        delete req.query.id;
+    }
+
+    const questionDocList = await questionBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
         error = err;
     })
@@ -33,8 +43,12 @@ async function findAll(req, res, next) {
         return next(error);
     }
 
-    if (rows) {
-        res.send(200, {rows, ...count});
+    if (questionDocList) {
+        questionDocList.forEach((questionDoc) => {
+            prepReturnQuestion(questionDoc)
+        });
+
+        res.send(200, {rows: questionDocList, ...count});
         return next();
     }
     else {
@@ -60,6 +74,7 @@ async function findOne(req, res, next) {
     }
     // Send back a success response
     if (questionJSON) {
+        prepReturnQuestion(questionJSON)
         res.send(200, questionJSON);
         return next();
     }
@@ -73,16 +88,48 @@ async function add(req, res, next) {
 
     log.debug("question post " + JSON.stringify(req.body));
     //TODO Validate
-    if(!req.body.question){
-        return next(serverHelper.requestError("bad missing question"));
+    if(!req.body.question && !req.body.text){
+        return next(serverHelper.requestError("bad missing question text"));
     }
-    // allow hint to be empty string
-    if(!req.body.hint && req.body.hint !== ""){
-        return next(serverHelper.requestError("bad missing hint"));
+    // // allow hint to be empty string
+    // if(!req.body.hint && req.body.hint !== ""){
+    //     return next(serverHelper.requestError("bad missing hint"));
+    // }
+    if(!req.body.text && req.body.question){
+        req.body.text = req.body.question
     }
+
+    if(!req.body.typeId && !req.body.type){
+        req.body.typeId = 1
+    }
+    else if (!req.body.typeId){
+        req.body.typeId = req.body.type
+    }
+    const questionTypeJSON = QuestionTypeSvc.getById(req.body.typeId);
+    req.body.typeDesc = questionTypeJSON.name
+    if(!req.body.answers && req.body.typeId === 1){
+        //create yes  && no
+        req.body.answers = [];
+        const noAnswer = {
+            answerId: 1,
+            answer: "No",
+            default: true
+        }
+        req.body.answers.push(noAnswer)
+        const yesAnswer = {
+            answerId: 2,
+            answer: "Yes",
+            default: false
+        }
+        req.body.answers.push(yesAnswer)
+    }
+
+
     const questionBO = new QuestionBO();
     let error = null;
     const newRecord = true;
+    //prepRequestQuestion(req.body)
+    log.debug("question post to save " + JSON.stringify(req.body));
     await questionBO.saveModel(req.body,newRecord).catch(function(err) {
         log.error("question save error " + err + __location);
         error = err;
@@ -90,12 +137,14 @@ async function add(req, res, next) {
     if (error) {
         return next(error);
     }
+    prepReturnQuestion(questionBO.mongoDoc)
 
-    res.send(200, questionBO.cleanJSON());
+    res.send(200, questionBO.mongoDoc);
     return next();
 }
 
 async function update(req, res, next) {
+    log.debug(`question put ${JSON.stringify(req.body)}`)
     const id = req.params.id;
     if (!id) {
         return next(serverHelper.requestError("bad parameter"));
@@ -103,17 +152,24 @@ async function update(req, res, next) {
     if(!req.body){
         return next(serverHelper.requestError("bad put"));
     }
+    if(!req.body.id){
+        req.body.id = req.body.talageQuestionId
+    }
     let error = null;
     const updateRecord = false;
     const questionBO = new QuestionBO();
-    await questionBO.saveModel(req.body, updateRecord).catch(function(err) {
+    const newDoc = JSON.parse(JSON.stringify(req.body))
+    prepRequestQuestion(newDoc)
+    log.debug(`question put prepped ${JSON.stringify(newDoc)}`)
+    await questionBO.saveModel(newDoc, updateRecord).catch(function(err) {
         log.error("question load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-    res.send(200, questionBO);
+    prepReturnQuestion(questionBO.mongoDoc)
+    res.send(200, questionBO.mongoDoc);
     //update cache
     // const questionSvc = global.requireShared('./services/questionsvc.js');
     // try{
@@ -125,6 +181,77 @@ async function update(req, res, next) {
     // }
 
     return next();
+}
+function prepReturnQuestion(questionDoc){
+    if(!questionDoc){
+        return;
+    }
+    questionDoc.id = questionDoc.talageQuestionId
+    questionDoc.type = questionDoc.typeId
+    questionDoc.question = questionDoc.text
+    questionDoc.state = questionDoc.active ? 1 : 0;
+    questionDoc.stateDesc = questionDoc.active ? "Published" : "Unpublished";
+    if(questionDoc.answers){
+        questionDoc.answers.forEach((answer) => {
+            answer.question = questionDoc.talageQuestionId
+            answer.id = answer.answerId;
+            if(answer._id){
+                delete answer._id;
+            }
+        })
+    }
+
+
+}
+
+function prepRequestQuestion(questionDoc){
+    if(!questionDoc){
+        return;
+    }
+    if(questionDoc.id && !questionDoc.talageQuestionId){
+        questionDoc.talageQuestionId = questionDoc.id;
+        delete questionDoc.id;
+    }
+    if(questionDoc.type){
+        questionDoc.typeId = questionDoc.type
+    }
+    if(questionDoc.question){
+        questionDoc.text = questionDoc.question
+    }
+    if(questionDoc.state){
+        questionDoc.active = questionDoc.state === 1;
+    }
+    if(questionDoc.typeId){
+        const questionTypeJSON = QuestionTypeSvc.getById(questionDoc.typeId);
+        questionDoc.typeDesc = questionTypeJSON.name
+    }
+    if(questionDoc.answers){
+        let needAnswerId = false;
+        let maxAnswerId = 0;
+        questionDoc.answers.forEach((answer) => {
+            if(!answer.answerId && answer.id){
+                answer.answerId = answer.id
+            }
+            if(answer.default !== true){
+                answer.default = answer.default === 1;
+            }
+            if(answer.answerId > maxAnswerId){
+                maxAnswerId = answer.answerId
+            }
+            if(!answer.answerId){
+                needAnswerId = true;
+            }
+        })
+        if(needAnswerId){
+            questionDoc.answers.forEach((answer) => {
+                if(!answer.answerId){
+                    maxAnswerId++;
+                    answer.answerId = maxAnswerId;
+                }
+            });
+        }
+
+    }
 }
 
 exports.registerEndpoint = (server, basePath) => {

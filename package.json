@@ -72,7 +72,6 @@
         "eslint-config-prettier": "^6.11.0",
         "eslint-plugin-babel": "^5.3.1",
         "eslint-plugin-deprecate": "0.7.0",
-        "eslint-plugin-talage": "file:eslint",
         "jshint": "^2.11.0",
         "mocha": "^7.2.0",
         "mochawesome": "^6.1.1",

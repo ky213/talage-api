@@ -115,7 +115,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
     registerEndpoint(server, 'administration', 'insurer');
-    registerEndpoint(server, 'administration', 'insurer-payment-plan-rt');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-network-user-rt');
@@ -134,9 +133,9 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-activity-code-rt');
     registerEndpoint(server, 'administration', 'insurer-question-rt');
     registerEndpoint(server, 'administration', 'insurer-logo-rt');
-    registerEndpoint(server, 'administration', 'question-answer-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
     registerEndpoint(server, 'administration', 'policy-type-rt');
+    registerEndpoint(server, 'administration', 'payment-plan-rt');
     registerEndpoint(server, 'administration', 'user-group-rt');
     registerEndpoint(server, 'administration', 'code-group-rt');
     registerEndpoint(server, 'administration', 'mapping-rt');
