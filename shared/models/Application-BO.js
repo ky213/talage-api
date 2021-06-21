@@ -822,7 +822,7 @@ module.exports = class ApplicationModel {
                     questionJSON.answerValue = arrayString;
                     questionJSON.answerList = [];
                     questionRequest.answer.forEach((requestAnswer) => {
-                        const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = requestAnswer )
+                        const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = requestAnswer)
                         if(answerValue){
                             questionJSON.answerList.push(answerValue.answer);
                         }
