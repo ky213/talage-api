@@ -15,7 +15,7 @@ const opts = {toJSON: {virtuals: true}};
 const Answerschema = new Schema({
     answerId: {type: Number, required: [true, 'answerId required']},
     answer: {type: String, required: true},
-    default: {type: Boolean, default: false, required: true}
+    default: {type: Boolean, default: false, required: false}
 },opts)
 
 
@@ -24,7 +24,7 @@ const QuestionSchema = new Schema({
     talageQuestionId: {type: Number, required: [true, 'talageQuestionId required'], unique: true},
     parent: {type: Number, required: false},
     parent_answer: {type: Number, required: false},
-    typeId: {type: Number, required: true},
+    typeId: {type: Number, required: true, default: 1},
     typeDesc: {type: String, required: false},
     sub_level: {type: Number, required: false},
     text: {type: String, required: false},
@@ -50,6 +50,28 @@ QuestionSchema.pre('validate', function(next) {
         if (!this.talageQuestionUuid) {
             this.talageQuestionUuid = uuid.v4();
         }
+    }
+    if(this.answers){
+        let needAnswerId = false;
+        let maxAnswerId = 0;
+        this.answers.forEach((answer) => {
+            if(!answer.answerId){
+                needAnswerId = true;
+            }
+            else if(answer.answerId > maxAnswerId){
+                maxAnswerId = answer.answerId
+            }
+        })
+        if(needAnswerId){
+            this.answers.forEach((answer) => {
+                if(!answer.answerId){
+                    maxAnswerId++;
+                    answer.answerId = maxAnswerId;
+                }
+            });
+        }
+
+
     }
     next();
 });
