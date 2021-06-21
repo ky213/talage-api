@@ -180,7 +180,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let start = moment();
     try{
 
-        const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+        const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery).lean();
         //need territory filter
         //territoryList: {$in: territories},
 
@@ -260,7 +260,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     industryQuery.$or = orParamList;
     try{
         //log.debug(`insurerIndustryCodeList query ${JSON.stringify(industryQuery)}`)
-        const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
+        const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery).lean();
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
         let talageQuestionIdArray = [];
@@ -320,7 +320,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
             //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
-            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery).lean();
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
                     if(insurerQuestion.talageQuestionId && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
@@ -361,7 +361,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     try{
         log.debug(`activityCodeQuery ${JSON.stringify(activityCodeQuery)}`);
-        const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
+        const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean();
         // eslint-disable-next-line prefer-const
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
@@ -421,7 +421,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
             //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
-            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery).lean();
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
                     if(insurerQuestion.talageQuestionId && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
