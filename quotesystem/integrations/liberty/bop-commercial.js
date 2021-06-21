@@ -104,7 +104,8 @@ const locationQuestionSpecialCases = [
     'LMBOP_YearBuilt', // Construction/YearBuilt
     'LMBOP_NumStories', // Construction/NumStories
     'LMBOP_AlarmType', // BldgProtection/ProtectionDeviceBurglarCd
-    'UWQ6003' // QuestionAnswer
+    'UWQ6003', // QuestionAnswer
+    'LMBOP_YearRoofReplaced'
 ];
 
 const constructionMatrix = {
@@ -1010,6 +1011,12 @@ module.exports = class LibertySBOP extends Integration {
                                 BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
                             }
                             BldgImprovementExt.ele('com.libertymutual.ci_ResidentialOccupancyPct', question.answerValue);
+                            break;
+                        case "LMBOP_YearRoofReplaced":
+                            if (!BldgImprovements) {
+                                BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                            }
+                            BldgImprovements.ele('RoofingImprovementYear', question.answerValue);
                             break;
                         case "BOP8":
                         case "BOP186":
