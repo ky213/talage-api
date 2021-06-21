@@ -330,7 +330,7 @@ module.exports = class QuestionBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"talageQuestionId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.talageQuestionId = -1;
             queryOptions.limit = 1;

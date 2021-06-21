@@ -80,7 +80,7 @@ module.exports = class WCStateIncomeLimitsBO {
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {wcStateIncomeLimitsId: 1};
             if (queryJSON.sort) {
                 var wcls = 1;
