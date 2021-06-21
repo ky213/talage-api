@@ -84,7 +84,7 @@ module.exports = class ActivityCodeBO{
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {activityCodeId: 1};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -328,11 +328,11 @@ module.exports = class ActivityCodeBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"activityCodeId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.activityCodeId = -1;
             queryOptions.limit = 1;
-            const docList = await ActivityCode.find(query, queryProjection, queryOptions)
+            const docList = await ActivityCode.find(query, queryProjection, queryOptions).lean()
             if(docList && docList.length > 0){
                 for(let i = 0; i < docList.length; i++){
                     if(docList[i].activityCodeId > maxId){

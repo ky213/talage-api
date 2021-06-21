@@ -154,7 +154,7 @@ module.exports = class AgencyLocationBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"systemId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.systemId = -1;
             queryOptions.limit = 1;
