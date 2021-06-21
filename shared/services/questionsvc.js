@@ -175,8 +175,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         orParamList.push(mongoPolicyEffectiveDateQuery)
     });
     insurerQuestionQuery.$or = orParamList;
-
     log.debug(`insurerQuestionQuery Universal  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
+    let start = moment();
     try{
 
         const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
@@ -220,6 +220,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         else {
             log.debug(`No Insurer universal questions found ` + __location)
         }
+        const endSqlSelect = moment();
+        const diff = endSqlSelect.diff(start, 'milliseconds', true);
+        log.info(`Mongo Universal Question process duration: ${diff} milliseconds`);
     }
     catch(err){
         log.error(`Error loading Universal Questions from Mongo ${err}` + __location)
@@ -235,7 +238,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
     // }
     const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-    let start = moment();
+    start = moment();
     // eslint-disable-next-line prefer-const
     let industryQuery = {
         insurerId: {$in: insurerArray},
@@ -317,7 +320,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
-                    if(insurerQuestion.talageQuestionId){
+                    if(insurerQuestion.talageQuestionId && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
                         talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
                     }
                 }
@@ -412,7 +415,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
-                    if(insurerQuestion.talageQuestionId){
+                    if(insurerQuestion.talageQuestionId && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
                         talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
                     }
                 }
@@ -649,7 +652,7 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
-
+    let start = moment();
     let talageQuestions = [];
     let error = null;
     if(global.settings.USE_MYSQL_QUESTIONS === "YES"){
@@ -707,6 +710,9 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
 
     }
 
+    const endSqlSelect = moment();
+    const diff = endSqlSelect.diff(start, 'milliseconds', true);
+    log.info(`Mongo Talage Question process duration: ${diff} milliseconds`);
     // should be removed once integration are refactored
     // to drive off insurer questions not talage quesetions.
     // this is only need to match TalageQuestion to insurer question.
