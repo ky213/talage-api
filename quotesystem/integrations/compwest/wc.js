@@ -769,7 +769,13 @@ module.exports = class CompwestWC extends Integration {
 
         // <CommlCoverage>
         const CommlCoverage = WorkCompLineBusiness.ele('CommlCoverage');
-        CommlCoverage.ele('CoverageCd', 'WCEL');
+        if(guideWireAPI === true){
+            CommlCoverage.ele('CoverageCd', 'WC7WorkersCompEmpLiabInsurancePolicyACov');
+        }
+        else {
+            CommlCoverage.ele('CoverageCd', 'WCEL');
+        }
+
         CommlCoverage.ele('CoverageDesc', 'Employers Liability');
 
         // <Limit>
