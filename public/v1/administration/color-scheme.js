@@ -1,23 +1,19 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-
+const ColorSchemeBO = global.requireShared('./models/ColorScheme-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 
 async function readColorSchemeList(req, res, next) {
     // Retrieve the color schemes from the database.
     // Obviously this is only quick and dirty just to test the administration client API. This code should go into a model object.
     //TODO use BO
-    const sql = `
-		SELECT id, state, name, \`primary\`, primary_accent, secondary, secondary_accent
-		FROM clw_talage_color_schemes
-		WHERE 
-			state = 1 
-			AND name != 'Custom'
-	`;
-    let result = null;
+
+
+    const colorSchemeBO = new ColorSchemeBO()
+    let colorSchemaList = null;
     try {
-        result = await db.query(sql);
+        colorSchemaList = await colorSchemeBO.getListStandard();
     }
     catch (error) {
         log.error(`Could not retrieve color schemes: ${error} ${__location}`);
@@ -26,9 +22,9 @@ async function readColorSchemeList(req, res, next) {
 
     // Build the color schemes response
     const colorSchemes = [];
-    result.forEach((colorScheme) => {
+    colorSchemaList.forEach((colorScheme) => {
         colorSchemes.push({
-            id: colorScheme.id,
+            id: colorScheme.colorSchemeId,
             name: colorScheme.name,
             primaryColor: colorScheme.primary,
             primaryAccentColor: colorScheme.primary_accent,

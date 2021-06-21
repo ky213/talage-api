@@ -29,8 +29,6 @@ describe("Slacksvc Send, ", function (){
         simple.mock(log, 'debug').callFn(function () {});
         simple.mock(log, 'silly').callFn(function () {});
         simple.mock(log, 'verbose').callFn(function () {});
-        sinon.stub(db, "query");
-
         global.settings.SLACK_DO_NOT_SEND = "YES";
 
         done();
@@ -38,7 +36,6 @@ describe("Slacksvc Send, ", function (){
 
     afterEach(function(done) {
         simple.restore();
-        db.query.restore();
         done();
     });
 
@@ -151,7 +148,6 @@ describe("Slacksvc send2SlackJSON, ", function (){
         simple.mock(log, 'debug').callFn(function () {});
         simple.mock(log, 'silly').callFn(function () {});
         simple.mock(log, 'verbose').callFn(function () {});
-        sinon.stub(db, "query");
 
         global.settings.SLACK_DO_NOT_SEND = "YES";
 
@@ -160,7 +156,6 @@ describe("Slacksvc send2SlackJSON, ", function (){
 
     afterEach(function(done) {
         simple.restore();
-        db.query.restore();
         done();
     });
 
@@ -184,6 +179,6 @@ describe("Slacksvc send2SlackJSON, ", function (){
         let error = null;
         const resp = await taskSlackSvc.send2SlackJSON({}).catch(err => error = err);
         should.exist(error);
-         assert.equal(resp, "Error: No data was received");
+        assert.equal(resp, "Error: No data was received");
     });
 });
