@@ -156,8 +156,8 @@ async function runFunction() {
     let apiAuthApUrl = "http://localhost:3000/v1/auth/agency-portal"
     let apiApRequoteUrlBase = "http://localhost:3000/v1/agency-portal/application"
     if(userRemote === 'Y'){
-        apiAuthApUrl = "http://devapi.talageins.com/v1/auth/agency-portal"
-        apiApRequoteUrlBase = "http://devapi.talageins.com/v1/agency-portal/application"
+        apiAuthApUrl = "https://devapi.talageins.com/v1/auth/agency-portal"
+        apiApRequoteUrlBase = "https://devapi.talageins.com/v1/agency-portal/application"
     }
 
     let authResponse = null;
@@ -172,7 +172,6 @@ async function runFunction() {
         log.error("missing authResponse.token " + JSON.stringify(authResponse.data));
         process.exit(1);
     }
-
 
     const quote_promises = [];
     // eslint-disable-next-line array-element-newline
