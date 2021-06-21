@@ -91,6 +91,7 @@ module.exports = function() {
     require('./shared/models/mongoose/Territory.model');
 
     require('./shared/models/mongoose/Question.model');
+    require('./shared/models/mongoose/ColorScheme.model');
 
     return mongodb;
 
