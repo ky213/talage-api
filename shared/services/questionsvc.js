@@ -7,6 +7,7 @@ const moment = require('moment');
 const helper = global.requireShared('./helpers/helper.js');
 const log = global.log;
 const QuestionModel = require('mongoose').model('Question');
+const utility = global.requireShared('./helpers/utility.js');
 
 
 /**
@@ -303,9 +304,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             }
             // eslint-disable-next-line prefer-const
             const orParamList2 = [];
+            const territoryAllCheck = {allTerritories: true};
             const territoryCheck = {territoryList: {$in: territories}};
             const territoryLengthCheck = {territoryList: {$size: 0}}
             const territoryNullCheck = {territoryList: null}
+            orParamList2.push(territoryAllCheck)
             orParamList2.push(territoryCheck)
             orParamList2.push(territoryNullCheck)
             orParamList2.push(territoryLengthCheck)
@@ -359,6 +362,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     try{
         log.debug(`activityCodeQuery ${JSON.stringify(activityCodeQuery)}`);
         const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
+        // eslint-disable-next-line prefer-const
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
         let talageQuestionIdArray = [];
@@ -370,7 +374,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                         //if so add question list - Dups are OK.
                         const tQFound = insurerActivityCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territories[i]);
                         if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
-                            insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
+                            //insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
+                            utility.addArrayToArray(insurerQuestionIdArray,tQFound.insurerQuestionIdList)
                         }
                         else {
                             addStandardQuestions = true;
@@ -378,11 +383,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     }
                     //any territory that does not get a hit trigger adding standard questions
                     if(addStandardQuestions && insurerActivityCode.insurerQuestionIdList && insurerActivityCode.insurerQuestionIdList.length > 0){
-                        insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                        //insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                        utility.addArrayToArray(insurerQuestionIdArray,insurerActivityCode.insurerQuestionIdList)
                     }
                 }
                 else if(insurerActivityCode.insurerQuestionIdList && insurerActivityCode.insurerQuestionIdList.length > 0){
-                    insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                    //insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                    utility.addArrayToArray(insurerQuestionIdArray,insurerActivityCode.insurerQuestionIdList)
                 }
             }
         }
@@ -399,9 +406,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             }
             // eslint-disable-next-line prefer-const
             const orParamList2 = [];
+            const territoryAllCheck = {allTerritories: true};
             const territoryCheck = {territoryList: {$in: territories}};
             const territoryLengthCheck = {territoryList: {$size: 0}}
             const territoryNullCheck = {territoryList: null}
+            orParamList2.push(territoryAllCheck)
             orParamList2.push(territoryCheck)
             orParamList2.push(territoryNullCheck)
             orParamList2.push(territoryLengthCheck)
@@ -652,7 +661,7 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
-    let start = moment();
+    const start = moment();
     let talageQuestions = [];
     let error = null;
     if(global.settings.USE_MYSQL_QUESTIONS === "YES"){
@@ -681,8 +690,7 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
         const query = {active: true, talageQuestionId: {$in: talageQuestionIdArray}};
         // eslint-disable-next-line object-property-newline
         const queryProjection = {"__v": 0, "_id": 0,acordQuestion: 0, active: 0,updatedAt:0, createdAt: 0};
-        const queryOptions = {lean:true};
-        talageQuestions = await QuestionModel.find(query,queryProjection,queryOptions).catch(function(err) {
+        talageQuestions = await QuestionModel.find(query,queryProjection).lean().catch(function(err) {
             error = err.message;
             log.error(`Error get Talage Questions ${err} ` + __location);
         });
@@ -734,7 +742,9 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
             //change to store insurerQuestionId.  will allow for multiple insurerquestions to map to
             // one talage question.
             iqForTalageQList.forEach(function(iqForTalageQ){
-                talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+                iqForTalageQ.policyTypeList.forEach((policyType) => {
+                    talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + policyType)
+                });
                 insurerQuestionRefList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.insurerQuestionId)
             });
             talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
