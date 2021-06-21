@@ -104,7 +104,8 @@ const locationQuestionSpecialCases = [
     'LMBOP_YearBuilt', // Construction/YearBuilt
     'LMBOP_NumStories', // Construction/NumStories
     'LMBOP_AlarmType', // BldgProtection/ProtectionDeviceBurglarCd
-    'UWQ6003' // QuestionAnswer
+    'UWQ6003', // QuestionAnswer
+    'LMBOP_YearRoofReplaced'
 ];
 
 const constructionMatrix = {
@@ -463,9 +464,9 @@ module.exports = class LibertySBOP extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
-        BusinessInfo.ele('OperationsDesc', 'Operation Description Not Provided.'); // NOTE: See if this is acceptable, or if we need to add a question
+        BusinessInfo.ele('OperationsDesc', this.get_operation_description());
 
-    //             <Policy>
+        //             <Policy>
 
         const Policy = PolicyRq.ele('Policy');
 
@@ -1010,6 +1011,12 @@ module.exports = class LibertySBOP extends Integration {
                                 BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
                             }
                             BldgImprovementExt.ele('com.libertymutual.ci_ResidentialOccupancyPct', question.answerValue);
+                            break;
+                        case "LMBOP_YearRoofReplaced":
+                            if (!BldgImprovements) {
+                                BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                            }
+                            BldgImprovements.ele('RoofingImprovementYear', question.answerValue);
                             break;
                         case "BOP8":
                         case "BOP186":
