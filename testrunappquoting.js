@@ -123,6 +123,7 @@ async function main() {
 }
 
 function onErr(err) {
+    // eslint-disable-next-line no-console
     console.log(err);
     return 1;
 }
@@ -146,7 +147,6 @@ async function runFunction() {
     const promptly = require('promptly');
     const userEmail = await promptly.prompt('userEmail: ');
     const userPwd = await promptly.password('userPwd: ');
-   
 
     //get app auth token
     // eslint-disable-next-line object-curly-newline
@@ -197,7 +197,7 @@ async function runFunction() {
                 delete mongoApp.uuid
                 delete mongoApp.mysqlId
                 delete mongoApp.createdAt
-            
+
                 //update policies dates
                 const newEffectiveDate = moment().add(1,"months");
                 const newExpirationDate = newEffectiveDate.clone().add(1,'years');
@@ -217,6 +217,7 @@ async function runFunction() {
 
                 if(appList[i].requiresNewEin){
                     mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
+                    mongoApp.businessName = `${mongoApp.businessName} - ${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
                 }
 
                 //save mongoinsert
