@@ -463,9 +463,9 @@ module.exports = class LibertySBOP extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
-        BusinessInfo.ele('OperationsDesc', 'Operation Description Not Provided.'); // NOTE: See if this is acceptable, or if we need to add a question
+        BusinessInfo.ele('OperationsDesc', this.get_operation_description());
 
-    //             <Policy>
+        //             <Policy>
 
         const Policy = PolicyRq.ele('Policy');
 
