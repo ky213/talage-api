@@ -1794,17 +1794,17 @@ module.exports = class Integration {
         if (!Object.keys(this.limits).length) {
             return rtn;
         }
-
-        // Get the limit descriptions from the database
-        // TODO USE BO
-        const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err) {
-            return err;
+  
+        const LimitSvc = global.requireShared('services/limitsvc.js');
+        //const limitList = LimitSvc.getList();
+        
+        this.limits.forEach((qLimit) => {
+            const limitFound = LimitSvc.getById(qLimit)
+            if(limitFound){
+                rtn[limitFound.description] = this.limits[limitFound.id];
+            }
         });
-
-        // Loop through the results and build the response
-        result.forEach((limitInfo) => {
-            rtn[limitInfo.description] = this.limits[limitInfo.id];
-        });
+      
 
         return rtn;
     }
