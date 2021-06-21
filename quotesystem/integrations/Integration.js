@@ -2374,22 +2374,6 @@ module.exports = class Integration {
                     }
                 }
                 // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
-               
-                // const sql = `
-                //     SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
-                //     FROM clw_talage_industry_codes AS ic 
-                //     WHERE ic.id = ${this.app.applicationDocData.industryCode};
-                // `;
-                // let hadError = false;
-                // const result = await db.query(sql).catch((error) => {
-                //     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
-                //     hadError = true;
-                // });
-                // if (hadError) {
-                //     // Query error
-                //     fulfill(false);
-                //     return;
-                // }
                 try{
                     const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
                     const industryCodeBO = new IndustryCodeBO();
