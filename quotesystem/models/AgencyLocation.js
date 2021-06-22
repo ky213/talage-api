@@ -102,6 +102,7 @@ module.exports = class AgencyLocation {
                 agencyInfo = await agencyBO.getById(agencyLocation.agencyId);
                 agencyInfo.email = agencyLocation.email;
                 agencyInfo.fname = agencyLocation.firstName;
+                agencyInfo.lname = agencyLocation.lastName;
                 agencyInfo.additionalInfo = agencyLocation.additionalInfo;
             }
             catch(err){
