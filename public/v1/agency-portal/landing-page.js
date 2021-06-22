@@ -7,6 +7,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const colorConverter = require('color-converter').default;
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
+const ColorSchemeBO = global.requireShared('./models/ColorScheme-BO.js');
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -76,14 +77,17 @@ function calculateAccentColor(rgbColorString) {
  */
 async function retrieveCustomColorScheme(data, next) {
     // see if record already exists
-    const recordSearchQuery = `
-		SELECT 
-			\`id\`
-		FROM \`#__color_schemes\` 					
-		WHERE \`primary\` = ${db.escape(data.primary)} && \`secondary\` = ${db.escape(data.secondary)}
-	`;
+
+    const colorSchemeBO = new ColorSchemeBO()
+
+    const query = {
+        primary:  data.primary,
+        secondary: data.secondary
+    }
+
+
     // variable to hold existing id
-    const exisitingColorId = await db.query(recordSearchQuery).catch(function(err) {
+    const exisitingColorId = await colorSchemeBO.getList(query).catch(function(err) {
         log.error(`Error when trying to check if custom color already exists. \n ${err.message}`);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
@@ -101,19 +105,15 @@ async function retrieveCustomColorScheme(data, next) {
     // if record does not exist then go ahead and insert into db
     // commit this update to the database
     if (exisitingColorId.length === 0) {
-        const sql = `
-				INSERT INTO \`#__color_schemes\` 
-				(\`name\`, \`primary\`,\`primary_accent\`,\`secondary\`,\`secondary_accent\`,\`tertiary\`,\`tertiary_accent\`)
-				VALUES (${db.escape(`Custom`)}, ${db.escape(data.primary)}, ${db.escape(data.primary_accent)}, ${db.escape(data.secondary)}, ${db.escape(data.secondary_accent)}, ${db.escape(data.tertiary)}, ${db.escape(data.tertiary_accent)})
-		`;
-        // Run the query
-        const createCustomColorResult = await db.query(sql).catch(function(err) {
+        data.name = 'Custom';
+        await colorSchemeBO.saveModel(data).catch(function(err) {
             log.error(err.message);
             return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
         });
+        const newColorScheme = colorSchemeBO.mongoDoc;
         // Make sure the query was successful
-        if (createCustomColorResult.affectedRows === 1) {
-            newColorId = createCustomColorResult.insertId;
+        if (newColorScheme) {
+            newColorId = newColorScheme.colorSchemeId
         }
         else {
             log.error('Custom color scheme update failed. Query ran successfully; however, no records were affected.');
@@ -121,7 +121,7 @@ async function retrieveCustomColorScheme(data, next) {
         }
     }
 
-    return exisitingColorId.length === 0 ? newColorId : exisitingColorId[0].id;
+    return exisitingColorId.length === 0 ? newColorId : exisitingColorId[0].colorSchemeId;
 
 }
 
@@ -537,31 +537,26 @@ async function getLandingPage(req, res, next) {
     landingPageJSON.showIndustrySection = Boolean(landingPageJSON.showIndustrySection);
 
     // if the page was found continue and query for the page color scheme
-    const colorInformationSQL = `
-				SELECT
-				\`name\`,
-				\`primary\`,
-				\`secondary\`
-				FROM  \`#__color_schemes\`
-				WHERE \`id\` = ${landingPageJSON.colorSchemeId}
-			`;
+
+    const colorSchemeBO = new ColorSchemeBO()
     let colorSchemeInfo = null;
     try {
-        colorSchemeInfo = await db.query(colorInformationSQL);
+        colorSchemeInfo = await colorSchemeBO.getById(landingPageJSON.colorSchemeId);
     }
     catch (err) {
-        log.error(err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+        log.error(`Could not retrieve color schemes: ${err} ${__location}`);
+        return serverHelper.sendError(res, next, 'Internal Error');
     }
 
+
     // make sure the color scheme was found
-    if (colorSchemeInfo.length !== 1) {
-        log.warn('Page not found');
+    if (!colorSchemeInfo) {
+        log.warn(`Page's color scheme not found: ${landingPageJSON.colorSchemeId} ` + __location);
         return next(serverHelper.requestError('Page not found'));
     }
     else {
         // if found go ahead and add and then set the customColorInfo field to either the scheme info or null which indicates it is not a custom color info
-        landingPageJSON.customColorInfo = colorSchemeInfo[0].name === 'Custom' ? colorSchemeInfo[0] : null;
+        landingPageJSON.customColorInfo = colorSchemeInfo.name === 'Custom' ? colorSchemeInfo : null;
     }
 
     // Send the user's data back

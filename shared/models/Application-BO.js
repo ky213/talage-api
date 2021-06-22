@@ -11,12 +11,9 @@ const _ = require('lodash');
 
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
-const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
-const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
-const MappingBO = global.requireShared('./models/Mapping-BO.js');
+
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -460,11 +457,6 @@ module.exports = class ApplicationModel {
                 await this.insertMongo(this.#applicationMongooseJSON)
             }
 
-            if (workflowStep === "contact") {
-                log.debug("calling getBusinessInfo ");
-                //async call do not await processing.
-                this.getBusinessInfo(applicationJSON);
-            }
 
             // Re-calculate our quote premium metrics whenever we bind.
             // if (workflowStep === 'bindRequest') {
@@ -786,11 +778,9 @@ module.exports = class ApplicationModel {
         return new Promise(async(resolve) => {
             ///delete existing ?? old system did not.
 
-            const questionTypeBO = new QuestionTypeBO();
+            const QuestionTypeSvc = global.requireShared('./services/questiontypesvc.js');
             // Load the request data into it
-            const questionTypeListDB = await questionTypeBO.getList().catch(function(err) {
-                log.error("questionTypeBO load error " + err + __location);
-            });
+            const questionTypeList = QuestionTypeSvc.getList()
 
             const processedQuestionList = []
             //get text and turn into list of question objects.
@@ -812,8 +802,8 @@ module.exports = class ApplicationModel {
                     questionJSON.hint = questionDB.hint;
                     questionJSON.hidden = questionDB.hidden;
                     questionJSON.questionType = questionDB.type;
-                    if (questionTypeListDB) {
-                        const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
+                    if (questionTypeList) {
+                        const questionType = questionTypeList.find(questionTypeTest => questionTypeTest.id === questionDB.type);
                         if (questionType) {
                             questionJSON.questionType = questionType.name;
                         }
@@ -830,35 +820,45 @@ module.exports = class ApplicationModel {
                 else if (questionRequest.type === 'array') {
                     const arrayString = "|" + questionRequest.answer.join('|');
                     questionJSON.answerValue = arrayString;
-                    const questionAnswerBO = new QuestionAnswerBO();
-                    const questionAnswerListDB = await questionAnswerBO.getListByAnswerIDList(questionRequest.answer).catch(function(err) {
-                        log.error("questionBO load error " + err + __location);
-                    });
-                    if (questionAnswerListDB && questionAnswerListDB.length > 0) {
-                        questionJSON.answerList = [];
-                        for (let j = 0; j < questionAnswerListDB.length; j++) {
-                            questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                    questionJSON.answerList = [];
+                    questionRequest.answer.forEach((requestAnswer) => {
+                        const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = requestAnswer)
+                        if(answerValue){
+                            questionJSON.answerList.push(answerValue.answer);
                         }
 
-                    }
-                    else {
-                        log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
-                    }
+                    });
+                    // const questionAnswerListDB = await .getListByAnswerIDList(questionRequest.answer).catch(function(err) {
+                    //     log.error("questionBO load error " + err + __location);
+                    // });
+                    // if (questionAnswerListDB && questionAnswerListDB.length > 0) {
+                    //     questionJSON.answerList = [];
+                    //     for (let j = 0; j < questionAnswerListDB.length; j++) {
+                    //         questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                    //     }
+
+                    // }
+                    // else {
+                    //     log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
+                    // }
                 }
                 else {
                     questionJSON.answerId = questionRequest.answer;
+                    const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = questionJSON.answerId)
+                    if(answerValue){
+                        questionJSON.answerValue = answerValue.answer;
+                    }
                     // Need answer value
-                    const questionAnswerBO = new QuestionAnswerBO();
                     // Load the request data into it
-                    const questionAnswerDB = await questionAnswerBO.getById(questionJSON.answerId).catch(function(err) {
-                        log.error("questionBO load error " + err + __location);
-                    });
-                    if (questionAnswerDB) {
-                        questionJSON.answerValue = questionAnswerDB.answer;
-                    }
-                    else {
-                        log.error(`no question record for id ${questionJSON.questionId} ` + __location);
-                    }
+                    // const questionAnswerDB = await .getById(questionJSON.answerId).catch(function(err) {
+                    //     log.error("questionBO load error " + err + __location);
+                    // });
+                    // if (questionAnswerDB) {
+                    //     questionJSON.answerValue = questionAnswerDB.answer;
+                    // }
+                    // else {
+                    //     log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                    // }
 
                 }
                 processedQuestionList.push(questionJSON);
@@ -1032,338 +1032,6 @@ module.exports = class ApplicationModel {
         });
 
     }
-    // Get Business Data from AF Business Data API.
-    //call only have this.id has been set.
-    async getBusinessInfo(requestApplicationJSON) {
-        // let error = null;
-        //Information will be in the applicationJSON.businessInfo
-        // Only process if we have a google_place hit.
-        const appId = this.id;
-        if (requestApplicationJSON.google_place && requestApplicationJSON.businessInfo && requestApplicationJSON.businessInfo.name && this.id) {
-            let currentAppDBJSON = null;
-            try{
-                currentAppDBJSON = await this.getById(appId)
-            }
-            catch(err){
-                log.error(`error getBusinessInfo getting application record, appid ${appId} error:` + err + __location)
-            }
-            if (typeof currentAppDBJSON !== 'object') {
-                log.error(`getBusinessInfo - Did not return AppDoc ${appId}` + __location)
-                return false;
-            }
-            //Setup goodplace
-            let saveBusinessData = false;
-            let afBusinessDataJSON = null;
-            let newBusinessDataJSON = currentAppDBJSON.businessDataJSON;
-            if (!newBusinessDataJSON) {
-                newBusinessDataJSON = {};
-            }
-            if (requestApplicationJSON.google_place) {
-                if (requestApplicationJSON.address) {
-                    requestApplicationJSON.google_place.address = requestApplicationJSON.address;
-                }
-                newBusinessDataJSON.googleBusinessData = requestApplicationJSON.google_place;
-                saveBusinessData = true;
-            }
-            const agencyNetworkId = currentAppDBJSON.agencyNetworkId;
-            //Only process AF call if digalent.
-            if (agencyNetworkId === 2) {
-                const businessInfoRequestJSON = {"company_name": requestApplicationJSON.businessInfo.name};
-                // if(applicationJSON.businessInfo.address && applicationJSON.businessInfo.address.state_abbr){
-                //     businessInfo.state = applicationJSON.businessInfo.address.state_abbr
-                // } else if(applicationJSON.address.state_abbr){
-                //     businessInfo.state = applicationJSON.address.state_abbr
-                // }
-                const addressFieldList = ["address",
-                    "address2",
-                    "city",
-                    "state_abbr",
-                    "zip"];
-                const address2AFRequestMap = {
-                    "address": "street_address1",
-                    "address2": "street_address2",
-                    "state_abbr": "state"
-                };
-                for (let i = 0; i < addressFieldList.length; i++) {
-                    if (requestApplicationJSON.address[addressFieldList[i]]) {
-                        let propertyName = addressFieldList[i];
-                        if (address2AFRequestMap[addressFieldList[i]]) {
-                            propertyName = address2AFRequestMap[addressFieldList[i]]
-                        }
-                        businessInfoRequestJSON[propertyName] = requestApplicationJSON.address[addressFieldList[i]];
-                    }
-                }
-                try {
-                    afBusinessDataJSON = await afBusinessdataSvc.getBusinessData(businessInfoRequestJSON);
-                }
-                catch (e) {
-                    log.error(`error call AF Business Data API, appid ${this.id} error:` + e + __location)
-                    afBusinessDataJSON = {};
-                    afBusinessDataJSON.error = "Error call in AF Business Data API";
-                }
-                if (afBusinessDataJSON) {
-                    afBusinessDataJSON.requestTime = new moment().toISOString();
-                    //save it back to applcation record.
-                    // Use Update  to limit the change
-                    //This process is async so other updates may have happend.
-                    newBusinessDataJSON.afBusinessData = afBusinessDataJSON;
-                    saveBusinessData = true;
-                }
-                else {
-                    log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + __location)
-                }
-            }
-            if (saveBusinessData) {
-                this.#applicationMongooseJSON.businessDataJSON = newBusinessDataJSON;
-                //monogoose model save
-                log.info(`Application ${this.id} update BusinessDataJSON`);
-                currentAppDBJSON.businessDataJSON = newBusinessDataJSON;
-                if (afBusinessDataJSON && afBusinessDataJSON.Status === "SUCCESS") {
-                    //update application Business and address.
-                    await this.updateFromAfBusinessData(currentAppDBJSON, afBusinessDataJSON)
-                }
-                else if (requestApplicationJSON.google_place) {
-                    requestApplicationJSON.google_place.address = requestApplicationJSON.address;
-                    await this.updatefromGooglePlaceData(currentAppDBJSON, requestApplicationJSON.google_place)
-                }
-                else {
-                    log.debug("No valid Business Data to update records " + __location)
-                }
-            }
-            // update application.businessDataJSON
-        }// if applicationJSON.businessInfo
-        //no errors....
-        return false;
-    }
-    async updateFromAfBusinessData(applicationJSON, afBusinessDataJSON) {
-        if (this.id && afBusinessDataJSON && applicationJSON) {
-            if (afBusinessDataJSON.afgCompany) {
-                try {
-
-                    //afgCompany -> website, street_addr1, state, city, zip,number_of
-                    if (afBusinessDataJSON.afgCompany.state && afBusinessDataJSON.afgCompany.city) {
-                        applicationJSON.state_abbr = afBusinessDataJSON.afgCompany.state;
-                        applicationJSON.city = afBusinessDataJSON.afgCompany.city;
-                    }
-                    if (afBusinessDataJSON.afgCompany.zip) {
-                        applicationJSON.zipcode = afBusinessDataJSON.afgCompany.zip.toString();
-                        applicationJSON.zip = parseInt(afBusinessDataJSON.afgCompany.zip, 10);
-                    }
-
-                    log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
-                    //TODO monogoose model save
-                    //this.#applicationMongooseJSON
-                }
-                catch (err) {
-                    log.error("Error update App from AFBusinessData " + err + __location);
-                }
-
-
-            }
-
-            //have businessId
-            const businessJSON = {"id": applicationJSON.business};
-            const locationJSON = {"business": applicationJSON.business}
-
-
-            if (afBusinessDataJSON.afgCompany) {
-
-                //employees.
-                if (afBusinessDataJSON.afgPreFill.number_of_employee) {
-                    locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.number_of_employee;
-                }
-                else if (afBusinessDataJSON.afgPreFill.employee_count) {
-                    locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.employee_count;
-                }
-
-                const companyFieldList = ["street_addr1",
-                    "street_addr2",
-                    "city",
-                    "state",
-                    "zip",
-                    "website"];
-                const company2BOMap = {
-                    "street_addr1": "mailing_address",
-                    "street_addr2": "mailing_address2",
-                    "city": "mailing_city",
-                    "state": "mailing_state_abbr",
-                    "zip": "mailing_zipcode"
-                };
-                const company2LocationBOMap = {
-                    "street_addr1": "address",
-                    "street_addr2": "address2",
-                    "city": "city",
-                    "state": "state_abbr",
-                    "zip": "zipcode"
-                };
-                try {
-                    for (let i = 0; i < companyFieldList.length; i++) {
-                        if (afBusinessDataJSON.afgCompany[companyFieldList[i]]) {
-                            let propertyName = companyFieldList[i];
-                            if (company2BOMap[companyFieldList[i]]) {
-                                propertyName = company2BOMap[companyFieldList[i]]
-                            }
-                            businessJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
-                            //location
-                            propertyName = companyFieldList[i];
-                            if (company2LocationBOMap[companyFieldList[i]]) {
-                                propertyName = company2LocationBOMap[companyFieldList[i]]
-                            }
-                            locationJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
-                        }
-
-                    }
-                    // log.debug("afBusinessDataJSON.afgCompany " + JSON.stringify(afBusinessDataJSON.afgCompany));
-                    // log.debug("businessJSON " + JSON.stringify(businessJSON));
-                    if (businessJSON.mailing_zipcode) {
-                        businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
-                    }
-                    if (locationJSON.zipcode) {
-                        locationJSON.zipcode = locationJSON.zipcode.toString();
-                    }
-
-                    if (afBusinessDataJSON.afgCompany.employee_count) {
-                        locationJSON.full_time_employees = afBusinessDataJSON.afgCompany.employee_count;
-                    }
-                }
-                catch (err) {
-                    log.error("error mapping AF Company data to BO " + err + __location);
-                }
-
-            }
-
-            if (afBusinessDataJSON.afgPreFill && afBusinessDataJSON.afgPreFill.company) {
-                if (afBusinessDataJSON.afgPreFill.company.legal_entity) {
-                    businessJSON.entity_type = afBusinessDataJSON.afgPreFill.company.legal_entity;
-                }
-                if (afBusinessDataJSON.afgPreFill.company.industry_experience) {
-                    businessJSON.years_of_exp = afBusinessDataJSON.afgPreFill.company.industry_experience;
-                }
-
-            }
-            businessJSON.locations = [];
-            businessJSON.locations.push(locationJSON)
-
-
-            try {
-                log.info(`updating  application business data from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
-                await this.processMongooseBusiness(businessJSON)
-            }
-            catch (err) {
-                log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
-            }
-            await this.processLocationsMongo(businessJSON.locations);
-            try {
-                this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-            }
-            catch (err) {
-                log.error("Error Mapping AF Business Data to Mongo Saving " + err + __location);
-            }
-
-
-            //clw_talage_application_activity_codes - default from industry_code???
-            // payroll ?????
-        }
-        else {
-            log.warn("updateFromAfBusinessData missing parameters " + __location)
-        }
-        return true;
-    }
-
-    async updatefromGooglePlaceData(applicationJSON, googlePlaceJSON) {
-        if (this.id && applicationJSON && googlePlaceJSON) {
-            if (googlePlaceJSON.address) {
-                try {
-
-                    //afgCompany -> website, street_addr1, state, city, zip,number_of
-                    if (googlePlaceJSON.address.state_abbr && googlePlaceJSON.address.city) {
-                        applicationJSON.state_abbr = googlePlaceJSON.address.state_abbr;
-                        applicationJSON.city = googlePlaceJSON.address.city;
-                    }
-                    if (googlePlaceJSON.address.zip) {
-                        applicationJSON.zipcode = googlePlaceJSON.address.zip.toString();
-                        applicationJSON.zip = parseInt(googlePlaceJSON.address.zip);
-                    }
-                }
-                catch (err) {
-                    log.error("Error update App from AFBusinessData " + err + __location);
-                }
-
-
-            }
-            //have businessId
-            const businessJSON = {"id": applicationJSON.business};
-            const locationJSON = {"business": applicationJSON.business}
-            if (googlePlaceJSON.address) {
-                const companyFieldList = ["address",
-                    "address2",
-                    "city",
-                    "state_abbr",
-                    "zip"];
-                const company2BOMap = {
-                    "address": "mailing_address",
-                    "address2": "mailing_address2",
-                    "city": "mailing_city",
-                    "state_abbr": "mailing_state_abbr",
-                    "zip": "mailing_zipcode"
-                };
-                const company2LocationBOMap = {"zip": "zipcode"};
-                try {
-                    for (let i = 0; i < companyFieldList.length; i++) {
-                        if (googlePlaceJSON.address[companyFieldList[i]]) {
-                            let propertyName = companyFieldList[i];
-                            if (company2BOMap[companyFieldList[i]]) {
-                                propertyName = company2BOMap[companyFieldList[i]]
-                            }
-                            businessJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
-                            //location
-                            propertyName = companyFieldList[i];
-                            if (company2LocationBOMap[companyFieldList[i]]) {
-                                propertyName = company2LocationBOMap[companyFieldList[i]]
-                            }
-                            locationJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
-                        }
-
-                    }
-                    // log.debug("googlePlaceJSON.address " + JSON.stringify(googlePlaceJSON.address));
-                    // log.debug("businessJSON " + JSON.stringify(businessJSON));
-                    if (businessJSON.mailing_zipcode) {
-                        businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
-                    }
-                    if (locationJSON.zipcode) {
-                        locationJSON.zipcode = locationJSON.zipcode.toString();
-                    }
-
-                    if (googlePlaceJSON.address.employee_count) {
-                        locationJSON.full_time_employees = googlePlaceJSON.address.employee_count;
-                    }
-                }
-                catch (err) {
-                    log.error("error mapping Google Place  Company data to BO " + err + __location);
-                }
-
-            }
-
-
-            businessJSON.locations = [];
-            businessJSON.locations.push(locationJSON)
-            try {
-                log.info(`updating  application business data from Google Place data appId: ${applicationJSON.id} ` + __location)
-                await this.processMongooseBusiness(businessJSON)
-
-            }
-            catch (err) {
-                log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
-            }
-            await this.processLocationsMongo(businessJSON.locations);
-
-        }
-        else {
-            log.warn("updateFromAfBusinessData missing parameters " + __location)
-        }
-        return true;
-    }
-
 
     async updateStatus(id, appStatusDesc, appStatusid) {
 
@@ -1869,7 +1537,7 @@ module.exports = class ApplicationModel {
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -2065,7 +1733,7 @@ module.exports = class ApplicationModel {
             let query = {};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort = {};
             if(requestParms && requestParms.sort === 'date') {
@@ -2744,106 +2412,6 @@ module.exports = class ApplicationModel {
         if (!getQuestionsResult || getQuestionsResult === false) {
             log.error("No questions returned from question service " + __location);
             throw new Error('An error occured while retrieving application questions.');
-        }
-
-        //question answers from AF business data.
-        if (applicationDoc && applicationDoc.businessDataJSON && applicationDoc.businessDataJSON.afBusinessData
-            && applicationDoc.businessDataJSON.afBusinessData.afgPreFill
-            && applicationDoc.businessDataJSON.afBusinessData.afgPreFill.company) {
-
-            const afBusinessDataCompany = applicationDoc.businessDataJSON.afBusinessData.afgPreFill.company;
-
-            //Get mappings.
-            const mappingBO = new MappingBO();
-            let mappingJSON = null;
-            const mappingName = 'AFConvrDataMapp';
-            try {
-                const mappingDoc = await mappingBO.getByName(mappingName)
-                mappingJSON = mappingDoc.mapping;
-            }
-            catch (err) {
-                log.error('Error getting AFConvrDataMapp Mapping ' + err + __location)
-            }
-            if (mappingJSON) {
-                //get AF/Compwest questions
-                const compWestId = 12;
-                let compWestQuestionList = null;
-                try {
-                    //AF questions - Should be ok because CompWest & Af are duplicate sets based on identifiers  ?
-                    const insurerQuery = {"insurerId": compWestId}
-                    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                    compWestQuestionList = await InsurerQuestionModel.find(insurerQuery)
-                }
-                catch (err) {
-                    log.error("Error get compWestQuestionList " + err + __location);
-                }
-                if (compWestQuestionList) {
-                    //let gotHit = false;
-                    let madeChange = false;
-                    //Limited data returned from AFBusiness Data api.
-                    // so only process non null for question lookup.
-                    for (const businessDataProp in afBusinessDataCompany) {
-                        try {
-                            if (afBusinessDataCompany[businessDataProp] || afBusinessDataCompany[businessDataProp] === false) {
-                                //find in mapping
-                                const mapping = mappingJSON.find(mappingTest => mappingTest.afJsonTag === businessDataProp);
-                                if (mapping) {
-                                    // log.debug(`Mapping for AF tag ${businessDataProp}`)
-                                    //find in compWestQuestionList
-                                    const compWestQuestion = compWestQuestionList.find(compWestQuestionTest => mapping.afgIndicator === compWestQuestionTest.identifier);
-                                    if (compWestQuestion) {
-                                        //find in getQuestionsResult
-                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.talageQuestionId === questionTest.id);
-                                        if (question && question.type === "Yes/No" && question.answers) {
-                                            //gotHit = true;
-                                            log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
-                                            const defaultAnswer = afBusinessDataCompany[businessDataProp] ? "Yes" : "No";
-                                            for (let i = 0; i < question.answers.length; i++) {
-                                                const answerJSON = question.answers[i];
-                                                if (answerJSON.answer === defaultAnswer) {
-                                                    if (!answerJSON.default) {
-                                                        madeChange = true;
-                                                        answerJSON.default = true;
-                                                        log.info(`AF Data: appId ${appId} ${compWestQuestion.identifier} ${mapping.afJsonTag} Change question ${question.id} to ${answerJSON.answer}`)
-                                                    }
-                                                }
-                                                else if (answerJSON.default) {
-                                                    delete answerJSON.default;
-                                                }
-                                            }
-                                            if (madeChange === false) {
-                                                log.info(`NO CHANGE - AF Data: appId ${appId} ${compWestQuestion.identifier} ${mapping.afJsonTag} for question ${question.id} default ${defaultAnswer}`)
-                                            }
-                                        }
-                                        else {
-                                            // log.debug(`No Talage YES/NO question with answers for ${compWestQuestion.identifier} insurer question ${compWestQuestion.id} talage questionId ${compWestQuestion.question} ${compWestQuestion.text}`)
-                                        }
-                                    }
-                                    else {
-                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicator}`)
-                                    }
-                                }
-                                // else {
-                                //     log.debug(`No Mapping for AF tag ${businessDataProp} `)
-                                // }
-                            }
-                        }
-                        catch (err) {
-                            log.error(`Error mapping AF business data appId ${appId}` + err + __location)
-                        }
-                    }
-                }
-                else {
-                    log.error(`Error No CompWest Questions ` + __location)
-                }
-            }
-            else {
-                log.error(`Error mapping AF business data Mapping ` + __location)
-            }
-        }
-        else {
-            //non-AF applications will not have data.
-            log.debug(`No AF business data for appId ${appId}` + __location)
         }
 
         return getQuestionsResult;

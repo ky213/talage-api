@@ -1,20 +1,21 @@
+/* eslint-disable prefer-const */
 'use strict';
 
 
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
+var ColorSchemeModel = require('mongoose').model('ColorScheme');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-const tableName = 'clw_talage_color_schemes'
-const skipCheckRequired = false;
+
+const collectionName = 'ColorScheme'
 module.exports = class ColorSchemeBO{
 
-    #dbTableORM = null;
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        this.mongoDoc = null;
     }
 
 
@@ -28,333 +29,401 @@ module.exports = class ColorSchemeBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
+
+            let newDoc = true;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    newObjectJSON.colorSchemeId = dbDocJSON.colorSchemeId;
+                    this.id = dbDocJSON.colorSchemeId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.colorSchemeUuidId,newObjectJSON)
+                }
+                else {
+                    log.error("ColorScheme PUT object not found " + newObjectJSON.id + __location)
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            if(newDoc === true) {
+                newDoc = await this.insertMongo(newObjectJSON).catch((err) => {
+                    log.error("ColorScheme POST object error " + err + __location);
+                    reject(err);
+                });
+                this.id = newDoc.colorSchemeId;
+                this.mongoDoc = newDoc;
+
             }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
-
-
+            else {
+                this.mongoDoc = this.getById(this.id);
+            }
             resolve(true);
 
         });
     }
 
-    loadFromId(id) {
+
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+
+            var queryOptions = {};
+            queryOptions.sort = {colorSchemeId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.colorSchemeId && Array.isArray(queryJSON.colorSchemeId)){
+                query.colorSchemeId = {$in: queryJSON.colorSchemeId};
+                delete queryJSON.colorSchemeId
+            }
+            else if(queryJSON.colorSchemeId){
+                query.colorSchemeId = queryJSON.colorSchemeId;
+                delete queryJSON.colorSchemeId
+            }
+
+            if(queryJSON.colorSchemeId && Array.isArray(queryJSON.colorSchemeId)){
+                query.colorSchemeId = {$in: queryJSON.colorSchemeId};
+                delete queryJSON.colorSchemeId
+            }
+            else if(queryJSON.colorSchemeId){
+                query.colorSchemeId = queryJSON.colorSchemeId;
+                delete queryJSON.colorSchemeId
+            }
+
+            // Old Mysql reference
+            if(queryJSON.id && Array.isArray(queryJSON.id)){
+                query.colorSchemeId = {$in: queryJSON.id};
+                delete queryJSON.id
+            }
+            else if(queryJSON.id){
+                query.colorSchemeId = queryJSON.id;
+                delete queryJSON.id
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    // log.debug("ColorSchemeModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await ColorSchemeModel.find(query,queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
                     return;
-                });
-                this.updateProperty();
-                resolve(true);
+                }
+                if(docList && docList.length > 0){
+                    docList.forEach(doc => {
+                        doc.id = doc.colorSchemeId
+                        if(doc._id){
+                            delete doc._id;
+                        }
+                    });
+                    resolve(docList);
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await ColorSchemeModel.countDocuments(query).catch(err => {
+                    log.error("ColorSchemeModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
+        });
+    }
+
+
+    getListStandard() {
+        return new Promise(async(resolve, reject) => {
+
+            // eslint-disable-next-line prefer-const
+
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {
+                active: true,
+                name: {$ne: "Custom"}
+            };
+
+            var queryOptions = {};
+            queryOptions.sort = {name: 1};
+            let error = null;
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    // log.debug("ColorSchemeModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await ColorSchemeModel.find(query,queryProjection, queryOptions).lean();
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    docList.forEach(doc => {
+                        doc.id = doc.colorSchemeId
+                        if(doc._id){
+                            delete doc._id;
+                        }
+                    });
+                    resolve(docList);
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await ColorSchemeModel.countDocuments(query).catch(err => {
+                    log.error("ColorSchemeModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
+        });
+    }
+
+
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
+        return new Promise(async(resolve, reject) => {
+            if (mysqlId) {
+                const query = {
+                    "colorSchemeId": mysqlId,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await ColorSchemeModel.findOne(query, '-__v');
+                    docDB.id = docDB.colorSchemeId;
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    docDB.id = docDB.colorSchemeId
+                    if(docDB._id){
+                        delete docDB._id;
+                    }
+                    resolve(docDB);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
             }
-        });
-    }
-
-    getList(queryJSON) {
-        return new Promise(async(resolve, reject) => {
-
-            let rejected = false;
-            // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.name){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(queryJSON.name)} `
-                    hasWhere = true;
-                }
-            }
-            // Run the query
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const colorSchemeBO = new ColorSchemeBO();
-                    await colorSchemeBO.#dbTableORM.decryptFields(result[i]);
-                    await colorSchemeBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await colorSchemeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    boList.push(colorSchemeBO);
-                }
-                resolve(boList);
-            }
-            else {
-                //Search so no hits ok.
-                resolve([]);
-            }
-
-
         });
     }
 
     getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        return this.getMongoDocbyMysqlId(id);
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
 
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
+                const query = {"colorSchemeUuidId": docId};
+                let newDocSON = null;
+                try {
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "colorSchemeId",
+                        "colorSchemeUuidId",
+                        "colorSchemeId"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await ColorSchemeModel.updateOne(query, newObjectJSON);
+                    const newDoc = await ColorSchemeModel.findOne(query);
+                    newDoc.id = newDoc.colorSchemeId
+                    newDocSON = mongoUtils.objCleanup(newDoc);
                 }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+                catch (err) {
+                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newDocSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
+
+    }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.colorSchemeId = newSystemId;
+        const colorScheme = new ColorSchemeModel(newObjectJSON);
+        //Insert a doc
+        await colorScheme.save().catch(function(err) {
+            log.error('Mongo colorScheme Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = newSystemId;
+        return mongoUtils.objCleanup(colorScheme);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"colorSchemeId": 1}
+            var queryOptions = {};
+            queryOptions.sort = {};
+            queryOptions.sort.colorSchemeId = -1;
+            queryOptions.limit = 1;
+            const docList = await ColorSchemeModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].colorSchemeId > maxId){
+                        maxId = docList[i].colorSchemeId + 1;
+                    }
                 }
             }
+
         }
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
         }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(3) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(20)"
-    },
-    "primary": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(7)"
-    },
-    "primary_accent": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(7)"
-    },
-    "secondary": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(7)"
-    },
-    "secondary_accent": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(7)"
-    },
-    "tertiary": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(7)"
-    },
-    "tertiary_accent": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(7)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    // eslint-disable-next-line no-shadow
-    constructor(tableName){
-        super(tableName, properties);
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
     }
 
 }

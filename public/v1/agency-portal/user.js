@@ -24,7 +24,8 @@ async function validate(user) {
     const data = {
         canSign: 0,
         email: '',
-        group: 5
+        group: 5,
+        agencyNotificationList: null // default to null for easier/faster mongo searches
     };
 
     // Validate each parameter
@@ -45,6 +46,10 @@ async function validate(user) {
     data.email = user.email;
 
     data.group = user.group;
+
+    if(user.agencyNotificationList && user.agencyNotificationList.length > 0){
+        data.agencyNotificationList = user.agencyNotificationList;
+    }
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(user.id, user.email).catch(function(err){
@@ -392,14 +397,15 @@ async function updateUser(req, res, next) {
         log.error(`update user did not pass ID validation ${userObj.id} agencyOrNetworkID ${agencyOrNetworkID}`)
         return next(serverHelper.requestError('ID is invalid'));
     }
-    data.id = userObj.id;
 
+    data.id = userObj.id;
     // Prepare the email address
     const newUserJSON = {
         id: parseInt(data.id, 10),
         canSign: data.canSign,
         email: data.email,
-        agencyPortalUserGroupId: data.group
+        agencyPortalUserGroupId: data.group,
+        agencyNotificationList: data.agencyNotificationList
     }
     const agencyPortalUserBO = new AgencyPortalUserBO();
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err) {

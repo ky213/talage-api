@@ -52,7 +52,9 @@ const hasApplications = async(where) => await Application.countDocuments(where) 
 
 
 const getGeography = async(where) => {
-    const territories = _.chain(await db.queryReadonly(`SELECT abbr, name FROM clw_talage_territories`)).
+    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+    const territoryBO = new TerritoryBO();
+    const territories = _.chain(await territoryBO.getAbbrNameList()).
         keyBy('abbr').
         mapValues('name').
         value();

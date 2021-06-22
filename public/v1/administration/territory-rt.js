@@ -76,7 +76,7 @@ async function add(req, res, next) {
     const territoryBO = new TerritoryBO();
     let error = null;
     const newRecord = true;
-    await territoryBO.saveModel(req.body,newRecord).catch(function(err) {
+    const newTerritory = await territoryBO.saveModel(req.body,newRecord).catch(function(err) {
         log.error("territory save error " + err + __location);
         error = err;
     });
@@ -84,7 +84,7 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    res.send(200, territoryBO.cleanJSON());
+    res.send(200, newTerritory);
     return next();
 
 }
@@ -103,14 +103,14 @@ async function update(req, res, next) {
     let error = null;
     const updateRecord = false;
     const territoryBO = new TerritoryBO();
-    await territoryBO.saveModel(req.body, updateRecord).catch(function(err) {
+    const updatedTerritory = await territoryBO.saveModel(req.body, updateRecord).catch(function(err) {
         log.error("territoryBO load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-    res.send(200, territoryBO);
+    res.send(200, updatedTerritory);
     return next();
 
 }

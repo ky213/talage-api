@@ -1,6 +1,7 @@
 'use strict';
 
 const apiVersion = 'v1';
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
 
 /**
  * Registers an endpoint
@@ -32,10 +33,10 @@ function registerEndpoint(server, namespace, endpointName) {
 async function getUptime(req, res, next) {
     res.setHeader('content-type', 'application/xml');
     const startTime = process.hrtime();
-
     // Check the database connection by selecting all active activity codes
     let error = false;
-    await db.query('SELECT COUNT(*) FROM `#__api_users`').catch(function(e) {
+    const agencyNetworkBO = new AgencyNetworkBO();
+    await agencyNetworkBO.getById(1).catch(function(e){
         log.error(e.message + __location);
         error = true;
     });
@@ -115,8 +116,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
     registerEndpoint(server, 'administration', 'insurer');
-    registerEndpoint(server, 'administration', 'insurer-outage');
-    registerEndpoint(server, 'administration', 'insurer-payment-plan-rt');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-network-user-rt');
@@ -135,10 +134,9 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-activity-code-rt');
     registerEndpoint(server, 'administration', 'insurer-question-rt');
     registerEndpoint(server, 'administration', 'insurer-logo-rt');
-    registerEndpoint(server, 'administration', 'question-answer-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
-    registerEndpoint(server, 'administration', 'payment-plan-rt');
     registerEndpoint(server, 'administration', 'policy-type-rt');
+    registerEndpoint(server, 'administration', 'payment-plan-rt');
     registerEndpoint(server, 'administration', 'user-group-rt');
     registerEndpoint(server, 'administration', 'code-group-rt');
     registerEndpoint(server, 'administration', 'mapping-rt');

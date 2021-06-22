@@ -48,6 +48,7 @@ const AgencyPortalUserSchema = new Schema({
     timezoneName: {type: String, required: false},
     requiredLegalAcceptance: {type: Boolean, default: false},
     legalAcceptance: [legalAcceptanceSchema],
+    agencyNotificationList: [Number],
     additionalInfo: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)

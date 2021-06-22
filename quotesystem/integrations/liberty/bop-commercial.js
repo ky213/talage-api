@@ -1,3 +1,5 @@
+/* eslint-disable no-extra-parens */
+/* eslint-disable radix */
 /* eslint-disable function-paren-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-trailing-spaces */
@@ -102,7 +104,8 @@ const locationQuestionSpecialCases = [
     'LMBOP_YearBuilt', // Construction/YearBuilt
     'LMBOP_NumStories', // Construction/NumStories
     'LMBOP_AlarmType', // BldgProtection/ProtectionDeviceBurglarCd
-    'UWQ6003' // QuestionAnswer
+    'UWQ6003', // QuestionAnswer
+    'LMBOP_YearRoofReplaced'
 ];
 
 const constructionMatrix = {
@@ -218,6 +221,10 @@ const limitCodeMatrix = {
 };
 
 let logPrefix = '';
+let applicationDocData = null;
+let coverageSort = 0;
+
+// quote response properties
 let quoteNumber = null;
 let quoteProposalId = null;
 let premium = null;
@@ -226,7 +233,6 @@ let quoteLetter = null;
 const quoteMIMEType = "BASE64";
 let policyStatus = null;
 const quoteCoverages = [];
-let coverageSort = 0;
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -248,8 +254,7 @@ module.exports = class LibertySBOP extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
-
-        const applicationDocData = this.app.applicationDocData;
+        applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
         logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.applicationId}): `;
 
@@ -279,16 +284,34 @@ module.exports = class LibertySBOP extends Integration {
 
         // if there's no Business Personal Property limit or Building Limit provided for each location
         for (const {businessPersonalPropertyLimit, buildingLimit} of applicationDocData.locations) {
-            if (typeof businessPersonalPropertyLimit !== "number") {
-                const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit for the Commercial BOP Policy.`;
+            if ((typeof businessPersonalPropertyLimit !== "number" || businessPersonalPropertyLimit === 0) && (typeof buildingLimit !== "number" || buildingLimit === 0)) {
+                const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit and no Building Limit for the Commercial BOP Policy.`;
                 log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
                 return this.client_error(errorMessage, __location);
             }
+        }
 
-            if (typeof buildingLimit !== "number") {
-                const errorMessage = `${logPrefix}One or more location has no Building Limit for the Commercial BOP Policy.`;
-                log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
-                return this.client_error(errorMessage, __location);
+        // get proper attributes for each question, if they exist, since integration framework doesn't guarantee the right insurer question is used
+        const questionIds = applicationDocData.questions.map(question => question.questionId);
+        const insurerQuestions = await this.getInsurerQuestionsByTalageQuestionId('general', questionIds, ['BOP']);
+        for (const question of applicationDocData.questions) {
+            const insurerQuestion = insurerQuestions.find(iq => iq.talageQuestionId === question.questionId);
+            
+            if (insurerQuestion) {
+                question.insurerQuestionAttributes = insurerQuestion.attributes;
+            }
+        }
+
+        // get proper attributes for each location question, if they exist, since integration framework doesn't guarantee the right insurer question is used
+        for (const location of applicationDocData.locations) {
+            const locationQuestionIds = location.questions.map(question => question.questionId);
+            const insurerLocationQuestions = await this.getInsurerQuestionsByTalageQuestionId('location', locationQuestionIds, ['BOP']);
+            for (const question of location.questions) {
+                const insurerLocationQuestion = insurerLocationQuestions.find(ilq => ilq.talageQuestionId === question.questionId);
+
+                if (insurerLocationQuestion) {
+                    question.insurerQuestionAttributes = insurerLocationQuestion.attributes;
+                }
             }
         }
 
@@ -441,9 +464,9 @@ module.exports = class LibertySBOP extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
-        BusinessInfo.ele('OperationsDesc', 'Operation Description Not Provided.'); // NOTE: See if this is acceptable, or if we need to add a question
+        BusinessInfo.ele('OperationsDesc', this.get_operation_description());
 
-    //             <Policy>
+        //             <Policy>
 
         const Policy = PolicyRq.ele('Policy');
 
@@ -534,92 +557,96 @@ module.exports = class LibertySBOP extends Integration {
 
         let PolicySupplementExt = null;
         specialPolicyQuestions.forEach(question => {
-            switch (question.insurerQuestionIdentifier) {
-                case "UWQ5042":
-                    const UWQ5042GrossReceipts = Policy.ele('GrossReceipts');
-                    UWQ5042GrossReceipts.ele('OperationsCd', 'OUTSIDEUS');
-                    UWQ5042GrossReceipts.ele('RevenuePct', question.answerValue);
-                    break;
-                case "UWQ2":
-                    if (!PolicySupplementExt) {
-                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
-                    }
-                    PolicySupplementExt.ele('com.libertymutual.ci_NonRenewalOrCancellationOtherReasonText', question.answerValue);
-                    break;
-                case "UWQ1":
-                    const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
-                    UWQ1QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
-                    UWQ1QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
-
-                    if (question.answerValue.toLowerCase() === "yes") {
-                        const explanation = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1_Explanation");
-
-                        if (explanation) {
-                            UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
+            if (this.includeQuestion(question.insurerQuestionIdentifier)) {
+                switch (question.insurerQuestionIdentifier) {
+                    case "UWQ5042":
+                        const UWQ5042GrossReceipts = Policy.ele('GrossReceipts');
+                        UWQ5042GrossReceipts.ele('OperationsCd', 'OUTSIDEUS');
+                        UWQ5042GrossReceipts.ele('RevenuePct', question.answerValue);
+                        break;
+                    case "UWQ2":
+                        if (!PolicySupplementExt) {
+                            PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                         }
-                        else {
-                            log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
+                        PolicySupplementExt.ele('com.libertymutual.ci_NonRenewalOrCancellationOtherReasonText', question.answerValue);
+                        break;
+                    case "UWQ1":
+                        const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
+                        UWQ1QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
+                        UWQ1QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
+    
+                        if (question.answerValue.toLowerCase() === "yes") {
+                            const explanation = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1_Explanation");
+    
+                            if (explanation) {
+                                UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
+                            }
+                            else {
+                                log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
+                            }
                         }
-                    }
-                    break;
-                case "UWQ1_Explanation":
-                    // handled in UWQ1
-                    break;
-                case "GLO202":
-                    // Question dock shows "N/A UI only, so currently not including in request"
-                    break;
-                case "BOP24":
-                    if (!PolicySupplementExt) {
-                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
-                    }
-                    PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', question.answerValue);
-                    break;
-                case "BOP23":
-                    if (!PolicySupplementExt) {
-                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
-                    }
-                    PolicySupplementExt.ele('com.libertymutual.ci_TypeEquipLeasedRentedText', question.answerValue);
-                    break;
-                case "BOP2":
-                    if (!PolicySupplementExt) {
-                        PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
-                    }
-
-                    let yearsOfExp = parseInt(question.answerValue, 10);
-                    if (isNaN(yearsOfExp)) {
-                        yearsOfExp = 0;
-                    }
-
-                    PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperience', yearsOfExp);
-
-                    if (yearsOfExp < 3) {
-                        const BOP191 = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "BOP191");
-
-                        if (BOP191) {
-                            PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperienceText', BOP191.answerValue);
+                        break;
+                    case "UWQ1_Explanation":
+                        // handled in UWQ1
+                        break;
+                    case "GLO202":
+                        // Question dock shows "N/A UI only, so currently not including in request"
+                        break;
+                    case "BOP24":
+                        if (!PolicySupplementExt) {
+                            PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                         }
-                    }
-                    break;
-                case "BOP191":
-                    // handled in BOP2
-                    break;
-                default:
-                    log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
-                    break;
+                        PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', question.answerValue);
+                        break;
+                    case "BOP23":
+                        if (!PolicySupplementExt) {
+                            PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
+                        }
+                        PolicySupplementExt.ele('com.libertymutual.ci_TypeEquipLeasedRentedText', question.answerValue);
+                        break;
+                    case "BOP2":
+                        if (!PolicySupplementExt) {
+                            PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
+                        }
+    
+                        let yearsOfExp = parseInt(question.answerValue, 10);
+                        if (isNaN(yearsOfExp)) {
+                            yearsOfExp = 0;
+                        }
+    
+                        PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperience', yearsOfExp);
+    
+                        if (yearsOfExp < 3) {
+                            const BOP191 = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "BOP191");
+    
+                            if (BOP191) {
+                                PolicySupplementExt.ele('com.libertymutual.ci_InsuredManagementExperienceText', BOP191.answerValue);
+                            }
+                        }
+                        break;
+                    case "BOP191":
+                        // handled in BOP2
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
+                        break;
+                }
             }
         });
 
         // for each policy question (that's not UWQ1 related), add it to XML
         standardPolicyQuestions.forEach(question => {
-            const QuestionAnswer = Policy.ele('QuestionAnswer');
-            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
-
-            if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
-                // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
-                QuestionAnswer.ele('Explanation', question.answerValue);
-            }
-            else {
-                QuestionAnswer.ele('YesNoCd', question.answerValue);
+            if (this.includeQuestion(question.insurerQuestionIdentifier)) {
+                const QuestionAnswer = Policy.ele('QuestionAnswer');
+                QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
+    
+                if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
+                    // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
+                    QuestionAnswer.ele('Explanation', question.answerValue);
+                }
+                else {
+                    QuestionAnswer.ele('YesNoCd', question.answerValue);
+                }
             }
         });
 
@@ -710,28 +737,32 @@ module.exports = class LibertySBOP extends Integration {
 
         applicationDocData.locations.forEach((location, i) => {
             // Business Personal Property Limit
-            const BPPCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
-            BPPCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
+            if (location.businessPersonalPropertyLimit) {
+                const BPPCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
+                BPPCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
 
-            BPPCommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
-            const BPPCoverage = BPPCommlPropertyInfo.ele('Coverage');
-            BPPCoverage.ele('CoverageCd', 'BPP');
-            const BPPLimit = BPPCoverage.ele('Limit');
-            const BPPFormatCurrencyAmt = BPPLimit.ele('FormatCurrencyAmt');
-            BPPFormatCurrencyAmt.ele('Amt', location.businessPersonalPropertyLimit);
-            BPPLimit.ele('LimitAppliesToCd', 'Coverage');
+                BPPCommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
+                const BPPCoverage = BPPCommlPropertyInfo.ele('Coverage');
+                BPPCoverage.ele('CoverageCd', 'BPP');
+                const BPPLimit = BPPCoverage.ele('Limit');
+                const BPPFormatCurrencyAmt = BPPLimit.ele('FormatCurrencyAmt');
+                BPPFormatCurrencyAmt.ele('Amt', location.businessPersonalPropertyLimit);
+                BPPLimit.ele('LimitAppliesToCd', 'Coverage');
+            }
 
             // Building Limit
-            const BLDGCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
-            BLDGCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
-
-            BLDGCommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
-            const BLDGCoverage = BLDGCommlPropertyInfo.ele('Coverage');
-            BLDGCoverage.ele('CoverageCd', 'BLDG');
-            const BLDGLimit = BLDGCoverage.ele('Limit');
-            const BLDGFormatCurrencyAmt = BLDGLimit.ele('FormatCurrencyAmt');
-            BLDGFormatCurrencyAmt.ele('Amt', location.buildingLimit);
-            BLDGLimit.ele('LimitAppliesToCd', 'Coverage');
+            if (location.buildingLimit) {
+                const BLDGCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
+                BLDGCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
+    
+                BLDGCommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
+                const BLDGCoverage = BLDGCommlPropertyInfo.ele('Coverage');
+                BLDGCoverage.ele('CoverageCd', 'BLDG');
+                const BLDGLimit = BLDGCoverage.ele('Limit');
+                const BLDGFormatCurrencyAmt = BLDGLimit.ele('FormatCurrencyAmt');
+                BLDGFormatCurrencyAmt.ele('Amt', location.buildingLimit);
+                BLDGLimit.ele('LimitAppliesToCd', 'Coverage');
+            }
         });
 
         //                 <LiabilityInfo>
@@ -785,6 +816,9 @@ module.exports = class LibertySBOP extends Integration {
         PerOccFormatCurrencyAmt.ele('Amt', perOccLimit);
         PerOccFormatCurrencyAmt.ele('LimitAppliesToCd', "PerOcc");
 
+        this.setCoverageElements(LiabilityInfo);
+        this.setCommlCoverageElements(LiabilityInfo);
+
         applicationDocData.locations.forEach((location, index) => {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
@@ -821,15 +855,17 @@ module.exports = class LibertySBOP extends Integration {
 
         // for each policy question, add it to XML
         BOPLineBusinessQuestions.forEach(question => {
-            const QuestionAnswer = BOPLineBusiness.ele('QuestionAnswer');
-            QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
-
-            if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
-                // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
-                QuestionAnswer.ele('Explanation', question.answerValue);
-            }
-            else {
-                QuestionAnswer.ele('YesNoCd', question.answerValue);
+            if (this.includeQuestion(question.insurerQuestionIdentifier)) {
+                const QuestionAnswer = BOPLineBusiness.ele('QuestionAnswer');
+                QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
+    
+                if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
+                    // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
+                    QuestionAnswer.ele('Explanation', question.answerValue);
+                }
+                else {
+                    QuestionAnswer.ele('YesNoCd', question.answerValue);
+                }
             }
         });
 
@@ -927,183 +963,185 @@ module.exports = class LibertySBOP extends Integration {
             let BldgImprovementExt = null;
             let BldgOccupancyExt = null;
 
+            let unoccupied = 0;
+            let occupiedByOther = 0;
+
             // handle special case questions first
             specialLocationQuestions.forEach(question => {
-                switch (question.insurerQuestionIdentifier) {
-                    case "UWQ5333":
-                        const UWQ5333GrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                        UWQ5333GrossReceipts.ele('OperationsCd', 'INTERNET');
-                        const UWQ5333AnnualGrossReceiptsAmt = UWQ5333GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                        UWQ5333AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
-                        break;
-                    case "UWQ5332":
-                        const UWQ5332GrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                        UWQ5332GrossReceipts.ele('OperationsCd', 'AMMFIRE');
-                        const UWQ5332AnnualGrossReceiptsAmt = UWQ5332GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                        UWQ5332AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
-                        break;
-                    case "UWQ5323":
-                        const UWQ5323GrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                        UWQ5323GrossReceipts.ele('OperationsCd', 'IMPORTS');
-                        const UWQ5323AnnualGrossReceiptsAmt = UWQ5323GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                        UWQ5323AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
-                        break;
-                    case "UWQ5308":
-                        const UWQ5308GrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                        UWQ5308GrossReceipts.ele('OperationsCd', 'ADULT');
-                        const UWQ5308AnnualGrossReceiptsAmt = UWQ5308GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                        UWQ5308AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
-                        break;
-                    case "UWQ172":
-                        // handled in UWQ172_Amount
-                        break;
-                    case "UWQ172_Amount":
-                        if (!LocationUWInfoExt) {
-                            LocationUWInfoExt = LocationUWInfo.ele('LocationUWInfoExt');
-                        }
-                        LocationUWInfoExt.ele('com.libertymutual.ci_DeepFatFryersCountCd', question.answerValue);
-                        break;
-                    case "CP64":
-                        if (!BldgImprovements) {
-                            BldgImprovements = LocationUWInfo.ele('BldgImprovements');
-                        }
-                        if (!BldgImprovementExt) {
-                            BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
-                        }
-                        BldgImprovementExt.ele('com.libertymutual.ci_ResidentialOccupancyPct', question.answerValue);
-                        break;
-                    case "BOP8":
-                    case "BOP186":
-                    case "BOP185":
-                        // only provide these questions if year built was over 24 years ago
-                        if (!yearBuilt || moment().year() - yearBuilt > 24) {
+                if (this.includeQuestion(question.insurerQuestionIdentifier, location)) {
+                    switch (question.insurerQuestionIdentifier) {
+                        case "UWQ5333":
+                            const UWQ5333GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                            UWQ5333GrossReceipts.ele('OperationsCd', 'INTERNET');
+                            const UWQ5333AnnualGrossReceiptsAmt = UWQ5333GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                            UWQ5333AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                            break;
+                        case "UWQ5332":
+                            const UWQ5332GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                            UWQ5332GrossReceipts.ele('OperationsCd', 'AMMFIRE');
+                            const UWQ5332AnnualGrossReceiptsAmt = UWQ5332GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                            UWQ5332AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                            break;
+                        case "UWQ5323":
+                            const UWQ5323GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                            UWQ5323GrossReceipts.ele('OperationsCd', 'IMPORTS');
+                            const UWQ5323AnnualGrossReceiptsAmt = UWQ5323GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                            UWQ5323AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                            break;
+                        case "UWQ5308":
+                            const UWQ5308GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                            UWQ5308GrossReceipts.ele('OperationsCd', 'ADULT');
+                            const UWQ5308AnnualGrossReceiptsAmt = UWQ5308GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                            UWQ5308AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                            break;
+                        case "UWQ172":
+                            // handled in UWQ172_Amount
+                            break;
+                        case "UWQ172_Amount":
+                            if (!LocationUWInfoExt) {
+                                LocationUWInfoExt = LocationUWInfo.ele('LocationUWInfoExt');
+                            }
+                            LocationUWInfoExt.ele('com.libertymutual.ci_DeepFatFryersCountCd', question.answerValue);
+                            break;
+                        case "CP64":
                             if (!BldgImprovements) {
                                 BldgImprovements = LocationUWInfo.ele('BldgImprovements');
                             }
-                            const qId = question.insurerQuestionIdentifier;
-                            if (qId === 'BOP8') {
-                                BldgImprovements.ele('WiringImprovementYear', question.answerValue);
+                            if (!BldgImprovementExt) {
+                                BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
                             }
-                            else if (qId === 'BOP186') {
-                                BldgImprovements.ele('PlumbingImprovementYear', question.answerValue);
+                            BldgImprovementExt.ele('com.libertymutual.ci_ResidentialOccupancyPct', question.answerValue);
+                            break;
+                        case "LMBOP_YearRoofReplaced":
+                            if (!BldgImprovements) {
+                                BldgImprovements = LocationUWInfo.ele('BldgImprovements');
                             }
-                            else { // if BOP185
-                                BldgImprovements.ele('HeatingImprovementYear', question.answerValue);
+                            BldgImprovements.ele('RoofingImprovementYear', question.answerValue);
+                            break;
+                        case "BOP8":
+                        case "BOP186":
+                        case "BOP185":
+                            // only provide these questions if year built was over 24 years ago
+                            if (!yearBuilt || moment().year() - yearBuilt > 24) {
+                                if (!BldgImprovements) {
+                                    BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                                }
+                                const qId = question.insurerQuestionIdentifier;
+                                if (qId === 'BOP8') {
+                                    BldgImprovements.ele('WiringImprovementYear', question.answerValue);
+                                }
+                                else if (qId === 'BOP186') {
+                                    BldgImprovements.ele('PlumbingImprovementYear', question.answerValue);
+                                }
+                                else { // if BOP185
+                                    BldgImprovements.ele('HeatingImprovementYear', question.answerValue);
+                                }
                             }
-                        }
-                        break;
-                    case "BOP58":
-                        const BOP58GrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                        BOP58GrossReceipts.ele('OperationsCd', 'INSTALLATION');
-                        const BOP58AnnualGrossReceiptsAmt = BOP58GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                        BOP58AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
-                        break;
-                    case "BOP56":
-                    case "BOP55":
-                        // handled in BOP55_Amount
-                        break;
-                    case "BOP55_Amount":
-                        const BOP55GrossReceipts = LocationUWInfo.ele('GrossReceipts');
-                        BOP55GrossReceipts.ele('OperationsCd', 'SVCIN');
-                        const BOP55AnnualGrossReceiptsAmt = BOP55GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                        BOP55AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
-
-                        const BOP56 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP56");
-                        if (BOP56) {
-                            BOP55GrossReceipts.ele('ProductDesc', BOP56.answerValue);
-                        }
-                        break;
-                    case "BOP17_YesNo":
-                        if (question.answerValue.toLowerCase() === "no") {
-                            const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
-                            const BOP17_AreaUnoccupied = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                            break;
+                        case "BOP58":
+                            const BOP58GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                            BOP58GrossReceipts.ele('OperationsCd', 'INSTALLATION');
+                            const BOP58AnnualGrossReceiptsAmt = BOP58GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                            BOP58AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+                            break;
+                        case "BOP56":
+                        case "BOP55":
+                            // handled in BOP55_Amount
+                            break;
+                        case "BOP55_Amount":
+                            const BOP55GrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                            BOP55GrossReceipts.ele('OperationsCd', 'SVCIN');
+                            const BOP55AnnualGrossReceiptsAmt = BOP55GrossReceipts.ele('AnnualGrossReceiptsAmt');
+                            BOP55AnnualGrossReceiptsAmt.ele('Amt', question.answerValue);
+    
+                            const BOP56 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP56");
+                            if (BOP56) {
+                                BOP55GrossReceipts.ele('ProductDesc', BOP56.answerValue);
+                            }
+                            break;
+                        case "BOP17":
                             const BOP17 = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17");
-
-                            let occupiedByOther = 0;
-                            let unoccupied = 0;
-
-                            if (BOP17_AreaOccupiedByOther) {
-                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
-                                const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
-                                AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
-                                AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
-
-                            }
-
-                            if (BOP17_AreaUnoccupied) {
-                                unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue, 10);
-                                const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
-                                AreaUnoccupied.ele('NumUnits', unoccupied);
-                                AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
-                            }
-
+    
                             if (BOP17) {
                                 if (!BldgOccupancyExt) {
                                     BldgOccupancyExt = BldgOccupancy.ele('BldgOccupancyExt');
                                 }
                                 BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
                             }
-
-                            const occupied = location.square_footage - (occupiedByOther + unoccupied);
-                            AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
-                            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
-                        }
-                        else {
-                            AreaOccupied.ele('NumUnits', location.square_footage);
-                            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
-                        }
-                        break;
-                    case "BOP17":
-                    case "BOP17_AreaOccupiedByOther":
-                    case "BOP17_AreaUnoccupied":
-                        // handled in BOP17_YesNo
-                        break;
-                    case "LMBOP_Interest":
-                        LocationUWInfo.ele('InterestCd', question.answerValue.trim().toUpperCase());
-                        break;
-                    case "LMBOP_Construction":
-                        Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
-                        break;
-                    case "LMBOP_RoofConstruction":
-                        RoofingMaterial.ele('RoofMaterialCd', roofConstructionMatrix[question.answerValue.trim()]);
-                        break;
-                    case "LMBOP_RoofType":
-                        RoofingMaterial.ele('com.libertymutual.ci_RoofMaterialResistanceCd', roofTypeMatrix[question.answerValue.trim()]);
-                        break;
-                    case "LMBOP_YearBuilt":
-                        Construction.ele('YearBuilt', question.answerValue);
-                        break;
-                    case "LMBOP_NumStories":
-                        Construction.ele('NumStories', question.answerValue);
-                        break;
-                    case "LMBOP_AlarmType":
-                        BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[question.answerValue.trim()]);
-                        break;
-                    case "UWQ6003":
-                        // only provide answer to this question if year built is over 24 years ago
-                        if (!yearBuilt || moment().year() - yearBuilt > 24) {
-                            const UWQ6003QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
-                            UWQ6003QuestionAnswer.ele('QuestionCode', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
-                            UWQ6003QuestionAnswer.ele('YesNoCd', question.answerValue);
-                        }
-                        break;
-                    default:
-                        log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
-                        break;
+                            break;
+                        case "BOP17_AreaOccupiedByOther":
+                            const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
+    
+                            if (BOP17_AreaOccupiedByOther) {
+                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
+                                const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
+                                AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
+                                AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
+                            }
+                            break;
+                        case "BOP17_AreaUnoccupied":
+                            const BOP17_AreaUnoccupied = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+    
+                            if (BOP17_AreaUnoccupied) {
+                                unoccupied = parseInt(BOP17_AreaUnoccupied.answerValue, 10);
+                                const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
+                                AreaUnoccupied.ele('NumUnits', unoccupied);
+                                AreaUnoccupied.ele('UnitMeasurementCd', 'SquareFeet');
+                            }
+                            break;
+                        case "LMBOP_Interest":
+                            LocationUWInfo.ele('InterestCd', question.answerValue.trim().toUpperCase());
+                            break;
+                        case "LMBOP_Construction":
+                            Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
+                            break;
+                        case "LMBOP_RoofConstruction":
+                            RoofingMaterial.ele('RoofMaterialCd', roofConstructionMatrix[question.answerValue.trim()]);
+                            break;
+                        case "LMBOP_RoofType":
+                            RoofingMaterial.ele('com.libertymutual.ci_RoofMaterialResistanceCd', roofTypeMatrix[question.answerValue.trim()]);
+                            break;
+                        case "LMBOP_YearBuilt":
+                            Construction.ele('YearBuilt', question.answerValue);
+                            break;
+                        case "LMBOP_NumStories":
+                            Construction.ele('NumStories', question.answerValue);
+                            break;
+                        case "LMBOP_AlarmType":
+                            BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[question.answerValue.trim()]);
+                            break;
+                        case "UWQ6003":
+                            // only provide answer to this question if year built is over 24 years ago
+                            if (!yearBuilt || moment().year() - yearBuilt > 24) {
+                                const UWQ6003QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
+                                UWQ6003QuestionAnswer.ele('QuestionCode', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
+                                UWQ6003QuestionAnswer.ele('YesNoCd', question.answerValue);
+                            }
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
+                            break;
+                    }
                 }
             });
 
+            const occupied = location.square_footage - (occupiedByOther + unoccupied);
+            AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
+            AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
+
             // then create general questions
             standardLocationQuestions.forEach(question => {
-                const QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
-                QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
-
-                if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
-                    // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
-                    QuestionAnswer.ele('Explanation', question.answerValue);
-                }
-                else {
-                    QuestionAnswer.ele('YesNoCd', question.answerValue);
+                if (this.includeQuestion(question.insurerQuestionIdentifier, location)) {
+                    const QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
+                    QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
+    
+                    if (question.insurerQuestionAttributes.commercialBOP.ACORDPath && question.insurerQuestionAttributes.commercialBOP.ACORDPath.toLowerCase().includes('explanation')) {
+                        // NOTE: We may need to find the parent question and provide its answer that triggered this explanation question here as YesNoCd
+                        QuestionAnswer.ele('Explanation', question.answerValue);
+                    }
+                    else {
+                        QuestionAnswer.ele('YesNoCd', question.answerValue);
+                    }
                 }
             });
         });
@@ -1133,10 +1171,10 @@ module.exports = class LibertySBOP extends Integration {
         try {
             result = await this.send_xml_request(host, quotePath, xml, {
                 'Authorization': `Bearer ${auth.access_token}`
-            });
+            });        
         }
         catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
+            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `;
             log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
@@ -1283,7 +1321,7 @@ module.exports = class LibertySBOP extends Integration {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
-        
+
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
             log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
@@ -1421,7 +1459,7 @@ module.exports = class LibertySBOP extends Integration {
 
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
-        const applicationDocData = this.app.applicationDocData;
+        applicationDocData = this.app.applicationDocData;
 
         const industryQuery = {
             insurerId: this.insurer.id,
@@ -1458,6 +1496,255 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         this.industry_code = this.industry_code.find(ic => ic.attributes.commercialBOP);
+    }
+
+    includeQuestion(questionIdentifier, location) {
+        const currentYear = moment().year();
+        const yearBussinessStarted = moment(applicationDocData.founded).year();
+
+        switch (questionIdentifier) {
+            case "UWQ5332":
+            case "UWQ5308":
+            case "UWQ5312":
+            case "BOP66":
+            case "BOP58":
+            case "UWQ5333":
+            case "UWQ5309":
+            case "UWQ5314":
+            case "UWQ97":
+            case "BOP466":
+            case "BOP55_Amount":
+                // Building is occupied by insurer
+                if (location) {
+                    const areaUnoccupied = location.questions.find(question => question.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                    const totalSqFt = location.square_footage;
+
+                    if (!areaUnoccupied) {
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        return true;
+                    }
+                    
+                    // if Building is at least partially occupied and BPP exists and is greater than 0, include
+                    if (parseInt(areaUnoccupied.answerValue) < totalSqFt && 
+                        typeof location.businessPersonalPropertyLimit === "number" && location.businessPersonalPropertyLimit > 0) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            case "UWQ5323":
+            case "UW5609":
+                // Area is occupied by insurer (we currently do not treat area different from building)
+                if (location) {
+                    const areaUnoccupied = location.questions.find(question => question.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                    const totalSqFt = location.square_footage;
+                    
+                    if (!areaUnoccupied) {
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        return true;
+                    }
+
+                    // if Building is at least partially occupied and BPP exists and is greater than 0, include
+                    if (parseInt(areaUnoccupied.answerValue) < totalSqFt && 
+                        typeof location.businessPersonalPropertyLimit === "number" && location.businessPersonalPropertyLimit > 0) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            case "BOP320":
+                // Area is occupied by insurer (we currently do not treat area different from building)
+                if (location) {
+                    const areaUnoccupied = location.questions.find(question => question.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                    const totalSqFt = location.square_footage;
+                    
+                    if (!areaUnoccupied) {
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        return true;
+                    }
+
+                    // if Building is at least partially occupied and BPP exists and is greater than 0, include
+                    if (parseInt(areaUnoccupied.answerValue) < totalSqFt && 
+                        typeof location.businessPersonalPropertyLimit === "number" && location.businessPersonalPropertyLimit > 500000) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            case "UWQ5511":
+            case "UWQ5512":
+                // Occupancy Type = Self-Service Facility
+                // Liberty Cmml BOP does not have a question for this, or a data element in the request, defaulting to true
+                return true;
+            case "UWQ219":
+                // Area Occupied > 0 (we currently do not treat area different from building)
+                if (location) {
+                    const areaUnoccupied = location.questions.find(question => question.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+                    const totalSqFt = location.square_footage;
+                    
+                    if (!areaUnoccupied) {
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        return true;
+                    }
+
+                    // if building is at least partially occupied
+                    if (parseInt(areaUnoccupied.answerValue) < totalSqFt) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            case "GLO22":
+                if (yearBussinessStarted < currentYear) {
+                    return true;
+                }
+                return false;
+            case "BOP17":
+                // Building not 100% occupied
+                if (location) {
+                    const areaUnoccupied = location.questions.find(question => question.insurerQuestionIdentifier === "BOP17_AreaUnoccupied");
+
+                    if (parseInt(areaUnoccupied.answerValue) > 0) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            case "BOP185":
+            case "BOP186":
+            case "BOP8":
+                // if year built > 24 && (BL > 0 || BPP > 500000)
+                if (location) {
+                    const yearBuilt = location.questions.find(question => question.insurerQuestionIdentifier === "LMBOP_YearBuilt");
+
+                    if (!yearBuilt) {
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        return true;
+                    }
+
+                    if (moment().year() - parseInt(yearBuilt.answerValue) > 24 && 
+                        ((typeof location.buildingLimit === 'number' && location.buildingLimit > 0) ||
+                        (typeof location.businessPersonalPropertyLimit === 'number' && location.businessPersonalPropertyLimit > 500000))) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            case "BOP191":
+                // if years of management experience is > 0
+                const yearsMngExp = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP2");
+
+                if (!yearsMngExp) {
+                    log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                    return true;
+                }
+
+                if (parseInt(yearsMngExp.answerValue) > 0) {
+                    return true;
+                }
+                return false;
+            case "BOP2":
+                // if year business started < 3
+                if (currentYear - yearBussinessStarted < 3) {
+                    return true;
+                }
+                return false;
+            case "BOP56":
+                // if ServiceWorkSales > 0
+                if (location) {
+                    const svcWorkSales = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP55_Amount")
+
+                    if (!svcWorkSales) {
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        return true;
+                    }
+
+                    if (parseInt(svcWorkSales.answerValue) > 0) {
+                        return true;
+                    }
+                    return false;
+                }
+                else {
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    return true;
+                }
+            default:
+                log.warn(`No case found for question identifier: ${questionIdentifier}. Defualting to included.`);
+                return true;
+        }
+    }
+
+    setCoverageElements(element) {
+        // Hired and/or Non-Owned Auto Coverage
+        const hnoAutoQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_hnoAuto");
+        if (hnoAutoQuestion && hnoAutoQuestion.answerValue.toLowerCase() === "yes") {
+            const Coverage = element.ele('Coverage');
+            Coverage.ele('CoverageCd', 'HAL');
+            Coverage.ele('CoverageCd', 'NOL');
+        }
+
+        // Employee Practices Liability Coverage
+        const eplQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_epl");
+        if (eplQuestion && eplQuestion.answerValue.toLowerCase() === "yes") {
+            const Coverage = element.ele('Coverage');
+            Coverage.ele('CoverageCd', 'EPLI');
+            const CoverageSupplement = Coverage.ele('CoverageSupplement');
+            CoverageSupplement.ele('OptionTypeCd', 'Num1');
+            CoverageSupplement.ele('OptionCd', 'EMPL');
+            CoverageSupplement.ele('Coverage').ele('Option').ele('OptionValue', this.get_total_employees());
+        }
+
+        // Optometrists Professional Liability Coverage (88619) (UWQ5505, UWQ5507, UWQ5509)
+        const optometristQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_opl");
+        if (optometristQuestion && optometristQuestion.answerValue.toLowerCase() === "yes") {
+            const numProfessionalsQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_opl_numProf");
+
+            if (numProfessionalsQuestion) {
+                const Coverage = element.ele('Coverage');
+                Coverage.ele('CoverageCd', 'OPTPL');
+
+                const Option = Coverage.ele('Option');
+                Option.ele('OptionCd', 'PROF');
+                Option.ele('OptionTypeCd', 'Num1');
+                Option.ele('OptionValue', parseInt(numProfessionalsQuestion.answerValue));
+            }
+            else {
+                log.warn(`${logPrefix}Optometrists Professional Liability Coverage missing required question answer. Not adding coverage.`);
+            }
+        }
+
+        // Liquor Liability Coverage
+        const liquorQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_liqur_byob");
+        if (liquorQuestion && liquorQuestion.answerValue.toLowerCase() === "yes") {
+            const Coverage = element.ele('Coverage');
+            Coverage.ele('CoverageCd', 'LIQUR');
+        }
+    }
+
+    setCommlCoverageElements(element) {
+        const byobQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_liqur_byob");
+        if (byobQuestion && byobQuestion.answerValue.toLowerCase() === "yes") {
+            const CommlCoverage = element.ele('CommlCoverage');
+            CommlCoverage.ele('CoverageCd', 'BYOB');
+        }
     }
 
     getCoverages(coverages, category) {
