@@ -6,7 +6,7 @@ const {
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 const {Issuer} = require('openid-client');
-const OpenIdAuthConfigBO = global.requireShared('models/OpenIDAuthConfig-BO.js');
+const OpenIdAuthConfigBO = global.requireShared('models/OpenIdAuthConfig-BO.js');
 const openIdAuthConfigBO = new OpenIdAuthConfigBO();
 
 /**
