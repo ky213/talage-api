@@ -226,7 +226,7 @@ module.exports = class GreatAmericanWC extends Integration {
             }
         }
 
-        const quote = await GreatAmericanApi.getPricing(token, this, curAnswers.newBusiness.id).catch((err) => {
+        const quote = await GreatAmericanApi.application(token, this, curAnswers.newBusiness.id).catch((err) => {
             error = err;
             log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
         });
@@ -243,12 +243,29 @@ module.exports = class GreatAmericanWC extends Integration {
             this.writer = _.get(quote, 'rating.data.policy.company.name');
             this.number = _.get(quote, 'rating.data.policy.id');
 
-            // Generate ACORD form and send in email to Great American UW team
+            let pricingResponse = null;
             try {
-                await this.generateAndSendACORD();
+                pricingResponse = await GreatAmericanApi.pricing(this, token, curAnswers.newBusiness.id);
             }
-            catch (e) {
-                log.error(`Appid: ${this.app.id} Great American WC: Error generating and sending ACORD form: ${e}.`);
+            catch (err) {
+                log.error(`Appid: ${this.app.id} Great American WC: error ${err} ${__location}`);
+            }
+
+            if (pricingResponse) {
+                // We may not need to call into their submit API
+                // let submit = await GreatAmericanApi.submit(this, token, curAnswers.newBusiness.id);
+
+                // In case the pricing API endpoint doesn't work, should we fall back to sending the email still?
+                // Generate ACORD form and send in email to Great American UW team
+                try {
+                    await this.generateAndSendACORD();
+                }
+                catch (e) {
+                    log.error(`Appid: ${this.app.id} Great American WC: Error generating and sending ACORD form: ${e}.`);
+                }
+            }
+            else {
+                log.error(`Appid: ${this.app.id} Great American WC: No response returned from Pricing API call.`);
             }
 
             if (quote.newBusiness.status === 'REFERRAL' &&

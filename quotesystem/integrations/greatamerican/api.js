@@ -4,6 +4,7 @@
 /* eslint-disable object-curly-newline */
 const axios = require('axios');
 const _ = require('lodash');
+const moment = require('moment');
 const log = global.log;
 
 const getApiUrl = (integration) => {
@@ -71,7 +72,7 @@ const getNcciFromClassCode = async(code, territory) => {
  * @param {*} app
  * @param {*} sessionId
  */
-const getPricing = async(token, integration, sessionId) => {
+const application = async(token, integration) => {
     const appData = integration.app.applicationDocData;
 
     // Map our entity types to the entity types of Great America.
@@ -134,11 +135,7 @@ const getPricing = async(token, integration, sessionId) => {
         }
     });
 
-
     const send = {
-        newBusiness: {
-            id: sessionId
-        },
         submission: {
             insuredName: appData.businessName,
             legalEntity: entityType,
@@ -201,7 +198,43 @@ const getPricing = async(token, integration, sessionId) => {
     }
 }
 
-const getQuote = async(integration, token, sessionId) => {
+const pricing = async(integration, token, sessionId) => {
+    const send = {
+        newBusiness: {
+            id: sessionId
+        }
+    };
+
+    let apiCall = null;
+    try {
+        integration.log += `----pricing ${getApiUrl(integration)}/shop/api/newBusiness/pricing -----\n`
+        integration.log += `<pre>${JSON.stringify(send, null, 2)}</pre>`;
+        apiCall = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/pricing`, send, {
+            headers: {
+                Authorization: `Bearer ${token.access_token}`,
+                Accept: 'application/json'
+            }
+        });
+    }
+    catch (err) {
+        log.error(`AppId: ${integration.appData.applicationId} quote pricing error ${err} ` + __location);
+        integration.log += "\nError Response: \n ";
+        integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
+        integration.log += "\n";
+    }
+
+    if (apiCall) {
+        integration.log += `----Response -----\n`
+        integration.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+        return apiCall.data;
+    }
+    else {
+        return null;
+    }
+}
+
+const submit = async(integration, token, sessionId) => {
     const send = {
         newBusiness: {
             id: sessionId
@@ -221,7 +254,7 @@ const getQuote = async(integration, token, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appData.applicationId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.appData.applicationId} quote submission error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -253,7 +286,7 @@ const getSession = async(integration, token, businessTypes) => {
         riskSelection: {
             input: {
                 line: "WC",
-                date: '2021-01-04',
+                date: moment().format('YYYY-MM-DD'),
                 contextData: {
                     businessTypes: businessTypes,
                     generalQuestionsOnly: false
@@ -379,8 +412,9 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
 
 module.exports = {
     getSession,
-    getQuote,
-    getPricing,
+    application,
+    pricing,
+    submit,
     getToken,
     injectAnswers
 }
