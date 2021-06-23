@@ -118,7 +118,7 @@ const policiesEnabled = async(resources, applicationDB) => {
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
 const cyberAggregateLimitList = [
-    50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
+    100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
 ];
 const plAggregateLimitList = [
     50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000
