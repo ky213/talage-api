@@ -74,7 +74,9 @@ const policyQuestionSpecialCases = [
     'BOP24', // PolicySupplementExt
     'BOP23', // PolicySupplementExt
     'BOP2', // PolicySupplementExt
-    'BOP191' // PolicySupplementExt
+    'BOP191', // PolicySupplementExt
+    'UWQ5501_liqur', // same question as below
+    'UWQ5501_byob' // same question as above
 ];
 
 // these are special case questions that require specific details for inclusion in the request
@@ -105,7 +107,8 @@ const locationQuestionSpecialCases = [
     'LMBOP_NumStories', // Construction/NumStories
     'LMBOP_AlarmType', // BldgProtection/ProtectionDeviceBurglarCd
     'UWQ6003', // QuestionAnswer
-    'LMBOP_YearRoofReplaced'
+    'LMBOP_YearRoofReplaced',
+    'coverage_liqur_receipts' // GrossReceipts
 ];
 
 const constructionMatrix = {
@@ -464,7 +467,9 @@ module.exports = class LibertySBOP extends Integration {
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI');
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
-        BusinessInfo.ele('OperationsDesc', this.get_operation_description());
+
+        const operationsDesc = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "LMBOP_OperationsDesc");
+        BusinessInfo.ele('OperationsDesc', operationsDesc ? operationsDesc.answerValue : this.get_operation_description());
 
         //             <Policy>
 
@@ -556,6 +561,7 @@ module.exports = class LibertySBOP extends Integration {
         const specialPolicyQuestions = allPolicyQuestions.filter(q => policyQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
 
         let PolicySupplementExt = null;
+        let UWQ5501Answered = false;
         specialPolicyQuestions.forEach(question => {
             if (this.includeQuestion(question.insurerQuestionIdentifier)) {
                 switch (question.insurerQuestionIdentifier) {
@@ -626,6 +632,15 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     case "BOP191":
                         // handled in BOP2
+                        break;
+                    case "UWQ5501_liqur":
+                    case "UWQ5501_byob":
+                        if (!UWQ5501Answered) {
+                            UWQ5501Answered = true;
+                            const UWQ5501QuestionAnswer = Policy.ele('QuestionAnswer');
+                            UWQ5501QuestionAnswer.ele('QuestionCd', 'UWQ5501');
+                            UWQ5501QuestionAnswer.ele('YesNoCd', question.answerValue);
+                        }
                         break;
                     default:
                         log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
@@ -1069,7 +1084,7 @@ module.exports = class LibertySBOP extends Integration {
                                 BldgOccupancyExt.ele('com.libertymutual.ci_UnoccupiedAreasConditionText', question.answerValue);
                             }
                             break;
-                        case "BOP17_AreaOccupiedByOther":
+                        case "BOP17_AreaOccupiedByOthers":
                             const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
     
                             if (BOP17_AreaOccupiedByOther) {
@@ -1116,6 +1131,17 @@ module.exports = class LibertySBOP extends Integration {
                                 const UWQ6003QuestionAnswer = LocationUWInfo.ele('QuestionAnswer');
                                 UWQ6003QuestionAnswer.ele('QuestionCode', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
                                 UWQ6003QuestionAnswer.ele('YesNoCd', question.answerValue);
+                            }
+                            break;
+                        case "coverage_liqur_receipts":
+                            // only provide answer to this question if Liquor liability coverage is selected
+                            const liqurQuestion = applicationDocData.questions.find(q => q.insurerQuestionIdentifier === "coverage_liqur_byob");
+                            if (liqurQuestion && liqurQuestion.answerValue.toLowerCase() === 'liquor liability coverage') {
+                                const liquorGrossReceipts = LocationUWInfo.ele('GrossReceipts');
+                                liquorGrossReceipts.ele('OperationsCd', 'LIQUR');
+                                const liquorGrossReceiptsAmt = liquorGrossReceipts.ele('AnnualGrossReceiptsAmt');
+                                const annualReceipts = parseInt(question.answerValue.replace(/$|,/g, ''), 10);
+                                liquorGrossReceiptsAmt.ele('Amt', !isNaN(annualReceipts) ? annualReceipts : 0);
                             }
                             break;
                         default:
@@ -1733,7 +1759,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // Liquor Liability Coverage
         const liquorQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_liqur_byob");
-        if (liquorQuestion && liquorQuestion.answerValue.toLowerCase() === "yes") {
+        if (liquorQuestion && liquorQuestion.answerValue.toLowerCase() === "liquor liability coverage") {
             const Coverage = element.ele('Coverage');
             Coverage.ele('CoverageCd', 'LIQUR');
         }
@@ -1741,7 +1767,7 @@ module.exports = class LibertySBOP extends Integration {
 
     setCommlCoverageElements(element) {
         const byobQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_liqur_byob");
-        if (byobQuestion && byobQuestion.answerValue.toLowerCase() === "yes") {
+        if (byobQuestion && byobQuestion.answerValue.toLowerCase() === "byob liquor liability coverage") {
             const CommlCoverage = element.ele('CommlCoverage');
             CommlCoverage.ele('CoverageCd', 'BYOB');
         }
