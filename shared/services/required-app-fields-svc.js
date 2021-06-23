@@ -27,7 +27,8 @@ const bopRequirements = {
         unemployment_num: {
             visible: false,
             required: false
-        }
+        },
+        square_footage: {}
     },
     grossSalesAmt: {}
 };
@@ -49,7 +50,8 @@ const glRequirements = {
         unemployment_num: {
             visible: false,
             required: false
-        }
+        },
+        square_footage: {}
     },
     grossSalesAmt: {}
 };
@@ -78,6 +80,50 @@ const wcRequirements = {
     },
     grossSalesAmt: {},
     ein: {}
+};
+
+const plRequirements = {
+    grossSalesAmt: {},
+    location: {
+        buildingLimit: {
+            visible: false,
+            required: false
+        },
+        businessPersonalPropertyLimit: {
+            visible: false,
+            required: false
+        },
+        own: {
+            visible: false,
+            required: false
+        },
+        unemployment_num: {
+            visible: false,
+            required: false
+        }
+    }
+};
+
+const cyberRequirements = {
+    grossSalesAmt: {},
+    location: {
+        buildingLimit: {
+            visible: false,
+            required: false
+        },
+        businessPersonalPropertyLimit: {
+            visible: false,
+            required: false
+        },
+        own: {
+            visible: false,
+            required: false
+        },
+        unemployment_num: {
+            visible: false,
+            required: false
+        }
+    }
 };
 
 exports.requiredFields = async(appId) => {
@@ -123,6 +169,24 @@ exports.requiredFields = async(appId) => {
                     }
                     else {
                         populateSingleRequiredObject(bopRequirements, newRequirements);
+                    }
+                    requiredFields = newRequirements;
+                    break;
+                case "CYBER":
+                    if(requiredFields){
+                        combineRequiredObjects(requiredFields, cyberRequirements, newRequirements);
+                    }
+                    else {
+                        populateSingleRequiredObject(cyberRequirements, newRequirements);
+                    }
+                    requiredFields = newRequirements;
+                    break;
+                case "PL":
+                    if(requiredFields){
+                        combineRequiredObjects(requiredFields, plRequirements, newRequirements);
+                    }
+                    else {
+                        populateSingleRequiredObject(plRequirements, newRequirements);
                     }
                     requiredFields = newRequirements;
                     break;

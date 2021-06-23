@@ -798,7 +798,7 @@ module.exports = class ApplicationModel {
                     log.error("questionBO load error " + err + __location);
                 });
                 if (questionDB) {
-                    questionJSON.questionText = questionDB.question;
+                    questionJSON.questionText = questionDB.text;
                     questionJSON.hint = questionDB.hint;
                     questionJSON.hidden = questionDB.hidden;
                     questionJSON.questionType = questionDB.typeId;
