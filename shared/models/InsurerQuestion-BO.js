@@ -4,7 +4,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 var InsurerQuestion = require('mongoose').model('InsurerQuestion');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-//const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'InsurerQuestion';

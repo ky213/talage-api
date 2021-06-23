@@ -80,7 +80,7 @@ module.exports = class InsurerActivityCodeBO{
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {createdAt: 1};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -343,7 +343,7 @@ module.exports = class InsurerActivityCodeBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"systemId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.systemId = -1;
             queryOptions.limit = 1;

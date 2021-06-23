@@ -8,6 +8,8 @@
 'use strict';
 
 const moment = require('moment');
+const moment_timezone = require('moment-timezone');
+const clonedeep = require('lodash.clonedeep');
 
 // Add global helpers to load shared modules
 global.rootPath = require('path').join(__dirname, '..');
@@ -20,7 +22,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
-const crypt = global.requireShared('./services/crypt.js');
+
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
@@ -115,97 +117,81 @@ async function main() {
  */
 async function runFunction() {
 
-    const AgencyPortUserModel = require('mongoose').model('AgencyPortalUser');
+    const ColorSchemeModel = require('mongoose').model('ColorScheme');
 
     //load message model and get message list.
-    const sql = `select * from clw_talage_agency_portal_users  `;
+    const sql = `select * from clw_talage_color_schemes  `;
 
     let result = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error " + error);
         return false;
     });
-    log.debug("Got MySql AgencyPortUser - result.length - " + result.length);
-
+    log.debug("Got MySql ColorScheme - result.length - " + result.length);
+    const updateAbleProps = ['name',
+        'primary',
+        'primary_accent',
+        'secondary',
+        'secondary_accent',
+        'tertiary',
+        'tertiary_accent',
+        'active'];
 
     let updatedDocCount = 0;
     let newDocCount = 0;
     // eslint-disable-next-line array-element-newline
+
     for(let i = 0; i < result.length; i++){
         try {
-            let agencyPortalUser = new AgencyPortUserModel(result[i]);
-
-            agencyPortalUser.agencyPortalUserId = result[i].id;
-            if(result[i].clear_email && result[i].clear_email.length > 0){
-                agencyPortalUser.email = result[i].clear_email.toLowerCase();
-            }
-            else {
-                try{
-                    agencyPortalUser.email = await crypt.decrypt(result[i].email)
-                    if(agencyPortalUser.email === result[i].email){
-                        log.error(`did not decrypt email`);
-                    }
-                    agencyPortalUser.email = agencyPortalUser.email.toLowerCase();
-                }
-                catch(err){
-                    log.debug(`Error decrypting user ${result[i].id} email `)
-                }
-
-            }
-            agencyPortalUser.legalAcceptance = [];
-            //get legal acceptance
-            const sqlLA = `select * from clw_talage_legal_acceptances where agency_portal_user = ${result[i].id}`
-            try {
-                let resultLA = await db.query(sqlLA)
-                if(resultLA && resultLA.length > 0){
-                    // eslint-disable-next-line no-loop-func
-                    resultLA.forEach((la) => {
-                        if(!la.version){
-                            la.version = 1;
-                        }
-                        const laJSON = {
-                            ip: la.ip,
-                            version: la.version,
-                            acceptanceDate: moment(la.timestamp)
-                        }
-                        agencyPortalUser.legalAcceptance.push(laJSON);
-                        agencyPortalUser.requiredLegalAcceptance = false;
-                    })
-                }
-            }
-            catch(err){
-                log.debug(`Error Legal Acceptance user ${result[i].id} email `)
-            }
-
+            let colorScheme = new ColorSchemeModel(result[i]);
+            colorScheme.colorSchemeId = result[i].id;
+            delete result[i].id;
 
             // Determine if existing doc
-            // by insurerId,  code, sub
-            const query = {agencyPortalUserId: result[i].id}
-            const existingDoc = await AgencyPortUserModel.findOne(query);
-            if(!existingDoc){
-                await agencyPortalUser.save().catch(function(err) {
-                    log.error('Mongo AgencyPortUserModel Save err ' + err + __location);
+            const query = {colorSchemeId: colorScheme.colorSchemeId}
+            const existingDoc = await ColorSchemeModel.findOne(query);
+            if(existingDoc){
+                //update file
+                let updateHit = false;
+                //loop updateable array
+                updateAbleProps.forEach((updateAbleProp) => {
+                    if(colorScheme[updateAbleProp] && colorScheme[updateAbleProp] !== existingDoc[updateAbleProp]){
+                        existingDoc[updateAbleProp] = colorScheme[updateAbleProp]
+                        updateHit = true;
+                    }
+                });
+                if(updateHit){
+                    await existingDoc.save().catch(function(err) {
+                        log.error('Mongo ColorScheme Save err ' + err + __location);
+                        return false;
+                    });
+                    updatedDocCount++
+                }
+            }
+            else {
+                await colorScheme.save().catch(function(err) {
+                    log.error('Mongo ColorScheme Save err ' + err + __location);
                     return false;
                 });
                 newDocCount++;
             }
 
-            // if(PolicyType.insurerTerritoryQuestionList.length > 0){
-            //     log.debug("has territoryquestions " + PolicyType.insurerActivityCodeId)
+            // if(ColorScheme.insurerColorSchemeQuestionList.length > 0){
+            //     log.debug("has territoryquestions " + ColorScheme.insurerActivityCodeId)
             // }
             if((i + 1) % 100 === 0){
                 log.debug(`processed ${i + 1} of ${result.length} `)
             }
         }
         catch(err){
-            log.error("Updating AgencyPortUserModel List error " + err + __location);
+            log.error("Updating ColorScheme List error " + err + __location);
             return false;
         }
     }
 
-    log.debug("AgencyPortUserModel Import Done!");
-    log.debug(`Updated AgencyPortUserModel: ${updatedDocCount}`);
-    log.debug(`New AgencyPortUserModel: ${newDocCount}`);
+    log.debug("ColorSchemes Import Done!");
+    log.debug(`Updated ColorSchemes: ${updatedDocCount}`);
+    log.debug(`New ColorSchemes: ${newDocCount}`);
     log.debug("Done!");
     process.exit(1);
 

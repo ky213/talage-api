@@ -152,7 +152,7 @@ module.exports = class QuoteBO {
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -332,7 +332,7 @@ module.exports = class QuoteBO {
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             
 
             queryOptions.limit = 500;
