@@ -226,7 +226,7 @@ module.exports = class AgencyLocationBO{
                         }
                     }
                     if(children === true){
-                        await this.loadChildrenMongo(mysqlId, docDB)
+                        await this.loadChildrenMongo(docDB)
                     }
                     if (docDB) {
                         agencyLocationDoc = mongoUtils.objCleanup(docDB);
@@ -632,7 +632,7 @@ module.exports = class AgencyLocationBO{
                 try {
                     docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
                     if(children === true){
-                        await this.loadChildrenMongo(docDB.systemId, docDB)
+                        await this.loadChildrenMongo(docDB)
                     }
                     if (docDB) {
                         agencyLocationDoc = mongoUtils.objCleanup(docDB);
