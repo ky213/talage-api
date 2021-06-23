@@ -83,12 +83,16 @@ module.exports = function() {
     require('./shared/models/mongoose/IndustryCodeCategory.model');
     require('./shared/models/mongoose/CodeGroup.model');
     require('./shared/models/mongoose/QuestionGroup.model');
+    require('./shared/models/mongoose/OpenIdAuthConfig.model');
 
     require('./shared/models/mongoose/PolicyType.model');
     require('./shared/models/mongoose/WCStateIncomeLimits.model');
     require('./shared/models/mongoose/ZipCode.model');
     require('./shared/models/mongoose/AgencyPortalUser.model');
     require('./shared/models/mongoose/Territory.model');
+
+    require('./shared/models/mongoose/Question.model');
+    require('./shared/models/mongoose/ColorScheme.model');
 
     return mongodb;
 

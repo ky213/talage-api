@@ -84,7 +84,7 @@ module.exports = class IndustryCodeCategoryBO{
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {industryCodeCategoryId: 1};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -328,7 +328,7 @@ module.exports = class IndustryCodeCategoryBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"industryCodeCategoryId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.industryCodeCategoryId = -1;
             queryOptions.limit = 1;

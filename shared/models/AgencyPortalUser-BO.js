@@ -401,7 +401,7 @@ module.exports = class AgencyPortalUserBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"agencyPortalUserId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.agencyPortalUserId = -1;
             queryOptions.limit = 1;

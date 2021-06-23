@@ -123,6 +123,7 @@ async function main() {
 }
 
 function onErr(err) {
+    // eslint-disable-next-line no-console
     console.log(err);
     return 1;
 }
@@ -146,13 +147,19 @@ async function runFunction() {
     const promptly = require('promptly');
     const userEmail = await promptly.prompt('userEmail: ');
     const userPwd = await promptly.password('userPwd: ');
-   
+
+    const userRemote = await promptly.password('Remote(Y/N): ');
 
     //get app auth token
     // eslint-disable-next-line object-curly-newline
     const postBody = {"email": userEmail, "password": userPwd};
-    const apiAuthApUrl = "http://localhost:3000/v1/auth/agency-portal"
-    const apiApRequoteUrlBase = "http://localhost:3000/v1/agency-portal/application"
+    let apiAuthApUrl = "http://localhost:3000/v1/auth/agency-portal"
+    let apiApRequoteUrlBase = "http://localhost:3000/v1/agency-portal/application"
+    if(userRemote === 'Y'){
+        apiAuthApUrl = "https://devapi.talageins.com/v1/auth/agency-portal"
+        apiApRequoteUrlBase = "https://devapi.talageins.com/v1/agency-portal/application"
+    }
+
     let authResponse = null;
     try{
         authResponse = await axios.post(apiAuthApUrl, JSON.stringify(postBody),{headers: {'Content-Type': 'application/json'}});
@@ -166,7 +173,6 @@ async function runFunction() {
         process.exit(1);
     }
 
-
     const quote_promises = [];
     // eslint-disable-next-line array-element-newline
     //Wheelhouse
@@ -178,7 +184,7 @@ async function runFunction() {
     const updateMysql = true;
     for(let i = 0; i < appList.length; i++){
         const sourceAppId = appList[i].sourceAppId;
-        log.debug("copying mysqlId " + sourceAppId);
+        log.debug("copying applicationId " + sourceAppId);
         try{
         //load applicationBO
             const applicationBO = new ApplicationBO();
@@ -197,7 +203,7 @@ async function runFunction() {
                 delete mongoApp.uuid
                 delete mongoApp.mysqlId
                 delete mongoApp.createdAt
-            
+
                 //update policies dates
                 const newEffectiveDate = moment().add(1,"months");
                 const newExpirationDate = newEffectiveDate.clone().add(1,'years');
@@ -217,6 +223,7 @@ async function runFunction() {
 
                 if(appList[i].requiresNewEin){
                     mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
+                    mongoApp.businessName = `${mongoApp.businessName} - ${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
                 }
 
                 //save mongoinsert

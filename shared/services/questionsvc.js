@@ -6,6 +6,8 @@ const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const helper = global.requireShared('./helpers/helper.js');
 const log = global.log;
+const QuestionModel = require('mongoose').model('Question');
+const utility = global.requireShared('./helpers/utility.js');
 
 
 /**
@@ -174,18 +176,18 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         orParamList.push(mongoPolicyEffectiveDateQuery)
     });
     insurerQuestionQuery.$or = orParamList;
-
-    log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
+    log.debug(`insurerQuestionQuery Universal  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
+    let start = moment();
     try{
 
-        const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+        const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery).lean();
         //need territory filter
         //territoryList: {$in: territories},
 
-        if(insurerQuestionList){
+        if(insurerQuestionList && insurerQuestionList.length > 0){
             // eslint-disable-next-line prefer-const
             let talageQuestionIdArray = [];
-            let noTerritoryHitCount = 0;
+            //let noTerritoryHitCount = 0;
             for(const insurerQuestion of insurerQuestionList){
                 if(insurerQuestion.talageQuestionId){
                     let add = false;
@@ -197,15 +199,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     }
                     else {
                         add = true;
-                        noTerritoryHitCount++;
+                        //noTerritoryHitCount++;
                     }
                     if(add && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
                         talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
                     }
                 }
             }
-            log.debug("NO territoryList hit count " + noTerritoryHitCount + __location);
-            log.debug("Number of Universal Talage Questions " + talageQuestionIdArray.length + __location);
+            // log.debug("NO territoryList hit count " + noTerritoryHitCount + __location);
+            log.debug("Number of Universal Insurer Questions  " + talageQuestionIdArray.length + __location);
             if(talageQuestionIdArray.length > 0) {
                 log.debug(`talageQuestionIdArray.length ${talageQuestionIdArray.length} `)
                 const universal_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
@@ -213,9 +215,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 questions = questions.concat(universal_questions);
             }
             else {
-                log.debug(`No universal questions for `)
+                log.debug(`No universal questions ` + __location)
             }
         }
+        else {
+            log.debug(`No Insurer universal questions found ` + __location)
+        }
+        const endSqlSelect = moment();
+        const diff = endSqlSelect.diff(start, 'milliseconds', true);
+        log.info(`Mongo Universal Question process duration: ${diff} milliseconds`);
     }
     catch(err){
         log.error(`Error loading Universal Questions from Mongo ${err}` + __location)
@@ -231,7 +239,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
     // }
     const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-    let start = moment();
+    start = moment();
     // eslint-disable-next-line prefer-const
     let industryQuery = {
         insurerId: {$in: insurerArray},
@@ -252,7 +260,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     industryQuery.$or = orParamList;
     try{
         //log.debug(`insurerIndustryCodeList query ${JSON.stringify(industryQuery)}`)
-        const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
+        const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery).lean();
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
         let talageQuestionIdArray = [];
@@ -296,9 +304,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             }
             // eslint-disable-next-line prefer-const
             const orParamList2 = [];
+            const territoryAllCheck = {allTerritories: true};
             const territoryCheck = {territoryList: {$in: territories}};
             const territoryLengthCheck = {territoryList: {$size: 0}}
             const territoryNullCheck = {territoryList: null}
+            orParamList2.push(territoryAllCheck)
             orParamList2.push(territoryCheck)
             orParamList2.push(territoryNullCheck)
             orParamList2.push(territoryLengthCheck)
@@ -310,10 +320,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
             //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
-            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery).lean();
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
-                    if(insurerQuestion.talageQuestionId){
+                    if(insurerQuestion.talageQuestionId && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
                         talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
                     }
                 }
@@ -351,7 +361,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     try{
         log.debug(`activityCodeQuery ${JSON.stringify(activityCodeQuery)}`);
-        const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
+        const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean();
+        // eslint-disable-next-line prefer-const
         let insurerQuestionIdArray = [];
         // eslint-disable-next-line prefer-const
         let talageQuestionIdArray = [];
@@ -363,7 +374,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                         //if so add question list - Dups are OK.
                         const tQFound = insurerActivityCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territories[i]);
                         if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
-                            insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
+                            //insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
+                            utility.addArrayToArray(insurerQuestionIdArray,tQFound.insurerQuestionIdList)
                         }
                         else {
                             addStandardQuestions = true;
@@ -371,11 +383,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     }
                     //any territory that does not get a hit trigger adding standard questions
                     if(addStandardQuestions && insurerActivityCode.insurerQuestionIdList && insurerActivityCode.insurerQuestionIdList.length > 0){
-                        insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                        //insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                        utility.addArrayToArray(insurerQuestionIdArray,insurerActivityCode.insurerQuestionIdList)
                     }
                 }
                 else if(insurerActivityCode.insurerQuestionIdList && insurerActivityCode.insurerQuestionIdList.length > 0){
-                    insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                    //insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                    utility.addArrayToArray(insurerQuestionIdArray,insurerActivityCode.insurerQuestionIdList)
                 }
             }
         }
@@ -392,9 +406,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             }
             // eslint-disable-next-line prefer-const
             const orParamList2 = [];
+            const territoryAllCheck = {allTerritories: true};
             const territoryCheck = {territoryList: {$in: territories}};
             const territoryLengthCheck = {territoryList: {$size: 0}}
             const territoryNullCheck = {territoryList: null}
+            orParamList2.push(territoryAllCheck)
             orParamList2.push(territoryCheck)
             orParamList2.push(territoryNullCheck)
             orParamList2.push(territoryLengthCheck)
@@ -405,10 +421,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}];
 
             //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
-            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+            insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery).lean();
             if(insurerQuestionList){
                 for(const insurerQuestion of insurerQuestionList){
-                    if(insurerQuestion.talageQuestionId){
+                    if(insurerQuestion.talageQuestionId && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
                         talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
                     }
                 }
@@ -494,57 +510,88 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questions = questions.filter((question) => question.id > 0);
     }
 
-    // Get a list of the question IDs
-    const question_ids = questions.map(function(question) {
-        return question.id;
-    });
-    log.debug("Getting answers questions " + __location);
-    if (question_ids && question_ids.length > 0) {
-        // Get the answers to the questions
-        sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
-        const answers = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
+    if(global.settings.USE_MYSQL_QUESTIONS === "YES"){
+        // Get a list of the question IDs
+        const question_ids = questions.map(function(question) {
+            return question.id;
         });
-        if (error) {
-            return false;
-        }
+        log.debug("Getting answers questions " + __location);
+        if (question_ids && question_ids.length > 0) {
+            // Get the answers to the questions
+            sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
+            const answers = await db.queryReadonly(sql).catch(function(err) {
+                error = err.message;
+            });
+            if (error) {
+                return false;
+            }
 
-        // Combine the answers with their questions
-        questions.forEach((question) => {
-            if (question.type_id >= 1 && question.type_id <= 3) {
-                question.possible_answers = {};
-                answers.forEach((answer) => {
-                    if (answer.question === question.id) {
-                        // Create a local copy of the answer so we can remove properties
-                        const answer_obj = Object.assign({}, answer);
-                        delete answer_obj.question;
+            // Combine the answers with their questions
+            questions.forEach((question) => {
+                if (question.type_id >= 1 && question.type_id <= 3) {
+                    question.possible_answers = {};
+                    answers.forEach((answer) => {
+                        if (answer.question === question.id) {
+                            // Create a local copy of the answer so we can remove properties
+                            const answer_obj = Object.assign({}, answer);
+                            delete answer_obj.question;
 
-                        // Remove the default if it is not applicable
-                        if (answer_obj.default === 1) {
-                            answer_obj.default = true;
+                            // Remove the default if it is not applicable
+                            if (answer_obj.default === 1) {
+                                answer_obj.default = true;
+                            }
+                            else {
+                                delete answer_obj.default;
+                            }
+
+                            question.possible_answers[parseInt(answer_obj.id, 10)] = answer_obj;
                         }
-                        else {
+                    });
+
+                    // If there were no answers, do not return the element
+                    if (!Object.keys(question.possible_answers).length) {
+                        delete question.possible_answers;
+                    }
+                }
+                delete question.type_id;
+            });
+        }
+    }
+    else {
+        try{
+            questions.forEach((question) => {
+                if (question.type_id >= 1 && question.type_id <= 3 && question.answers && question.answers.length > 0) {
+                    question.possible_answers = {};
+                    question.answers.forEach((answer) => {
+                        const answer_obj = Object.assign({}, answer);
+                        // Remove the default if it is not applicable
+                        if (answer_obj.default === false) {
                             delete answer_obj.default;
                         }
+                        //Backward compatible for MySql query
+                        answer_obj.id = answer_obj.answerId;
+                        answer_obj.question = question.talageQuestionId;
 
-                        question.possible_answers[parseInt(answer_obj.id, 10)] = answer_obj;
+                        question.possible_answers[answer_obj.answerId] = answer_obj;
+
+                    });
+                    // If there were no answers, do not return the element
+                    if (!Object.keys(question.possible_answers).length) {
+                        delete question.possible_answers;
                     }
-                });
-
-                // If there were no answers, do not return the element
-                if (!Object.keys(question.possible_answers).length) {
-                    delete question.possible_answers;
                 }
-            }
-            delete question.type_id;
-        });
-
-        log.debug("question sort " + __location);
-        // Sort the questions
-        questions.sort(function(a, b) {
-            return a.id - b.id;
-        });
+                delete question.type_id;
+            });
+        }
+        catch(err){
+            log.error(`QuestionSvc Error Creating possible answers ${err}` + __location)
+        }
     }
+    log.debug("question sort " + __location);
+    // Sort the questions
+    questions.sort(function(a, b) {
+        return a.id - b.id;
+    });
     log.info(`Returning ${questions.length} Questions`);
 
     return questions;
@@ -614,29 +661,73 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
-    //refactor for Mongo...
-    const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden`;
+    const start = moment();
+    let talageQuestions = [];
     let error = null;
-    const sql = `
-            SELECT ${select}
-            FROM clw_talage_questions AS q
-            LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-            WHERE
-                q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
-                AND q.state = 1
-                GROUP BY q.id;
-        `;
-    // log.debug("question sql " + sql)
-    const talageQuestions = await db.queryReadonly(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        return [];
-    }
-    if(insurerQuestionList && talageQuestions && talageQuestions.length && return_hidden){
-        if(!insurerQuestionList){
-            //TODO get insurerQuestionList from talageQuestions
+    if(global.settings.USE_MYSQL_QUESTIONS === "YES"){
+        const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden`;
+        const sql = `
+                SELECT ${select}
+                FROM clw_talage_questions AS q
+                LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+                WHERE
+                    q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
+                    AND q.state = 1
+                    GROUP BY q.id;
+            `;
+        // log.debug("question sql " + sql)
+        talageQuestions = await db.queryReadonly(sql).catch(function(err) {
+            error = err.message;
+            log.error(`Error get Talage Questions ${err} ` + __location);
+        });
+        if (error) {
+            return [];
         }
+    }
+    else {
+        //get question from Mongo.
+        // eslint-disable-next-line object-property-newline
+        const query = {active: true, talageQuestionId: {$in: talageQuestionIdArray}};
+        // eslint-disable-next-line object-property-newline
+        const queryProjection = {"__v": 0, "_id": 0,acordQuestion: 0, active: 0,updatedAt:0, createdAt: 0};
+        talageQuestions = await QuestionModel.find(query,queryProjection).lean().catch(function(err) {
+            error = err.message;
+            log.error(`Error get Talage Questions ${err} ` + __location);
+        });
+        if (error) {
+            return [];
+        }
+        //backwards capable with mysql query
+        talageQuestions.forEach(function(talageQuestion){
+            talageQuestion.id = talageQuestion.talageQuestionId
+            talageQuestion.type = talageQuestion.typeDesc
+            talageQuestion.type_id = talageQuestion.typeId
+            talageQuestion.answers.forEach((answer) => {
+                if(answer._id){
+                    delete answer._id
+                }
+                if(answer.id){
+                    delete answer.id
+                }
+                if(!answer.default){
+                    answer.default = false;
+                }
+            })
+
+        });
+
+    }
+
+    const endSqlSelect = moment();
+    const diff = endSqlSelect.diff(start, 'milliseconds', true);
+    log.info(`Mongo Talage Question process duration: ${diff} milliseconds`);
+    // should be removed once integration are refactored
+    // to drive off insurer questions not talage quesetions.
+    // this is only need to match TalageQuestion to insurer question.
+    if(insurerQuestionList && talageQuestions && talageQuestions.length && return_hidden){
+        // if(!insurerQuestionList){
+        //     //TODO get insurerQuestionList from talageQuestions
+        // }
         //Create new return question array with insuer-policytype info
         //loop  talageQuestions find insurerQuestionList matches.
         //add row for every match
@@ -651,7 +742,9 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
             //change to store insurerQuestionId.  will allow for multiple insurerquestions to map to
             // one talage question.
             iqForTalageQList.forEach(function(iqForTalageQ){
-                talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+                iqForTalageQ.policyTypeList.forEach((policyType) => {
+                    talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + policyType)
+                });
                 insurerQuestionRefList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.insurerQuestionId)
             });
             talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');

@@ -3,6 +3,7 @@
 
 const serverHelper = global.requireRootPath('server.js');
 const colorConverter = require('color-converter').default;
+const ColorSchemeBO = global.requireShared('./models/ColorScheme-BO.js');
 
 /**
  * Calculates an accent color for a custom color scheme
@@ -71,27 +72,16 @@ async function validate(request) {
 async function getColorSchemes(req, res, next) {
     // Build a query that will return all of the landing pages
     // We are excluding custom colors name
-    const colorSchemesSQL = `
-			SELECT
-				\`id\`,
-				\`name\`,
-				\`primary\`,
-				\`secondary\`
-			FROM \`#__color_schemes\`
-			WHERE \`state\` > 0 && \`name\` != \'Custom\'
-			ORDER BY \`name\` ASC;
-		`;
-
-    // Run the query
+    const colorSchemeBO = new ColorSchemeBO()
+    let colorSchemaList = null;
     try {
-        const colorSchemes = await db.query(colorSchemesSQL);
-        // Send the data back
-        res.send(200, colorSchemes);
+        colorSchemaList = await colorSchemeBO.getListStandard();
     }
-    catch (err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    catch (error) {
+        log.error(`Could not retrieve color schemes: ${error} ${__location}`);
+        return serverHelper.sendError(res, next, 'Internal Error');
     }
+    res.send(200, colorSchemaList);
     return next();
 }
 
