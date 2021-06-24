@@ -798,12 +798,12 @@ module.exports = class ApplicationModel {
                     log.error("questionBO load error " + err + __location);
                 });
                 if (questionDB) {
-                    questionJSON.questionText = questionDB.question;
+                    questionJSON.questionText = questionDB.text;
                     questionJSON.hint = questionDB.hint;
                     questionJSON.hidden = questionDB.hidden;
-                    questionJSON.questionType = questionDB.type;
+                    questionJSON.questionType = questionDB.typeId;
                     if (questionTypeList) {
-                        const questionType = questionTypeList.find(questionTypeTest => questionTypeTest.id === questionDB.type);
+                        const questionType = questionTypeList.find(questionTypeTest => questionTypeTest.id === questionDB.typeId);
                         if (questionType) {
                             questionJSON.questionType = questionType.name;
                         }

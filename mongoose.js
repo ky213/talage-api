@@ -83,6 +83,7 @@ module.exports = function() {
     require('./shared/models/mongoose/IndustryCodeCategory.model');
     require('./shared/models/mongoose/CodeGroup.model');
     require('./shared/models/mongoose/QuestionGroup.model');
+    require('./shared/models/mongoose/OpenIdAuthConfig.model');
 
     require('./shared/models/mongoose/PolicyType.model');
     require('./shared/models/mongoose/WCStateIncomeLimits.model');

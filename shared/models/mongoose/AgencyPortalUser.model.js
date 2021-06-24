@@ -39,6 +39,7 @@ const AgencyPortalUserSchema = new Schema({
     agencyNetworkId: {type: Number},
     email: {type: String, required: true, unique: true},
     password: {type: String, required: false},
+    openidAuthConfigId: {type: String, required: false },
     agencyPortalUserGroupId: {type: Number, required: true, default: 0},
     logo: {type: String, required: false},
     canSign: {type: Boolean, default: false},
