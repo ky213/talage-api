@@ -123,9 +123,7 @@ const policiesEnabled = async(resources, applicationDB) => {
     }
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
-// TODO move into a cyber.js file where we will take a list of insurerIds and generate a selection list based on available selections
-// Idea is to take the two lists (based on how different the values are and combine the values into a unique list of selections)
-// For now the below will allow cowbell to quote more regularly
+
 const cyberAggregateLimitList = [
     50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000
 ];
@@ -135,6 +133,9 @@ const plAggregateLimitList = [
 const businessIncomeCoverageList = [
     100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000, 650000, 700000, 750000, 800000, 850000, 900000, 950000, 1000000
 ];
+// TODO move into a cyber.js file where we will take a list of insurerIds and generate a selection list based on available selections
+// Idea is to take the lists and combine the values into a unique list of selections
+// For now the below will allow cowbell to quote more regularly
 const customBusinessIncomeCoverageList= {
     50000: [5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500, 25000, 27500, 30000, 32500, 50000],
     100000: [10000,15000,20000,25000,30000,35000,40000,45000,50000,55000,60000,65000,70000,75000,80000,85000,90000,95000,100000],
