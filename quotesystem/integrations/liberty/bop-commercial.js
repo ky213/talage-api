@@ -979,7 +979,7 @@ module.exports = class LibertySBOP extends Integration {
             let BldgOccupancyExt = null;
 
             let unoccupied = 0;
-            let occupiedByOther = 0;
+            let occupiedByOthers = 0;
 
             // handle special case questions first
             specialLocationQuestions.forEach(question => {
@@ -1085,13 +1085,13 @@ module.exports = class LibertySBOP extends Integration {
                             }
                             break;
                         case "BOP17_AreaOccupiedByOthers":
-                            const BOP17_AreaOccupiedByOther = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOther");
+                            const BOP17_AreaOccupiedByOthers = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "BOP17_AreaOccupiedByOthers");
     
-                            if (BOP17_AreaOccupiedByOther) {
-                                occupiedByOther = parseInt(BOP17_AreaOccupiedByOther.answerValue, 10);
-                                const AreaOccupiedByOther = BldgOccupancy.ele('AreaOccupiedByOther');
-                                AreaOccupiedByOther.ele('NumUnits', occupiedByOther);
-                                AreaOccupiedByOther.ele('UnitMeasurementCd', 'SquareFeet');
+                            if (BOP17_AreaOccupiedByOthers) {
+                                occupiedByOthers = parseInt(BOP17_AreaOccupiedByOthers.answerValue, 10);
+                                const AreaOccupiedByOthers = BldgOccupancy.ele('AreaOccupiedByOthers');
+                                AreaOccupiedByOthers.ele('NumUnits', occupiedByOthers);
+                                AreaOccupiedByOthers.ele('UnitMeasurementCd', 'SquareFeet');
                             }
                             break;
                         case "BOP17_AreaUnoccupied":
@@ -1151,7 +1151,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
             });
 
-            const occupied = location.square_footage - (occupiedByOther + unoccupied);
+            const occupied = location.square_footage - (occupiedByOthers + unoccupied);
             AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
             AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
 
