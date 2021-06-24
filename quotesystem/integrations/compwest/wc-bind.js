@@ -320,7 +320,9 @@ class CompuwestBind extends Bind {
                     // <NameInfo>
                     const nameInsuredNameInfo = DBAGeneralPartyInfo.ele('NameInfo');
                     const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
-                    CommlNameAddInfo.ele('CommercialName', additionalInsured.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                    if(additionalInsured.namedInsured){
+                        CommlNameAddInfo.ele('CommercialName', additionalInsured.namedInsured.replace('’', "'").replace('+', '').replace('|', ''));
+                    }
                     //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
                     const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
                     let taxIdType = 'FEIN';
