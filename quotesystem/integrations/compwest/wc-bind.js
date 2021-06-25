@@ -145,6 +145,9 @@ class CompuwestBind extends Bind {
         else if (status === 'REFERRALNEEDED'){
             return "updated"
         }
+        else if (status === 'SMARTEDITS'){
+            return "updated"
+        }
         else if (status === "ERROR"){
             log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response ERROR: ${JSON.stringify(result.data)} ${__location}`);
             return "rejected"
