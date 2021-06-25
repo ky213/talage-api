@@ -266,14 +266,15 @@ async function runFunction() {
                 else {
                     log.error("Failed to load sourceAppId " + sourceAppId);
                 }
-                if(pauseBetweenRuns > 0){
-                    await utility.Sleep(pauseBetweenRuns * 1000);
-                }
 
             }
             catch(err){
                 log.error(`Copying and quoting mongo application sourceAppId: ${sourceAppId} error ` + err + __location)
             }
+        }
+        if(pauseBetweenRuns > 0){
+            log.debug(`pausing ${pauseBetweenRuns} seconds`)
+            await utility.Sleep(pauseBetweenRuns * 1000);
         }
     }
     log.debug("Done!");
