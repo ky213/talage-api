@@ -1,6 +1,5 @@
 'use strict';
 
-const util = require('util');
 const serverHelper = global.requireRootPath('server.js');
 const questionSvc = global.requireShared('./services/questionsvc.js');
 

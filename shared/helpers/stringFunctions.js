@@ -476,3 +476,16 @@ exports.convertToDollarFormat = (str, trimDecimal = false) => {
 
     return `${negative}$${number}${trimDecimal ? '' : decimal}`;
 }
+
+/**
+ * Modifies the String prototype and adds a new capability, 'toSnakeCase' which will convert
+ * the string to snake_case. Usage: string.toSnakeCase()
+ */
+// eslint-disable-next-line no-extend-native
+Object.defineProperty(String.prototype, 'toSnakeCase', {'value': function(){
+    return this.split(/(?=[A-Z])/).join('_').toLowerCase();
+}});
+
+exports.dbTimeFormat = function(){
+    return 'YYYY-MM-DD HH:mm:ss';
+};

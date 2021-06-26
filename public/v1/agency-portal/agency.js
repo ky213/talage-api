@@ -577,7 +577,8 @@ async function postAgency(req, res, next) {
                         const existingInsurerIndex = insurerArray.findIndex(ins => ins.insurerId && ins.insurerId === insurerAL.insurerId);
                         if(existingInsurerIndex >= 0){
                             insurerArray.splice(existingInsurerIndex, 1, insurerAL);
-                        }else {
+                        }
+                        else {
                             insurerArray.push(insurerAL);
                         }
                     }

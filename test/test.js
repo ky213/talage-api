@@ -12,11 +12,11 @@ const queueHandler = require('../tasksystem/queuehandler.js');
 
 // eslint-disable-next-line require-jsdoc
 function logLocalErrorMessage(message){
-	if(global.log){
-		log.error(message +  __location);
-	}
-	// eslint-disable-next-line no-console
-	console.log(message);
+    if(global.log){
+        log.error(message + __location);
+    }
+    // eslint-disable-next-line no-console
+    console.log(message);
 }
 
 // ####### setup globals for mocking ###################################
@@ -34,10 +34,6 @@ if(!logger.connect()){
     logLocalErrorMessage('Error connecting to logger. Stopping.');
     return;
 }
-
-// DO NOT Connect to database for Unit tests.
-//      DB connection and requests should be mocked.
-global.db = global.requireShared('/services/db.js');
 
 
 //S3 for mocking

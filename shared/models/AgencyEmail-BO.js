@@ -4,18 +4,16 @@
 const tracker = global.requireShared('./helpers/tracker.js');
 var AgencyEmail = require('mongoose').model('AgencyEmail');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const uuidValiditor = global.requireShared(`helpers/validators/uuid.js`);
-const integerValiditor = global.requireShared(`helpers/validators/integer.js`);
 module.exports = class AgencyEmailBO{
 
-	constructor(){
+    constructor(){
         this.id = 0;
     }
 
 
     /**
-	 * Save Model 
+	 * Save Model
      *
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
@@ -39,10 +37,10 @@ module.exports = class AgencyEmailBO{
     }
 
     // /**
-	//  * saves model.
+    //  * saves model.
     //  *
-	//  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved model , or an Error if rejected
-	//  */
+    //  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved model , or an Error if rejected
+    //  */
 
     // save(asNew = false){
     //     return new Promise(async(resolve, reject) => {
@@ -53,10 +51,14 @@ module.exports = class AgencyEmailBO{
     // }
 
     async update(id, newObjectJSON){
-        if(id ){
+        if(id){
             if(typeof newObjectJSON === "object"){
-                const changeNotUpdateList = ["active","agencyEmailId", "id","systemId", "AgencyEmailId"]
-                for(let i = 0;i < changeNotUpdateList.length; i++ ){
+                const changeNotUpdateList = ["active",
+                    "agencyEmailId",
+                    "id",
+                    "systemId",
+                    "AgencyEmailId"]
+                for(let i = 0; i < changeNotUpdateList.length; i++){
                     if(newObjectJSON[changeNotUpdateList[i]]){
                         delete newObjectJSON[changeNotUpdateList[i]];
                     }
@@ -78,92 +80,93 @@ module.exports = class AgencyEmailBO{
             else {
                 throw new Error('no newObjectJSON supplied')
             }
-          
+
         }
         else {
             throw new Error('no id supplied')
         }
-        return true;
 
     }
 
     async insert(newObjecJSON){
-       
-          
-            let agencyEmail = new AgencyEmail(newObjecJSON);
-            //Insert a doc
-            await agencyEmail.save().catch(function(err){
-                log.error('Mongo AgencyEmail Save err ' + err + __location);
-                throw err;
-            });
-            let docDB = mongoUtils.objCleanup(agencyEmail);
-            return docDB;
+
+
+        const agencyEmail = new AgencyEmail(newObjecJSON);
+        //Insert a doc
+        await agencyEmail.save().catch(function(err){
+            log.error('Mongo AgencyEmail Save err ' + err + __location);
+            throw err;
+        });
+        const docDB = mongoUtils.objCleanup(agencyEmail);
+        return docDB;
     }
-    
+
 
     getList(queryJSON) {
-        return new Promise(async (resolve, reject) => {
-                let rejected = false;
-                // Create the update query
-                let query = {active: true};
-                if(queryJSON){
-                  
-                    if(queryJSON.active){
-                       query.active = queryJSON.active
-                    }
-                    if(queryJSON.name){
-                        query.name = queryJSON.name
-                     } 
+        return new Promise(async(resolve, reject) => {
+            // Create the update query
+            const query = {active: true};
+            if(queryJSON){
+
+                if(queryJSON.active){
+                    query.active = queryJSON.active
                 }
-               
-                // Run the query
-                let docCleanList = null;
-                try {
-                    let doclist = await AgencyEmail.find(query, '-__v');
-                    docCleanList = mongoUtils.objListCleanup(doclist);
+                if(queryJSON.name){
+                    query.name = queryJSON.name
                 }
-                catch (err) {
-                    log.error("Getting AgencyEmail error " + err + __location);
-                    reject(err);
-                }
-                
-                if(docCleanList && docCleanList.length > 0 ){
-                    resolve(docCleanList);
-                }
-                else {
-                    //Search so no hits ok.
-                    resolve([]);
-                }
-               
-            
+            }
+
+            // Run the query
+            let docCleanList = null;
+            try {
+                const doclist = await AgencyEmail.find(query, '-__v');
+                docCleanList = mongoUtils.objListCleanup(doclist);
+            }
+            catch (err) {
+                log.error("Getting AgencyEmail error " + err + __location);
+                reject(err);
+            }
+
+            if(docCleanList && docCleanList.length > 0){
+                resolve(docCleanList);
+            }
+            else {
+                //Search so no hits ok.
+                resolve([]);
+            }
+
+
         });
     }
 
 
     getById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
             let isMysqlId = false;
             try {
+                // eslint-disable-next-line no-unused-vars
                 const test = parseInt(isMysqlId, 10);
                 isMysqlId = true;
             }
             catch(err){
-                sMysqlId = false;
+                isMysqlId = false;
             }
-            if(id ){
-                let query = {active: true};
+            if(id){
+                const query = {active: true};
                 if (isMysqlId === true) {
                     query.agencyMySqlId = id
-                } else if(uuidValiditor(id)){
-                   query.agencyEmailId =id
-                }  else {
+                }
+                else if(uuidValiditor(id)){
+                    query.agencyEmailId = id
+                }
+                else {
                     reject(new Error('no valid id supplied'))
                     return;
                 }
                 let docCleanDB = null;
                 try {
-                    let docDB = await AgencyEmail.findOne(query, '-__v');
+                    const docDB = await AgencyEmail.findOne(query, '-__v');
                     if(docDB){
                         docCleanDB = mongoUtils.objCleanup(docDB);
                     }
@@ -181,9 +184,9 @@ module.exports = class AgencyEmailBO{
     }
 
     deleteSoftById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id ){
+            if(id){
                 const activeJson = {active: false};
                 const query = {"agencyEmailId": id};
                 try {
@@ -193,9 +196,9 @@ module.exports = class AgencyEmailBO{
                     log.error("Soft Deleting AgencyEmail error " + err + __location);
                     reject(err);
                 }
-               
+
                 resolve(true);
-              
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -203,6 +206,3 @@ module.exports = class AgencyEmailBO{
         });
     }
 }
-
-
-

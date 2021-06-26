@@ -11,9 +11,7 @@ module.exports = class OpenIdAuthConfigBO {
         }
 
         // Cache miss
-        const obj = await OpenIdAuthConfig.findOne({
-            configId: id
-        });
+        const obj = await OpenIdAuthConfig.findOne({configId: id});
 
         // Save in redis
         await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(obj), 3600);

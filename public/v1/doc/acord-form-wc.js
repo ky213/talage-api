@@ -90,4 +90,3 @@ exports.registerEndpoint = (server, basePath) => {
     // TODO JWT checking
     server.addGet('Get Acord', `${basePath}/acord-form-wc`, GetACORDFormWC);
 };
-

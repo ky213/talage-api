@@ -59,7 +59,7 @@ async function GetIndustryCodes(){
     //  const addCode2Redis = false;
     // const redisKey = "industrycodelist";
     const catList = await GetIndustryCodeCategories();
-    log.debug(`catList ${JSON.stringify(catList)}` + __location)
+    //log.debug(`catList ${JSON.stringify(catList)}` + __location)
     const start = moment();
     const IndustryCodeModel = require('mongoose').model('IndustryCode');
     let IndustryCodeList = [];

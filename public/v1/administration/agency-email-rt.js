@@ -13,7 +13,6 @@ const AgencyEmailBO = global.requireShared('./models/AgencyEmail-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var AgencyEmail = require('mongoose').model('AgencyEmail');
 //const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 async function findAll(req, res, next) {

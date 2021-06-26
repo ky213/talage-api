@@ -110,8 +110,6 @@ exports.load = () => {
     }
 
 
-
-
     // Load the environment variables over the local.env variables
     console.log('Loading required settings from environment variables');
     requiredVariables.forEach((variableName) => {

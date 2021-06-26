@@ -28,7 +28,7 @@ async function createAgency(req, res, next){
         "showUseAgencyPrime": false,
         "insurers": [],
         "territories": {}
-    }; 
+    };
 
     // Get all insurers for this agency network
     // Begin compiling a list of territories
