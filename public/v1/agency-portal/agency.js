@@ -114,19 +114,17 @@ async function deleteAgency(req, res, next) {
  * @returns {void}
  */
 async function getTerritories(req, res, next) {
-
-    const allTerritoriesSQL = `
-		SELECT
-			abbr,
-			name
-		FROM clw_talage_territories
-		ORDER BY name ASC;
-	`;
-    // Query the database
-    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err) {
-        log.error('DB query for territories list failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+    const territoryBO = new TerritoryBO();
+    let error = null;
+    const allTerritories = await territoryBO.getAbbrNameList().catch(function(err) {
+        log.error("territory get getAbbrNameList " + err + __location);
+        error = err;
     });
+    if(error){
+        log.error('DB query for territories list failed: ' + error.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    }
     // Return the response
     res.send(200, {"territories": allTerritories});
     return next();

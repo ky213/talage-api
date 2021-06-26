@@ -156,8 +156,8 @@ module.exports = class Application {
         if(this.applicationDocData.questions && this.applicationDocData.questions.length > 0){
             let questionJSON = {};
             for(const question of this.applicationDocData.questions){
-                if (question.questionType.toLowerCase().startsWith('text')
-                    || question.questionType === 'Checkboxes' && question.answerValue) {
+                if (question.questionType && (question.questionType.toLowerCase().startsWith('text')
+                    || question.questionType === 'Checkboxes' && question.answerValue)) {
 
                     questionJSON[question.questionId] = question.answerValue
                 }

@@ -39,6 +39,7 @@ const AgencyPortalUserSchema = new Schema({
     agencyNetworkId: {type: Number},
     email: {type: String, required: true, unique: true},
     password: {type: String, required: false},
+    openidAuthConfigId: {type: String, required: false },
     agencyPortalUserGroupId: {type: Number, required: true, default: 0},
     logo: {type: String, required: false},
     canSign: {type: Boolean, default: false},
@@ -48,6 +49,7 @@ const AgencyPortalUserSchema = new Schema({
     timezoneName: {type: String, required: false},
     requiredLegalAcceptance: {type: Boolean, default: false},
     legalAcceptance: [legalAcceptanceSchema],
+    agencyNotificationList: [Number],
     additionalInfo: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)

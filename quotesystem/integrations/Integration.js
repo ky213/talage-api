@@ -246,8 +246,10 @@ module.exports = class Integration {
                 log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
                 insurerActivityCode = {attributes: {}};
             }
-            if(typeof insurerActivityCode.attributes === 'string'){
+            if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
                 insurerActivityCode.attributes = JSON.parse(insurerActivityCode.attributes);
+            } else {
+                insurerActivityCode.attributes = {};
             }
         }
         catch(err){
@@ -678,9 +680,10 @@ module.exports = class Integration {
      *
      * @param {string} questionSubjectArea - The question subject area ("general", "location", ...) Default is "general".
      * @param {Array} talageQuestionIdList - Array of Talage question IDs
+     * @param {Array} policyTypes - [optional] Array of policy types to filter on
      * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
      */
-    async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
+    async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList, policyTypes = []) {
         if (talageQuestionIdList.length > 0) {
             
             talageQuestionIdList = talageQuestionIdList.map(Number)
@@ -689,6 +692,11 @@ module.exports = class Integration {
                 "questionSubjectArea": questionSubjectArea,
                 "talageQuestionId": {$in: talageQuestionIdList}
             }
+
+            if (policyTypes.length > 0) {
+                query.policyTypeList = {$in: policyTypes}
+            }
+
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             let insurerQuestionListSA = null;
             try{
@@ -1374,7 +1382,7 @@ module.exports = class Integration {
                 let insurerQuestionAttributes = null;
                 if (insurerQuestion.attributes) {
                     try {
-                        if(typeof insurerQuestion.attributes === 'string'){
+                        if(typeof insurerQuestion.attributes === 'string' && insurerQuestion.attributes.length > 0){
                             insurerQuestionAttributes = JSON.parse(insurerQuestion.attributes);
                         }
                         else {
@@ -1786,17 +1794,17 @@ module.exports = class Integration {
         if (!Object.keys(this.limits).length) {
             return rtn;
         }
-
-        // Get the limit descriptions from the database
-        // TODO USE BO
-        const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err) {
-            return err;
+  
+        const LimitSvc = global.requireShared('services/limitsvc.js');
+        //const limitList = LimitSvc.getList();
+        
+        this.limits.forEach((qLimit) => {
+            const limitFound = LimitSvc.getById(qLimit)
+            if(limitFound){
+                rtn[limitFound.description] = this.limits[limitFound.id];
+            }
         });
-
-        // Loop through the results and build the response
-        result.forEach((limitInfo) => {
-            rtn[limitInfo.description] = this.limits[limitInfo.id];
-        });
+      
 
         return rtn;
     }
@@ -2366,22 +2374,6 @@ module.exports = class Integration {
                     }
                 }
                 // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
-               
-                // const sql = `
-                //     SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
-                //     FROM clw_talage_industry_codes AS ic 
-                //     WHERE ic.id = ${this.app.applicationDocData.industryCode};
-                // `;
-                // let hadError = false;
-                // const result = await db.query(sql).catch((error) => {
-                //     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
-                //     hadError = true;
-                // });
-                // if (hadError) {
-                //     // Query error
-                //     fulfill(false);
-                //     return;
-                // }
                 try{
                     const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
                     const industryCodeBO = new IndustryCodeBO();

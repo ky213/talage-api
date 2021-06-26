@@ -23,11 +23,6 @@ const PolicyTypeSchema = new Schema({
     active: {type: Boolean, default: true}
 },opts)
 
-PolicyTypeSchema.virtual('id').
-    get(function() {
-        return this.industryCodeId;
-    });
-
 
 PolicyTypeSchema.plugin(timestamps);
 PolicyTypeSchema.plugin(mongooseHistory);

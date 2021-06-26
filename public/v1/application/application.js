@@ -223,20 +223,8 @@ async function Save(req, res, next){
 async function GetResources(req, res, next){
     const responseObj = {};
     let rejected = false;
-    const sql = `select id, introtext from clw_content where id in (10,11)`
-    const result = await db.query(sql).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_content error on select ` + error + __location);
-    });
-    if (!rejected) {
-        const legalArticles = {};
-        for(let i = 0; i < result.length; i++){
-            const dbRec = result[i];
-            legalArticles[dbRec.id] = dbRec
-        }
-        responseObj.legalArticles = legalArticles;
-    }
+
+    responseObj.legalArticles = {};
     rejected = false;
     const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
     const policyTypeBO = new PolicyTypeBO();
@@ -250,14 +238,14 @@ async function GetResources(req, res, next){
     }
 
     rejected = false;
-    const sql3 = `select abbr, name from clw_talage_territories`
-    const result3 = await db.query(sql3).catch(function(error) {
-        // Check if this was
-        rejected = true;
-        log.error(`clw_talage_territories error on select ` + error + __location);
+    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+    const territoryBO = new TerritoryBO();
+    const territories = await territoryBO.getAbbrNameList().catch(function(err) {
+        log.error("territory get getAbbrNameList " + err + __location);
     });
-    if (!rejected) {
-        responseObj.territories = result3;
+
+    if (territories) {
+        responseObj.territories = territories;
     }
 
     res.send(200, responseObj);
@@ -340,41 +328,12 @@ async function GetAssociations(req, res, next){
     if(req.query && req.query.territories){
 
         const territoryList = req.query.territories.split(',')
-        var inList = new Array(territoryList.length).fill('?').join(',');
-        let rejected = false;
-        const sql = `select  a.id, a.name
-            from clw_talage_associations a
-            inner join clw_talage_association_territories at on at.association = a.id
-            where a.state  = 1
-            AND at.territory in (${inList})
-            order by a.name ASC`;
-
-        const result = await db.queryParam(sql,territoryList).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`clw_content error on select ` + error + __location);
-        });
-        if (!rejected) {
-            if(result && result.length > 0){
-                responseObj['error'] = false;
-                responseObj['message'] = '';
-                responseObj['associations'] = result;
-                res.send(200, responseObj);
-                return next();
-
-            }
-            else {
-                responseObj['error'] = true;
-                responseObj['message'] = 'No associations returned.';
-                res.send(404, responseObj);
-            }
-        }
-        else {
-            responseObj['error'] = true;
-            responseObj['message'] = 'internal error.';
-            res.send(500, responseObj);
-            return next(serverHelper.requestError('internal error'));
-        }
+        const AssociationSvc = global.requireShared('./services/associationsvc.js');
+        responseObj['error'] = false;
+        responseObj['message'] = '';
+        responseObj['associations'] = AssociationSvc.GetAssociationList(territoryList);
+        res.send(200, responseObj);
+        return next();
     }
     else {
         responseObj['error'] = true;

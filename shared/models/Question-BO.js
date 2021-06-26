@@ -1,23 +1,23 @@
-/* eslint-disable no-shadow */
+/* eslint-disable prefer-const */
 'use strict';
 
-const DatabaseObject = require('./DatabaseObject.js');
+
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+var QuestionModel = require('mongoose').model('Question');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-const tableName = 'clw_talage_questions';
-const skipCheckRequired = false;
+
+const collectionName = 'Questions'
 module.exports = class QuestionBO{
 
-    #dbTableORM = null;
-
-    allowNulls = ["parent", "parent_answer"];
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
-        this.#dbTableORM.allowNulls = this.allowNulls;
+        this.mongoDoc = null;
     }
+
 
     /**
 	 * Save Model
@@ -29,405 +29,327 @@ module.exports = class QuestionBO{
     saveModel(newObjectJSON){
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
+                reject(new Error(`empty ${collectionName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
+            if(!newObjectJSON.id && newObjectJSON.talageQuestionId){
+                newObjectJSON.id = newObjectJSON.talageQuestionId
+            }
+            let newDoc = true;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    newObjectJSON.talageQuestionUuid = dbDocJSON.talageQuestionUuid;
+                    newObjectJSON.talageQuestionId = dbDocJSON.talageQuestionId;
+                    this.id = dbDocJSON.talageQuestionId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.talageQuestionUuid,newObjectJSON)
+                }
+                else {
+                    log.error("Question PUT object not found " + newObjectJSON.id + __location)
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            if(newDoc === true) {
+                newDoc = await this.insertMongo(newObjectJSON).catch((err) => {
+                    log.error("Question POST object error " + err + __location);
+                    reject(err);
+                });
+                this.id = newDoc.talageQuestionId;
+                this.mongoDoc = newDoc;
+
             }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
-
+            else {
+                this.mongoDoc = this.getById(this.id);
+            }
             resolve(true);
 
         });
     }
 
 
-    loadFromId(id) {
+    getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {};
+            let error = null;
+
+
+            var queryOptions = {};
+            queryOptions.sort = {talageQuestionId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
             }
             else {
-                reject(new Error('no id supplied'))
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
             }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+
+
+            if (queryJSON.count) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.talageQuestionId && Array.isArray(queryJSON.talageQuestionId)){
+                query.talageQuestionId = {$in: queryJSON.talageQuestionId};
+                delete queryJSON.talageQuestionId
+            }
+            else if(queryJSON.talageQuestionId){
+                query.talageQuestionId = queryJSON.talageQuestionId;
+                delete queryJSON.talageQuestionId
+            }
+
+
+            // Old Mysql reference
+            if(queryJSON.question && Array.isArray(queryJSON.question)){
+                query.talageQuestionId = {$in: queryJSON.question};
+                delete queryJSON.question
+            }
+            else if(queryJSON.question){
+                query.talageQuestionId = queryJSON.question;
+                delete queryJSON.question
+            }
+            if(queryJSON.text && queryJSON.text.includes('%') === false){
+                queryJSON.text += "%";
+            }
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    //log.debug("QuestionModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await QuestionModel.find(query,queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await QuestionModel.countDocuments(query).catch(err => {
+                    log.error("QuestionModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
         });
     }
 
-    getList(queryJSON) {
+
+    async getMongoDocbyTalageQuestionId(tqId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
-            let rejected = false;
-            let findCount = false;
-            // Create the select query
-            const sqlSelect = `
-                SELECT * FROM ${tableName}  
-            `;
-            const sqlCount = `
-                SELECT count(*) FROM ${tableName}  
-            `;
-            let sqlWhere = "";
-            let sqlPaging = "";
+            if (tqId) {
+                const id = parseInt(tqId, 10);
+                const query = {"talageQuestionId": id};
+                let docDB = null;
+                try {
+                    docDB = await QuestionModel.findOne(query, '-__v');
+                    if(docDB){
+                        docDB.id = docDB.talageQuestionId;
+                    }
+                }
+                catch (err) {
+                    log.error("Getting question error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const questionDoc = mongoUtils.objCleanup(docDB);
+                    resolve(questionDoc);
+                }
+                else {
+                    resolve(null);
+                }
 
-            if(queryJSON){
-                if (queryJSON.count) {
-                    if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
-                        findCount = true;
-                    }
-                    delete queryJSON.count;
-                }
-                let hasWhere = false;
-                if(queryJSON.question){
-                    let isNumber = false;
-                    try{
-                        const testNumber = parseInt(queryJSON.question, 10);
-                        isNumber = testNumber > 0;
-                    }
-                    catch(err){
-                        //do nothing.
-                    }
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    if(isNumber){
-                        sqlWhere += ` (question like ${db.escape(`%${queryJSON.question}%`)} OR id = ${queryJSON.question}) `;
-                    }
-                    else {
-                        sqlWhere += ` question like ${db.escape(`%${queryJSON.question}%`)} `;
-                    }
-
-                    hasWhere = true;
-                }
-                if(queryJSON.id){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` id = ${queryJSON.id} `;
-                    hasWhere = true;
-                }
-                if(queryJSON.parent){
-                    sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` parent = ${db.escape(`${queryJSON.parent}`)} `;
-                    hasWhere = true;
-                }
-                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : null;
-                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : null;
-                if(limit && page) {
-                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
-                    // offset by page number * max rows, so we go that many rows
-                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
-                }
             }
-
-            if (findCount === false) {
-                // Run the query
-                log.debug("QuestionBO getlist sql: " + sqlSelect + sqlWhere + sqlPaging);
-                const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
-                    rejected = true;
-                    log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
-                    reject(error);
-                });
-                if (rejected) {
-                    return;
-                }
-                const boList = [];
-                if(result && result.length > 0){
-                    for(let i = 0; i < result.length; i++){
-                        const questionBO = new QuestionBO();
-                        await questionBO.#dbTableORM.decryptFields(result[i]);
-                        await questionBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await questionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`getList error loading object: ` + err + __location);
-                        })
-                        if(!resp){
-                            log.debug("Bad BO load" + __location)
-                        }
-                        boList.push(questionBO);
-                    }
-                }
-                resolve(boList);
-            }
-            else{
-                const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
-                    rejected = true;
-                    log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
-                    reject(error);
-                });
-                if (rejected) {
-                    return;
-                }
-                // return the sql count
-                resolve({count: count[0] ? count[0]["count(*)"] : 0});
+            else {
+                reject(new Error('no id supplied'))
             }
         });
     }
 
     getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        return this.getMongoDocbyTalageQuestionId(id);
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
 
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"talageQuestionUuid": docId};
+                let newAgencyJSON = null;
+                try {
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "talageQuestionId",
+                        "talageQuestionUuid"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await QuestionModel.updateOne(query, newObjectJSON);
+                    const newQuestionDoc = await QuestionModel.findOne(query);
+
+                    newAgencyJSON = mongoUtils.objCleanup(newQuestionDoc);
                 }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+                catch (err) {
+                    log.error(`Updating Question error appId: ${docId}` + err + __location);
+                    throw err;
                 }
+                //
+
+                return newAgencyJSON;
             }
-        }
-    }
+            else {
+                throw new Error(`no newObjectJSON supplied docId: ${docId}`)
+            }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-    async getSelectionList(){
-
-        let rejected = false;
-        //const responseLandingPageJSON = {};
-        //const reject = false;
-        const sql = `select id, name, logo  
-            from clw_talage_questions
-            where state > 0
-            order by name`
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`${tableName} error on select ` + error + __location);
-        });
-        if (!rejected && result && result.length > 0) {
-            return result;
         }
         else {
-            return [];
+            throw new Error('no id supplied')
         }
-    }
-}
+        // return true;
 
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "hidden": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "type": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "parent": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "parent_answer": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "sub_level": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "question": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(500)"
-    },
-    "hint": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(180)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
     }
-}
 
-class DbTableOrm extends DatabaseObject {
-    constructor(tableName){
-        super(tableName, properties);
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const talageQuestionId = await this.newMaxSystemId()
+        newObjectJSON.talageQuestionId = talageQuestionId;
+        const question = new QuestionModel(newObjectJSON);
+        //Insert a doc
+        await question.save().catch(function(err) {
+            log.error('Mongo question Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = talageQuestionId;
+        return mongoUtils.objCleanup(question);
     }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"talageQuestionId": 1}
+            var queryOptions = {};
+            queryOptions.sort = {};
+            queryOptions.sort.talageQuestionId = -1;
+            queryOptions.limit = 1;
+            const docList = await QuestionModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].talageQuestionId > maxId){
+                        maxId = docList[i].talageQuestionId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
+
 }

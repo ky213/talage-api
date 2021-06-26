@@ -65,25 +65,25 @@ module.exports = class cowbellCyber extends Integration {
             4000000,
             5000000];
 
-        const businessIncomeCoverageLimits = [100000,
-            150000,
-            200000,
-            250000,
-            300000,
-            350000,
-            400000,
-            450000,
-            500000,
-            550000,
-            600000,
-            650000,
-            700000,
-            750000,
-            800000,
-            850000,
-            900000,
-            950000,
-            1000000];
+        // const businessIncomeCoverageLimits = [100000,
+        //     150000,
+        //     200000,
+        //     250000,
+        //     300000,
+        //     350000,
+        //     400000,
+        //     450000,
+        //     500000,
+        //     550000,
+        //     600000,
+        //     650000,
+        //     700000,
+        //     750000,
+        //     800000,
+        //     850000,
+        //     900000,
+        //     950000,
+        //     1000000];
 
 
         //get Cyber policy from appDoc.
@@ -115,16 +115,16 @@ module.exports = class cowbellCyber extends Integration {
         }
 
         // same for businessIncomeCoverageLimits
-        let businessIncomeCoverage = cyberPolicy.businessIncomeCoverage
-        if(businessIncomeCoverageLimits.indexOf(businessIncomeCoverage) === -1){
-            //find best match
-            for(let i = 0; i < businessIncomeCoverageLimits.length; i++){
-                if(businessIncomeCoverage < businessIncomeCoverageLimits[i]){
-                    businessIncomeCoverage = businessIncomeCoverageLimits[i]
-                    break;
-                }
-            }
-        }
+        const businessIncomeCoverage = cyberPolicy.businessIncomeCoverage
+        // if(businessIncomeCoverageLimits.indexOf(businessIncomeCoverage) === -1){
+        //     //find best match
+        //     for(let i = 0; i < businessIncomeCoverageLimits.length; i++){
+        //         if(businessIncomeCoverage < businessIncomeCoverageLimits[i]){
+        //             businessIncomeCoverage = businessIncomeCoverageLimits[i]
+        //             break;
+        //         }
+        //     }
+        // }
         // =========================================================================================================
         // Validation
 

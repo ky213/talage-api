@@ -8,6 +8,8 @@
 'use strict';
 
 const moment = require('moment');
+const moment_timezone = require('moment-timezone');
+const clonedeep = require('lodash.clonedeep');
 
 // Add global helpers to load shared modules
 global.rootPath = require('path').join(__dirname, '..');
@@ -20,7 +22,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
-const crypt = global.requireShared('./services/crypt.js');
+
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
@@ -115,99 +117,58 @@ async function main() {
  */
 async function runFunction() {
 
-    const AgencyPortUserModel = require('mongoose').model('AgencyPortalUser');
+    const QuestionModel = require('mongoose').model('Question');
+    const sql = `select q.id as 'talageQuestionId', q.parent, q.parent_answer, q.sub_level, q.question AS text, q.hint, q.type AS typeId, qt.name AS typeDesc, q.hidden, q.state from clw_talage_questions q
+                LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id`;
 
-    //load message model and get message list.
-    const sql = `select * from clw_talage_agency_portal_users  `;
-
-    let result = await db.query(sql).catch(function(error) {
+    let resultQ = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error " + error);
         return false;
     });
-    log.debug("Got MySql AgencyPortUser - result.length - " + result.length);
 
 
-    let updatedDocCount = 0;
-    let newDocCount = 0;
-    // eslint-disable-next-line array-element-newline
-    for(let i = 0; i < result.length; i++){
-        try {
-            let agencyPortalUser = new AgencyPortUserModel(result[i]);
+    let questionCount = 0;
+    for (const questionSQL of resultQ){
 
-            agencyPortalUser.agencyPortalUserId = result[i].id;
-            if(result[i].clear_email && result[i].clear_email.length > 0){
-                agencyPortalUser.email = result[i].clear_email.toLowerCase();
-            }
-            else {
-                try{
-                    agencyPortalUser.email = await crypt.decryptSodium(result[i].email)
-                    if(agencyPortalUser.email === result[i].email){
-                        log.error(`did not decrypt email`);
-                    }
-                    agencyPortalUser.email = agencyPortalUser.email.toLowerCase();
-                }
-                catch(err){
-                    log.debug(`Error decrypting user ${result[i].id} email `)
-                }
-            }
-            if(result[i].state < 1){
-                agencyPortalUser.active = false;
-            }
-            agencyPortalUser.legalAcceptance = [];
-            //get legal acceptance
-            const sqlLA = `select * from clw_talage_legal_acceptances where agency_portal_user = ${result[i].id}`
+        const mQuestion = new QuestionModel(questionSQL);
+        if(questionSQL.state < 1){
+            mQuestion.active = false;
+        }
+
+        //load message model and get message list.
+        const sql2 = `select * from clw_talage_question_answers where question = ${mQuestion.talageQuestionId} `;
+
+        let result = await db.query(sql2).catch(function(error) {
+            // Check if this was
+            log.error("error " + error);
+            return false;
+        });
+        // eslint-disable-next-line array-element-newline
+        mQuestion.answers = [];
+        for(let i = 0; i < result.length; i++){
             try {
-                let resultLA = await db.query(sqlLA)
-                if(resultLA && resultLA.length > 0){
-                    // eslint-disable-next-line no-loop-func
-                    resultLA.forEach((la) => {
-                        if(!la.version){
-                            la.version = 1;
-                        }
-                        const laJSON = {
-                            ip: la.ip,
-                            version: la.version,
-                            acceptanceDate: moment(la.timestamp)
-                        }
-                        agencyPortalUser.legalAcceptance.push(laJSON);
-                        agencyPortalUser.requiredLegalAcceptance = false;
-                    })
+                if(result[i].answer){
+                    const answerJSON = {
+                        answerId: result[i].id,
+                        answer: result[i].answer,
+                        default: result[i].default
+                    }
+                    mQuestion.answers.push(answerJSON)
                 }
             }
             catch(err){
-                log.debug(`Error Legal Acceptance user ${result[i].id} email `)
-            }
-
-
-            // Determine if existing doc
-            // by insurerId,  code, sub
-            const query = {agencyPortalUserId: result[i].id}
-            const existingDoc = await AgencyPortUserModel.findOne(query);
-            if(!existingDoc){
-                await agencyPortalUser.save().catch(function(err) {
-                    log.error('Mongo AgencyPortUserModel Save err ' + err + __location);
-                    return false;
-                });
-                newDocCount++;
-            }
-
-            // if(PolicyType.insurerTerritoryQuestionList.length > 0){
-            //     log.debug("has territoryquestions " + PolicyType.insurerActivityCodeId)
-            // }
-            if((i + 1) % 100 === 0){
-                log.debug(`processed ${i + 1} of ${result.length} `)
+                log.error("Adding question answers error " + err + __location);
+                return false;
             }
         }
-        catch(err){
-            log.error("Updating AgencyPortUserModel List error " + err + __location);
-            return false;
+        await mQuestion.save();
+        questionCount++;
+        if(questionCount % 100 === 0){
+            log.debug(`processed ${questionCount} of ${resultQ.length} `)
         }
     }
 
-    log.debug("AgencyPortUserModel Import Done!");
-    log.debug(`Updated AgencyPortUserModel: ${updatedDocCount}`);
-    log.debug(`New AgencyPortUserModel: ${newDocCount}`);
     log.debug("Done!");
     process.exit(1);
 

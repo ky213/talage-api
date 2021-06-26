@@ -12,22 +12,21 @@ const moment_timezone = require('moment-timezone');
 const clonedeep = require('lodash.clonedeep');
 
 // Add global helpers to load shared modules
-global.sharedPath = require('path').join(__dirname, 'shared');
+global.rootPath = require('path').join(__dirname, '..');
+global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-const talageEvent = global.requireShared('/services/talageeventemitter.js');
+const talageEvent = global.requireShared('services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
-var mongoose = require('./mongoose');
+var mongoose = global.requireRootPath('./mongoose.js');
 const colors = require('colors');
 
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
-const globalSettings = require('./settings.js');
+const globalSettings = global.requireRootPath('./settings.js');
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -118,114 +117,80 @@ async function main() {
  */
 async function runFunction() {
 
-    const ActivityCodeModel = require('mongoose').model('ActivityCode');
-    const InsurerActivityCodeModel = require('mongoose').model('ActivityCode');
+    const TerritoryModel = require('mongoose').model('Territory');
+
     //load message model and get message list.
-    const sql = `select id as 'activityCodeId', description, state from clw_talage_activity_codes where id > 1858 `;
+    const sql = `select * from clw_talage_territories  `;
 
     let result = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error " + error);
         return false;
     });
-    log.debug("Got MySql ActivityCode - result.length - " + result.length);
-    const updateAbleProps = ['description',
-        'alternateNames',
-        'ncciCode',
+    log.debug("Got MySql Territory - result.length - " + result.length);
+    const updateAbleProps = ['name',
+        'licensed',
+        'resource',
+        'individual_license_expiration_date',
+        'individual_license_number',
+        'talage_license_expiration_date',
+        'talage_license_number',
         'active'];
+
     let updatedDocCount = 0;
     let newDocCount = 0;
+    // eslint-disable-next-line array-element-newline
+
     for(let i = 0; i < result.length; i++){
         try {
-            let activityCode = new ActivityCodeModel(result[i]);
-
-            activityCode.talageStandard = true;
-            if(result[i].state < 1){
-                activityCode.active = false
-            }
-
-            //Get AlternateNames
-            activityCode.alternateNames = [];
-            let sqlAlt = `select name from clw_talage_activity_code_alt_names where activity_code = ${activityCode.activityCodeId}`
-            let resultAlt = await db.query(sqlAlt).catch(function(error) {
-                // Check if this was
-                log.error(`Alternate name ${sqlAlt} error ` + error);
-
-            });
-            if(resultAlt && resultAlt.length > 0){
-                const listOfAltNames = resultAlt.map(row => row.name)
-                if(listOfAltNames && listOfAltNames.length > 0 && listOfAltNames[0]){
-                    activityCode.alternateNames = listOfAltNames
-                }
-            }
-            //lockup ncci code from Markel and Liberty (3,14) if conflict do not add.
-            // use AR a standard ncci state to filter out PA, DE and CA (when CA is different).
-            const activityCodeQuery = {
-                insurerId: {$in: [3,14]},
-                territoryList: "AR",
-                active: true,
-                talageActivityCodeIdList: activityCode.activityCodeId
-            }
-
-            const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery).lean()
-            if(insurerActivityCodeList && insurerActivityCodeList.length > 0){
-                if(insurerActivityCodeList.length === 1){
-                    activityCode.ncciCode = insurerActivityCodeList[0].code;
-                }
-                else if (insurerActivityCodeList.length === 2
-                    && insurerActivityCodeList[0].code === insurerActivityCodeList[1].code
-                ) {
-                    activityCode.ncciCode = insurerActivityCodeList[0].code;
-                }
-                // more than 2 or different do nothing.
-            }
-
+            let territory = new TerritoryModel(result[i]);
+            territory.territoryCd = result[i].abbr;
 
             // Determine if existing doc
-            // by insurerId,  code, sub
-            const query = {activityCodeId: activityCode.activityCodeId}
-            const existingDoc = await ActivityCodeModel.findOne(query);
+            const query = {abbr: territory.abbr}
+            const existingDoc = await TerritoryModel.findOne(query);
             if(existingDoc){
                 //update file
                 let updateHit = false;
                 //loop updateable array
                 updateAbleProps.forEach((updateAbleProp) => {
-                    if(activityCode[updateAbleProp] && activityCode[updateAbleProp] !== existingDoc[updateAbleProp]){
-                        existingDoc[updateAbleProp] = activityCode[updateAbleProp]
+                    if(territory[updateAbleProp] && territory[updateAbleProp] !== existingDoc[updateAbleProp]){
+                        existingDoc[updateAbleProp] = territory[updateAbleProp]
                         updateHit = true;
                     }
                 });
                 if(updateHit){
                     await existingDoc.save().catch(function(err) {
-                        log.error('Mongo ActivityCode Save err ' + err + __location);
+                        log.error('Mongo Territory Save err ' + err + __location);
                         return false;
                     });
                     updatedDocCount++
                 }
             }
             else {
-                await activityCode.save().catch(function(err) {
-                    log.error('Mongo ActivityCode Save err ' + err + __location);
+                await territory.save().catch(function(err) {
+                    log.error('Mongo Territory Save err ' + err + __location);
                     return false;
                 });
                 newDocCount++;
             }
 
-            // if(ActivityCode.insurerTerritoryQuestionList.length > 0){
-            //     log.debug("has territoryquestions " + ActivityCode.insurerActivityCodeId)
+            // if(Territory.insurerTerritoryQuestionList.length > 0){
+            //     log.debug("has territoryquestions " + Territory.insurerActivityCodeId)
             // }
             if((i + 1) % 100 === 0){
                 log.debug(`processed ${i + 1} of ${result.length} `)
             }
         }
         catch(err){
-            log.error("Updating ActivityCode List error " + err + __location);
+            log.error("Updating Territory List error " + err + __location);
             return false;
         }
     }
-    log.debug("ActivityCodes Import Done!");
-    log.debug(`Updated ActivityCodes: ${updatedDocCount}`);
-    log.debug(`New ActivtiyCodes: ${newDocCount}`);
+
+    log.debug("Territories Import Done!");
+    log.debug(`Updated Territories: ${updatedDocCount}`);
+    log.debug(`New Territories: ${newDocCount}`);
     log.debug("Done!");
     process.exit(1);
 

@@ -154,7 +154,7 @@ module.exports = class AgencyLocationBO{
             // TODO refactor to use mongo aggretation.
             const query = {}
             const queryProjection = {"systemId": 1}
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             queryOptions.sort.systemId = -1;
             queryOptions.limit = 1;
@@ -226,7 +226,7 @@ module.exports = class AgencyLocationBO{
                         }
                     }
                     if(children === true){
-                        await this.loadChildrenMongo(mysqlId, docDB)
+                        await this.loadChildrenMongo(docDB)
                     }
                     if (docDB) {
                         agencyLocationDoc = mongoUtils.objCleanup(docDB);
@@ -267,7 +267,7 @@ module.exports = class AgencyLocationBO{
             let query = {active: true};
             let error = null;
 
-            var queryOptions = {lean:true};
+            var queryOptions = {};
             queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -358,7 +358,7 @@ module.exports = class AgencyLocationBO{
                 let docList = null;
                 try {
                     //log.debug("AgencyLocation GetList query " + JSON.stringify(query) + __location)
-                    docList = await AgencyLocationMongooseModel.find(query,queryProjection, queryOptions);
+                    docList = await AgencyLocationMongooseModel.find(query,queryProjection, queryOptions).lean();
 
                     if(mainCollection){
                         for(const doc of docList){
@@ -393,7 +393,7 @@ module.exports = class AgencyLocationBO{
                                 }
                             }
                             if(loadChildren === true){
-                                await this.loadChildrenMongo(doc.systemId, doc)
+                                await this.loadChildrenMongo(doc)
                             }
                         }
                     }
@@ -444,7 +444,6 @@ module.exports = class AgencyLocationBO{
     }
 
     async getAgencyPrimeInsurers(agencyId, agencyNetworkId){
-        log.debug("in getAgencyPrimeInsurers")
         const AgencyBO = global.requireShared('./models/Agency-BO.js');
         const agencyBO = new AgencyBO();
 
@@ -495,7 +494,7 @@ module.exports = class AgencyLocationBO{
         return agencyPrimeInsurers;
     }
 
-    async loadChildrenMongo(agencyLocationId, agencyLocationJSON){
+    async loadChildrenMongo(agencyLocationJSON){
         if(!agencyLocationJSON){
             return;
         }
@@ -519,15 +518,13 @@ module.exports = class AgencyLocationBO{
             const insurerBO = new InsurerBO();
             const query = {};
             const insurerList = await insurerBO.getList(query).catch(function(err) {
-                log.error("admin agencynetwork error: " + err + __location);
+                log.error("insurerList error: " + err + __location);
                 //    error = err;
             })
             if(insurerList){
+                //log.debug(`insurerList ${JSON.stringify(insurerList)}`)
                 for(let i = 0; i < locationInsurerInfoArray.length; i++){
-                    if(typeof locationInsurerInfoArray[i].insurerId === "string"){
-                        locationInsurerInfoArray[i].insurerId = parseInt(locationInsurerInfoArray[i].insurerId,10);
-                    }
-                    const insurer = insurerList.find(insurertest => insurertest.id === locationInsurerInfoArray[i].insurerId);
+                    const insurer = insurerList.find(insurertest => insurertest.insurerId === locationInsurerInfoArray[i].insurerId);
                     if(insurer){
                         locationInsurerInfoArray[i].logo = insurer.logo;
                         locationInsurerInfoArray[i].name = insurer.name;
@@ -546,30 +543,6 @@ module.exports = class AgencyLocationBO{
             }
         }
     }
-
-
-    async loadChildren(agencyLocationId, agencyLocationJSON){
-        if(agencyLocationJSON.insurers){
-            //Map to current Insurers
-            await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
-        }
-
-        // Territories
-        if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories){
-            // log.debug("Using agencyLocationJSON.additionalInfo.territories ")
-            agencyLocationJSON.territories = agencyLocationJSON.additionalInfo.territories;
-        }
-
-        if(!agencyLocationJSON.territories){
-            agencyLocationJSON.territories = [];
-        }
-        if(!agencyLocationJSON.insurers){
-            agencyLocationJSON.insurers = [];
-        }
-
-
-    }
-
 
     async addInsureInfoTolocationInsurers(locationInsurerInfoArray){
         if(locationInsurerInfoArray){
@@ -659,7 +632,7 @@ module.exports = class AgencyLocationBO{
                 try {
                     docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
                     if(children === true){
-                        await this.loadChildrenMongo(docDB.systemId, docDB)
+                        await this.loadChildrenMongo(docDB)
                     }
                     if (docDB) {
                         agencyLocationDoc = mongoUtils.objCleanup(docDB);

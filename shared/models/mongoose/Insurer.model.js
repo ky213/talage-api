@@ -24,6 +24,11 @@ const opts = {toJSON: {virtuals: true}};
 //     type: {type: String, required: false}
 // });
 
+const PaymentPlanSchema = new Schema({
+    payment_plan: {type: Number, required: true},
+    premium_threshold: {type: Number}
+},opts)
+
 
 const InsurerSchema = new Schema({
     insurerUuidId: {type: String, required: [true, 'insurerUuidId required'], unique: true},
@@ -60,6 +65,7 @@ const InsurerSchema = new Schema({
     test_password: {type: String, required: false},
     credentialInfo: {type: Schema.Types.Mixed},
     additionalInfo: {type: Schema.Types.Mixed},
+    paymentPlans: [PaymentPlanSchema],
     active: {type: Boolean, default: true}
 },opts)
 
@@ -68,8 +74,8 @@ const InsurerSchema = new Schema({
 
 InsurerSchema.virtual('id').
     get(function() {
-        if(this.systemId){
-            return this.systemId;
+        if(this.insurerId){
+            return this.insurerId;
         }
         else {
             return 0;

@@ -22,22 +22,14 @@ const hiscoxGLTemplate = require("jsrender").templates("./quotesystem/integratio
  * @returns {string} COB code
  */
 async function getHiscoxCOBFromDescription(cobDescription) {
-    const sql = `
-        SELECT code
-        FROM clw_talage_industry_codes_hiscox
-        WHERE description = '${cobDescription}'
-    `;
-    let result = null;
-    try {
-        result = await db.query(sql);
+    const hiscoxCodeSvc = require('./hiscoxcodesvc.js');
+    const result = hiscoxCodeSvc.getByDesc(cobDescription);
+    if (result) {
+        return result.code;
     }
-    catch {
+    else {
         return null;
     }
-    if (result.length === 0 || !result[0].code) {
-        return null;
-    }
-    return result[0].code;
 }
 
 module.exports = class HiscoxGL extends Integration {
