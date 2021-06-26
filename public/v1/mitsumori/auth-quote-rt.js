@@ -1,7 +1,4 @@
-const serverHelper = global.requireRootPath('server.js');
-const {'v4': uuidv4} = require('uuid');
 const tokenSvc = global.requireShared('./services/tokensvc.js');
-const moment = require('moment');
 
 /**
  * Responds to get requests for an Quote app V2 authorization token

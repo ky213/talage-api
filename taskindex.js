@@ -19,7 +19,6 @@ global.DIGALENT_AGENCYNETWORK_ID = 2;
 const colors = require('colors');
 
 const logger = require('./shared/services/logger.js');
-const db = require('./shared/services/db.js');
 const globalSettings = require('./settings.js');
 const utility = require('./shared/helpers/utility.js');
 const taskDistributor = require('./tasksystem/task-distributor.js');
@@ -106,16 +105,6 @@ async function main(){
         logLocalErrorMessage('Error connecting to log. Stopping.');
         return;
     }
-
-    // Connect to the database
-    if(!await db.connect()){
-        logLocalErrorMessage('Error connecting to database. Stopping.');
-        return;
-    }
-
-    // Load the database module and make it globally available
-    global.db = global.requireShared('./services/db.js');
-
 
     // Connect to the redis
     if(!await redisSvc.connect()){

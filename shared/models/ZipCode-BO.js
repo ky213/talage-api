@@ -31,7 +31,6 @@ module.exports = class ZipCodeBO{
                 return reject(new Error(error));
             }
 
-            await this.cleanupInput(newObjectJSON);
 
             let mongoZipCodeDoc = null;
             let insert = true;

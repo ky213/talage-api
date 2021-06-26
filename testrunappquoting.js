@@ -30,7 +30,6 @@ const utility = require('./shared/helpers/utility.js');
 var mongoose = require('./mongoose');
 const colors = require('colors');
 const logger = global.requireShared('/services/logger.js');
-const db = global.requireShared('/services/db.js');
 const globalSettings = require('./settings.js');
 
 
@@ -84,16 +83,6 @@ async function main() {
         logLocalErrorMessage('Error connecting to log. Stopping.');
         return;
     }
-
-    // Connect to the database
-    if (!await db.connect()) {
-        logLocalErrorMessage('Error connecting to database. Stopping.');
-        return;
-    }
-
-    // Load the database module and make it globally available
-    global.db = global.requireShared('./services/db.js');
-
 
     // MONGO
 

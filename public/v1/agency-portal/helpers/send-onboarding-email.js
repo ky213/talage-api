@@ -14,7 +14,7 @@ module.exports = async function(agencyNetworkId, userID, firstName, lastName, ag
     let error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
     const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId, "onboarding").catch(function(err){
-        log.error(`Unable to get email content for Onboarding. agency_network: ${db.escape(agencyNetworkId)}.  error: ${err}` + __location);
+        log.error(`Unable to get email content for Onboarding. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
         error = true;
     });
     if(error){

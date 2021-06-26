@@ -17,6 +17,7 @@ const tracker = global.requireShared('/helpers/tracker.js');
  *
  * @param {String} s3Key - key for S3 file.
  * @param {String} fileContent - base64 string of contents of file.
+ * @param {String} contentType - string of contents of file.
  *
  * @returns {void}
  */
@@ -53,9 +54,8 @@ exports.PutFile = function(s3Key, fileContent, contentType = null) {
                 'Key': s3Path
             };
             if (contentType){
-                params['ContentType'] = contentType;
+                params.ContentType = contentType;
             }
-            console.log(`contentType ${contentType}`);
             global.s3.putObject(params, function(err) {
             // Call out to S3
             // global.s3.putObject({

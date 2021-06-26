@@ -42,7 +42,7 @@ exports.process = async function(requestJSON) {
     //requestJSON.businessInfo.founded = new \DateTime(requestJSON.founded', null, 'string')),
     try{
         const found_date = moment(requestJSON.founded, 'MM/DD/YYYY');
-        requestJSON.businessInfo.founded = found_date.format(db.dbTimeFormat());
+        requestJSON.businessInfo.founded = found_date.format('YYYY-MM-DD HH:mm:ss');
     }
     catch(e){
         log.error("Detail found_date convert error " + e + __location)
@@ -51,6 +51,6 @@ exports.process = async function(requestJSON) {
     requestJSON.businessInfo.ncci_number = stringFunctions.santizeString(requestJSON.ncci_number);
     requestJSON.businessInfo.website = stringFunctions.santizeString(requestJSON.website);
 
-   // log.debug("Detail Parser requestJSON: " + JSON.stringify(requestJSON));
+    // log.debug("Detail Parser requestJSON: " + JSON.stringify(requestJSON));
     return true;
 }
