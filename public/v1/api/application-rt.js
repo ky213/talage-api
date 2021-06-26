@@ -463,23 +463,10 @@ async function getApplicationList(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
-    // make sure the count doesnt exsist on the query
-    delete applicationQuery.count;
-
     const applicationBO = new ApplicationBO();
     const applicationList = await applicationBO.getList(applicationQuery);
 
-    // add count since we care about it now
-    const countQuery = {
-        ...applicationQuery,
-        count: true
-    };
-    const applicationCount = await applicationBO.getList(countQuery);
-    res.send(200, {
-        rows: applicationList,
-        // applicationCount only contains {count: number}
-        ...applicationCount
-    });
+    res.send(200, applicationList);
     return next();
 }
 
