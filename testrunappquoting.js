@@ -23,6 +23,7 @@ global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleNam
 const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const utility = require('./shared/helpers/utility.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
 
@@ -148,7 +149,22 @@ async function runFunction() {
     const userEmail = await promptly.prompt('userEmail: ');
     const userPwd = await promptly.password('userPwd: ');
 
-    const userRemote = await promptly.password('Remote(Y/N): ');
+    const userRemote = await promptly.prompt('Remote(Y/N): ');
+
+    let numOfRunsInput = await promptly.prompt('# of Runs: ');
+    if(numOfRunsInput === ''){
+        numOfRunsInput = "1"
+    }
+
+    const numOfRuns = parseInt(numOfRunsInput,10)
+
+    let pauseBetweenRunsInput = await promptly.prompt('Pause between Runs(sec): ');
+    if(pauseBetweenRunsInput === ''){
+        pauseBetweenRunsInput = "0"
+    }
+
+    const pauseBetweenRuns = parseInt(pauseBetweenRunsInput,10)
+
 
     //get app auth token
     // eslint-disable-next-line object-curly-newline
@@ -173,7 +189,6 @@ async function runFunction() {
         process.exit(1);
     }
 
-    const quote_promises = [];
     // eslint-disable-next-line array-element-newline
     //Wheelhouse
     const path = 'testrunapplications.json';
@@ -181,90 +196,87 @@ async function runFunction() {
     let appList = JSON.parse(appListText);
     const ApplicationBO = global.requireShared('models/Application-BO.js');
     //var Application = require('mongoose').model('Application');
-    const updateMysql = true;
-    for(let i = 0; i < appList.length; i++){
-        const sourceAppId = appList[i].sourceAppId;
-        log.debug("copying applicationId " + sourceAppId);
-        try{
-        //load applicationBO
-            const applicationBO = new ApplicationBO();
-            //setup old app to copy from;
-            let mongoApp = await applicationBO.getById(sourceAppId)
-            if(mongoApp){
-                if(!mongoApp.additionalInfo){
-                    mongoApp.additionalInfo = {}
-                }
-                log.debug("Loaded sourceAppId " + sourceAppId + " applicationId " + mongoApp.applicationId)
-                mongoApp.additionalInfo.copiedFromMysqlId = mongoApp.mysqlId;
-                mongoApp.additionalInfo.copiedFromAppId = mongoApp.applicationId;
+    const updateMysql = false;
+    for(let run = 0; run < numOfRuns; run++){
 
-                //Clear id's for a copy.
-                delete mongoApp.applicationId
-                delete mongoApp.uuid
-                delete mongoApp.mysqlId
-                delete mongoApp.createdAt
 
-                //update policies dates
-                const newEffectiveDate = moment().add(1,"months");
-                const newExpirationDate = newEffectiveDate.clone().add(1,'years');
+        for(let i = 0; i < appList.length; i++){
+            const sourceAppId = appList[i].sourceAppId;
+            log.debug("copying applicationId " + sourceAppId);
+            try{
+            //load applicationBO
+                const applicationBO = new ApplicationBO();
+                //setup old app to copy from;
+                let mongoApp = await applicationBO.getById(sourceAppId)
+                if(mongoApp){
+                    if(!mongoApp.additionalInfo){
+                        mongoApp.additionalInfo = {}
+                    }
+                    log.debug("Loaded sourceAppId " + sourceAppId + " applicationId " + mongoApp.applicationId)
+                    mongoApp.additionalInfo.copiedFromMysqlId = mongoApp.mysqlId;
+                    mongoApp.additionalInfo.copiedFromAppId = mongoApp.applicationId;
 
-                if(mongoApp.policies && mongoApp.policies.length > 0){
-                    for(let j = 0; j < mongoApp.policies.length; j++){
-                        mongoApp.policies[j].effectiveDate = newEffectiveDate;
-                        mongoApp.policies[j].expirationDate = newExpirationDate;
+                    //Clear id's for a copy.
+                    delete mongoApp.applicationId
+                    delete mongoApp.uuid
+                    delete mongoApp.mysqlId
+                    delete mongoApp.createdAt
+
+                    //update policies dates
+                    const newEffectiveDate = moment().add(1,"months");
+                    const newExpirationDate = newEffectiveDate.clone().add(1,'years');
+
+                    if(mongoApp.policies && mongoApp.policies.length > 0){
+                        for(let j = 0; j < mongoApp.policies.length; j++){
+                            mongoApp.policies[j].effectiveDate = newEffectiveDate;
+                            mongoApp.policies[j].expirationDate = newExpirationDate;
+                        }
+                    }
+                    //reset status to question_done
+                    mongoApp.status = 'questions_done'
+                    mongoApp.appStatusId = 10;
+                    mongoApp.processStateOld = 1;
+                    mongoApp.lastStep = 8;
+                    mongoApp.progress = "unknown";
+
+                    if(appList[i].requiresNewEin){
+                        mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
+                        mongoApp.businessName = `${mongoApp.businessName} - ${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
+                    }
+
+                    //save mongoinsert
+                    const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
+                    log.debug("Saved new sourceAppId " + sourceAppId + " applicationId " + newApplicationJSON.applicationId);
+
+                    //run quote process
+                    const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.applicationId}/requote`;
+                    const putBody = {"id": newApplicationJSON.applicationId};
+                    try{
+                        const instance = axios.create();
+                        instance.defaults.timeout = 4500;
+                        // eslint-disable-next-line dot-notation
+                        instance.defaults.headers.common["Authorization"] = authResponse.data.token;
+                        await instance.put(requoteURL, JSON.stringify(putBody),{headers: {'Content-Type': 'application/json'}});
+                    }
+                    catch(err){
+                        log.error('API AP Requote error ' + err + __location);
+                        // process.exit(1)
                     }
                 }
-                //reset status to question_done
-                mongoApp.status = 'questions_done'
-                mongoApp.appStatusId = 10;
-                mongoApp.processStateOld = 1;
-                mongoApp.lastStep = 8;
-                mongoApp.progress = "unknown";
-
-                if(appList[i].requiresNewEin){
-                    mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
-                    mongoApp.businessName = `${mongoApp.businessName} - ${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
+                else {
+                    log.error("Failed to load sourceAppId " + sourceAppId);
                 }
 
-                //save mongoinsert
-                const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
-                log.debug("Saved new sourceAppId " + sourceAppId + " applicationId " + newApplicationJSON.applicationId);
-
-                //run quote process
-                const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.applicationId}/requote`;
-                const putBody = {"id": newApplicationJSON.applicationId};
-                try{
-                    const instance = axios.create();
-                    instance.defaults.timeout = 4500;
-                    // eslint-disable-next-line dot-notation
-                    instance.defaults.headers.common["Authorization"] = authResponse.data.token;
-                    await instance.put(requoteURL, JSON.stringify(putBody),{headers: {'Content-Type': 'application/json'}});
-                }
-                catch(err){
-                    log.error('API AP Requote error ' + err + __location);
-                    // process.exit(1)
-                }
             }
-            else {
-                log.error("Failed to load sourceAppId " + sourceAppId);
+            catch(err){
+                log.error(`Copying and quoting mongo application sourceAppId: ${sourceAppId} error ` + err + __location)
             }
-
-
         }
-        catch(err){
-            log.error(`Copying and quoting mongo application sourceAppId: ${sourceAppId} error ` + err + __location)
+        if(pauseBetweenRuns > 0){
+            log.debug(`pausing ${pauseBetweenRuns} seconds`)
+            await utility.Sleep(pauseBetweenRuns * 1000);
         }
     }
-    if(quote_promises.length > 0){
-        try {
-            await Promise.all(quote_promises);
-        }
-        catch (error) {
-            log.error(`Quoting did not complete successfully: ${error} ${__location}`);
-        }
-    }
-
-
     log.debug("Done!");
     process.exit(1);
 }
