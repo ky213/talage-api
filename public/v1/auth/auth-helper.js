@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
@@ -9,9 +8,9 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 /**
  * Retrieve the talage user in Mongo that corresponds to the email address
  * passed in.
- * 
+ *
  * @param {*} email Email address of the user.
- * @returns Talage user object in mongo
+ * @returns {object} Talage user object in mongo
  */
 async function getUser(email) {
     // This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
@@ -22,7 +21,8 @@ async function getUser(email) {
     const agencyPortalUserBO = new AgencyPortalUserBO();
     try {
         return await agencyPortalUserBO.getByEmail(email);
-    } catch (e) {
+    }
+    catch (e) {
         log.error(e.message + __location);
     }
     return null;
@@ -30,21 +30,21 @@ async function getUser(email) {
 
 /**
  * Creates a JWT login token for the user with the specified email.
- * 
+ *
  * NOTE: DOES NOT provide any sort of user authentication. So use with caution!
  * Login credentials should be fully validated before generating any JWT
  * tokens.
- * 
+ *
  * @param {*} email The email address of the user to generate the JWT token
  *    for.
- * @returns Newly generated JWT token
+ * @returns {JWT} Newly generated JWT token
  */
 async function createToken(email) {
     const agencyPortalUserDBJson = await getUser(email);
 
     // Make sure we found the user
     if (!agencyPortalUserDBJson) {
-        log.info('Authentication failed - Account not found ' + req.body.email);
+        log.info('Authentication failed - Account not found ' + email);
         throw new Error('Authentication failed - Account not found ' + email);
     }
 
@@ -70,8 +70,6 @@ async function createToken(email) {
     const agencyPortalUserBO = new AgencyPortalUserBO();
     await agencyPortalUserBO.updateLastLogin(agencyPortalUserDBJson.agencyPortalUserId).catch(function(e) {
         log.error(e.message + __location);
-        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-        error = true;
     });
 
     payload.isAgencyNetworkUser = false;
@@ -149,4 +147,7 @@ async function createToken(email) {
     return jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION});
 }
 
-module.exports = { getUser, createToken };
+module.exports = {
+    getUser: getUser,
+    createToken: createToken
+};

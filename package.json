@@ -6,7 +6,7 @@
     "scripts": {
         "serve": "node index.js",
         "dev": "nodemon --ext js,env,json,xmlt index.js",
-        "lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js",
+        "lint": "eslint ./public/ ./uptime/ ./shared/ *.js",
         "test": "mocha --reporter mochawesome",
         "testnyc": "nyc --reporter html mocha",
         "testcoverage": "nyc --reporter html mocha"

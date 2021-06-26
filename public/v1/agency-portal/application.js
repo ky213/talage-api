@@ -88,12 +88,6 @@ async function getApplication(req, res, next) {
     // Get the agents that we are permitted to view
     
 
-    // // Check if this is Solepro and grant them special access
-    // let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-    // if (agents.length === 1 && agents[0] === 12) {
-    //     // This is Solepro (no restriction on agency ID, just applications tagged to them)
-    //     where = `${db.quoteName('a.solepro')} = 1`;
-    // }
     const applicationBO = new ApplicationBO();
     let passedAgencyCheck = false;
     let applicationJSON = null;

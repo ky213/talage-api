@@ -20,4 +20,3 @@ module.exports = class AcordGL extends ACORD{
         return pdf;
     }
 }
-

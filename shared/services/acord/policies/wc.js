@@ -19,4 +19,3 @@ module.exports = class AcordWC extends ACORD{
         return pdf;
     }
 }
-
