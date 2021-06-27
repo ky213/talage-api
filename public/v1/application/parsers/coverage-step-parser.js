@@ -26,12 +26,12 @@ exports.process = async function(requestJSON) {
             const effective_dateStr = typeQuestionJSON.effective_date;
             const effective_date = moment(effective_dateStr, 'MM/DD/YYYY');
             const effective_fieldName = pType + '_effective_date';
-            requestJSON[effective_fieldName] = effective_date.format(db.dbTimeFormat());
+            requestJSON[effective_fieldName] = effective_date.format('YYYY-MM-DD HH:mm:ss');
 
             // Expiration date is 1 years past the effective date
             const expiration_date = effective_date.clone().add(1, 'years');
             const expiration_fieldName = pType + '_expiration_date';
-            requestJSON[expiration_fieldName] = expiration_date.format(db.dbTimeFormat());
+            requestJSON[expiration_fieldName] = expiration_date.format('YYYY-MM-DD HH:mm:ss');
 
             if(pType === 'bop' || pType === 'gl'){
                 //requestJSON.limits = typeQuestionJSON.limits.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g,"").replace("/[^0-9]/", '');

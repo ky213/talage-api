@@ -26,9 +26,6 @@ const utility = global.requireShared('./helpers/utility.js');
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false, stateList = []) {
 
     log.info(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, questionSubjectArea: ${questionSubjectArea}, return_hidden: ${return_hidden}, stateList:  ${JSON.stringify(stateList)}` + __location)
-    let error = false;
-    let sql = '';
-
 
     /*
      * Validate Activity Codes
@@ -84,7 +81,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     policyTypeArray.forEach(function(policyTypeJSON) {
         // Build a list of policy types
         policyTypes.push(policyTypeJSON.type.replace(/[^a-z]/gi, '').toUpperCase());
-        const policyEffectiveDate = moment(policyTypeJSON.effectiveDate).format(db.dbTimeFormat());
+        const policyEffectiveDate = moment(policyTypeJSON.effectiveDate).format('YYYY-MM-DD HH:mm:ss');
         // Build a list of unique policy effective dates for the industry and activity code queries
         if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
             uniquePolicyEffectiveDateList.push(policyEffectiveDate);
@@ -510,83 +507,35 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questions = questions.filter((question) => question.id > 0);
     }
 
-    if(global.settings.USE_MYSQL_QUESTIONS === "YES"){
-        // Get a list of the question IDs
-        const question_ids = questions.map(function(question) {
-            return question.id;
-        });
-        log.debug("Getting answers questions " + __location);
-        if (question_ids && question_ids.length > 0) {
-            // Get the answers to the questions
-            sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
-            const answers = await db.queryReadonly(sql).catch(function(err) {
-                error = err.message;
-            });
-            if (error) {
-                return false;
+    try{
+        questions.forEach((question) => {
+            if (question.type_id >= 1 && question.type_id <= 3 && question.answers && question.answers.length > 0) {
+                question.possible_answers = {};
+                question.answers.forEach((answer) => {
+                    const answer_obj = Object.assign({}, answer);
+                    // Remove the default if it is not applicable
+                    if (answer_obj.default === false) {
+                        delete answer_obj.default;
+                    }
+                    //Backward compatible for MySql query
+                    answer_obj.id = answer_obj.answerId;
+                    answer_obj.question = question.talageQuestionId;
+
+                    question.possible_answers[answer_obj.answerId] = answer_obj;
+
+                });
+                // If there were no answers, do not return the element
+                if (!Object.keys(question.possible_answers).length) {
+                    delete question.possible_answers;
+                }
             }
-
-            // Combine the answers with their questions
-            questions.forEach((question) => {
-                if (question.type_id >= 1 && question.type_id <= 3) {
-                    question.possible_answers = {};
-                    answers.forEach((answer) => {
-                        if (answer.question === question.id) {
-                            // Create a local copy of the answer so we can remove properties
-                            const answer_obj = Object.assign({}, answer);
-                            delete answer_obj.question;
-
-                            // Remove the default if it is not applicable
-                            if (answer_obj.default === 1) {
-                                answer_obj.default = true;
-                            }
-                            else {
-                                delete answer_obj.default;
-                            }
-
-                            question.possible_answers[parseInt(answer_obj.id, 10)] = answer_obj;
-                        }
-                    });
-
-                    // If there were no answers, do not return the element
-                    if (!Object.keys(question.possible_answers).length) {
-                        delete question.possible_answers;
-                    }
-                }
-                delete question.type_id;
-            });
-        }
+            delete question.type_id;
+        });
     }
-    else {
-        try{
-            questions.forEach((question) => {
-                if (question.type_id >= 1 && question.type_id <= 3 && question.answers && question.answers.length > 0) {
-                    question.possible_answers = {};
-                    question.answers.forEach((answer) => {
-                        const answer_obj = Object.assign({}, answer);
-                        // Remove the default if it is not applicable
-                        if (answer_obj.default === false) {
-                            delete answer_obj.default;
-                        }
-                        //Backward compatible for MySql query
-                        answer_obj.id = answer_obj.answerId;
-                        answer_obj.question = question.talageQuestionId;
-
-                        question.possible_answers[answer_obj.answerId] = answer_obj;
-
-                    });
-                    // If there were no answers, do not return the element
-                    if (!Object.keys(question.possible_answers).length) {
-                        delete question.possible_answers;
-                    }
-                }
-                delete question.type_id;
-            });
-        }
-        catch(err){
-            log.error(`QuestionSvc Error Creating possible answers ${err}` + __location)
-        }
+    catch(err){
+        log.error(`QuestionSvc Error Creating possible answers ${err}` + __location)
     }
+
     log.debug("question sort " + __location);
     // Sort the questions
     questions.sort(function(a, b) {
@@ -664,59 +613,37 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     const start = moment();
     let talageQuestions = [];
     let error = null;
-    if(global.settings.USE_MYSQL_QUESTIONS === "YES"){
-        const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden`;
-        const sql = `
-                SELECT ${select}
-                FROM clw_talage_questions AS q
-                LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-                WHERE
-                    q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
-                    AND q.state = 1
-                    GROUP BY q.id;
-            `;
-        // log.debug("question sql " + sql)
-        talageQuestions = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-            log.error(`Error get Talage Questions ${err} ` + __location);
-        });
-        if (error) {
-            return [];
-        }
-    }
-    else {
-        //get question from Mongo.
-        // eslint-disable-next-line object-property-newline
-        const query = {active: true, talageQuestionId: {$in: talageQuestionIdArray}};
-        // eslint-disable-next-line object-property-newline
-        const queryProjection = {"__v": 0, "_id": 0,acordQuestion: 0, active: 0,updatedAt:0, createdAt: 0};
-        talageQuestions = await QuestionModel.find(query,queryProjection).lean().catch(function(err) {
-            error = err.message;
-            log.error(`Error get Talage Questions ${err} ` + __location);
-        });
-        if (error) {
-            return [];
-        }
-        //backwards capable with mysql query
-        talageQuestions.forEach(function(talageQuestion){
-            talageQuestion.id = talageQuestion.talageQuestionId
-            talageQuestion.type = talageQuestion.typeDesc
-            talageQuestion.type_id = talageQuestion.typeId
-            talageQuestion.answers.forEach((answer) => {
-                if(answer._id){
-                    delete answer._id
-                }
-                if(answer.id){
-                    delete answer.id
-                }
-                if(!answer.default){
-                    answer.default = false;
-                }
-            })
 
-        });
-
+    //get question from Mongo.
+    // eslint-disable-next-line object-property-newline
+    const query = {active: true, talageQuestionId: {$in: talageQuestionIdArray}};
+    // eslint-disable-next-line object-property-newline
+    const queryProjection = {"__v": 0, "_id": 0,acordQuestion: 0, active: 0,updatedAt:0, createdAt: 0};
+    talageQuestions = await QuestionModel.find(query,queryProjection).lean().catch(function(err) {
+        error = err.message;
+        log.error(`Error get Talage Questions ${err} ` + __location);
+    });
+    if (error) {
+        return [];
     }
+    //backwards capable with mysql query
+    talageQuestions.forEach(function(talageQuestion){
+        talageQuestion.id = talageQuestion.talageQuestionId
+        talageQuestion.type = talageQuestion.typeDesc
+        talageQuestion.type_id = talageQuestion.typeId
+        talageQuestion.answers.forEach((answer) => {
+            if(answer._id){
+                delete answer._id
+            }
+            if(answer.id){
+                delete answer.id
+            }
+            if(!answer.default){
+                answer.default = false;
+            }
+        })
+
+    });
 
     const endSqlSelect = moment();
     const diff = endSqlSelect.diff(start, 'milliseconds', true);

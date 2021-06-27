@@ -1,6 +1,5 @@
 'use strict';
 
-const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 // const moment = require('moment');
@@ -9,8 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 var AgencyLandingPageModel = require('mongoose').model('AgencyLandingPage');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-const tableName = 'clw_talage_agency_landing_pages'
-const skipCheckRequired = false;
+const collectionName = 'AgencyLandingPags'
 module.exports = class AgencyLandingPageBO {
 
   #dbTableORM = null;
@@ -19,21 +17,19 @@ module.exports = class AgencyLandingPageBO {
 
   constructor() {
       this.id = 0;
-      this.#dbTableORM = new DbTableOrm(tableName);
-      this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
 
   }
 
   saveModel(newObjectJSON) {
       return new Promise(async(resolve, reject) => {
           if(!newObjectJSON){
-              reject(new Error(`empty ${tableName} object given`));
+              reject(new Error(`empty ${collectionName} object given`));
           }
           let newDoc = true;
-          await this.cleanupInput(newObjectJSON);
+
           if(newObjectJSON.id){
               const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
-                  log.error(`Error getting ${tableName} from Database ` + err + __location);
+                  log.error(`Error getting ${collectionName} from Database ` + err + __location);
                   reject(err);
                   return;
               });
@@ -159,7 +155,7 @@ module.exports = class AgencyLandingPageBO {
       //validate
           if (id && id > 0) {
               await this.#dbTableORM.getById(id).catch(function(err) {
-                  log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                  log.error(`Error getting  ${collectionName} from Database ` + err + __location);
                   reject(err);
                   return;
               });
@@ -411,17 +407,6 @@ module.exports = class AgencyLandingPageBO {
   async addPageHit(systemId){
       if (systemId) {
           const query = {"systemId": systemId};
-          //   const updateJSON = {};
-          //   updateJSON.$inc = {"hits": 1}
-          // $inc throwing error via mongoose.  Works in mongo shell;
-          //   try {
-          //       await AgencyLandingPageModel.findOneAndUpdate(query, updateJSON);
-          //   }
-          //   catch (err) {
-          //       log.error(`Updating Landing Page error Id: ${systemId} ` + err + __location);
-          //       throw err;
-          //   }
-
           try {
               // eslint-disable-next-line prefer-const
               let docDB = await AgencyLandingPageModel.findOne(query, '-__v');
@@ -441,305 +426,5 @@ module.exports = class AgencyLandingPageBO {
 
   }
 
-  cleanJSON(noNulls = true) {
-      return this.#dbTableORM.cleanJSON(noNulls);
-  }
-
-  async cleanupInput(inputJSON) {
-      for (const property in properties) {
-          if (inputJSON[property]) {
-              // Convert to number
-              try {
-                  if (properties[property].type === "number" && typeof inputJSON[property] === "string") {
-                      if (properties[property].dbType.indexOf("int") > -1) {
-                          inputJSON[property] = parseInt(inputJSON[property], 10);
-                      }
-                      else if (properties[property].dbType.indexOf("float") > -1) {
-                          inputJSON[property] = parseFloat(inputJSON[property]);
-                      }
-                  }
-              }
-              catch (e) {
-                  log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-              }
-          }
-      }
-  }
-
-  updateProperty() {
-      const dbJSON = this.#dbTableORM.cleanJSON()
-      // eslint-disable-next-line guard-for-in
-      for (const property in properties) {
-          this[property] = dbJSON[property];
-      }
-  }
-
-  /**
- * Load new object JSON into ORM. can be used to filter JSON to object properties
-   *
- * @param {object} inputJSON - input JSON
- * @returns {void}
- */
-  async loadORM(inputJSON) {
-      await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-      this.updateProperty();
-      return true;
-  }
-
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "about": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(400)"
-    },
-    "agency": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "agency_location_id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "banner": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "color_scheme": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(3) unsigned"
-    },
-    "heading": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(70)"
-    },
-    "hits": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "industry_code": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "industry_code_category": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "intro_heading": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(100)"
-    },
-    "intro_text": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(400)"
-    },
-    "meta": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "longtext"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(70)"
-    },
-    "slug": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "show_industry_section": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "primary": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    // eslint-disable-next-line no-shadow
-    constructor(tableName) {
-        super(tableName, properties);
-    }
 
 }

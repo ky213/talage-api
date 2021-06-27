@@ -9,7 +9,6 @@
  */
 
 "use strict";
-const serverHelper = global.requireRootPath('server.js');
 
 
 const ttlSeconds = 3600;

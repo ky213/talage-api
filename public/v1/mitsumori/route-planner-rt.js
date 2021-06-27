@@ -2,7 +2,6 @@
 
 "use strict";
 const serverHelper = require("../../../server.js");
-const ApplicationBO = global.requireShared("models/Application-BO.js");
 
 // dummy endpoint to stimulate routing
 async function getNextRoute(req, res, next){

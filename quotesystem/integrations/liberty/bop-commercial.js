@@ -1484,7 +1484,7 @@ module.exports = class LibertySBOP extends Integration {
     async _getLibertyIndustryCodes() {
 
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-        const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+        const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
         applicationDocData = this.app.applicationDocData;
 
         const industryQuery = {

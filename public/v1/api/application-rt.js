@@ -184,24 +184,26 @@ async function applicationSave(req, res, next) {
                         if(!activityCode.activtyCodeId){
                             activityCode.activtyCodeId = activityCode.ncciCode;
                         }
-
-                        activityCode.payroll = activityCode.employeeTypeList.reduce((total, type) => {
+                        if(activityCode.employeeTypeList){
+                            activityCode.payroll = activityCode.employeeTypeList.reduce((total, type) => {
                             // use the functionality of reduce to double as forEach to calculate employment totals
-                            if (type.employeeType === "Full Time") {
-                                fteCount += parseInt(type.employeeTypeCount, 10);
-                            }
-                            else if (type.employeeType === "Part Time") {
-                                pteCount += parseInt(type.employeeTypeCount, 10);
-                            }
-                            return total + parseInt(type.employeeTypePayroll, 10);
-                        }, 0);
+                                if (type.employeeType === "Full Time") {
+                                    fteCount += parseInt(type.employeeTypeCount, 10);
+                                }
+                                else if (type.employeeType === "Part Time") {
+                                    pteCount += parseInt(type.employeeTypeCount, 10);
+                                }
+                                return total + parseInt(type.employeeTypePayroll, 10);
+                            }, 0);
+                        }
 
                         // if another location had this activity, just add to the total payroll
                         const foundCode = activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
                         if (foundCode) {
                             foundCode.payroll += parseInt(activityCode.payroll, 10);
                         }
-                        else {
+                        else if(activityCode.payroll && activityCode.activityCodeId) {
+
                             const newActivityCode = {
                                 activityCodeId: activityCode.activityCodeId,
                                 ncciCode: activityCode.ncciCode,
