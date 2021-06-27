@@ -1,6 +1,8 @@
 'use strict';
 
 const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
+const moment_timezone = require('moment-timezone');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -70,8 +72,8 @@ exports.taskProcessorExternal = async function(){
 
 var dailyDigestTask = async function(){
 
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+    const yesterdayBegin = moment().tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     let agencyLocationList = null;
     const agencyLocationBO = new AgencyLocationBO();
