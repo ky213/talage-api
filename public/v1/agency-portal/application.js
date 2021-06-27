@@ -452,7 +452,10 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 
     // add information about the creator if it was created in the agency portal
-    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+    if(applicationJSON.agencyPortalCreatedUser === "system"){
+        applicationJSON.creatorEmail = "system"
+    }
+    else if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
             const apUser = await agencyPortalUserBO.getById(applicationJSON.agencyPortalCreatedUser);
