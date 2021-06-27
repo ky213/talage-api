@@ -84,7 +84,7 @@ async function updateApplicationStatus(application, timeout) {
             await applicationBO.updateStatus(applicationDocJson.applicationId, appStatus.appStatusDesc, appStatus.appStatusId);
         }
         catch (err) {
-            log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${db.escape(appStatus.appStatusDesc)} ` + err + __location);
+            log.error(`Error update appication status appId = ${applicationDocJson.applicationId}  ${appStatus.appStatusDesc} ` + err + __location);
         }
         return appStatus;
     }

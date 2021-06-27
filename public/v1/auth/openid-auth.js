@@ -1,3 +1,4 @@
+/* eslint-disable valid-jsdoc */
 const serverHelper = global.requireRootPath('server.js');
 const {
     createToken,
@@ -41,7 +42,8 @@ async function getLoginUrl(req) {
         });
         log.info(`User login for client ${req.params.configId} goes to ${url}`);
         return {url: url};
-    } catch (ex) {
+    }
+    catch (ex) {
         log.error(`OpenID client might be down. Error thrown: ${ex} ${__location}`);
         throw ex;
     }
@@ -55,8 +57,7 @@ async function callback(req, res, next) {
     const config = await openIdAuthConfigBO.getById(req.params.configId);
     const client = await getAzureClient(req.params.configId);
     const params = client.callbackParams(req);
-    const jwtBlob = params.access_token.split('.')[1]
-        .replace('-', '+').replace('_', '/');
+    const jwtBlob = params.access_token.split('.')[1].replace('-', '+').replace('_', '/');
     const externalJwt = JSON.parse(Buffer.from(jwtBlob, 'base64').toString());
     log.info(`Received Access Token payload (${req.params.configId}): ${JSON.stringify(externalJwt, null, 2)}`);
 
@@ -71,19 +72,21 @@ async function callback(req, res, next) {
             password: '',
             canSign: 0,
             agencyPortalUserGroupId: 5,
-            openidAuthConfigId: config.configId,
+            openidAuthConfigId: config.configId
         };
         log.info(`New user payload: ${JSON.stringify(newUserJSON, null, 2)}`);
         const agencyPortalUserBO = new AgencyPortalUserBO();
         await agencyPortalUserBO.saveModel(newUserJSON);
-    } else {
+    }
+    else {
         log.info(`Found user ${externalJwt.unique_name}! Generating JWT token...`);
     }
 
     try {
         const token = await createToken(externalJwt.unique_name);
         return res.redirect(`${global.settings.PORTAL_URL}/openid/${req.params.configId}/callback?token=${token}`, next);
-    } catch (ex) {
+    }
+    catch (ex) {
         log.error("OpenID callback error: " + ex + __location);
 
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
@@ -91,17 +94,16 @@ async function callback(req, res, next) {
     }
 }
 
-const wrapper = (func) => {
-    return async(req, res, next) => {
-        try {
-            const out = await func(req);
-            res.send(200, out);
-        } catch (ex) {
-            log.error("API server error: " + ex + __location);
-            res.send(500, ex);
-        }
-        next();
-    };
+const wrapper = (func) => async(req, res, next) => {
+    try {
+        const out = await func(req);
+        res.send(200, out);
+    }
+    catch (ex) {
+        log.error("API server error: " + ex + __location);
+        res.send(500, ex);
+    }
+    next();
 };
 
 exports.registerEndpoint = (server, basePath) => {

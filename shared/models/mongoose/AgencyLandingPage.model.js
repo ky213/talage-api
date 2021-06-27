@@ -75,8 +75,6 @@ AgencyLandingPageSchema.virtual('agency').
     });
 
 
-
-
 AgencyLandingPageSchema.plugin(timestamps);
 AgencyLandingPageSchema.plugin(mongooseHistory);
 
