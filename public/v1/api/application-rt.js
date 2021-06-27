@@ -233,9 +233,15 @@ async function applicationSave(req, res, next) {
         }
         else {
             //insert.
+            //TODO if API (not quote app) we want the real user stored.
             log.debug("App Doc INSERT.....");
-            req.body.agencyPortalCreatedUser = "applicant";
-            req.body.agencyPortalCreated = false;
+            if(!req.body.agencyPortalCreatedUser){
+                req.body.agencyPortalCreatedUser = "applicant";
+                req.body.agencyPortalCreated = true;
+            }
+            if(!req.body.agencyPortalCreated){
+                req.body.agencyPortalCreated = false;
+            }
             responseAppDoc = await applicationBO.insertMongo(req.body);
 
             // update JWT
