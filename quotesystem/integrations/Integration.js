@@ -249,7 +249,8 @@ module.exports = class Integration {
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
                 insurerActivityCode.attributes = JSON.parse(insurerActivityCode.attributes);
-            } else if (typeof insurerActivityCode.attributes !== 'object') {
+            } else if (typeof insurerActivityCode.attributes !== 'object' || insurerActivityCode.attributes === null) {
+                // if attributes is NOT an object, OR is null (because typeof null == 'object'), set to empty object
                 insurerActivityCode.attributes = {};
             }
         }
