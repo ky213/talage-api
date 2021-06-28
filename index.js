@@ -8,7 +8,6 @@ global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleNam
 
 const colors = require('colors');
 const logger = require('./shared/services/logger.js');
-const db = require('./shared/services/db.js');
 const redisSvc = require('./shared/services/redissvc.js');
 const s3 = require('./shared/services/s3.js');
 const cognitoSvc = require('./shared/services/cognitosvc.js');
@@ -101,13 +100,6 @@ async function main(){
         logLocalErrorMessage('Error connecting to logger. Stopping.');
         return;
     }
-    log.info('Startup Logger setup')
-    // Connect to the database
-    if(!await db.connect()){
-        logLocalErrorMessage('Error connecting to database. Stopping.');
-        return;
-    }
-    log.info('Startup db connected')
 
     // Connect to S3
     if(!await s3.connect()){
@@ -133,9 +125,6 @@ async function main(){
     global.redisSvc = redisSvc;
     log.info('Startup Redis Svc')
 
-    // Load the database module and make it globally available
-    global.db = global.requireShared('./services/db.js');
-
     log.info('Startup Global DB')
     // MONGO
     var mongoose = require('./mongoose');
@@ -145,7 +134,6 @@ async function main(){
         //log.info('Assetws Mongoose connected to mongodb');
         if(hasMongoMadeInitialConnected === false){
             hasMongoMadeInitialConnected = true;
-            cleanMongoIndexes();
             setupListeners();
         }
     });
@@ -181,28 +169,4 @@ async function setupListeners() {
 }
 
 
-/**
- * cleanMongoIndexes
- *
- * @returns {void}
- */
-async function cleanMongoIndexes() {
-    // 2021-04-30
-    const quoteDropIndexes = ['mysqlId_1', 'createdAt_-1_mysqlAppId_1']
-    const Quote = require('mongoose').model('Quote');
-    Quote.collection.getIndexes({full: true}).then(indexes => {
-        for(const colIndex of indexes){
-            if(quoteDropIndexes.includes(colIndex.name)){
-                Quote.collection.dropIndex(colIndex.name, function(err) {
-                    if (err) {
-                        log.warn(`Error in dropping index! ${colIndex.name}`, err);
-                    }
-                });
-
-            }
-        }
-    }).catch((err) => {
-        log.error("Mongo index drop " + err);
-    });
-}
 main();

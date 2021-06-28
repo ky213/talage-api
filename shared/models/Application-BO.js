@@ -28,6 +28,7 @@ const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
 
@@ -1567,6 +1568,13 @@ module.exports = class ApplicationModel {
             else {
                 queryOptions.limit = queryLimit;
             }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+
             if (queryJSON.count) {
                 if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;

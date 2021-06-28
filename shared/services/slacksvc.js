@@ -125,7 +125,7 @@ var send2SlackInternal = async function(slackReqJSON) {
     let color = '#000000';
     let fallback_text = '';
     let footer = '';
-    let button_style = 'default';
+    // let button_style = 'default';
     const response_messages = {};
 
     // Type sanitization
@@ -198,28 +198,28 @@ var send2SlackInternal = async function(slackReqJSON) {
         // Figure out colors and message type
         switch (slackReqJSON.message_type) {
             case 'celebrate':
-                button_style = 'primary';
+                //button_style = 'primary';
                 color = '#0000FF';
                 icon_emoji = ':tada:';
                 break;
             case 'ok':
             case 'okay':
-                button_style = 'primary';
+                // button_style = 'primary';
                 color = '#00FF00';
                 icon_emoji = ':ok_hand:';
                 break;
             case 'warning':
-                button_style = 'danger';
+                // button_style = 'danger';
                 color = '#FFFF00';
                 icon_emoji = ':warning:';
                 break;
             case 'attention':
-                button_style = 'danger';
+                // button_style = 'danger';
                 color = '#FF0000';
                 icon_emoji = ':x:';
                 break;
             case 'error':
-                button_style = 'danger';
+                // = 'danger';
                 color = '#FF0000';
                 icon_emoji = ':skull_and_crossbones:';
                 break;
@@ -253,7 +253,7 @@ var send2SlackInternal = async function(slackReqJSON) {
         if (slackReqJSON.attachment.text && typeof slackReqJSON.attachment.text !== 'string') {
             log.error('send2SlackInternal: Attachment text must be given as a string' + __location);
 
-           // throw new Error('Attachment text must be given as a string');
+            // throw new Error('Attachment text must be given as a string');
         }
 
         // Attachment_fields sanitization

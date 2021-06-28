@@ -1,5 +1,8 @@
+/* eslint-disable no-unused-vars */
 const fs = require('fs');
-const { degrees, PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const {
+    degrees, PDFDocument, rgb, StandardFonts
+} = require('pdf-lib');
 const path = require('path');
 
 const createPDF = async(sourcePDFString, dataFieldsObj) => {
@@ -68,6 +71,6 @@ const createMultiPagePDF = async(pdfList) => {
 }
 
 module.exports = {
-    createPDF,
-    createMultiPagePDF
+    createPDF: createPDF,
+    createMultiPagePDF: createMultiPagePDF
 }

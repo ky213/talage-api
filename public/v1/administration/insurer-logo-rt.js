@@ -81,17 +81,17 @@ async function postInsurerLogo(req, res, next){
         return next(serverHelper.requestError(errorMsg));
     }
     const fileType = req.body.type ? req.body.type : null;
-    
+
     // Ensure correct extention type
     const extension = req.body.data.substring(11, req.body.data.indexOf(';'));
     if (!['gif',
         'jpeg',
         'png'].includes(extension)) {
         log.info(`Wrong extention type for the logo upload extention type: ${extension}` + __location);
-        next(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
+        return next(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
     }
 
-    const logoData =  req.body.data.substring(req.body.data.indexOf(',') + 1);
+    const logoData = req.body.data.substring(req.body.data.indexOf(',') + 1);
     // add uuid -- cloudfront caches content for 24 hrs, by adding uuid prevents same name (old) images from being served from cache
     const name = `${req.body.name}-${uuidv4().substring(24)}.${extension}`
     // TODO: make sure the path for the put is good - dont let this execute or it will add files, until we are 100% sure (Don't know if this comment still valid)
@@ -103,7 +103,7 @@ async function postInsurerLogo(req, res, next){
     }).catch((err) => {
         log.error("File Service HTTP Put: " + err + __location);
         res.send(400, "");
-        next(serverHelper.requestError("file get error: " + err.message));
+        return next(serverHelper.requestError("file get error: " + err.message));
     });
 }
 

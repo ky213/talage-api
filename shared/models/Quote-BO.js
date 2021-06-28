@@ -41,7 +41,7 @@ module.exports = class QuoteBO {
             }
             let newDoc = true;
             let quoteDocDB = null;
-            await this.cleanupInput(newObjectJSON);
+            
             if (newObjectJSON.id) {
                 newDoc = false;
                 const query = {"mysqlId": newObjectJSON.id}

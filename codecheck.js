@@ -66,7 +66,6 @@ dir.files(__dirname, function (err, files) {
                   && file.indexOf('.js') > -1
                   && file.indexOf('BO.js') === -1
                   && file.indexOf('model.js') === -1
-                  && file.indexOf('DatabaseObject.js') === -1
                   && file.indexOf('mochawesome-report') === -1) {
                //console.log('processing  - ' + file);
                var src = fs.readFileSync(file, 'utf8');

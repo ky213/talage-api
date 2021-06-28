@@ -27,9 +27,6 @@ async function getUserGroups(req, res, next){
         log.error('agencyPortalUserBO error ' + err + __location);
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
-
-
-
     // Return the response
     res.send(200, userGroups);
     return next();

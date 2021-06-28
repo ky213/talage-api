@@ -226,7 +226,7 @@ module.exports = class Business {
             }
         }
         else {
-            log.error("Missing locations application  " + applicationDocJSON.applicationId + __location);
+            log.warn("Missing locations application  " + applicationDocJSON.applicationId + __location);
         }
     }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 'use strict';
 
 
@@ -109,7 +110,7 @@ async function getQuestions(req, res, next) {
         const childToParent = {};
         for(let i = 0; i < applicationJSON.questions.length; i++){
             const appQuestion = applicationJSON.questions[i];
-            let error = null;
+            error = null;
             const questionBO = new QuestionBO();
             // Load the request data into it
             const questionDBJson = await questionBO.getById(appQuestion.questionId).catch(function(err) {

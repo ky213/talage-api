@@ -19,7 +19,7 @@ const ApplicationNotesCollectionSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
     applicationNotesJSON: {type: Schema.Types.Mixed, required: false},
     agencyPortalCreatedUser: {type: String},
-    agencyPortalModifiedUser: {type: String},
+    agencyPortalModifiedUser: {type: String}
 });
 
 ApplicationNotesCollectionSchema.plugin(timestamps);

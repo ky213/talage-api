@@ -1,3 +1,5 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
 /* eslint-disable space-before-function-paren */
 /* eslint-disable brace-style */
 /* eslint-disable object-curly-spacing */
