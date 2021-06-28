@@ -941,7 +941,27 @@ module.exports = class Application {
                         }
                         log.info(`AppId ${this.id} sending agency network NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
-                        await emailSvc.send(agencyNetworkDB.email,
+                        let recipientsString = agencyNetworkDB.email
+                        //Check for AgencyNetwork users are suppose to get notifications for this agency.
+                        if(this.applicationDocData.agencyId){
+                            // look up agencyportal users by agencyNotificationList
+                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+                            const agencyPortalUserBO = new AgencyPortalUserBO();
+                            const query = {agencyNotificationList: this.applicationDocData.agencyId}
+                            try{
+                                const anUserList = await agencyPortalUserBO.getList(query)
+                                if(anUserList && anUserList.length > 0){
+                                    for(const anUser of anUserList){
+                                        recipientsString += `,${anUser.agencyPortalUserId}`
+                                    }
+                                }
+                            }
+                            catch(err){
+                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                            }
+                        }
+
+                        await emailSvc.send(recipientsString,
                             subject,
                             message,
                             {
