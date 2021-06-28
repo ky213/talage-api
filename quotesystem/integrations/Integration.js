@@ -239,6 +239,7 @@ module.exports = class Integration {
             expirationDate: {$gte: policyEffectiveDate},
             active: true
         }
+
         let insurerActivityCode = {attributes: {}};
         try{
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
@@ -248,7 +249,7 @@ module.exports = class Integration {
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
                 insurerActivityCode.attributes = JSON.parse(insurerActivityCode.attributes);
-            } else {
+            } else if (typeof insurerActivityCode.attributes !== 'object') {
                 insurerActivityCode.attributes = {};
             }
         }

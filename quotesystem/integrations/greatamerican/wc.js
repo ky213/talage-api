@@ -49,6 +49,25 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('error');
         }
 
+        // creates the application in their system
+        let session = null;
+        try {
+            session = await GreatAmericanApi.application(token, this);
+        }
+        catch (e) {
+            const errorMessage = `Appid: ${this.app.id} Great American WC: error ${e} ${__location}`;
+            this.reasons.push(errorMessage);
+            log.error(errorMessage);
+            return this.return_result('error');
+        }
+
+        if (!session || !session.newBusiness) {
+            const errorMessage = `Appid: ${this.app.id} Great American WC: No new business information returned in application creation. ${__location}`;
+            log.error(errorMessage);
+            this.reasons.push(errorMessage);
+            return this.return_result('error');
+        }
+
         let sessionCodes = codes.map(c => ({
             id: c.code,
             value: c.attributes.classIndustry
@@ -59,7 +78,9 @@ module.exports = class GreatAmericanWC extends Integration {
         }
         // GA only wants the first activity code passed to their API endpoint.
         sessionCodes = [sessionCodes[0]];
-        const session = await GreatAmericanApi.getSession(this, token, sessionCodes)
+
+        // creates the question session using the newBusiness ID from the application
+        session = await GreatAmericanApi.getSession(this, token, session.newBusiness, sessionCodes)
         if(!session){
             this.log += `Great American getSession failed: `;
             this.reasons.push(`Great American getSession failed`);
@@ -197,6 +218,7 @@ module.exports = class GreatAmericanWC extends Integration {
             }
         });
 
+        // begins to hydrate (udpate) the question session
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
         if(!curAnswers){
@@ -213,6 +235,7 @@ module.exports = class GreatAmericanWC extends Integration {
             this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)  @ ${__location}`;
             const oldQuestionsAnswered = questionnaire.questionsAnswered;
 
+            // continue to update the question session until complete
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
             this.logApiCall('injectAnswers', [curAnswers, questions], curAnswers);
             questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
@@ -226,10 +249,6 @@ module.exports = class GreatAmericanWC extends Integration {
             }
         }
 
-        const quote = await GreatAmericanApi.application(token, this, curAnswers.newBusiness.id).catch((err) => {
-            error = err;
-            log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
-        });
         // logging should be at the raw request level.   not here. outbound logged before call.
         // response after call.[curAnswers.newBusiness.id] is not the payload......
         //this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
@@ -238,38 +257,24 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('error');
         }
 
-        if (_.get(quote, 'rating.data.policy.id')) {
-            this.amount = parseFloat(_.get(quote, 'rating.data.TotalResult'));
-            this.writer = _.get(quote, 'rating.data.policy.company.name');
-            this.number = _.get(quote, 'rating.data.policy.id');
+        let pricingResponse = null;
+        try {
+            pricingResponse = await GreatAmericanApi.pricing(this, token, session.newBusiness.id);
+        }
+        catch (err) {
+            const errorMessage = `Appid: ${this.app.id} Great American WC: error ${err}. ${__location}`;
+            this.reasons.push(errorMessage);
+            log.error(errorMessage);
+            return this.return_result('error');
+        }
 
-            let pricingResponse = null;
-            try {
-                pricingResponse = await GreatAmericanApi.pricing(this, token, curAnswers.newBusiness.id);
-            }
-            catch (err) {
-                log.error(`Appid: ${this.app.id} Great American WC: error ${err} ${__location}`);
-            }
+        if (_.get(pricingResponse, 'rating.data.policy.id')) {
+            this.amount = parseFloat(_.get(pricingResponse, 'rating.data.TotalResult'));
+            this.writer = _.get(pricingResponse, 'rating.data.policy.company.name');
+            this.number = _.get(pricingResponse, 'rating.data.policy.id');
 
-            if (pricingResponse) {
-                // We may not need to call into their submit API
-                // let submit = await GreatAmericanApi.submit(this, token, curAnswers.newBusiness.id);
-
-                // In case the pricing API endpoint doesn't work, should we fall back to sending the email still?
-                // Generate ACORD form and send in email to Great American UW team
-                try {
-                    await this.generateAndSendACORD();
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} Great American WC: Error generating and sending ACORD form: ${e}.`);
-                }
-            }
-            else {
-                log.error(`Appid: ${this.app.id} Great American WC: No response returned from Pricing API call.`);
-            }
-
-            if (quote.newBusiness.status === 'REFERRAL' &&
-                _.get(quote, 'rating.data.policy.company.name') !== 'Great American Insurance Company') {
+            if (pricingResponse.newBusiness.status === 'REFERRAL' &&
+                _.get(pricingResponse, 'rating.data.policy.company.name') !== 'Great American Insurance Company') {
                 return this.return_result('referred');
             }
 
