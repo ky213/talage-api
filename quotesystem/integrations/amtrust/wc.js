@@ -75,9 +75,6 @@ module.exports = class AMTrustWC extends Integration {
         for (const location of this.app.applicationDocData.locations) {
             for (const activityPayroll of location.activityPayrollList) {
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
-                if(!activityPayroll.activityCodeId){
-                    activityPayroll.activityCodeId = activityPayroll.ncciCode;
-                }
                 const insurerClassCodeDoc = await this.get_insurer_code_for_activity_code(this.insurer.id,location.state, activityPayroll.activityCodeId)
                 if (insurerClassCodeDoc && insurerClassCodeDoc.code) {
                     let addAmtrustClassCode = false;
@@ -101,6 +98,12 @@ module.exports = class AMTrustWC extends Integration {
                                 break;
                             case "Part Time":
                                 amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
+                                break;
+                            case "Contractors (1099)":
+                                amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
+                                break;
+                            case "Owners":
+                                amtrustClassCode.fullTimeEmployees += employeeType.employeeTypeCount;
                                 break;
                             default:
                                 break;
