@@ -241,6 +241,7 @@ module.exports = class Integration {
         }
         let insurerActivityCode = {attributes: {}};
         try{
+            log.debug(`get_insurer_code_for_activity_code query ${activityCodeQuery}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
                 log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
@@ -248,7 +249,7 @@ module.exports = class Integration {
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
                 insurerActivityCode.attributes = JSON.parse(insurerActivityCode.attributes);
-            } else {
+            } else if(!insurerActivityCode.attributes === 'object') {
                 insurerActivityCode.attributes = {};
             }
         }
