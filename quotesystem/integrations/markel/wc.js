@@ -1275,7 +1275,7 @@ module.exports = class MarkelWC extends Integration {
                 //       Therefore, in cases where there are 2 or more owners, we will NOT send owner information in the request, 
                 //       which will result in a non-bindable quote (via API).
                 const owners = activity.employeeTypeList.find(type => type.employeeType === "Owners");
-                
+
                 // we count owners as full time employees, so add them if they exist
                 let ftCount = fullTimeEmployees ? fullTimeEmployees.employeeTypeCount : 0;
                 ftCount += includeOwnerPayroll && owners ? owners.employeeTypeCount : 0;
