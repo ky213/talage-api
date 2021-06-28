@@ -1066,7 +1066,7 @@ async function requote(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        log.warn(errMessage + __location);
         res.send(400, errMessage);
         return next();
     }
