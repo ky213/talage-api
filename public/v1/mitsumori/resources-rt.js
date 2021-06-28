@@ -114,8 +114,7 @@ const employeeTypes = resources => {
     [
         "Full Time",
         "Part Time",
-        "Owners",
-        "Contractors (1099)"
+        "Owners"
     ];
 }
 

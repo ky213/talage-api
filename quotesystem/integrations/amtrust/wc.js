@@ -99,9 +99,6 @@ module.exports = class AMTrustWC extends Integration {
                             case "Part Time":
                                 amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
                                 break;
-                            case "Contractors (1099)":
-                                amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
-                                break;
                             case "Owners":
                                 amtrustClassCode.fullTimeEmployees += employeeType.employeeTypeCount;
                                 break;
