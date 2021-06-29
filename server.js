@@ -12,6 +12,7 @@ const agencyportalAuth = require('./public/v1/agency-portal/helpers/auth-agencyp
 const moment = require('moment');
 const util = require('util');
 const socketIO = require('socket.io');
+const CookieParser = require('restify-cookies');
 
 /**
  * JWT handlers
@@ -567,12 +568,15 @@ module.exports = {
         if (useCORS) {
             // Note: This should be set to something other than '*' -SF
             const cors = restifyCORS({
-                allowHeaders: ['Authorization'],
+                allowHeaders: ['Authorization', 'access-control-allow-origin'],
                 origins: ['*']
             });
             server.pre(cors.preflight);
             server.use(cors.actual);
         }
+
+        // Cookie support
+        server.use(CookieParser.parse);
 
         // Query string and body parsing
         server.use(restify.plugins.queryParser());

@@ -4,6 +4,7 @@
 /* eslint-disable object-curly-newline */
 const axios = require('axios');
 const _ = require('lodash');
+const moment = require('moment');
 const log = global.log;
 
 const getApiUrl = (integration) => {
@@ -71,7 +72,7 @@ const getNcciFromClassCode = async(code, territory) => {
  * @param {*} app
  * @param {*} sessionId
  */
-const getPricing = async(token, integration, sessionId) => {
+const application = async(token, integration) => {
     const appData = integration.app.applicationDocData;
 
     // Map our entity types to the entity types of Great America.
@@ -134,49 +135,65 @@ const getPricing = async(token, integration, sessionId) => {
         }
     });
 
-
     const send = {
-        newBusiness: {
-            id: sessionId
-        },
-        submission: {
-            insuredName: appData.businessName,
-            legalEntity: entityType,
-            fein: appData.ein,
-            insuredStreetAddress: appData.mailingAddress,
-            insuredAddressLine2: appData.mailingAddress2,
-            insuredCity: appData.mailingCity,
-            insuredStateCode: appData.mailingState,
-            insuredZipCode: appData.mailingZipcode,
-            insuredCountryCode: 'US',
-            insuredEmail: primaryContact.email,
-            contactPhone: primaryContact.phone,
-            contactName: `${primaryContact.firstName} ${primaryContact.lastName}`,
-            currentPolicyExpiration: '',
-            policyEffectiveDate: integration.policy.effective_date.format('YYYY-MM-DD'),
-            policyExpirationDate: integration.policy.expiration_date.format('YYYY-MM-DD'),
-            includeBlanketWaiver: blankWaiver,
-            producerCode: 648783,
-            locations: await Promise.all(appData.locations.map(async(location) => ({
-                id: location.locationId,
-                streetAddress: location.address,
-                addressLine2: location.address2,
-                city: location.city,
-                state: location.state,
-                zip: location.zipcode,
-                classCodes: await Promise.all(location.activityPayrollList.map(async(code) => ({
-                    classCode: await getNcciFromClassCode(code.activityCodeId, location.state),
-                    payroll: code.payroll,
-                    numberOfEmployees: _.sum(code.employeeTypeList.map(t => t.employeeTypeCount))
-                })))
-            })))
+        application: {
+            input: {
+                submission: {
+                    insuredName: appData.businessName,
+                    insuredStreetAddress: appData.mailingAddress,
+                    insuredAddressLine2: appData.mailingAddress2,
+                    insuredCity: appData.mailingCity,
+                    insuredStateCode: appData.mailingState,
+                    insuredZipCode: appData.mailingZipcode,
+                    insuredCountryCode: 'US',
+                    insuredEmail: primaryContact.email,
+                    contactPhone: primaryContact.phone,
+                    contactName: `${primaryContact.firstName} ${primaryContact.lastName}`,
+                    fdic: "",
+                    sicCode: "",
+                    naicsCode: "",
+                    website: appData.website,
+                    fein: appData.ein,
+                    legalEntity: entityType,
+                    producerCode: "648783",
+                    // governingClassCode: "", needed? Where does this come from
+                    includeBlanketWaiver: blankWaiver,
+                    // currentPolicyExpiration: '',
+                    quotes: [{
+                        policyNumber: "",
+                        policyEffectiveDate: integration.policy.effective_date.format('YYYY-MM-DD'),
+                        policyExpirationDate: integration.policy.expiration_date.format('YYYY-MM-DD'),
+                        products: [{
+                            objectType: "WorkersCompensation",
+                            risks: await Promise.all(appData.locations.map(async(location) => ({
+                                objectType: "LOCATION",
+                                // locationNumber: i + 1, // don't need to provide, they will provide. Cannot be 0
+                                // id: location.locationId,
+                                addressLine1: location.address,
+                                addressLine2: location.address2,
+                                // county: "",
+                                city: location.city,
+                                stateOrProvinceAbbreviation: location.state,
+                                countryISOCode: "US",
+                                postalCode: location.zipcode,
+                                locationEmployeeCount: _.sum(location.activityPayrollList.map(code => code.employeeTypeList.map(t => t.employeeTypeCount)))[0],
+                                coverages: await Promise.all(location.activityPayrollList.map(async(code) => ({
+                                    objectType: "classCode",
+                                    classCode: await getNcciFromClassCode(code.activityCodeId, location.state),
+                                    estimatedExposure: code.payroll
+                                })))
+                            })))
+                        }]
+                    }]
+                }
+            }
         }
     };
     let apiCall = null;
     try{
-        integration.log += `----pricing ${getApiUrl(integration)}/shop/api/newBusiness/pricing -----\n`
+        integration.log += `----application ${getApiUrl(integration)}/shop/api/newBusiness/application -----\n`
         integration.log += `<pre>${JSON.stringify(send, null, 2)}</pre>`;
-        apiCall = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/pricing`, send, {
+        apiCall = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/application`, send, {
             headers: {
                 Authorization: `Bearer ${token.access_token}`,
                 Accept: 'application/json'
@@ -185,7 +202,7 @@ const getPricing = async(token, integration, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${appData.applicationId} get getPricing error ${err} ` + __location);
+        log.error(`AppId: ${appData.applicationId} get application error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -201,7 +218,45 @@ const getPricing = async(token, integration, sessionId) => {
     }
 }
 
-const getQuote = async(integration, token, sessionId) => {
+const pricing = async(integration, token, sessionId) => {
+    const send = {
+        newBusiness: {
+            id: sessionId
+        }
+    };
+
+    let apiCall = null;
+    try {
+        integration.log += `----pricing ${getApiUrl(integration)}/shop/api/newBusiness/pricing -----\n`
+        integration.log += `<pre>${JSON.stringify(send, null, 2)}</pre>`;
+        apiCall = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/pricing`, send, {
+            headers: {
+                Authorization: `Bearer ${token.access_token}`,
+                Accept: 'application/json'
+            }
+        });
+    }
+    catch (err) {
+        log.error(`AppId: ${integration.app.id} quote pricing error ${err} ` + __location);
+        integration.log += "\nError Response: \n ";
+        integration.log += err;
+        integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
+        integration.log += "\n";
+    }
+
+    if (apiCall) {
+        integration.log += `----Response -----\n`
+        integration.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
+        return apiCall.data;
+    }
+    else {
+        return null;
+    }
+}
+
+// this is used for API bind
+// quotes able to be bound are marked in request with: "pricingType": "BINDABLE_QUOTE"
+const submit = async(integration, token, sessionId) => {
     const send = {
         newBusiness: {
             id: sessionId
@@ -221,7 +276,7 @@ const getQuote = async(integration, token, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.appData.applicationId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} quote submission error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -245,15 +300,18 @@ const getQuote = async(integration, token, sessionId) => {
  * @param {*} businessTypes An array of business types. Each entry should be in the format of:
  *    { id: ncciCode, value: 'GraphicDesign' }
  */
-const getSession = async(integration, token, businessTypes) => {
+const getSession = async(integration, token, session, businessTypes) => {
     // const uat = global.settings.GREAT_AMERICAN_UAT;
     // const uatId = global.settings.GREAT_AMERICAN_UAT_ID;
 
+    const newBusiness = _.cloneDeep(session);
+
     const send = {
+        newBusiness,
         riskSelection: {
             input: {
                 line: "WC",
-                date: '2021-01-04',
+                date: moment().format('YYYY-MM-DD'),
                 contextData: {
                     businessTypes: businessTypes,
                     generalQuestionsOnly: false
@@ -277,7 +335,7 @@ const getSession = async(integration, token, businessTypes) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.app.applicationDocData.applicationId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} get session error ${err} ` + __location);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -367,7 +425,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.app.applicationDocData.applicationId} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} get session error ${err} ` + __location);
     }
     if(appetite){
         return appetite.data;
@@ -379,8 +437,9 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
 
 module.exports = {
     getSession,
-    getQuote,
-    getPricing,
+    application,
+    pricing,
+    submit,
     getToken,
     injectAnswers
 }
