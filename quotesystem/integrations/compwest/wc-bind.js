@@ -267,7 +267,58 @@ class CompuwestBind extends Bind {
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
         let cCount = 1;
+        if (appDoc.dba && appDoc.dba.length > 0){
+            cCount++;
+        }
         //Do not reprocess appDoc.dba here
+        try{
+            if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
+                appDoc.additionalInsuredList.forEach((additionalInsured) => {
+                    if (additionalInsured.dba.length > 0) {
+                        cCount++;
+                        const DBAAdditionalInterest = Location.ele('AdditionalInterest');
+                        DBAAdditionalInterest.att('id', 'c' + cCount.toString());
+                        // <GeneralPartyInfo>
+                        const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
+                        // <NameInfo>
+                        const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                        const CommlNameAddInfo = DBANameInfo.ele('CommlName')
+                        CommlNameAddInfo.ele('CommercialName', additionalInsured.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                        //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
+                        CommlNameAddInfo.ele('Type',"Company");
+                        const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
+                        DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+                        DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                        DBANameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entity_type]);
+                        // </NameInfo>
+                        // <Addr>
+                        const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                        DBAAddr.ele('Addr1', appDoc.mailingAddress);
+                        if (appDoc.mailingAddress2) {
+                            DBAAddr.ele('Addr2', appDoc.mailingAddress2);
+                        }
+                        DBAAddr.ele('City', appDoc.mailingCity);
+                        DBAAddr.ele('StateProvCd', appDoc.mailingState);
+                        DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
+                        if(isGuideWireAPI === true){
+                            DBAAddr.ele('CountryCd', 'US');
+                        }
+                        else {
+                            DBAAddr.ele('CountryCd', 'USA');
+                        }
+                        // </Addr>
+                        // </GeneralPartyInfo>
+                        // <AdditionalInterestInfo>
+                        DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
+                        // </AdditionalInterestInfo>
+                    }
+                });
+            }
+        }
+        catch(err){
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error dba processing ${err} ` + __location);
+        }
+
         let additionalInsureredCount = 0;
         try{
             if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
