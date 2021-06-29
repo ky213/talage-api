@@ -208,11 +208,11 @@ module.exports = class AgencyLocationBO{
     }
 
 
-    async getMongoDocbyMysqlId(mysqlId, children = true, addAgencyPrimaryLocation = false, returnMongooseModel = false) {
+    async getMongoDocbyMysqlId(systemId, children = true, addAgencyPrimaryLocation = false, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
-            if (mysqlId) {
+            if (systemId) {
                 const query = {
-                    "mysqlId": mysqlId,
+                    "systemId": systemId,
                     active: true
                 };
                 let agencyLocationDoc = null;
@@ -223,6 +223,9 @@ module.exports = class AgencyLocationBO{
                         const insurerList = await this.getAgencyPrimeInsurers(docDB.agencyId)
                         if(insurerList){
                             docDB.insurers = insurerList
+                        }
+                        if (!insurerList || insurerList.length === 0) {
+                            log.error(`Unable to load agency prime insurers agencyLocationId ${systemId} ` + __location);
                         }
                     }
                     if(children === true){
@@ -390,6 +393,9 @@ module.exports = class AgencyLocationBO{
                                 const insurerList = await this.getAgencyPrimeInsurers(doc.agencyId, doc.agencyNetworkId)
                                 if(insurerList){
                                     doc.insurers = insurerList
+                                }
+                                if (!insurerList || insurerList.length === 0) {
+                                    log.error(`Unable to load agency prime insurers agencyLocationId ${doc.systemId} ` + __location);
                                 }
                             }
                             if(loadChildren === true){
