@@ -455,10 +455,14 @@ async function setupReturnedApplicationJSON(applicationJSON){
     if(applicationJSON.agencyPortalCreatedUser === "system"){
         applicationJSON.creatorEmail = "system"
     }
+    else if(applicationJSON.agencyPortalCreatedUser === "applicant"){
+        applicationJSON.creatorEmail = "Applicant"
+    }
     else if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
-            const apUser = await agencyPortalUserBO.getById(applicationJSON.agencyPortalCreatedUser);
+            const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
+            const apUser = await agencyPortalUserBO.getById(userId);
             applicationJSON.creatorEmail = apUser.email;
         }
         catch(err){
