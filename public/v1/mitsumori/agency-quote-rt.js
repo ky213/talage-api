@@ -112,7 +112,7 @@ function mergeLandingPageContent(primaryLandingPageContent, secondaryLandingPage
     // TODO: this might be easier in the future to make into a generalized function, but for now we know we're just looking for FAQ
     const landingPageContent = JSON.parse(JSON.stringify(secondaryLandingPageContent));
 
-    if(primaryLandingPageContent.faq && primaryLandingPageContent.faq.length > 0){
+    if(primaryLandingPageContent && primaryLandingPageContent.faq && primaryLandingPageContent.faq.length > 0){
         landingPageContent.faq = JSON.parse(JSON.stringify(primaryLandingPageContent.faq));
     }
 
@@ -244,19 +244,19 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         });
         //Check featurer - optout
         if(agencyNetworkJSON && agencyNetworkJSON.feature_json && agencyNetworkJSON.feature_json.applicationOptOut === false){
-            agencyWebInfo.enable_optout = 0
+            agencyWebInfo.enable_optout = 0;
             agencyWebInfo.enabelOptOut = false;
         }
 
         if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
-            agencyWebInfo.footer_logo = agencyNetworkJSON.footer_logo
+            agencyWebInfo.footer_logo = agencyNetworkJSON.footer_logo;
         }
         if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
             agencyWebInfo.landingPageContent = mergeLandingPageContent(agencyWebInfo.landingPageContent, agencyNetworkJSON.landing_page_content);
         }
         else {
             //get from default AgencyNetwork
-            log.debug(`AgencyNetwork ${agencyWebInfo.agencyNetwork} using default landingpage`)
+            log.debug(`AgencyNetwork ${agencyWebInfo.agencyNetwork} using default landingpage`);
             const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
                 error = err;
                 log.error("Get AgencyNetwork 1 Error " + err + __location);
