@@ -543,9 +543,9 @@ module.exports = class AMTrustWC extends Integration {
 
             //V1 JSON
             quoteRequestJSON = quoteRequestJSON.Quote;
-            if(quoteRequestJSON.ContactInformation && quoteRequestJSON.ContactInformation.AgentContactId){
-                delete quoteRequestJSON.ContactInformation.AgentContactId
-            }
+            // if(quoteRequestJSON.ContactInformation && quoteRequestJSON.ContactInformation.AgentContactId){
+            //     delete quoteRequestJSON.ContactInformation.AgentContactId
+            // }
             if(quoteRequestJSON.MailingAddress){
                 quoteRequestJSON.MailingAddress1 = quoteRequestJSON.MailingAddress.Line1;
                 quoteRequestJSON.MailingCity = quoteRequestJSON.MailingAddress.City;
@@ -562,6 +562,7 @@ module.exports = class AMTrustWC extends Integration {
                     }
                 });
             }
+
 
         }
         // Send the quote request
