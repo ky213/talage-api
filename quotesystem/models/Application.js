@@ -952,7 +952,7 @@ module.exports = class Application {
                                 const anUserList = await agencyPortalUserBO.getList(query)
                                 if(anUserList && anUserList.length > 0){
                                     for(const anUser of anUserList){
-                                        recipientsString += `,${anUser.agencyPortalUserId}`
+                                        recipientsString += `,${anUser.email}`
                                     }
                                 }
                             }
