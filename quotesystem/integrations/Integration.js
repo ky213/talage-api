@@ -242,6 +242,7 @@ module.exports = class Integration {
 
         let insurerActivityCode = {attributes: {}};
         try{
+            log.debug(`get_insurer_code_for_activity_code query ${activityCodeQuery}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
                 log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
@@ -770,7 +771,7 @@ module.exports = class Integration {
             const territoryList = this.get_application_territorylist();
             //Find insurerActivityCode
             const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const activityCodeQuery = {
                 insurerId: this.insurer.id,
                 talageActivityCodeIdList: {$in: activityCodeArray},
@@ -2279,7 +2280,7 @@ module.exports = class Integration {
             });
             let fullFillValue = false;
             const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
-            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const activityCodeQuery = {
                 insurerId: this.insurer.id,
                 talageActivityCodeIdList: {$in: activityCodeArray},
@@ -2338,7 +2339,7 @@ module.exports = class Integration {
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
             const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+            const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             // eslint-disable-next-line prefer-const
             let industryQuery = {
                 insurerId: this.insurer.id,

@@ -156,8 +156,8 @@ module.exports = class Application {
         if(this.applicationDocData.questions && this.applicationDocData.questions.length > 0){
             let questionJSON = {};
             for(const question of this.applicationDocData.questions){
-                if (question.questionType.toLowerCase().startsWith('text')
-                    || question.questionType === 'Checkboxes' && question.answerValue) {
+                if (question.questionType && (question.questionType.toLowerCase().startsWith('text')
+                    || question.questionType === 'Checkboxes' && question.answerValue)) {
 
                     questionJSON[question.questionId] = question.answerValue
                 }
@@ -941,7 +941,27 @@ module.exports = class Application {
                         }
                         log.info(`AppId ${this.id} sending agency network NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
-                        await emailSvc.send(agencyNetworkDB.email,
+                        let recipientsString = agencyNetworkDB.email
+                        //Check for AgencyNetwork users are suppose to get notifications for this agency.
+                        if(this.applicationDocData.agencyId){
+                            // look up agencyportal users by agencyNotificationList
+                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+                            const agencyPortalUserBO = new AgencyPortalUserBO();
+                            const query = {agencyNotificationList: this.applicationDocData.agencyId}
+                            try{
+                                const anUserList = await agencyPortalUserBO.getList(query)
+                                if(anUserList && anUserList.length > 0){
+                                    for(const anUser of anUserList){
+                                        recipientsString += `,${anUser.email}`
+                                    }
+                                }
+                            }
+                            catch(err){
+                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                            }
+                        }
+
+                        await emailSvc.send(recipientsString,
                             subject,
                             message,
                             {

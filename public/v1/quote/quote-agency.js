@@ -88,8 +88,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let agencyWebInfo = null;
     //Get agency record.
     const agencyBO = new AgencyBO();
-    //TODO .....
-    //ag.slug = ${db.escape(agencySlug)}
 
     try {
         agencyWebInfo = await agencyBO.getbySlug(agencySlug);

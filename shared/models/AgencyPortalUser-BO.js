@@ -487,6 +487,23 @@ module.exports = class AgencyPortalUserBO{
         });
     }
 
+    async updateRole(agencyPortalUserId, agencyPortalUserGroupId){
+        try{
+            const query = {agencyPortalUserId: agencyPortalUserId};
+            const queryProjection = {"__v": 0}
+            const apuDoc = await AgencyPortalUserModel.findOne(query,queryProjection)
+            if(apuDoc){
+                apuDoc.agencyPortalUserGroupId = agencyPortalUserGroupId;
+                await apuDoc.save()
+            }
+        }
+        catch(err){
+            log.error(`Error saving role for ${agencyPortalUserId} error: ` + err + __location)
+            return false
+        }
+        return true;
+    }
+
     async updateLastLogin(agencyPortalUserId){
         try{
             const query = {agencyPortalUserId: agencyPortalUserId};

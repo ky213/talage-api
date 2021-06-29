@@ -88,12 +88,6 @@ async function getApplication(req, res, next) {
     // Get the agents that we are permitted to view
     
 
-    // // Check if this is Solepro and grant them special access
-    // let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-    // if (agents.length === 1 && agents[0] === 12) {
-    //     // This is Solepro (no restriction on agency ID, just applications tagged to them)
-    //     where = `${db.quoteName('a.solepro')} = 1`;
-    // }
     const applicationBO = new ApplicationBO();
     let passedAgencyCheck = false;
     let applicationJSON = null;
@@ -458,7 +452,10 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 
     // add information about the creator if it was created in the agency portal
-    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+    if(applicationJSON.agencyPortalCreatedUser === "system"){
+        applicationJSON.creatorEmail = "system"
+    }
+    else if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
             const apUser = await agencyPortalUserBO.getById(applicationJSON.agencyPortalCreatedUser);
@@ -1069,7 +1066,7 @@ async function requote(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        log.warn(errMessage + __location);
         res.send(400, errMessage);
         return next();
     }

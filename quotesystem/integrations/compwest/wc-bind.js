@@ -145,6 +145,9 @@ class CompuwestBind extends Bind {
         else if (status === 'REFERRALNEEDED'){
             return "updated"
         }
+        else if (status === 'SMARTEDITS'){
+            return "updated"
+        }
         else if (status === "ERROR"){
             log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response ERROR: ${JSON.stringify(result.data)} ${__location}`);
             return "rejected"
@@ -158,7 +161,7 @@ class CompuwestBind extends Bind {
 
     // Bind XML different than quote request...
     async createRequestXML(appDoc, request_id, isGuideWireAPI = true){
-         const officerMap = {
+        const officerMap = {
             "Chief Executive Officer":"CEO",
             "Chief Financial Officer":"CFO",
             "Chief Operating Officer":"COO",
@@ -264,49 +267,7 @@ class CompuwestBind extends Bind {
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
         let cCount = 1;
-        try{
-            if (appDoc.dba.length > 0) {
-                cCount++;
-                const DBAAdditionalInterest = Location.ele('AdditionalInterest');
-                DBAAdditionalInterest.att('id', 'c' + cCount.toString());
-                // <GeneralPartyInfo>
-                const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
-                // <NameInfo>
-                const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
-                const CommlNameAddInfo = DBANameInfo.ele('CommlName')
-                CommlNameAddInfo.ele('CommercialName', appDoc.dba.replace('’', "'").replace('+', '').replace('|', ''));
-                //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
-                CommlNameAddInfo.ele('Type',"Company");
-                const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
-                DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                DBATaxIdentity.ele('TaxCd',appDoc.ein);
-                DBANameInfo.ele('LegalEntityCd', entityMatrix[appDoc.entityType]);
-                // </NameInfo>
-                // <Addr>
-                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
-                DBAAddr.ele('Addr1', appDoc.mailingAddress);
-                if (appDoc.mailingAddress2) {
-                    DBAAddr.ele('Addr2', appDoc.mailingAddress2);
-                }
-                DBAAddr.ele('City', appDoc.mailingCity);
-                DBAAddr.ele('StateProvCd', appDoc.mailingState);
-                DBAAddr.ele('PostalCode', appDoc.mailingZipcode);
-                if(isGuideWireAPI === true){
-                    DBAAddr.ele('CountryCd', 'US');
-                }
-                else {
-                    DBAAddr.ele('CountryCd', 'USA');
-                }
-                // </Addr>
-                // </GeneralPartyInfo>
-                // <AdditionalInterestInfo>
-                DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
-                // </AdditionalInterestInfo>
-            }
-        }
-        catch(err){
-            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error dba processing ${err} ` + __location);
-        }
+        //Do not reprocess appDoc.dba here
         let additionalInsureredCount = 0;
         try{
             if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
@@ -320,7 +281,9 @@ class CompuwestBind extends Bind {
                     // <NameInfo>
                     const nameInsuredNameInfo = DBAGeneralPartyInfo.ele('NameInfo');
                     const CommlNameAddInfo = nameInsuredNameInfo.ele('CommlName')
-                    CommlNameAddInfo.ele('CommercialName', additionalInsured.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                    if(additionalInsured.namedInsured){
+                        CommlNameAddInfo.ele('CommercialName', additionalInsured.namedInsured.replace('’', "'").replace('+', '').replace('|', ''));
+                    }
                     //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
                     const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
                     let taxIdType = 'FEIN';

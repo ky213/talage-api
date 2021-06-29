@@ -74,8 +74,8 @@ const InsurerSchema = new Schema({
 
 InsurerSchema.virtual('id').
     get(function() {
-        if(this.systemId){
-            return this.systemId;
+        if(this.insurerId){
+            return this.insurerId;
         }
         else {
             return 0;

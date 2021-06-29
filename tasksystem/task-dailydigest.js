@@ -1,6 +1,8 @@
 'use strict';
 
 const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
+const moment_timezone = require('moment-timezone');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -70,8 +72,8 @@ exports.taskProcessorExternal = async function(){
 
 var dailyDigestTask = async function(){
 
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+    const yesterdayBegin = moment().tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     let agencyLocationList = null;
     const agencyLocationBO = new AgencyLocationBO();
@@ -155,7 +157,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
         let error = null;
         const agencyBO = new AgencyBO();
         const emailContentJSON = await agencyBO.getEmailContent(agencyLocationDB.agencyId, "daily_digest").catch(function(err){
-            log.error(`Unable to get email content for Daily Digest. agency ${agencyLocationDB.agencyId} agency_network: ${db.escape(agencyNetwork)}.  error: ${err}` + __location);
+            log.error(`Unable to get email content for Daily Digest. agency ${agencyLocationDB.agencyId} agency_network: ${agencyNetwork}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
@@ -168,11 +170,11 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             let subject = emailContentJSON.subject;
 
             if(!message){
-                log.error(`Daily Digest email content creation error: no message. agency_network: ${db.escape(agencyLocationDB.agencyNetworkId)}.` + __location);
+                log.error(`Daily Digest email content creation error: no message. agency_network: ${agencyLocationDB.agencyNetworkId}.` + __location);
                 return false;
             }
             if(!subject){
-                log.error(`Daily Digest email content creation error: no subject. agency_network: ${db.escape(agencyLocationDB.agencyNetworkId)}.` + __location);
+                log.error(`Daily Digest email content creation error: no subject. agency_network: ${agencyLocationDB.agencyNetworkId}.` + __location);
                 return false;
             }
             // Link setup.
@@ -243,12 +245,12 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
         }
         else {
-            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agencyNetworkId)} agency:  ${agencyLocationDB.agencyId}.` + __location);
+            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${agencyLocationDB.agencyNetworkId} agency:  ${agencyLocationDB.agencyId}.` + __location);
             return false;
         }
     }
     else {
-        log.info(`DailyDigest: No Activity for Agency Location: ${db.escape(agencyLocationDB.systemId)}.`)
+        log.info(`DailyDigest: No Activity for Agency Location: ${agencyLocationDB.systemId}.`)
     }
     return true;
 }
@@ -289,7 +291,7 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
         let error = null;
         const agencyNetworkBO = new AgencyNetworkBO();
         const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId, "daily_digest").catch(function(err){
-            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetworkId)}.  error: ${err}` + __location);
+            log.error(`Unable to get email content for Daily Digest. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
@@ -302,11 +304,11 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
             let subject = emailContentJSON.subject;
 
             if(!message){
-                log.error(`Daily Digest email content creation error: no message. agency_network: ${db.escape(agencyNetworkDB.agencyNetworkId)}.` + __location);
+                log.error(`Daily Digest email content creation error: no message. agency_network: ${agencyNetworkDB.agencyNetworkId}.` + __location);
                 return false;
             }
             if(!subject){
-                log.error(`Daily Digest email content creation error: no subject. agency_network: ${db.escape(agencyNetworkDB.agencyNetworkId)}.` + __location);
+                log.error(`Daily Digest email content creation error: no subject. agency_network: ${agencyNetworkDB.agencyNetworkId}.` + __location);
                 return false;
             }
             // Link setup.
@@ -367,12 +369,12 @@ var processAgencyNetwork = async function(agencyNetworkDB, yesterdayBegin, yeste
 
         }
         else {
-            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetworkDB.agencyNetworkId)} agency:  ${agencyNetworkDB.agencyId}.` + __location);
+            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${agencyNetworkDB.agencyNetworkId} agency:  ${agencyNetworkDB.agencyId}.` + __location);
             return false;
         }
     }
     else {
-        log.info(`DailyDigest: No Activity for AgencyNetwork: ${db.escape(agencyNetworkDB.systemId)}.`)
+        log.info(`DailyDigest: No Activity for AgencyNetwork: ${agencyNetworkDB.systemId}.`)
     }
     return true;
 }
