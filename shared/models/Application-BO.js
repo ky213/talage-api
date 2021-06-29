@@ -2312,6 +2312,9 @@ module.exports = class ApplicationModel {
             if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
                 try{
                     const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
+                    if(!insurerObjList && insurerObjList.length === 0){
+                        log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
+                    }
                     for(let i = 0; i < insurerObjList.length; i++){
                         insurerArray.push(insurerObjList[i].insurerId)
                     }
