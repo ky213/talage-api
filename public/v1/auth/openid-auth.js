@@ -5,10 +5,18 @@ const {
     getUser
 } = require('./auth-helper');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+const agencyPortalUserBO = new AgencyPortalUserBO();
+const crypt = global.requireShared('./services/crypt.js');
 
 const {Issuer} = require('openid-client');
 const OpenIdAuthConfigBO = global.requireShared('models/OpenIdAuthConfig-BO.js');
 const openIdAuthConfigBO = new OpenIdAuthConfigBO();
+
+const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
+const agencyPortalUserGroup = new AgencyPortalUserGroupBO();
+
+const _ = require('lodash');
+const {generators} = require('openid-client');
 
 /**
  * Returns the "client" from the openid-client library for the specified
@@ -26,20 +34,29 @@ async function getAzureClient(openidAuthConfigId) {
         client_id: config.clientId,
         client_secret: config.clientSecret,
         redirect_uris: [`${global.settings.API_URL}/v1/auth/openid-auth/${openidAuthConfigId}/callback`],
-        response_type: 'token'
+        response_type: 'id_token'
     });
 }
 
 /**
  * REST endpoint to retrieve the OpenID Login URL.
  */
-async function getLoginUrl(req) {
+async function getLoginUrl(req, res) {
     try {
+        const nonce = generators.nonce();
+
         const client = await getAzureClient(req.params.configId);
         const url = client.authorizationUrl({
             scope: 'User.Read openid profile email',
-            response_mode: 'form_post'
+            response_mode: 'form_post',
+            nonce: nonce
         });
+        res.setCookie('talage_nonce', await crypt.encrypt(nonce), {
+            maxAge: 60 * 10, // 10 minutes to login only
+            httpOnly: true
+        });
+        res.header('Access-Control-Allow-Credentials', true);
+
         log.info(`User login for client ${req.params.configId} goes to ${url}`);
         return {url: url};
     }
@@ -53,37 +70,54 @@ async function getLoginUrl(req) {
  * REST endpoint to retrieve the OpenID Callback URL.
  */
 async function callback(req, res, next) {
-    log.info(`Received OpenID callback: ${JSON.stringify(req.body, null, 2)}`);
-    const config = await openIdAuthConfigBO.getById(req.params.configId);
-    const client = await getAzureClient(req.params.configId);
-    const params = client.callbackParams(req);
-    const jwtBlob = params.access_token.split('.')[1].replace('-', '+').replace('_', '/');
-    const externalJwt = JSON.parse(Buffer.from(jwtBlob, 'base64').toString());
-    log.info(`Received Access Token payload (${req.params.configId}): ${JSON.stringify(externalJwt, null, 2)}`);
-
-    const userInfo = await client.userinfo(req.body.access_token);
-    log.info(`Received from OpenID Userinfo endpoint for user (${req.params.configId}) ${externalJwt.unique_name}: ${JSON.stringify(userInfo, null, 2)}`);
-    if (!await getUser(externalJwt.unique_name)) {
-        log.info(`User ${externalJwt.unique_name} not found for config ID: ${req.params.configId}. Creating user...`);
-        const newUserJSON = {
-            agencyId: config.agencyId,
-            agencyNetworkId: config.agencyNetworkId,
-            email: externalJwt.unique_name,
-            password: '',
-            canSign: 0,
-            agencyPortalUserGroupId: 5,
-            openidAuthConfigId: config.configId
-        };
-        log.info(`New user payload: ${JSON.stringify(newUserJSON, null, 2)}`);
-        const agencyPortalUserBO = new AgencyPortalUserBO();
-        await agencyPortalUserBO.saveModel(newUserJSON);
-    }
-    else {
-        log.info(`Found user ${externalJwt.unique_name}! Generating JWT token...`);
-    }
-
     try {
-        const token = await createToken(externalJwt.unique_name);
+        log.info(`Received OpenID callback: ${JSON.stringify(req.body, null, 2)}`);
+
+        const config = await openIdAuthConfigBO.getById(req.params.configId);
+        const client = await getAzureClient(req.params.configId);
+
+        const cookieNonce = await crypt.decrypt(req.cookies.talage_nonce);
+        const tokenSet = await client.callback(`${global.settings.API_URL}/v1/auth/openid-auth/${req.params.configId}/callback`,
+            client.callbackParams(req),
+            {nonce: cookieNonce});
+        res.clearCookie('talage_nonce');
+
+        const claims = tokenSet.claims();
+
+        log.info(`Received Access Token claims (${req.params.configId}): ${JSON.stringify(claims, null, 2)}`);
+
+        let userGroupName = _.get(claims, 'roles[0]', 'Analyst');
+        // There is a special exception for Super Administrator because Azure
+        // doesn't allow spaces in role names.
+        if (userGroupName === 'SuperAdministrator') {
+            userGroupName = 'Super Administrator';
+        }
+        const userGroup = _.get(await agencyPortalUserGroup.getList({
+            name: userGroupName
+        }), '[0]');
+        log.info(`found role (agency portal user group) for user: ${userGroupName}`);
+        const user = await getUser(claims.preferred_username)
+        if (!user) {
+            log.info(`User ${claims.preferred_username} not found for config ID: ${req.params.configId}. Creating user...`);
+            const newUserJSON = {
+                agencyId: config.agencyId,
+                agencyNetworkId: config.agencyNetworkId,
+                email: claims.preferred_username,
+                password: '',
+                canSign: 0,
+                agencyPortalUserGroupId: userGroup.systemId,
+                openidAuthConfigId: config.configId
+            };
+            log.info(`New user payload: ${JSON.stringify(newUserJSON, null, 2)}`);
+            await agencyPortalUserBO.saveModel(newUserJSON);
+        }
+        else {
+            // Always sync the role in OpenID with the Talage role.
+            await agencyPortalUserBO.updateRole(user.agencyPortalUserId, userGroup.systemId);
+            log.info(`Found user ${claims.preferred_username}! Generating JWT token...`);
+        }
+
+        const token = await createToken(claims.preferred_username);
         return res.redirect(`${global.settings.PORTAL_URL}/openid/${req.params.configId}/callback?token=${token}`, next);
     }
     catch (ex) {
