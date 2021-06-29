@@ -446,10 +446,31 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
 
+                        let recipientsString = agencyNetworkDB.email
+                        //Check for AgencyNetwork users are suppose to get notifications for this agency.
+                        if(applicationDoc.agencyId){
+                            // look up agencyportal users by agencyNotificationList
+                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+                            const agencyPortalUserBO = new AgencyPortalUserBO();
+                            const query = {agencyNotificationList: applicationDoc.agencyId}
+                            try{
+                                const anUserList = await agencyPortalUserBO.getList(query)
+                                if(anUserList && anUserList.length > 0){
+                                    for(const anUser of anUserList){
+                                        recipientsString += `,${anUser.email}`
+                                    }
+                                }
+                            }
+                            catch(err){
+                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                            }
+                        }
+
+
                         // Send the email
                         const keyData2 = {'applicationDoc': applicationDoc};
                         if(agencyNetworkDB.email){
-                            const emailResp = await emailSvc.send(agencyNetworkDB.email, subject, message, keyData2,agencyNetworkId, emailContentAgencyNetworkJSON.emailBrand);
+                            const emailResp = await emailSvc.send(recipientsString, subject, message, keyData2,agencyNetworkId, emailContentAgencyNetworkJSON.emailBrand);
                             if(emailResp === false){
                                 slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
                             }
