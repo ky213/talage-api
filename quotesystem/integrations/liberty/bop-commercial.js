@@ -319,6 +319,20 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         const commercialBOPQuestions = applicationDocData.questions.filter(q => q.insurerQuestionAttributes.commercialBOP);
+
+        // if Liquor Liability Coverage is selected and any location has Annual Liquor Receipts value === 0, auto decline application
+        const liqurCoverageQuestion = commercialBOPQuestions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_byob');
+        if (liqurCoverageQuestion && liqurCoverageQuestion.answerValue.toLowerCase() === 'liquor liability coverage') {
+            for (const location of applicationDocData.locations) {
+                const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_receipts');
+                if (!annualReceiptsQuestion || parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10) <= 0) {
+                    const errorMessage = `${logPrefix}Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected.`;
+                    log.error(errorMessage);
+                    return this.client_autodeclined(errorMessage);
+                }
+            }
+        }
+
         const requestUUID = this.generate_uuid();
 
         // Liberty Mutual Commercial BOP only uses perOcc and genAgg
@@ -638,7 +652,7 @@ module.exports = class LibertySBOP extends Integration {
                         if (!UWQ5501Answered) {
                             UWQ5501Answered = true;
                             const UWQ5501QuestionAnswer = Policy.ele('QuestionAnswer');
-                            UWQ5501QuestionAnswer.ele('QuestionCd', 'UWQ5501');
+                            UWQ5501QuestionAnswer.ele('QuestionCd', 'RESTA07');
                             UWQ5501QuestionAnswer.ele('YesNoCd', question.answerValue);
                         }
                         break;
