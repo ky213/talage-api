@@ -341,31 +341,13 @@ ApplicationSchema.pre('updateOne', async function(next) {
 });
 
 
-// ApplicationSchema.post('find', async function(result) {
-//     if(result && result.length > 0){
-//         // eslint-disable-next-line prefer-const
-//         for(let doc of result){
-//             if(doc && doc.einEncryptedT2){
-//                 doc.ein = await crypt.decrypt(doc.einEncryptedT2);
-//             }
-//         }
-//     }
-// });
-
-// ApplicationSchema.post('findOne', async function(result) {
-//     if(result && result.einEncryptedT2){
-//         result.ein = await crypt.decrypt(result.einEncryptedT2);
-//     }
-// });
-
-
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
 
 // Utility Functions
 
 /**
- * Populates the top-level activityCodes array property with the total payroll for all activity codes across all locations
+ * Seems broken does not detect locations Populates the top-level activityCodes array property with the total payroll for all activity codes across all locations
  *
  * @param  {Object} schema - Mongoose Application schema object
  * @returns {void}
