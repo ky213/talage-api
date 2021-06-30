@@ -125,10 +125,20 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
         return null;
     }
+
     if(!agencyWebInfo){
         log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
     }
+
+    // if the agency is not digalent, don't continue
+    // digalent id is 2
+    // TODO: do we want to only allow specific agencies here too?
+    if(agencyWebInfo.agencyNetworkId !== 2){
+        log.error(`Non Digalent Agency called Digalent endpoint Network: ${agencyWebInfo.agencyNetworkId} Agency: ${agencyWebInfo.systemId} ${__location}`);
+        return null;
+    }
+
     try{
         //map to old SQL return columns.
         const oldMap = {
