@@ -75,6 +75,9 @@ module.exports = class AMTrustWC extends Integration {
         for (const location of this.app.applicationDocData.locations) {
             for (const activityPayroll of location.activityPayrollList) {
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
+                if(!activityPayroll.activityCodeId){
+                    activityPayroll.activityCodeId = activityPayroll.ncciCode;
+                }
                 const insurerClassCodeDoc = await this.get_insurer_code_for_activity_code(this.insurer.id,location.state, activityPayroll.activityCodeId)
                 if (insurerClassCodeDoc && insurerClassCodeDoc.code) {
                     let addAmtrustClassCode = false;
@@ -98,9 +101,6 @@ module.exports = class AMTrustWC extends Integration {
                                 break;
                             case "Part Time":
                                 amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
-                                break;
-                            case "Owners":
-                                amtrustClassCode.fullTimeEmployees += employeeType.employeeTypeCount;
                                 break;
                             default:
                                 break;
@@ -292,6 +292,7 @@ module.exports = class AMTrustWC extends Integration {
         catch (error) {
             return this.client_error("Could not load AmTrust API credentials", __location);
         }
+        log.info(`AmTrust AL insurer ${JSON.stringify(this.app.agencyLocation.insurers[this.insurer.id])}` + __location)
         let agentId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim();
         const agentUserNamePassword = this.app.agencyLocation.insurers[this.insurer.id].agentId.trim();
 
@@ -300,9 +301,10 @@ module.exports = class AMTrustWC extends Integration {
             agentId = parseInt(agentId, 10);
         }
         catch (error) {
+            log.error(`AMTrust WC error parsing AgentId ${error}` + __location)
             return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
         }
-        if (agentId === 0) {
+        if (!agentId || agentId === 0) {
             return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location);
         }
 
@@ -541,9 +543,9 @@ module.exports = class AMTrustWC extends Integration {
 
             //V1 JSON
             quoteRequestJSON = quoteRequestJSON.Quote;
-            if(quoteRequestJSON.ContactInformation && quoteRequestJSON.ContactInformation.AgentContactId){
-                delete quoteRequestJSON.ContactInformation.AgentContactId
-            }
+            // if(quoteRequestJSON.ContactInformation && quoteRequestJSON.ContactInformation.AgentContactId){
+            //     delete quoteRequestJSON.ContactInformation.AgentContactId
+            // }
             if(quoteRequestJSON.MailingAddress){
                 quoteRequestJSON.MailingAddress1 = quoteRequestJSON.MailingAddress.Line1;
                 quoteRequestJSON.MailingCity = quoteRequestJSON.MailingAddress.City;
@@ -560,6 +562,7 @@ module.exports = class AMTrustWC extends Integration {
                     }
                 });
             }
+
 
         }
         // Send the quote request

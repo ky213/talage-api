@@ -325,13 +325,15 @@ async function applicationLocationSave(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     try {
-        applicationDB = await applicationBO.getById(req.body.applicationId);
-        if (!applicationDB) {
+        const applicationDocDB = await applicationBO.getById(req.body.applicationId);
+        if (!applicationDocDB) {
             return next(serverHelper.requestError("Not Found"));
         }
-        if(applicationDB.agencyLocationId){
-            log.debug(`applicationLocationSave  - app load - applicationDB.agencyLocationId ${applicationDB.agencyLocationId}` + __location)
+        if(applicationDocDB.agencyLocationId){
+            log.debug(`applicationLocationSave  - app load - applicationDB.agencyLocationId ${applicationDocDB.agencyLocationId}` + __location)
         }
+        //make applicationDB pure JSON not a mongoose doc it gets from getById so we can add things.
+        applicationDB = JSON.parse(JSON.stringify(applicationDocDB));
     }
     catch (err) {
         log.error("Error checking application doc " + err + __location);
@@ -388,6 +390,35 @@ async function applicationLocationSave(req, res, next) {
                 applicationDB.locations.push(reqLocation)
             }
 
+            //update activity codes
+            try{
+                if(applicationDB.locations && applicationDB.locations.length > 0){
+                    if(!applicationDB.activityCodes){
+                        applicationDB.activityCodes = [];
+                    }
+                    for(const location of applicationDB.locations){
+                        for(const activityCode of location.activityPayrollList) {
+                            const foundCode = applicationDB.activityCodes.find((code) => code.activityCodeId === activityCode.activityCodeId);
+                            if(foundCode){
+                                foundCode.payroll += parseInt(activityCode.payroll, 10);
+                            }
+                            else{
+                                // eslint-disable-next-line prefer-const
+                                let newActivityCode = {};
+                                newActivityCode.activityCodeId = activityCode.activityCodeId;
+                                newActivityCode.payroll = parseInt(activityCode.payroll, 10);
+                                applicationDB.activityCodes.push(newActivityCode);
+                            }
+                        }
+                    }
+                }
+                else {
+                    log.error(`API App Save Location error  update appDB.activityCodes no locations appIDd ${req.body.applicationId}`)
+                }
+            }
+            catch(err){
+                log.error(`API App Save Location error update appDB.activityCodes  appIDd ${req.body.applicationId} ${err}` + __location)
+            }
 
             //updateMongo seems to wipping out the appid sent
             if(applicationDB.agencyLocationId){
@@ -548,7 +579,7 @@ async function GetQuestions(req, res, next){
         questionSubjectArea = req.query.questionSubjectArea;
     }
 
-    let activityCodeList = [];
+    let activityCodeList = null;
     if (req.query.activityCodeList) {
         activityCodeList = req.query.activityCodeList;
     }
@@ -576,7 +607,7 @@ async function GetQuestions(req, res, next){
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
-        log.info("Error getting questions " + err + __location);
+        log.info(`Error getting questions for appId ${appId} ` + err + __location);
         return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
     }
 
