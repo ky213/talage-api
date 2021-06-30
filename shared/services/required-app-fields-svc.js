@@ -28,7 +28,8 @@ const bopRequirements = {
             visible: false,
             required: false
         },
-        square_footage: {}
+        square_footage: {},
+        activityPayrollList: {}
     },
     grossSalesAmt: {}
 };
@@ -51,7 +52,8 @@ const glRequirements = {
             visible: false,
             required: false
         },
-        square_footage: {}
+        square_footage: {},
+        activityPayrollList: {}
     },
     grossSalesAmt: {}
 };
@@ -76,7 +78,8 @@ const wcRequirements = {
         unemployment_num: {
             visible: true,
             required: true
-        }
+        },
+        activityPayrollList: {}
     },
     grossSalesAmt: {},
     ein: {}
@@ -100,7 +103,8 @@ const plRequirements = {
         unemployment_num: {
             visible: false,
             required: false
-        }
+        },
+        activityPayrollList: {}
     }
 };
 
@@ -120,6 +124,10 @@ const cyberRequirements = {
             required: false
         },
         unemployment_num: {
+            visible: false,
+            required: false
+        },
+        activityPayrollList: {
             visible: false,
             required: false
         }
