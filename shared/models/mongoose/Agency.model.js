@@ -26,7 +26,7 @@ const faqSchema = new Schema({
     answer: {type: String, required: false}
 }, opts);
 
-const landingPageSchema = new Schema({
+const agencySiteContentSchema = new Schema({
     faq: [faqSchema]
 }, opts);
 
@@ -56,7 +56,7 @@ const AgencySchema = new Schema({
     agencyPortalDeletedUser: {type: String},
     primaryAgency: {type: Boolean, default: false},
     favicon: {type: String, required: false},
-    landingPageContent: landingPageSchema,
+    agencySiteContent: agencySiteContentSchema,
     deletedAt: {type: Date, required: false},
     deletedByUser: {type: String, required: false},
     socialMediaTags: [SocialMediaSchema],

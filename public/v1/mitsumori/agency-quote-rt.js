@@ -289,7 +289,11 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             agencyWebInfo.footer_logo = agencyNetworkJSON.footer_logo
         }
         if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
-            agencyWebInfo.landingPageContent = mergeLandingPageContent(agencyWebInfo.landingPageContent, agencyNetworkJSON.landing_page_content);
+            // set the landing page content to what we want from agencySiteContent and the agency networks landing page content
+            agencyWebInfo.landingPageContent = mergeLandingPageContent(agencyWebInfo.agencySiteContent, agencyNetworkJSON.landing_page_content);
+        }
+        else{
+            agencyWebInfo.landingPageContent = agencyWebInfo.agencySiteContent;
         }
         if(shouldMergeWheelhouse(agencyWebInfo)){
             //get from default AgencyNetwork
