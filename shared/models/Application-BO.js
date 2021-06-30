@@ -1190,7 +1190,7 @@ module.exports = class ApplicationModel {
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    //log.debug("updated to " + JSON.stringify(newObjectJSON));
+                    log.debug("updated to " + JSON.stringify(newObjectJSON));
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
 
@@ -2239,6 +2239,15 @@ module.exports = class ApplicationModel {
                 }
             }
         }
+        else if(applicationDocDB.locations && applicationDocDB.locations.length > 0) {
+            applicationDocDB.locations.forEach((location) => {
+                location.activityPayrollList.forEach((activityCode) => {
+                    if(activityCodeList.indexOf(activityCode.activityCodeId) === -1){
+                        activityCodeList.push(activityCode.activityCodeId);
+                    }
+                });
+            });
+        }
         else if(requireActivityCodes) {
             if(questionSubjectArea === 'general'){
                 log.error(`Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
@@ -2282,7 +2291,9 @@ module.exports = class ApplicationModel {
         // use app mailing.
         else if (applicationDocDB.mailingZipcode) {
             zipCodeArray.push(applicationDocDB.mailingZipcode);
-            stateList.push(applicationDocDB.mailingState)
+            if (applicationDocDB.mailingState) {
+                stateList.push(applicationDocDB.mailingState)
+            }
         }
         else {
             log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
