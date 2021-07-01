@@ -17,6 +17,8 @@
 const Integration = require('../Integration.js');
 const builder = require('xmlbuilder');
 const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
+const moment_timezone = require('moment-timezone');
 const util = require('util');
 const log = global.log;
 //const serverHelper = global.requireRootPath('server.js');

@@ -101,6 +101,62 @@ function parseQuoteURL(url) {
 }
 
 /**
+ * Merges landing page content
+ *
+ * @param {object} agencyLandingPageContent - the landingPageContent to prioritize
+ * @param {object} agencyNetworkLandingPageContent - the landingPageContent to default to if no value is provided in the primary
+ *
+ * @returns {object} a merged landing page content object
+ */
+function mergeLandingPageContent(agencyLandingPageContent, agencyNetworkLandingPageContent){
+    // TODO: this might be easier in the future to make into a generalized function, but for now we know we're just looking for FAQ
+    const landingPageContent = JSON.parse(JSON.stringify(agencyNetworkLandingPageContent));
+
+    if(agencyLandingPageContent && agencyLandingPageContent.faq && agencyLandingPageContent.faq.length > 0){
+        landingPageContent.faq = JSON.parse(JSON.stringify(agencyLandingPageContent.faq));
+    }
+
+    return landingPageContent;
+}
+
+/**
+ * Merges wheelhouse defaults into landing page content
+ *
+ * @param {object} landingPageContent - the landingPageContent to merge the defaults into
+ * @param {object} wheelhouseLandingPageContent - the Wheelhouse Landing Page Content
+ *
+ * @returns {object} a merged landing page content object
+ */
+function mergeWheelhouseLandingPageContent(landingPageContent, wheelhouseLandingPageContent){
+    if(!landingPageContent && wheelhouseLandingPageContent){
+        return JSON.parse(JSON.stringify(wheelhouseLandingPageContent));
+    }
+
+    const mergedLandingPageContent = JSON.parse(JSON.stringify(landingPageContent));
+
+    if(!mergedLandingPageContent.faq || mergedLandingPageContent.faq.length === 0){
+        mergedLandingPageContent.faq = JSON.parse(JSON.stringify(wheelhouseLandingPageContent.faq));
+    }
+
+    return mergedLandingPageContent;
+}
+
+/**
+ * Checks landing page content to see if any additional defaults are needed
+ *
+ * @param {object} agencyWebInfo - the agencyWebInfo to check
+ *
+ * @returns {object} a merged landing page content object
+ */
+function shouldMergeWheelhouse(agencyWebInfo){
+    return !agencyWebInfo ||
+        !agencyWebInfo.landingPageContent ||
+        !agencyWebInfo.landingPageContent.faq ||
+        agencyWebInfo.landingPageContent.faq.length === 0 ||
+        !agencyWebInfo.footer_logo;
+}
+
+/**
  * Retrieves the agency information from a given agency/page slug.
  *
  * @param {string} agencySlug - agency slug
@@ -233,21 +289,24 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             agencyWebInfo.footer_logo = agencyNetworkJSON.footer_logo
         }
         if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
-            agencyWebInfo.landingPageContent = agencyNetworkJSON.landing_page_content;
+            // set the landing page content to what we want from agencySiteContent and the agency networks landing page content
+            agencyWebInfo.landingPageContent = mergeLandingPageContent(agencyWebInfo.agencySiteContent, agencyNetworkJSON.landing_page_content);
         }
-        else {
+        else{
+            agencyWebInfo.landingPageContent = agencyWebInfo.agencySiteContent;
+        }
+        if(shouldMergeWheelhouse(agencyWebInfo)){
             //get from default AgencyNetwork
             log.debug(`AgencyNetwork ${agencyWebInfo.agencyNetwork} using default landingpage`)
             const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
                 error = err;
                 log.error("Get AgencyNetwork 1 Error " + err + __location);
             });
-
             if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
-                agencyWebInfo.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
-                if(!agencyWebInfo.footer_logo){
-                    agencyWebInfo.footer_logo = agencyNetworkJSONDefault.footer_logo;
-                }
+                agencyWebInfo.landingPageContent = mergeWheelhouseLandingPageContent(agencyWebInfo.landingPageContent, agencyNetworkJSONDefault.landing_page_content);
+            }
+            if(agencyNetworkJSONDefault && !agencyWebInfo.footer_logo){
+                agencyWebInfo.footer_logo = agencyNetworkJSONDefault.footer_logo;
             }
         }
     }
