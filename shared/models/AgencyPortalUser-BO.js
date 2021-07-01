@@ -468,7 +468,7 @@ module.exports = class AgencyPortalUserBO{
                 query.agencyNetworkOnly = {$ne: true}
             }
 
-            if(forTalageAdmin === false){
+            if(forTalageAdmin !== true){
                 query.talageAdminOnly = false;
             }
             let userGroupList = null;

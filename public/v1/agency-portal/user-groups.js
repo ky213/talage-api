@@ -20,8 +20,9 @@ async function getUserGroups(req, res, next){
         if(req.query.forAgencyNetwork){
             agencyNetworkRoles = true;
         }
+        const forTalageAdmin = false;
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        userGroups = await agencyPortalUserBO.getGroupList({},agencyNetworkRoles);
+        userGroups = await agencyPortalUserBO.getGroupList(forTalageAdmin,agencyNetworkRoles);
     }
     catch(err){
         log.error('agencyPortalUserBO error ' + err + __location);
