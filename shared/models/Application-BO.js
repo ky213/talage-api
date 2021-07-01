@@ -111,7 +111,7 @@ module.exports = class ApplicationModel {
             }
 
             const stepNumber = stepMap[workflowStep];
-            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' + stepNumber);
+            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' + stepNumber + __location);
 
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
                 log.error('saveApplicationStep missing application id ' + __location)
