@@ -39,12 +39,6 @@ const requiredVariables = [
     'S3_BUCKET',
     'S3_SECURE_BUCKET',
     'IMAGE_URL',
-    // Database
-    'DATABASE_NAME',
-    'DATABASE_HOST',
-    'DATABASE_PASSWORD',
-    'DATABASE_PREFIX',
-    'DATABASE_USER',
     // API Server
     'PUBLIC_API_PORT',
     'PRIVATE_API_PORT',
