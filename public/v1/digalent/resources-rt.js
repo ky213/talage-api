@@ -33,13 +33,13 @@ async function getResources(req, res, next){
     switch(req.query.page) {
         case "_basic":
         case "_basic-created":
-            entityTypes(resources);
             break;
         case "_policies":
             await policyHelper.populatePolicyResources(resources, req.query.appId);
             break;
         case "_business-questions":
             membershipTypes(resources);
+            entityTypes(resources);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_business":
