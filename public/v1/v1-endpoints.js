@@ -157,7 +157,6 @@ exports.registerEndpoints = (server) => {
 
     if(global.settings.ENV === 'development' && global.settings.DIGALENT_ENDPOINTS === 'YES'){
         // digalent quote app endpoints
-        registerEndpoint(server, 'digalent', 'route-planner-rt');
         registerEndpoint(server, 'digalent', 'resources-rt');
         registerEndpoint(server, 'digalent', 'agency-quote-rt');
         registerEndpoint(server, 'digalent', 'application-meta-rt');
