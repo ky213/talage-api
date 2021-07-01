@@ -481,6 +481,9 @@ async function getReports(req) {
                         && (req.query.all === '12332'
                         || req.query.agencyid === "-9999")){
                         log.debug('global view 1')
+                        if(where.active){
+                            delete where.active;
+                        }
                         if(where.agencyId){
                             delete where.agencyId;
                         }
@@ -497,6 +500,9 @@ async function getReports(req) {
                         && (req.query.all === '12332'
                         || req.query.agencyid === "-9999")){
                     log.debug('global view 2')
+                    if(where.active){
+                        delete where.active;
+                    }
                     if(where.agencyId){
                         delete where.agencyId;
                     }
