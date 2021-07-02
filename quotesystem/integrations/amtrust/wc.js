@@ -146,7 +146,7 @@ module.exports = class AMTrustWC extends Integration {
                 "Address2": location.address2 ? location.address2.slice(0,50) : "",
                 "City": location.city,
                 "State": location.state_abbr,
-                "Zip": location.zip,
+                "Zip": location.zip.slice(0,5),
                 "TotalEmployeeNumber": location.full_time_employees + location.part_time_employees
             });
         }
@@ -471,7 +471,7 @@ module.exports = class AMTrustWC extends Integration {
                     locationPayroll += activityCode.payroll;
                 }
                 if (locationPayroll > ratingZipPayroll) {
-                    ratingZip = location.zipcode;
+                    ratingZip = location.zipcode.slice(0,5);
                     ratingZipPayroll = locationPayroll;
                 }
             }
@@ -550,7 +550,7 @@ module.exports = class AMTrustWC extends Integration {
                 quoteRequestJSON.MailingAddress1 = quoteRequestJSON.MailingAddress.Line1;
                 quoteRequestJSON.MailingCity = quoteRequestJSON.MailingAddress.City;
                 quoteRequestJSON.MailingState = quoteRequestJSON.MailingAddress.State;
-                quoteRequestJSON.MailingZip = quoteRequestJSON.MailingAddress.Zip;
+                quoteRequestJSON.MailingZip = quoteRequestJSON.MailingAddress.Zip.slice(0,5);
 
                 delete quoteRequestJSON.MailingAddress;
 
