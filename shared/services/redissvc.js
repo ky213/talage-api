@@ -1,12 +1,13 @@
 /* eslint-disable require-jsdoc */
+
+// eslint-disable-next-line no-unused-vars
 const redis = require("redis");
 const asyncRedis = require("async-redis");
 const utility = global.requireShared('./helpers/utility.js');
 
 let redisClient = null;
-const redisClientAsync = null;
 let redisClientReadyOnly = null;
-const redisClientReadyOnlyAsync = null;
+
 let redisHost = 'localhost';
 let redisPort = 6379;
 
