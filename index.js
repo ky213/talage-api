@@ -122,13 +122,23 @@ async function main(){
     }
     global.cognitoSvc = cognitoSvc;
     log.info('Startup cognitoSvc')
-    // Connect to the redis
+
+    // // Connect to the redis
     if(!await redisSvc.connect()){
         logLocalErrorMessage('Error connecting to redis.');
         //Only used by QuoteApp V2 and public API.
         // leave rest of API functional.
         //return;
     }
+
+
+    if(!await redisSvc.connectReadOnly()){
+        logLocalErrorMessage('Error connecting to redis.');
+        //Only used by QuoteApp V2 and public API.
+        // leave rest of API functional.
+        //return;
+    }
+
     //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
     global.redisSvc = redisSvc;
     log.info('Startup Redis Svc')

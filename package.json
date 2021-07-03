@@ -22,6 +22,7 @@
         "@sendgrid/mail": "^7.0.1",
         "amazon-cognito-identity-js": "^4.3.3",
         "async": "^2.6.3",
+        "async-redis": "^2.0.0",
         "atob": "^2.1.2",
         "aws-sdk": "^2.727.1",
         "axios": "^0.19.2",
