@@ -78,7 +78,8 @@ exports.load = () => {
     variables.REDIS_QUESTION_CACHE_JOB_COUNT = 3;
     //Default to use InsurerQuestions Gen 2
     variables.USE_MONGO_QUESTIONS = "YES";
-
+    //Default to Cache Activity_Codes by Industry Code and Territory.
+    variables.USE_REDIS_ACTIVITY_CODE_CACHE = "YES"
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
