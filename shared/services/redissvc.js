@@ -63,7 +63,7 @@ async function connectReadOnly() {
             redisHost = global.settings.REDIS_HOST_READONLY
         }
         if(global.settings.REDIS_PORT_ONLY){
-            redisPort = global.settings.REDIS_HOST_READONLY
+            redisPort = global.settings.REDIS_PORT_ONLY
         }
 
         const redisOptions = {};
