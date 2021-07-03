@@ -302,7 +302,7 @@ module.exports = class AMTrustWC extends Integration {
         }
         catch (error) {
             log.error(`AMTrust WC error parsing AgentId ${error}` + __location)
-            return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
+            //return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
         }
         if (!agentId || agentId === 0) {
             return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location);
