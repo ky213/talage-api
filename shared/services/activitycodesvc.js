@@ -1,8 +1,13 @@
+/* eslint-disable guard-for-in */
 /* eslint-disable require-jsdoc */
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //const utility = global.requireShared('./helpers/utility.js');
 const moment = require('moment');
+
+
+//Reference by InsurerActivityCode-BO, do not reference InsurerActivityCode-BO outside of fuction.
+
 
 //, codeGroupList = []
 async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = false){
@@ -204,8 +209,45 @@ async function updateActivityCodeCacheByActivityCode(activityCodeId){
 
 }
 
+async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeList, territoryList){
+    log.info(`Update ActivityCode Redis cache for ${activityCodeList} & ${territoryList} ` + __location)
+    if(!activityCodeList && activityCodeList.length === 0){
+        return;
+    }
+    if(!territoryList && territoryList.length === 0){
+        return;
+    }
+    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    let IndustryCodeList = null;
+    try{
+        const icQuery = {
+            activityCodeIdList: {$in: activityCodeList},
+            active: true
+        }
+        IndustryCodeList = await IndustryCodeModel.find(icQuery).lean();
+    }
+    catch(err){
+        log.warn(`updateActivityCodeCacheByActivityCode: ${activityCodeList} Error ${err} ` + __location);
+    }
+    const forceCacheUpdate = true;
+    if(IndustryCodeList){
+        for(const ic of IndustryCodeList){
+            for (const abbr of territoryList){
+                await GetActivityCodes(abbr,ic.industryCodeId, forceCacheUpdate)
+            }
+        }
+    }
+    else {
+        log.debug(`No industry codes for ${activityCodeList}` + __location)
+    }
+
+
+}
+
+
 module.exports = {
     GetActivityCodes: GetActivityCodes,
     updateActivityCodeCacheByIndustryCode: updateActivityCodeCacheByIndustryCode,
-    updateActivityCodeCacheByActivityCode: updateActivityCodeCacheByActivityCode
+    updateActivityCodeCacheByActivityCode: updateActivityCodeCacheByActivityCode,
+    updateActivityCodeCacheByActivityCodeTerritoryList: updateActivityCodeCacheByActivityCodeTerritoryList
 }
