@@ -2,7 +2,7 @@
 
 const serverHelper = global.requireRootPath('server.js');
 const questionSvc = global.requireShared('./services/questionsvc.js');
-
+const moment = require('moment');
 
 /**
  * Returns all questions related to given params
@@ -51,6 +51,12 @@ async function getQuestions(req, res, next){
         return next(serverHelper.requestError('You must supply at least one zip code'));
     }
 
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
+
+
     // Check if we should return hidden questions also
     let return_hidden = false;
     if (req.query.hidden && req.query.hidden === 'true') {
@@ -60,16 +66,30 @@ async function getQuestions(req, res, next){
 
     let getQuestionsResult = null;
     try{
+        const policyTypeCodeList = req.query.policy_types.split(',')
+        const policyTypeJSONArray = [];
+        if(policyTypeCodeList && policyTypeCodeList.length > 0){
+            for(let i = 0; i < policyTypeCodeList.length; i++){
+                policyTypeJSONArray.push({
+                    type: policyTypeCodeList[i],
+                    effectiveDate: moment().add(1,"day")
+                });
+            }
+        }
+
+
         // insurers is optional
         const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
-        getQuestionsResult = await questionSvc.GetQuestionsForFrontend(req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), insurers, return_hidden);
+
+        getQuestionsResult = await questionSvc.GetQuestionsForFrontend(req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), policyTypeJSONArray, insurers, questionSubjectArea, return_hidden);
     }
     catch(error){
-        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+        log.error(`Question route getQuestions error ${error} ` + __location);
+        return next(serverHelper.requestError('An error occured while retrieving questions.'));
     }
 
     if(!getQuestionsResult){
-        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+        return next(serverHelper.requestError('An error occured while retrieving questions.'));
     }
 
     res.send(200, getQuestionsResult);
@@ -77,6 +97,6 @@ async function getQuestions(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGet('Get Questions', `${basePath}/list`, getQuestions);
-    server.addGet('Get Questions (depr)', `${basePath}/v1`, getQuestions);
+    server.addGetAuthAppApi('Get Questions', `${basePath}/list`, getQuestions);
+    server.addGetAuthAppApi('Get Questions (depr)', `${basePath}/v1`, getQuestions);
 };
