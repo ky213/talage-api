@@ -157,6 +157,9 @@ async function getUserTokenDataFromJWT(req){
             if(redisResponse && redisResponse.found && redisResponse.value){
                 userTokenData = JSON.parse(redisResponse.value)
             }
+            else {
+                log.warn(`Did not find JWT in Redis ` + __location);
+            }
         }
         catch(err){
             log.error("Checking validateAppApiJWT JWT " + err + __location);
@@ -192,7 +195,7 @@ function validateAppApiJWT(options) {
             return options.handler(req, res, next);
         }
         else {
-            return options.handler(req, res, next);
+            return next(new RestifyError.ForbiddenError("access denied"));
         }
     };
 }
@@ -223,7 +226,7 @@ function validateQuoteAppV2JWT(options) {
             return options.handler(req, res, next);
         }
         else {
-            return options.handler(req, res, next);
+            return next(new RestifyError.ForbiddenError("access denied"));
         }
     };
 }
