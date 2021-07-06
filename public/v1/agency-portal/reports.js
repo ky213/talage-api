@@ -461,7 +461,10 @@ async function getReports(req) {
             }
             else {
                 const agencyBO = new AgencyBO();
-                const donotReportQuery = {doNotReport: true};
+                const donotReportQuery = {doNotReport: true };
+                if(req.query.agencyid === "-9999"){
+                    donotReportQuery.systemId = {$ne: 209}
+                }
                 const noReportAgencyList = await agencyBO.getList(donotReportQuery);
                 if(noReportAgencyList && noReportAgencyList.length > 0){
                     // eslint-disable-next-line prefer-const
@@ -481,9 +484,7 @@ async function getReports(req) {
                         && (req.query.all === '12332'
                         || req.query.agencyid === "-9999")){
                         log.debug('global view 1')
-                        if(where.active){
-                            delete where.active;
-                        }
+
                         if(where.agencyId){
                             delete where.agencyId;
                         }
@@ -500,9 +501,7 @@ async function getReports(req) {
                         && (req.query.all === '12332'
                         || req.query.agencyid === "-9999")){
                     log.debug('global view 2')
-                    if(where.active){
-                        delete where.active;
-                    }
+
                     if(where.agencyId){
                         delete where.agencyId;
                     }
@@ -559,6 +558,7 @@ async function getReports(req) {
         };
     }
     else {
+        log.debug(`Report where ${JSON.stringify(where)}` + __location);
         //trend monthly or daily ?
         const startedCount = await Application.countDocuments(where);
         const trendData = monthlyTrend ? await getMonthlyTrends(where) : await getDailyTrends(where);
