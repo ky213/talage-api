@@ -278,8 +278,7 @@ module.exports = class Application {
                     }
                 }
                 catch (e) {
-                    log.error(`Translation Error: DB SELECT activity codes error: ${e}. ` + __location);
-                    //TODO Consistent error types
+                    log.error(`Translation Error: DB getById ${activityCode.id} activity codes for appId ${this.id} error: ${e}. ` + __location);
                     throw e;
                 }
             }
