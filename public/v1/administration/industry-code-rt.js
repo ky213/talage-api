@@ -12,6 +12,7 @@
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 const serverHelper = global.requireRootPath('server.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -248,6 +249,7 @@ async function add(req, res, next) {
         return next(error);
     }
 
+    ActivityCodeSvc.updateActivityCodeCacheByIndustryCode(industryCodeBO.mongoDoc.industryCodeId);
     res.send(200, industryCodeBO.mongoDoc);
     return next();
 }
@@ -271,7 +273,8 @@ async function update(req, res, next) {
     if (error) {
         return next(error);
     }
-
+    //update redis cache.
+    ActivityCodeSvc.updateActivityCodeCacheByIndustryCode(id);
     res.send(200, industryCodeBO.mongoDoc);
     return next();
 

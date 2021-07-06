@@ -12,6 +12,7 @@
 const ActivityCodeBO = global.requireShared('./models/ActivityCode-BO.js');
 const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
 const serverHelper = global.requireRootPath('server.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -277,6 +278,8 @@ async function update(req, res, next) {
     if (error) {
         return next(error);
     }
+    //update redis cache.
+    ActivityCodeSvc.updateActivityCodeCacheByActivityCode(id);
     res.send(200, activityCodeBO.mongoDoc);
     return next();
 }
