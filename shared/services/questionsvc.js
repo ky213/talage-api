@@ -450,7 +450,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
         // If Added questions is empty then the break out of loop, will return empty if parent questions are inactive
         if(added_questions.length === 0){
-            log.debug(`Added questions is returning empty array: ${added_questions.length}`);
+            log.debug(`Added questions is returning empty array: ${added_questions.length} for questions ${JSON.stringify(missing_questions)}` + __location);
             break;
         }
         log.debug("Missing questions count " + added_questions.length + __location);
