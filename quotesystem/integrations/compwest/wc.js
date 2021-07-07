@@ -451,10 +451,18 @@ module.exports = class CompwestWC extends Integration {
         let NameInfo = GeneralPartyInfo.ele('NameInfo');
         NameInfo.att('id', 'ProducerName');
 
+        // If talageWholeSale
+        let Surname = this.app.agencyLocation.last_name
+        let GivenName = this.app.agencyLocation.first_name
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
+            Surname = this.app.agencyLocation.quotingAgencyLocationDB.lastName;
+            GivenName = this.app.agencyLocation.quotingAgencyLocationDB.firstName;
+        }
+
         // <PersonName>
         const PersonName = NameInfo.ele('PersonName');
-        PersonName.ele('Surname', this.app.agencyLocation.last_name);
-        PersonName.ele('GivenName', this.app.agencyLocation.first_name);
+        PersonName.ele('Surname', Surname);
+        PersonName.ele('GivenName', GivenName);
         // </PersonName>
         // </NameInfo>
         // </GeneralPartyInfo>

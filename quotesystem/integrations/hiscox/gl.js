@@ -186,9 +186,16 @@ module.exports = class HiscoxGL extends Integration {
         if (this.employeeCount === 0) {
             this.employeeCount = 1;
         }
+        this.agencyEmail = this.app.agencyLocation.agencyEmail
+        this.agencyPhone = this.app.agencyLocation.agencyPhone
+        // If talageWholeSale
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
+            this.agencyEmail = this.app.agencyLocation.quotingAgencyLocationDB.agencyEmail;
+            this.agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.agencyPhone;
+        }
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
-        if (!this.app.agencyLocation.agencyEmail || !this.app.agencyLocation.agencyPhone) {
+        if (!this.agencyEmail || !this.agencyPhone) {
             this.log_error(`Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
             return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
