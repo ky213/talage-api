@@ -28,16 +28,16 @@
 				{{/if}}
             </PersonName>
 			{{/if}}
-			{{if app.agencyLocation.agencyEmail || app.agencyLocation.agencyPhone}}
+			{{if agencyEmail || agencyPhone}}
             <CommunicationsInfo>
-				{{if app.agencyLocation.agencyPhone}}
+				{{if agencyPhone}}
                 <PhoneInfo>
-                    <PhoneNumber>{{>app.agencyLocation.agencyPhone.toString().substring(0,10)}}</PhoneNumber>
+                    <PhoneNumber>{{>agencyPhone.toString().substring(0,10)}}</PhoneNumber>
                 </PhoneInfo>
 				{{/if}}
-				{{if app.agencyLocation.agencyEmail}}
+				{{if agencyEmail}}
                 <EmailInfo>
-                    <EmailAddr>{{>app.agencyLocation.agencyEmail.substring(0,60)}}</EmailAddr>
+                    <EmailAddr>{{>agencyEmail.substring(0,60)}}</EmailAddr>
                 </EmailInfo>
 				{{/if}}
             </CommunicationsInfo>
