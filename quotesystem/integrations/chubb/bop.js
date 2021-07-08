@@ -156,11 +156,21 @@ module.exports = class ChubbBOP extends Integration {
         Addr.att('Action', 'Create');
         Addr.att('id', this.generate_uuid());
         Addr.ele('AddrTypeCd', 'MailingAddress');
-        Addr.ele('Addr1', 'PO Box 12332');
-        Addr.ele('Addr2');
-        Addr.ele('City', 'Reno');
-        Addr.ele('StateProvCd', 'NV');
-        Addr.ele('PostalCode', '89510');
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale ||
+           this.app.applicationDocData.agencyId === 1){
+            Addr.ele('Addr1', 'PO Box 12332');
+            Addr.ele('Addr2');
+            Addr.ele('City', 'Reno');
+            Addr.ele('StateProvCd', 'NV');
+            Addr.ele('PostalCode', '89510');
+        }
+        else if(this.app.agencyLocation.quotingAgencyLocationDB){
+            Addr.ele('Addr1', this.app.agencyLocation.quotingAgencyLocationDB.address);
+            Addr.ele('Addr2', this.app.agencyLocation.quotingAgencyLocationDB.address2);
+            Addr.ele('City', this.app.agencyLocation.quotingAgencyLocationDB.city);
+            Addr.ele('StateProvCd', this.app.agencyLocation.quotingAgencyLocationDB.state);
+            Addr.ele('PostalCode', this.app.agencyLocation.quotingAgencyLocationDB.zipcode);
+        }
         // </Addr>
 
         // <Communications>

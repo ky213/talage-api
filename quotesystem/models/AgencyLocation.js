@@ -14,7 +14,7 @@ module.exports = class AgencyLocation {
 
     constructor(appBusiness, appPolicies) {
         //this.app = app;
-        this.business = appBusiness;
+        this.business = JSON.parse(JSON.stringify(appBusiness));
         this.appPolicies = appPolicies;
         this.agency = '';
         this.agencyEmail = '';
@@ -30,6 +30,7 @@ module.exports = class AgencyLocation {
         this.territories = [];
         this.wholesale = false;
         this.additionalInfo = {};
+        this.quotingAgencyLocationDB = {};
     }
 
     /**
@@ -74,6 +75,7 @@ module.exports = class AgencyLocation {
             try{
                 const addAgencyPrimaryLocation = true;
                 agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation);
+                this.quotingAgencyLocationDB = agencyLocation;
                 if(agencyLocation.insurers){
                     alInsurerList = agencyLocation.insurers;
                 }
@@ -144,6 +146,8 @@ module.exports = class AgencyLocation {
                     if(!talageAgencyLocation){
                         const talageAgencyLocationSystemId = 1;
                         talageAgencyLocation = await agencyLocationBO.getById(talageAgencyLocationSystemId, getChildren);
+                        insurer.talageAgencyLocation = talageAgencyLocation;
+                        this.quotingAgencyLocationDB = talageAgencyLocation;
                     }
                     //Find correct insurer
                     const talageInsurer = talageAgencyLocation.insurers.find((ti) => ti.insurerId === insurer.insurerId);
