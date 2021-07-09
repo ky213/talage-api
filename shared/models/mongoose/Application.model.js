@@ -127,6 +127,7 @@ const claimSchema = new Schema({
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false},
+	description: {type: String, required: false},
     questions: [QuestionSchema]
 });
 
