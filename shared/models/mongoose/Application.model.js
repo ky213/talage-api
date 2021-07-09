@@ -126,7 +126,9 @@ const claimSchema = new Schema({
     amountReserved: {type: Number, required: false},
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
-    missedWork: {type: Boolean, default: false}
+    missedWork: {type: Boolean, default: false},
+	description: {type: String, required: false},
+    questions: [QuestionSchema]
 });
 
 const cyberPolicySchema = new Schema({
