@@ -47,7 +47,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     if(stateList.length > 0){
         territories = stateList;
     }
-    else {
+    else if(zipCodeStringArray.length > 0) {
         // get territories from zipcodes
         const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
         const zipCodeBO = new ZipCodeBO();
@@ -65,6 +65,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             // no code base questions will come back
             // return false;
         }
+    }
+    else {
+        log.info('Question Service: no zip codes or state info' + __location);
     }
 
 
@@ -172,7 +175,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
         orParamList.push(mongoPolicyEffectiveDateQuery)
     });
-    insurerQuestionQuery.$or = orParamList;
+    if(orParamList.length > 0){
+        insurerQuestionQuery.$or = orParamList;
+    }
     log.debug(`insurerQuestionQuery Universal  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
     let start = moment();
     try{
@@ -188,7 +193,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             for(const insurerQuestion of insurerQuestionList){
                 if(insurerQuestion.talageQuestionId){
                     let add = false;
-                    if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0){
+                    if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0 && territories.length > 0){
                         const territoryHit = insurerQuestion.territoryList.some((iqt) => territories.includes(iqt))
                         if(territoryHit){
                             add = true;
