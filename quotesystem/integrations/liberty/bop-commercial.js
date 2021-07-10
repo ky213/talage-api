@@ -191,8 +191,7 @@ const entityMatrix = {
     'Trust - Non-Profit': 'TR'
 };
 
-// These are loss types for claims. Currently we dont have a mechanism of providing this with each claim
-// eslint-disable-next-line no-unused-vars
+// These are loss types for claims and their respective code
 const lossCauseCodeMatrix = {
     "Fire": "BFIRE",
     "Water": "BWATR",
@@ -346,6 +345,20 @@ module.exports = class LibertySBOP extends Integration {
 
                 if (insurerLocationQuestion) {
                     question.insurerQuestionAttributes = insurerLocationQuestion.attributes;
+                }
+            }
+        }
+
+        // get proper attributes for each location question
+        for (const claim of applicationDocData.claims) {
+            const claimQuestionIds = claim.questions.map(question => question.questionId);
+            const insurerClaimQuestions = await this.getInsurerQuestionsByTalageQuestionId('claim', claimQuestionIds, ['BOP']);
+            for (const question of claim.questions) {
+                const insurerClaimQuestion = insurerClaimQuestions.find(icq => icq.talageQuestionId === question.questionId);
+
+                if (insurerClaimQuestion) {
+                    question.insurerQuestionAttributes = insurerClaimQuestion.attributes;
+                    question.insurerQuestionIdentifier = insurerClaimQuestion.identifier;
                 }
             }
         }
@@ -578,18 +591,39 @@ module.exports = class LibertySBOP extends Integration {
         // Loss structure not provided in example
 
         // if there are no claims, this won't execute
-        applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
-            const Loss = Policy.ele('Loss');
-            Loss.ele('LOBCd', claim.policyType);
-            const TotalPaidAmt = Loss.ele('TotalPaidAmt');
-            TotalPaidAmt.ele('Amt', claim.amountPaid);
-            const ReservedAmt = Loss.ele('ReservedAmt');
-            ReservedAmt.ele('Amt', claim.amountReserved !== null ? claim.amountReserved : 0);
-            Loss.ele('ClaimStatusCd', claim.open ? "Open" : "Closed");
-            Loss.ele('LossDt', moment(claim.eventDate).format('YYYY-MM-DD'));
-            Loss.ele('LossDesc', "No Description Provided.");
-            Loss.ele('LossCauseCd', 'BOTHR'); // defaulting value, we do not collect this information
-        });
+        if (applicationDocData.claims.find(claim => claim.policyType === "BOP")) {
+            Policy.ele('AnyLossesAccidentsConvictionsInd', 1);
+
+            applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
+                // this should always be answered, but default to OTHER if it is not, or an option somehow doesn't match our matrix
+                const lossTypeQuestion = claim.questions.find(question => question.insurerQuestionIdentifier === 'claim_lossType');
+                let lossType = 'BOTHR';
+                if (lossTypeQuestion) {
+                    lossType = lossCauseCodeMatrix[lossTypeQuestion.answerValue.trim()];
+                    if (!lossType) {
+                        lossType = 'BOTHR';
+                    }
+                }
+                
+                const reservedAmt = claim.amountReserved !== null ? claim.amountReserved : 0;
+
+                const Loss = Policy.ele('Loss');
+                Loss.ele('LOBCd', claim.policyType);
+                const TotalPaidAmt = Loss.ele('TotalPaidAmt');
+                TotalPaidAmt.ele('Amt', claim.amountPaid);
+                const ReservedAmt = Loss.ele('ReservedAmt');
+                ReservedAmt.ele('Amt', reservedAmt);
+                const ProbableExpenseIncurredAmt = Loss.ele('ProbableExpenseIncurredAmt');
+                ProbableExpenseIncurredAmt.ele('Amt', claim.amountPaid + reservedAmt);
+                Loss.ele('ClaimStatusCd', claim.open ? "Open" : "Closed");
+                Loss.ele('LossDt', moment(claim.eventDate).format('YYYY-MM-DD'));
+                Loss.ele('LossDesc', claim.description);
+                Loss.ele('LossCauseCd', lossType);
+            });
+        }
+        else {
+            Policy.ele('AnyLossesAccidentsConvictionsInd', 0);
+        }
 
         //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
         //                 <QuestionAnswer>
@@ -1700,6 +1734,28 @@ module.exports = class LibertySBOP extends Integration {
         const yearBussinessStarted = moment(applicationDocData.founded).year();
 
         switch (questionIdentifier) {
+            // no special cases for these, return true
+            case "UWQ1":
+            case "GENRL53":
+            case "UWQ95":
+            case "UWQ300":
+            case "GLB3":
+            case "BOP38":
+            case "LMBOP_Interest":
+            case "LMBOP_Construction":
+            case "LMBOP_RoofConstruction":
+            case "LMBOP_RoofType":
+            case "LMBOP_YearBuilt":
+            case "LMBOP_NumStories":
+            case "LMBOP_AlarmType":
+            case "BOP17_AreaOccupiedByOthers":
+            case "BOP17_AreaUnoccupied":
+            case "LMBOP_YearRoofReplaced":
+            case "coverage_liqur_receipts":
+            case "UWQ67":
+            case "BOP401":
+            case "LMBOP75":
+                return true;
             case "UWQ5332":
             case "UWQ5308":
             case "UWQ5312":
