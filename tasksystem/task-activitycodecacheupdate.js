@@ -66,12 +66,50 @@ exports.taskProcessorExternal = async function(){
 }
 
 var activityCodeCacheUpdate = async function(){
+    const start = moment();
+
+    const hotTerritoryList = ["CA",
+        "GA",
+        "AL",
+        "FL",
+        "NV",
+        "NY",
+        "AZ",
+        "TX"]
+
+    let territoryList = [];
+    let error = null;
+    var TerritoryModel = require('mongoose').model('Territory');
+
+    const territoryQuery = {
+        active: true,
+        abbr: {$in: hotTerritoryList}
+    };
+    const queryProjection = {
+        abbr: 1,
+        name: 1,
+        "_id": 0
+    };
+    var queryOptions = {};
+    queryOptions.sort = {};
+    queryOptions.sort.name = 1;
+
+    territoryList = await TerritoryModel.find(territoryQuery, queryProjection,queryOptions).lean().catch(function(err) {
+        log.error("activityCodeCacheUpdate: get hot territory List " + err + __location);
+        error = err;
+    });
+    if(error){
+        return;
+    }
 
     let industryCodeList = null;
     try{
         // Load the request data into it
         // get all non-deleted agencies
-        const query = {active: true};
+        const query = {
+            active: true,
+            featured: true
+        };
         industryCodeList = await IndustryCode.find(query);
     }
     catch(err){
@@ -84,8 +122,11 @@ var activityCodeCacheUpdate = async function(){
         for(let i = 0; i < industryCodeList.length; i++){
             // eslint-disable-next-line prefer-const
             let industryCodeDB = industryCodeList[i];
-            await ActivityCodeSvc.updateActivityCodeCacheByIndustryCode(industryCodeDB.industryCodeId)
+            await ActivityCodeSvc.updateActivityCodeCacheByIndustryCode(industryCodeDB.industryCodeId, territoryList)
         }
     }
+    const endMongo = moment();
+    const diff = endMongo.diff(start, 'seconds', true);
+    log.info(`ActivityCode by IndustryCode cache update done! duration: ${diff} seconds` + __location);
     return;
 }

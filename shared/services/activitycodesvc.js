@@ -162,21 +162,23 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
         return [];
     }
 }
-async function updateActivityCodeCacheByIndustryCode(industryCodeId){
+async function updateActivityCodeCacheByIndustryCode(industryCodeId, territoryList = []){
     log.info(`Update IndustryCode Redis cache for ${industryCodeId}` + __location)
     //get territory list
-    let error = null;
-    const TerritoryBO = global.requireShared('./models/Territory-BO.js');
-    const territoryBO = new TerritoryBO();
-    const allTerritories = await territoryBO.getAbbrNameList().catch(function(err) {
-        log.error("updateActivityCodeCacheByIndustryCode: territory get getAbbrNameList " + err + __location);
-        error = err;
-    });
-    if(error){
-        return;
+    if(territoryList.length === 0){
+        let error = null;
+        const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+        const territoryBO = new TerritoryBO();
+        territoryList = await territoryBO.getAbbrNameList().catch(function(err) {
+            log.error("updateActivityCodeCacheByIndustryCode: territory get getAbbrNameList " + err + __location);
+            error = err;
+        });
+        if(error){
+            return;
+        }
     }
     const forceCacheUpdate = true;
-    for(const territory of allTerritories){
+    for(const territory of territoryList){
         await GetActivityCodes(territory.abbr,industryCodeId, forceCacheUpdate)
     }
 
