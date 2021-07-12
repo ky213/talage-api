@@ -33,7 +33,8 @@ module.exports = class AgencyPortalUserBO{
             }
             let newDoc = true;
             if(newObjectJSON.id){
-                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                const skipActiveCheck = true;
+                const dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id,false,skipActiveCheck).catch(function(err) {
                     log.error(`Error getting ${collectionName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -237,13 +238,15 @@ module.exports = class AgencyPortalUserBO{
     }
 
 
-    async getMongoDocbyUserId(agencyPortalUserId, returnMongooseModel = false) {
+    async getMongoDocbyUserId(agencyPortalUserId, returnMongooseModel = false, skipActiveCheck = false) {
         return new Promise(async(resolve, reject) => {
             if (agencyPortalUserId) {
                 const query = {
-                    "agencyPortalUserId": agencyPortalUserId,
-                    active: true
+                    "agencyPortalUserId": agencyPortalUserId
                 };
+                if(skipActiveCheck === false){
+                    query.active = true;
+                }
                 const queryProjection = {
                     "__v": 0,
                     "password": 0
@@ -330,7 +333,6 @@ module.exports = class AgencyPortalUserBO{
                 try {
                     const changeNotUpdateList = [
                         "id",
-                        "agencyPortalUserId",
                         "agencyPortalUserUuidId",
                         "agencyPortalUserId"
                     ]
