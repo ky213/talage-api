@@ -2210,6 +2210,13 @@ module.exports = class ApplicationModel {
                     });
                 }
             }
+            //not policy hit
+            if(policyTypeRequested && policyTypeArray.length === 0){
+                policyTypeArray.push({
+                    type: policyTypeRequested,
+                    effectiveDate: moment()
+                });
+            }
         }
         else {
             log.error(`Data problem prevented getting Application Policy Types for ${applicationDocDB.uuid} . throwing error` + __location)
@@ -2309,6 +2316,11 @@ module.exports = class ApplicationModel {
             if (applicationDocDB.mailingState) {
                 stateList.push(applicationDocDB.mailingState)
             }
+        }
+        else if(questionSubjectArea === "claim"){
+            //AP might not have location information yet.
+            // at of 2021-07-09 all claim questions are universal
+            // do nothing.
         }
         else {
             log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
