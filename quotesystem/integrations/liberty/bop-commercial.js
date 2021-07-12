@@ -1,3 +1,5 @@
+/* eslint-disable dot-location */
+/* eslint-disable implicit-arrow-linebreak */
 /* eslint-disable no-extra-parens */
 /* eslint-disable radix */
 /* eslint-disable function-paren-newline */
@@ -111,6 +113,34 @@ const locationQuestionSpecialCases = [
     'coverage_liqur_receipts' // GrossReceipts
 ];
 
+// This is a list of coverge questions for BOPLineBusiness that should be ignored because they are special cases
+const bopLineBusinessCoverageQuestions = [
+    'coverage_dsc',
+    'coverage_dsc_deductible',
+    'coverage_dsc_limit_include',
+    'coverage_dsc_limit_exclude',
+    'pl_coverage_ha',
+    'pl_coverage_numProf',
+    'pl_coverage_bbam',
+    'pl_coverage_bbam_numFTBarber',
+    'pl_coverage_bbam_numFTBeaut',
+    'pl_coverage_bbam_numFTManic',
+    'pl_coverage_bbam_numPTBarber',
+    'pl_coverage_bbam_numPTBeaut',
+    'pl_coverage_bbam_numPTManic',
+    'pl_coverage_vet',
+    'pl_coveraage_vet_numEmp',
+    'pl_coverage_vet_numVet',
+    'pl_coverage_opti',
+    'pl_coverage_opti_numProf',
+    'pl_coverage_opto',
+    'pl_coverage_opto_numProf',
+    'coverage_pwc',
+    'coverage_pwc_limit',
+    'coverage_peo',
+    'coverage_peo_annualReceipts'
+];
+
 const constructionMatrix = {
     "Frame": "F",
     "Joisted Masonry": "JM",
@@ -161,8 +191,7 @@ const entityMatrix = {
     'Trust - Non-Profit': 'TR'
 };
 
-// These are loss types for claims. Currently we dont have a mechanism of providing this with each claim
-// eslint-disable-next-line no-unused-vars
+// These are loss types for claims and their respective code
 const lossCauseCodeMatrix = {
     "Fire": "BFIRE",
     "Water": "BWATR",
@@ -226,6 +255,8 @@ const limitCodeMatrix = {
 let logPrefix = '';
 let applicationDocData = null;
 let coverageSort = 0;
+// some coverages require BPP coverage is included
+let BPPCoverageIncluded = false;
 
 // quote response properties
 let quoteNumber = null;
@@ -318,7 +349,23 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
-        const commercialBOPQuestions = applicationDocData.questions.filter(q => q.insurerQuestionAttributes.commercialBOP);
+        // get proper attributes for each location question
+        for (const claim of applicationDocData.claims) {
+            const claimQuestionIds = claim.questions.map(question => question.questionId);
+            const insurerClaimQuestions = await this.getInsurerQuestionsByTalageQuestionId('claim', claimQuestionIds, ['BOP']);
+            for (const question of claim.questions) {
+                const insurerClaimQuestion = insurerClaimQuestions.find(icq => icq.talageQuestionId === question.questionId);
+
+                if (insurerClaimQuestion) {
+                    question.insurerQuestionAttributes = insurerClaimQuestion.attributes;
+                    question.insurerQuestionIdentifier = insurerClaimQuestion.identifier;
+                }
+            }
+        }
+
+        const commercialBOPQuestions = applicationDocData.questions
+            .filter(q => q.insurerQuestionAttributes.commercialBOP)
+            .filter(q => !bopLineBusinessCoverageQuestions.includes(q.insurerQuestionIdentifier));
 
         // if Liquor Liability Coverage is selected and any location has Annual Liquor Receipts value === 0, auto decline application
         const liqurCoverageQuestion = commercialBOPQuestions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_byob');
@@ -544,18 +591,39 @@ module.exports = class LibertySBOP extends Integration {
         // Loss structure not provided in example
 
         // if there are no claims, this won't execute
-        applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
-            const Loss = Policy.ele('Loss');
-            Loss.ele('LOBCd', claim.policyType);
-            const TotalPaidAmt = Loss.ele('TotalPaidAmt');
-            TotalPaidAmt.ele('Amt', claim.amountPaid);
-            const ReservedAmt = Loss.ele('ReservedAmt');
-            ReservedAmt.ele('Amt', claim.amountReserved !== null ? claim.amountReserved : 0);
-            Loss.ele('ClaimStatusCd', claim.open ? "Open" : "Closed");
-            Loss.ele('LossDt', moment(claim.eventDate).format('YYYY-MM-DD'));
-            Loss.ele('LossDesc', "No Description Provided.");
-            Loss.ele('LossCauseCd', 'BOTHR'); // defaulting value, we do not collect this information
-        });
+        if (applicationDocData.claims.find(claim => claim.policyType === "BOP")) {
+            Policy.ele('AnyLossesAccidentsConvictionsInd', 1);
+
+            applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
+                // this should always be answered, but default to OTHER if it is not, or an option somehow doesn't match our matrix
+                const lossTypeQuestion = claim.questions.find(question => question.insurerQuestionIdentifier === 'claim_lossType');
+                let lossType = 'BOTHR';
+                if (lossTypeQuestion) {
+                    lossType = lossCauseCodeMatrix[lossTypeQuestion.answerValue.trim()];
+                    if (!lossType) {
+                        lossType = 'BOTHR';
+                    }
+                }
+                
+                const reservedAmt = claim.amountReserved !== null ? claim.amountReserved : 0;
+
+                const Loss = Policy.ele('Loss');
+                Loss.ele('LOBCd', claim.policyType);
+                const TotalPaidAmt = Loss.ele('TotalPaidAmt');
+                TotalPaidAmt.ele('Amt', claim.amountPaid);
+                const ReservedAmt = Loss.ele('ReservedAmt');
+                ReservedAmt.ele('Amt', reservedAmt);
+                const ProbableExpenseIncurredAmt = Loss.ele('ProbableExpenseIncurredAmt');
+                ProbableExpenseIncurredAmt.ele('Amt', claim.amountPaid + reservedAmt);
+                Loss.ele('ClaimStatusCd', claim.open ? "Open" : "Closed");
+                Loss.ele('LossDt', moment(claim.eventDate).format('YYYY-MM-DD'));
+                Loss.ele('LossDesc', claim.description);
+                Loss.ele('LossCauseCd', lossType);
+            });
+        }
+        else {
+            Policy.ele('AnyLossesAccidentsConvictionsInd', 0);
+        }
 
         //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
         //                 <QuestionAnswer>
@@ -755,6 +823,34 @@ module.exports = class LibertySBOP extends Integration {
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
 
+        /////////////////// DATA SECURITY COVERAGE ///////////////////
+        const dataSecurityQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'coverage_dsc');
+        if (dataSecurityQuestion && dataSecurityQuestion.answerValue.toLowerCase() === 'yes') {
+            const Coverage = PropertyInfo.ele('Coverage');
+            Coverage.ele('CoverageCd', 'DATAC');
+
+            // deductible question
+            const deductibleQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'coverage_dsc_deductible');
+            if (deductibleQuestion) {
+                const Deductible = Coverage.ele('Deductible');
+                const FormatCurrencyAmt = Deductible.ele('FormatCurrencyAmt');
+                FormatCurrencyAmt.ele('Amt', deductibleQuestion.answerValue);
+                Deductible.ele('DeductibleTypeCd', 'FL');
+            }
+
+            // limit question (only one of the below questions will ever be answered, never both)
+            const limitQuestion = applicationDocData.questions.find(question => 
+                question.insurerQuestionIdentifier === 'coverage_dsc_limit_include' ||
+                question.insurerQuestionIdentifier === 'coverage_dsc_limit_exclude'
+            );
+            if (limitQuestion) {
+                const Limit = Coverage.ele('Limit');
+                const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
+                FormatCurrencyAmt.ele('Amt', limitQuestion.answerValue);
+                Limit.ele('LimitAppliesToCd', 'Coverage');
+            }
+        }
+
         // deductible
         const DeductibleCoverage = PropertyInfo.ele('Coverage');
         DeductibleCoverage.ele('CoverageCd', 'PropDed');
@@ -767,6 +863,8 @@ module.exports = class LibertySBOP extends Integration {
         applicationDocData.locations.forEach((location, i) => {
             // Business Personal Property Limit
             if (location.businessPersonalPropertyLimit) {
+                // some coverages rely on this to be included. This is set before those coverages are injected into the response
+                BPPCoverageIncluded = true;
                 const BPPCommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
                 BPPCommlPropertyInfo.ele('ClassCd', this.industry_code.code);
 
@@ -864,6 +962,99 @@ module.exports = class LibertySBOP extends Integration {
             // FTOption.ele('OptionCd', 'FullTime');
             // FTOption.ele('OptionTypeCd', 'Num1');
             // FTOption.ele('OptionValue', location.full_time_employees);
+
+            // Printers Errors and Omissions Liability
+            const printersQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_peo');
+            if (printersQuestion && printersQuestion.answerValue.toLowerCase() === 'yes') {
+                const CommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
+                CommlCoverage.ele('CoverageCd', 'PEROM');
+
+                const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_peo_annualReceipts');
+                if (annualReceiptsQuestion) {
+                    const receiptValue = parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10);
+
+                    LiabilityInfo.ele('CommlCoverage').ele('CoverageCd', 'PEROM');
+                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                    const Option = Coverage.ele('Option');
+                    Option.ele('OptionaTypeCd', 'NumV1');
+                    Option.ele('OptionCd', 'GrReceipts');
+                    Option.ele('OptionValue', receiptValue > 0 ? receiptValue : 0);
+                }
+            }
+
+            // barber/beautician/manicurits liability (pairs of ft/pt must exist if one exists)
+            const bbamQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam');
+            if (bbamQuestion && bbamQuestion.answerValue.toLowerCase() === 'yes') {
+                // barber
+                const ftBarberQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numFTBarber');
+                const ptBarberQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numPTBarber');
+                if (ftBarberQuestion && ptBarberQuestion) {
+                    let ftCount = parseInt(ftBarberQuestion.answerValue, 10);
+                    ftCount = isNaN(ftCount) || ftCount < 0 ? 0 : ftCount;
+                    let ptCount = parseInt(ptBarberQuestion.answerValue, 10);
+                    ptCount = isNaN(ptCount) || ptCount < 0 ? 0 : ptCount;
+
+                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                    Coverage.ele('CoverageCd', 'BAPRL');
+                    
+                    const ftOption = Coverage.ele('Option');
+                    ftOption.ele('OptionCd', 'FullTime');
+                    ftOption.ele('OptionTypeCd', 'Num1');
+                    ftOption.ele('OptionValue', ftCount);
+
+                    const ptOption = Coverage.ele('Option');
+                    ptOption.ele('OptionCd', 'PartTime');
+                    ptOption.ele('OptionTypeCd', 'Num1');
+                    ptOption.ele('OptionValue', ptCount);
+                }
+                else {
+                    log.warn(`${logPrefix}Cannot include Barber Liability Coverage as one or both employee count questions weren't provided.`);
+                }
+
+                // beautician
+                const ftBeauticianQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numFTBeaut');
+                const ptBBeauticianQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numPTBeaut');
+                if (ftBeauticianQuestion && ptBBeauticianQuestion) {
+                    let ftCount = parseInt(ftBeauticianQuestion.answerValue, 10);
+                    ftCount = isNaN(ftCount) || ftCount < 0 ? 0 : ftCount;
+                    let ptCount = parseInt(ptBBeauticianQuestion.answerValue, 10);
+                    ptCount = isNaN(ptCount) || ptCount < 0 ? 0 : ptCount;
+
+                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                    Coverage.ele('CoverageCd', 'BEPRL');
+                    
+                    const ftOption = Coverage.ele('Option');
+                    ftOption.ele('OptionCd', 'FullTime');
+                    ftOption.ele('OptionTypeCd', 'Num1');
+                    ftOption.ele('OptionValue', ftCount);
+
+                    const ptOption = Coverage.ele('Option');
+                    ptOption.ele('OptionCd', 'PartTime');
+                    ptOption.ele('OptionTypeCd', 'Num1');
+                    ptOption.ele('OptionValue', ptCount);
+                }
+                else {
+                    log.warn(`${logPrefix}Cannot include Beautician Liability Coverage as one or both employee count questions weren't provided.`);
+                }
+
+                // manicurist
+                const manicuristQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numManic');
+                if (manicuristQuestion) {
+                    let count = parseInt(manicuristQuestion.answerValue, 10);
+                    count = isNaN(count) || count < 0 ? 0 : count;
+
+                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                    Coverage.ele('CoverageCd', 'MNPL');
+
+                    const Option = Coverage.ele('Coverage');
+                    Option.ele('OptionCd', 'EMPL');
+                    Option.ele('OptionTypeCd', 'Num1');
+                    Option.ele('OptionValue', count);
+                }
+                else {
+                    log.warn(`${logPrefix}Cannot include Manicurist Liability Coverage employee count question wasn't provided.`);
+                }
+            }
         });
 
         //                 <!-- Does the applicant have any subsidiaries or is the applicant a subsidiary of another entity? -->
@@ -1543,6 +1734,28 @@ module.exports = class LibertySBOP extends Integration {
         const yearBussinessStarted = moment(applicationDocData.founded).year();
 
         switch (questionIdentifier) {
+            // no special cases for these, return true
+            case "UWQ1":
+            case "GENRL53":
+            case "UWQ95":
+            case "UWQ300":
+            case "GLB3":
+            case "BOP38":
+            case "LMBOP_Interest":
+            case "LMBOP_Construction":
+            case "LMBOP_RoofConstruction":
+            case "LMBOP_RoofType":
+            case "LMBOP_YearBuilt":
+            case "LMBOP_NumStories":
+            case "LMBOP_AlarmType":
+            case "BOP17_AreaOccupiedByOthers":
+            case "BOP17_AreaUnoccupied":
+            case "LMBOP_YearRoofReplaced":
+            case "coverage_liqur_receipts":
+            case "UWQ67":
+            case "BOP401":
+            case "LMBOP75":
+                return true;
             case "UWQ5332":
             case "UWQ5308":
             case "UWQ5312":
@@ -1733,12 +1946,17 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     setCoverageElements(element) {
-        // Hired and/or Non-Owned Auto Coverage
+        // Hired and/or Non-Owned Auto Coverage, Total Annual Sales must be less than $1M and total employess less than 10
         const hnoAutoQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_hnoAuto");
-        if (hnoAutoQuestion && hnoAutoQuestion.answerValue.toLowerCase() === "yes") {
+        if (hnoAutoQuestion && hnoAutoQuestion.answerValue.toLowerCase() === "yes" && applicationDocData.grossSalesAmt < 1000000 && this.get_total_employees() < 10) {
             const Coverage = element.ele('Coverage');
             Coverage.ele('CoverageCd', 'HAL');
             Coverage.ele('CoverageCd', 'NOL');
+
+            const damageQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_hnoAuto_damage");
+            if (damageQuestion && damageQuestion.answerValue.toLowerCase() === 'yes') {
+                Coverage.ele('CoverageCd', 'AHIPD');
+            }
         }
 
         // Employee Practices Liability Coverage
@@ -1750,21 +1968,50 @@ module.exports = class LibertySBOP extends Integration {
             CoverageSupplement.ele('OptionTypeCd', 'Num1');
             CoverageSupplement.ele('OptionCd', 'EMPL');
             CoverageSupplement.ele('Coverage').ele('Option').ele('OptionValue', this.get_total_employees());
+
+            const retroDateQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_epl_retroDate");
+            const curDate = moment().format('YYYY-MM-DD');
+            if (retroDateQuestion) {
+                let retroDate = null;
+                if (moment(retroDateQuestion.answerValue).isValid()) {
+                    retroDate = moment(retroDateQuestion.answerValue).format('YYYY-MM-DD');
+                }
+                else {
+                    retroDate = curDate;
+                }
+
+                CoverageSupplement.ele('CurrentRetroactiveDt', retroDate);
+            }
+            else {
+                CoverageSupplement.ele('CurrentRetroactiveDt', curDate);
+            }
+
+            const deductibleQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_epl_deductible"); 
+            if (deductibleQuestion) {
+                const Deductible = Coverage.ele('Deductible');
+                Deductible.ele('FormatCurrency').ele('Amt', deductibleQuestion.answerValue);
+                Deductible.ele('DeductibleTypeCd', 'FL');
+                Deductible.ele('DeductibleAppliesToCd', 'CL');
+            }
         }
 
-        // Optometrists Professional Liability Coverage (88619) (UWQ5505, UWQ5507, UWQ5509)
+        // Optometrists Professional Liability Coverage
         const optometristQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_opl");
         if (optometristQuestion && optometristQuestion.answerValue.toLowerCase() === "yes") {
             const numProfessionalsQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "coverage_opl_numProf");
-
             if (numProfessionalsQuestion) {
-                const Coverage = element.ele('Coverage');
-                Coverage.ele('CoverageCd', 'OPTPL');
+                let count = parseInt(numProfessionalsQuestion.answerValue, 10);
+                count = isNaN(count) || count < 0 ? 0 : count;
 
-                const Option = Coverage.ele('Option');
-                Option.ele('OptionCd', 'PROF');
-                Option.ele('OptionTypeCd', 'Num1');
-                Option.ele('OptionValue', parseInt(numProfessionalsQuestion.answerValue));
+                // must have at least 1 employee
+                if (count > 0) {
+                    const Coverage = element.ele('Coverage');
+                    Coverage.ele('CoverageCd', 'OPTPL');
+                    const Option = Coverage.ele('Option');
+                    Option.ele('OptionCd', 'PROF');
+                    Option.ele('OptionTypeCd', 'Num1');
+                    Option.ele('OptionValue', count);
+                }
             }
             else {
                 log.warn(`${logPrefix}Optometrists Professional Liability Coverage missing required question answer. Not adding coverage.`);
@@ -1777,6 +2024,96 @@ module.exports = class LibertySBOP extends Integration {
             const Coverage = element.ele('Coverage');
             Coverage.ele('CoverageCd', 'LIQUR');
         }
+
+        // Printers Work Correction
+        const printerQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'coverage_pwc');
+        if (printerQuestion && printerQuestion.answerValue.toLowerCase() === 'yes') {
+            const limitQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'coverage_pwc_limit');
+            if (limitQuestion) {
+                const Coverage = element.ele('Coverage');
+                Coverage.ele('CoverageCd', 'PEROM');
+                const Limit = Coverage.ele('Limit');
+                const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
+                FormatCurrencyAmt.ele('Amt', limitQuestion.answerValue);
+                Limit.ele('LimitAppliesToCd', 'Coverage');
+            }
+            else {
+                log.warn(`${logPrefix}Printers Work Correction Liability Coverage missing required question. Not adding coverage.`);
+            }
+        }
+
+        // Veterinarian Professional Liability Coverage (BPP must be included, there must be at LEAST 1 vet)
+        const vetQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_vet');
+        if (vetQuestion && vetQuestion.answerValue.toLowerCase() === 'yes' && BPPCoverageIncluded) {
+            let numEmp = 0;
+            const numEmpQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_vet_numEmp');
+            if (numEmpQuestion) {
+                numEmp = parseInt(numEmpQuestion.answerValue, 10);
+                numEmp = isNaN(numEmp) || numEmp < 0 ? 0 : numEmp;
+            }
+
+            let numVet = 0;
+            const numVetQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numVet');
+            if (numVetQuestion) {
+                numVet = parseInt(numVetQuestion.answerValue, 10);
+                numVet = isNaN(numVet) || numVet < 0 ? 0 : numVet;
+            }
+
+            if (numVet > 0) {
+                const Coverage = element.ele('Coverage');
+                Coverage.ele('CoverageCd', 'VETPL');
+
+                const empOption = Coverage.ele('Option');
+                empOption.ele('OptionCd', 'NPROF');
+                empOption.ele('OptionTypeCd', 'Num1');
+                empOption.ele('OptionValue', numEmp);
+
+                const vetOption = Coverage.ele('Option');
+                vetOption.ele('OptionCd', 'PROF');
+                vetOption.ele('OptionTypeCd', 'Num1');
+                vetOption.ele('OptionValue', numVet);
+            }
+        }
+
+        // Hearing Aid Professional Liability Coverage (BPP must be included)
+        const hearingQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_ha');
+        if (hearingQuestion && hearingQuestion.answerValue.toLowerCase() === 'yes' && BPPCoverageIncluded) {
+            const numProfQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_ha_numProf');
+            if (numProfQuestion) {
+                let count = parseInt(numProfQuestion.answerValue, 10);
+                count = isNaN(count) || count < 0 ? 0 : count;
+
+                // must have at least 1 employee
+                if (count > 0) {                
+                    const Coverage = element.ele('Coverage');
+                    Coverage.ele('CoverageCd', 'HEAR');
+                    const Option = Coverage.ele('Option');
+                    Option.ele('OptionCd', 'PROF');
+                    Option.ele('OptionTypeCd', 'Num1');
+                    Option.ele('OptionValue', count);
+                }
+            }
+        }
+
+        // Optical Professional Liability Coverage (BPP must be included)
+        const opticalQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_opti');
+        if (opticalQuestion && opticalQuestion.answerValue.toLowerCase() === 'yes' && BPPCoverageIncluded) {
+            const numProfQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_opti_numProf');
+            if (numProfQuestion) {
+                let count = parseInt(numProfQuestion.answerValue, 10);
+                count = isNaN(count) || count < 0 ? 0 : count;
+                
+                // must have at least 1 employee
+                if (count > 0) {
+                    const Coverage = element.ele('Coverage');
+                    Coverage.ele('CoverageCd', 'OPIPL');
+                    const Option = Coverage.ele('Option');
+                    Option.ele('OptionCd', 'PROF');
+                    Option.ele('OptionTypeCd', 'Num1');
+                    Option.ele('OptionValue', count);
+                }
+            }
+        }   
     }
 
     setCommlCoverageElements(element) {

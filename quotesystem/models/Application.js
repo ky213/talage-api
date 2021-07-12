@@ -222,7 +222,9 @@ module.exports = class Application {
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
             for(let contact of this.business.contacts){
-                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+                if(typeof contact.phone === 'string'){
+                    contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+                }
             }
         }
 
