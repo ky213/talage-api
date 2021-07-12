@@ -141,8 +141,8 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
             log.info(`Returning ${codes.length} Activity Codes` + __location);
             if(addCode2Redis){
                 try{
-                    //const ttlSeconds = 3600;
-                    const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(codes))
+                    const ttlSeconds = 86400;
+                    const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(codes),ttlSeconds)
                     if(redisResponse && redisResponse.saved){
                         log.debug(`Saved ${redisKey} to Redis ` + __location);
                     }
