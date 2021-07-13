@@ -21,7 +21,7 @@ async function findAll(req, res, next) {
     const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
 
     const rows = await agencyPortalUserGroupBO.getList(req.query).catch(function(err) {
-        log.error("admin insurercontact error: " + err + __location);
+        log.error("admin agencyPortalUserGroupBO error: " + err + __location);
         error = err;
     })
     if (error) {
