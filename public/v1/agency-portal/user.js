@@ -56,7 +56,7 @@ async function validate(user) {
         log.error('agencyPortalUser error ' + err + __location);
         throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
-    if (doesDupExist) {
+    if (doesDupExist && doesDupExist.active === true) {
         throw new Error('This email address is already in use for another user account. Choose a different one.');
     }
 
@@ -136,6 +136,7 @@ async function createUser(req, res, next) {
     });
     if(oldDoc){
         newUserJSON.active = true;
+        newUserJSON.id = oldDoc.agencyPortalUserId;
     }
 
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
