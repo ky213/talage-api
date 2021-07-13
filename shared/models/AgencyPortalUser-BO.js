@@ -241,9 +241,7 @@ module.exports = class AgencyPortalUserBO{
     async getMongoDocbyUserId(agencyPortalUserId, returnMongooseModel = false, skipActiveCheck = false) {
         return new Promise(async(resolve, reject) => {
             if (agencyPortalUserId) {
-                const query = {
-                    "agencyPortalUserId": agencyPortalUserId
-                };
+                const query = {"agencyPortalUserId": agencyPortalUserId};
                 if(skipActiveCheck === false){
                     query.active = true;
                 }
