@@ -28,6 +28,7 @@ const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const ApplicationMongooseModel = require('mongoose').model('Application');
 const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
 
@@ -1567,6 +1568,13 @@ module.exports = class ApplicationModel {
             else {
                 queryOptions.limit = queryLimit;
             }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+
             if (queryJSON.count) {
                 if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
@@ -2128,8 +2136,8 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], returnHidden = false){
-        log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList} `)
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], policyTypeRequested = null, returnHidden = false){
+        log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList}, policyType ${policyTypeRequested}, returnHidden ${returnHidden}  `)
         let passedAgencyCheck = false;
         let applicationDocDB = null;
         let questionsObject = {};
@@ -2189,9 +2197,24 @@ module.exports = class ApplicationModel {
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
             for(let i = 0; i < applicationDocDB.policies.length; i++){
+                if(!policyTypeRequested){
+                    policyTypeArray.push({
+                        type: applicationDocDB.policies[i].policyType,
+                        effectiveDate: applicationDocDB.policies[i].effectiveDate
+                    });
+                }
+                else if(policyTypeRequested === applicationDocDB.policies[i].policyType){
+                    policyTypeArray.push({
+                        type: applicationDocDB.policies[i].policyType,
+                        effectiveDate: applicationDocDB.policies[i].effectiveDate
+                    });
+                }
+            }
+            //not policy hit
+            if(policyTypeRequested && policyTypeArray.length === 0){
                 policyTypeArray.push({
-                    type: applicationDocDB.policies[i].policyType,
-                    effectiveDate: applicationDocDB.policies[i].effectiveDate
+                    type: policyTypeRequested,
+                    effectiveDate: moment()
                 });
             }
         }
@@ -2199,7 +2222,6 @@ module.exports = class ApplicationModel {
             log.error(`Data problem prevented getting Application Policy Types for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Policy Types")
         }
-
         // get activitycodes.
         // activity codes are not required for For most GL or BOP. only WC.
         // Future Enhance is to take insurers into account. For Example: Acuity mixes GL and WC concepts.
@@ -2294,6 +2316,11 @@ module.exports = class ApplicationModel {
             if (applicationDocDB.mailingState) {
                 stateList.push(applicationDocDB.mailingState)
             }
+        }
+        else if(questionSubjectArea === "claim"){
+            //AP might not have location information yet.
+            // at of 2021-07-09 all claim questions are universal
+            // do nothing.
         }
         else {
             log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)

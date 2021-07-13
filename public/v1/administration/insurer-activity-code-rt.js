@@ -98,7 +98,7 @@ async function add(req, res, next) {
 
 //update
 async function update(req, res, next) {
-    log.debug("InsurerActivityCodeBO PUT:  " + JSON.stringify(req.body))
+    //log.debug("InsurerActivityCodeBO PUT:  " + JSON.stringify(req.body))
     if (!req.params.id) {
         return next(new Error("no id"));
     }
@@ -123,7 +123,6 @@ async function update(req, res, next) {
     if (error) {
         return next(error);
     }
-
     res.send(200, newJSON);
     return next();
 }

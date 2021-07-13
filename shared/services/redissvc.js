@@ -1,15 +1,16 @@
 /* eslint-disable require-jsdoc */
+
+// eslint-disable-next-line no-unused-vars
 const redis = require("redis");
 const asyncRedis = require("async-redis");
 const utility = global.requireShared('./helpers/utility.js');
 
 let redisClient = null;
-const redisClientAsync = null;
 let redisClientReadyOnly = null;
-const redisClientReadyOnlyAsync = null;
+
 let redisHost = 'localhost';
 let redisPort = 6379;
-
+let usingOneConnect = false;
 async function connect() {
 
     if(global.settings.USE_REDIS === "NO"){
@@ -86,6 +87,7 @@ async function connectReadOnly() {
     }
     else if(redisClient){
         redisClientReadyOnly = redisClient
+        usingOneConnect = true;
     }
 
     return true;
@@ -114,15 +116,33 @@ async function getKeyValue(key) {
                 break;
             }
             catch(err){
-                log.error(`Redis getKeyValue   error: ` + err + __location);
+                log.error(`Redis getKeyValue redisClientReadyOnly error: ` + err + __location);
                 if(i > numOftries - 2){
                     throw err;
                 }
             }
+            //no reply (failure) try read/write connection.
+            //may be in middle of node switch (patch or failover)
+            // one of the connections should alway be up.
+            if(usingOneConnect === false){
+                try{
+                    reply = await redisClient.get(key);
+                    break;
+                }
+                catch(err){
+                    log.error(`Redis getKeyValue redisClient error: ` + err + __location);
+                }
+            }
             //pause 50 milliseconds and reconnect
             //might be need a new readonly node url.
+            log.debug(`Waiting to reconnect to Redis getKeyValue`);
             await utility.Sleep(50);
-            await connectReadOnly();
+            if(usingOneConnect === false){
+                await connectReadOnly();
+            }
+            else {
+                await connect();
+            }
         }
         var response = {found: false};
         if(reply){

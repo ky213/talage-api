@@ -12,6 +12,7 @@ const agencyportalAuth = require('./public/v1/agency-portal/helpers/auth-agencyp
 const moment = require('moment');
 const util = require('util');
 const socketIO = require('socket.io');
+const CookieParser = require('restify-cookies');
 
 /**
  * JWT handlers
@@ -156,6 +157,9 @@ async function getUserTokenDataFromJWT(req){
             if(redisResponse && redisResponse.found && redisResponse.value){
                 userTokenData = JSON.parse(redisResponse.value)
             }
+            else {
+                log.warn(`Did not find JWT in Redis ` + __location);
+            }
         }
         catch(err){
             log.error("Checking validateAppApiJWT JWT " + err + __location);
@@ -191,7 +195,7 @@ function validateAppApiJWT(options) {
             return options.handler(req, res, next);
         }
         else {
-            return options.handler(req, res, next);
+            return next(new RestifyError.ForbiddenError("access denied"));
         }
     };
 }
@@ -222,7 +226,7 @@ function validateQuoteAppV2JWT(options) {
             return options.handler(req, res, next);
         }
         else {
-            return options.handler(req, res, next);
+            return next(new RestifyError.ForbiddenError("access denied"));
         }
     };
 }
@@ -567,12 +571,15 @@ module.exports = {
         if (useCORS) {
             // Note: This should be set to something other than '*' -SF
             const cors = restifyCORS({
-                allowHeaders: ['Authorization'],
+                allowHeaders: ['Authorization', 'access-control-allow-origin'],
                 origins: ['*']
             });
             server.pre(cors.preflight);
             server.use(cors.actual);
         }
+
+        // Cookie support
+        server.use(CookieParser.parse);
 
         // Query string and body parsing
         server.use(restify.plugins.queryParser());

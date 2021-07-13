@@ -222,7 +222,9 @@ module.exports = class Application {
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
             for(let contact of this.business.contacts){
-                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+                if(typeof contact.phone === 'string'){
+                    contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+                }
             }
         }
 
@@ -278,8 +280,7 @@ module.exports = class Application {
                     }
                 }
                 catch (e) {
-                    log.error(`Translation Error: DB SELECT activity codes error: ${e}. ` + __location);
-                    //TODO Consistent error types
+                    log.error(`Translation Error: DB getById ${activityCode.id} activity codes for appId ${this.id} error: ${e}. ` + __location);
                     throw e;
                 }
             }

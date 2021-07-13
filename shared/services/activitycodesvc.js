@@ -1,38 +1,46 @@
+/* eslint-disable guard-for-in */
 /* eslint-disable require-jsdoc */
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //const utility = global.requireShared('./helpers/utility.js');
 const moment = require('moment');
 
+
+//Reference by InsurerActivityCode-BO, do not reference InsurerActivityCode-BO outside of fuction.
+
+
 //, codeGroupList = []
-async function GetActivityCodes(territory,industryCodeId){
-    //  const addCode2Redis = false;
+async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = false){
+    let addCode2Redis = false;
     let activityIdList = [];
     const redisKey = "activity-code-industrycode-" + territory + "-" + industryCodeId.toString();
-    // if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YESNO"){
-    //     const start = moment();
-    //     let redisCacheCodes = null;
-    //     const resp = await global.redisSvc.getKeyValue(redisKey);
-    //     if(resp.found){
-    //         try{
-    //             redisCacheCodes = JSON.parse(resp.value);
-    //         }
-    //         catch(err){
-    //             log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
-    //         }
-    //         const endRedis = moment();
-    //         var diff = endRedis.diff(start, 'milliseconds', true);
-    //         log.info(`Redis Activity Code Cache request ${redisKey} duration: ${diff} milliseconds`);
-    //         if(redisCacheCodes){
-    //             return redisCacheCodes;
-    //         }
-    //     }
-    //     else {
-    //       addCode2Redis = true;
-    //     }
-    //     //TODO filters for insuers, effective date
+    if(global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YES" && forceCacheUpdate === false){
+        const start = moment();
+        let redisCacheCodes = null;
+        const resp = await global.redisSvc.getKeyValue(redisKey);
+        if(resp.found){
+            try{
+                redisCacheCodes = JSON.parse(resp.value);
+            }
+            catch(err){
+                log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+            }
+            const endRedis = moment();
+            var diffRedis = endRedis.diff(start, 'milliseconds', true);
+            log.info(`Redis Activity Code Cache request ${redisKey} duration: ${diffRedis} milliseconds`);
+            if(redisCacheCodes){
+                return redisCacheCodes;
+            }
+        }
+        else {
+            addCode2Redis = true;
+        }
+        //TODO filters for insuers, effective date
 
-    // }
+    }
+    if(forceCacheUpdate && global.settings.USE_REDIS_ACTIVITY_CODE_CACHE === "YES"){
+        addCode2Redis = true;
+    }
 
     // eslint-disable-next-line prefer-const
     //generate from activityId list from mongo or mysal
@@ -131,19 +139,19 @@ async function GetActivityCodes(territory,industryCodeId){
                 }
             });
             log.info(`Returning ${codes.length} Activity Codes` + __location);
-            // if(addCode2Redis){
-            //     try{
-            //         //const ttlSeconds = 3600;
-            //         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(codes))
-            //         if(redisResponse && redisResponse.saved){
-            //             log.debug(`Saved ${redisKey} to Redis ` + __location);
-            //         }
-            //     }
-            //     catch(err){
-            //         log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
-            //     }
+            if(addCode2Redis){
+                try{
+                    const ttlSeconds = 86400;
+                    const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(codes),ttlSeconds)
+                    if(redisResponse && redisResponse.saved){
+                        log.debug(`Saved ${redisKey} to Redis ` + __location);
+                    }
+                }
+                catch(err){
+                    log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+                }
 
-            // }
+            }
             return codes;
         }
         else {
@@ -154,5 +162,94 @@ async function GetActivityCodes(territory,industryCodeId){
         return [];
     }
 }
+async function updateActivityCodeCacheByIndustryCode(industryCodeId, territoryList = []){
+    log.info(`Update IndustryCode Redis cache for ${industryCodeId}` + __location)
+    //get territory list
+    if(territoryList.length === 0){
+        let error = null;
+        const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+        const territoryBO = new TerritoryBO();
+        territoryList = await territoryBO.getAbbrNameList().catch(function(err) {
+            log.error("updateActivityCodeCacheByIndustryCode: territory get getAbbrNameList " + err + __location);
+            error = err;
+        });
+        if(error){
+            return;
+        }
+    }
+    const forceCacheUpdate = true;
+    for(const territory of territoryList){
+        await GetActivityCodes(territory.abbr,industryCodeId, forceCacheUpdate)
+    }
 
-module.exports = {GetActivityCodes: GetActivityCodes}
+
+}
+
+async function updateActivityCodeCacheByActivityCode(activityCodeId){
+    log.info(`Update ActivityCode Redis cache for ${activityCodeId}` + __location)
+    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    let IndustryCodeList = null;
+    try{
+        const icQuery = {
+            activityCodeIdList: activityCodeId,
+            active: true
+        }
+        IndustryCodeList = await IndustryCodeModel.find(icQuery).lean();
+    }
+    catch(err){
+        log.warn(`updateActivityCodeCacheByActivityCode: ${activityCodeId} Error ${err} ` + __location);
+    }
+    if(IndustryCodeList){
+        for(const ic of IndustryCodeList){
+            await updateActivityCodeCacheByIndustryCode(ic.industryCodeId);
+        }
+    }
+    else {
+        log.debug(`No industry codes for ${activityCodeId}` + __location)
+    }
+
+
+}
+
+async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeList, territoryList){
+    log.info(`Update ActivityCode Redis cache for ${activityCodeList} & ${territoryList} ` + __location)
+    if(!activityCodeList && activityCodeList.length === 0){
+        return;
+    }
+    if(!territoryList && territoryList.length === 0){
+        return;
+    }
+    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    let IndustryCodeList = null;
+    try{
+        const icQuery = {
+            activityCodeIdList: {$in: activityCodeList},
+            active: true
+        }
+        IndustryCodeList = await IndustryCodeModel.find(icQuery).lean();
+    }
+    catch(err){
+        log.warn(`updateActivityCodeCacheByActivityCode: ${activityCodeList} Error ${err} ` + __location);
+    }
+    const forceCacheUpdate = true;
+    if(IndustryCodeList){
+        for(const ic of IndustryCodeList){
+            for (const abbr of territoryList){
+                await GetActivityCodes(abbr,ic.industryCodeId, forceCacheUpdate)
+            }
+        }
+    }
+    else {
+        log.debug(`No industry codes for ${activityCodeList}` + __location)
+    }
+
+
+}
+
+
+module.exports = {
+    GetActivityCodes: GetActivityCodes,
+    updateActivityCodeCacheByIndustryCode: updateActivityCodeCacheByIndustryCode,
+    updateActivityCodeCacheByActivityCode: updateActivityCodeCacheByActivityCode,
+    updateActivityCodeCacheByActivityCodeTerritoryList: updateActivityCodeCacheByActivityCodeTerritoryList
+}

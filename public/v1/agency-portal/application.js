@@ -1070,7 +1070,7 @@ async function requote(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        log.warn(errMessage + __location);
         res.send(400, errMessage);
         return next();
     }
@@ -1144,9 +1144,18 @@ async function GetQuestions(req, res, next){
     }
 
     let getQuestionsResult = null;
+    
+    //Get policyType for claims here.
+    let policyType = null;
+    if (req.query.policyType) {
+        policyType = req.query.policyType;
+    }
+
+    const skipAgencyCheck = true;
+    const requestActivityCodeList = []
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList,skipAgencyCheck,requestActivityCodeList, policyType);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
