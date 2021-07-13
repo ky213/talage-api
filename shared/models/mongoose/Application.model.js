@@ -112,7 +112,9 @@ const ownerSchema = new Schema({
     lname: {type: String, required: true},
     ownership: {type: Number, required: false},
     officerTitle: {type: String},
-    include: {type: Boolean, required: false}
+    include: {type: Boolean, required: false},
+    activityCodeId: {type: Number, required: false},
+    payroll: {type: Number, required: false}
 });
 
 const legalAcceptanceSchema = new Schema({
@@ -127,7 +129,7 @@ const claimSchema = new Schema({
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false},
-	description: {type: String, required: false},
+    description: {type: String, required: false},
     questions: [QuestionSchema]
 });
 
@@ -163,6 +165,16 @@ const professionalLiabilityPolicySchema = new Schema({
     yearsOfProfessionalExperience: {type: Number, required: false}
 });
 
+const WaiverSubrogationSchema = new Schema({
+    entityName: {type: String, required: true},
+    address: {type: String, required: false},
+    address2: {type: String, required: false},
+    city: {type: String, required: false},
+    state: {type: String, required: false},
+    zipcode: {type: String, required: false},
+    activityCodeId: {type: Number, required: false},
+    payroll: {type: Number, required: false}
+});
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
@@ -176,6 +188,7 @@ const PolicySchema = new Schema({
     coverageLapseNonPayment: {type: Boolean, default: false},
     blanketWaiver: {type: Boolean, default: false}, // WC
     waiverSubrogation: {type: Boolean, default: false},
+    waiverSubrogationList: [WaiverSubrogationSchema],
     currentInsuranceCarrier: {type: String, required: false},
     currentPremium: {type: Number, required: false},
     yearsWithCurrentInsurance: {type: Number, required: false},
