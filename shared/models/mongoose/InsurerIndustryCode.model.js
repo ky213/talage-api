@@ -36,6 +36,7 @@ const InsurerIndustryCodeSchema = new Schema({
     talageIndustryCodeIdList: [Number],
     insurerQuestionIdList: [String],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
+    ranking: {type: Number, required: false, default: 1},
     active: {type: Boolean, default: true}
 },opts)
 
