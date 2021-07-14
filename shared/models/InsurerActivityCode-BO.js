@@ -298,7 +298,7 @@ module.exports = class InsurerActivityCodeBO{
 
                     newinsurerActivityCodeJSON = mongoUtils.objCleanup(newinsurerActivityCode);
 
-                    if(newinsurerActivityCode.talageActivityCodeIdList && newinsurerActivityCode.talageActivityCodeIdList.length > 0){
+                    if(newinsurerActivityCode.talageActivityCodeIdList && newinsurerActivityCode.talageActivityCodeIdList.length > 0 && oldinsurerActivityCode.talageActivityCodeIdList){
                         if (newinsurerActivityCode.talageActivityCodeIdList.length !== oldinsurerActivityCode.talageActivityCodeIdList.length){
 
                             //const newACList = arrayOne.filter(({ value: id1 }) => !arrayTwo.some(({ value: id2 }) => id2 === id1));
@@ -322,7 +322,8 @@ module.exports = class InsurerActivityCodeBO{
                             }
 
                         }
-                        else if(newinsurerActivityCode.territoryList.length !== oldinsurerActivityCode.territoryList.length){
+                        else if(newinsurerActivityCode.territoryList && oldinsurerActivityCode.territoryList
+                            && newinsurerActivityCode.territoryList.length !== oldinsurerActivityCode.territoryList.length){
                             const newTerritoryList = newinsurerActivityCode.territoryList.filter(function(newTerritory) {
                                 return !oldinsurerActivityCode.territoryList.some(function(oldTerritory) {
                                     return newTerritory === oldTerritory;
