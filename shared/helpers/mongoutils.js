@@ -3,12 +3,18 @@
 const tracker = global.requireShared('./helpers/tracker.js');
 
 exports.objCleanup = function(dbObj) {
+    if(!dbObj){
+        return null;
+    }
     var dbJsonClean = internalObjCleanup(dbObj);
 
     return dbJsonClean;
 };
 
 exports.objListCleanup = function(mongoObjList, extraFields) {
+    if(!mongoObjList){
+        return [];
+    }
     //var objListJson = JSON.parse(JSON.stringify(mongoObjList.toJSON()));
     var newList = [];
     mongoObjList.forEach(function(item) {
