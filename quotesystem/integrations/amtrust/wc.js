@@ -679,6 +679,20 @@ module.exports = class AMTrustWC extends Integration {
             }
         }
 
+        // check eligibility of quote after answer submit before proceeding. If declined, send decline here
+        let eligibilityResponse = null;
+        try {
+            eligibilityResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/eligibility`);
+            quoteEligibility = this.getChildProperty(eligibilityResponse, "Data.Eligibility");
+
+            if (quoteEligibility === 'Decline') {
+                return this.client_declined(`The client has declined to offer you coverage at this time.`);
+            }
+        }
+        catch (e) {
+            log.error(`AMtrust WC (application ${this.app.id}): Unable to check quote eligibility after submitting question answers: ${e}.`);
+        }
+
         // Get the available officer information
         const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
         // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
