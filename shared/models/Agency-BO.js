@@ -398,7 +398,7 @@ module.exports = class AgencyBO {
                 queryOptions.sort.createdAt = -1;
 
             }
-            const queryLimit = 500;
+            const queryLimit = 1000;
             if (queryJSON.limit) {
                 var limitNum = parseInt(queryJSON.limit, 10);
                 delete queryJSON.limit
