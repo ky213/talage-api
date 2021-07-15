@@ -14,9 +14,9 @@ const Integration = require('../Integration.js');
 const moment_timezone = require('moment-timezone');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-
-// Read the template into memory at load
-const employersWCTemplate = require('jsrender').templates('./quotesystem/integrations/employers/wc.xmlt');
+const axios = require('axios');
+const fs = require('fs'); // zy debug remove
+const colors = require('colors'); // zy debug remove
 
 module.exports = class EmployersWC extends Integration {
 
@@ -29,20 +29,59 @@ module.exports = class EmployersWC extends Integration {
         this.requiresInsurerActivityClassCodes = true;
     }
 
+    /**
+     * Formats phone number string from applicationDocData into the format desired by Employers
+     *
+     * @param {*} phone - Phone number of the form found in applicationDocData
+     * @returns {string} - Phone number in the form: "###-###-####"
+     */
+    formatPhoneForEmployers(phone) {
+        const phoneDigits = phone.trim().replace(/\D/g, '');
+        if (phoneDigits.length !== 10) {
+            throw new Error(`Incorrect number of digits in phone number: ${phone}`);
+        }
+        const newPhone = [];
+        newPhone.push(phoneDigits.slice(0,3));
+        newPhone.push(phoneDigits.slice(3,6));
+        newPhone.push(phoneDigits.slice(6,10));
+        return newPhone.join('-');
+    }
+
+    formatZipCodeForEmployers(zipcode) {
+        const zipDigits = zipcode.trim().replace(/\D/g, '');
+        if (zipDigits.length !== 5 && zipDigits.length !== 9) {
+            throw new Error(`Incorrect number of digits in zip code: ${zipcode}`);
+        }
+        if (zipDigits.length === 5) {
+            return zipDigits;
+        }
+        else {
+            const newZip = [];
+            newZip.push(zipDigits.slice(0,5));
+            newZip.push(zipDigits.slice(5));
+            return newZip.join('-');
+        }
+
+    }
+
 	/**
 	 * Requests a quote from Employers and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     _insurer_quote() {
+        const appDoc = this.app.applicationDocData;
         // These are the statuses returned by the insurer and how they map to our Talage statuses
-        this.possible_api_responses.DECLINE = 'declined';
-        this.possible_api_responses.INPROGRESS = 'referred';
-        this.possible_api_responses.PENDING_REFER = 'referred_with_price';
-        this.possible_api_responses.QUICKDECLINE = 'declined';
+        this.possible_api_responses.DECLINED = 'declined';
+        this.possible_api_responses.IN_PROGRESS = 'referred';
+        this.possible_api_responses.PENDING_REFERRAL = 'referred_with_price';
         this.possible_api_responses.QUOTED = 'quoted';
-        this.possible_api_responses.REFER = 'referred';
-        this.possible_api_responses.RISKRESVDECLINE = 'declined';
+        this.possible_api_responses.REFERRED = 'referred';
+        // zy see Policy Status field description at https://eigservices.atlassian.net/wiki/spaces/DUG/pages/321257484/PolicyRq+PolicyRs
+        this.possible_api_responses.NOT_TAKEN = ''; // zy review
+        this.possible_api_responses.APPROVED = ''; // zy review
+        this.possible_api_responses.NON_RENEWED = ''; // zy review
+        this.possible_api_responses.BOUND = ''; // zy review
 
         // These are the limits supported by Employers
         const carrierLimits = ['100000/500000/100000',
@@ -60,57 +99,230 @@ module.exports = class EmployersWC extends Integration {
             'Sole Proprietorship': 'IN'
         };
 
+        // Define how owner titles are mapped for Employers
+        // Owner title codes from https://eigservices.atlassian.net/wiki/spaces/DUG/pages/1070663103/WorkCompIndividuals+Endorsement+Codes
+        const ownerTitleMatrix = {
+            'Chief Executive Officer': 'CE',
+            'Chief Financial Officer': 'CF',
+            'Chief Operating Officer': 'CO',
+            'Director': 'DI',
+            'Vice President': 'VP',
+            'Executive Vice President': 'EV',
+            'Executive Secy-VP': 'EY',
+            'Executive Secretary': 'ES',
+            'Treasurer': 'TR',
+            'Secy-Treas': 'ST',
+            'Secretary': 'SE',
+            'President': 'PR',
+            'Pres-VP-Secy-Treas': 'PA',
+            'Pres-VP-Secy': 'PC',
+            'Pres-VP': 'PV',
+            'Pres-Treas': 'PE',
+            'Pres-Secy-Treas': 'PS',
+            'Pres-Secy': 'PY',
+            'VP-Treas': 'VT',
+            'VP-Secy-Treas': 'VY',
+            'VP-Secy': 'VS'
+        };
+
         // Define a list of required questions
         const required_questions = [979];
 
         // Build the Promise
         return new Promise(async(fulfill) => {
+
+            // Log a warning message if there is no location state that matches the business primary state, as Employers will decline
+            if (!appDoc.locations.find(location => location.state === appDoc.primaryState)) {
+                log.warn(`Appid: ${this.app.id} No location matches primary state ${appDoc.primaryState}. This will likely result in an autodecline from Employers.`);
+            }
+
+            const requestBody = {
             // Employers has us define our own Request ID
-            this.request_id = this.generate_uuid();
+                "id": this.generate_uuid(),
+                "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
+                "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
+                "primaryRiskState": appDoc.primaryState,
+                "healthInsGroupId": "",
+                "yearsInBusiness": this.get_years_in_business(),
+                "yearsInIndustry": appDoc.yearsOfExp
+            };
 
-            // Fill in calculated fields
-            this.request_date = moment_timezone.tz('America/Los_Angeles').format('YYYY-MM-DD');
-            this.entity_code = entityMatrix[this.app.business.entity_type];
+            const primaryContact = appDoc.contacts.find(contact => contact.primary === true);
+            const additionalContacts = appDoc.contacts.filter(contact => JSON.stringify(contact) !== JSON.stringify(primaryContact));
 
-            // Prepare claims by year
-            if (this.policy.claims.length > 0) {
-                // Get the claims organized by year
-                this.claims_by_year = this.claims_to_policy_years();
+            try {
+                requestBody.applicantContact = {
+                    "name": `${primaryContact.firstName} ${primaryContact.lastName}`,
+                    "phoneNumber": this.formatPhoneForEmployers(primaryContact.phone),
+                    "email": primaryContact.email,
+                    "address": {
+                        "streetAddress1": appDoc.mailingAddress,
+                        "streetAddress2": appDoc.mailingAddress2,
+                        "city": appDoc.mailingCity,
+                        "state": appDoc.mailingState,
+                        "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
+                    },
+                    "additionalContacts": additionalContacts.map(contact => ({
+                            "name": `${contact.firstName} ${contact.lastName}`,
+                            "phoneNumber": this.formatPhoneForEmployers(contact.phone),
+                            "email": contact.email,
+                            "address": {
+                            "streetAddress1": "",
+                            "streetAddress2": "",
+                            "city": "",
+                            "state": "",
+                            "zipCode": ""
+                            },
+                            "roles": [
+                            ]
+                        }))
+                };
+            }
+            catch (err) {
+                log.error(`Employers WC: Appid: ${this.app.id} Problem creating quote request: ${err} ` + __location);
+                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} Problem creating quote request: ${err}`);
+                fulfill(this.return_result('autodeclined'));
+                return;
+            }
+
+            requestBody.billingContact = {
+                "name": `${primaryContact.firstName} ${primaryContact.lastName}`,
+                "phoneNumber": this.formatPhoneForEmployers(primaryContact.phone),
+                "email": primaryContact.email,
+                "address": {
+                    "streetAddress1": appDoc.mailingAddress,
+                    "streetAddress2": appDoc.mailingAddress2,
+                    "city": appDoc.mailingCity,
+                    "state": appDoc.mailingState,
+                    "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
+                }
+            };
+
+            requestBody.proposalContact = {
+                "name": `${primaryContact.firstName} ${primaryContact.lastName}`,
+                "phoneNumber": this.formatPhoneForEmployers(primaryContact.phone),
+                "email": primaryContact.email,
+                "address": {
+                    "streetAddress1": appDoc.mailingAddress,
+                    "streetAddress2": appDoc.mailingAddress2,
+                    "city": appDoc.mailingCity,
+                    "state": appDoc.mailingState,
+                    "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
+                }
+            };
+
+            requestBody.agency = {
+                "agencyCode": this.app.agencyLocation.insurers[this.insurer.id].agencyId,
+                "accountName": this.app.agencyLocation.agency
+              };
+
+            requestBody.agent = {
+                "customerNumber": this.app.agencyLocation.insurers[this.insurer.id].agencyId + "-" + this.app.agencyLocation.insurers[this.insurer.id].agentId,
+                "contactFirstname": this.app.agencyLocation.first_name,
+                "contactLastname": this.app.agencyLocation.last_name
+            };
+
+            const association = this.app.agencyLocation.business.association;
+            const associationMembershipId = this.app.agencyLocation.business.association_id;
+            if (association && association !== "None" && associationMembershipId) {
+                requestBody.association = {
+                    "associationCode": this.app.agencyLocation.business.association,
+                    "membershipId": this.app.agencyLocation.business.association_id
+                }
             }
 
             // Ensure this entity type is in the entity matrix above
-            if (!(this.app.business.entity_type in entityMatrix)) {
+            if (!(appDoc.entityType in entityMatrix)) {
                 log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
                 this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the selected entity type`);
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
 
+            requestBody.namedInsureds = [
+                {
+                  "name": appDoc.businessName.substring(0,60).replace('&', ''),
+                  "fein": appDoc.ein,
+                  "legalEntity": {"code": entityMatrix[appDoc.entityType]},
+                  "locations": appDoc.locations.map(location => ({
+                        "primary": true,
+                        "businessName": appDoc.businessName.substring(0,60).replace('&', ''),
+                        "taxPayerId": appDoc.ein,
+                        "unemploymentId": location.unemploymentId ? location.unemploymentId : 0,
+                        "bureauId": 0, // zy This doesn't seem to be necessary. Review
+                        "sourceBureau": "", // zy This doesn't seem to be necessary. Review
+                        "numberOfEmployees": location.full_time_employees + location.part_time_employees,
+                        "shift1EmployeesCount": location.full_time_employees + location.part_time_employees, // zy Should we break up employees by shift somehow?
+                        "shift2EmployeesCount": 0,
+                        "shift3EmployeesCount": 0,
+                        "address": {
+                            "streetAddress1": location.address.length > 300 ? location.address.substring(0,299) : location.address,
+                            "streetAddress2": location.address2,
+                            "city": location.city,
+                            "state": location.state,
+                            "zipCode": this.formatZipCodeForEmployers(location.zipcode)
+                        },
+                        "owners": appDoc.owners.map(owner => {
+                            const ownerObj = {
+                            "firstName": owner.fname,
+                            "lastName": owner.lname,
+                            "isIncluded": owner.include,
+                            "ownershipPercent": owner.ownership,
+                            "ownershipSalary": 0 // zy Dummy data for now. How to get ownershipSalary?
+                            };
+                            const ownerTitle = ownerTitleMatrix[owner.officerTitle];
+                            ownerObj.ownerTitle = {"code": ownerTitle ? ownerTitle : ""} // zy Is it okay to send blank ownerTitle if we cna't find owner in ownerTitleMatrix?
+                         }),
+                        "rateClasses": location.activityPayrollList.map(activityCode => ({
+                            "classCode": this.insurer_wc_codes[location.state + activityCode.activityCodeId], // zy This is activity code right?
+                            "classCodeDescription": this.app.business.locations.find(busLoc => location.address === busLoc.address &&
+                                       location.address2 === busLoc.address2 &&
+                                       location.state === busLoc.state).activity_codes.find(busLocActivityCode => busLocActivityCode.id === activityCode.activityCodeId).description, // zy HACK Looks like we don't hahve description in Locations[i].activityPayrollList[j] . I think we should fix that and use it here instead of app.business.locations
+                            "payrollAmount": activityCode.payroll
+                            }))
+                        }))
+                }
+            ];
+
             // Prepare limits
-            this.bestLimits = this.getBestLimits(carrierLimits);
-            if (!this.bestLimits) {
+            const bestLimits = this.getBestLimits(carrierLimits);
+            if (!bestLimits) {
                 log.warn(`Appid: ${this.app.id} autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
                 this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
 
-            // Check business locations Length
-            this.app.business.locations.forEach((location) => {
-                if(location.address.length > 300){
-                    location.address = location.address.substr(0, 299);
-                }
-            });
+            requestBody.wcelCoverageLimits = {
+                "claimLimit": bestLimits[0],
+                "employeeLimit": bestLimits[2],
+                "policyLimit": bestLimits[1]
+            };
 
-            // Log a warning message if there is no location territory that matches the business primary territory, as Employers will decline
-            // NOTE: Employers assumes the 'first' location with territory matching ControllingStateProvCd is the primary location in ACORD XML.
-            //       JSON requests require explicit primary property be set.
-            if (!this.app.business.locations.find(location => location.territory === this.app.business.primary_territory)) {
-                log.warn(`Appid: ${this.app.id} No location matches primary territory ${this.app.business.primary_territory}. This will likely result in an autodecline from Employers.`);
+            // Prepare claims by year
+            let claimsByYear = null;
+            if (this.policy.claims.length > 0) {
+                // Get the claims organized by year
+                claimsByYear = this.claims_to_policy_years();
+            }
+            requestBody.priorLosses = [];
+            if (claimsByYear && claimsByYear.length > 1) {
+                for (let i = 1; i <= 4; i++){ // Employers wants at most 4 years of prior losses
+                    const claimYear = claimsByYear[i];
+                    if (claimYear) {
+                        requestBody.priorLosses.push({
+                            "effectiveDate": claimYear.effective_date.format("YYYY-MM-DD"),
+                            "numberOfClaims": claimYear.count,
+                            "numberOfLostTimeClaims": 0,
+                            "amountPaidAndReserved": claimYear.amountPaid + claimYear.amountReserved,
+                            "annualPayroll": 0 // zy How do we get this?
+                        })
+                    }
+                }
             }
 
             // Prepare questions
-            this.validQuestions = [];
+            const validQuestions = [];
             for (const question_id in this.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
                     const question = this.questions[question_id];
@@ -152,184 +364,181 @@ module.exports = class EmployersWC extends Integration {
                     }
 
                     // Save this as an answered question
-                    this.validQuestions.push({
+                    validQuestions.push({
                         code: questionCode,
                         entry: question
                     });
                 }
             }
 
-            // ===================================================================================================
-            // Render the template into XML and remove any empty lines (artifacts of control blocks)
-            // ===================================================================================================
-            const xml = employersWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
+            requestBody.questions = validQuestions.map(question => ({
+                "questionCode": question.code,
+                "value": question.entry.get_answer_as_boolean() ? 'YES' : 'NO'
+            }))
 
-            // Determine which URL to use
-            let host = '';
+            requestBody.disclaimers = []; // zy Should I worry about disclaimers?
+            requestBody.stateMods = []; // zy Should I worry about stateMods. Sounds like EMOD. If provided, we also need to provide a bureau ID
+
+            console.log(`Writing out employers quote request JSON`.yellow); // zy debug remove
+            fs.writeFileSync('/Users/talageuser/Desktop/appDocData.json', JSON.stringify(appDoc, null, 4)); // zy debug remove
+            fs.writeFileSync('/Users/talageuser/Desktop/app.json', JSON.stringify(this.app, null, 4)); // zy debug remove
+            fs.writeFileSync('/Users/talageuser/Desktop/employersQuoteRequest.json', JSON.stringify(requestBody, null, 4)); // zy debug remove
+
+            //call API
+            let host = null;
             if (this.insurer.useSandbox) {
-                host = 'api-qa.employers.com';
+                host = 'https://api-qa.employers.com';
             }
             else {
-                host = 'api.employers.com';
+                host = ''; // zy Need to fill this in
             }
-            const path = '/DigitalAgencyServices/ws/AcordServices';
+            const path = '/DigitalAgencyServices/quote';
 
-            log.info(`Appid: ${this.app.id} Sending application to https://${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
+            const requestOptions = {
+                method: 'post',
+                headers: {
+                    appKey: this.username,
+                    appToken: this.password,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                timeout: 60000
+            };
 
+            this.log += `--------======= Sending to Employers =======--------<br><br>`;
+            this.log += `<b>Request started at ${moment_timezone().utc().toISOString()}</b><br><br>`;
+            this.log += `URL: ${host}${path}<br><br>`;
+            this.log += `<pre>${JSON.stringify(requestBody, null, 2)}</pre><br><br>`;
+            this.log += `--------======= End =======--------<br><br>`;
+
+            let apiResponse = null;
+            let quoteResponse = null;
+            const url = host + path;
+            log.info(`Appid: ${this.app.id} Sending application to ${url}. Remember to connect to the VPN. This can take up to 30 seconds.`);
             try {
-            // Send the XML to the insurer
+                apiResponse = await axios.post(url, JSON.stringify(requestBody), requestOptions);
+                if (apiResponse) {
+                    quoteResponse = apiResponse.data; // zy This may not be correct
+                    fs.writeFileSync('/Users/talageuser/Desktop/employersAPIResponse.json', JSON.stringify(quoteResponse, null, 4)); // zy debug remove
+                }
+            }
+            catch (err) {
+                console.log(`Error with Employers quote response and we are writing it to file`.yellow); // zy debug remove
+                fs.writeFileSync('/Users/talageuser/Desktop/employersAPIError.json', apiResponse); // zy debug remove
+                log.error(`Employers API: Appid: ${this.app.id} API call error: ${err}  ` + __location)
+                this.reasons.push(`Employers API Error: ${err}`);
+                this.log += `--------======= Employers Request Error =======--------<br><br>`;
+                this.log += err;
+                this.log += `--------======= End =======--------<br><br>`;
 
-            await this.send_xml_request(host, path, xml).
-                then((result) => {
-                    // Parse the various status codes and take the appropriate action
-                    let res = result['soap:Envelope']['soap:Body'][0]['eig:getWorkCompPolicyResponse'][0].response[0];
-                    const status_code = res.PolicyRs[0].MsgStatus[0].MsgStatusCd[0];
+            }
 
-                    if (status_code.indexOf('Success') === -1) {
-                        this.reasons.push(`Insurer returned status: ${status_code}`);
-                        if (Object.prototype.hasOwnProperty.call(res.PolicyRs[0].MsgStatus[0], 'ExtendedStatus')) {
-                            res.PolicyRs[0].MsgStatus[0].ExtendedStatus.forEach((error_obj) => {
-                                this.reasons.push(error_obj.ExtendedStatusDesc[0]);
-                            });
-                            switch (status_code) {
-                                case 'PendingNeedInformation':
-                                case 'ResultPendingOutOfBand':
-                                    // Referred
-                                    fulfill(this.return_result('referred'));
-                                    return;
-                                case 'Rejected':
-                                    // Declined
-                                    fulfill(this.return_result('declined'));
-                                    return;
-                                default:
-                                    log.error(`Appid: ${this.app.id} Employers WC: Unknown status code from Employers Acord Service ${status_code}` + __location)
-                                    fulfill(this.return_result('declined'));
-                                    return;
+            if (quoteResponse) {
+                if (!quoteResponse.success) {
+                    this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
+                    if (quoteResponse.errors) {
+                        // quoteResponse.errors array also contains info and warnings. Get the actual errors which can make a quote fail
+                        const failingQuoteErrors = quoteResponse.errors.filter(error => {
+                            const failingQuoteErrorCodes = ['required',
+                                                            'invalid',
+                                                            'error'];
+                            const errorCode = error.code.split('.')[1];
+                            return failingQuoteErrorCodes.includes(errorCode);
+                        });
+                        failingQuoteErrors.forEach(error => {
+                            let errorMessage = "";
+                            if (error.message) {
+                                errorMessage += error.message;
                             }
-                        }
+                            if (error.fieldValue) {
+                                errorMessage += ` : ${error.fieldValue}`;
+                            }
+                            this.reasons.push(errorMessage);
+                        });
                     }
+                    return this.return_result('declined');
+                }
 
-                    res = res.PolicyRs[0];
+                // Attempt to get the policy number
+                if (quoteResponse.policyNumber) {
+                    this.number = quoteResponse.policyNumber;
+                }
+                else {
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.` + __location);
+                }
 
-                    let status = null;
-                    let policy_number = null;
-
-                    res.ItemIdInfo[0].OtherIdentifier.forEach(function(item) {
-                        switch (item.OtherIdTypeCd[0]._) {
-                            case 'PolicyNumber':
-                                policy_number = item.OtherId[0];
-                                break;
-                            case 'PolicyStatus':
-                                status = item.OtherId[0];
-                                break;
-                            default:
-                                break;
-                        }
-                    });
-
-                    // Attempt to get the policy number
-                    if (policy_number) {
-                        this.number = policy_number;
+                // Attempt to get the amount of the quote
+                const premium = quoteResponse.totalPremium;
+                if (premium){
+                    if (typeof premium === 'number') {
+                        this.amount = quoteResponse.totalPremium;
                     }
                     else {
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.` + __location);
+                        log.error(`Appid: ${this.app.id} Employers WC: Quote premium value in quote reponse is not of type 'number' but instead ${typeof premium}`)
                     }
+                }
 
-                    // Attempt to get the amount of the quote
-                    try {
-                        this.amount = parseInt(res.Policy[0].CurrentTermAmt[0].Amt[0], 10);
-                    }
-                    catch (e) {
-                        // This is handled in return_result()
-                    }
+                if (quoteResponse.wcelCoverageLimits) {
+                    this.limits[1] = quoteResponse.wcelCoverageLimits.claimLimit;
+                    this.limits[2] = quoteResponse.wcelCoverageLimits.policyLimit;
+                    this.limits[3] = quoteResponse.wcelCoverageLimits.employeeLimit;
+                } // If no limits, this is handled in return_result()
 
-                    // Grab the limits info
-                    try {
-                        res.WorkCompLineBusiness[0].Coverage.forEach((coverage_block) => {
-                            if (coverage_block.CoverageCd[0] === 'WCEL') {
-                                coverage_block.Limit.forEach((limit) => {
-                                    switch (limit.LimitAppliesToCd[0]) {
-                                        case 'EachClaim':
-                                            this.limits[1] = limit.FormatCurrencyAmt[0].Amt[0];
-                                            break;
-                                        case 'EachEmployee':
-                                            this.limits[2] = limit.FormatCurrencyAmt[0].Amt[0];
-                                            break;
-                                        case 'PolicyLimit':
-                                            this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
-                                            break;
-                                        default:
-                                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
-                                            break;
-                                    }
-                                });
-                            }
-                        });
+                const status = quoteResponse.status;
+                try {
+                    this.writer = quoteResponse.writingCompany;
+                }
+                catch (err) {
+                    if (status === 'QUOTED' || status === 'PENDING_REFER') { // zy Why is "REFERRED" not an acceptable status here?
+                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
                     }
-                    catch (e) {
-                        // This is handled in return_result()
-                    }
+                }
 
-                    // Grab the writing company
-                    try {
-                        this.writer = res.Policy[0].CompanyProductCd[0].split('-')[1].trim();
-                    }
-                    catch (e) {
-                        if (status === 'QUOTE' || status === 'PENDING_REFER') {
-                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+                try {
+                    const quoteLetter = quoteResponse.attachments.find(attachment => attachment.attachmentType === "QuoteLetter");
+                    if (quoteLetter) {
+                        this.quoteLetter = {
+                            content_type: quoteLetter.contentType,
+                            data: quoteLetter.contentBody,
+                            file_name: quoteLetter.contentDisposition.match(/"(.*)"/)[1],
+                            length: quoteLetter.contentLength
                         }
                     }
+                }
+                catch (err) {
+                    if (status === 'QUOTED') {
+                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.` + __location);
+                    }
+                }
 
-                    // Grab the file info
-                    try {
-                        try {
-                            this.quote_letter = {
-                                content_type: res.FileAttachmentInfo[0].AttachmentData[0].ContentTypeCd[0],
-                                data: res.FileAttachmentInfo[0].AttachmentData[0].BinData[0],
-                                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
-                                length: res.FileAttachmentInfo[0].AttachmentData[0].BinLength[0]
-                            };
-                        }
-                        catch (err) {
-                            if (status === 'QUOTE') {
-                                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.` + __location);
-                            }
-                        }
+                // Grab the reasons
+                try {
+                    quoteResponse.errors.forEach(error => `${error.code} - ${error.message}`)
+                }
+                catch (err) {
+                    if (status === 'IN_PROGRESS') {
+                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to grab reasons.` + __location);
                     }
-                    catch (e) {
-                        if (status === 'QUOTE') {
-                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.` + __location);
-                        }
-                    }
+                }
 
-                    // Grab the reasons
-                    try {
-                        res.MsgStatus[0].ExtendedStatus.forEach((error_obj) => {
-                            this.reasons.push(`${error_obj.ExtendedStatusCd} - ${error_obj.ExtendedStatusDesc[0]}`);
-                        });
-                    }
-                    catch (e) {
-                        if (status === 'INPROGRESS') {
-                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.` + __location);
-                        }
-                    }
-                    if (status === 'QUOTE') {
-                        this.isBindable = true
-                    }
-                    // Send the result of the request
-                    fulfill(this.return_result(status));
-                });
+                if (status === `QUOTED`) {
+                    this.isBindable = true
+                }
+
+                return this.return_result(status);
             }
-            catch(error){
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. ` + error + __location);
-                if(error.message.indexOf('timedout') > -1){
-                    this.reasons.push(error)
-                    //TODO change result to connection timeout vs error
+            else { // zy Test that this branch of the if provides a status code and status text. I'm not sure whether the employers' API response will have those fields
+                this.log += `--------======= Response Appid: ${this.app.id} =======--------<br><br>`;
+                try{
+                    if(apiResponse){
+                        this.log += `<pre>Status Code ${apiResponse.status}</pre><br><br>`;
+                        this.log += `<pre>Status Text ${apiResponse.statusText}</pre><br><br>`;
+                    }
                 }
-                else{
-                    this.reasons.push(error)
+                catch(err){
+                    log.error(`Unable to parse error response from Employers ${this.app.id} ${apiResponse} ` + __location)
                 }
-                fulfill(this.return_result('error'));
+                return this.return_result('error')
             }
         });
     }
