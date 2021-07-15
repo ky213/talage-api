@@ -394,6 +394,13 @@ async function setupReturnedApplicationJSON(applicationJSON){
     if(applicationJSON.locations && applicationJSON.locations.length > 0){
         for(let i = 0; i < applicationJSON.locations.length; i++){
             const location = applicationJSON.locations[i];
+            
+            // make sure primary (address) boolean is present
+            // if both exist they could be different, so only do this if billing is present and primary is not
+            if(location.hasOwnProperty("billing") && !location.hasOwnProperty("primary")){
+                location.primary = location.billing;
+            }
+
             if(location.activityPayrollList && location.activityPayrollList.length > 0){
                 const activityCodeBO = new ActivityCodeBO();
                 for(let j = 0; j < location.activityPayrollList.length; j++){
