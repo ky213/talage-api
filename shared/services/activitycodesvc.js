@@ -64,9 +64,9 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
 
     let endMongo = moment();
     let diff = endMongo.diff(start, 'milliseconds', true);
-    log.info(`Mongo IndustryCode Activity Code List processing ${territory} count ${icActivityCodeList.length} duration: ${diff} milliseconds` + __location);
+    log.info(`Mongo IndustryCode Activity Code List processing ${territory} IndustryCode ${industryCodeId} count ${icActivityCodeList.length} duration: ${diff} milliseconds` + __location);
 
-    start = moment();
+    //start = moment();
     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
     let insurerActivityCodeList = null;
     try{
@@ -93,10 +93,10 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
 
     endMongo = moment();
     diff = endMongo.diff(start, 'milliseconds', true);
-    log.info(`Mongo Insurer Activity Code by Territory processing ${territory} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
+    log.info(`Mongo Insurer Activity Code by Territory processing ${territory} IndustryCode ${industryCodeId} count ${activityIdList.length} duration: ${diff} milliseconds` + __location);
 
     if(activityIdList.length > 0){
-        start = moment();
+        //start = moment();
         const ActivityCodeModel = require('mongoose').model('ActivityCode');
         let codes = null;
         try{
@@ -123,7 +123,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
 
         endMongo = moment();
         diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`Mongo Activity Code request ${redisKey} duration: ${diff} milliseconds got ${codes.length} codes` + __location);
+        log.info(`Mongo Get Activity Code by request ${redisKey} duration: ${diff} milliseconds got ${codes.length} codes` + __location);
 
         if (codes && codes.length > 0) {
             codes.forEach(function(code) {
