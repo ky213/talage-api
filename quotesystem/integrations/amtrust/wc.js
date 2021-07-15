@@ -155,6 +155,8 @@ module.exports = class AMTrustWC extends Integration {
 
     getOfficers(officerInformationList) {
         const officersList = [];
+        let validationError = `Officer Type, Endorsement ID, or Form Type were not provided in AMTrust's response.`;
+
         for (const owner of this.app.applicationDocData.owners) {
             //Need to be primary state not mailing.
             const primaryLocation = this.app.applicationDocData.locations.find(location => location.primary);
@@ -165,6 +167,14 @@ module.exports = class AMTrustWC extends Integration {
             for (const officerInformation of officerInformationList) {
                 if (officerInformation.State === state) {
                     officerType = officerInformation.OfficerType;
+
+                    // add validation errors if they exist - we likely didn't get the endorsement information we need to send a successful request
+                    if (officerInformation.EndorsementInformation && officerInformation.EndorsementInformation.validationMessage) {
+                        if (officerInformation.EndorsementInformation.validationMessage.length > 0) {
+                            validationError = officerInformation.EndorsementInformation.validationMessage;
+                        }
+                    }
+
                     const endorsementList = this.getChildProperty(officerInformation, "EndorsementInformation.Endorsements");
                     if (endorsementList) {
                         for (const endorsement of endorsementList) {
@@ -177,9 +187,11 @@ module.exports = class AMTrustWC extends Integration {
                     }
                 }
             }
+            
             if (!officerType || !endorsementId || !formType) {
-                return null;
+                return validationError;
             }
+
             officersList.push({
                 "Name": `${owner.fname} ${owner.lname}`,
                 "EndorsementId": endorsementId,
@@ -687,6 +699,9 @@ module.exports = class AMTrustWC extends Integration {
             const officers = this.getOfficers(officerInformation.Data)
             if (officers) {
                 additionalInformationRequestData.Officers = officers;
+            }
+            else {
+                if ()
             }
         }
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
