@@ -187,7 +187,7 @@ module.exports = class AMTrustWC extends Integration {
                     }
                 }
             }
-            
+
             if (!officerType || !endorsementId || !formType) {
                 return validationError;
             }
@@ -710,12 +710,13 @@ module.exports = class AMTrustWC extends Integration {
         // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
         if (officerInformation && officerInformation.Data) {
             // Populate the officers
-            const officers = this.getOfficers(officerInformation.Data)
-            if (officers) {
-                additionalInformationRequestData.Officers = officers;
+            const officersResult = this.getOfficers(officerInformation.Data)
+            if (Array.isArray(officersResult)) {
+                additionalInformationRequestData.Officers = officersResult;
             }
             else {
-                if ()
+                log.error(officersResult);
+                return this.client_declined(officersResult);
             }
         }
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
