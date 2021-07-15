@@ -75,7 +75,10 @@ var activityCodeCacheUpdate = async function(){
         "NV",
         "NY",
         "AZ",
-        "TX"]
+        "TX",
+        "NC",
+        "PA",
+        "VA"]
 
     let territoryList = [];
     let error = null;
