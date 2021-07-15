@@ -4,7 +4,7 @@
 const tracker = global.requireShared('./helpers/tracker.js');
 //const utility = global.requireShared('./helpers/utility.js');
 const moment = require('moment');
-
+var FastJsonParse = require('fast-json-parse')
 
 //Reference by InsurerActivityCode-BO, do not reference InsurerActivityCode-BO outside of fuction.
 
@@ -20,14 +20,22 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
         const resp = await global.redisSvc.getKeyValue(redisKey);
         if(resp.found){
             try{
-                redisCacheCodes = JSON.parse(resp.value);
+                const parsedJSON = new FastJsonParse(resp.value)
+                if(parsedJSON.err){
+                    throw parsedJSON.err
+                }
+                redisCacheCodes = parsedJSON.value;
             }
             catch(err){
                 log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
             }
             const endRedis = moment();
             var diffRedis = endRedis.diff(start, 'milliseconds', true);
-            log.info(`Redis Activity Code Cache request ${redisKey} duration: ${diffRedis} milliseconds`);
+            let activityCodeCount = 0;
+            if(redisCacheCodes){
+                activityCodeCount  = redisCacheCodes.length
+            }
+            log.info(`REDIS IndustryCode Activity Code Cache request ${redisKey} count: ${activityCodeCount}  duration: ${diffRedis} milliseconds`);
             if(redisCacheCodes){
                 return redisCacheCodes;
             }
@@ -47,7 +55,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
     //get IndustryCode's activity code 1st.   smaller set
     // can be used to filter InsurerActivityCode
 
-    let start = moment();
+    const start = moment();
     const IndustryCodeModel = require('mongoose').model('IndustryCode');
     let icActivityCodeList = [];
     try{
