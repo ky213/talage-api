@@ -60,6 +60,9 @@ async function getResources(req, res, next){
             officerTitles(resources);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
+        case "_quotes":
+            territories(resources);
+            break;
     }
 
     res.send(200, resources);
