@@ -425,7 +425,11 @@ module.exports = class AMTrustWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
-        const phone = this.app.business.contacts[0].phone ? this.formatPhoneNumber(this.app.business.contacts[0].phone) : "";
+        if (!this.app.business.contacts[0].phone || this.app.business.contacts[0].phone.length === 0) {
+            log.error(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust submission.`);
+            return this.client_error(`AMTrust submission requires phone number.`);
+        }
+
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
@@ -448,7 +452,7 @@ module.exports = class AMTrustWC extends Integration {
                 "FirstName": this.app.business.contacts[0].first_name,
                 "LastName": this.app.business.contacts[0].last_name,
                 "Email": this.app.business.contacts[0].email,
-                "Phone": phone,
+                "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
                 "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,
