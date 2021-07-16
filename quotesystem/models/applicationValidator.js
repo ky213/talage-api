@@ -319,7 +319,8 @@ const validateContacts = async(applicationDocData) => {
             contact.phone = parseInt(contact.phone, 10);
         }
         else {
-            throw new Error('Phone number is required');
+            // throw new Error('Phone number is required');
+            log.warn(`Application contact validation: Phone number not provided.`);
         }
     }
 }
