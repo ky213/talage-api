@@ -413,6 +413,7 @@ module.exports = class AMTrustWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
+        const phone = this.app.business.contacts[0].phone ? this.formatPhoneNumber(this.app.business.contacts[0].phone) : "";
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
@@ -435,7 +436,7 @@ module.exports = class AMTrustWC extends Integration {
                 "FirstName": this.app.business.contacts[0].first_name,
                 "LastName": this.app.business.contacts[0].last_name,
                 "Email": this.app.business.contacts[0].email,
-                "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
+                "Phone": phone,
                 "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,
