@@ -6,6 +6,7 @@ const moment = require('moment');
 const htmlentities = require('html-entities').Html5Entities;
 // const util = require('util');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 class CompuwestBind extends Bind {
     async bind() {
@@ -288,7 +289,7 @@ class CompuwestBind extends Bind {
                         CommlNameAddInfo.ele('Type',"Company");
                         const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                         DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                        DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                        DBATaxIdentity.ele('TaxCd',stringFunctions.santizeNumber(additionalInsured.ein,false));
                         DBANameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
                         // </NameInfo>
                         // <Addr>
@@ -343,7 +344,7 @@ class CompuwestBind extends Bind {
                     }
                     CommlNameAddInfo.ele('Type',taxIdType === 'FEIN' ? "Company" : "Person");
                     DBATaxIdentity.ele('TaxIdTypeCd', taxIdType);
-                    DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                    DBATaxIdentity.ele('TaxCd',stringFunctions.santizeNumber(additionalInsured.ein,false));
                     nameInsuredNameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
                     // </NameInfo>
                     // <Addr>
@@ -393,9 +394,6 @@ class CompuwestBind extends Bind {
                         const SupplementaryNameInfo = CommlNameAddInfo.ele('SupplementaryNameInfo');
                         SupplementaryNameInfo.ele('SupplementaryName',officerMap[owner.officerTitle]);
                     }
-                    // const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
-                    // DBATaxIdentity.ele('TaxIdTypeCd', 'SSN');
-                    // DBATaxIdentity.ele('TaxCd',owner.ein);
                     nameInsuredNameInfo.ele('LegalEntityCd', 'Individual');
                     // </NameInfo>
                     // <Addr>
