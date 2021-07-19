@@ -492,29 +492,31 @@ class CompuwestBind extends Bind {
         catch(err){
             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error additionalInsuredList owner processing ${err} ` + __location);
         }
+        // only add WorkCompLineBusiness if there is waivers
         // <WorkCompLineBusiness>
-        const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
+        if(policy.waiverSubrogationList && policy.waiverSubrogationList.length > 0){
+            const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
 
-        // Separate out the states
-        const territories = [];
+            // Separate out the states
+            const territories = [];
 
-        appDoc.locations.forEach(function(loc) {
-            if (!territories.includes(loc.state)) {
-                territories.push(loc.state);
+            appDoc.locations.forEach(function(loc) {
+                if (!territories.includes(loc.state)) {
+                    territories.push(loc.state);
+                }
+            });
+
+            for(let t = 0; t < territories.length; t++){
+                //territories.forEach((territory) => {
+                const territory = territories[t];
+                // <WorkCompRateState>
+                const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
+                //<StateProvCd>CA</StateProvCd>
+                WorkCompRateState.ele('StateProvCd', territory);
+
+                // </WorkCompRateState>
             }
-        });
-
-        for(let t = 0; t < territories.length; t++){
-            //territories.forEach((territory) => {
-            const territory = territories[t];
-            // <WorkCompRateState>
-            const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-            //<StateProvCd>CA</StateProvCd>
-            WorkCompRateState.ele('StateProvCd', territory);
-
-            // </WorkCompRateState>
         }
-
 
         /* ---=== End Ineligibility and Statement Questions ===--- */
 
