@@ -289,7 +289,7 @@ class CompuwestBind extends Bind {
                         CommlNameAddInfo.ele('Type',"Company");
                         const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                         DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                        DBATaxIdentity.ele('TaxCd',stringFunctions.santizeNumber(additionalInsured.ein,false));
+                        DBATaxIdentity.ele('TaxId',stringFunctions.santizeNumber(additionalInsured.ein,false));
                         DBANameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
                         // </NameInfo>
                         // <Addr>
@@ -344,7 +344,7 @@ class CompuwestBind extends Bind {
                     }
                     CommlNameAddInfo.ele('Type',taxIdType === 'FEIN' ? "Company" : "Person");
                     DBATaxIdentity.ele('TaxIdTypeCd', taxIdType);
-                    DBATaxIdentity.ele('TaxCd',stringFunctions.santizeNumber(additionalInsured.ein,false));
+                    DBATaxIdentity.ele('TaxId',stringFunctions.santizeNumber(additionalInsured.ein,false));
                     nameInsuredNameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
                     // </NameInfo>
                     // <Addr>
