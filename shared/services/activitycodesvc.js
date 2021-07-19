@@ -33,7 +33,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
             var diffRedis = endRedis.diff(start, 'milliseconds', true);
             let activityCodeCount = 0;
             if(redisCacheCodes){
-                activityCodeCount  = redisCacheCodes.length
+                activityCodeCount = redisCacheCodes.length
             }
             log.info(`REDIS IndustryCode Activity Code Cache request ${redisKey} count: ${activityCodeCount}  duration: ${diffRedis} milliseconds`);
             if(redisCacheCodes){
