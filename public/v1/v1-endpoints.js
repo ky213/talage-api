@@ -155,6 +155,12 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'mitsumori', 'application-meta-rt');
     registerEndpoint(server, 'mitsumori', 'auth-quote-rt');
 
+    // digalent quote app endpoints
+    registerEndpoint(server, 'digalent', 'resources-rt');
+    registerEndpoint(server, 'digalent', 'agency-quote-rt');
+    registerEndpoint(server, 'digalent', 'application-meta-rt');
+    registerEndpoint(server, 'digalent', 'auth-quote-rt');
+
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime
