@@ -264,7 +264,17 @@ class CompuwestBind extends Bind {
 
         // <CommlPolicySupplement>
         const PaymentOption = CommlPolicy.ele('PaymentOption');
-        PaymentOption.ele('PaymentPlanCd', "bcpayplan:11");
+        let afPaymentPlanCode = "bcpayplan:11";
+        const paymentPlanMap = {
+            "1": "bcpayplan:11",
+            "2": "bcpayplan:11",
+            "3": "bcpayplan:9",
+            "4": "bcpayplan:1"
+        }
+        if(paymentPlanMap[this.quote.paymentPlanId.toString().trim()]){
+            afPaymentPlanCode = paymentPlanMap[this.quote.paymentPlanId.toString().trim()]
+        }
+        PaymentOption.ele('PaymentPlanCd',afPaymentPlanCode);
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
         let cCount = 1;
