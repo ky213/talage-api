@@ -126,11 +126,8 @@ const entityTypes = resources => {
     resources.entityTypes =
     [
         "Association",
-        "Corporation (C-Corp)",
-        "Corporation (S-Corp)",
-        "Non Profit Corporation",
-        "Limited Liability Company (Member Managed)",
-        "Limited Liability Company (Manager Managed)",
+        "Corporation",
+        "Limited Liability Company",
         "Limited Partnership",
         "Partnership",
         "Sole Proprietorship",
