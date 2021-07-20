@@ -169,9 +169,9 @@ module.exports = class AMTrustWC extends Integration {
                     officerType = officerInformation.OfficerType;
 
                     // add validation errors if they exist - we likely didn't get the endorsement information we need to send a successful request
-                    if (officerInformation.EndorsementInformation && officerInformation.EndorsementInformation.validationMessage) {
-                        if (officerInformation.EndorsementInformation.validationMessage.length > 0) {
-                            validationError = officerInformation.EndorsementInformation.validationMessage;
+                    if (officerInformation.EndorsementInformation && officerInformation.EndorsementInformation.ValidationMessage) {
+                        if (officerInformation.EndorsementInformation.ValidationMessage.length > 0) {
+                            validationError = officerInformation.EndorsementInformation.ValidationMessage;
                         }
                     }
 
@@ -721,7 +721,7 @@ module.exports = class AMTrustWC extends Integration {
             }
             else {
                 log.error(officersResult);
-                return this.client_declined(officersResult);
+                return this.client_error(officersResult, __location);
             }
         }
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
