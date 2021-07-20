@@ -165,6 +165,14 @@ module.exports = class AMTrustWC extends Integration {
             for (const officerInformation of officerInformationList) {
                 if (officerInformation.State === state) {
                     officerType = officerInformation.OfficerType;
+
+                    // add validation errors if they exist - we likely didn't get the endorsement information we need to send a successful request
+                    if (officerInformation.EndorsementInformation && officerInformation.EndorsementInformation.ValidationMessage) {
+                        if (officerInformation.EndorsementInformation.ValidationMessage.length > 0) {
+                            validationError = officerInformation.EndorsementInformation.ValidationMessage;
+                        }
+                    }
+
                     const endorsementList = this.getChildProperty(officerInformation, "EndorsementInformation.Endorsements");
                     if (endorsementList) {
                         for (const endorsement of endorsementList) {
@@ -703,9 +711,13 @@ module.exports = class AMTrustWC extends Integration {
         // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
         if (officerInformation && officerInformation.Data) {
             // Populate the officers
-            const officers = this.getOfficers(officerInformation.Data)
-            if (officers) {
-                additionalInformationRequestData.Officers = officers;
+            const officersResult = this.getOfficers(officerInformation.Data)
+            if (Array.isArray(officersResult)) {
+                additionalInformationRequestData.Officers = officersResult;
+            }
+            else {
+                log.error(officersResult);
+                return this.client_error(officersResult, __location);
             }
         }
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
