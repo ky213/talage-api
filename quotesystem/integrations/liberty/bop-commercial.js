@@ -747,10 +747,6 @@ module.exports = class LibertySBOP extends Integration {
             }
         });
 
-        //                 <AnyLossesAccidentsConvictionsInd>0</AnyLossesAccidentsConvictionsInd>
-
-        Policy.ele('AnyLossesAccidentsConvictionsInd', applicationDocData.claims.length);
-
         //                 <PolicyExt>
         //                     <com.libertymutual.ci_BusinessClassDesc>Business Class Description</com.libertymutual.ci_BusinessClassDesc>
         //                     <com.libertymutual.ci_BusinessClassId>01234</com.libertymutual.ci_BusinessClassId>
