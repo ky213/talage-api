@@ -267,7 +267,7 @@ class CompuwestBind extends Bind {
         let afPaymentPlanCode = "bcpayplan:11";
         const paymentPlanMap = {
             "1": "bcpayplan:11",
-            "2": "bcpayplan:11",
+            "2": "bcpayplan:10",
             "3": "bcpayplan:9",
             "4": "bcpayplan:1"
         }
