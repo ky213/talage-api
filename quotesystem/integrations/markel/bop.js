@@ -631,7 +631,7 @@ module.exports = class MarkelWC extends Integration {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
         }
         catch (error) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
+            log.error(`${logPrefix}Integration Error: ${error} ${__location}`);
             this.reasons.push(error);
             return this.return_result('error');
         }
@@ -650,7 +650,7 @@ module.exports = class MarkelWC extends Integration {
                     this.number = this.request_id;
                 }
                 catch (e) {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote number.` + __location);
+                    log.error(`${logPrefix}Integration Error: Unable to find quote number. ` + __location);
                 }
                 // null is a valid response. isBindable defaults to false.  null equals false.
                 if(response[rquIdKey].isBindAvailable){
@@ -668,7 +668,7 @@ module.exports = class MarkelWC extends Integration {
                     }
                 }
                 else {
-                    log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
+                    log.error(`${logPrefix}Markel Quote structure changed. Unable to find limits. ` + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');
                 }
                 // Return with the quote
@@ -681,7 +681,7 @@ module.exports = class MarkelWC extends Integration {
             }
         }
         catch (error) {
-            log.error(`Appid: ${this.app.id} Markel WC: Error getting amount ${error}` + __location);
+            log.error(`${logPrefix}Error getting amount ${error}` + __location);
             return this.return_result('error');
         }
 
@@ -702,7 +702,7 @@ module.exports = class MarkelWC extends Integration {
             response[rquIdKey].errors.forEach((error) => {
                 if(typeof error === 'string'){
                     if(error.indexOf("One or more class codes are Declined") > -1){
-                        this.reasons.push(`Markel Declined ${error}`);
+                        this.reasons.push(`Markel Declined: ${error}`);
                         return this.return_result('declined');
                     }
                     else {
@@ -711,7 +711,7 @@ module.exports = class MarkelWC extends Integration {
                     }
                 }
                 else {
-                    this.reasons.push(`Markel Error ${JSON.stringify(error)}`);
+                    this.reasons.push(`Markel Error: ${JSON.stringify(error)}`);
                 }
 
             });
