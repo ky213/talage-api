@@ -117,8 +117,10 @@ const ownerSchema = new Schema({
     payroll: {type: Number, required: false}
 });
 
+//IP required false in case we do not get it or maybe copying an old app.
+// issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: true},
+    ip: {type: String, required: false},
     version: {type: Number, required: true}
 });
 
