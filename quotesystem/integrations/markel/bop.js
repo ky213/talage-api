@@ -843,8 +843,8 @@ module.exports = class MarkelWC extends Integration {
         // parse first limit out of limits string (per occ)
         const perOccLimit = parseInt(limitsStr.substring(0, indexes[0]));
 
-        for (let i = 0; i < supportedLimits.length - 1; i++) {
-            if (perOccLimit > supportedLimits[i]) {
+        for (let i = 0; i < supportedLimits.length; i++) {
+            if (perOccLimit < supportedLimits[i]) {
                 if (i === 0) {
                     return '300000/600000';
                 }
@@ -869,7 +869,7 @@ module.exports = class MarkelWC extends Integration {
         ];
 
         for (let i = 0; i < supportedDeductibles.length; i++) {
-            if (deductible > supportedDeductibles[i]) {
+            if (deductible < supportedDeductibles[i]) {
                 if (i === 0) {
                     return 250;
                 }
