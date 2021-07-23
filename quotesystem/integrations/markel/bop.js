@@ -1,3 +1,5 @@
+/* eslint-disable array-element-newline */
+/* eslint-disable no-extra-parens */
 /* eslint-disable multiline-ternary */
 /* eslint-disable radix */
 /* eslint-disable object-curly-newline */
@@ -93,6 +95,28 @@ const number_of_claims_states = [
     'VT'
 ];
 
+// existing question answers don't map 1:1 to what Markel expects
+const constructionTypeMatrix = {
+    "Fire Resistive": "Fire-resistive",
+    "Frame": "Frame Construction",
+    "Joisted Masonry": "Joisted masonry",
+    "Masonry Non Combustible": "Masonry Non-combustible",
+    "Non Combustible": "Non-combustible"
+};
+
+// existing question answers don't map 1:1 to what Markel expects
+const fireAlarmMatrix = {
+    "Central Station Without Keys": "Central",
+    "Local": "Local",
+    "None": "None",
+    "Police/Fire Connected": "Local" // check if this default is correct
+};
+
+const specialCaseQuestions = [
+    "markel.policy.terrorismCoverage",
+    "markel.policy.medicalLimit"
+];
+
 module.exports = class MarkelWC extends Integration {
 
     /**
@@ -122,12 +146,12 @@ module.exports = class MarkelWC extends Integration {
         //Determine API
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.markelcorp.com';
-            path = '/smallCommercial/v1/wc'
+            path = '/smallCommercial/v1/bop'
             key = {'apikey': `${this.password}`};
         }
         else {
             host = 'api.markelcorp.com';
-            path = '/smallCommercial/v1/wc';
+            path = '/smallCommercial/v1/bop';
             key = {'apikey': `${this.password}`};
         }
 
@@ -253,6 +277,11 @@ module.exports = class MarkelWC extends Integration {
             if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
                 const question = this.questions[question_id];
                 const QuestionCd = this.question_identifiers[question.id];
+
+                // special case questions are handled elsewhere
+                if (specialCaseQuestions.includes(QuestionCd)) {
+                    continue;
+                }
 
                 // If there is no question code, this question is for another insurer, just move on
                 if (!QuestionCd) {
@@ -532,20 +561,9 @@ module.exports = class MarkelWC extends Integration {
                 Buildings: []
             };
 
-            // TODO: Hydrate building values with location.building question answers
-
+            // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
                 BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
-                description: "", // location.building question
-                constructionType: "", // location.building question
-                yearBuilt: "", // location.building question
-                stories: "", // location.building question
-                occupiedSquareFeet: "", // location.building question
-                percentOccupied: "", // location.building question
-                grossSales: "", // location.building question
-                isSingleOccupancy: "", // location.building question
-                fireAlarmType: "", // location.building question
-                sprinkler: "", // location.building question
                 classCode: this.industry_code.code,
                 classCodeDescription: this.industry_code.description,
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
@@ -563,7 +581,76 @@ module.exports = class MarkelWC extends Integration {
                 //         State: ""
                 //     }
                 // }
-            }
+            };
+            
+            let locationTotalPayroll = 0;
+            location.activityPayrollList.forEach(apl => {
+                locationTotalPayroll += apl.payroll;
+            });
+            buildingObj.annualPayroll = locationTotalPayroll;
+
+            location.questions.forEach(question => {
+                switch (question.insurerQuestionIdentifier) {
+                    case "markel.location.building.description":
+                        buildingObj.description = question.answerValue;
+                        break;
+                    case "markel.location.building.constructionType":
+                        const constructionTypeAnswer = constructionTypeMatrix[question.answerValue];
+                        buildingObj.constructionType = constructionTypeAnswer ? constructionTypeAnswer : question.answerValue;
+                        break;
+                    case "markel.location.building.yearBuilt":
+                        const yearBuiltAnswer = parseInt(question.answerValue, 10);
+                        buildingObj.yearBuilt = !isNaN(yearBuiltAnswer) ? yearBuiltAnswer : question.answerValue;
+                        break;
+                    case "markel.location.building.stories":
+                        const storiesAnswer = parseInt(question.answerValue, 10);
+                        buildingObj.stories = !isNaN(storiesAnswer) ? storiesAnswer : question.answerValue;
+                        break;
+                    case "markel.location.building.occupiedSquareFeet":
+                        const occupiedSquareFeetAnswer = parseInt(question.answerValue, 10);
+
+                        if (!isNaN(occupiedSquareFeetAnswer)) {
+                            let modifiedSqFt = occupiedSquareFeetAnswer;
+                            if (occupiedSquareFeetAnswer > location.square_footage) {
+                                modifiedSqFt = location.square_footage;
+                            }
+
+                            if (modifiedSqFt < 0) {
+                                modifiedSqFt = 0;
+                            }
+
+                            buildingObj.occupiedSquareFeet = modifiedSqFt;
+
+                            // implicitly answer percent occupied
+                            if (location.square_footage === 0 || location.square_footage < 0) {
+                                buildingObj.percentOccupied = 0;
+                            }
+                            else {
+                                buildingObj.percentOccupied = Math.round((modifiedSqFt / location.square_footage) * 100);
+                            }
+                        }
+                        else {
+                            buildingObj.occupiedSquareFeet = question.answerValue;
+                        }
+                        break;
+                    case "markel.location.building.grossSales":
+                        buildingObj.grossSales = question.answerValue;
+                        break;
+                    case "markel.location.building.isSingleOccupancy":
+                        buildingObj.isSingleOccupancy = question.answerValue.toLowerCase();
+                        break;
+                    case "markel.location.building.fireAlarmType":
+                        const fireAlarmTypeAnswer = fireAlarmMatrix[question.answerValue];
+                        buildingObj.fireAlarmType = fireAlarmTypeAnswer ? fireAlarmTypeAnswer : question.answerValue;
+                        break;
+                    case "markel.location.building.sprinkler":
+                        buildingObj.sprinkler = question.answerValue.toLowerCase();
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}".`);
+                        break;
+                }
+            });
 
             locationObj.Buildings.push(buildingObj);
             locationList.push(locationObj);
@@ -573,14 +660,22 @@ module.exports = class MarkelWC extends Integration {
         // see how we get at these questions, potentially off of BOPPolicy
 
         const policyObj = {
-            perOccgeneralAggregate: "", // limit information
-            medicalLimit: "", // Policy question
-            propertyDeductible: "", // Policy question
-            package: "", // Policy question ? may must default instead
-            terrorismCoverage: "", // Policy question
+            perOccgeneralAggregate: this.getSupportedLimits(BOPPolicy.limits),
+            propertyDeductible: this.getSupportedDeductible(BOPPolicy.deductible), // currently just using policy deductible
+            package: "Essential", // currently defaulting to Essential package, not asking the question
             yearsInsuredBOP: yearsInsured,
             "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO',
             optionalEndorsements: [] // Optional, not supporting in phase 1
+        }
+
+        const medicalLimitQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.medicalLimit");
+        if (medicalLimitQuestion) {
+            policyObj.medicalLimit = medicalLimitQuestion.answerValue;
+        }
+
+        const terrorismCoverageQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.terrorismCoverage");
+        if (terrorismCoverageQuestion) {
+            policyObj.terrorismCoverage = terrorismCoverageQuestion.answerValue.toUpperCase();
         }
         
         if(!markelLimits){
@@ -722,5 +817,66 @@ module.exports = class MarkelWC extends Integration {
 
         return this.return_result('error');
 
+    }
+
+    getSupportedLimits = (limitsStr) => {
+        // we only match on per occ
+        const supportedLimits = [
+            300000, // 600000
+            500000, // 1000000
+            1000000, // 2000000
+            2000000 // 4000000
+        ];
+        if (limitsStr === "") {
+            log.warn(`Provided limits are empty, can't format for Markel.`);
+            return limitsStr;
+        }
+
+        // skip first character, look for first occurance of non-zero number
+        const indexes = [];
+        for (let i = 1; i < limitsStr.length; i++) {
+            if (limitsStr[i] !== "0") {
+                indexes.push(i);
+            }
+        }
+
+        // parse first limit out of limits string (per occ)
+        const perOccLimit = parseInt(limitsStr.substring(0, indexes[0]));
+
+        for (let i = 0; i < supportedLimits.length - 1; i++) {
+            if (perOccLimit > supportedLimits[i]) {
+                if (i === 0) {
+                    return '300000/600000';
+                }
+                const supportedLimit = supportedLimits[i - 1];
+                return `${supportedLimit}/${supportedLimit * 2}`;
+            }
+        }
+
+        // if the provided value is greater than what they support, simply send their largest supported limits
+        return '2000000/4000000';
+    }
+
+    getSupportedDeductible = (deductible) => {
+        const supportedDeductibles = [
+            250, 
+            500, 
+            1000, 
+            2500, 
+            5000, 
+            7500, 
+            10000
+        ];
+
+        for (let i = 0; i < supportedDeductibles.length; i++) {
+            if (deductible > supportedDeductibles[i]) {
+                if (i === 0) {
+                    return 250;
+                }
+                return supportedDeductibles[i - 1];
+            }
+        }
+
+        return 10000;
     }
 };
