@@ -137,8 +137,12 @@ const validateBusiness = (applicationDocData) => {
     if (applicationDocData.mailingZipcode) {
         //let 9 digit zipcodes process. log an error
         if (!validator.isZip(applicationDocData.mailingZipcode)) {
-            log.error(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
+            log.warn(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
+            if(applicationDocData.mailingZipcode.length > 5){
+                applicationDocData.mailingZipcode = applicationDocData.mailingZipcode.slice(0,5);
+            }
         }
+
     }
     else {
         log.error('Missing required field: business mailingZipcode' + __location);
