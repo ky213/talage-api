@@ -155,6 +155,8 @@ module.exports = class AMTrustWC extends Integration {
 
     getOfficers(officerInformationList) {
         const officersList = [];
+        let validationError = `Officer Type, Endorsement ID, or Form Type were not provided in AMTrust's response.`;
+
         for (const owner of this.app.applicationDocData.owners) {
             //Need to be primary state not mailing.
             const primaryLocation = this.app.applicationDocData.locations.find(location => location.primary);
@@ -185,9 +187,11 @@ module.exports = class AMTrustWC extends Integration {
                     }
                 }
             }
+
             if (!officerType || !endorsementId || !formType) {
-                return null;
+                return validationError;
             }
+
             officersList.push({
                 "Name": `${owner.fname} ${owner.lname}`,
                 "EndorsementId": endorsementId,

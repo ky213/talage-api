@@ -614,7 +614,7 @@ module.exports = class LibertySBOP extends Integration {
                 const ReservedAmt = Loss.ele('ReservedAmt');
                 ReservedAmt.ele('Amt', reservedAmt);
                 const ProbableExpenseIncurredAmt = Loss.ele('ProbableExpenseIncurredAmt');
-                ProbableExpenseIncurredAmt.ele('Amt', claim.amountPaid + reservedAmt);
+                ProbableExpenseIncurredAmt.ele('Amt', 0);
                 Loss.ele('ClaimStatusCd', claim.open ? "Open" : "Closed");
                 Loss.ele('LossDt', moment(claim.eventDate).format('YYYY-MM-DD'));
                 Loss.ele('LossDesc', claim.description);
@@ -746,10 +746,6 @@ module.exports = class LibertySBOP extends Integration {
                 }
             }
         });
-
-        //                 <AnyLossesAccidentsConvictionsInd>0</AnyLossesAccidentsConvictionsInd>
-
-        Policy.ele('AnyLossesAccidentsConvictionsInd', applicationDocData.claims.length);
 
         //                 <PolicyExt>
         //                     <com.libertymutual.ci_BusinessClassDesc>Business Class Description</com.libertymutual.ci_BusinessClassDesc>
