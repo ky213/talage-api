@@ -71,8 +71,8 @@ const locationSchema = new Schema({
     county: {type: String, required: false},
     phone: {type: String, required: false},
     ein: {type: String, required: false},
-    full_time_employees:  {type: Number, required: false},
-    part_time_employees:  {type: Number, required: false},
+    full_time_employees:  {type: Number, required: false, default: 0},
+    part_time_employees:  {type: Number, required: false, default: 0},
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false}, //For new app for  AP this primary.  Billing is a Mailing address.
@@ -296,7 +296,8 @@ const ApplicationSchema = new Schema({
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
     handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
-    copiedFromAppId: {type: String, required: false}
+    copiedFromAppId: {type: String, required: false},
+    renewal: {type: Boolean, default: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 
