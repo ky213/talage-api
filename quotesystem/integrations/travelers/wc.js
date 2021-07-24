@@ -224,8 +224,13 @@ module.exports = class AcuityWC extends Integration {
             if (questionAnswer) {
                 switch (this.question_identifiers[question.id]) {
                     case "numberEmployeesPerShift":
-                        numberEmployeesPerShift = parseInt(questionAnswer, 10);
-                        shiftEmployeeQuestionHit = true;
+                        try{
+                            numberEmployeesPerShift = parseInt(questionAnswer, 10);
+                            shiftEmployeeQuestionHit = true;
+                        }
+                        catch(err){
+                            log.error(`Appid: ${this.app.id} Travelers WC: Unable to parse Employee per Shift answer ${questionAnswer}: ${err} ` + __location);
+                        }
                         break;
                     default:
                         break;
