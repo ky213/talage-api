@@ -360,24 +360,37 @@ const validateLocations = (applicationDocData) => {
         //     }
         // }
 
-        /**
-         * Full-Time Employees
-         * - Integer (enforced with parseInt() on load())
-         * - >= 0
-         * - <= 99,999
-         */
-        if (isNaN(location.full_time_employees) || location.full_time_employees < 0 || location.full_time_employees > 255) {
-            throw new Error('full_time_employees must be an integer between 0 and 255 inclusive');
-        }
+        // Employee count needs to be redone for new data structure
 
-        /**
-         * Part-Time Employees
-         * - Integer (enforced with parseInt() on load())
-         * - >= 0
-         * - <= 99,999
-         */
-        if (isNaN(location.part_time_employees) || location.part_time_employees < 0 || location.part_time_employees > 255) {
-            throw new Error('part_time_employees must be an integer between 0 and 255 inclusive');
+        const hasWCPolicy = Boolean(applicationDocData.policies.filter(policy => policy === "WC").length);
+
+        if(hasWCPolicy){
+
+            /**
+             * Full-Time Employees
+             * - Integer (enforced with parseInt() on load())
+             * - >= 0
+             * - <= 99,999
+             */
+            if (location.full_time_employees && isNaN(location.full_time_employees) || location.full_time_employees < 0 || location.full_time_employees > 255) {
+                throw new Error('full_time_employees must be an integer between 0 and 255 inclusive');
+            }
+            else if(!location.full_time_employees){
+                location.full_time_employees = 0;
+            }
+
+            /**
+             * Part-Time Employees
+             * - Integer (enforced with parseInt() on load())
+             * - >= 0
+             * - <= 99,999
+             */
+            if (location.part_time_employees && (isNaN(location.part_time_employees) || location.part_time_employees < 0 || location.part_time_employees > 255)) {
+                throw new Error('part_time_employees must be an integer between 0 and 255 inclusive');
+            }
+            else if(!location.part_time_employees){
+                location.part_time_employees = 0;
+            }
         }
 
         // Validate square footage
