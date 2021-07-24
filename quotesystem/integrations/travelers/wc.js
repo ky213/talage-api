@@ -218,17 +218,27 @@ module.exports = class AcuityWC extends Integration {
         }
 
         let numberEmployeesPerShift = 1;
+        let shiftEmployeeQuestionHit = false
         for (const question of Object.values(this.questions)) {
             const questionAnswer = this.determine_question_answer(question);
             if (questionAnswer) {
                 switch (this.question_identifiers[question.id]) {
                     case "numberEmployeesPerShift":
-                        numberEmployeesPerShift = parseInt(questionAnswer, 10);
+                        try{
+                            numberEmployeesPerShift = parseInt(questionAnswer, 10);
+                            shiftEmployeeQuestionHit = true;
+                        }
+                        catch(err){
+                            log.error(`Appid: ${this.app.id} Travelers WC: Unable to parse Employee per Shift answer ${questionAnswer}: ${err} ` + __location);
+                        }
                         break;
                     default:
                         break;
                 }
             }
+        }
+        if(shiftEmployeeQuestionHit === false || !numberEmployeesPerShift){
+            numberEmployeesPerShift = this.get_total_employees();
         }
 
         // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
