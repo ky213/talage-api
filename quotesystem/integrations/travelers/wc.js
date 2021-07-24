@@ -237,7 +237,7 @@ module.exports = class AcuityWC extends Integration {
                 }
             }
         }
-        if(shiftEmployeeQuestionHit === false){
+        if(shiftEmployeeQuestionHit === false || !numberEmployeesPerShift){
             numberEmployeesPerShift = this.get_total_employees();
         }
 
