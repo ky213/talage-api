@@ -565,7 +565,7 @@ module.exports = class MarkelWC extends Integration {
             const buildingObj = {
                 // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
                 classCode: this.industry_code.code,
-                classCodeDescription: this.industry_code.description,
+                classCodeDescription: this.industry_code.attributes["NAICS Descriptor"],
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
@@ -646,8 +646,8 @@ module.exports = class MarkelWC extends Integration {
                     case "markel.location.building.sprinkler":
                         buildingObj.sprinkler = question.answerValue.toLowerCase();
                         break;
-                    case "markel.location.building.occupancy":
-                        buildingObj.occupancy = question.answerValue;
+                    case "markel.location.building.occupancyType":
+                        buildingObj.occupancyType = question.answerValue;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}".`);
@@ -665,7 +665,7 @@ module.exports = class MarkelWC extends Integration {
         const policyObj = {
             perOccgeneralAggregate: this.getSupportedLimits(BOPPolicy.limits),
             propertyDeductible: this.getSupportedDeductible(BOPPolicy.deductible), // currently just using policy deductible
-            package: "Essential", // currently defaulting to Essential package, not asking the question
+            package: "com.markel.bop.Essential", // currently defaulting to Essential package, not asking the question
             yearsInsuredBOP: yearsInsured,
             "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO'
             // optionalEndorsements: [] // Optional, not supporting in phase 1
