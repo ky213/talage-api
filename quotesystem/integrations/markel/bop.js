@@ -563,7 +563,7 @@ module.exports = class MarkelWC extends Integration {
 
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
-                BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
+                // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
                 classCode: this.industry_code.code,
                 classCodeDescription: this.industry_code.description,
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
@@ -646,6 +646,9 @@ module.exports = class MarkelWC extends Integration {
                     case "markel.location.building.sprinkler":
                         buildingObj.sprinkler = question.answerValue.toLowerCase();
                         break;
+                    case "markel.location.building.occupancy":
+                        buildingObj.occupancy = question.answerValue;
+                        break;
                     default:
                         log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}".`);
                         break;
@@ -664,8 +667,8 @@ module.exports = class MarkelWC extends Integration {
             propertyDeductible: this.getSupportedDeductible(BOPPolicy.deductible), // currently just using policy deductible
             package: "Essential", // currently defaulting to Essential package, not asking the question
             yearsInsuredBOP: yearsInsured,
-            "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO',
-            optionalEndorsements: [] // Optional, not supporting in phase 1
+            "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO'
+            // optionalEndorsements: [] // Optional, not supporting in phase 1
         }
 
         const medicalLimitQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.medicalLimit");
