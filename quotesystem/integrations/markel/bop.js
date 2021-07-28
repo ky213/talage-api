@@ -549,6 +549,17 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
+        // NOTE: This isn't a great solution. If Markel has more occurrences like this, it will require further manual injection here...
+
+        // Markel asks essentially the same question twice. We have two questions mapped to the same Talage question, so we only get one 
+        // answer back, for question1956. This makes sure we answer the other question (question1233) the same way
+        // Talage question:                      Do you rent or loan equipment or tools to others?
+        // com.markel.uw.questions.Question1956: Does the applicant rent any equipment or tools to others?
+        // com.markel.uw.questions.Question1233: Do you rent or loan equipment to others?
+        if (questionObj["com.markel.uw.questions.Question1956"] && !questionObj["com.markel.uw.questions.Question1233"]) {
+            questionObj["com.markel.uw.questions.Question1233"] = questionObj["com.markel.uw.questions.Question1956"];
+        }
+
         // Populate the location list
         const locationList = [];
         // for each location, push a location object into the locationList
@@ -558,7 +569,7 @@ module.exports = class MarkelWC extends Integration {
                 "Location Zip": location.zipcode,
                 "Location City": location.city,
                 "Location State": location.state,
-                Buildings: []
+                buildings: []
             };
 
             // We currently do not support adding buildings, therefor we default to 1 building per location
@@ -655,7 +666,7 @@ module.exports = class MarkelWC extends Integration {
                 }
             });
 
-            locationObj.Buildings.push(buildingObj);
+            locationObj.buildings.push(buildingObj);
             locationList.push(locationObj);
         });
 
@@ -755,6 +766,7 @@ module.exports = class MarkelWC extends Integration {
                     this.isBindable = response[rquIdKey].isBindAvailable;
                 }
                 // Get the quote limits
+                // TODO: FIX THIS -> .coverage.deductibles / .coverage.limits[].appliesTo:"Medical"/.limit:"5000"
                 if (response[rquIdKey].application["Policy Info"]) {
 
                     const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
@@ -769,6 +781,9 @@ module.exports = class MarkelWC extends Integration {
                     log.error(`${logPrefix}Markel Quote structure changed. Unable to find limits. ` + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');
                 }
+
+                //TODO: Add quoteLink -> .portalUrl
+
                 // Return with the quote
                 if(response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
                     return this.return_result('referred_with_price');
