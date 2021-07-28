@@ -1,5 +1,6 @@
 /* eslint-disable no-unneeded-ternary */
 const Integration = require('../Integration.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -192,6 +193,22 @@ module.exports = class cowbellCyber extends Integration {
             }
         }
         //this.policy.effective_date.format('YYYY-MM-DD')
+        let Surname = this.app.agencyLocation.last_name
+        let GivenName = this.app.agencyLocation.first_name
+        let agencyEmail = this.app.agencyLocation.agencyEmail
+        let agencyName = this.app.agencyLocation.agency;
+        let agencyPhone = this.app.agencyLocation.agencyPhone
+
+        // If talageWholeSale
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
+            Surname = this.app.agencyLocation.quotingAgencyLocationDB.lastName;
+            GivenName = this.app.agencyLocation.quotingAgencyLocationDB.firstName;
+            const agencyBO = new AgencyBO();
+            const agencyInfo = await agencyBO.getById(this.app.agencyLocation.quotingAgencyLocationDB.agencyId);
+            agencyName = agencyInfo.name;
+            agencyEmail = this.app.agencyLocation.quotingAgencyLocationDB.email
+            agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.phone
+        }
 
         // Create the quote request
         const quoteRequestData = {
@@ -200,11 +217,11 @@ module.exports = class cowbellCyber extends Integration {
             //"accountId":
             "accountName": appDoc.businessName,
             "agencyId": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
-            "agencyName": this.app.agencyLocation.agency,
-            "agentEmail": this.app.agencyLocation.agencyEmail,
-            "agentFirstName": this.app.agencyLocation.first_name,
-            "agentLastName": this.app.agencyLocation.last_name,
-            "agentPhone":stringFunctions.santizeNumber(this.app.agencyLocation.agencyPhone),
+            "agencyName": agencyName,
+            "agentEmail": agencyEmail,
+            "agentFirstName": GivenName,
+            "agentLastName": Surname,
+            "agentPhone":stringFunctions.santizeNumber(agencyPhone),
             "businessIncomeCoverage": businessIncomeCoverage,
             "address1": primaryLocation.address,
             "address2": primaryLocation.address2,
@@ -456,7 +473,7 @@ module.exports = class cowbellCyber extends Integration {
                 catch(err){
                     try {
                         response = err.response.data;
-                        return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response}`, __location, {error: err});
+                        return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response} ${err}`, __location, {error: err});
                     }
                     catch (error2) {
                         return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});

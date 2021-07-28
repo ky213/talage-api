@@ -177,14 +177,15 @@ var quoteReportTask = async function(){
                 newRow.seconds = quoteDoc.quoteTimeSeconds;
                 //Activty codes
                 if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
+                    const activityCodeBO = new ActivityCodeBO();
                     for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
-                        const activityCodeBO = new ActivityCodeBO();
                         try{
-                            if(!lastAppDoc.activityCodes[j].activityCodeId){
-                                lastAppDoc.activityCodes[j].activityCodeId = lastAppDoc.activityCodes[j].ncciCode
+                            if(lastAppDoc.activityCodes[j].activityCodeId){
+                                const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].activityCodeId)
+                                if(activityCodeJSON){
+                                    newRow["activitycode" + j] = activityCodeJSON.description;
+                                }
                             }
-                            const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].activityCodeId)
-                            newRow["activitycode" + j] = activityCodeJSON.description;
                         }
                         catch(err){
                             log.error("activity code load error " + err + __location);

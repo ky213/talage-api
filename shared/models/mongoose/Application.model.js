@@ -71,8 +71,8 @@ const locationSchema = new Schema({
     county: {type: String, required: false},
     phone: {type: String, required: false},
     ein: {type: String, required: false},
-    full_time_employees:  {type: Number, required: false},
-    part_time_employees:  {type: Number, required: false},
+    full_time_employees:  {type: Number, required: false, default: 0},
+    part_time_employees:  {type: Number, required: false, default: 0},
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false}, //For new app for  AP this primary.  Billing is a Mailing address.
@@ -110,13 +110,17 @@ const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
     lname: {type: String, required: true},
-    ownership: {type: Number, required: false},
+    ownership: {type: Number, required: false, default: 0},
     officerTitle: {type: String},
-    include: {type: Boolean, required: false}
+    include: {type: Boolean, required: false},
+    activityCodeId: {type: Number, required: false},
+    payroll: {type: Number, required: false}
 });
 
+//IP required false in case we do not get it or maybe copying an old app.
+// issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: true},
+    ip: {type: String, required: false},
     version: {type: Number, required: true}
 });
 
@@ -126,7 +130,9 @@ const claimSchema = new Schema({
     amountReserved: {type: Number, required: false},
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
-    missedWork: {type: Boolean, default: false}
+    missedWork: {type: Boolean, default: false},
+    description: {type: String, required: false},
+    questions: [QuestionSchema]
 });
 
 const cyberPolicySchema = new Schema({
@@ -161,6 +167,16 @@ const professionalLiabilityPolicySchema = new Schema({
     yearsOfProfessionalExperience: {type: Number, required: false}
 });
 
+const WaiverSubrogationSchema = new Schema({
+    entityName: {type: String, required: true},
+    address: {type: String, required: false},
+    address2: {type: String, required: false},
+    city: {type: String, required: false},
+    state: {type: String, required: false},
+    zipcode: {type: String, required: false},
+    activityCodeId: {type: Number, required: false},
+    payroll: {type: Number, required: false}
+});
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
@@ -174,6 +190,7 @@ const PolicySchema = new Schema({
     coverageLapseNonPayment: {type: Boolean, default: false},
     blanketWaiver: {type: Boolean, default: false}, // WC
     waiverSubrogation: {type: Boolean, default: false},
+    waiverSubrogationList: [WaiverSubrogationSchema],
     currentInsuranceCarrier: {type: String, required: false},
     currentPremium: {type: Number, required: false},
     yearsWithCurrentInsurance: {type: Number, required: false},
@@ -279,7 +296,8 @@ const ApplicationSchema = new Schema({
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
     handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
-    copiedFromAppId: {type: String, required: false}
+    copiedFromAppId: {type: String, required: false},
+    renewal: {type: Boolean, default: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 

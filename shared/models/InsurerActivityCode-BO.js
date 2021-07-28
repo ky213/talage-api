@@ -6,6 +6,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 //const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const moment = require('moment');
@@ -285,14 +286,103 @@ module.exports = class InsurerActivityCodeBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+
+                    const oldinsurerActivityCode = await InsurerActivityCode.findOne(query);
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
                     await InsurerActivityCode.updateOne(query, newObjectJSON);
+
                     const newinsurerActivityCode = await InsurerActivityCode.findOne(query);
                     //const newAgencyDoc = await InsurerActivityCode.findOneAndUpdate(query, newObjectJSON, {new: true});
 
                     newinsurerActivityCodeJSON = mongoUtils.objCleanup(newinsurerActivityCode);
+
+                    if(newinsurerActivityCode.talageActivityCodeIdList && newinsurerActivityCode.talageActivityCodeIdList.length > 0 && oldinsurerActivityCode.talageActivityCodeIdList){
+                        if (newinsurerActivityCode.talageActivityCodeIdList.length !== oldinsurerActivityCode.talageActivityCodeIdList.length){
+
+                            //const newACList = arrayOne.filter(({ value: id1 }) => !arrayTwo.some(({ value: id2 }) => id2 === id1));
+                            const newACList = newinsurerActivityCode.talageActivityCodeIdList.filter(function(newAcId) {
+                                return !oldinsurerActivityCode.talageActivityCodeIdList.some(function(oldAcId) {
+                                    return newAcId === oldAcId;
+                                });
+                            });
+                            if(newACList && newACList.length > 0){
+                                ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(newACList, newinsurerActivityCode.territoryList)
+                            }
+                            else {
+                                const removedACList = oldinsurerActivityCode.talageActivityCodeIdList.filter(function(oldAcId) {
+                                    return !newinsurerActivityCode.talageActivityCodeIdList.some(function(newAcId) {
+                                        return newAcId === oldAcId;
+                                    });
+                                });
+                                if(removedACList && removedACList.length > 0){
+                                    ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(removedACList, newinsurerActivityCode.territoryList)
+                                }
+                            }
+
+                        }
+                        else if(newinsurerActivityCode.territoryList && oldinsurerActivityCode.territoryList
+                            && newinsurerActivityCode.territoryList.length !== oldinsurerActivityCode.territoryList.length){
+                            const newTerritoryList = newinsurerActivityCode.territoryList.filter(function(newTerritory) {
+                                return !oldinsurerActivityCode.territoryList.some(function(oldTerritory) {
+                                    return newTerritory === oldTerritory;
+                                });
+                            });
+                            if(newTerritoryList && newTerritoryList.length > 0){
+                                ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(newinsurerActivityCode.talageActivityCodeIdList, newTerritoryList)
+                            }
+                            else {
+                                const removedTerritoryList = oldinsurerActivityCode.territoryList.filter(function(oldTerritory) {
+                                    return !newinsurerActivityCode.territoryList.some(function(newTerritory) {
+                                        return newTerritory === oldTerritory;
+                                    });
+                                });
+                                if(removedTerritoryList && removedTerritoryList.length > 0){
+                                    ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(newinsurerActivityCode.talageActivityCodeIdList, removedTerritoryList)
+                                }
+                            }
+
+                        }
+                        else {
+                            const newACList = newinsurerActivityCode.talageActivityCodeIdList.filter(function(newAcId) {
+                                return !oldinsurerActivityCode.talageActivityCodeIdList.some(function(oldAcId) {
+                                    return newAcId === oldAcId;
+                                });
+                            });
+                            if(newACList && newACList.length > 0){
+                                ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(newACList, newinsurerActivityCode.territoryList)
+                            }
+
+                            const removedACList = oldinsurerActivityCode.talageActivityCodeIdList.filter(function(oldAcId) {
+                                return !newinsurerActivityCode.talageActivityCodeIdList.some(function(newAcId) {
+                                    return newAcId === oldAcId;
+                                });
+                            });
+                            if(removedACList && removedACList.length > 0){
+                                ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(removedACList, newinsurerActivityCode.territoryList)
+                            }
+
+
+                            //get territory differences
+                            const newTerritoryList = newinsurerActivityCode.territoryList.filter(function(newTerritory) {
+                                return !oldinsurerActivityCode.territoryList.some(function(oldTerritory) {
+                                    return newTerritory === oldTerritory;
+                                });
+                            });
+                            if(newTerritoryList && newTerritoryList.length > 0){
+                                ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(newinsurerActivityCode.talageActivityCodeIdList, newTerritoryList)
+                            }
+                            const removedTerritoryList = oldinsurerActivityCode.territoryList.filter(function(oldTerritory) {
+                                return !newinsurerActivityCode.territoryList.some(function(newTerritory) {
+                                    return newTerritory === oldTerritory;
+                                });
+                            });
+                            if(removedTerritoryList && removedTerritoryList.length > 0){
+                                ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(newinsurerActivityCode.talageActivityCodeIdList, removedTerritoryList)
+                            }
+                        }
+                    }
                 }
                 catch (err) {
                     log.error(`Updating Application error appId: ${docId}` + err + __location);
@@ -332,6 +422,12 @@ module.exports = class InsurerActivityCodeBO{
             log.error('Mongo insurer Save err ' + err + __location);
             throw err;
         });
+
+        if(insurerActivityCode.talageActivityCodeIdList && insurerActivityCode.talageActivityCodeIdList.length > 0){
+            ActivityCodeSvc.updateActivityCodeCacheByActivityCodeTerritoryList(insurerActivityCode.talageActivityCodeIdList, insurerActivityCode.territoryList)
+        }
+
+
         return mongoUtils.objCleanup(insurerActivityCode);
     }
 

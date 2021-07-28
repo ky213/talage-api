@@ -25,6 +25,10 @@ const moment = require('moment');
 
 async function isAuthForApplication(req, applicationId){
     let canAccessApp = false;
+    if(!req.userTokenData){
+        log.error(`request processing error no userTokenData ` + __location)
+        return false;
+    }
     if(req.userTokenData && req.userTokenData.quoteApp){
         if(req.userTokenData.applicationId === applicationId){
             canAccessApp = true;
@@ -32,30 +36,41 @@ async function isAuthForApplication(req, applicationId){
     }
     else if (req.userTokenData && req.userTokenData.apiToken){
         if(req.userTokenData.userId){
+
             // check which agencies the user has access to
             const agencyPortalUserBO = new AgencyPortalUserBO();
             const apUser = await agencyPortalUserBO.getById(req.userTokenData.userId);
+            if(apUser){
+                // get the application to check against
+                const applicationBO = new ApplicationBO();
+                const applicationDB = await applicationBO.getById(applicationId);
 
-            // get the application to check against
-            const applicationBO = new ApplicationBO();
-            const applicationDB = await applicationBO.getById(applicationId);
-
-            // if no application was found, just log for us and dont check anything else
-            if(!applicationDB){
-                log.warn("Application requested not found " + __location);
+                // if no application was found, just log for us and dont check anything else
+                if(!applicationDB){
+                    log.warn("Application requested not found " + __location);
+                }
+                // if the user is part of an agency network, get the list of agencies
+                else if(apUser.agencyNetworkId){
+                    canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
+                }
+                // if not part of a network, just look at the single agency
+                else if(apUser.agencyId) {
+                    canAccessApp = applicationDB.agencyId === apUser.agencyId;
+                }
+                else {
+                    log.warn(`user ${JSON.stringify(apUser)} attempted to access app ${applicationId}`)
+                }
             }
-            // if the user is part of an agency network, get the list of agencies
-            else if(apUser.agencyNetworkId){
-                canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
-            }
-            // if not part of a network, just look at the single agency
-            else if(apUser.agencyId) {
-                canAccessApp = applicationDB.agencyId === apUser.agencyId;
+            else {
+                log.warn(`User ${req.userTokenData.userId} not found in user system` + __location);
             }
         }
         else {
             log.warn("Recieved request with token but no user id " + __location);
         }
+    }
+    else {
+        log.warn(`Unauthorized Attempt to modify or access Application JWT type unknown  token: ${JSON.stringify(req.userTokenData)}` + __location);
     }
 
     if(canAccessApp === false){
@@ -594,6 +609,12 @@ async function GetQuestions(req, res, next){
         locationId = req.query.locationId;
     }
 
+    //Get policyType for claims here.
+    let policyType = null;
+    if (req.query.policyType) {
+        policyType = req.query.policyType;
+    }
+
     //GetQuestion require agencylist to check auth.
     // auth has already been check - use skipAuthCheck.
     // eslint-disable-next-line prefer-const
@@ -603,7 +624,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList);
+        getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList, policyType);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client

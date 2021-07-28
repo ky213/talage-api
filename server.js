@@ -157,6 +157,9 @@ async function getUserTokenDataFromJWT(req){
             if(redisResponse && redisResponse.found && redisResponse.value){
                 userTokenData = JSON.parse(redisResponse.value)
             }
+            else {
+                log.warn(`Did not find JWT in Redis ` + __location);
+            }
         }
         catch(err){
             log.error("Checking validateAppApiJWT JWT " + err + __location);
@@ -192,7 +195,7 @@ function validateAppApiJWT(options) {
             return options.handler(req, res, next);
         }
         else {
-            return options.handler(req, res, next);
+            return next(new RestifyError.ForbiddenError("access denied"));
         }
     };
 }
@@ -223,7 +226,7 @@ function validateQuoteAppV2JWT(options) {
             return options.handler(req, res, next);
         }
         else {
-            return options.handler(req, res, next);
+            return next(new RestifyError.ForbiddenError("access denied"));
         }
     };
 }
@@ -326,7 +329,7 @@ class AbstractedHTTPServer {
     }
 
     addPostAuthAppApi(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authAPI)';
         this.server.post({
             name: name,
             path: path
@@ -341,7 +344,7 @@ class AbstractedHTTPServer {
     }
 
     addPutAuthAppApi(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authAPI)';
         this.server.put({
             name: name,
             path: path
@@ -356,7 +359,7 @@ class AbstractedHTTPServer {
     }
 
     addGetAuthAppApi(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authAPI)';
         this.server.get({
             name: name,
             path: path
@@ -372,7 +375,7 @@ class AbstractedHTTPServer {
 
 
     addPostAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authQuoteAPI)';
         this.server.post({
             name: name,
             path: path
@@ -387,7 +390,7 @@ class AbstractedHTTPServer {
     }
 
     addPutAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authQuoteAPI)';
         this.server.put({
             name: name,
             path: path
@@ -402,7 +405,7 @@ class AbstractedHTTPServer {
     }
 
     addGetAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authQuoteAPI)';
         this.server.get({
             name: name,
             path: path

@@ -248,8 +248,15 @@ module.exports = class CnaWC extends Integration {
             generalPartyInfo.NameInfo[0].TaxIdentity = this.getTaxIdentity();
             
             if (business.dba) {
-                generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
-                generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
+                if(generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0] && generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd){
+                
+                    generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
+                    generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
+                }
+                else {
+                    log.error(`CNA WC JSON processing error missing generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd  for DBA` + __location)
+                    generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [];
+                }
             }
             else {
                 generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [];

@@ -55,7 +55,9 @@ async function findGroupAll(req, res, next) {
 
     let error = null;
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const rows = await agencyPortalUserBO.getGroupList(req.query).catch(function(err) {
+    const forTalageAdmin = true;
+    const agencyNetworkRoles = true;
+    const rows = await agencyPortalUserBO.getGroupList(forTalageAdmin, agencyNetworkRoles).catch(function(err) {
         error = err;
     })
     if (error) {

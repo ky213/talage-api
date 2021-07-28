@@ -212,6 +212,15 @@ module.exports = class Application {
         }
         if(!this.applicationDocData.numOwners && this.applicationDocData.owners.length > 0){
             this.applicationDocData.numOwners = this.applicationDocData.owners.length
+            this.applicationDocData.owners.forEach((owner) => {
+                // do not auto set percent ownership.
+                // it may be an officer/Manager who does
+                // not own any part of Crop (LLC that has hired a manager)
+                if(!owner.ownership){
+                    owner.ownership = 0;
+                }
+            });
+
         }
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
@@ -222,7 +231,9 @@ module.exports = class Application {
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
             for(let contact of this.business.contacts){
-                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+                if(typeof contact.phone === 'string'){
+                    contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+                }
             }
         }
 
@@ -278,8 +289,7 @@ module.exports = class Application {
                     }
                 }
                 catch (e) {
-                    log.error(`Translation Error: DB SELECT activity codes error: ${e}. ` + __location);
-                    //TODO Consistent error types
+                    log.error(`Translation Error: DB getById ${activityCode.id} activity codes for appId ${this.id} error: ${e}. ` + __location);
                     throw e;
                 }
             }

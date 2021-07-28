@@ -23,7 +23,7 @@ const utility = global.requireShared('./helpers/utility.js');
  * @returns {array|false} An array of questions if successful, false otherwise
  *
  */
-async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false, stateList = []) {
+async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, questionSubjectArea = "general", return_hidden = false, stateList = []) {
 
     log.info(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, questionSubjectArea: ${questionSubjectArea}, return_hidden: ${return_hidden}, stateList:  ${JSON.stringify(stateList)}` + __location)
 
@@ -47,7 +47,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     if(stateList.length > 0){
         territories = stateList;
     }
-    else {
+    else if(zipCodeStringArray.length > 0) {
         // get territories from zipcodes
         const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
         const zipCodeBO = new ZipCodeBO();
@@ -65,6 +65,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             // no code base questions will come back
             // return false;
         }
+    }
+    else {
+        log.info('Question Service: no zip codes or state info' + __location);
     }
 
 
@@ -172,7 +175,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
         orParamList.push(mongoPolicyEffectiveDateQuery)
     });
-    insurerQuestionQuery.$or = orParamList;
+    if(orParamList.length > 0){
+        insurerQuestionQuery.$or = orParamList;
+    }
     log.debug(`insurerQuestionQuery Universal  ${"\n"} ${JSON.stringify(insurerQuestionQuery)} ${'\n'} ` + __location);
     let start = moment();
     try{
@@ -188,7 +193,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             for(const insurerQuestion of insurerQuestionList){
                 if(insurerQuestion.talageQuestionId){
                     let add = false;
-                    if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0){
+                    if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0 && territories.length > 0){
                         const territoryHit = insurerQuestion.territoryList.some((iqt) => territories.includes(iqt))
                         if(territoryHit){
                             add = true;
@@ -448,6 +453,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
         const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
+        // If Added questions is empty then the break out of loop, will return empty if parent questions are inactive
+        if(added_questions.length === 0){
+            log.debug(`Added questions is returning empty array: ${added_questions.length} for questions ${JSON.stringify(missing_questions)}` + __location);
+            break;
+        }
         log.debug("Missing questions count " + added_questions.length + __location);
         questions = questions.concat(added_questions);
         // Check for additional missing questions
@@ -559,7 +569,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
  * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = true, stateList = []){
+exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea = "general", return_hidden = true, stateList = []){
 
     const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden, stateList);
 
