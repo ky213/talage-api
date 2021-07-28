@@ -110,7 +110,7 @@ const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
     lname: {type: String, required: true},
-    ownership: {type: Number, required: false},
+    ownership: {type: Number, required: false, default: 0},
     officerTitle: {type: String},
     include: {type: Boolean, required: false},
     activityCodeId: {type: Number, required: false},
