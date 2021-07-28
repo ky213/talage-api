@@ -212,6 +212,15 @@ module.exports = class Application {
         }
         if(!this.applicationDocData.numOwners && this.applicationDocData.owners.length > 0){
             this.applicationDocData.numOwners = this.applicationDocData.owners.length
+            this.applicationDocData.owners.forEach((owner) => {
+                // do not auto set percent ownership.
+                // it may be an officer/Manager who does
+                // not own any part of Crop (LLC that has hired a manager)
+                if(!owner.ownership){
+                    owner.ownership = 0;
+                }
+            });
+
         }
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
