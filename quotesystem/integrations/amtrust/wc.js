@@ -505,6 +505,13 @@ module.exports = class AMTrustWC extends Integration {
             additionalInformationRequestData.Officers = [];
             additionalInformationRequestData.AdditionalInsureds = [];
             appDoc.owners.forEach((owner) => {
+                // do not send null; errors out at Amtrust
+                // do not auto set percent ownership.
+                // it may be an officer/Manager who does
+                // not own any part of Crop (LLC that has hired a manager)
+                if(!owner.ownership){
+                    owner.ownership = 0;
+                }
                 const officerJSON = {
                     "Name": owner.fname + " " + owner.lname,
                     //"EndorsementId": "WC040303C",
