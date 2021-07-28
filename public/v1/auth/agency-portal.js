@@ -68,21 +68,9 @@ async function createTokenEndpoint(req, res, next){
 
     // Check the password
     if (!crypt.verifyPassword(agencyPortalUserDBJson.password, req.body.password)) {
-        // Check if maybe still using old Sodium hash
-        log.debug(`checking sodium hash for user  ${agencyPortalUserDBJson.agencyPortalUserId}` + __location)
-        if (await crypt.verifyPasswordSodium(agencyPortalUserDBJson.password, req.body.password)) {
-            // If so, lets move over to crypto hash.
-            const newPasswordHash = await crypt.hashPassword(req.body.password);
-            const updateJson = {password: newPasswordHash};
-            await agencyPortalUserBO.updateMongo(agencyPortalUserDBJson.agencyPortalUserUuidId, updateJson);
-            log.debug(`update user ${agencyPortalUserDBJson.agencyPortalUserId} pwdHash ` + __location);
-
-        }
-        else {
-            log.info('Authentication failed');
-            res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-            return next();
-        }
+        log.info('Authentication failed');
+        res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
+        return next();
 
     }
 
