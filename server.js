@@ -329,7 +329,7 @@ class AbstractedHTTPServer {
     }
 
     addPostAuthAppApi(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authAPI)';
         this.server.post({
             name: name,
             path: path
@@ -344,7 +344,7 @@ class AbstractedHTTPServer {
     }
 
     addPutAuthAppApi(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authAPI)';
         this.server.put({
             name: name,
             path: path
@@ -359,7 +359,7 @@ class AbstractedHTTPServer {
     }
 
     addGetAuthAppApi(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authAPI)';
         this.server.get({
             name: name,
             path: path
@@ -375,7 +375,7 @@ class AbstractedHTTPServer {
 
 
     addPostAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authQuoteAPI)';
         this.server.post({
             name: name,
             path: path
@@ -390,7 +390,7 @@ class AbstractedHTTPServer {
     }
 
     addPutAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authQuoteAPI)';
         this.server.put({
             name: name,
             path: path
@@ -405,7 +405,7 @@ class AbstractedHTTPServer {
     }
 
     addGetAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+        name += ' (authQuoteAPI)';
         this.server.get({
             name: name,
             path: path
