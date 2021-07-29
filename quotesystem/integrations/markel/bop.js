@@ -15,6 +15,7 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 global.requireShared('./helpers/tracker.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 
 const entityTypeMatrix = {
     "Association": "AS",
@@ -670,11 +671,8 @@ module.exports = class MarkelWC extends Integration {
             locationList.push(locationObj);
         });
 
-        // TODO: Hydrate policy object with question answers
-        // see how we get at these questions, potentially off of BOPPolicy
-
         const policyObj = {
-            perOccgeneralAggregate: this.getSupportedLimits(BOPPolicy.limits),
+            perOccGeneralAggregate: this.getSupportedLimits(BOPPolicy.limits),
             propertyDeductible: this.getSupportedDeductible(BOPPolicy.deductible), // currently just using policy deductible
             package: "com.markel.bop.Essential", // currently defaulting to Essential package, not asking the question
             yearsInsuredBOP: yearsInsured,
@@ -766,23 +764,37 @@ module.exports = class MarkelWC extends Integration {
                     this.isBindable = response[rquIdKey].isBindAvailable;
                 }
                 // Get the quote limits
-                // TODO: FIX THIS -> .coverage.deductibles / .coverage.limits[].appliesTo:"Medical"/.limit:"5000"
-                if (response[rquIdKey].application["Policy Info"]) {
+                this.quoteCoverages = [];
+                let coverageSort = 0;
+                if (response[rquIdKey].coverage) {
+                    const coverages = response[rquIdKey].coverage;
+                    if (coverages.deductibles) {
+                        coverages.deductibles.forEach(deductible => {
+                            this.quoteCoverages.push({
+                                description: deductible.appliesTo,
+                                value: convertToDollarFormat(deductible.deductible, true),
+                                sort: coverageSort++,
+                                category: 'Deductible'
+                            });
+                        });
+                    }
 
-                    const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
-                    const limitsArray = limitsString.split('/');
-                    this.limits = {
-                        '1': parseInt(limitsArray[0],10) * 1000,
-                        '2': parseInt(limitsArray[1],10) * 1000,
-                        '3': parseInt(limitsArray[2],10) * 1000
+                    if (coverages.limits) {
+                        coverages.limits.forEach(limit => {
+                            this.quoteCoverages.push({
+                                description: limit.appliesTo,
+                                value: convertToDollarFormat(limit.limit, true),
+                                sort: coverageSort++,
+                                category: 'Limit'
+                            });
+                        });
                     }
                 }
-                else {
-                    log.error(`${logPrefix}Markel Quote structure changed. Unable to find limits. ` + __location);
-                    this.reasons.push('Quote structure changed. Unable to find limits.');
-                }
 
-                //TODO: Add quoteLink -> .portalUrl
+                // get quote link from request
+                if (response[rquIdKey].portalUrl && response[rquIdKey].portalUrl.length > 0) {
+                    this.quoteLink = response[rquIdKey].portalUrl;
+                }
 
                 // Return with the quote
                 if(response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
