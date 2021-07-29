@@ -1553,7 +1553,9 @@ async function GetResources(req, res, next){
         "VP-Treas",
         "VP-Secy-Treas",
         "VP-Secy",
-        "Member"
+        "Member",
+        "Manager"
+
     ];
 
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
