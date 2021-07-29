@@ -80,9 +80,6 @@ const locationSchema = new Schema({
     own: {type: Boolean, required:false},
     businessPersonalPropertyLimit: {type: Number, required:false},
     buildingLimit: {type: Number, required:false},
-    constructionType:{type: String, required:false},
-    numStories:{type: Number, required:false},
-    yearBuilt: {type: Number, required:false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
     questions: [QuestionSchema]
 },opts);
@@ -141,14 +138,14 @@ const locationBOPPolicySchema = new Schema({
     roofingImprovementYear: {type: Number, required: false},
     wiringImprovementYear: {type: Number, required: false},
     heatingImprovementYear: {type: Number, required: false},
-    plumbingImprovementYear: {type: Number, required: false}
+    plumbingImprovementYear: {type: Number, required: false},
+    constructionType:{type: String, required:false},
+    numStories:{type: Number, required:false},
+    yearBuilt: {type: Number, required:false}
 
     // TODO: Add these later from location schema...
     // businessPersonalPropertyLimit: {type: Number, required:false},
     // buildingLimit: {type: Number, required:false},
-    // constructionType:{type: String, required:false}, // likely should be enum (select list)
-    // numStories:{type: Number, required:false},
-    // yearBuilt: {type: Number, required:false},
 });
 
 const cyberPolicySchema = new Schema({
