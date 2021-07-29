@@ -135,6 +135,22 @@ const claimSchema = new Schema({
     questions: [QuestionSchema]
 });
 
+const locationBOPPolicySchema = new Schema({
+    fireAlarmType: {type: String, required: false}, // likely should be enum (select list in UI)
+    sprinklerEquipped: {type: Boolean, required: false},
+    roofingImprovementYear: {type: Number, required: false},
+    wiringImprovementYear: {type: Number, required: false},
+    heatingImprovementYear: {type: Number, required: false},
+    plumbingImprovementYear: {type: Number, required: false}
+
+    // TODO: Add these later from location schema...
+    // businessPersonalPropertyLimit: {type: Number, required:false},
+    // buildingLimit: {type: Number, required:false},
+    // constructionType:{type: String, required:false}, // likely should be enum (select list)
+    // numStories:{type: Number, required:false},
+    // yearBuilt: {type: Number, required:false},
+});
+
 const cyberPolicySchema = new Schema({
     aggregateLimit: {type: Number, required: true},
     businessIncomeCoverage: {type: Number, required: false},
