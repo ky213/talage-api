@@ -338,7 +338,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         "Pres-Secy",
         "VP-Treas",
         "VP-Secy-Treas",
-        "VP-Secy"
+        "VP-Secy",
+        "Member"
     ];
 
     try{
