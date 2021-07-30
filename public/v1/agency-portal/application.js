@@ -236,8 +236,10 @@ async function getApplication(req, res, next) {
                 for (const quoteLimit of quoteJSON.limits) {
                     try {
                         const limit = await limitsModel.getById(quoteLimit.limitId);
-                        // NOTE: frontend expects a string.
-                        limitsList[limit.description] = `${quoteLimit.amount}`;
+                        if(limit?.description){
+                            // NOTE: frontend expects a string.
+                            limitsList[limit.description] = `${quoteLimit.amount}`;
+                        }
                     }
                     catch (err) {
                         log.error(`Could not get limits for ${quoteJSON.insurerId}:` + err + __location);
