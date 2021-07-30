@@ -1334,15 +1334,6 @@ module.exports = class ApplicationModel {
                     log.error(`ApplicationBO error decrypting ein ${this.applicationId} ` + err + __location);
                 }
             }
-            else if(applicationDoc.einEncrypted){
-                try{
-                    applicationDoc.einClear = await crypt.decryptSodium(applicationDoc.einEncrypted);
-                    applicationDoc.ein = applicationDoc.einClear;
-                }
-                catch(err){
-                    log.error(`ApplicationBO error decrypting ein ${this.applicationId} ` + err + __location);
-                }
-            }
             else {
                 applicationDoc.ein = "";
                 applicationDoc.einClear = "";
