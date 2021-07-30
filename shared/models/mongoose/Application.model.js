@@ -63,7 +63,7 @@ const QuestionSchema = new Schema({
 });
 
 const locationBOPPolicySchema = new Schema({
-    fireAlarmType: {type: String, required: false}, // likely should be enum (select list in UI)
+    fireAlarmType: {type: String, required: false},
     sprinklerEquipped: {type: Boolean, required: false},
     roofingImprovementYear: {type: Number, required: false},
     wiringImprovementYear: {type: Number, required: false},
