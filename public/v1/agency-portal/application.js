@@ -236,8 +236,10 @@ async function getApplication(req, res, next) {
                 for (const quoteLimit of quoteJSON.limits) {
                     try {
                         const limit = await limitsModel.getById(quoteLimit.limitId);
-                        // NOTE: frontend expects a string.
-                        limitsList[limit.description] = `${quoteLimit.amount}`;
+                        if(limit?.description){
+                            // NOTE: frontend expects a string.
+                            limitsList[limit.description] = `${quoteLimit.amount}`;
+                        }
                     }
                     catch (err) {
                         log.error(`Could not get limits for ${quoteJSON.insurerId}:` + err + __location);
@@ -1552,7 +1554,10 @@ async function GetResources(req, res, next){
         "Pres-Secy",
         "VP-Treas",
         "VP-Secy-Treas",
-        "VP-Secy"
+        "VP-Secy",
+        "Member",
+        "Manager"
+
     ];
 
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency

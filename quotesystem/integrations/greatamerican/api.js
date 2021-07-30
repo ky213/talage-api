@@ -11,7 +11,7 @@ const getApiUrl = (integration) => {
     if (integration.insurer.useSandbox) {
         return 'https://uat01.api.gaig.com';
     }
-    return 'https://uat01.api.gaig.com';
+    return 'https:///prod01.api.gaig.com';
 }
 
 const getToken = async(integration) => {
