@@ -105,7 +105,9 @@ const officerTitles = resources => {
         "Pres-Secy",
         "VP-Treas",
         "VP-Secy-Treas",
-        "VP-Secy"
+        "VP-Secy",
+        "Member",
+        "Manager"
     ];
 }
 
