@@ -298,30 +298,30 @@ module.exports = class LibertySBOP extends Integration {
         await this._getLibertyIndustryCodes();
 
         if (!this.industry_code) {
-            const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
-            log.error(`${errorMessage} ${__location}`);
+            const errorMessage = `No Industry Code was found for Commercial BOP. `;
+            log.error(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_autodeclined_out_of_appetite();
         }
 
         // if there's no BOP policy
         if (!BOPPolicy) {
-            const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
-            log.error(`${errorMessage} ${__location}`);
+            const errorMessage = `Could not find a policy with type BOP.`;
+            log.error(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
         // if there's no coverage captured for this BOP policy
         if (!(BOPPolicy.coverage > 0)) {
-            const errorMessage = `${logPrefix}No BOP Coverage was supplied for the Commercial BOP Policy.`;
-            log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
+            const errorMessage = `No BOP Coverage was supplied for the Commercial BOP Policy.`;
+            log.error(`${logPrefix}${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
         // if there's no Business Personal Property limit or Building Limit provided for each location
         for (const {businessPersonalPropertyLimit, buildingLimit} of applicationDocData.locations) {
             if ((typeof businessPersonalPropertyLimit !== "number" || businessPersonalPropertyLimit === 0) && (typeof buildingLimit !== "number" || buildingLimit === 0)) {
-                const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit and no Building Limit for the Commercial BOP Policy.`;
-                log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
+                const errorMessage = `One or more location has no Business Personal Property Limit and no Building Limit for the Commercial BOP Policy.`;
+                log.error(`${logPrefix}${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
                 return this.client_error(errorMessage, __location);
             }
         }
@@ -374,8 +374,8 @@ module.exports = class LibertySBOP extends Integration {
             for (const location of applicationDocData.locations) {
                 const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_receipts');
                 if (!annualReceiptsQuestion || parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10) <= 0) {
-                    const errorMessage = `${logPrefix}Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. ${__location}`;
-                    log.error(errorMessage);
+                    const errorMessage = `Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. ${__location}`;
+                    log.error(logPrefix + errorMessage);
                     return this.client_autodeclined(errorMessage);
                 }
             }
@@ -1389,7 +1389,7 @@ module.exports = class LibertySBOP extends Integration {
         }
         catch (e) {
             log.error(`${logPrefix}${e}${__location}`);
-            return this.client_error(`${logPrefix}${e}`, __location);
+            return this.client_error(e, __location);
         }
 
         const host = 'apis.us-east-1.libertymutual.com';
@@ -1402,8 +1402,8 @@ module.exports = class LibertySBOP extends Integration {
             });        
         }
         catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -1411,15 +1411,15 @@ module.exports = class LibertySBOP extends Integration {
 
         // check we have valid status object structure
         if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
-            const errorMessage = `${logPrefix}Unknown result structure: cannot parse result. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown result structure: cannot parse result. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         // check we have a valid status code
         if (result.ACORD.Status[0].StatusCd[0] !== '0') {
-            const errorMessage = `${logPrefix}Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -1429,8 +1429,8 @@ module.exports = class LibertySBOP extends Integration {
             !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
             !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus
         ) {
-            const errorMessage = `${logPrefix}Unknown result structure, no message status: cannot parse result. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown result structure, no message status: cannot parse result. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -1506,8 +1506,8 @@ module.exports = class LibertySBOP extends Integration {
             !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
             !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].Policy
         ) {
-            const errorMessage = `${logPrefix}Unknown result structure: cannot parse quote information. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown result structure: cannot parse quote information. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -1520,7 +1520,8 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                return this.client_declined(`${logPrefix}Application was rejected.`);
+                log.error(`${logPrefix}Application was rejected.`);
+                return this.client_declined(`Application was rejected.`);
             }
         }
 
@@ -1664,14 +1665,14 @@ module.exports = class LibertySBOP extends Integration {
                 case "refer":
                     return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
                 default:
-                    const errorMessage = `${logPrefix}Insurer response error: unknown policyStatus - ${policyStatus} `;
-                    log.error(errorMessage + __location);
+                    const errorMessage = `Liberty response error: unknown policyStatus - ${policyStatus} `;
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_error(errorMessage, __location);
             }
         }
         else {
-            const errorMessage = `${logPrefix}Insurer response error: missing policyStatus. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Liberty response error: missing policyStatus. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
     }
