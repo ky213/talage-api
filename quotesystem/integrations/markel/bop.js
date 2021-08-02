@@ -210,15 +210,15 @@ module.exports = class MarkelWC extends Integration {
             }
         }
         else {
-            log.warn(`${logPrefix}autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`${logPrefix}insurer does not support the requested liability limits`);
+            log.warn(`${logPrefix}autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ${__location}`);
+            this.reasons.push(`Markel does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
         // Check the number of claims
         if (excessive_loss_states.includes(this.app.business.primary_territory)) {
             if (this.policy.claims.length > 2) {
-                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ` + __location);
+                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
                 this.reasons.push(`Too many past claims`);
                 return this.return_result('autodeclined');
             }
@@ -227,7 +227,7 @@ module.exports = class MarkelWC extends Integration {
         // Check for excessive losses in South Dakota
         if (this.app.business.primary_territory === 'SD') {
             if (this.policy.claims.length > 4) {
-                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ` + __location);
+                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
                 this.reasons.push(`Too many past claims`);
                 return this.return_result('autodeclined');
             }
@@ -295,7 +295,7 @@ module.exports = class MarkelWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    log.error(`${logPrefix}Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
+                    log.error(`${logPrefix}Unable to determine answer for question ${question.id}. error: ${error} ${__location}`);
                     //this.reasons.push(`Unable to determine answer for question ${question.id}`);
                     //return this.return_result('error');
                 }
@@ -662,7 +662,7 @@ module.exports = class MarkelWC extends Integration {
                         buildingObj.occupancyType = question.answerValue;
                         break;
                     default:
-                        log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}".`);
+                        log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}". ${__location}`);
                         break;
                 }
             });
@@ -691,7 +691,7 @@ module.exports = class MarkelWC extends Integration {
         }
         
         if(!markelLimits){
-            log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
+            log.error(`${logPrefix}Markel WC missing markelLimits. ${__location}`);
         }
 
         const jsonRequest = {submissions: [
@@ -757,7 +757,7 @@ module.exports = class MarkelWC extends Integration {
                     this.number = this.request_id;
                 }
                 catch (e) {
-                    log.error(`${logPrefix}Integration Error: Unable to find quote number. ` + __location);
+                    log.error(`${logPrefix}Integration Error: Unable to find quote number. ${__location}`);
                 }
                 // null is a valid response. isBindable defaults to false.  null equals false.
                 if(response[rquIdKey].isBindAvailable){
@@ -806,7 +806,7 @@ module.exports = class MarkelWC extends Integration {
             }
         }
         catch (error) {
-            log.error(`${logPrefix}Error getting amount ${error}` + __location);
+            log.error(`${logPrefix}Error getting amount ${error} ${__location}`);
             return this.return_result('error');
         }
 
@@ -827,22 +827,22 @@ module.exports = class MarkelWC extends Integration {
             response[rquIdKey].errors.forEach((error) => {
                 if(typeof error === 'string'){
                     if(error.indexOf("One or more class codes are Declined") > -1){
-                        this.reasons.push(`Markel Declined: ${error}`);
+                        this.reasons.push(`Declined: ${error}`);
                         return this.return_result('declined');
                     }
                     else {
-                        this.reasons.push(`Markel: ${error}`);
+                        this.reasons.push(`${error}`);
 
                     }
                 }
                 else {
-                    this.reasons.push(`Markel Error: ${JSON.stringify(error)}`);
+                    this.reasons.push(`${JSON.stringify(error)}`);
                 }
 
             });
         }
         else {
-            this.reasons.push(`Markel Error unknown for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
+            this.reasons.push(`Unknown error for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
         }
 
         return this.return_result('error');
