@@ -62,6 +62,22 @@ const QuestionSchema = new Schema({
     answerList: [String]
 });
 
+const locationBOPPolicySchema = new Schema({
+    fireAlarmType: {type: String, required: false},
+    sprinklerEquipped: {type: Boolean, required: false},
+    roofingImprovementYear: {type: Number, required: false},
+    wiringImprovementYear: {type: Number, required: false},
+    heatingImprovementYear: {type: Number, required: false},
+    plumbingImprovementYear: {type: Number, required: false}
+
+    // TODO: Add these later from location schema...
+    // constructionType:{type: String, required:false},
+    // numStories:{type: Number, required:false},
+    // yearBuilt: {type: Number, required:false}
+    // businessPersonalPropertyLimit: {type: Number, required:false},
+    // buildingLimit: {type: Number, required:false},
+});
+
 const locationSchema = new Schema({
     address: {type: String, required: false},
     address2: {type: String, required: false},
@@ -84,7 +100,8 @@ const locationSchema = new Schema({
     numStories:{type: Number, required:false},
     yearBuilt: {type: Number, required:false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
-    questions: [QuestionSchema]
+    questions: [QuestionSchema],
+    bop: locationBOPPolicySchema
 },opts);
 
 locationSchema.virtual('locationId').
