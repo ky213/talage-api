@@ -83,14 +83,14 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         if (!SBOPPolicy) {
-            const errorMessage = `${logPrefix}Could not find a policy with type BOP.`;
-            log.error(`${errorMessage} ${__location}`);
+            const errorMessage = `Could not find a policy with type BOP.`;
+            log.error(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
         if (!(SBOPPolicy.coverage > 0)) {
-            const errorMessage = `${logPrefix}No BPP Coverage was supplied for the Simple BOP Policy.`;
-            log.error(`${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location)
+            const errorMessage = `No BPP Coverage was supplied for the Simple BOP Policy.`;
+            log.error(`${logPrefix}${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -289,7 +289,7 @@ module.exports = class LibertySBOP extends Integration {
                 QuestionAnswer.ele('YesNoCd', applicationQuestion.answerValue.toUpperCase());
             }
             else {
-                log.warn(`Could not find ACORDCd for question ${applicationQuestion.insurerQuestionIdentifier}`, __location);
+                log.warn(`${logPrefix}Could not find ACORDCd for question ${applicationQuestion.insurerQuestionIdentifier}`, __location);
             }
         }
 
@@ -387,7 +387,7 @@ module.exports = class LibertySBOP extends Integration {
         }
         catch (e) {
             log.error(`${logPrefix}${e}${__location}`);
-            return this.client_error(`${logPrefix}${e}`, __location);
+            return this.client_error(e, __location);
         }
 
         const host = 'apis.us-east-1.libertymutual.com';
@@ -400,8 +400,8 @@ module.exports = class LibertySBOP extends Integration {
             });
         }
         catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
-            log.error(errorMessage + __location);
+            const errorMessage = `An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -409,15 +409,15 @@ module.exports = class LibertySBOP extends Integration {
 
         // check we have valid status object structure
         if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
-            const errorMessage = `${logPrefix}Unknown result structure: cannot parse result. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown result structure: cannot parse result. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         // check we have a valid status code
         if (result.ACORD.Status[0].StatusCd[0] !== '0') {
-            const errorMessage = `${logPrefix}Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -428,7 +428,7 @@ module.exports = class LibertySBOP extends Integration {
             !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus
         ) {
             const errorMessage = `${logPrefix}Unknown result structure, no message status: cannot parse result. `;
-            log.error(errorMessage + __location);
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -443,15 +443,15 @@ module.exports = class LibertySBOP extends Integration {
                 // log.error("=================== QUOTE ERROR ===================");
                 // normal error structure, build an error message
                 let additionalReasons = null;
-                let errorMessage = `${logPrefix}`;
+                let errorMessage = ``;
                 if (objPath.MsgErrorCd) {
                     errorMessage += objPath.MsgErrorCd[0];
                 }
 
                 if (objPath.ExtendedStatus) {
                     objPath = objPath.ExtendedStatus[0];
-                    if (objPath.ExtendedStatusCd && objPath.ExtendedStatusExt) {
-                        errorMessage += ` (${objPath.ExtendedStatusCd}): `;
+                    if (objPath.ExtendedStatusCd && objPath.ExtendedStatusDesc) {
+                        errorMessage += ` (${objPath.ExtendedStatusCd}): ${objPath.ExtendedStatusDesc}. `;
                     }
 
                     if (
@@ -460,17 +460,10 @@ module.exports = class LibertySBOP extends Integration {
                         objPath.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorDesc']
                     ) {
                         objPath = objPath.ExtendedStatusExt;
-                        errorMessage += `[${objPath[0]['com.libertymutual.ci_ExtendedDataErrorCd']}] ${objPath[0]['com.libertymutual.ci_ExtendedDataErrorDesc']}`;
-
-                        if (objPath.length > 1) {
-                            additionalReasons = [];
-                            objPath.forEach((reason, index) => {
-                                // skip the first one, we've already added it as the primary reason
-                                if (index !== 0) {
-                                    additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
-                                }
-                            });
-                        }
+                        additionalReasons = [];
+                        objPath.forEach(reason => {
+                            additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
+                        });
                     }
                     else {
                         errorMessage += 'Failed to parse error, please review the logs for more details.';
@@ -490,7 +483,7 @@ module.exports = class LibertySBOP extends Integration {
                     const reasonObj = objPath.ExtendedStatus.find(s => s.ExtendedStatusCd && typeof s.ExtendedStatusCd === 'string' && s.ExtendedStatusCd.toLowerCase() === "verifydatavalue");
                     reason = reasonObj && reasonObj.ExtendedStatusDesc ? reasonObj.ExtendedStatusDesc[0] : null;
                 }
-                log.warn(`${logPrefix}Quote was bridged to eCLIQ successfully but no premium was provided.`);
+                log.warn(`${logPrefix}Quote was bridged to eCLIQ successfully but no premium was provided. ` + __location);
                 if (reason) {
                     log.warn(`${logPrefix}Reason for no premium: ${reason} ` + __location);
                 }
@@ -519,8 +512,8 @@ module.exports = class LibertySBOP extends Integration {
             !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
             !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].Policy
         ) {
-            const errorMessage = `${logPrefix}Unknown result structure: cannot parse quote information. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Unknown result structure: cannot parse quote information. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -533,7 +526,7 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                return this.client_declined(`${logPrefix}Application was rejected.`);
+                return this.client_declined(`Application was rejected.`);
             }
         }
 
@@ -613,7 +606,7 @@ module.exports = class LibertySBOP extends Integration {
                     quoteResult = await getLibertyQuoteProposal(quoteProposalId, auth);
                 }
                 catch (e) {
-                    log.error(`${logPrefix}ATTEMPT ${retry}: ${e}${__location}`);
+                    log.error(`${logPrefix}ATTEMPT ${retry}: ${e}. ${__location}`);
                     error = true;
                     if (retry <= MAX_RETRY_ATTEMPTS) {
                         continue;
@@ -648,20 +641,19 @@ module.exports = class LibertySBOP extends Integration {
                 case "refer":
                     return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter.toString('base64'), quoteMIMEType);
                 default:
-                    const errorMessage = `${logPrefix}Insurer response error: unknown policyStatus - ${policyStatus} `;
-                    log.error(errorMessage + __location);
+                    const errorMessage = `Insurer response error: unknown policyStatus - ${policyStatus} `;
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_error(errorMessage, __location);
             }
         }
         else {
-            const errorMessage = `${logPrefix}Insurer response error: missing policyStatus. `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Insurer response error: missing policyStatus. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
     }
 
     async _getLibertyIndustryCodes() {
-
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
         const applicationDocData = this.app.applicationDocData;
@@ -692,7 +684,7 @@ module.exports = class LibertySBOP extends Integration {
             insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
         }
         catch (e) {
-            log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.`);
+            log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.` + __location);
             return;
         }
 
@@ -700,7 +692,7 @@ module.exports = class LibertySBOP extends Integration {
             this.industry_code = insurerIndustryCodeList;
         }
         else {
-            log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.`);
+            log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.` + __location);
             this.industry_code = [this.industry_code];
         }
 
