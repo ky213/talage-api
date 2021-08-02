@@ -21,8 +21,31 @@ const bopRequirements = {
     location: {
         buildingLimit: {},
         businessPersonalPropertyLimit: {},
-        own: {
-            required: false
+        own: {},
+        sprinklerEquipped: {},
+        numStories: {
+            required: true
+        },
+        constructionType: {
+            required: true
+        },
+        fireAlarmType: {
+            required: true
+        },
+        yearBuilt: {
+            required: true
+        },
+        roofingImprovementYear: {
+            required: true
+        },
+        wiringImprovementYear: {
+            required: true
+        },
+        heatingImprovementYear: {
+            required: true
+        },
+        plumbingImprovementYear: {
+            required: true
         },
         unemployment_num: {
             visible: false,
@@ -44,6 +67,42 @@ const glRequirements = {
             required: false
         },
         own: {
+            visible: false,
+            required: false
+        },
+        sprinklerEquipped: {
+            visible: false,
+            required: false
+        },
+        numStories: {
+            visible: false,
+            required: false
+        },
+        constructionType: {
+            visible: false,
+            required: false
+        },
+        fireAlarmType: {
+            visible: false,
+            required: false
+        },
+        yearBuilt: {
+            visible: false,
+            required: false
+        },
+        roofingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        wiringImprovementYear: {
+            visible: false,
+            required: false
+        },
+        heatingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        plumbingImprovementYear: {
             visible: false,
             required: false
         },
@@ -70,6 +129,42 @@ const wcRequirements = {
             required: false
         },
         own: {
+            visible: false,
+            required: false
+        },
+        sprinklerEquipped: {
+            visible: false,
+            required: false
+        },
+        numStories: {
+            visible: false,
+            required: false
+        },
+        constructionType: {
+            visible: false,
+            required: false
+        },
+        fireAlarmType: {
+            visible: false,
+            required: false
+        },
+        yearBuilt: {
+            visible: false,
+            required: false
+        },
+        roofingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        wiringImprovementYear: {
+            visible: false,
+            required: false
+        },
+        heatingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        plumbingImprovementYear: {
             visible: false,
             required: false
         },
@@ -104,6 +199,42 @@ const plRequirements = {
             visible: false,
             required: false
         },
+        sprinklerEquipped: {
+            visible: false,
+            required: false
+        },
+        numStories: {
+            visible: false,
+            required: false
+        },
+        constructionType: {
+            visible: false,
+            required: false
+        },
+        fireAlarmType: {
+            visible: false,
+            required: false
+        },
+        yearBuilt: {
+            visible: false,
+            required: false
+        },
+        roofingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        wiringImprovementYear: {
+            visible: false,
+            required: false
+        },
+        heatingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        plumbingImprovementYear: {
+            visible: false,
+            required: false
+        },
         unemployment_num: {
             visible: false,
             required: false
@@ -123,6 +254,42 @@ const cyberRequirements = {
             required: false
         },
         own: {
+            visible: false,
+            required: false
+        },
+        sprinklerEquipped: {
+            visible: false,
+            required: false
+        },
+        numStories: {
+            visible: false,
+            required: false
+        },
+        constructionType: {
+            visible: false,
+            required: false
+        },
+        fireAlarmType: {
+            visible: false,
+            required: false
+        },
+        yearBuilt: {
+            visible: false,
+            required: false
+        },
+        roofingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        wiringImprovementYear: {
+            visible: false,
+            required: false
+        },
+        heatingImprovementYear: {
+            visible: false,
+            required: false
+        },
+        plumbingImprovementYear: {
             visible: false,
             required: false
         },
