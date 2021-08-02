@@ -75,8 +75,9 @@ const QuoteSchema = new Schema({
     talageWholesale: {type: Boolean, required: true, default: false},
     insurerPaymentPlans: {type: Schema.Types.Mixed},
     policyInfo: PolicySchema,
-    active: {type: Boolean, default: true},
-    quotingStartedDate: {type: Date}
+    quotingStartedDate: {type: Date},
+    productDesc: {type: String},
+    active: {type: Boolean, default: true}
 });
 
 QuoteSchema.plugin(timestamps);

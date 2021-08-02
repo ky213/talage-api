@@ -280,6 +280,7 @@ module.exports = class LibertySBOP extends Integration {
 
         this.requiresProductPolicyTypeFilter = true;
         this.policyTypeFilter = 'BOP';
+        this.productDesc = 'Commercial BOP'
     }
 
     /**

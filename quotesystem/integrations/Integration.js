@@ -94,6 +94,7 @@ module.exports = class Integration {
         this.isBindable = false;
         this.insurerPaymentPlans = null;
         this.insurerPolicyInfo = null;
+        this.productDesc = '';
 
 
         // quoteId will be passed in if a parent integration was instantiated first and passes its quoteId through
@@ -1472,6 +1473,10 @@ module.exports = class Integration {
             }
             if(this.insurerPolicyInfo){
                 quoteJSON.policyInfo = this.insurerPolicyInfo
+            }
+
+            if(this.productDesc){
+                quoteJSON.productDesc = this.productDesc
             }
 
             // Error
