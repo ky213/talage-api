@@ -116,7 +116,7 @@ module.exports = class ChubbBOP extends Integration {
                 'POST');
         }
         catch (e) {
-            log.error(`${logPrefix}Error Authenticating: ${e.message} ${__location}`);
+            log.error(`${logPrefix}Error Authenticating: ${e.message} ` + __location);
             return this.client_error(`Error Authenticating: ${e.message}`, __location);
         }
 
@@ -770,7 +770,7 @@ module.exports = class ChubbBOP extends Integration {
                     quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ${__location}`);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ` + __location);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
@@ -781,11 +781,11 @@ module.exports = class ChubbBOP extends Integration {
                     }
                     catch (e) {
                         premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
-                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}. ${__location}`);
+                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}. ` + __location);
                     }
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ${__location}`);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
                 }
 
                 // NOTE: Currently commented out, as client_* functions do not accept this information
@@ -808,7 +808,7 @@ module.exports = class ChubbBOP extends Integration {
                                 quoteLimits[4] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             default:
-                                log.warn(`${logPrefix}Warning: Unexpected limit found in quote response: ${coverage.CoverageCd[0]}. ${__location}`);
+                                log.warn(`${logPrefix}Warning: Unexpected limit found in quote response: ${coverage.CoverageCd[0]}. ` + __location);
                                 break;
                         }
 
@@ -820,7 +820,7 @@ module.exports = class ChubbBOP extends Integration {
                     });
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ${__location}`);
+                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
                 }
 
                 // Send the result of the request

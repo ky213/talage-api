@@ -430,7 +430,7 @@ module.exports = class ChubbGL extends Integration {
             // </CommlCoverage>
         }
         else if(!this.questions[1064]) {
-            log.error(`${logPrefix}Error could not find terrorism question 1064 questions ${JSON.stringify(this.questions)}. ${__location}`);
+            log.error(`${logPrefix}Error could not find terrorism question 1064 questions ${JSON.stringify(this.questions)}. ` + __location);
         }
 
         // <LiabilityInfo>
@@ -494,7 +494,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}. ${__location}`);
+                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}. ` + __location);
         }
 
         // </Rating>
@@ -551,7 +551,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}. ${__location}`);
+                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}. ` + __location);
         }
 
         // </Rating>
@@ -731,7 +731,7 @@ module.exports = class ChubbGL extends Integration {
                     quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ${__location}`);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ` + __location);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
@@ -743,11 +743,11 @@ module.exports = class ChubbGL extends Integration {
                     }
                     catch (e) {
                         premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
-                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}. ${__location}`);
+                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}. ` + __location);
                     }
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ${__location}`);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
                 }
 
                 // NOTE: Currently commented out, as client_* functions do not accept this information
@@ -756,7 +756,7 @@ module.exports = class ChubbGL extends Integration {
                 //     this.writer = BOPPolicyQuoteInqRs.CommlPolicy[0].WritingCompany[0];
                 // }
                 // catch (e) {
-                //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ${__location}`);
+                //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ` + __location);
                 //     return this.return_result('error');
                 // }
 
@@ -771,7 +771,7 @@ module.exports = class ChubbGL extends Integration {
                                 quoteLimits[4] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             default:
-                                log.warn(`${logPrefix}Warning: Unexpected limit found in response. ${__location}`);
+                                log.warn(`${logPrefix}Warning: Unexpected limit found in response. ` + __location);
                                 break;
                         }
 
@@ -783,7 +783,7 @@ module.exports = class ChubbGL extends Integration {
                     });
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ${__location}`);
+                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
                 }
 
                 // Send the result of the request
