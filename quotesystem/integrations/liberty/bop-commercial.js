@@ -1451,8 +1451,8 @@ module.exports = class LibertySBOP extends Integration {
 
                 if (objPath.ExtendedStatus) {
                     objPath = objPath.ExtendedStatus[0];
-                    if (objPath.ExtendedStatusCd && objPath.ExtendedStatusExt) {
-                        errorMessage += ` (${objPath.ExtendedStatusCd}): `;
+                    if (objPath.ExtendedStatusCd && objPath.ExtendedStatusDesc) {
+                        errorMessage += ` (${objPath.ExtendedStatusCd}): ${objPath.ExtendedStatusDesc}. `;
                     }
 
                     if (
@@ -1461,17 +1461,10 @@ module.exports = class LibertySBOP extends Integration {
                         objPath.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorDesc']
                     ) {
                         objPath = objPath.ExtendedStatusExt;
-                        errorMessage += `[${objPath[0]['com.libertymutual.ci_ExtendedDataErrorCd']}] ${objPath[0]['com.libertymutual.ci_ExtendedDataErrorDesc']}`;
-
-                        if (objPath.length > 1) {
-                            additionalReasons = [];
-                            objPath.forEach((reason, index) => {
-                                // skip the first one, we've already added it as the primary reason
-                                if (index !== 0) {
-                                    additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
-                                }
-                            });
-                        }
+                        additionalReasons = [];
+                        objPath.forEach(reason => {
+                            additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
+                        });
                     }
                     else {
                         errorMessage += 'Failed to parse error, please review the logs for more details.';
