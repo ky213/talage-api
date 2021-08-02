@@ -38,14 +38,15 @@ module.exports = class GreatAmericanWC extends Integration {
      *   containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+        const logPrefix = `Appid: ${this.app.id} Great American WC: `;
         const codes = await Promise.all(Object.keys(this.insurer_wc_codes).map(code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))));
         let error = null
         const token = await GreatAmericanApi.getToken(this).catch((err) => {
             error = err;
-            log.error(`Appid: ${this.app.id} Great American WC: error ${err} ` + __location);
+            log.error(`${logPrefix}error ${err} ${__location}`);
         });
         if(error){
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request Error: ${error}`);
+            this.reasons.push(`WC Request Error: ${error}`);
             return this.return_result('error');
         }
 
@@ -55,15 +56,15 @@ module.exports = class GreatAmericanWC extends Integration {
             session = await GreatAmericanApi.application(token, this);
         }
         catch (e) {
-            const errorMessage = `Appid: ${this.app.id} Great American WC: error ${e} ${__location}`;
+            const errorMessage = `WC Request Error ${e}. `;
             this.reasons.push(errorMessage);
-            log.error(errorMessage);
+            log.error(logPrefix + errorMessage + __location);
             return this.return_result('error');
         }
 
         if (!session || !session.newBusiness) {
-            const errorMessage = `Appid: ${this.app.id} Great American WC: No new business information returned in application creation. ${__location}`;
-            log.error(errorMessage);
+            const errorMessage = `No new business information returned in application creation. `;
+            log.error(logPrefix + errorMessage + __location);
             this.reasons.push(errorMessage);
             return this.return_result('error');
         }
@@ -73,8 +74,8 @@ module.exports = class GreatAmericanWC extends Integration {
             value: c.attributes.classIndustry
         }));
         if(!sessionCodes[0].id || !sessionCodes[0].value){
-            log.error(`Appid: ${this.app.id} Great American WC: Bad session Code ${JSON.stringify(sessionCodes)} ` + __location);
-            this.reasons.push(` Great American WC: Bad session Code ${JSON.stringify(sessionCodes)}`);
+            log.error(`${logPrefix}Bad session Code ${JSON.stringify(sessionCodes)}. ${__location}`);
+            this.reasons.push(`Bad session Code ${JSON.stringify(sessionCodes)}`);
         }
         // GA only wants the first activity code passed to their API endpoint.
         sessionCodes = [sessionCodes[0]];
@@ -179,7 +180,7 @@ module.exports = class GreatAmericanWC extends Integration {
                     years = moment().diff(claim.eventDate, 'years',false);
                 }
                 catch(err){
-                    log.error(`Appid: ${this.app.id} Great American WC: claim date error ${err} ` + __location);
+                    log.error(`${logPrefix}Claim date error: ${err} ${__location}`);
                 }
             }
             if(claim.policyType === "WC" && years < 5){
@@ -222,7 +223,7 @@ module.exports = class GreatAmericanWC extends Integration {
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
         if(!curAnswers){
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request injectAnswers Error: No reponse`);
+            this.reasons.push(`injectAnswers Error: No reponse`);
             return this.return_result('error');
         }
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
@@ -232,7 +233,8 @@ module.exports = class GreatAmericanWC extends Integration {
         // API after the first request for questions. So keep injecting the
         // follow-up questions until all of the questions are answered.
         while (questionnaire.questionsAsked !== questionnaire.questionsAnswered) {
-            this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)  @ ${__location}`;
+            log.warn(`${logPrefix}There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered) ${__location}`);
+            this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)`;
             const oldQuestionsAnswered = questionnaire.questionsAnswered;
 
             // continue to update the question session until complete
@@ -244,7 +246,8 @@ module.exports = class GreatAmericanWC extends Integration {
             // injectAnswers should answer more questions. If we aren't getting
             // anywhere with these calls, then decline the quote.
             if (questionnaire.questionsAnswered === oldQuestionsAnswered) {
-                this.log += `ERROR: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)} @ ${__location}`
+                log.error(`${logPrefix}Error: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)} ${__location}`);
+                this.log += `Error: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)}`;
                 return this.return_result('declined');
             }
         }
@@ -253,7 +256,8 @@ module.exports = class GreatAmericanWC extends Integration {
         // response after call.[curAnswers.newBusiness.id] is not the payload......
         //this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
         if(error){
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Request Error: ${error}`);
+            log.error(`${logPrefix}Request Error: ${error} ${__location}`);
+            this.reasons.push(`Request Error: ${error}`);
             return this.return_result('error');
         }
 
@@ -262,9 +266,9 @@ module.exports = class GreatAmericanWC extends Integration {
             pricingResponse = await GreatAmericanApi.pricing(this, token, session.newBusiness.id);
         }
         catch (err) {
-            const errorMessage = `Appid: ${this.app.id} Great American WC: error ${err}. ${__location}`;
+            const errorMessage = `Error ${err}. `;
             this.reasons.push(errorMessage);
-            log.error(errorMessage);
+            log.error(logPrefix + errorMessage + __location);
             return this.return_result('error');
         }
 
