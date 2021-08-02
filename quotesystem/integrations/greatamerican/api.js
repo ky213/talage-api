@@ -30,7 +30,7 @@ const getToken = async(integration) => {
     }
     catch(err){
         //console.log(err);
-        log.error(`Error getting token from Great American ${err} @ ${__location}`)
+        log.error(`Error getting token from Great American ${err} @ ${__location}`);
     }
 
     if (!out.access_token) {
@@ -202,7 +202,7 @@ const application = async(token, integration) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${appData.applicationId} get application error ${err} ` + __location);
+        log.error(`AppId: ${appData.applicationId} get application error ${err} ${__location}`);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -237,7 +237,7 @@ const pricing = async(integration, token, sessionId) => {
         });
     }
     catch (err) {
-        log.error(`AppId: ${integration.app.id} quote pricing error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} quote pricing error ${err} ${__location}`);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -276,7 +276,7 @@ const submit = async(integration, token, sessionId) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.app.id} quote submission error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} quote submission error ${err} ${__location}`);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -335,7 +335,7 @@ const getSession = async(integration, token, session, businessTypes) => {
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.app.id} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} get session error ${err} ${__location}`);
         integration.log += "\nError Response: \n ";
         integration.log += err;
         integration.log += `<pre>Response ${JSON.stringify(err.response.data)}</pre><br><br>`;
@@ -372,7 +372,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
         allGroups = _.get(answerSession, 'questionnaire.groups');
     }
     catch(err){
-        log.error(`Great American WC Error getting in injectAnswers ${err} ` + __location)
+        log.error(`Great American WC Error getting in injectAnswers ${err} ${__location}`);
     }
 
     // Set the 'answer' field of questions equal to the values specified in the
@@ -425,7 +425,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.app.id} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} Great American GET session error: ${err} ${__location}`);
     }
     if(appetite){
         return appetite.data;
