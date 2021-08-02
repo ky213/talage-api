@@ -299,7 +299,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Commercial BOP. `;
-            log.error(`${errorMessage} ` + __location)
+            log.error(`${errorMessage} ${__location}`);
             return this.client_autodeclined_out_of_appetite();
         }
 
@@ -313,7 +313,7 @@ module.exports = class LibertySBOP extends Integration {
         // if there's no coverage captured for this BOP policy
         if (!(BOPPolicy.coverage > 0)) {
             const errorMessage = `${logPrefix}No BOP Coverage was supplied for the Commercial BOP Policy.`;
-            log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
+            log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
 
@@ -321,7 +321,7 @@ module.exports = class LibertySBOP extends Integration {
         for (const {businessPersonalPropertyLimit, buildingLimit} of applicationDocData.locations) {
             if ((typeof businessPersonalPropertyLimit !== "number" || businessPersonalPropertyLimit === 0) && (typeof buildingLimit !== "number" || buildingLimit === 0)) {
                 const errorMessage = `${logPrefix}One or more location has no Business Personal Property Limit and no Building Limit for the Commercial BOP Policy.`;
-                log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ` + __location)
+                log.error(`${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
                 return this.client_error(errorMessage, __location);
             }
         }
@@ -374,7 +374,7 @@ module.exports = class LibertySBOP extends Integration {
             for (const location of applicationDocData.locations) {
                 const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_receipts');
                 if (!annualReceiptsQuestion || parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10) <= 0) {
-                    const errorMessage = `${logPrefix}Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected.`;
+                    const errorMessage = `${logPrefix}Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. ${__location}`;
                     log.error(errorMessage);
                     return this.client_autodeclined(errorMessage);
                 }
@@ -671,7 +671,7 @@ module.exports = class LibertySBOP extends Integration {
                                 UWQ1QuestionAnswer.ele('Explanation', explanation.answerValue);
                             }
                             else {
-                                log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found.`);
+                                log.warn(`${logPrefix}Question UWQ1 was answered "Yes", but no child Explanation question was found. ${__location}`);
                             }
                         }
                         break;
@@ -726,7 +726,7 @@ module.exports = class LibertySBOP extends Integration {
                         }
                         break;
                     default:
-                        log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
+                        log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases. ${__location}`);
                         break;
                 }
             }
@@ -1005,7 +1005,7 @@ module.exports = class LibertySBOP extends Integration {
                     ptOption.ele('OptionValue', ptCount);
                 }
                 else {
-                    log.warn(`${logPrefix}Cannot include Barber Liability Coverage as one or both employee count questions weren't provided.`);
+                    log.warn(`${logPrefix}Cannot include Barber Liability Coverage as one or both employee count questions weren't provided. ${__location}`);
                 }
 
                 // beautician
@@ -1031,7 +1031,7 @@ module.exports = class LibertySBOP extends Integration {
                     ptOption.ele('OptionValue', ptCount);
                 }
                 else {
-                    log.warn(`${logPrefix}Cannot include Beautician Liability Coverage as one or both employee count questions weren't provided.`);
+                    log.warn(`${logPrefix}Cannot include Beautician Liability Coverage as one or both employee count questions weren't provided. ${__location}`);
                 }
 
                 // manicurist
@@ -1347,7 +1347,7 @@ module.exports = class LibertySBOP extends Integration {
                             }
                             break;
                         default:
-                            log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases.`);
+                            log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases. ${__location}`);
                             break;
                     }
                 }
@@ -1445,7 +1445,7 @@ module.exports = class LibertySBOP extends Integration {
                 // log.error("=================== QUOTE ERROR ===================");
                 // normal error structure, build an error message
                 let additionalReasons = null;
-                let errorMessage = `${logPrefix}`;
+                let errorMessage = ``;
                 if (objPath.MsgErrorCd) {
                     errorMessage += objPath.MsgErrorCd[0];
                 }
@@ -1476,7 +1476,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
                 return this.client_declined(errorMessage, additionalReasons);
             case "successwithinfo":
-                log.debug(`${logPrefix}Quote returned with status Sucess With Info. ` + __location);
+                log.debug(`${logPrefix}Quote returned with status Sucess With Info. ${__location}`);
                 break;
             case "successnopremium":
                 let reason = null;
@@ -1485,13 +1485,13 @@ module.exports = class LibertySBOP extends Integration {
                     const reasonObj = objPath.ExtendedStatus.find(s => s.ExtendedStatusCd && typeof s.ExtendedStatusCd === 'string' && s.ExtendedStatusCd.toLowerCase() === "verifydatavalue");
                     reason = reasonObj && reasonObj.ExtendedStatusDesc ? reasonObj.ExtendedStatusDesc[0] : null;
                 }
-                log.warn(`${logPrefix}Quote was bridged to eCLIQ successfully but no premium was provided.`);
+                log.warn(`${logPrefix}Quote was bridged to eCLIQ successfully but no premium was provided. ${__location}`);
                 if (reason) {
-                    log.warn(`${logPrefix}Reason for no premium: ${reason} ` + __location);
+                    log.warn(`${logPrefix}Reason for no premium: ${reason} ${__location}`);
                 }
                 break;
             default:
-                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}, continuing. ` + __location);
+                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}, continuing. ${__location}`);
         }
 
         // PARSE SUCCESSFUL PAYLOAD
@@ -1526,25 +1526,25 @@ module.exports = class LibertySBOP extends Integration {
 
         // set quote values from response object, if provided
         if (!policy.QuoteInfo) {
-            log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed. ` + __location);
+            log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed. ${__location}`);
         }
         else {
             if (policy.QuoteInfo[0].CompanysQuoteNumber) {
                 quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
             }
             else {
-                log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ` + __location);
+                log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ${__location}`);
             }
             if (policy.QuoteInfo[0].InsuredFullToBePaidAmt) {
                 premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
             }
             else {
-                log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
+                log.error(`${logPrefix}Premium not provided, or the result structure has changed. ${__location}`);
             }
         }
 
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
-            log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
+            log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ${__location}`);
         }
         else {
             quoteProposalId = policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId'];
@@ -1704,7 +1704,7 @@ module.exports = class LibertySBOP extends Integration {
             insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
         }
         catch (e) {
-            log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code.`);
+            log.error(`${logPrefix}Error re-retrieving Liberty industry codes. Falling back to original code. ${__location}`);
             return;
         }
 
@@ -1712,7 +1712,7 @@ module.exports = class LibertySBOP extends Integration {
             this.industry_code = insurerIndustryCodeList;
         }
         else {
-            log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code.`);
+            log.warn(`${logPrefix}No industry codes were returned while attempting to re-retrieve Liberty industry codes. Falling back to original code. ${__location}`);
             this.industry_code = [this.industry_code];
         }
 
@@ -1763,7 +1763,7 @@ module.exports = class LibertySBOP extends Integration {
                     const totalSqFt = location.square_footage;
 
                     if (!areaUnoccupied) {
-                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                         return true;
                     }
                     
@@ -1775,7 +1775,7 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             case "UWQ5323":
@@ -1786,7 +1786,7 @@ module.exports = class LibertySBOP extends Integration {
                     const totalSqFt = location.square_footage;
                     
                     if (!areaUnoccupied) {
-                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                         return true;
                     }
 
@@ -1798,7 +1798,7 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             case "BOP320":
@@ -1808,7 +1808,7 @@ module.exports = class LibertySBOP extends Integration {
                     const totalSqFt = location.square_footage;
                     
                     if (!areaUnoccupied) {
-                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                         return true;
                     }
 
@@ -1820,7 +1820,7 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             case "UWQ5511":
@@ -1835,7 +1835,7 @@ module.exports = class LibertySBOP extends Integration {
                     const totalSqFt = location.square_footage;
                     
                     if (!areaUnoccupied) {
-                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                         return true;
                     }
 
@@ -1846,7 +1846,7 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             case "GLO22":
@@ -1865,7 +1865,7 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             case "BOP185":
@@ -1876,7 +1876,7 @@ module.exports = class LibertySBOP extends Integration {
                     const yearBuilt = location.questions.find(question => question.insurerQuestionIdentifier === "LMBOP_YearBuilt");
 
                     if (!yearBuilt) {
-                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                         return true;
                     }
 
@@ -1888,7 +1888,7 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             case "BOP191":
@@ -1896,7 +1896,7 @@ module.exports = class LibertySBOP extends Integration {
                 const yearsMngExp = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP2");
 
                 if (!yearsMngExp) {
-                    log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                    log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                     return true;
                 }
 
@@ -1916,7 +1916,7 @@ module.exports = class LibertySBOP extends Integration {
                     const svcWorkSales = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP55_Amount")
 
                     if (!svcWorkSales) {
-                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true.`);
+                        log.warn(`Couldn't find a prerequisite question answer to determine inclusion status for question: ${questionIdentifier}, defaulting to true. ${__location}`);
                         return true;
                     }
 
@@ -1926,11 +1926,11 @@ module.exports = class LibertySBOP extends Integration {
                     return false;
                 }
                 else {
-                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true.`);
+                    log.warn(`No location provided for question: ${questionIdentifier}. Cannot determine inclusion status, defaulting to true. ${__location}`);
                     return true;
                 }
             default:
-                log.warn(`No case found for question identifier: ${questionIdentifier}. Defualting to included.`);
+                log.warn(`No case found for question identifier: ${questionIdentifier}. Defualting to included. ${__location}`);
                 return true;
         }
     }
@@ -2004,7 +2004,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
             }
             else {
-                log.warn(`${logPrefix}Optometrists Professional Liability Coverage missing required question answer. Not adding coverage.`);
+                log.warn(`${logPrefix}Optometrists Professional Liability Coverage missing required question answer. Not adding coverage. ${__location}`);
             }
         }
 
@@ -2028,7 +2028,7 @@ module.exports = class LibertySBOP extends Integration {
                 Limit.ele('LimitAppliesToCd', 'Coverage');
             }
             else {
-                log.warn(`${logPrefix}Printers Work Correction Liability Coverage missing required question. Not adding coverage.`);
+                log.warn(`${logPrefix}Printers Work Correction Liability Coverage missing required question. Not adding coverage. ${__location}`);
             }
         }
 
@@ -2198,7 +2198,7 @@ module.exports = class LibertySBOP extends Integration {
 
     getSupportedLimits(limitsStr) {
         if (limitsStr === "") {
-            log.warn(`${logPrefix}Provided limits are empty.`);
+            log.warn(`${logPrefix}Provided limits are empty. ${__location}`);
             return limitsStr;
         }
 
@@ -2221,7 +2221,7 @@ module.exports = class LibertySBOP extends Integration {
             limits.map(limit => parseInt(limit, 10));
         }
         catch (e) {
-            log.warn(`${logPrefix}Error parsing limit: ${e}. Leaving value as-is. ` + __location);
+            log.warn(`${logPrefix}Error parsing limit: ${e}. Leaving value as-is. ${__location}`);
             return limitsStr;
         }
 
@@ -2238,7 +2238,7 @@ module.exports = class LibertySBOP extends Integration {
                     // Liberty BOP Commercial doesn't use Aggregate
                     break;
                 default:
-                    log.warn(`${logPrefix}Encountered more limits than we should have.`);
+                    log.warn(`${logPrefix}Encountered more limits than we should have. ${__location}`);
             }
 
             if (supportedLimits) {
