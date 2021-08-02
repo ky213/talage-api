@@ -84,33 +84,33 @@ module.exports = class LibertyGL extends Integration{
         const limits = this.getBestLimits(carrierLimits);
         if(!limits){
             log.warn(`${logPrefix}autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
-            this.reasons.push(`Insurer does not support the requested liability limits`);
+            this.reasons.push(`${logPrefix}Insurer does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
         // Check Industry Code Support
         if(!this.industry_code.cgl){
             log.error(`${logPrefix}Talage does not have a CGL set for Industry code ${this.industry_code.id}.` + __location)
-            this.reasons.push(`Talage does not have a CGL set for Industry code ${this.industry_code.id}.`);
+            this.reasons.push(`${logPrefix}Talage does not have a CGL set for Industry code ${this.industry_code.id}.`);
             return this.return_result('autodeclined');
         }
 
         // Liberty requires a 'premiumBasis' be set for every code
         if(!this.industry_code.attributes){
             log.error(`${logPrefix}Talage is missing required attributes for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.` + __location);
-            this.reasons.push(`Talage is missing required attributes for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.`);
+            this.reasons.push(`${logPrefix}Talage is missing required attributes for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.`);
             return this.return_result('error');
         }
         if(!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'premiumBasis')){
             log.error(`${logPrefix}Talage is missing a required attribute of 'premiumBasis' for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.` + __location)
-            this.reasons.push(`Talage is missing a required attribute of 'premiumBasis' for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.`);
+            this.reasons.push(`${logPrefix}Talage is missing a required attribute of 'premiumBasis' for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.`);
             return this.return_result('autodeclined');
         }
 
         // for EIN
         if (!appDoc.ein) {
             log.warn(`${logPrefix}Insurer requires FEIN. ${__location}`)
-            this.reasons.push(`Insurer requires FEIN.`);
+            this.reasons.push(`${logPrefix}Insurer requires FEIN.`);
             return this.return_result('error');
         }
 
@@ -520,11 +520,11 @@ module.exports = class LibertyGL extends Integration{
                                             exposure = this.questions['1309'].answer;
                                             break;
                                         default:
-                                            this.reasons.push(`Encountered unsupported premium basis of ${this.industry_code.attributes.premiumBasis}`);
+                                            this.reasons.push(`${logPrefix}Encountered unsupported premium basis of ${this.industry_code.attributes.premiumBasis}`);
                                             return this.return_result('error');
                                     }
                                     if(!exposure || exposure <= 0){
-                                        this.reasons.push(`Bad exposure amount (less than or equal to 0) in application`);
+                                        this.reasons.push(`${logPrefix}Bad exposure amount (less than or equal to 0) in application`);
                                         return this.return_result('error');
                                     }
                                     ExposureInfo.ele('Exposure', Math.round(exposure / this.app.business.locations.length));
@@ -590,7 +590,7 @@ module.exports = class LibertyGL extends Integration{
         }
         catch (e) {
             log.error(`${logPrefix}${e}${__location}`);
-            return this.client_error(`${e}`, __location);
+            return this.client_error(`${logPrefix}${e}`, __location);
         }
 
         const host = 'apis.us-east-1.libertymutual.com';
@@ -603,8 +603,8 @@ module.exports = class LibertyGL extends Integration{
             });
         }
         catch (e) {
-            const errorMessage = `An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `;
-            log.error(logPrefix + errorMessage + __location);
+            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -613,7 +613,7 @@ module.exports = class LibertyGL extends Integration{
 
         // Check that there was success at the root level
         if(res.Status[0].StatusCd[0] !== '0'){
-            this.reasons.push(`Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]}`);
+            this.reasons.push(`${logPrefix}Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]}`);
             return this.return_result('error');
         }
 
@@ -624,19 +624,19 @@ module.exports = class LibertyGL extends Integration{
         if(res.MsgStatus[0].MsgStatusCd[0] !== 'SuccessWithInfo'){
             // Check if this was an outage
             if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].indexOf('services being unavailable') >= 0){
-                this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+                this.reasons.push(`${logPrefix}${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
                 return this.return_result('outage');
             }
 
             // Check if quote was declined because there was a pre-existing application for this customer
             const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
             if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
-                this.reasons.push(`blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+                this.reasons.push(`${logPrefix}blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
                 return this.return_result('declined');
             }
 
             // This was some other sort of error
-            this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            this.reasons.push(`${logPrefix}${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
             return this.return_result('error');
         }
 
@@ -766,7 +766,7 @@ module.exports = class LibertyGL extends Integration{
         try{
             // Capture Reasons
             res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].UnderwritingRuleInfo[0].UnderwritingRuleInfoExt.forEach((rule) => {
-                this.reasons.push(`${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
+                this.reasons.push(`${logPrefix}${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
             });
         }
         catch(e){
