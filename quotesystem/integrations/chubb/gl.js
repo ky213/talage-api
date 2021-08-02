@@ -70,33 +70,33 @@ module.exports = class ChubbGL extends Integration {
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            const declinedMessage = `${logPrefix}CGL not set for Talage Industry Code ${this.industry_code.id}.`;
-            log.error(declinedMessage);
+            const declinedMessage = `CGL not set for Talage Industry Code ${this.industry_code.id}.`;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!chubbClassCode) {
-            const declinedMessage = `${logPrefix}ISO not set for Talage Industry Code ${this.industry_code.id}`;
-            log.error(declinedMessage);
+            const declinedMessage = `ISO not set for Talage Industry Code ${this.industry_code.id}`;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!this.industry_code.attributes) {
-            const declinedMessage = `${logPrefix}Missing Attributes for Industry Code ${this.industry_code.id}`;
-            log.error(declinedMessage);
+            const declinedMessage = `Missing Attributes for Industry Code ${this.industry_code.id}`;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            const declinedMessage = `${logPrefix}Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
-            log.error(declinedMessage);
+            const declinedMessage = `Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            const declinedMessage = `${logPrefix}Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
-            log.error(declinedMessage);
+            const declinedMessage = `Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            const declinedMessage = `${logPrefix}Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
-            log.error(declinedMessage);
+            const declinedMessage = `Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
 
@@ -120,8 +120,8 @@ module.exports = class ChubbGL extends Integration {
             tokenResponse = await this.send_json_request(host, '/api/v1/tokens', null, creds, 'POST');
         }
         catch (error) {
-            const errorMessage = `${logPrefix}Error sending token request: ${error}.`;
-            log.error(errorMessage);
+            const errorMessage = `Error sending token request: ${error}. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -430,7 +430,7 @@ module.exports = class ChubbGL extends Integration {
             // </CommlCoverage>
         }
         else if(!this.questions[1064]) {
-            log.error(`Chubb GL (application ${this.app.id}): Error could not find terrorism question 1064 questions ${JSON.stringify(this.questions)} ` + __location);
+            log.error(`${logPrefix}Error could not find terrorism question 1064 questions ${JSON.stringify(this.questions)}. ${__location}`);
         }
 
         // <LiabilityInfo>
@@ -494,7 +494,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
+                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}. ${__location}`);
         }
 
         // </Rating>
@@ -551,7 +551,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
+                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}. ${__location}`);
         }
 
         // </Rating>
@@ -572,8 +572,8 @@ module.exports = class ChubbGL extends Integration {
             question_identifiers = await this.get_question_identifiers();
         }
         catch (err) {
-            const errorMessage = `${logPrefix}Error getting question identifies: ${err}`;
-            log.error(errorMessage);
+            const errorMessage = `Error getting question identifies: ${err}`;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -640,14 +640,14 @@ module.exports = class ChubbGL extends Integration {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
         }
         catch (error) {
-            const errorMessage = `${logPrefix}Error sending XML request: ${error} ${__location}`;
-            log.error(errorMessage);
+            const errorMessage = `Error sending XML request: ${error} `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         if (!result.ACORD || !result.ACORD.InsuranceSvcRs) {
-            const errorMessage = `${logPrefix}Unknown result structure, no base ACORD path: cannot parse result.`;
-            log.error(errorMessage);
+            const errorMessage = `Unknown result structure, no base ACORD path: cannot parse result. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -655,8 +655,8 @@ module.exports = class ChubbGL extends Integration {
         const res = result.ACORD.InsuranceSvcRs[0];
 
         if (!res.Status || !res.Status[0].StatusCd) {
-            const errorMessage = `${logPrefix}Unknown result structure, no Status or StatusCd: cannot determine result.`;
-            log.error(errorMessage);
+            const errorMessage = `Unknown result structure, no Status or StatusCd: cannot determine result. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -666,17 +666,17 @@ module.exports = class ChubbGL extends Integration {
             // log.error("=================== QUOTE ERROR ===================");
         }
 
-        let errorMessage = `${logPrefix}`;
+        let errorMessage = ``;
 
         // Determine what happened
         switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
                 errorMessage += `Error DC-100: The data we sent was invalid `
-                log.error(errorMessage + __location);
+                log.error(logPrefix + errorMessage + __location);
                 return this.client_error(errorMessage, __location);
             case '400':
                 errorMessage += `Error 400: ${BOPPolicyQuoteInqRs.Status[0].StatusDesc[0]} `;
-                log.error(errorMessage + __location);
+                log.error(logPrefix + errorMessage + __location);
                 return this.client_error(errorMessage, __location);
             case '0':
                 // log.debug("=================== QUOTE RESULT ===================");
@@ -694,7 +694,7 @@ module.exports = class ChubbGL extends Integration {
                 }
                 catch(e) {
                     errorMessage += `Error parsing MsgStatusCd response property: ${e} `;
-                    log.error(errorMessage + __location);
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_error(errorMessage, __location);
                 }
 
@@ -715,7 +715,7 @@ module.exports = class ChubbGL extends Integration {
                     else {
                         errorMessage += `Quote structure changed. Unable to parse error message. `;
                     }
-                    log.error(errorMessage + __location);
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_error(errorMessage, __location);
                 }
 
@@ -731,7 +731,7 @@ module.exports = class ChubbGL extends Integration {
                     quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ` + __location);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ${__location}`);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
@@ -743,11 +743,11 @@ module.exports = class ChubbGL extends Integration {
                     }
                     catch (e) {
                         premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
-                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}.`);
+                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}. ${__location}`);
                     }
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ${__location}`);
                 }
 
                 // NOTE: Currently commented out, as client_* functions do not accept this information
@@ -771,7 +771,7 @@ module.exports = class ChubbGL extends Integration {
                                 quoteLimits[4] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             default:
-                                log.warn(`${logPrefix}Warning: Unexpected limit found in response. ` + __location);
+                                log.warn(`${logPrefix}Warning: Unexpected limit found in response. ${__location}`);
                                 break;
                         }
 
@@ -783,7 +783,7 @@ module.exports = class ChubbGL extends Integration {
                     });
                 }
                 catch (e) {
-                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
+                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ${__location}`);
                 }
 
                 // Send the result of the request
@@ -796,7 +796,7 @@ module.exports = class ChubbGL extends Integration {
 
             default:
                 errorMessage += `API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
-                log.error(errorMessage + __location)
+                log.error(logPrefix + errorMessage + __location);
                 return this.client_error(errorMessage, __location);
         }
     }
