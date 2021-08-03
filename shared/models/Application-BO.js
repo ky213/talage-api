@@ -49,7 +49,10 @@ const QUOTE_MIN_TIMEOUT = 5;
 
 
 const REDIS_AGENCY_APPLIST_PREFIX = 'applist-agency-';
-const REDIS_AGENCYNETWORK_APPLIST_PREFIX = 'applist-agencynetwork-'
+const REDIS_AGENCYNETWORK_APPLIST_PREFIX = 'applist-agencynetwork-';
+const REDIS_AGENCY_APPCOUNT_PREFIX = 'appcount-agency-';
+const REDIS_AGENCYNETWORK_APPCOUNT_PREFIX = 'appcount-agencynetwork-';
+
 
 module.exports = class ApplicationModel {
 
@@ -1278,6 +1281,7 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseDB = application;
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
+            await this.updateRedisForAppAddDelete(application.applicationId, application);
         }
 
         return mongoUtils.objCleanup(application);
@@ -1741,6 +1745,7 @@ module.exports = class ApplicationModel {
         return;
     }
     async updateRedisForAppUpdate(applicationJSON){
+
         //Delete keys get next AP Applist request refresh it.
         if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             let redisKey = REDIS_AGENCYNETWORK_APPLIST_PREFIX + applicationJSON.agencyNetworkId;
@@ -1764,6 +1769,45 @@ module.exports = class ApplicationModel {
                 log.error(`REDIS: Error removing ${redisKey} to Redis cache ` + err + __location);
             }
             return true;
+
+        }
+        else {
+            log.warn(`REDIS: updateRedisCache bad applicationJSON ${typeof applicationJSON} ` + __location);
+        }
+        return false;
+    }
+
+    async updateRedisForAppAddDelete(appId,applicationJSON){
+        if(!applicationJSON){
+            const query = {"applicationId": appId};
+            applicationJSON = await ApplicationMongooseModel.findOne(query);
+        }
+        //Delete keys get next AP Applist request refresh it.
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+            let redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+            redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + applicationJSON.agencyId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`REDIS: Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+
+            return true;
+
+
         }
         else {
             log.warn(`REDIS: updateRedisCache bad applicationJSON ${typeof applicationJSON} ` + __location);
@@ -1773,6 +1817,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
+            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
                 useRedisCache = false;
@@ -2093,6 +2138,43 @@ module.exports = class ApplicationModel {
                 return;
             }
             else {
+                let redisKey = null;
+                if(useRedisCache === true){
+                    //networkAgency pull?
+                    if(query.agencyNetworkId){
+                        redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + query.agencyNetworkId
+                    }
+                    else if(query.agencyId){
+                        //Agency Pull?
+                        redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + query.agencyId
+                    }
+
+                    if(forceRedisUpdate === false && redisKey){
+                        let appCount = null;
+                        const resp = await global.redisSvc.getKeyValue(redisKey);
+                        if(resp.found){
+                            log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                            try{
+                                const parsedJSON = new FastJsonParse(resp.value)
+                                if(parsedJSON.err){
+                                    throw parsedJSON.err
+                                }
+                                appCount = parseInt(parsedJSON.value,10);
+                                log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey} COUNT: ${appCount}`)
+                            }
+                            catch(err){
+                                log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                            }
+                            if(appCount){
+                                resolve({count: appCount});
+                                return;
+                            }
+                        }
+
+
+                    }
+                }
+
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error("Application.countDocuments error " + err + __location);
                     error = null;
@@ -2101,6 +2183,18 @@ module.exports = class ApplicationModel {
                 if(rejected){
                     reject(error);
                     return;
+                }
+                if(useRedisCache === true && redisKey){
+                    try{
+                        const ttlSeconds = 900; //15 minutes
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, docCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+                    }
                 }
                 resolve({count: docCount});
                 return;
@@ -2132,6 +2226,7 @@ module.exports = class ApplicationModel {
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
                         await this.updateRedisForAppUpdatebyAppId(id);
+                        await this.updateRedisForAppAddDelete(id);
                     }
 
                 }

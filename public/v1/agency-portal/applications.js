@@ -203,7 +203,7 @@ function generateCSV(applicationList){
  */
 async function getApplications(req, res, next){
     let error = false;
-
+    log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
     const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
@@ -290,10 +290,11 @@ async function getApplications(req, res, next){
         startDateMoment = moment(req.params.startDate).utc();
     }
 
-    if(!req.params.endDate){
+    if(req.params.endDate){
         endDateMoment = moment(req.params.endDate).utc();
         const now = moment();
         if(now.diff(endDateMoment, 'seconds') < 5){
+            log.debug(`clearing end date ${now.diff(endDateMoment, 'seconds')} seconds`)
             endDateMoment = null;
         }
         // now....
