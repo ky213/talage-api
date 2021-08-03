@@ -211,7 +211,7 @@ async function getApplications(req, res, next){
     if(error){
         return next(error);
     }
-    log.debug(`get Application req.auth ${JSON.stringify(req.authentication)} ` + __location);
+    const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
@@ -529,7 +529,6 @@ async function getApplications(req, res, next){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
-                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
                     query.agencyId = {$nin: donotReportAgencyIdArray};
                 }
             }
@@ -604,7 +603,6 @@ async function getApplications(req, res, next){
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
         applicationsSearchCount = applicationsSearchCountJSON.count;
-        log.debug(`app list ${JSON.stringify(query)}`)
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
         for (const application of applicationList) {
             application.business = application.businessName;
@@ -641,6 +639,9 @@ async function getApplications(req, res, next){
 
         // Send the CSV data
         res.end(csvData);
+        const endMongo = moment();
+        const diff = endMongo.diff(start, 'milliseconds', true);
+        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
         return next();
 
     }
@@ -664,6 +665,9 @@ async function getApplications(req, res, next){
         };
         // Return the response
         res.send(200, response);
+        const endMongo = moment();
+        const diff = endMongo.diff(start, 'milliseconds', true);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
         return next();
     }
 }
