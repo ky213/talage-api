@@ -1817,7 +1817,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
-            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
+            //log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
                 useRedisCache = false;
@@ -2153,19 +2153,18 @@ module.exports = class ApplicationModel {
                         let appCount = null;
                         const resp = await global.redisSvc.getKeyValue(redisKey);
                         if(resp.found){
-                            log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                            //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
                             try{
                                 const parsedJSON = new FastJsonParse(resp.value)
                                 if(parsedJSON.err){
                                     throw parsedJSON.err
                                 }
                                 appCount = parseInt(parsedJSON.value,10);
-                                log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey} COUNT: ${appCount}`)
                             }
                             catch(err){
                                 log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
                             }
-                            if(appCount){
+                            if(appCount || appCount === 0){
                                 resolve({count: appCount});
                                 return;
                             }
@@ -2184,7 +2183,7 @@ module.exports = class ApplicationModel {
                     reject(error);
                     return;
                 }
-                if(useRedisCache === true && redisKey){
+                if(useRedisCache === true && redisKey && docCount){
                     try{
                         const ttlSeconds = 900; //15 minutes
                         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, docCount,ttlSeconds)
