@@ -29,7 +29,7 @@ const bopRequirements = {
         constructionType: {requirement: required},
         yearBuilt: {requirement: required},
         unemployment_num: {requirement: hidden},
-        square_footage: {requirement: optional},
+        square_footage: {requirement: required},
         bop: {
             requirement: required,
             fireAlarmType: {requirement: required},
@@ -39,7 +39,8 @@ const bopRequirements = {
             plumbingImprovementYear: {requirement: required}
         }
     },
-    grossSalesAmt: {requirement: optional}
+    grossSalesAmt: {requirement: required},
+    ein: {requirement: optional}
 };
 
 const glRequirements = {
@@ -52,7 +53,7 @@ const glRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: hidden},
-        square_footage: {requirement: optional},
+        square_footage: {requirement: required},
         bop: {
             requirement: hidden,
             fireAlarmType: {requirement: hidden},
@@ -62,7 +63,7 @@ const glRequirements = {
             plumbingImprovementYear: {requirement: hidden}
         }
     },
-    grossSalesAmt: {requirement: optional}
+    grossSalesAmt: {requirement: required}
 };
 
 const wcRequirements = {
@@ -90,11 +91,11 @@ const wcRequirements = {
         }
     },
     grossSalesAmt: {requirement: hidden},
-    ein: {requirement: optional}
+    ein: {requirement: required}
 };
 
 const plRequirements = {
-    grossSalesAmt: {requirement: optional},
+    grossSalesAmt: {requirement: required},
     location: {
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
@@ -116,7 +117,7 @@ const plRequirements = {
 };
 
 const cyberRequirements = {
-    grossSalesAmt: {requirement: optional},
+    grossSalesAmt: {requirement: required},
     location: {
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
