@@ -30,11 +30,11 @@ const getToken = async(integration) => {
     }
     catch(err){
         //console.log(err);
-        log.error(`Error getting token from Great American ${err} @ ${__location}`)
+        log.error(`Error getting token from Great American ${err} @ ` + __location);
     }
 
     if (!out.access_token) {
-        log.error(`NO access token returned: ${JSON.stringify(out, null, 2)} @ ${__location}`);
+        log.error(`NO access token returned: ${JSON.stringify(out, null, 2)} @ ` + __location);
         throw new Error(`NO access token returned: ${JSON.stringify(out, null, 2)}`);
     }
     return out;
@@ -55,7 +55,7 @@ const getNcciFromClassCode = async(code, territory) => {
         return insurerActivityCode.code
     }
     else{
-        log.error(`Code could not be found: ${code} / ${territory} ${JSON.stringify(activityCodeQuery)} @ ${__location}`);
+        log.error(`Code could not be found: ${code} / ${territory} ${JSON.stringify(activityCodeQuery)} @ ` + __location);
         throw new Error(`Code could not be found: ${code} / ${territory}`);
     }
 
@@ -372,7 +372,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
         allGroups = _.get(answerSession, 'questionnaire.groups');
     }
     catch(err){
-        log.error(`Great American WC Error getting in injectAnswers ${err} ` + __location)
+        log.error(`Great American WC Error getting in injectAnswers ${err} ` + __location);
     }
 
     // Set the 'answer' field of questions equal to the values specified in the
@@ -390,7 +390,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
             if (question.answerType === 'SELECT') {
                 const gaOption = question.options.find(a => a.label === questionAnswers[question.questionId]);
                 if (!gaOption) {
-                    log.error(`Cannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)} @ ${__location}`);
+                    log.error(`Cannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)} @ ` + __location);
                     integration.log += `\nCannot find value for question ${question.questionId} option: ${questionAnswers[question.questionId]} in group.question ${JSON.stringify(question)}\n`;
                     // let insurer reject it for missing question
                     // make Great American reject it.
@@ -425,7 +425,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
     }
     catch(err){
         //because we like knowing where things went wrong.
-        log.error(`AppId: ${integration.app.id} get session error ${err} ` + __location);
+        log.error(`AppId: ${integration.app.id} Great American GET session error: ${err} ` + __location);
     }
     if(appetite){
         return appetite.data;
