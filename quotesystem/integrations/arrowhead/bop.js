@@ -11,7 +11,6 @@
 /* eslint multiline-comment-style: 0 */
 
 /**
- * This is a Wendy's specific integration for Arrowhead. 
  * 
  * NOTE: This integration treats Arrowhead Wendy's as a unique insurer
  */
@@ -25,6 +24,7 @@ const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
 const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
+const fs = require('fs'); // zy debug remove
 
 // TODO: Update to toggle between test/prod 
 const host = 'https://stag-api.nationalprograms.io';
@@ -32,7 +32,7 @@ const path = '/Quote/v0.2-beta/CreateQuote';
 let logPrefix = "";
 const MAX_RETRY_ATTEMPTS = 10;
 
-module.exports = class LibertySBOP extends Integration {
+module.exports = class ArrowheadBOP extends Integration {
 
     /**
      * Initializes this integration.
@@ -44,7 +44,7 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     /**
-	 * Requests a quote from Liberty and returns. This request is not intended to be called directly.
+	 * Requests a quote from Arrowhead and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
@@ -63,7 +63,7 @@ module.exports = class LibertySBOP extends Integration {
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
         const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
 
-        logPrefix = `Arrowhead Wendys (Appid: ${applicationDocData.applicationId}): `;
+        logPrefix = `Arrowhead (Appid: ${applicationDocData.applicationId}): `;
 
         // reducing questions to a separate questionmap keyed off identifier
         const questions = {};
@@ -100,6 +100,7 @@ module.exports = class LibertySBOP extends Integration {
             insuredSet: {
                 firstName: primaryContact.firstName,
                 lastName: primaryContact.lastName,
+                DBA: applicationDocData.dba,
                 address: {
                     zip: applicationDocData.mailingZipcode,
                     address: applicationDocData.mailingAddress,
@@ -108,7 +109,7 @@ module.exports = class LibertySBOP extends Integration {
                 },
                 instype: supportedEntityTypes.includes(applicationDocData.entityType) ? applicationDocData.entityType : "Other",
                 companyName: applicationDocData.businessName,
-                wphone: `+1-${primaryContact.phone.substring(0, 3)}-${primaryContact.phone.substring(primaryContact.phone.length - 7)}`,
+                wphone: `${primaryContact.phone.substring(0, 3)}-${primaryContact.phone.substring(3,6)}-${primaryContact.phone.substring(6)}`,
                 email: primaryContact.email
             },
             controlSet: {
@@ -125,10 +126,10 @@ module.exports = class LibertySBOP extends Integration {
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
                     stateOfDomicile: applicationDocData.mailingState,
-                    naicsCode: this.industry_code.attributes.naics,
+                    naicsCode: this.industry_code.attributes.NAICSCode,
                     classCode: this.industry_code.code, 
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
-                    sicCode: this.industry_code.attributes.sic, 
+                    sicCode: this.industry_code.attributes.SIC, 
                     state: applicationDocData.mailingState,
                     effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
@@ -182,6 +183,17 @@ module.exports = class LibertySBOP extends Integration {
         this.log += `URL: ${host}${path}<br><br>`;
         this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
+        function replacer(key, val) { // zy debug remove
+            if (typeof val === 'undefined') {
+                return 'UNDEFINED!!!';
+            }
+            else {
+                return val;
+            }
+        }
+        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/appDocData.json', JSON.stringify(applicationDocData, replacer, 4)); // zy debug remove
+        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/request.json', JSON.stringify(requestJSON, replacer, 4)); // zy debug remove
+        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/industryCode.json', JSON.stringify(this.industry_code, null, 4)); // zy debug remove
 
         let result = null;
         const headers = {
@@ -199,6 +211,7 @@ module.exports = class LibertySBOP extends Integration {
                 // advantage of the logging done implicitly by this method...
                 // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
                 result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
+                fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/response.json', JSON.stringify(result.data, null, 4)); // zy debug remove
             } catch(e) {
                 const errorMessage = `${logPrefix}Error sending request: ${e}. `;
                 log.error(errorMessage + __location);
@@ -477,8 +490,8 @@ module.exports = class LibertySBOP extends Integration {
                         industrySegment: "",
                         premOpsILF: "", 
                         classCode: this.industry_code.code,
-                        sicCode: `${this.industry_code.sic}`,
-                        naicsCode: this.industry_code.attributes.naics,
+                        sicCode: `${this.industry_code.attributes.SIC}`,
+                        naicsCode: this.industry_code.attributes.NAICSCode,
                         coverages: {
                             // this is required because classTag is set to "SALES"
                             liab: {
@@ -489,6 +502,16 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 ]
             };
+
+            // zy I'm not sure if we need this
+            // // eslint-disable-next-line array-element-newline
+            // if (['AL', 'CA', 'FL', 'GA', 'LA', 'MS', 'NJ', 'NY', 'SC', 'TX', 'VA'].includes(location.state)) {
+            //     locationObj.territory = smartyStreetsResponse ? smartyStreetsResponse.addressInformation.county_name : ``;
+            // }
+
+            if (location.state === 'NC') {
+                locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
+            }
 
             this.injectLocationQuestions(locationObj, location.locationQuestions);
             this.injectBuildingQuestions(location, locationObj.buildingList, location.buildingQuestions);
@@ -502,10 +525,22 @@ module.exports = class LibertySBOP extends Integration {
     injectGeneralQuestions(requestJSON, questions) {
         // hydrate the request JSON object with general question data
         // NOTE: Add additional general questions here if more get imported  
+
+        const applicationDocData = this.app.applicationDocData;
         
         // parent questions
         const datcom = [];
         const cyber = [];
+        const edol = [];
+        const mold = [];
+        const dentistEquip = [];
+        const schedBookFloater = [];
+        const nonOwnedAutoLiab = [];
+        const liquorLiab = [];
+        const empLiab = [];
+        const suppPropDmg = [];
+        const pharmLiab = [];
+        const compFraud = [];
 
         const bbopSet = requestJSON.policy.bbopSet;
 
@@ -554,10 +589,364 @@ module.exports = class LibertySBOP extends Integration {
                 case "datcom.tier.1000000":
                     datcom.push({id, answer});
                     break;
+                case "emplDishonesty":
+                    bbopSet.coverages.edol = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "emplDishonesty.limit":
+                    edol.push({id: "limit", answer});
+                    break;
+                case "emplDishonesty.benefitPlanName":
+                    edol.push({id: "benefitPlanName", answer});
+                    break;
+                case "removeITVProvision":
+                    bbopSet.removeITVProvision = this.convertToBoolean(answer);
+                    break;
+                case "stopGapLimit":
+                    // Limit applies to up to four separate states if those states are present on the application
+                    if (applicationDocData.locations.find(loc => loc.state === 'WA')) {
+                        bbopSet.coverages.stopGapWA = {limit: answer};
+                    }
+                    if (applicationDocData.locations.find(loc => loc.state === 'WY')) {
+                        bbopSet.coverages.stopGapWY = {limit: answer};
+                    }
+                    if (applicationDocData.locations.find(loc => loc.state === 'ND')) {
+                        bbopSet.coverages.stopGapND = {limit: answer};
+                    }
+                    if (applicationDocData.locations.find(loc => loc.state === 'OH')) {
+                        bbopSet.coverages.stopGapOH = {limit: answer};
+                    }
+                    break;
+                case "moldIncl":
+                    bbopSet.coverages.mold = {
+                        IncludeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "moldIncl.stateException":
+                    mold.push({id: "GeorgiaStateException", answer: this.convertToBoolean(answer)});
+                    break;
+                case "dentistEuipFloater":
+                    bbopSet.coverages.dentistEquip = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "dentistEuipFloater.limit":
+                    dentistEquip.push({id: "limit", answer});
+                    break;
+                case "schedBookFloater":
+                    bbopSet.coverages.schdbk = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "schedBookFloater.limit":
+                    schedBookFloater.push({id: "limit", answer});
+                    break;
+                case "nonOwnedAutoLiab":
+                    // This question populates both nonown and hired auto in arrowhead request
+                    bbopSet.coverages.nonown = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    bbopSet.coverages.hireda = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "nonOwnedAutoLiab.exposure":
+                    nonOwnedAutoLiab.push({id: "exposure", answer});
+                    break;
+                case "liquorLiab":
+                    bbopSet.coverages.liqLia = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "liquorLiab.typeOfSales":
+                    liquorLiab.push({id: "type", answer})
+                    break;
+                case "liquorLiab.limit":
+                    liquorLiab.push({id: "limit", answer})
+                    break;
+                case "liquorLiab.totalSales":
+                    liquorLiab.push({id: "salesTotal", answer: this.convertToInteger(answer)});
+                    break;
+                case "liquorLiab.liquorSales":
+                    liquorLiab.push({id: "salesLiquor", answer: this.convertToInteger(answer)});
+                    break;
+                case "liquorLiab.premOp":
+                    liquorLiab.push({id: "premOp", answer})
+                    break;
+                case "empLiab":
+                    bbopSet.coverages.emplia = {
+                        includeInd: this.convertToBoolean(answer)
+                    };
+                    break;
+                case "empLiab.limit": // zy Limits are different for certain states. Not worrying about the rules right now.
+                    empLiab.push({id: "limit", answer});
+                    break;
+                case "empLiab.defenseLimit":
+                    empLiab.push({id: "defenseLimit", answer});
+                    break;
+                case "empLiab.indemnityLimit":
+                    empLiab.push({id: "indemnityLimit", answer});
+                    break;
+                case "empLiab.deductible":
+                    empLiab.push({id: "ded", answer});
+                    break;
+                case "empLiab.retroactiveDate":
+                    empLiab.push({id: "retroDate", answer});
+                    break;
+                case "empLiab.priorActs":
+                    empLiab.push({id: "priorActs", answer});
+                    break;
+                case "empLiab.thirdPartyCoverage":
+                    empLiab.push({id: "thirdPartyCoverage", answer: this.convertToBoolean(answer)});
+                    break;
+                case "snowPlowCoverage":
+                        bbopSet.coverages.snowco = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "fellowEmployeeCoverage":
+                        bbopSet.coverages.fellow = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "suppPropertyDmg":
+                        bbopSet.coverages.suppr = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "suppPropertyDmg.limit": 
+                        suppPropDmg.push({id: "limit", answer})
+                    break;
+                case "contractorsAdditionalInsured":
+                        bbopSet.coverages.conadd = {IncludeInd: this.convertToBoolean(answer)};
+                    break;
+                case "waiverTOR":
+                        bbopSet.coverages.waiver = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "pharmacistLiab":
+                        bbopSet.coverages.pharm = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "pharmacistLiab.coverageOptions":
+                    pharmLiab.push({id: "option", answer});
+                    break;
+                case "pharmacistLiab.grossSales":
+                    pharmLiab.push({id: "grossSales", answer: this.convertToInteger(answer)});
+                    break;
+                case "pharmacistLiab.limit":
+                    pharmLiab.push({id: "ilLimit", answer});
+                    break;
+                case "compFraud":
+                    bbopSet.coverages.compf = {includeInd: this.convertToBoolean(answer)};
+                    break;
+                case "compFraud.limit":
+                    compFraud.push({id: "limit", answer});
+                    break;
                 default:
                     log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                     break;
             }
+        }
+        // hydrate Computer Fraud coverage with child question data, if any exist
+        if (compFraud.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("compf")) {
+                bbopSet.coverages.compf = {
+                    includeInd: true
+                }
+            }
+            compFraud.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                        bbopSet.coverages.compf[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Computer Fraud with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate Pharmacist Liability coverage with child question data, if any exist
+        if (pharmLiab.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("pharm")) {
+                bbopSet.coverages.pharm = {
+                    includeInd: true
+                }
+            }
+            pharmLiab.forEach(({id, answer}) => {
+                switch (id) {
+                    case "option":
+                    case "grossSales":
+                    case "ilLimit":
+                        bbopSet.coverages.pharm[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Pharmacist Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate Supplemental Property Damage coverage with child question data, if any exist
+        if (suppPropDmg.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("suppr")) {
+                bbopSet.coverages.suppr = {
+                    includeInd: true
+                }
+            }
+            suppPropDmg.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                        bbopSet.coverages.suppr[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Supplemental Property Damage coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate Employment Related Practices Liability coverage with child question data, if any exist
+        if (empLiab.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("emplia")) {
+                bbopSet.coverages.emplia = {
+                    includeInd: true
+                }
+            }
+            empLiab.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                    case "defenseLimit":
+                    case "indemnityLimit":
+                    case "ded":
+                    case "retroDate":
+                    case "priorActs":
+                    case "thirdPartyCoverage":
+                        bbopSet.coverages.emplia[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Employment Related Practices Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+            bbopSet.coverages.emplia.numEmp = applicationDocData.locations.reduce((acc, location) => acc + location.full_time_employees, 0);
+            if (applicationDocData.primaryState !== "MN") {
+                bbopSet.coverages.emplia.numNonFTEmp = applicationDocData.locations.reduce((acc, location) => acc + location.part_time_employees, 0);
+            }
+            bbopSet.coverages.emplia.sic = this.industry_code.attributes.SIC;
+        }
+
+        // hydrate Liquor Liability coverage with child question data, if any exist
+        if (liquorLiab.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("liqLia")) {
+                bbopSet.coverages.liqLia = {
+                    includeInd: true
+                }
+            }
+            liquorLiab.forEach(({id, answer}) => {
+                switch (id) {
+                    case "type":
+                    case "limit":
+                    case "salesTotal":
+                    case "salesLiquor":
+                    case "premOp":
+                        bbopSet.coverages.liqLia[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Liquor Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate non-owned auto liability coverage with child question data, if any exist
+        if (nonOwnedAutoLiab.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("nonown")) {
+                bbopSet.coverages.nonown = {
+                    includeInd: true
+                }
+            }
+            nonOwnedAutoLiab.forEach(({id, answer}) => {
+                switch (id) {
+                    case "exposure":
+                        bbopSet.coverages.nonown[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Non Owned Auto Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate scheduled book and manuscript floater coverage with child question data, if any exist
+        if (schedBookFloater.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("schdbk")) {
+                bbopSet.coverages.schdbk = {
+                    includeInd: true
+                }
+            }
+            schedBookFloater.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                        bbopSet.coverages.schdbk[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Scheduled Book and Manuscript Floater coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate dentist/physician equipment coverage with child question data, if any exist
+        if (dentistEquip.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("dentistEquip")) {
+                bbopSet.coverages.dentistEquip = {
+                    IncludeInd: true
+                }
+            }
+            dentistEquip.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                        bbopSet.coverages.dentistEquip[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Dentist/Physician Equipment coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate mold coverage with child question data, if any exist
+        if (mold.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("mold")) {
+                bbopSet.coverages.mold = {
+                    IncludeInd: true
+                }
+            }
+            mold.forEach(({id, answer}) => {
+                switch (id) {
+                    case "GeorgiaStateException":
+                        bbopSet.coverages.mold[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for mold coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                        break;
+                }
+            });
+        }
+
+        // hydrate employee dishonesty with child question data, if any exist
+        if (edol.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("edol")) {
+                bbopSet.coverages.edol = {
+                    includeInd: true
+                }
+            }
+            edol.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                    case "benefitPlanName":
+                        bbopSet.coverages.edol[id] = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for employee dishonesty coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                        break;
+                }
+            })
         }
 
         // hydrate cyber with child question data, if any exist
@@ -640,6 +1029,7 @@ module.exports = class LibertySBOP extends Integration {
             const osigns = [];
             const spoil = [];
             const compf = [];
+            const windstormFeatures = [];
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
@@ -656,7 +1046,7 @@ module.exports = class LibertySBOP extends Integration {
                         building[id] = this.convertToInteger(answer);
                         break;
                     case "occupancy":
-                        building[id] = answer;
+                        building[id] = answer === 'Non-Owner Occupied Bldg' ? 'Non-Owner Occupied Bldg.' : answer; // Arrowhead needs the '.' on the end for this answer
                         break;
                     case "occupiedSqFt":
                         building[id] = this.convertToInteger(answer);
@@ -697,6 +1087,57 @@ module.exports = class LibertySBOP extends Integration {
                     case "spoil.refrigerationInd": // child
                     case "spoil.breakContInd": // child
                         spoil.push({id: id.replace("spoil.", ""), answer});
+                        break;
+                    case "windstormConstruction":
+                        building.windstormFeatures = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "windstormConstruction.certType":
+                            windstormFeatures.push({id: "certificateType", answer});
+                        break;
+                    case "windstormConstruction.certLevel":
+                            windstormFeatures.push({id: "certificateLevel", answer});
+                        break;
+                    case "windstormConstruction.roofType":
+                            windstormFeatures.push({id: "roofType", answer};
+                        break;
+                    case "windstormConstruction.territoryAL":
+                            windstormFeatures.push({id: "territory", answer};
+                        break;
+                    case "windstormConstruction.territorySC":
+                            windstormFeatures.push({id: "territorySC", answer};
+                        break;
+                    case "windstormConstruction.buildingType":
+                            windstormFeatures.push({id: "buildingType", answer};
+                        break;
+                    case "windstormConstruction.roofShape":
+                            windstormFeatures.push({id: "roofShape", answer};
+                        break;
+                    case "windstormConstruction.roofCovering":
+                            windstormFeatures.push({id: "roofCover", answer});
+                        break;
+                    case "windstormConstruction.roofDeckAttach":
+                            building.windstormFeatures.roofDeckAttach = answer; // zy here <---------<<<
+                        break;
+                    case "windstormConstruction.roofWallConn":
+                            building.windstormFeatures.roofWallConnect = answer;
+                        break;
+                    case "windstormConstruction.roofDeckMaterial":
+                            building.windstormFeatures.roofDeck = answer;
+                        break;
+                    case "windstormConstruction.openingProt":
+                            building.windstormFeatures.openProtection = answer;
+                        break;
+                    case "windstormConstruction.doorStrength":
+                            building.windstormFeatures.doorStrength = answer;
+                        break;
+                    case "windstormConstruction.secWaterRes":
+                            building.windstormFeatures.secondWaterRes = answer;
+                        break;
+                    case "windstormConstruction.proofCompliance":
+                            building.windstormFeatures.proofComp = answer;
+                        break;
+                    case "windstormconstruction.physinspection":
+                            building.windstormFeatures.physInspection = answer;
                         break;
                     default: 
                         log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
