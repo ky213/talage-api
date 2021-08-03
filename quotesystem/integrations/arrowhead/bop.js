@@ -492,6 +492,13 @@ module.exports = class ArrowheadBOP extends Integration {
                         classCode: this.industry_code.code,
                         sicCode: `${this.industry_code.attributes.SIC}`,
                         naicsCode: this.industry_code.attributes.NAICSCode,
+                        yearBuilt: location.yearBuilt,
+                        uw: {
+                            roofUpdates: location.bop.roofingImprovementYear,
+                            hvacUpdates: location.bop.heatingImprovementYear,
+                            plumbingUpdates: location.bop.plumbingImprovementYear,
+                            electricalUpdates: location.bop.wiringImprovementYear
+                        },
                         coverages: {
                             // this is required because classTag is set to "SALES"
                             liab: {
@@ -502,12 +509,6 @@ module.exports = class ArrowheadBOP extends Integration {
                     }
                 ]
             };
-
-            // zy I'm not sure if we need this
-            // // eslint-disable-next-line array-element-newline
-            // if (['AL', 'CA', 'FL', 'GA', 'LA', 'MS', 'NJ', 'NY', 'SC', 'TX', 'VA'].includes(location.state)) {
-            //     locationObj.territory = smartyStreetsResponse ? smartyStreetsResponse.addressInformation.county_name : ``;
-            // }
 
             if (location.state === 'NC') {
                 locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
@@ -1030,6 +1031,17 @@ module.exports = class ArrowheadBOP extends Integration {
             const spoil = [];
             const compf = [];
             const windstormFeatures = [];
+            const mine = [];
+            const addLivingExpense = [];
+            const actReceivable = [];
+            const condoOwner = [];
+            const dmgRentedPremises = [];
+            const busIncDepProp = [];
+            const ordinance = [];
+            const utilityTimeElement = [];
+            const utilityDirectDamage = [];
+
+            building.coverages.bld = {};
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
@@ -1051,9 +1063,6 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "occupiedSqFt":
                         building[id] = this.convertToInteger(answer);
                         break;
-                    case "yearBuilt":
-                        building[id] = this.convertToInteger(answer);
-                        break;
                     case "compf":
                         building.coverages[id] = {
                             includeInd: this.convertToBoolean(answer)
@@ -1061,12 +1070,6 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                     case "compf.limit":
                         compf.push({id: id.replace("compf.", ""), answer}); 
-                        break;
-                    case "uw.roofUpdates": // child
-                    case "uw.hvacUpdates": // child
-                    case "uw.plumbingUpdates": // child
-                    case "uw.electricalUpdates": // child
-                        uw.push({id: id.replace("uw.", ""), answer});
                         break;
                     case "osigns":
                         building.coverages[id] = {
@@ -1088,77 +1091,449 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "spoil.breakContInd": // child
                         spoil.push({id: id.replace("spoil.", ""), answer});
                         break;
+                    case "mineSubsidenceCoverage":
+                        if (location.state === "IL") {
+                            building.coverages.bld.mine = {il: {includeInd: this.convertToBoolean(answer)}}
+                        }
+                        if (location.state === "IN") {
+                            building.coverages.bld.mine = {in: {includeInd: this.convertToBoolean(answer)}}
+                        }
+                        if (location.state === "KY") {
+                            building.coverages.bld.mine = {ky: {includeInd: this.convertToBoolean(answer)}}
+                        }
+                        if (location.state === "WV") {
+                            building.coverages.bld.mine = {wv: {includeInd: this.convertToBoolean(answer)}}
+                        }
+                        break;
+                    case "mineSubsidenceCoverage.limit":
+                        mine.push({id: "limit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "addLivingExpense":
+                        building.coverages.bld.addexp = {in: {includeInd: this.convertToBoolean(answer)}};
+                        break;
+                    case "addLivingExpense.limit":
+                        addLivingExpense.push({id: "limit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "newJerseyLeadCert":
+                        if (location.yearBuilt && location.yearBuilt <= 1977) {
+                            building.coverages.njlead = {
+                                includeInd: true,
+                                certification: answer
+                            }
+                            if (building.coverages.njlead.certification === "Certified") {
+                                building.coverages.njlead.nonCertLiab = "Exclude Liability for Hazards of Lead";
+                            }
+                            else {
+                                building.coverages.njlead.certLiab = "Included Liability for Hazards of Lead with sublimit";
+                                building.coverages.njlead.limit = "50000";
+                            }
+                        }
+                        break;
+                    case "hasMortage":
+                        const convertedAnswer = this.convertToBoolean(answer) ? "Included" : "Excluded";
+                        building.coverages.lien = {includeInd: convertedAnswer};
+                        break;
                     case "windstormConstruction":
                         building.windstormFeatures = {includeInd: this.convertToBoolean(answer)};
                         break;
                     case "windstormConstruction.certType":
-                            windstormFeatures.push({id: "certificateType", answer});
+                        windstormFeatures.push({id: "certificateType", answer});
                         break;
                     case "windstormConstruction.certLevel":
-                            windstormFeatures.push({id: "certificateLevel", answer});
+                        windstormFeatures.push({id: "certificateLevel", answer});
                         break;
                     case "windstormConstruction.roofType":
-                            windstormFeatures.push({id: "roofType", answer};
+                        windstormFeatures.push({id: "roofType", answer});
                         break;
                     case "windstormConstruction.territoryAL":
-                            windstormFeatures.push({id: "territory", answer};
+                        windstormFeatures.push({id: "territory", answer});
                         break;
                     case "windstormConstruction.territorySC":
-                            windstormFeatures.push({id: "territorySC", answer};
+                        windstormFeatures.push({id: "territorySC", answer});
                         break;
                     case "windstormConstruction.buildingType":
-                            windstormFeatures.push({id: "buildingType", answer};
+                        windstormFeatures.push({id: "buildingType", answer});
                         break;
                     case "windstormConstruction.roofShape":
-                            windstormFeatures.push({id: "roofShape", answer};
+                        windstormFeatures.push({id: "roofShape", answer});
                         break;
                     case "windstormConstruction.roofCovering":
-                            windstormFeatures.push({id: "roofCover", answer});
+                        windstormFeatures.push({id: "roofCover", answer});
                         break;
                     case "windstormConstruction.roofDeckAttach":
-                            building.windstormFeatures.roofDeckAttach = answer; // zy here <---------<<<
+                        windstormFeatures.push({id: "roofDeckAttach", answer});
                         break;
                     case "windstormConstruction.roofWallConn":
-                            building.windstormFeatures.roofWallConnect = answer;
+                        windstormFeatures.push({id: "roofWallConnect", answer});
                         break;
                     case "windstormConstruction.roofDeckMaterial":
-                            building.windstormFeatures.roofDeck = answer;
+                        windstormFeatures.push({id: "roofDeck", answer});
                         break;
                     case "windstormConstruction.openingProt":
-                            building.windstormFeatures.openProtection = answer;
+                        windstormFeatures.push({id: "openProtection", answer});
                         break;
                     case "windstormConstruction.doorStrength":
-                            building.windstormFeatures.doorStrength = answer;
+                        windstormFeatures.push({id: "doorStrength", answer});
                         break;
                     case "windstormConstruction.secWaterRes":
-                            building.windstormFeatures.secondWaterRes = answer;
+                        windstormFeatures.push({id: "secondWaterRes", answer});
                         break;
                     case "windstormConstruction.proofCompliance":
-                            building.windstormFeatures.proofComp = answer;
+                        windstormFeatures.push({id: "proofComp", answer});
                         break;
-                    case "windstormconstruction.physinspection":
-                            building.windstormFeatures.physInspection = answer;
+                    case "windstormConstruction.physinspection":
+                        windstormFeatures.push({id: "physInspection", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "accountsReceivable":
+                          building.coverages.actrec = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "accountsReceivable.limit":
+                        actReceivable.push({id: "limit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "condoOptCoverage":
+                        building.coverages.cndown = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "condoOptCoverage.lossLimit":
+                        condoOwner.push({id: "lossAssessment", answer});
+                        break;
+                    case "condoOptCoverage.miscRealPropLimit":
+                        condoOwner.push({id: "miscProp", answer});
+                        break;
+                    case "condoOptCoverage.subLimit":
+                        condoOwner.push({id: "subLimit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "emplDishonesty": 
+                        building.coverages.ledol = {includeInd: this.convertToBoolean(answer)};
+                        if (building.coverages.ledol.includeInd) {
+                            building.coverages.ledol.numEmployees = location.full_time_employees + location.part_time_employees;
+                        }
+                        break;
+                    case "dmgToRentedPremises":
+                        building.coverages.tenfir = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "dmgToRentedPremises.type":
+                        dmgRentedPremises.push({id: "coverageType", answer});
+                        break;
+                    case "dmgToRentedPremises.limit":
+                        dmgRentedPremises.push({id: "limit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "businessIncDepProps":
+                        building.coverages.bidp = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "businessIncDepProps.limit":
+                        busIncDepProp.push({id: "limit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "businessIncDepProp.secDepProps":
+                        busIncDepProp.push({id: "secondaryDependentProperties", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "ordinance":
+                        building.coverages.ordlaw = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "ordinance.coverageType":
+                        ordinance.push({id: "covType", answer});
+                        break;
+                    case "ordinance.coverage2Limit":
+                        ordinance.push({id: "limit2", answer});
+                        break;
+                    case "ordinance.coverage3Limit":
+                        ordinance.push({id: "limit3", answer});
+                        break;
+                    case "ordinance.coverage2and3Limit":
+                        ordinance.push({id: "combinedLimit", answer});
+                        break;
+                    case "utilServTimeElement":
+                        building.coverages.utilte = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "utilServTimeElement.limit":
+                        utilityTimeElement.push({id: "limit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "utilServTimeElement.utility":
+                        utilityTimeElement.push({id: "utility", answer});
+                        break;
+                    case "utilServTimeElement.waterSupply":
+                        utilityTimeElement.push({id: "waterSupply", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServTimeElement.wasteRemoval":
+                        utilityTimeElement.push({id: "wasteRemoval", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServTimeElement.comm":
+                        utilityTimeElement.push({id: "commSupply", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServTimeElement.comm.overheadTxLines":
+                        utilityTimeElement.push({id: "commOverheadTransLines", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServTimeElement.powerSupply":
+                        utilityTimeElement.push({id: "powerSupply", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServTimeElement.powerSupply.overheadTxLines  ":
+                        utilityTimeElement.push({id: "powerOverheadTransLines", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServeDirDmg":
+                        building.coverages.utildd = {includeInd: this.convertToBoolean(answer)};
+                        break;
+                    case "utilServeDirDmg.buildingCov":
+                        utilityDirectDamage.push({id: "building", answer})
+                        break;
+                    case "utilServeDirDmg.buildingCov.limit":
+                        utilityDirectDamage.push({id: "buildingLimit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "utilServeDirDmg.personalProp":
+                        utilityDirectDamage.push({id: "personalProperty", answer});
+                        break;
+                    case "utilServeDirDmg.personalProp.limit":
+                        utilityDirectDamage.push({id: "personalPropertyLimit", answer: this.convertToInteger(answer)});
+                        break;
+                    case "utilServeDirDmg.utility":
+                        utilityDirectDamage.push({id: "utility", answer});
+                        break;
+                    case "utilServeDirDmg.waterSupply":
+                        utilityDirectDamage.push({id: "waterSupply", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServeDirDmg.comm":
+                        utilityDirectDamage.push({id: "communicationSupply", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServeDirDmg.comm.overheadTxLines":
+                        utilityDirectDamage.push({id: "communicationTransLines", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServeDirDmg.powerSupply":
+                        utilityDirectDamage.push({id: "powerSupply", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "utilServeDirDmg.powerSupply.overheadTxLines":
+                        utilityDirectDamage.push({id: "powerSupplyTransLines", answer: this.convertToBoolean(answer)});
                         break;
                     default: 
-                        log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.` + __location);
                         break;
                 }
             }
 
-            // injection of uw child question data
-            // all building underwrite questions are "year xx was updated" format
-            if (uw.length > 0) {
-                building.uw = {};
-                uw.forEach(({id, answer}) => {
+            // injection of Utility Service - Direct Damage Coverage child question data
+            if (ordinance.length > 0) {
+                if (!building.coverages.hasOwnProperty("utildd")){
+                    building.coverages.utildd = {includeInd: true};
+                    building.coverages.utildd.limit1 = location.buildingLimit;
+                }
+                ordinance.forEach(({id, answer}) => {
                     switch (id) {
-                        case "roofUpdates":
-                        case "hvacUpdates":
-                        case "plumbingUpdates":
-                        case "electricalUpdates":
-                            building.uw[id] = this.convertToInteger(answer);
+                        case "building":
+                        case "buildingLimit":
+                        case "personalProperty":
+                        case "personalPropertyLimit":
+                        case "utility":
+                        case "waterSupply":
+                        case "communicationSupply":
+                        case "communicationTransLines":
+                        case "powerSupply":
+                        case "powerSupplyTransLines":
+                                building.coverages.utildd[id] = answer;
                             break;
                         default:
-                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Utility Service - Direct Damage Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Utility Service - Time Element Coverage child question data
+            if (ordinance.length > 0) {
+                if (!building.coverages.hasOwnProperty("utilte")){
+                    building.coverages.utilte = {includeInd: true};
+                    building.coverages.utilte.limit1 = location.buildingLimit;
+                }
+                ordinance.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "limit":
+                        case "utility":
+                        case "waterSupply":
+                        case "wasteRemoval":
+                        case "commSupply":
+                        case "commOverheadTransLines":
+                        case "powerSupply":
+                        case "powerOverheadTransLines":
+                                building.coverages.utilte[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Utility Service - Time Element Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Ordinance or Law Coverage child question data
+            if (ordinance.length > 0) {
+                if (!building.coverages.hasOwnProperty("ordlaw")){
+                    building.coverages.ordlaw = {includeInd: true};
+                    building.coverages.ordlaw.limit1 = location.buildingLimit;
+                }
+                ordinance.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "covType":
+                        case "limit2":
+                        case "limit3":
+                        case "combinedLimit":
+                                building.coverages.ordlaw[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Ordinance or Law Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Business Income from Dependent Properties Coverage child question data
+            if (busIncDepProp.length > 0) {
+                if (!building.coverages.hasOwnProperty("bidp")){
+                    building.coverages.bidp = {includeInd: true};
+                }
+                busIncDepProp.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "secondaryDependentProperties":
+                        case "limit":
+                                building.coverages.bidp[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Business Income from Dependent Properties Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Damage to Rented Premises Coverage child question data
+            if (dmgRentedPremises.length > 0) {
+                if (!building.coverages.hasOwnProperty("tenfir")){
+                    building.coverages.tenfir = {includeInd: true};
+                }
+                dmgRentedPremises.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "coverageType":
+                        case "limit":
+                                building.coverages.tenfir[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Damage to Rented Premises Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Condo Owners Optional Coverages child question data
+            if (condoOwner.length > 0) {
+                if (!building.coverages.hasOwnProperty("cndown")){
+                    building.coverages.cndown = {includeInd: true};
+                }
+                condoOwner.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "lossLimit":
+                        case "miscProp":
+                        case "subLimit":
+                                building.coverages.actrec[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Condo Owners Optional Coverages with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Accounts Receivable Coverage child question data
+            if (actReceivable.length > 0) {
+                if (!building.coverages.hasOwnProperty("actrec")){
+                    building.coverages.actrec = {includeInd: true};
+                }
+                actReceivable.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "limit":
+                                building.coverages.actrec[id] = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Accounts Receivable coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Additional Living Expense Coverage child question data
+            if (addLivingExpense.length > 0) {
+                if (!building.coverages.bld.hasOwnProperty("addexp")){
+                    building.coverages.bld.addexp = {in: {includeInd: true}};
+                }
+                addLivingExpense.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "limit":
+                                building.coverages.bld.addexp.in.addexpAI = answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Additional Living Expenses coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Mine Subsidence Coverage child question data
+            if (mine.length > 0) {
+                if (!building.coverages.hasOwnProperty("mine")){
+                    building.coverages.mine = {};
+                    if (location.state === "IL") {
+                        building.mine.il = {includeInd: true};
+                    }
+                    if (location.state === "IN") {
+                        building.mine.in = {includeInd: true};
+                    }
+                    if (location.state === "KY") {
+                        building.mine.ky = {includeInd: true};
+                    }
+                    if (location.state === "WV") {
+                        building.mine.wv = {includeInd: true};
+                    }
+                }
+                mine.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "limit":
+                            if (location.state === "IL") {
+                                building.coverages.mine.il = {limit: answer};
+                            }
+                            if (location.state === "IN") {
+                                building.coverages.mine.in = {limit: answer};
+                            }
+                            if (location.state === "KY") {
+                                building.coverages.mine.ky = {limit: answer};
+                            }
+                            if (location.state === "WV") {
+                                building.coverages.mine.wv = {limit: answer};
+                            }
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Mine Subsidence coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
+                            break;
+                    }
+                });
+            }    
+
+            // injection of Windstorm Construction Feature child question data
+            if (windstormFeatures.length > 0) {
+                building.windstormFeatures = {};
+                windstormFeatures.forEach(({id, answer}) => {
+                    switch (id) {
+                        case "certificateType":
+                        case "certificateLevel":
+                        case "roofType":
+                        case "territory":
+                        case "territorySC":
+                        case "buildingType":
+                        case "roofShape":
+                        case "roofCover":
+                        case "roofDeckAttach":
+                        case "roofWallConnect":
+                        case "roofDeck":
+                        case "openProtection":
+                        case "doorStrength":
+                        case "secondWaterRes":
+                        case "proofComp":
+                        case "physInspection":
+                            building.windstormFeatures[id] = this.convertToInteger(answer);
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Windstorm Construction features with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
                             break;
                     }
                 });
