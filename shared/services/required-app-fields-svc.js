@@ -76,9 +76,16 @@ const wcRequirements = {
         unemployment_num: {
             visible: true,
             required: true
+        },
+        square_footage: {
+            visible: false,
+            required: false
         }
     },
-    grossSalesAmt: {},
+    grossSalesAmt: {
+        visible: false,
+        required: false
+    },
     ein: {}
 };
 
