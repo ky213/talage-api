@@ -581,7 +581,12 @@ module.exports = class MarkelWC extends Integration {
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
-                annualPayroll: ""
+                annualPayroll: "",
+                constructionType: constructionTypeMatrix[location.constructionType],
+                yearBuilt: location.yearBuilt,
+                stories: location.numStories,
+                fireAlarmType: fireAlarmMatrix[location.bop.fireAlarmType],
+                sprinkler: location.bop.sprinkler ? "yes" : "no"
                 // AdditionalInsured: { // NOTE: possibly not required
                 //     natureInterestCd: "",
                 //     description: "",
@@ -605,18 +610,6 @@ module.exports = class MarkelWC extends Integration {
                 switch (question.insurerQuestionIdentifier) {
                     case "markel.location.building.description":
                         buildingObj.description = question.answerValue;
-                        break;
-                    case "markel.location.building.constructionType":
-                        const constructionTypeAnswer = constructionTypeMatrix[question.answerValue];
-                        buildingObj.constructionType = constructionTypeAnswer ? constructionTypeAnswer : question.answerValue;
-                        break;
-                    case "markel.location.building.yearBuilt":
-                        const yearBuiltAnswer = parseInt(question.answerValue, 10);
-                        buildingObj.yearBuilt = !isNaN(yearBuiltAnswer) ? yearBuiltAnswer : question.answerValue;
-                        break;
-                    case "markel.location.building.stories":
-                        const storiesAnswer = parseInt(question.answerValue, 10);
-                        buildingObj.stories = !isNaN(storiesAnswer) ? storiesAnswer : question.answerValue;
                         break;
                     case "markel.location.building.occupiedSquareFeet":
                         const occupiedSquareFeetAnswer = parseInt(question.answerValue, 10);
@@ -650,13 +643,6 @@ module.exports = class MarkelWC extends Integration {
                         break;
                     case "markel.location.building.isSingleOccupancy":
                         buildingObj.isSingleOccupancy = question.answerValue.toLowerCase();
-                        break;
-                    case "markel.location.building.fireAlarmType":
-                        const fireAlarmTypeAnswer = fireAlarmMatrix[question.answerValue];
-                        buildingObj.fireAlarmType = fireAlarmTypeAnswer ? fireAlarmTypeAnswer : question.answerValue;
-                        break;
-                    case "markel.location.building.sprinkler":
-                        buildingObj.sprinkler = question.answerValue.toLowerCase();
                         break;
                     case "markel.location.building.occupancyType":
                         buildingObj.occupancyType = question.answerValue;
