@@ -204,13 +204,6 @@ function generateCSV(applicationList){
 async function getApplications(req, res, next){
     let error = false;
 
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if(error){
-        return next(error);
-    }
     const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
@@ -307,8 +300,6 @@ async function getApplications(req, res, next){
         // log.debug('AP Application Search resetting end date' + __location);
         //req.params.endDate = moment().toISOString();
     }
-
-
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
@@ -530,7 +521,8 @@ async function getApplications(req, res, next){
             }
             // eslint-disable-next-line prefer-const
             let donotReportAgencyIdArray = []
-            const noReportAgencyList = await agencyBO.getList(agencyQuery);
+            //use agencybo method that does redis caching.
+            const noReportAgencyList = await agencyBO.getByAgencyNetworkDoNotReport(agencyNetworkId);
             if(noReportAgencyList && noReportAgencyList.length > 0){
                 for(const agencyJSON of noReportAgencyList){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
@@ -566,6 +558,13 @@ async function getApplications(req, res, next){
             }
         }
         else {
+            // Get the agents that we are permitted to view
+            const agents = await auth.getAgents(req).catch(function(e){
+                error = e;
+            });
+            if(error){
+                return next(error);
+            }
             query.agencyId = agents[0];
             if(query.agencyId === 12){
                 query.solepro = true;
