@@ -43,7 +43,7 @@ module.exports = class GreatAmericanWC extends Integration {
         let error = null
         const token = await GreatAmericanApi.getToken(this).catch((err) => {
             error = err;
-            log.error(`${logPrefix}error ${err} ${__location}`);
+            log.error(`${logPrefix}error ${err} ` + __location);
         });
         if(error){
             this.reasons.push(`WC Request Error: ${error}`);
@@ -74,7 +74,7 @@ module.exports = class GreatAmericanWC extends Integration {
             value: c.attributes.classIndustry
         }));
         if(!sessionCodes[0].id || !sessionCodes[0].value){
-            log.error(`${logPrefix}Bad session Code ${JSON.stringify(sessionCodes)}. ${__location}`);
+            log.error(`${logPrefix}Bad session Code ${JSON.stringify(sessionCodes)}. ` + __location);
             this.reasons.push(`Bad session Code ${JSON.stringify(sessionCodes)}`);
         }
         // GA only wants the first activity code passed to their API endpoint.
@@ -104,7 +104,7 @@ module.exports = class GreatAmericanWC extends Integration {
         }
 
         if (session.newBusiness.workflowControl !== 'CONTINUE') {
-            this.log += `Great American returned a bad workflow control response: ${session.newBusiness.workflowControl} @ ${__location}`;
+            this.log += `Great American returned a bad workflow control response: ${session.newBusiness.workflowControl} @ ` + __location;
             return this.return_result('declined');
         }
 
@@ -180,7 +180,7 @@ module.exports = class GreatAmericanWC extends Integration {
                     years = moment().diff(claim.eventDate, 'years',false);
                 }
                 catch(err){
-                    log.error(`${logPrefix}Claim date error: ${err} ${__location}`);
+                    log.error(`${logPrefix}Claim date error: ${err} ` + __location);
                 }
             }
             if(claim.policyType === "WC" && years < 5){
@@ -233,7 +233,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // API after the first request for questions. So keep injecting the
         // follow-up questions until all of the questions are answered.
         while (questionnaire.questionsAsked !== questionnaire.questionsAnswered) {
-            log.warn(`${logPrefix}There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered) ${__location}`);
+            log.warn(`${logPrefix}There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered) ` + __location);
             this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)`;
             const oldQuestionsAnswered = questionnaire.questionsAnswered;
 
@@ -246,7 +246,7 @@ module.exports = class GreatAmericanWC extends Integration {
             // injectAnswers should answer more questions. If we aren't getting
             // anywhere with these calls, then decline the quote.
             if (questionnaire.questionsAnswered === oldQuestionsAnswered) {
-                log.error(`${logPrefix}Error: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)} ${__location}`);
+                log.error(`${logPrefix}Error: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)} ` + __location);
                 this.log += `Error: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)}`;
                 return this.return_result('declined');
             }
@@ -256,7 +256,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // response after call.[curAnswers.newBusiness.id] is not the payload......
         //this.logApiCall('getPricing', [curAnswers.newBusiness.id], quote);
         if(error){
-            log.error(`${logPrefix}Request Error: ${error} ${__location}`);
+            log.error(`${logPrefix}Request Error: ${error} ` + __location);
             this.reasons.push(`Request Error: ${error}`);
             return this.return_result('error');
         }

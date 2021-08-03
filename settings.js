@@ -80,6 +80,8 @@ exports.load = () => {
     variables.USE_MONGO_QUESTIONS = "YES";
     //Default to Cache Activity_Codes by Industry Code and Territory.
     variables.USE_REDIS_ACTIVITY_CODE_CACHE = "YES"
+    //Default to cache agency info in Redis
+    variables.USE_REDIS_AGENCY_CACHE = "YES"
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
