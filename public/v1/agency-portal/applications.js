@@ -29,7 +29,7 @@ function validateParameters(parent, expectedParameters){
     }
     for (let i = 0; i < expectedParameters.length; i++){
         const expectedParameter = expectedParameters[i];
-        if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type && expectedParameters[i].optional !== true){
+        if ((!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type) && expectedParameters[i].optional !== true){
             log.error(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})` + __location);
             return false;
         }
@@ -280,18 +280,6 @@ async function getApplications(req, res, next){
         }
     ];
 
-
-    //Fix bad dates coming in.
-    if(!req.params.startDate){
-        req.params.startDate = moment('2017-01-01').toISOString();
-    }
-
-    if(!req.params.endDate){
-        // now....
-        log.debug('AP Application Search resetting end date' + __location);
-        req.params.endDate = moment().toISOString();
-    }
-
     // Validate the parameters
     if (returnCSV === false && !validateParameters(req.params, expectedParameters)){
         return next(serverHelper.requestError('Bad Request: missing expected parameter'));
@@ -300,8 +288,27 @@ async function getApplications(req, res, next){
 
 
     // Create MySQL date strings
-    const startDateMoment = moment(req.params.startDate).utc();
-    const endDateMoment = moment(req.params.endDate).utc();
+    let startDateMoment = null;
+    let endDateMoment = null;
+
+    //Fix bad dates coming in.
+    if(req.params.startDate){
+        //req.params.startDate = moment('2017-01-01').toISOString();
+        startDateMoment = moment(req.params.startDate).utc();
+    }
+
+    if(!req.params.endDate){
+        endDateMoment = moment(req.params.endDate).utc();
+        const now = moment();
+        if(now.diff(endDateMoment, 'seconds') < 5){
+            endDateMoment = null;
+        }
+        // now....
+        // log.debug('AP Application Search resetting end date' + __location);
+        //req.params.endDate = moment().toISOString();
+    }
+
+
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
