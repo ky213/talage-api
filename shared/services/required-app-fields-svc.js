@@ -27,14 +27,17 @@ const bopRequirements = {
         sprinklerEquipped: {requirement: optional},
         numStories: {requirement: required},
         constructionType: {requirement: required},
-        fireAlarmType: {requirement: required},
         yearBuilt: {requirement: required},
-        roofingImprovementYear: {requirement: required},
-        wiringImprovementYear: {requirement: required},
-        heatingImprovementYear: {requirement: required},
-        plumbingImprovementYear: {requirement: required},
         unemployment_num: {requirement: hidden},
-        square_footage: {requirement: optional}
+        square_footage: {requirement: optional},
+        bop: {
+            requirement: required,
+            fireAlarmType: {requirement: required},
+            roofingImprovementYear: {requirement: required},
+            wiringImprovementYear: {requirement: required},
+            heatingImprovementYear: {requirement: required},
+            plumbingImprovementYear: {requirement: required}
+        }
     },
     grossSalesAmt: {requirement: optional}
 };
@@ -47,14 +50,17 @@ const glRequirements = {
         sprinklerEquipped: {requirement: hidden},
         numStories: {requirement: hidden},
         constructionType: {requirement: hidden},
-        fireAlarmType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
-        roofingImprovementYear: {requirement: hidden},
-        wiringImprovementYear: {requirement: hidden},
-        heatingImprovementYear: {requirement: hidden},
-        plumbingImprovementYear: {requirement: hidden},
         unemployment_num: {requirement: hidden},
-        square_footage: {requirement: optional}
+        square_footage: {requirement: optional},
+        bop: {
+            requirement: hidden,
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
+        }
     },
     grossSalesAmt: {requirement: optional}
 };
@@ -71,14 +77,17 @@ const wcRequirements = {
         sprinklerEquipped: {requirement: hidden},
         numStories: {requirement: hidden},
         constructionType: {requirement: hidden},
-        fireAlarmType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
-        roofingImprovementYear: {requirement: hidden},
-        wiringImprovementYear: {requirement: hidden},
-        heatingImprovementYear: {requirement: hidden},
-        plumbingImprovementYear: {requirement: hidden},
         unemployment_num: {requirement: required},
-        square_footage: {requirement: hidden}
+        square_footage: {requirement: hidden},
+        bop: {
+            requirement: hidden,
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
+        }
     },
     grossSalesAmt: {requirement: hidden},
     ein: {requirement: optional}
@@ -93,13 +102,16 @@ const plRequirements = {
         sprinklerEquipped: {requirement: hidden},
         numStories: {requirement: hidden},
         constructionType: {requirement: hidden},
-        fireAlarmType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
-        roofingImprovementYear: {requirement: hidden},
-        wiringImprovementYear: {requirement: hidden},
-        heatingImprovementYear: {requirement: hidden},
-        plumbingImprovementYear: {requirement: hidden},
-        unemployment_num: {requirement: hidden}
+        unemployment_num: {requirement: hidden},
+        bop: {
+            requirement: hidden,
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
+        }
     }
 };
 
@@ -112,13 +124,16 @@ const cyberRequirements = {
         sprinklerEquipped: {requirement: hidden},
         numStories: {requirement: hidden},
         constructionType: {requirement: hidden},
-        fireAlarmType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
-        roofingImprovementYear: {requirement: hidden},
-        wiringImprovementYear: {requirement: hidden},
-        heatingImprovementYear: {requirement: hidden},
-        plumbingImprovementYear: {requirement: hidden},
-        unemployment_num: {requirement: hidden}
+        unemployment_num: {requirement: hidden},
+        bop: {
+            requirement: hidden,
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
+        }
     }
 };
 
