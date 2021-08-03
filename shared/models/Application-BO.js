@@ -1734,7 +1734,7 @@ module.exports = class ApplicationModel {
 
     async updateRedisForAppUpdatebyAppId(appId){
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
-           const query = {"applicationId": appId};
+            const query = {"applicationId": appId};
             const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
             await this.updateRedisForAppUpdate(newApplicationdoc)
         }
@@ -1769,9 +1769,6 @@ module.exports = class ApplicationModel {
             log.warn(`REDIS: updateRedisCache bad applicationJSON ${typeof applicationJSON} ` + __location);
         }
         return false;
-
-
-
     }
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, forceRedisUpdate = false){
