@@ -64,33 +64,33 @@ module.exports = class ChubbBOP extends Integration {
 
         // Check Industry Code Support for Chubb
         if (!this.industry_code.cgl) {
-            const declinedMessage = `${logPrefix}CGL not set for Industry Code ${this.industry_code.id} `;
-            log.error(declinedMessage + __location)
+            const declinedMessage = `CGL not set for Industry Code ${this.industry_code.id} `;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!chubbClassCode) {
-            const declinedMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id} `;
-            log.error(declinedMessage + __location)
+            const declinedMessage = `ISO not set for Industry Code ${this.industry_code.id} `;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!this.industry_code.attributes) {
-            const declinedMessage = `${logPrefix}Missing Attributes for Industry Code ${this.industry_code.id} `;
-            log.error(declinedMessage + __location)
+            const declinedMessage = `Missing Attributes for Industry Code ${this.industry_code.id} `;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            const declinedMessage = `${logPrefix}Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} `;
-            log.error(declinedMessage + __location)
+            const declinedMessage = `Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} `;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            const declinedMessage = `${logPrefix}Missing required attribute 'segment' for Industry Code ${this.industry_code.id} `;
-            log.error(declinedMessage + __location)
+            const declinedMessage = `Missing required attribute 'segment' for Industry Code ${this.industry_code.id} `;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            const declinedMessage = `${logPrefix}Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} `;
-            log.error(declinedMessage + __location)
+            const declinedMessage = `Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} `;
+            log.error(logPrefix + declinedMessage + __location);
             return this.client_autodeclined(declinedMessage);
         }
 
@@ -113,11 +113,11 @@ module.exports = class ChubbBOP extends Integration {
                     App_ID: this.username,
                     App_Key: this.password
                 },
-                'POST')
+                'POST');
         }
         catch (e) {
-            log.error(`${logPrefix}Error Authenticating: ${e.message} ${__location}`);
-            return this.client_error(`${logPrefix}Error Authenticating: ${e.message}`, __location);
+            log.error(`${logPrefix}Error Authenticating: ${e.message} ` + __location);
+            return this.client_error(`Error Authenticating: ${e.message}`, __location);
         }
 
         // Build the XML Request
@@ -489,8 +489,8 @@ module.exports = class ChubbBOP extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                const declinedMessage = `${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}' `
-                log.error(declinedMessage + __location)
+                const declinedMessage = `Unsupported exposure of '${this.industry_code.attributes.exposure}' `;
+                log.error(logPrefix + declinedMessage + __location);
                 return this.client_autodeclined(declinedMessage);
         }
 
@@ -548,8 +548,8 @@ module.exports = class ChubbBOP extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                const declinedMessage = `${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}' `;
-                log.error(declinedMessage + __location)
+                const declinedMessage = `Unsupported exposure of '${this.industry_code.attributes.exposure}' `;
+                log.error(logPrefix + declinedMessage + __location);
                 return this.client_autodeclined(declinedMessage);
         }
 
@@ -624,8 +624,8 @@ module.exports = class ChubbBOP extends Integration {
             question_identifiers = await this.get_question_identifiers();
         }
         catch (e) {
-            const errorMessage = `${logPrefix}Error in get_question_identifiers(): ${e} `;
-            log.error(errorMessage + __location)
+            const errorMessage = `Error in get_question_identifiers(): ${e} `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -691,8 +691,8 @@ module.exports = class ChubbBOP extends Integration {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
         }
         catch (e) {
-            const errorMessage = `${logPrefix}Error sending XML quote request: ${e} `;
-            log.error(errorMessage + __location);
+            const errorMessage = `Error sending XML quote request: ${e} `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
@@ -706,17 +706,17 @@ module.exports = class ChubbBOP extends Integration {
             // log.error("=================== QUOTE ERROR ===================");
         }
 
-        let errorMessage = `${logPrefix}`;
+        let errorMessage = ``;
 
         // Determine what happened
         switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
                 errorMessage += `Error DC-100: The data we sent was invalid. `;
-                log.error(errorMessage + __location)
+                log.error(logPrefix + errorMessage + __location)
                 return this.client_error(errorMessage, __location);
             case '400':
                 errorMessage += `Error 400: ${res.Status[0].StatusDesc[0]} `;
-                log.error(errorMessage + __location)
+                log.error(logPrefix + errorMessage + __location)
                 return this.client_error(errorMessage, __location);
             case '0':
                 // Further refine
@@ -733,7 +733,7 @@ module.exports = class ChubbBOP extends Integration {
                 }
                 catch (e) {
                     errorMessage += `Error parsing MsgStatusCd response property: ${e} `;
-                    log.error(errorMessage + __location);
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_error(errorMessage, __location);
                 }
 
@@ -754,7 +754,7 @@ module.exports = class ChubbBOP extends Integration {
                     else {
                         errorMessage += `Quote structure changed. Unable to parse error message. `;
                     }
-                    log.error(errorMessage + __location);
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_error(errorMessage, __location);
                 }
 
@@ -781,7 +781,7 @@ module.exports = class ChubbBOP extends Integration {
                     }
                     catch (e) {
                         premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
-                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}.`);
+                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}. ` + __location);
                     }
                 }
                 catch (e) {
@@ -832,7 +832,7 @@ module.exports = class ChubbBOP extends Integration {
                 }
             default:
                 errorMessage += `API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
-                log.error(errorMessage + __location)
+                log.error(logPrefix + errorMessage + __location)
                 return this.client_error(errorMessage, __location);
         }
     }
