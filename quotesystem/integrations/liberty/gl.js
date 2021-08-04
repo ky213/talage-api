@@ -109,8 +109,8 @@ module.exports = class LibertyGL extends Integration{
 
         // for EIN
         if (!appDoc.ein) {
-            log.warn(`${logPrefix}Insurer requires FEIN. ${__location}`)
-            this.reasons.push(`Insurer requires FEIN.`);
+            log.warn(`${logPrefix}Insurer requires FEIN for GL. ${__location}`)
+            this.reasons.push(`Insurer requires FEIN for GL.`);
             return this.return_result('error');
         }
 
