@@ -13,6 +13,12 @@ async function getNextRoute(req, res, next){
         return next(serverHelper.requestError('Parameters missing'));
     }
 
+    if(req.userTokenData.applicationId !== req.query.appId){
+        log.warn("Unauthorized attempt to access Application routing" + __location);
+        res.send(403);
+        return;
+    }
+
     let nextRouteName = null;
     if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_basic-created"){
         nextRouteName = "_policies";
@@ -24,7 +30,7 @@ async function getNextRoute(req, res, next){
     res.send(200, nextRouteName);
 }
 //, appId, redisKey
-const getRoute = async(currentRoute, appId, token) => {
+const getRoute = async(currentRoute, appId) => {
     switch(currentRoute){
         case "_policies":
             return "_business-questions"
@@ -51,7 +57,6 @@ const getRoute = async(currentRoute, appId, token) => {
 }
 
 const getApplication = async(appId) => {
-    // TODO: should we verify token here or does our auth do enough to prevent it?
     const applicationBO = new ApplicationBO();
     const applicationDB = await applicationBO.getById(appId);
     return applicationDB;
