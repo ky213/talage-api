@@ -371,6 +371,15 @@ module.exports = class PieWC extends Integration {
         if(Object.keys(this.questions).length === 0){
             log.error(`Appid: ${this.app.id} PIE WC missing universal questions. ${__location}`);
         }
+
+        if(!this.app.questions || Object.keys(this.app.questions).length === 0){
+            log.error(`Appid: ${this.app.id} PIE WC missing this.app.questions questions. ${__location}`);
+        }
+
+        if(!this.insurerQuestionList || this.insurerQuestionList.length === 0){
+            log.error(`Appid: ${this.app.id} PIE WC missing this.insurerQuestionList. ${__location}`);
+        }
+
         const questionsArray = [];
         for(const insurerQuestion of this.insurerQuestionList){
         //for (const question_id in this.questions) {
