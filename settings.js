@@ -82,6 +82,8 @@ exports.load = () => {
     variables.USE_REDIS_ACTIVITY_CODE_CACHE = "YES"
     //Default to cache agency info in Redis
     variables.USE_REDIS_AGENCY_CACHE = "YES"
+    //Default to cache 1st page of Applist for Agencies and AgencyNetworks
+    variables.USE_REDIS_APP_LIST_CACHE = "YES"
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
