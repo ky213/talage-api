@@ -124,7 +124,7 @@ module.exports = class PieWC extends Integration {
 
         // Begin the 'workersCompensation' data object
         data.workersCompensation = {};
-
+ 
         // Custom coverage and lapse reason questions
         const coverageQuestions = {
             PieCustomWCCurrentCoverage: "Yes",
@@ -368,21 +368,51 @@ module.exports = class PieWC extends Integration {
                 data.contacts.push(contact_object);
             }
         }
-
+        if(Object.keys(this.questions).length === 0){
+            log.error(`Appid: ${this.app.id} PIE WC missing universal questions. ${__location}`);
+        }
         const questionsArray = [];
-        for(const question_id in this.questions){
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
-                const pieQuestionId = this.question_identifiers[question.id];
-                const questionAnswer = this.determine_question_answer(question, question.required);
-                if (questionAnswer) {
-                    questionsArray.push({
-                        "id": pieQuestionId,
-                        "answer": questionAnswer
-                    })
+        for(const insurerQuestion of this.insurerQuestionList){
+        //for (const question_id in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                //const question = this.questions[question_id];
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    continue;
                 }
+                let answer = '';
+                try {
+                    answer = this.determine_question_answer(question);
+                }
+                catch (error) {
+                    log.error(`Appid: ${this.app.id} PIE WC Could not determine question ${insurerQuestion.talageQuestionId} answer: ${error}. ${__location}`);
+                }
+                if(answer){
+                    questionsArray.push({
+                        "id": insurerQuestion.identifier,
+                        "answer": answer
+                    });
+                }
+                else {
+                    log.error(`Appid: ${this.app.id} PIE WC Could not determine answer for question ${insurerQuestion.talageQuestionId}. ${__location}`);
+                }
+
             }
         }
+        // const questionsArray = [];
+        // for(const question_id in this.questions){
+        //     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+        //         const question = this.questions[question_id];
+        //         const pieQuestionId = this.question_identifiers[question.id];
+        //         const questionAnswer = this.determine_question_answer(question, question.required);
+        //         if (questionAnswer) {
+        //             questionsArray.push({
+        //                 "id": pieQuestionId,
+        //                 "answer": questionAnswer
+        //             })
+        //         }
+        //     }
+        // }
 
         data.eligibilityAnswers = questionsArray;
 
