@@ -24,6 +24,7 @@ const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const utility = require('./shared/helpers/utility.js');
+const redisSvc = require('./shared/services/redissvc.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
 
@@ -83,6 +84,27 @@ async function main() {
         logLocalErrorMessage('Error connecting to log. Stopping.');
         return;
     }
+
+    // // Connect to the redis
+    if(!await redisSvc.connect()){
+        logLocalErrorMessage('Error connecting to redis.');
+        //Only used by QuoteApp V2 and public API.
+        // leave rest of API functional.
+        //return;
+    }
+
+
+    if(!await redisSvc.connectReadOnly()){
+        logLocalErrorMessage('Error connecting to redis.');
+        //Only used by QuoteApp V2 and public API.
+        // leave rest of API functional.
+        //return;
+    }
+
+    //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
+    global.redisSvc = redisSvc;
+    log.info('Startup Redis Svc')
+
 
     // MONGO
 
