@@ -63,6 +63,7 @@ async function getResources(req, res, next){
             break;
         case "_quotes":
             await agencyNetworkFeatures(resources, req.query.appId);
+            break;
     }
 
     res.send(200, resources);
