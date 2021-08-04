@@ -21,7 +21,7 @@ const required = 10;
 
 const bopRequirements = {
     location: {
-        activityPayrollList: {requirement: required},
+        activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: optional},
         businessPersonalPropertyLimit: {requirement: optional},
         own: {requirement: optional},
@@ -46,7 +46,7 @@ const bopRequirements = {
 
 const glRequirements = {
     location: {
-        activityPayrollList: {requirement: required},
+        activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -100,7 +100,7 @@ const wcRequirements = {
 const plRequirements = {
     grossSalesAmt: {requirement: required},
     location: {
-        activityPayrollList: {requirement: required},
+        activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
