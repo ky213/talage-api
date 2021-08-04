@@ -1192,6 +1192,10 @@ module.exports = class Integration {
             catch(err){
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
             }
+            if(!insurerQuestionList){
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: No Insurer Questions ${JSON.stringify(query)}` + __location)
+            }
+           
             for (const question_id in this.app.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
                     try{
