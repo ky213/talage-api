@@ -5,7 +5,8 @@
 "use strict";
 const serverHelper = require("../../../server.js");
 // const validator = global.requireShared("./helpers/validator.js");
-// const ApplicationBO = global.requireShared("models/Application-BO.js");
+const ApplicationBO = global.requireShared("models/Application-BO.js");
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
 // const AgencyBO = global.requireShared('models/Agency-BO.js');
 // const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 // const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
@@ -60,10 +61,29 @@ async function getResources(req, res, next){
             officerTitles(resources);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
+        case "_quotes":
+            await agencyNetworkFeatures(resources, req.query.appId);
     }
 
     res.send(200, resources);
 }
+
+const agencyNetworkFeatures = async(resources, appId) => {
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getById(appId);
+
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+
+    // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
+    const quoteAppBinding = agencyNetworkDB.featureJson.quoteAppBinding === true;
+
+    // get the agency network features we care about here.
+    resources.agencyNetworkFeatures = {
+        quoteAppBinding
+    };
+}
+
 const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];
 }
