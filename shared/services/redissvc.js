@@ -112,8 +112,10 @@ async function getKeyValue(key) {
         const numOftries = 3;
         for(let i = 0; i < numOftries; i++){
             try{
-                reply = await redisClientReadyOnly.get(key);
-                break;
+                if(redisClientReadyOnly){
+                    reply = await redisClientReadyOnly.get(key);
+                    break;
+                }
             }
             catch(err){
                 log.error(`Redis getKeyValue redisClientReadyOnly error: ` + err + __location);
