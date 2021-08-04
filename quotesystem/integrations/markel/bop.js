@@ -13,6 +13,7 @@
 'use strict';
 
 const Integration = require('../Integration.js');
+const htmlentities = require('html-entities').Html5Entities;
 const moment = require('moment');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
@@ -783,6 +784,10 @@ module.exports = class MarkelWC extends Integration {
 
                 // Return with the quote
                 if(response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
+                    if (response[rquIdKey]?.errors[0]?.ReferralReasons.length > 0) {
+                        this.log += `--------======= Reasons for Referral =======--------<br><br>`;
+                        this.log += `<pre>${htmlentities.encode(JSON.stringify(response[rquIdKey].errors[0].ReferralReasons, null, 4))}</pre><br><br>`;
+                    }
                     return this.return_result('referred_with_price');
                 }
                 else {
