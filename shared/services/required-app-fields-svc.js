@@ -98,9 +98,9 @@ const wcRequirements = {
 };
 
 const plRequirements = {
-    activityPayrollList: {requirement: required},
     grossSalesAmt: {requirement: required},
     location: {
+        activityPayrollList: {requirement: required},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -121,9 +121,9 @@ const plRequirements = {
 };
 
 const cyberRequirements = {
-    activityPayrollList: {requirement: hidden},
     grossSalesAmt: {requirement: required},
     location: {
+        activityPayrollList: {requirement: hidden},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
