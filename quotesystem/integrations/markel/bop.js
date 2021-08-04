@@ -573,6 +573,11 @@ module.exports = class MarkelWC extends Integration {
                 buildings: []
             };
 
+            let locationTotalPayroll = 0;
+            location.activityPayrollList.forEach(apl => {
+                locationTotalPayroll += apl.payroll;
+            });
+
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
                 // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
@@ -581,7 +586,7 @@ module.exports = class MarkelWC extends Integration {
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
-                annualPayroll: "",
+                annualPayroll: locationTotalPayroll,
                 constructionType: constructionTypeMatrix[location.constructionType],
                 yearBuilt: location.yearBuilt,
                 stories: location.numStories,
@@ -600,12 +605,6 @@ module.exports = class MarkelWC extends Integration {
                 // }
             };
             
-            let locationTotalPayroll = 0;
-            location.activityPayrollList.forEach(apl => {
-                locationTotalPayroll += apl.payroll;
-            });
-            buildingObj.annualPayroll = locationTotalPayroll;
-
             location.questions.forEach(question => {
                 switch (question.insurerQuestionIdentifier) {
                     case "markel.location.building.description":
