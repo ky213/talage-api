@@ -239,6 +239,14 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
 
             // if the property is NOT provided:
             // requirement is assumed optional
+
+            if(!object1[key]){
+                object1[key] = {};
+            }
+            if(!object2[key]){
+                object2[key] = {};
+            }
+
             if(!object1[key].hasOwnProperty("requirement")){
                 object1[key].requirement = optional;
             }
