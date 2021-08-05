@@ -147,7 +147,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     addtlIntInd: false,
                     coverages: {
                         terror: {
-                            includeInd: BOPPolicy.addTerrorismCoverage
+                            includeInd: Boolean(BOPPolicy.addTerrorismCoverage)
                         }
                     }
                 }
@@ -157,7 +157,7 @@ module.exports = class ArrowheadBOP extends Integration {
         try {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
-            return this.client_error(`${logPrefix}${e}`, __location);
+            return this.client_error(`There was an issue adding general questions to the application`, __location, e);
         }
 
         // TODO: Update question sheet, make this building-level question, not general question...
@@ -183,16 +183,8 @@ module.exports = class ArrowheadBOP extends Integration {
         this.log += `URL: ${host}${path}<br><br>`;
         this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
-        function replacer(key, val) { // zy debug remove
-            if (typeof val === 'undefined') {
-                return 'UNDEFINED!!!';
-            }
-            else {
-                return val;
-            }
-        }
-        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/appDocData.json', JSON.stringify(applicationDocData, replacer, 4)); // zy debug remove
-        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/request.json', JSON.stringify(requestJSON, replacer, 4)); // zy debug remove
+        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/appDocData.json', JSON.stringify(applicationDocData, null, 4)); // zy debug remove
+        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/request.json', JSON.stringify(requestJSON, null, 4)); // zy debug remove
         fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/industryCode.json', JSON.stringify(this.industry_code, null, 4)); // zy debug remove
 
         let result = null;
@@ -213,9 +205,9 @@ module.exports = class ArrowheadBOP extends Integration {
                 result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
                 fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/response.json', JSON.stringify(result.data, null, 4)); // zy debug remove
             } catch(e) {
-                const errorMessage = `${logPrefix}Error sending request: ${e}. `;
-                log.error(errorMessage + __location);
-                return this.client_error(errorMessage, __location);
+                const errorMessage = `There was an error sending the application request. `;
+                log.error(logPrefix + errorMessage + e + __location);
+                return this.client_error(errorMessage, __location, e);
             }
 
             if (!result.data.hasOwnProperty("error") || result.data.error.code !== "CALLOUT_FAILURE") {
@@ -224,9 +216,9 @@ module.exports = class ArrowheadBOP extends Integration {
                 retryAttempts++;
 
                 if (retryAttempts < MAX_RETRY_ATTEMPTS) {
-                    log.warn(`${logPrefix}Recieved a [500] CALLOUT_FAILURE, retrying quote request. Attempts: ${retryAttempts}/${MAX_RETRY_ATTEMPTS}`);
+                    log.warn(`${logPrefix}Recieved a [500] CALLOUT_FAILURE, retrying quote request. Attempts: ${retryAttempts}/${MAX_RETRY_ATTEMPTS}` + __location);
                 } else {
-                    log.error(`${logPrefix}Recieved a [500] CALLOUT_FAILURE, reached max retry attempts.`);
+                    log.error(`${logPrefix}Recieved a [500] CALLOUT_FAILURE, reached max retry attempts.` + __location);
                     break;
                 }
             }
@@ -435,9 +427,9 @@ module.exports = class ArrowheadBOP extends Integration {
         } else if (policyStatus !== "Rated" && premium) {
             return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         } else if (policyStatus && !premium) {
-            return this.client_error(`${logPrefix}Quote response from carrier did not provide a premium.`, __location);
+            return this.client_error(`Quote response from carrier did not provide a premium.`, __location);
         } else {
-            return this.client_error(`${logPrefix}Quote response from carrier did not provide a policy status.`, __location);
+            return this.client_error(`Quote response from carrier did not provide a policy status.`, __location);
         }
     }
 
@@ -738,7 +730,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     compFraud.push({id: "limit", answer});
                     break;
                 default:
-                    log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                    log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration. ${__location}`);
                     break;
             }
         }
@@ -924,7 +916,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         bbopSet.coverages.mold[id] = answer;
                         break;
                     default:
-                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for mold coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for mold coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             });
@@ -944,7 +936,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         bbopSet.coverages.edol[id] = answer;
                         break;
                     default:
-                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for employee dishonesty coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for employee dishonesty coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             })
@@ -967,7 +959,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         bbopSet.coverages.cyber[id] = answer;
                         break;
                     default: 
-                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for cyber coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for cyber coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             });
@@ -1013,7 +1005,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     location[id] = answer;
                     break;
                 default: 
-                    log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                    log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration. ${__location}`);
                     break;
             }
         }
@@ -1026,7 +1018,6 @@ module.exports = class ArrowheadBOP extends Integration {
         // NOTE: Add additional building questions here if more get imported   
         for (const building of buildings) {
             // parent questions
-            const uw = [];
             const osigns = [];
             const spoil = [];
             const compf = [];
