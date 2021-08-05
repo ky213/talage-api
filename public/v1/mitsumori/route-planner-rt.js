@@ -2,6 +2,7 @@
 
 "use strict";
 const serverHelper = require("../../../server.js");
+const ApplicationBO = global.requireShared("models/Application-BO.js");
 
 // dummy endpoint to stimulate routing
 async function getNextRoute(req, res, next){
@@ -10,6 +11,12 @@ async function getNextRoute(req, res, next){
     if (!req.query.currentRoute || !req.query.appId && req.query.currentRoute !== "_basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
+    }
+
+    if(req.userTokenData.applicationId !== req.query.appId){
+        log.warn("Unauthorized attempt to access Application routing" + __location);
+        res.send(403);
+        return;
     }
 
     let nextRouteName = null;
@@ -23,9 +30,7 @@ async function getNextRoute(req, res, next){
     res.send(200, nextRouteName);
 }
 //, appId, redisKey
-const getRoute = async(currentRoute) => {
-    // will probably grab info about application and determine the next route but for now use the current route to just go to the next one we have hardcoded
-
+const getRoute = async(currentRoute, appId) => {
     switch(currentRoute){
         case "_policies":
             return "_business-questions"
@@ -36,6 +41,11 @@ const getRoute = async(currentRoute) => {
         case "_claims":
             return "_locations";
         case "_locations":
+            const app = await getApplication(appId);
+            // if there are locations and one is set as the mailing address, skip mailing page
+            if(app.locations && app.locations.some(location => location.billing)){
+                return "_questions";
+            }
             return "_mailing-address";
         case "_mailing-address":
             return "_questions";
@@ -44,6 +54,12 @@ const getRoute = async(currentRoute) => {
         default:
             break;
     }
+}
+
+const getApplication = async(appId) => {
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getById(appId);
+    return applicationDB;
 }
 
 /* -----==== Endpoints ====-----*/
