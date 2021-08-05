@@ -1,3 +1,4 @@
+/* eslint-disable valid-jsdoc */
 /**
  * Defines a single industry code
  */
@@ -107,82 +108,112 @@ module.exports = class Question{
     /**
 	 * Set the answer to this question
 	 *
-	 * @param {mixed} answer - The answer to the given question. The different data types are as follows:
+	 * @param {mixed} appQuestionJSON - The answer to the given question. The different data types are as follows:
 	 *							Boolean: The ID of the chosen answer
 	 *							Checkboxes: An array containing IDs of all chosen answers
 	 *							Text: The answer provided by the user as a string
 	 * 							Select: The ID of the chosen answer
 	 * @returns
 	 */
-    set_answer(answer){
+    set_answer(appQuestionJSON){
+        if(!appQuestionJSON){
+            return;
+        }
+        let answer = null;
+        answer = appQuestionJSON.answerValue
         // Make sure the question is loaded before continuing
         if (!this.id) {
-            log.warn('You must load the question before attempting to set an answer' + __location);
-            throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+            log.error('You must load the question before attempting to set an answer' + __location);
+            throw new Error(`You must load the question before attempting to set an answer`);
         }
 
         // For Checkbox questions, there may be more than one possible answer, process each
         if (this.type === 'Checkboxes') {
+            let answerArray = [];
             if (typeof answer === 'string' && answer.indexOf("|") > -1) {
                 if (answer.indexOf("|") === 0) {
                     answer = answer.substr(1);
                 }
-                answer = answer.split('|');
+                answerArray = answer.split('|');
                 try {
-                    for (let i = 0; i < answer.length; i++) {
-                        if (typeof answer[i] === 'string') {
-                            answer[i] = parseInt(answer[i], 10);
+                    for (let i = 0; i < answerArray.length; i++) {
+                        if (typeof answerArray[i] === 'string') {
+                            answerArray[i] = parseInt(answerArray[i], 10);
                         }
                     }
-                } catch(e) {
-                    log.warn(`Answer array conversion problem for ${answer}: ${e}. ` + __location);
                 }
-            } else if (typeof answer === 'number') {
+                catch(e) {
+                    log.warn(`Answer array conversion problem for ${answerArray}: ${e}. ` + __location);
+                }
+            }
+            else if (typeof answer === 'number') {
                 // Only 1 checkbox was selected and it is number in the JSON
-                answer = [answer];
-            } else if (typeof answer === 'string') {
+                answerArray = [answer];
+            }
+            else if (typeof answer === 'string') {
                 // Only 1 checkbox was selected and it is string in the JSON
                 //convert to number
                 const answerInt = parseInt(answer, 10);
-                answer = [answerInt]
+                answerArray = [answerInt]
             }
             // If we don't have a valid array, that means they either didn't provide an array, or we couldn't parse an array above.
             // This can happen if they don't enable any checkboxes for a question. -SF
-            if (!Array.isArray(answer)) {
-                answer = [];
-            }
+            // if (!Array.isArray(answer)) {
+            //     answerArray = [];
+            // }
 
             // Loop through each answer and make sure they are what we are expecting
-            for (const answer_id of answer) {
+            for (const answer_id of answerArray) {
                 // If the answer wasn't numeric, it is wrong
                 if (typeof answer_id !== 'number') {
-                    const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
+                    const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
                     log.error(errorMessage + __location);
+                    //logging in calling method.
                     throw new Error(errorMessage);
                 }
             }
 
             // For text answer questions
-            this.answer = 0;
-            this.answer = answer;
+            this.answer_id = 0;
+            this.answer = answerArray;
 
             // For boolean and select questions, set the answer ID or find the equivalent
-        } else if (this.type === 'Yes/No' || this.type === 'Select List') {
-
+        }
+        else if (this.type === 'Yes/No' || this.type === 'Select List') {
+            answer = appQuestionJSON.answerId
+            //issues are logged in calling methods.  It has the applicationId
             // If the answer wasn't numeric, it is wrong
             if (typeof answer !== 'number') {
-                throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+                throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
             }
 
             // If the answer isn't one of those that are possible
+            //possible answers is suspect....
             if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer)){
-                throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+                //check answertext
+                let found = false;
+                // eslint-disable-next-line guard-for-in
+                for(const propertyIndex in this.possible_answers){
+                    if(Object.prototype.hasOwnProperty.call(this.possible_answers,propertyIndex)){
+                        if(appQuestionJSON.answerValue === this.possible_answers[propertyIndex].answer){
+                            found = true;
+                            appQuestionJSON.answerId = this.possible_answers[propertyIndex].answerId;
+                            answer = this.possible_answers[propertyIndex].answerId;
+                        }
+                    }
+                }
+                if(found === false){
+                    throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
+                }
             }
 
             // Set the answer ID and determine and set the answer text
             this.answer_id = answer;
-            this.answer = this.possible_answers[answer].answer;
-        } else{
+            if(this.possible_answers[answer]){
+                this.answer = this.possible_answers[answer].answer;
+            }
+        }
+        else{
             // For text answer questions
             this.answer_id = 0;
             this.answer = answer;

@@ -11,10 +11,6 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const moment = require('moment');
-const fs = require('fs');
-
-
-
 
 module.exports = class PieWC extends Integration {
 
@@ -124,7 +120,7 @@ module.exports = class PieWC extends Integration {
 
         // Begin the 'workersCompensation' data object
         data.workersCompensation = {};
- 
+
         // Custom coverage and lapse reason questions
         const coverageQuestions = {
             PieCustomWCCurrentCoverage: "Yes",
@@ -402,9 +398,10 @@ module.exports = class PieWC extends Integration {
                         "answer": answer
                     });
                 }
-                else {
-                    log.error(`Appid: ${this.app.id} PIE WC Could not determine answer for question ${insurerQuestion.talageQuestionId}. ${__location}`);
-                }
+                // else {
+                //     //may be children that parent did not trigger
+                //     log.warn(`Appid: ${this.app.id} PIE WC Could not determine answer for question ${insurerQuestion.talageQuestionId}. ${__location}`);
+                // }
 
             }
         }
