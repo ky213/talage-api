@@ -729,7 +729,7 @@ module.exports = class AgencyBO {
         });
         newObjectJSON.id = newSystemId;
         if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
-            await this.updateRedisCache(newObjectJSON);
+            await this.updateRedisCache(agency);
         }
         return mongoUtils.objCleanup(agency);
     }
