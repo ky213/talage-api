@@ -501,8 +501,7 @@ module.exports = class Integration {
                     }
 
                     if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
-                        // This shouldn't have happened, throw an error
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} anwserid ${answer_id} encountered an answer to a question that is not possible.` + __location);
                         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
                         return false;
                     }
@@ -521,8 +520,7 @@ module.exports = class Integration {
         else if (question.type === 'Yes/No' || question.type === 'Select List') {
             // Determine the answer based on the Answer ID stored in our database
             if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
-                // This shouldn't have happened, throw an error
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible.` + __location);
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
                 return false;
             }
@@ -851,27 +849,7 @@ module.exports = class Integration {
      */
     get_question_identifiers() {
         return new Promise(async(fulfill) => {
-            // Build an array of question IDs to retrieve
-            const question_ids = Object.keys(this.questions);
-            const talageQuestionIdList = question_ids.map(Number)
-
-            if (question_ids.length > 0) {
-                const query = {
-                    "insurerId": this.insurer.id,
-                    "talageQuestionId": {$in: talageQuestionIdList}
-                }
-                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
-                //let insurerQuestionList = null;
-                try{
-                    log.debug(`get_question_identifiers query ${JSON.stringify(query)}`)
-                    this.insurerQuestionList = await InsurerQuestionModel.find(query);
-                    if(this.insurerQuestionList && this.insurerQuestionList.length === 0){
-                        log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No insurerQuestionList ${JSON.stringify(query)}` + __location)
-                    }
-                }
-                catch(err){
-                    throw err
-                }
+            if (this.insurerQuestionList.length > 0) {
                 const identifiers = {};
                 this.insurerQuestionList.forEach((insurerQuestion) => {
                     identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
@@ -1180,39 +1158,59 @@ module.exports = class Integration {
             }
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
-            let insurerQuestionList = null;
+            let insurerPolicyTypeQuestionList = null;
+
+            const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const query = {
                 "insurerId": this.insurer.id,
-                "policyTypeList": this.policy.type
+                "policyTypeList": this.policy.type,
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             try{
-                insurerQuestionList = await InsurerQuestionModel.find(query);
+                insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
             }
             catch(err){
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
             }
-            if(!insurerQuestionList){
+            if(!insurerPolicyTypeQuestionList){
                 log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: No Insurer Questions ${JSON.stringify(query)}` + __location)
             }
-           
-            for (const question_id in this.app.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
-                    try{
-                        const question = this.app.questions[question_id];
-                        if(insurerQuestionList){
-                            const iQFound = insurerQuestionList.find((iq) => iq.talageQuestionId === parseInt(question_id,10));
-                            if(iQFound){
-                                this.questions[question_id] = question;
+            if(insurerPolicyTypeQuestionList){
+                //for (const question_id in this.app.questions) {
+                //loop on Insurer Questions so we can get double mappings to talageQuestionId to build this.insurerQuestionList
+                for (const insurerQuestion of insurerPolicyTypeQuestionList){
+                    if (insurerQuestion.talageQuestionId) {
+                        try{
+                            //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
+                            const qId_String = insurerQuestion.talageQuestionId.toString();
+                            if(this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]){
+                                
+                                this.insurerQuestionList.push(insurerQuestion)
+                                
+                                if(!this.questions[insurerQuestion.talageQuestionId]){
+                                    const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
+                                    this.questions[insurerQuestion.talageQuestionId] = question;
+                                }
                             }
+                            else if(insurerQuestion.universal){
+                                log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal q:  ${insurerQuestion.insurerQuestionId}` + __location);
+                            }
+
+                            // const iQFound = insurerPolicyTypeQuestionList.find((iq) => iq.talageQuestionId === appQuestion.questionId);
+                            // if(iQFound){
+                            //     const question = this.app.questions[iQFound.talageQuestionId];
+                            //     this.questions[iQFound.talageQuestionId] = question;
+                            // }
                         }
-                    }
-                    catch(err){
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error get question ${question_id} for ${this.insurer.id}-${this.policy.type} ` + __location)
+                        catch(err){
+                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error get question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
+                        }
                     }
                 }
             }
-
 
             // Get the insurer question identifiers
             let stop = false;
