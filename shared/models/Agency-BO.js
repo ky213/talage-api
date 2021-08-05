@@ -7,6 +7,8 @@ const AgencyNetworkBO = require('./AgencyNetwork-BO.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const fileSvc = global.requireShared('services/filesvc.js');
 const {'v4': uuidv4} = require('uuid');
+var FastJsonParse = require('fast-json-parse')
+
 var AgencyEmail = require('mongoose').model('AgencyEmail');
 
 var AgencyModel = require('mongoose').model('Agency');
@@ -16,6 +18,10 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const s3AgencyLogoPath = "public/agency-logos/";
 const s3AgencyFaviconPath = "public/agency-logos/favicon/";
 const collectionName = 'Agencies'
+
+const REDIS_AGENCYID_PREFIX = 'agency-';
+const REDIS_AGENCY_SLUG_PREFIX = 'agencyslug-'
+const REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX = 'agencynetwork-donotreport-'
 
 module.exports = class AgencyBO {
 
@@ -244,6 +250,29 @@ module.exports = class AgencyBO {
     async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false, returnDeleted = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
+                if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                    let docDB = null;
+                    try{
+                        docDB = await this.getRedisById(mysqlId)
+                        if(getAgencyNetwork === true){
+                            const agencyNetworkBO = new AgencyNetworkBO();
+                            try {
+                                const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
+                                docDB.agencyNetworkName = agencyNetworkJSON.name;
+                            }
+                            catch (err) {
+                                log.error("Error getting Agency Network  " + err + __location);
+                            }
+                        }
+                    }
+                    catch(err){
+                        log.error("Getting Agency from Redis error " + err + __location);
+                    }
+                    if(docDB){
+                        resolve(docDB);
+                        return;
+                    }
+                }
                 const query = {
                     "mysqlId": mysqlId,
                     active: true
@@ -254,6 +283,9 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                        await this.updateRedisCache(docDB);
+                    }
                     if(docDB && getAgencyNetwork === true){
                         const agencyNetworkBO = new AgencyNetworkBO();
                         try {
@@ -289,29 +321,55 @@ module.exports = class AgencyBO {
     }
 
     async getAgencyByMysqlId(mysqlId) {
-        return new Promise(async(resolve, reject) => {
-            if (mysqlId) {
-                const query = {mysqlId: mysqlId};
-                let docDB = null;
-                try {
-                    docDB = await AgencyModel.findOne(query, '-__v');
-                }
-                catch (err) {
-                    log.error("Getting Agency error " + err + __location);
-                    reject(err);
-                }
-                resolve(docDB);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+
+        return this.getMongoDocbyMysqlId(mysqlId,true,false,true);
+        // return new Promise(async(resolve, reject) => {
+        //     if (mysqlId) {
+        //         const query = {mysqlId: mysqlId};
+        //         let docDB = null;
+        //         try {
+        //             docDB = await AgencyModel.findOne(query, '-__v');
+        //         }
+        //         catch (err) {
+        //             log.error("Getting Agency error " + err + __location);
+        //             reject(err);
+        //         }
+        //         resolve(docDB);
+        //     }
+        //     else {
+        //         reject(new Error('no id supplied'))
+        //     }
+        // });
     }
 
 
     async getbySlug(slug, returnMongooseModel = false, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
             if (slug) {
+                if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                    let docDB = null;
+                    try{
+                        docDB = await this.getRedisBySlug(slug)
+                        if(getAgencyNetwork === true){
+                            const agencyNetworkBO = new AgencyNetworkBO();
+                            try {
+                                const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
+                                docDB.agencyNetworkName = agencyNetworkJSON.name;
+                            }
+                            catch (err) {
+                                log.error("Error getting Agency Network  " + err + __location);
+                            }
+                        }
+                    }
+                    catch(err){
+                        log.error("Getting Agency from Redis error " + err + __location);
+                    }
+                    if(docDB){
+                        resolve(docDB);
+                        return;
+                    }
+                }
+
                 const query = {
                     "slug": slug,
                     active: true
@@ -319,6 +377,9 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                        await this.updateRedisCache(docDB);
+                    }
                     if(getAgencyNetwork === true){
                         const agencyNetworkBO = new AgencyNetworkBO();
                         try {
@@ -545,6 +606,58 @@ module.exports = class AgencyBO {
 
     }
 
+    async getByAgencyNetworkDoNotReport(agencyNetworkId) {
+
+        //validate
+        if (agencyNetworkId && agencyNetworkId > 0) {
+
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                let docList = null;
+                const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        docList = parsedJSON.value;
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
+                    if(docList){
+                        return docList;
+                    }
+                }
+            }
+            //hit database
+            const query = {
+                agencyNetworkId: agencyNetworkId,
+                doNotReport: true
+            }
+            const docList = await this.getList(query);
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && docList){
+                const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
+                try{
+                    const ttlSeconds = 900; //15 minutes
+                    const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(docList),ttlSeconds)
+                    if(redisResponse && redisResponse.saved){
+                        log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                    }
+                }
+                catch(err){
+                    log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+                }
+            }
+            return docList;
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+
+    }
+
     async updateMongo(docId, newObjectJSON) {
         if (docId) {
             if (typeof newObjectJSON === "object") {
@@ -569,7 +682,9 @@ module.exports = class AgencyBO {
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);
                     //const newAgencyDoc = await AgencyModel.findOneAndUpdate(query, newObjectJSON, {new: true});
-
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                        await this.updateRedisCache(newAgencyDoc);
+                    }
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
@@ -613,6 +728,9 @@ module.exports = class AgencyBO {
             throw err;
         });
         newObjectJSON.id = newSystemId;
+        if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+            await this.updateRedisCache(newObjectJSON);
+        }
         return mongoUtils.objCleanup(agency);
     }
 
@@ -903,5 +1021,103 @@ module.exports = class AgencyBO {
             log.error(`No agencyId bad getEmailContent ${agencyId} ` + __location)
             throw new Error("No agencyId bad getEmailContent");
         }
+    }
+
+    async getRedisById(id){
+        if(id){
+            let agencyJson = null;
+            const redisKey = REDIS_AGENCYID_PREFIX + id;
+            const resp = await global.redisSvc.getKeyValue(redisKey);
+            if(resp.found){
+                try{
+                    const parsedJSON = new FastJsonParse(resp.value)
+                    if(parsedJSON.err){
+                        throw parsedJSON.err
+                    }
+                    agencyJson = parsedJSON.value;
+                }
+                catch(err){
+                    log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                }
+                if(agencyJson){
+                    return agencyJson;
+                }
+            }
+            return null;
+        }
+        return null;
+    }
+
+    async getRedisBySlug(slug){
+        if(slug){
+            let agencyJson = null;
+            const redisKey = REDIS_AGENCY_SLUG_PREFIX + slug;
+            const resp = await global.redisSvc.getKeyValue(redisKey);
+            if(resp.found){
+                try{
+                    const parsedJSON = new FastJsonParse(resp.value)
+                    if(parsedJSON.err){
+                        throw parsedJSON.err
+                    }
+                    agencyJson = parsedJSON.value;
+                }
+                catch(err){
+                    log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                }
+                if(agencyJson){
+                    return agencyJson;
+                }
+            }
+            return null;
+        }
+        return null;
+    }
+
+    async updateRedisCache(agencyJSON){
+        if(agencyJSON && typeof agencyJSON === 'object'){
+            const agencyInfo = JSON.stringify(agencyJSON);
+            let redisKey = REDIS_AGENCYID_PREFIX + agencyJSON.systemId;
+            try{
+                const ttlSeconds = 86400;
+                const redisResponse = await global.redisSvc.storeKeyValue(redisKey, agencyInfo,ttlSeconds)
+                if(redisResponse && redisResponse.saved){
+                    log.debug(`Saved ${redisKey} to Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+            }
+            redisKey = REDIS_AGENCY_SLUG_PREFIX + agencyJSON.slug;
+            try{
+                const ttlSeconds = 86400;
+                const redisResponse = await global.redisSvc.storeKeyValue(redisKey, agencyInfo,ttlSeconds)
+                if(redisResponse && redisResponse.saved){
+                    log.debug(`Saved ${redisKey} to Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+            }
+
+            //just delete the agencynetwork do not report.
+            //it will rebuild on the next agencynetwork get applist request.
+            redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyJSON.agencyNetworkId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`REDIS: Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+
+
+            return true;
+        }
+        else {
+            log.warn(`updateRedisCache bad agencyJSON ${typeof agencyJSON} ` + __location);
+        }
+        return false;
     }
 }
