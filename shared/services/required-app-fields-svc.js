@@ -21,6 +21,7 @@ const required = 10;
 
 const bopRequirements = {
     location: {
+        activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: optional},
         businessPersonalPropertyLimit: {requirement: optional},
         own: {requirement: optional},
@@ -45,6 +46,7 @@ const bopRequirements = {
 
 const glRequirements = {
     location: {
+        activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -72,6 +74,7 @@ const wcRequirements = {
         officerTitle: {requirement: optional}
     },
     location: {
+        activityPayrollList: {requirement: required},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -97,6 +100,7 @@ const wcRequirements = {
 const plRequirements = {
     grossSalesAmt: {requirement: required},
     location: {
+        activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -119,6 +123,7 @@ const plRequirements = {
 const cyberRequirements = {
     grossSalesAmt: {requirement: required},
     location: {
+        activityPayrollList: {requirement: hidden},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -234,6 +239,14 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
 
             // if the property is NOT provided:
             // requirement is assumed optional
+
+            if(!object1[key]){
+                object1[key] = {};
+            }
+            if(!object2[key]){
+                object2[key] = {};
+            }
+
             if(!object1[key].hasOwnProperty("requirement")){
                 object1[key].requirement = optional;
             }
