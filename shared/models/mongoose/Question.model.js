@@ -33,6 +33,14 @@ const QuestionSchema = new Schema({
     acordQuestion: {type: Boolean, default: false},
     answers: [Answerschema],
     attributes: {type: Schema.Types.Mixed},
+    categoryName: {type: String, required: false},
+    categorySortNumber: {type: Number, required: false, default: 99},
+    sortRanking: {type: Number, required: false, default: 99},
+    inputType: {type: String, required: false},// number or string
+    minValue: {type: Number, required: false, default: 0},
+    maxValue: {type: Number, required: false},
+    maxLength: {type: Number, required: false},
+    inputMask: {type: String, required: false},
     active: {type: Boolean, default: true}
 },opts)
 
