@@ -17,11 +17,8 @@ const moment = require('moment');
 
 const Integration = require('../Integration.js');
 
-// import template WC request JSON object. Fields not set below are defaulted to values in the template
-const wcRequest = require('./wc_request.json');
-
 /**
- * Workers' Comp Integration for CNA
+ * BOP Integration for CNA
  */
 
 /*
@@ -112,7 +109,8 @@ const ssnLegalEntities = [
     "IN"
 ];
 
-// Deductible by state (no deductables for WC, keeping for GL/BOP)
+// TODO: Should we use these?
+// Deductible by state
 // eslint-disable-next-line no-unused-vars
 const stateDeductables = {
     "AL": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500],     
@@ -147,7 +145,7 @@ const stateDeductables = {
     "WV": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 7500, 10000]
 }
 
-module.exports = class CnaWC extends Integration {
+module.exports = class CnaBOP extends Integration {
 
     /**
      * Initializes this integration.
@@ -223,6 +221,8 @@ module.exports = class CnaWC extends Integration {
         // fall back to outside phone IFF we cannot find primary contact phone
         phone = phone ? phone : applicationDocData.phone.toString();
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
+
+        const limits = getLimits();
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -451,147 +451,105 @@ module.exports = class CnaWC extends Integration {
                                 "PropertyInfo": {
                                     "CommlPropertyInfo": this.getCoverages()
                                 },
-                                "LiabilityInfo":{
-                                    "CommlCoverage":[
+                                "LiabilityInfo": {
+                                    "CommlCoverage": [
                                         {
-                                            "CoverageCd":{
-                                                "value":"EAOCC"
+                                            "CoverageCd": {
+                                                "value": "EAOCC"
                                             },
-                                            "Limit":[
+                                            "Limit": [
                                                 {
-                                                    "FormatInteger":{
-                                                        "value":1000000
+                                                    "FormatInteger": {
+                                                        "value": parseInt(limits[0], 10)
                                                     },
-                                                    "LimitAppliesToCd":[
+                                                    "LimitAppliesToCd": [
                                                         {
-                                                            "value":"PerOcc"
+                                                            "value": "PerOcc"
                                                         }
                                                     ]
                                                 }
                                             ]
                                         },
                                         {
-                                            "CoverageCd":{
-                                                "value":"GENAG"
+                                            "CoverageCd": {
+                                                "value": "GENAG"
                                             },
-                                            "Limit":[
+                                            "Limit": [
                                                 {
-                                                    "FormatInteger":{
-                                                        "value":2000000
+                                                    "FormatInteger": {
+                                                        "value": parseInt(limits[1], 10)
                                                     },
-                                                    "LimitAppliesToCd":[
+                                                    "LimitAppliesToCd": [
                                                         {
-                                                            "value":"Aggregate"
+                                                            "value": "Aggregate"
                                                         }
                                                     ]
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "CoverageCd":{
-                                                "value":"MEDEX"
-                                            },
-                                            "Limit":[
-                                                {
-                                                    "FormatInteger":{
-                                                        "value":10000
-                                                    }
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "CoverageCd":{
-                                                "value":"FIRDM"
-                                            },
-                                            "Limit":[
-                                                {
-                                                    "FormatInteger":{
-                                                        "value":1000000
-                                                    }
                                                 }
                                             ]
                                         }
+                                        // {
+                                        //     "CoverageCd":{
+                                        //         "value":"MEDEX"
+                                        //     },
+                                        //     "Limit":[
+                                        //         {
+                                        //             "FormatInteger":{
+                                        //                 "value":10000
+                                        //             }
+                                        //         }
+                                        //     ]
+                                        // },
+                                        // {
+                                        //     "CoverageCd":{
+                                        //         "value":"FIRDM"
+                                        //     },
+                                        //     "Limit":[
+                                        //         {
+                                        //             "FormatInteger":{
+                                        //                 "value":1000000
+                                        //             }
+                                        //         }
+                                        //     ]
+                                        // }
                                     ],
-                                    "GeneralLiabilityClassification":[
-                                        {
-                                            "ClassCd":{
-                                                "value":"23110K"
-                                            },
-                                            "ClassCdDesc":{
-                                                "value":"CLOTHING MFG - WOMEN'S, MISSES, AND GIRLS"
-                                            },
-                                            "Exposure":{
-                                                "value":500000
-                                            },
-                                            "PremiumBasisCd":{
-                                                "value":"GrSales"
-                                            },
-                                            "id":"C1",
-                                            "LocationRef":"L1",
-                                            "SubLocationRef":"L1S1"
-                                        },
-                                        {
-                                            "ClassCd":{
-                                                "value":"11222A"
-                                            },
-                                            "ClassCdDesc":{
-                                                "value":"COPYING &amp; DUPLICATING SERVICES - RETAIL"
-                                            },
-                                            "Exposure":{
-                                                "value":500000
-                                            },
-                                            "PremiumBasisCd":{
-                                                "value":"GrSales"
-                                            },
-                                            "id":"C1",
-                                            "LocationRef":"L2",
-                                            "SubLocationRef":"L2S1"
-                                        }
-                                    ]
+                                    "GeneralLiabilityClassification": this.getGLClassifications()
                                 },
-                                "com.cna_ProductInfo":[
-                                    {
-                                        "ProductDesignedDesc":{
-                                            "value":"test 1390"
-                                        },
-                                        "ProductMfgDesc":{
+                                // TODO: What is this? Is it a question? 
+                                // "com.cna_ProductInfo":[
+                                //     {
+                                //         "ProductDesignedDesc":{
+                                //             "value":"test 1390"
+                                //         },
+                                //         "ProductMfgDesc":{
                                             
-                                        },
-                                        "com.cna_IntendedUse":{
-                                            "value":"test 1390"
-                                        },
-                                        "com.cna_grossSales":{
-                                            "Amt":{
-                                                "value":0
-                                            }
-                                        },
-                                        "com.cna_NumAnnualUnitsSold":{
-                                            "value":0
-                                        },
-                                        "com.cna_YearProductFirstMade":{
-                                            "value":0
-                                        },
-                                        "com.cna_YearProductDiscontinued":{
-                                            "value":2020
-                                        },
-                                        "com.cna_ExpectedLife":{
-                                            "value":0
-                                        },
-                                        "com.cna_ProductSelfInsuredInd":{
-                                            "value":"0"
-                                        }
-                                    }
-                                ],
-                                "com.cna_QuestionAnswer":[
-                                    {
-                                        "com.cna_QuestionCd":{
-                                            "value":"UWSTMT"
-                                        },
-                                        "YesNoCd":{
-                                            "value":"YES"
-                                        }
-                                    }
-                                ]
+                                //         },
+                                //         "com.cna_IntendedUse":{
+                                //             "value":"test 1390"
+                                //         },
+                                //         "com.cna_grossSales":{
+                                //             "Amt":{
+                                //                 "value":0
+                                //             }
+                                //         },
+                                //         "com.cna_NumAnnualUnitsSold":{
+                                //             "value":0
+                                //         },
+                                //         "com.cna_YearProductFirstMade":{
+                                //             "value":0
+                                //         },
+                                //         "com.cna_YearProductDiscontinued":{
+                                //             "value":2020
+                                //         },
+                                //         "com.cna_ExpectedLife":{
+                                //             "value":0
+                                //         },
+                                //         "com.cna_ProductSelfInsuredInd":{
+                                //             "value":"0"
+                                //         }
+                                //     }
+                                // ],
+                                // TODO: Find out what questions should be in here, this might just be all general questions
+                                "com.cna_QuestionAnswer": this.getQuestionArray()
                             },
                             "CommlSubLocation":[
                                 {
@@ -770,10 +728,7 @@ module.exports = class CnaWC extends Integration {
         let result = null;
 
         try {
-            // log.debug("=================== QUOTE REQUEST ===================");
-            // log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
-            // log.debug("=================== QUOTE REQUEST ===================");
-            result = await this.send_json_request(host, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
+            result = await this.send_json_request(host, QUOTE_URL, JSON.stringify(requestJSON), headers, "POST");
         }
         catch (error) {
             let errorJSON = null;
@@ -781,35 +736,27 @@ module.exports = class CnaWC extends Integration {
                 errorJSON = JSON.parse(error.response);
             }
             catch (e) {
-                log.error(`CNA WC: There was an error parsing the error object: ${e}.` + __location);
+                log.error(`${logPrefix}There was an error parsing the error object: ${e}.` + __location);
             }
-
-            // log.debug("=================== QUOTE ERROR ===================");
-            // log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
-            // log.debug("=================== QUOTE ERROR ===================");
             
             this.reasons.push(JSON.stringify(errorJSON));
 
             let errorMessage = "";
             try {
-                errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
+                errorMessage = `${logPrefix}status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
             } 
             catch (e1) {
                 try {
-                    errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.message}`;
+                    errorMessage = `${logPrefix}status code ${error.httpStatusCode}: ${errorJSON.message}`;
                 } 
                 catch (e2) {
-                    log.error(`CNA: Couldn't parse error object for description. Parsing errors: ${JSON.stringify([e1, e2], null, 4)}.` + __location);
+                    log.error(`${logPrefix}Couldn't parse error object for description. Parsing errors: ${JSON.stringify([e1, e2], null, 4)}.` + __location);
                 }
             }
 
-            errorMessage = errorMessage ? errorMessage : "CNA: An error occurred while attempting to quote.";
+            errorMessage = errorMessage ? errorMessage : "An error occurred while attempting to quote.";
             return this.client_declined(errorMessage);
         }
-
-       // log.debug("=================== QUOTE RESULT ===================");
-        //log.debug("CNA WC " + JSON.stringify(result, null, 4));
-        //log.debug("=================== QUOTE RESULT ===================");
 
         let quoteNumber = null;
         let premium = null;
@@ -825,14 +772,14 @@ module.exports = class CnaWC extends Integration {
             case "error":
             case "login_error":
             case "general failure":
-                log.error(`CNA WC response ${response.MsgStatus.MsgStatusDesc.value} ` + __location);
-                return this.client_error(`CNA: ${response.MsgStatus.MsgStatusDesc.value}`);
+                log.error(`${logPrefix}response ${response.MsgStatus.MsgStatusDesc.value} ` + __location);
+                return this.client_error(`${response.MsgStatus.MsgStatusDesc.value}`, __location);
             case "rejected": 
-                return this.client_declined(`CNA: ${response.MsgStatus.MsgStatusDesc.value}`);
+                return this.client_declined(`${response.MsgStatus.MsgStatusDesc.value}`);
             case "in_progress":
-                return this.client_error(`CNA: The quote request did not complete.`);
+                return this.client_error(`The quote request did not complete.`, __location);
             case "351":
-                return this.client_declined(`CNA: The quote request is not available.`);
+                return this.client_declined(`The quote request is not available.`);
             case "success":
             case "successwithinfo":
             case "successwithchanges":
@@ -847,7 +794,7 @@ module.exports = class CnaWC extends Integration {
                             quoteNumber = response.CommlPolicy.QuoteInfo.CompanysQuoteNumber.value;
                         }
                         catch (e) {
-                            log.warn(`CNA: Couldn't parse quote number: ${e}` + __location);
+                            log.warn(`${logPrefix}Couldn't parse quote number: ${e}` + __location);
                         }
 
                         // get premium (required)
@@ -855,8 +802,8 @@ module.exports = class CnaWC extends Integration {
                             premium = policySummary.FullTermAmt.Amt.value;
                         }
                         catch (e) {
-                            log.error(`CNA: Couldn't parse premium from CNA response: ${e}.` + __location);
-                            return this.client_error(`CNA: Couldn't parse premium from CNA response: ${e}.`);
+                            log.error(`${logPrefix}Couldn't parse premium from CNA response: ${e}.` + __location);
+                            return this.client_error(`Couldn't parse premium from CNA response: ${e}.`, __location);
                         }
 
                         // get limits (required)
@@ -873,14 +820,14 @@ module.exports = class CnaWC extends Integration {
                                         quoteLimits[3] = limit.FormatInteger.value;
                                         break;
                                     default:
-                                        log.error(`CNA: Unexpected limit found in quote response. ${__location}`);
+                                        log.error(`${logPrefix}Unexpected limit found in quote response. ` + __location);
                                         break;
                                 }
                             });
                         }
                         catch (e) {
-                            log.error(`CNA: Couldn't parse one or more limit values from response: ${e}.` + __location);
-                            return this.client_error(`CNA: Couldn't parse one or more limit values from response: ${e}.`);
+                            log.error(`${logPrefix}Couldn't parse one or more limit values from response: ${e}.` + __location);
+                            return this.client_error(`Couldn't parse one or more limit values from response: ${e}.`);
                         }
                         
                         // get quote letter (optional) and quote MIME type (optional)
@@ -894,38 +841,38 @@ module.exports = class CnaWC extends Integration {
                                 quoteResult = await this.send_json_request(quoteHost, quotePath, null, headers, "GET");
                             }
                             catch (e) {
-                                log.error(`CNA: The request to retrieve the quote proposal letter failed: ${e}.` + __location);
+                                log.error(`${logPrefix}The request to retrieve the quote proposal letter failed: ${e}.` + __location);
                             }
 
                             try {
                                 quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
                             }
                             catch (e) {
-                                log.error(`CNA: There was an error parsing the quote letter: ${e}.` + __location);
+                                log.error(`${logPrefix}There was an error parsing the quote letter: ${e}.` + __location);
                             }
 
                             try {
                                 quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
                             }
                             catch (e) {
-                                log.error(`CNA: There was an error parsing the quote MIME type: ${e}.` + __location);
+                                log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
                             }
 
                         }
                         else {
-                            log.error(`CNA: Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
+                            log.error(`${logPrefix}Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
                         }
                         break;
                     case "notquotednotbound":
-                        return this.client_declined(`CNA: Application was not quoted or bound.`);
+                        return this.client_declined(`Application was not quoted or bound.`);
                     default: 
-                        log.error(`CNA: Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}` + __location);
-                        return this.client_error(`CNA: Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}`);
+                        log.error(`${logPrefix}Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}` + __location);
+                        return this.client_error(`Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}`, __location);
                 } // end inner switch
                 break;
             default: 
-                log.error(`CNA: Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".` + __location);
-                return this.client_error(`CNA: Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".`);
+                log.error(`${logPrefix}Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".` + __location);
+                return this.client_error(`Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".`, __location);
         } // end outer switch
 
         if (policyStatus) {
@@ -938,12 +885,12 @@ module.exports = class CnaWC extends Integration {
             }
         }
         else {
-            log.error(`CNA: Response doesn't include a policy status code.` + __location);
-            return this.client_error(`CNA: Response doesn't include a policy status code.`);
+            log.error(`${logPrefix}Response doesn't include a policy status code.` + __location);
+            return this.client_error(`Response doesn't include a policy status code.`, __location);
         }
     }
 
-    // transform our business locations array into location objects array to be inserted into the WC request Object
+    // transform our business locations array into location objects array to be inserted into the BOP request Object
     getLocations(fullLocation = false) {
         // iterate over each location and transform it into a location object
         return this.app.business.locations.map((location, i) => {
@@ -1030,42 +977,42 @@ module.exports = class CnaWC extends Integration {
     }
 
     // generates the array of WorkCompRateState objects
-    getWorkCompRateStates() {
-        const workCompRateStates = [];
+    // getWorkCompRateStates() {
+    //     const workCompRateStates = [];
 
-        for (const [index, location] of Object.entries(this.app.business.locations)) {
-            const wcrs = {
-                StateProvCd: {value: location.territory},
-                WorkCompLocInfo: this.getWorkCompLocInfo(location, index)
-            }
-            const firstNCCICode = location.activity_codes[0].ncciCode;
-            wcrs.GoverningClassCd = {value: firstNCCICode.substring(0, firstNCCICode.length - 1)}
-            workCompRateStates.push(wcrs);
-        }
+    //     for (const [index, location] of Object.entries(this.app.business.locations)) {
+    //         const wcrs = {
+    //             StateProvCd: {value: location.territory},
+    //             WorkCompLocInfo: this.getWorkCompLocInfo(location, index)
+    //         }
+    //         const firstNCCICode = location.activity_codes[0].ncciCode;
+    //         wcrs.GoverningClassCd = {value: firstNCCICode.substring(0, firstNCCICode.length - 1)}
+    //         workCompRateStates.push(wcrs);
+    //     }
 
-        return workCompRateStates;    
-    }
+    //     return workCompRateStates;    
+    // }
 
     // generates the WorkCompLocInfo objects
-    getWorkCompLocInfo(location, index) {        
-        const wcli = {
-            NumEmployees: {value: location.full_time_employees + location.part_time_employees},
-            WorkCompRateClass: [],
-            LocationRef: `L${index}`,
-            NameInfoRef: this.getNameRef(index)
-        }
+    // getWorkCompLocInfo(location, index) {        
+    //     const wcli = {
+    //         NumEmployees: {value: location.full_time_employees + location.part_time_employees},
+    //         WorkCompRateClass: [],
+    //         LocationRef: `L${index}`,
+    //         NameInfoRef: this.getNameRef(index)
+    //     }
 
-        for (const activityCode of location.activity_codes) {
-            const wcrc = {
-                RatingClassificationCd: {value: activityCode.ncciCode}, 
-                Exposure: `${activityCode.payroll}`
-            }
+    //     for (const activityCode of location.activity_codes) {
+    //         const wcrc = {
+    //             RatingClassificationCd: {value: activityCode.ncciCode}, 
+    //             Exposure: `${activityCode.payroll}`
+    //         }
 
-            wcli.WorkCompRateClass.push(wcrc);
-        }
+    //         wcli.WorkCompRateClass.push(wcrc);
+    //     }
 
-        return [wcli];
-    }
+    //     return [wcli];
+    // }
 
     // generates the NameRef based off the index of the records being created
     getNameRef(index) {
@@ -1080,7 +1027,7 @@ module.exports = class CnaWC extends Integration {
         }
     }
 
-    // transform our policy limit selection into limit objects array to be inserted into the WC Request Object
+    // transform our policy limit selection into limit objects array to be inserted into the BOP Request Object
     getLimits(limits) {
         const limitArray = [];
         
@@ -1099,44 +1046,28 @@ module.exports = class CnaWC extends Integration {
         return limitArray;
     }
 
-    // transform our questions into question objects array to be inserted into the WC Request Object
+    // transform our questions into question objects array to be inserted into the BOP Request Object
     getQuestionArray() {
-        // convert question map to array
-        const questionArray = Object.values(this.questions);
+        return this.applicationDocData.questions.map(question => {
+            // TODO: Check question.insurerQuestionAttributes to see what the QuestionCd should be
+            // TODO: Are all questions yes/no for CNA? For now, will use existing explanation logic for CNA WC
+            const questionObj = {
+                "com.cna_QuestionCd": {
+                    value: "dummy_id"
+                }
+            };
 
-        // filtering questions to only those answered
-        for (let i = questionArray.length - 1; i >= 0; i--) {
-            let answer = null;
-            try {
-                answer = this.determine_question_answer(questionArray[i]);
-            }
-            catch (error) {
-                log.debug(`CNA WC Could not determine the answer for one of the questions ${JSON.stringify(questionArray[i])}` + __location)
-               // return this.client_error('Could not determine the answer for one of the questions', __location, JSON.stringify(questionArray[i]));
-            }
-
-            // if no answer, the question isn't shown
-            if (!answer) {
-                questionArray.splice(i, 1);
-            }
-        }
-
-        // mapping answered questions to request question objects
-        return questionArray.map(question => {
-            const questionAnswerObj = {QuestionCd: {value: this.question_identifiers[question.id]}};
-
-            if (explanationQuestions.includes(this.question_identifiers[question.id])) {
-                questionAnswerObj.YesNoCd = {value: "N/A"};
-                questionAnswerObj.Explanation = {value: question.answer}
+            if (explanationQuestions.includes(question.insurerQuestionIdentifier)) {
+                questionObj.YesNoCd = {value: "N/A"};
+                questionObj.Explanation = {value: question.answerValue};
             }
             else {
-                // eslint-disable-next-line no-unused-expressions
-                question.type === 'Yes/No' ? 
-                    questionAnswerObj.YesNoCd = {value: question.answer.toUpperCase()} :
-                    questionAnswerObj['com.cna_OptionCd'] = {value: question.answer};
+                question.questionType === "Yes/No" ? 
+                    questionObj.YesNoCd = {value: question.answerValue.toUpperCase()} :
+                    questionObj["com.cna_QuestionCd.cna_OptionCd"] = {value: question.answerValue};
             }
 
-            return questionAnswerObj;
+            return questionObj;
         });
     }
 
@@ -1394,5 +1325,66 @@ module.exports = class CnaWC extends Integration {
             "LocationRef":"L1",
             "SubLocationRef":"L1S1"
         },
+    }
+
+    getLimits(policy) {
+        const limitsStr = policy.limits;
+
+        if (limitsStr === "") {
+            log.warn(`CNA: Provided limits are empty. ${__location}`);
+            return limitsStr;
+        }
+
+        // skip first character, look for first occurance of non-zero number
+        const indexes = [];
+        for (let i = 1; i < limitsStr.length; i++) {
+            if (limitsStr[i] !== "0") {
+                indexes.push(i);
+            }
+        }
+
+        // parse first limit out of limits string
+        const limits = [];
+        limits.push(limitsStr.substring(0, indexes[0])); // per occ
+        limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
+        limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
+
+        return limits;
+    }
+
+    getGLClassifications() {
+        const industryCode = this.industry_code;
+
+        return this.app.applicationDocData.locations.map((location, i) => {
+            const grossSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'cna.location.grossSales');
+            let grossSales = 0;
+
+            if (grossSalesQuestion) {
+                grossSales = parseInt(grossSalesQuestion.answerValue, 10);
+
+                if (isNaN(grossSales)) {
+                    log.error(`CNA: Gross Sales amount for location: L${i} is not numeric, failed to parse.` + __location);
+                    grossSales = 0;
+                }
+            }
+
+            return {
+                ClassCd: {
+                    value: industryCode.code
+                },
+                ClassCdDesc: {
+                    value: industryCode.description
+                },
+                Exposure: {
+                    value: grossSales
+                },
+                PremiumBasisCd: {
+                    value: "GrSales"
+                },
+                id: `C${i}`,
+                LocationRef: `L${i}`,
+                SubLocationRef: `L${i}S${i}`
+            };
+        });
     }
 }
