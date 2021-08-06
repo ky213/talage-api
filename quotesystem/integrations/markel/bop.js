@@ -75,6 +75,83 @@ const entityTypeMatrix = {
     // Applicable only in NY
 };
 
+const contractorClassCodes = [
+    "74011",
+    "74021",
+    "74071",
+    "74081",
+    "74101",
+    "74111",
+    "74161",
+    "74171",
+    "74221",
+    "74231",
+    "74251",
+    "74261",
+    "74281",
+    "74291",
+    "74341",
+    "74351",
+    "74411",
+    "74421",
+    "74471",
+    "74481",
+    "74501",
+    "74511",
+    "74541",
+    "74561",
+    "74591",
+    "74601",
+    "74651",
+    "74661",
+    "74681",
+    "74691",
+    "74741",
+    "74751",
+    "74771",
+    "74781",
+    "74831",
+    "74841",
+    "74861",
+    "74871",
+    "74891",
+    "74901",
+    "74951",
+    "74961",
+    "75511",
+    "75521",
+    "75541",
+    "75551",
+    "75601",
+    "75611",
+    "75631",
+    "75641",
+    "75691",
+    "75701",
+    "75751",
+    "75761",
+    "75781",
+    "75791",
+    "75811",
+    "75821",
+    "75871",
+    "75881",
+    "75931",
+    "75941",
+    "75961",
+    "75971",
+    "76021",
+    "76031",
+    "76051",
+    "76061",
+    "76111",
+    "76121",
+    "76171",
+    "76181",
+    "76221",
+    "76231"
+];
+
 // Certified Safety Committee Notification
 // eslint-disable-next-line no-unused-vars
 const safety_committee_states = [
@@ -582,8 +659,8 @@ module.exports = class MarkelWC extends Integration {
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
                 // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
-                classCode: this.industry_code.code,
-                classCodeDescription: this.industry_code.attributes["NAICS Descriptor"],
+                classCode: this.industry_code.code, // this may need to change
+                classCodeDescription: this.industry_code.attributes["NAICS Descriptor"], // this needs to change
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
@@ -664,6 +741,17 @@ module.exports = class MarkelWC extends Integration {
             yearsInsuredBOP: yearsInsured,
             "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO'
             // optionalEndorsements: [] // Optional, not supporting in phase 1
+        }
+
+        // contractorsInstallationToolsEquipment endorsement required if contractor industry is selected
+        if (contractorClassCodes.includes(this.industry_code.code)) {
+            policyObj.optionalEndorsements = {
+                contractorsInstallationToolsEquipment: {
+                    eachJobLimitAllJobLimit: "3000/9000",
+                    blanketLimit: 3000,
+                    blanketSubLimit: 500
+                }
+            }
         }
 
         const medicalLimitQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.medicalLimit");
