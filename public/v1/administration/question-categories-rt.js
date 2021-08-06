@@ -11,6 +11,5 @@ function getQuestionCategories(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    // TODO require Auth.
-    server.addGet('Get All Industry Code Categories', `${basePath}/question-categories`, getQuestionCategories);
+    server.addGetAuthAdmin('Get All Question Categories', `${basePath}/question-categories`, getQuestionCategories);
 };
