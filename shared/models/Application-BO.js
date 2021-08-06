@@ -1817,7 +1817,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
-            //log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
+            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
             let pageSize = 10;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
@@ -1974,8 +1974,25 @@ module.exports = class ApplicationModel {
                     //we only have begin  if it is over a year and page = 1 use the cache
                     // count might be wrong but we do not display the number
                     // hit to any other page will fix the paging setup...
-                    const now = moment().utc();
-                    if(now.diff(fromDate, 'months') < 12 || requestParms.page > 0 || (applicationsTotalCountJSON < pageSize || forceRedisUpdate || useRedisCache === false)){
+                    let addDateFilter = false;
+                    if(forceRedisUpdate){
+                        addDateFilter = true
+                    }
+                    else if(useRedisCache){
+                        //useRedisCache at this point means there is not filter, only date range.
+                        const now = moment().utc();
+                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                            addDateFilter = true
+                        }
+                        else if(requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                            addDateFilter = true
+                        }
+                    }
+                    else {
+                        addDateFilter = true
+                    }
+
+                    if(addDateFilter){
                         useRedisCache = false;
                         query.createdAt = {$gte: fromDate};
                     }
@@ -2018,7 +2035,7 @@ module.exports = class ApplicationModel {
                             let appList = null;
                             const resp = await global.redisSvc.getKeyValue(redisKey);
                             if(resp.found){
-                                //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                                log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
                                 try{
                                     const parsedJSON = new FastJsonParse(resp.value)
                                     if(parsedJSON.err){
@@ -2066,7 +2083,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    //log.debug("ApplicationList query " + JSON.stringify(query) + __location)
+                    log.debug("ApplicationList query " + JSON.stringify(query) + __location)
                     //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
