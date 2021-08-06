@@ -1815,10 +1815,11 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, forceRedisUpdate = false){
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
             //log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
+            let pageSize = 10;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
                 useRedisCache = false;
             }
@@ -1865,9 +1866,11 @@ module.exports = class ApplicationModel {
                     var limitNum = parseInt(requestParms.limit, 10);
                     if (limitNum < queryLimit) {
                         queryOptions.limit = limitNum;
+                        pageSize = limitNum;
                     }
                     else {
                         queryOptions.limit = queryLimit;
+                        pageSize = queryLimit;
                     }
 
                     if(requestParms.page && requestParms.page > 0){
@@ -1887,51 +1890,6 @@ module.exports = class ApplicationModel {
                     findCount = true;
                 }
             }
-
-            if (queryJSON.searchbegindate && queryJSON.searchenddate) {
-                const fromDate = moment(queryJSON.searchbegindate);
-                const toDate = moment(queryJSON.searchenddate);
-                if (fromDate.isValid() && toDate.isValid()) {
-                    useRedisCache = false;
-                    query.createdAt = {
-                        $lte: toDate.clone(),
-                        $gte: fromDate.clone()
-                    };
-                    delete queryJSON.searchbegindate;
-                    delete queryJSON.searchenddate;
-                }
-                else {
-                    reject(new Error("Date format"));
-                    return;
-                }
-            }
-            else if (queryJSON.searchbegindate) {
-                // eslint-disable-next-line no-redeclare
-                let fromDate = moment(queryJSON.searchbegindate);
-                if (fromDate.isValid()) {
-                    useRedisCache = false;
-                    query.createdAt = {$gte: fromDate};
-                    delete queryJSON.searchbegindate;
-                }
-                else {
-                    reject(new Error("Date format"));
-                    return;
-                }
-            }
-            else if (queryJSON.searchenddate) {
-                // eslint-disable-next-line no-redeclare
-                let toDate = moment(queryJSON.searchenddate);
-                if (toDate.isValid()) {
-                    useRedisCache = false;
-                    query.createdAt = {$lte: toDate};
-                    delete queryJSON.searchenddate;
-                }
-                else {
-                    reject(new Error("Date format"));
-                    return;
-                }
-            }
-
             if(queryJSON.policies && queryJSON.policies.policyType){
                 //query.policies = {};
                 useRedisCache = false;
@@ -1948,17 +1906,19 @@ module.exports = class ApplicationModel {
 
             if (queryJSON) {
                 for (var key in queryJSON) {
-                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                        let clearString = queryJSON[key].replace("%", "");
-                        clearString = clearString.replace("%", "");
-                        useRedisCache = false;
-                        query[key] = {
-                            "$regex": clearString,
-                            "$options": "i"
-                        };
-                    }
-                    else {
-                        query[key] = queryJSON[key];
+                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
+                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                            let clearString = queryJSON[key].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            useRedisCache = false;
+                            query[key] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                        else {
+                            query[key] = queryJSON[key];
+                        }
                     }
                 }
             }
@@ -1988,6 +1948,57 @@ module.exports = class ApplicationModel {
                 }
                 query.$or = orParamList
             }
+            //
+
+            if (queryJSON.searchbegindate && queryJSON.searchenddate) {
+                const fromDate = moment(queryJSON.searchbegindate);
+                const toDate = moment(queryJSON.searchenddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    useRedisCache = false;
+                    query.createdAt = {
+                        $lte: toDate.clone(),
+                        $gte: fromDate.clone()
+                    };
+                    delete queryJSON.searchbegindate;
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchbegindate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.searchbegindate);
+                if (fromDate.isValid()) {
+                    //we only have begin  if it is over a year and page = 1 use the cache
+                    // count might be wrong but we do not display the number
+                    // hit to any other page will fix the paging setup...
+                    const now = moment().utc();
+                    if(now.diff(fromDate, 'months') < 12 || requestParms.page > 0 || (applicationsTotalCountJSON < pageSize || forceRedisUpdate || useRedisCache === false)){
+                        useRedisCache = false;
+                        query.createdAt = {$gte: fromDate};
+                    }
+                    delete queryJSON.searchbegindate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchenddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.searchenddate);
+                if (toDate.isValid()) {
+                    useRedisCache = false;
+                    query.createdAt = {$lte: toDate};
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
 
             if (findCount === false) {
                 let docList = null;
@@ -2007,7 +2018,7 @@ module.exports = class ApplicationModel {
                             let appList = null;
                             const resp = await global.redisSvc.getKeyValue(redisKey);
                             if(resp.found){
-                                log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                                //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
                                 try{
                                     const parsedJSON = new FastJsonParse(resp.value)
                                     if(parsedJSON.err){
@@ -2055,9 +2066,9 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("ApplicationList query " + JSON.stringify(query))
-                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
-                    //log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    //log.debug("ApplicationList query " + JSON.stringify(query) + __location)
+                    //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
+                    //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){
                         //loop doclist adding agencyName
