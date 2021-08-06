@@ -2589,7 +2589,6 @@ module.exports = class ApplicationModel {
             log.error("Error call in question service " + err + __location);
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
-
         questionsObject.questionList = getQuestionsResult
 
         return questionsObject;

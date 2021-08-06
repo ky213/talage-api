@@ -549,7 +549,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     log.debug("question sort " + __location);
     // Sort the questions
     questions.sort(function(a, b) {
-        return a.id - b.id;
+        return a.categorySortNumber - b.categorySortNumber || a.sortRanking - b.sortRanking || a.talageQuestionId - b.talageQuestionId
     });
     log.info(`Returning ${questions.length} Questions`);
 
@@ -628,7 +628,7 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     // eslint-disable-next-line object-property-newline
     const query = {active: true, talageQuestionId: {$in: talageQuestionIdArray}};
     // eslint-disable-next-line object-property-newline
-    const queryProjection = {"__v": 0, "_id": 0,acordQuestion: 0, active: 0,updatedAt:0, createdAt: 0};
+    const queryProjection = {"__v": 0, "_id": 0,talageQuestionUuid: 0, acordQuestion: 0, active: 0,updatedAt:0, createdAt: 0};
     talageQuestions = await QuestionModel.find(query,queryProjection).lean().catch(function(err) {
         error = err.message;
         log.error(`Error get Talage Questions ${err} ` + __location);
@@ -652,7 +652,15 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
                 answer.default = false;
             }
         })
-
+        if(!talageQuestion.categoryName){
+            talageQuestion.categoryName = "uncategorized";
+        }
+        if(!talageQuestion.categorySortNumber){
+            talageQuestion.categorySortNumber = 99;
+        }
+        if(!talageQuestion.sortRanking){
+            talageQuestion.sortRanking = 99;
+        }
     });
 
     const endSqlSelect = moment();
