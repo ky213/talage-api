@@ -1266,13 +1266,39 @@ module.exports = class CnaWC extends Integration {
         const coverages = [];
 
         this.app.applicationDocData.locations.forEach((location, i) => {
-            const coverageObj = {
+            const coveragesObj = {
                 CommlCoverage: [],
                 LocationRef: `L${i}`,
                 SubLocationRef: `L${i}S${i}`
+            };
+
+            // TODO: 
+            // If desired, set BillableLostPeriod here
+            // coverageObj.BusinessIncomeInfo.BillableLostPeriod.Description.value
+
+            const glassCoverage = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.glassCoverage");
+            if (glassCoverage && glassCoverage.answerValue.toLowerCase() === "yes") {
+                // get child question
+
+                const coverageObj = {
+                    CoverageCd: {
+                        value: "GLASS"
+                    },
+                    Deductible: [{
+                        FormatInteger: {
+                            value: 0 // < --- Child question answer if integer
+                        },
+                        FormatText: {
+                            value: "Policy Level" // < --- child question answer if string
+                        }
+                    }]
+                }
             }
 
+            coverages.push(coveragesObj);
         });
+
+        return coverages;
         {
             "ItemValueAmt": {
                 "Amt": {
