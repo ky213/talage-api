@@ -70,6 +70,7 @@ const QuoteSchema = new Schema({
     limits: [QouteLimitSchema],
     quoteCoverages: [QuoteCoveragesSchema],
     quoteLink: {type: String},
+    purchaseLink: {type: String},
     additionalInfo: {type: Schema.Types.Mixed},
     handledByTalage: {type: Boolean, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
