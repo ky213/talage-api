@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
 'use strict';
@@ -292,9 +293,8 @@ async function getApplications(req, res, next){
 
     if(req.params.endDate){
         endDateMoment = moment(req.params.endDate).utc();
-        const now = moment();
+        const now = moment().utc();
         if(now.diff(endDateMoment, 'seconds') < 5){
-            log.debug(`clearing end date ${now.diff(endDateMoment, 'seconds')} seconds`)
             endDateMoment = null;
         }
         // now....
@@ -608,9 +608,9 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON)
         applicationsSearchCount = applicationsSearchCountJSON.count;
-        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
+        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
