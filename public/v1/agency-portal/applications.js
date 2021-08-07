@@ -204,6 +204,7 @@ function generateCSV(applicationList){
  */
 async function getApplications(req, res, next){
     let error = false;
+    let noCacheUse = false;
     log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
     const start = moment();
     // Localize data variables that the user is permitted to access
@@ -314,6 +315,7 @@ async function getApplications(req, res, next){
     const orClauseArray = [];
 
     if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
+        noCacheUse = true;
         log.debug("Insurer Search")
         try{
             //insurer search
@@ -438,11 +440,13 @@ async function getApplications(req, res, next){
 
     }
     if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+        noCacheUse = true;
         query.handledByTalage = true;
         req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
     }
     //let skiprenewals = false;
     if(req.params.searchText && req.params.searchText.toLowerCase().includes("skiprenewals")){
+        noCacheUse = true;
         query.renewal = {$ne: true};
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
@@ -454,6 +458,7 @@ async function getApplications(req, res, next){
     const productTypeList = ["WC","GL", "BOP"];
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 0){
+        noCacheUse = true;
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
 
@@ -608,9 +613,9 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON)
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
-        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount);
+        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
