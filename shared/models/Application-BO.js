@@ -2579,8 +2579,12 @@ module.exports = class ApplicationModel {
                     if(!insurerObjList && insurerObjList.length === 0){
                         log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
                     }
-                    for(let i = 0; i < insurerObjList.length; i++){
-                        insurerArray.push(insurerObjList[i].insurerId)
+                    for (const policyType of policyTypeArray){
+                        for(let i = 0; i < insurerObjList.length; i++){
+                            if(insurerObjList[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(insurerObjList[i].insurerId) === -1){
+                                insurerArray.push(insurerObjList[i].insurerId)
+                            }
+                        }
                     }
                     log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
                 }
@@ -2590,8 +2594,12 @@ module.exports = class ApplicationModel {
                 }
             }
             else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
-                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
-                    insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                for (const policyType of policyTypeArray){
+                    for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                        if(agencylocationJSON.insurers[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
+                            insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                        }
+                    }
                 }
             }
             else {
