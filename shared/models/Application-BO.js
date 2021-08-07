@@ -8,7 +8,7 @@
 const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
 const _ = require('lodash');
-
+var FastJsonParse = require('fast-json-parse')
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
@@ -46,6 +46,13 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
 const QUOTE_MIN_TIMEOUT = 5;
+
+
+const REDIS_AGENCY_APPLIST_PREFIX = 'applist-agency-';
+const REDIS_AGENCYNETWORK_APPLIST_PREFIX = 'applist-agencynetwork-';
+const REDIS_AGENCY_APPCOUNT_PREFIX = 'appcount-agency-';
+const REDIS_AGENCYNETWORK_APPCOUNT_PREFIX = 'appcount-agencynetwork-';
+
 
 module.exports = class ApplicationModel {
 
@@ -1053,6 +1060,9 @@ module.exports = class ApplicationModel {
                     query = {"mysqlId": id};
                 }
                 await ApplicationMongooseModel.updateOne(query, updateStatusJson);
+                if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+                    await this.updateRedisForAppUpdatebyAppId(id);
+                }
             }
             catch (error) {
                 log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
@@ -1077,6 +1087,9 @@ module.exports = class ApplicationModel {
                 query = {"mysqlId": id};
             }
             await ApplicationMongooseModel.updateOne(query, updateStatusJson);
+            if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+                await this.updateRedisForAppUpdatebyAppId(id);
+            }
         }
         catch (error) {
             log.error(`Could not update application progress mongo appId: ${id}  ${error} ${__location}`);
@@ -1194,6 +1207,9 @@ module.exports = class ApplicationModel {
                     log.debug("updated to " + JSON.stringify(newObjectJSON));
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
+                    if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+                        await this.updateRedisForAppUpdate(newApplicationdoc)
+                    }
 
 
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
@@ -1263,6 +1279,10 @@ module.exports = class ApplicationModel {
             await this.checkAndFixAppStatus(application);
         }
         this.#applicationMongooseDB = application;
+        if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+            await this.updateRedisForAppUpdate(application)
+            await this.updateRedisForAppAddDelete(application.applicationId, application);
+        }
 
         return mongoUtils.objCleanup(application);
     }
@@ -1716,9 +1736,93 @@ module.exports = class ApplicationModel {
         });
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms){
-        return new Promise(async(resolve, reject) => {
+    async updateRedisForAppUpdatebyAppId(appId){
+        if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+            const query = {"applicationId": appId};
+            const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
+            await this.updateRedisForAppUpdate(newApplicationdoc)
+        }
+        return;
+    }
+    async updateRedisForAppUpdate(applicationJSON){
 
+        //Delete keys get next AP Applist request refresh it.
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+            let redisKey = REDIS_AGENCYNETWORK_APPLIST_PREFIX + applicationJSON.agencyNetworkId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+            redisKey = REDIS_AGENCY_APPLIST_PREFIX + applicationJSON.agencyId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`REDIS: Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+            return true;
+
+        }
+        else {
+            log.warn(`REDIS: updateRedisCache bad applicationJSON ${typeof applicationJSON} ` + __location);
+        }
+        return false;
+    }
+
+    async updateRedisForAppAddDelete(appId,applicationJSON){
+        if(!applicationJSON){
+            const query = {"applicationId": appId};
+            applicationJSON = await ApplicationMongooseModel.findOne(query);
+        }
+        //Delete keys get next AP Applist request refresh it.
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+            let redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+            redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + applicationJSON.agencyId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`REDIS: Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+
+            return true;
+
+
+        }
+        else {
+            log.warn(`REDIS: updateRedisCache bad applicationJSON ${typeof applicationJSON} ` + __location);
+        }
+        return false;
+    }
+
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, forceRedisUpdate = false){
+        return new Promise(async(resolve, reject) => {
+            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
+            let useRedisCache = true;
+            let pageSize = 10;
+            if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
+                useRedisCache = false;
+            }
             if(!requestParms){
                 requestParms = {}
             }
@@ -1734,7 +1838,6 @@ module.exports = class ApplicationModel {
 
             var queryOptions = {};
             queryOptions.sort = {};
-            queryOptions.sort = {};
             if(requestParms && requestParms.sort === 'date') {
                 requestParms.sort = 'createdAt';
             }
@@ -1749,7 +1852,11 @@ module.exports = class ApplicationModel {
                 // default to DESC on sent
                 queryOptions.sort.createdAt = -1;
             }
+            if(queryOptions.sort.createdAt !== -1){
+                useRedisCache = false;
+            }
             if(requestParms.format === 'csv'){
+                useRedisCache = false;
                 //CSV max pull of 10,000 docs
                 queryOptions.limit = 10000;
             }
@@ -1759,12 +1866,15 @@ module.exports = class ApplicationModel {
                     var limitNum = parseInt(requestParms.limit, 10);
                     if (limitNum < queryLimit) {
                         queryOptions.limit = limitNum;
+                        pageSize = limitNum;
                     }
                     else {
                         queryOptions.limit = queryLimit;
+                        pageSize = queryLimit;
                     }
 
                     if(requestParms.page && requestParms.page > 0){
+                        useRedisCache = false;
                         const skipCount = limitNum * requestParms.page;
                         queryOptions.skip = skipCount;
                     }
@@ -1780,11 +1890,71 @@ module.exports = class ApplicationModel {
                     findCount = true;
                 }
             }
+            if(queryJSON.policies && queryJSON.policies.policyType){
+                //query.policies = {};
+                useRedisCache = false;
+                query["policies.policyType"] = queryJSON.policies.policyType;
+                delete queryJSON.policies
+            }
+            if(queryJSON.applicationId){
+                //query.policies = {};
+                useRedisCache = false;
+                query.applicationId = queryJSON.applicationId;
+                delete queryJSON.applicationId
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
+                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                            let clearString = queryJSON[key].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            useRedisCache = false;
+                            query[key] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                        else {
+                            query[key] = queryJSON[key];
+                        }
+                    }
+                }
+            }
+
+            if(orParamList && orParamList.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    let orItem = orParamList[i];
+                    if(orItem.policies && queryJSON.orItem.policyType){
+                        //query.policies = {};
+                        useRedisCache = false;
+                        orItem["policies.policyType"] = queryJSON.policies.policyType;
+                    }
+                    else {
+                        // eslint-disable-next-line no-redeclare
+                        for (var key2 in orItem) {
+                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                                useRedisCache = false;
+                                let clearString = orItem[key2].replace("%", "");
+                                clearString = clearString.replace("%", "");
+                                orItem[key2] = {
+                                    "$regex": clearString,
+                                    "$options": "i"
+                                };
+                            }
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+            //
 
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
                 const fromDate = moment(queryJSON.searchbegindate);
                 const toDate = moment(queryJSON.searchenddate);
                 if (fromDate.isValid() && toDate.isValid()) {
+                    useRedisCache = false;
                     query.createdAt = {
                         $lte: toDate.clone(),
                         $gte: fromDate.clone()
@@ -1801,7 +1971,31 @@ module.exports = class ApplicationModel {
                 // eslint-disable-next-line no-redeclare
                 let fromDate = moment(queryJSON.searchbegindate);
                 if (fromDate.isValid()) {
-                    query.createdAt = {$gte: fromDate};
+                    //we only have begin  if it is over a year and page = 1 use the cache
+                    // count might be wrong but we do not display the number
+                    // hit to any other page will fix the paging setup...
+                    let addDateFilter = false;
+                    if(forceRedisUpdate){
+                        addDateFilter = true
+                    }
+                    else if(useRedisCache){
+                        //useRedisCache at this point means there is not filter, only date range.
+                        const now = moment().utc();
+                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                            addDateFilter = true
+                        }
+                        else if(requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                            addDateFilter = true
+                        }
+                    }
+                    else {
+                        addDateFilter = true
+                    }
+
+                    if(addDateFilter){
+                        useRedisCache = false;
+                        query.createdAt = {$gte: fromDate};
+                    }
                     delete queryJSON.searchbegindate;
                 }
                 else {
@@ -1813,6 +2007,7 @@ module.exports = class ApplicationModel {
                 // eslint-disable-next-line no-redeclare
                 let toDate = moment(queryJSON.searchenddate);
                 if (toDate.isValid()) {
+                    useRedisCache = false;
                     query.createdAt = {$lte: toDate};
                     delete queryJSON.searchenddate;
                 }
@@ -1822,66 +2017,45 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(queryJSON.policies && queryJSON.policies.policyType){
-                //query.policies = {};
-                query["policies.policyType"] = queryJSON.policies.policyType;
-                delete queryJSON.policies
-            }
-            if(queryJSON.applicationId){
-                //query.policies = {};
-                query.applicationId = queryJSON.applicationId;
-                delete queryJSON.applicationId
-            }
+            if (findCount === false) {
+                let docList = null;
+                let redisKey = null
+                try {
+                    if(useRedisCache === true){
+                        //networkAgency pull?
+                        if(query.agencyNetworkId){
+                            redisKey = REDIS_AGENCYNETWORK_APPLIST_PREFIX + query.agencyNetworkId
+                        }
+                        else if(query.agencyId){
+                            //Agency Pull?
+                            redisKey = REDIS_AGENCY_APPLIST_PREFIX + query.agencyId
+                        }
 
-
-            if (queryJSON) {
-                for (var key in queryJSON) {
-                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                        let clearString = queryJSON[key].replace("%", "");
-                        clearString = clearString.replace("%", "");
-                        query[key] = {
-                            "$regex": clearString,
-                            "$options": "i"
-                        };
-                    }
-                    else {
-                        query[key] = queryJSON[key];
-                    }
-                }
-            }
-
-            if(orParamList && orParamList.length > 0){
-                for (let i = 0; i < orParamList.length; i++){
-                    let orItem = orParamList[i];
-                    if(orItem.policies && queryJSON.orItem.policyType){
-                        //query.policies = {};
-                        orItem["policies.policyType"] = queryJSON.policies.policyType;
-                    }
-                    else {
-                        // eslint-disable-next-line no-redeclare
-                        for (var key2 in orItem) {
-                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
-                                let clearString = orItem[key2].replace("%", "");
-                                clearString = clearString.replace("%", "");
-                                orItem[key2] = {
-                                    "$regex": clearString,
-                                    "$options": "i"
-                                };
+                        if(forceRedisUpdate === false && redisKey){
+                            let appList = null;
+                            const resp = await global.redisSvc.getKeyValue(redisKey);
+                            if(resp.found){
+                                log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                                try{
+                                    const parsedJSON = new FastJsonParse(resp.value)
+                                    if(parsedJSON.err){
+                                        throw parsedJSON.err
+                                    }
+                                    appList = parsedJSON.value;
+                                }
+                                catch(err){
+                                    log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                                }
+                                if(appList){
+                                    resolve(appList);
+                                    return;
+                                }
                             }
 
 
                         }
-
-
                     }
 
-                }
-                query.$or = orParamList
-            }
-
-            if (findCount === false) {
-                let docList = null;
-                try {
                     //let queryProjection = {"__v": 0, questions:0};
                     let queryProjection = {
                         uuid: 1,
@@ -1909,9 +2083,9 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("ApplicationList query " + JSON.stringify(query))
-                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
-                    //log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    log.debug("ApplicationList query " + JSON.stringify(query) + __location)
+                    //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
+                    //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){
                         //loop doclist adding agencyName
@@ -1964,6 +2138,19 @@ module.exports = class ApplicationModel {
                                 application.policyTypes = policyTypesString;
                             }
                         }
+                        //update redis
+                        if(useRedisCache === true && redisKey){
+                            try{
+                                const ttlSeconds = 900; //15 minutes
+                                const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(docList),ttlSeconds)
+                                if(redisResponse && redisResponse.saved){
+                                    log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                                }
+                            }
+                            catch(err){
+                                log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+                            }
+                        }
                     }
                 }
                 catch (err) {
@@ -1979,6 +2166,42 @@ module.exports = class ApplicationModel {
                 return;
             }
             else {
+                let redisKey = null;
+                if(useRedisCache === true){
+                    //networkAgency pull?
+                    if(query.agencyNetworkId){
+                        redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + query.agencyNetworkId
+                    }
+                    else if(query.agencyId){
+                        //Agency Pull?
+                        redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + query.agencyId
+                    }
+
+                    if(forceRedisUpdate === false && redisKey){
+                        let appCount = null;
+                        const resp = await global.redisSvc.getKeyValue(redisKey);
+                        if(resp.found){
+                            //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                            try{
+                                const parsedJSON = new FastJsonParse(resp.value)
+                                if(parsedJSON.err){
+                                    throw parsedJSON.err
+                                }
+                                appCount = parseInt(parsedJSON.value,10);
+                            }
+                            catch(err){
+                                log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                            }
+                            if(appCount || appCount === 0){
+                                resolve({count: appCount});
+                                return;
+                            }
+                        }
+
+
+                    }
+                }
+
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error("Application.countDocuments error " + err + __location);
                     error = null;
@@ -1987,6 +2210,18 @@ module.exports = class ApplicationModel {
                 if(rejected){
                     reject(error);
                     return;
+                }
+                if(useRedisCache === true && redisKey && docCount){
+                    try{
+                        const ttlSeconds = 900; //15 minutes
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, docCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+                    }
                 }
                 resolve({count: docCount});
                 return;
@@ -2016,6 +2251,11 @@ module.exports = class ApplicationModel {
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
+                    if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+                        await this.updateRedisForAppUpdatebyAppId(id);
+                        await this.updateRedisForAppAddDelete(id);
+                    }
+
                 }
                 catch (err) {
                     log.error(`Error marking Application from uuid ${id} ` + err + __location);
@@ -2377,7 +2617,6 @@ module.exports = class ApplicationModel {
             log.error("Error call in question service " + err + __location);
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
-
         questionsObject.questionList = getQuestionsResult
 
         return questionsObject;
@@ -2495,6 +2734,7 @@ module.exports = class ApplicationModel {
                 updateJSON.updatedAt = new Date();
 
                 await ApplicationMongooseModel.updateOne({applicationId: applicationId}, updateJSON);
+                //NOTE if metric are displayed in AP applist Redis cache will have to update.
 
             }
             else {
