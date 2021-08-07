@@ -404,6 +404,21 @@ async function applicationLocationSave(req, res, next) {
                 }
                 applicationDB.locations.push(reqLocation)
             }
+            //if billing it is the mailing address.
+            if(reqLocation.billing){
+                log.debug(`setting mailing address for AppId ${applicationDB.applicationId}`)
+                applicationDB.mailingAddress = reqLocation.address;
+                applicationDB.mailingAddress2 = reqLocation.address2;
+                applicationDB.mailingCity = reqLocation.city;
+                applicationDB.mailingState = reqLocation.state;
+                applicationDB.mailingZipcode = reqLocation.zipcode;
+            }
+            if(reqLocation.primary){
+                applicationDB.primaryState = reqLocation.state;
+            }
+            if(reqLocation.primary && reqLocation.billing){
+                applicationDB.mailingSameAsPrimary = true;
+            }
 
             //update activity codes
             try{
