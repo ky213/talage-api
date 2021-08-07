@@ -1815,12 +1815,15 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, forceRedisUpdate = false){
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
             log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
             let pageSize = 10;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
+                useRedisCache = false;
+            }
+            if(noCacheUse){
                 useRedisCache = false;
             }
             if(!requestParms){
