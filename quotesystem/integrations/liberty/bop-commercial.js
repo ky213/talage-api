@@ -299,7 +299,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (!this.industry_code) {
             const errorMessage = `No Industry Code was found for Commercial BOP. `;
-            log.error(`${logPrefix}${errorMessage} ${__location}`);
+            log.warn(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_autodeclined_out_of_appetite();
         }
 
@@ -1587,7 +1587,7 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                log.error(`${logPrefix}Application was rejected.`);
+                log.warn(`${logPrefix}Application was rejected.`);
                 return this.client_declined(`Application was rejected.`);
             }
         }
