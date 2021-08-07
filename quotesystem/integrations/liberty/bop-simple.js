@@ -78,7 +78,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
-            log.error(`${errorMessage} ` + __location);
+            log.warn(`${errorMessage} ` + __location);
             return this.client_autodeclined_out_of_appetite();
         }
 
