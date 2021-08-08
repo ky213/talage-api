@@ -258,7 +258,7 @@ async function removeActivityCodeCacheByActivityCode(activityCodeId){
 
 
 async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeList, territoryList){
-    log.info(`Update ActivityCode Redis cache for ${activityCodeList} & ${territoryList} ` + __location)
+    log.info(`Removing ActivityCode Redis cache for ${activityCodeList} & ${territoryList} ` + __location)
     if(!activityCodeList && activityCodeList.length === 0){
         return;
     }
@@ -277,11 +277,13 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
     catch(err){
         log.warn(`updateActivityCodeCacheByActivityCode: ${activityCodeList} Error ${err} ` + __location);
     }
-    const forceCacheUpdate = true;
+    //const forceCacheUpdate = true;
     if(IndustryCodeList){
         for(const ic of IndustryCodeList){
             for (const abbr of territoryList){
-                await GetActivityCodes(abbr,ic.industryCodeId, forceCacheUpdate)
+                //await GetActivityCodes(abbr,ic.industryCodeId, forceCacheUpdate)
+                const redisKey = "activity-code-industrycode-" + abbr + "-" + ic.industryCodeId.toString();
+                await global.redisSvc.deleteKey(redisKey);
             }
         }
     }
