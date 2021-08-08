@@ -274,7 +274,7 @@ async function update(req, res, next) {
         return next(error);
     }
     //update redis cache.
-    ActivityCodeSvc.updateActivityCodeCacheByIndustryCode(id);
+    ActivityCodeSvc.removeActivityCodeCacheByActivityCode(id);
     res.send(200, industryCodeBO.mongoDoc);
     return next();
 
