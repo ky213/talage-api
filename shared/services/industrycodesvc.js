@@ -117,9 +117,65 @@ async function GetIndustryCodes(){
     }
 }
 
+async function GetBopIndustryCodes(industryCodeId){
 
+    const start = moment();
+    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    let IndustryCodeList = [];
+    try{
+        const icQuery = {
+            active: true,
+            codeGroupList: "BOP"
+        }
+        if(industryCodeId){
+            icQuery.parentIndustryCodeId = industryCodeId
+        }
+        const queryProjection = {
+            "__v": 0,
+            "_id": 0,
+            "id": 0,
+            "talageStandard": 0,
+            "codeGroupList":0,
+            active: 0,
+            talageIndustryCodeUuid: 0,
+            activityCodeIdList: 0,
+            primaryActivityCodeId: 0,
+            updatedAt: 0,
+            createdAt: 0
+        };
+        const queryOptions = {sort: {description: 1}};
+
+        IndustryCodeList = await IndustryCodeModel.find(icQuery, queryProjection, queryOptions).lean();
+
+    }
+    catch(err){
+        log.warn(`IndustryCodeSvc.GetIndustryCodes  ${err}` + __location);
+    }
+
+    const endMongo = moment();
+    const diff = endMongo.diff(start, 'milliseconds', true);
+    log.info(`Mongo IndustryCode  List processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds` + __location);
+
+    if(IndustryCodeList.length > 0) {
+        IndustryCodeList.forEach(function(ic) {
+            ic.id = ic.industryCodeId;
+            ic.isFeatured = ic.featured;
+            ic.featured = ic.featured ? 1 : 0;
+            if (ic.alternateNames && ic.alternateNames.length > 0) {
+                ic.alternate_names = ic.alternateNames;
+            }
+        });
+        return IndustryCodeList;
+    }
+    else {
+        return [];
+    }
+
+
+}
 module.exports = {
     GetIndustryCodes: GetIndustryCodes,
-    GetIndustryCodeCategories: GetIndustryCodeCategories
+    GetIndustryCodeCategories: GetIndustryCodeCategories,
+    GetBopIndustryCodes: GetBopIndustryCodes
     //UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
 }
