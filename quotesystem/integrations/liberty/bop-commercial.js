@@ -1587,8 +1587,29 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                log.warn(`${logPrefix}Application was rejected.`);
-                return this.client_declined(`Application was rejected.`);
+                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo && policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.length > 0) {
+                    const rejectionReasons = [];
+                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.forEach(rule => {
+                        if (rule.UnderwritingDecisionCd[0].toLowerCase() === 'reject') {
+                            const ruleInfo = rule.UnderwritingRuleInfoExt[0];
+                            rejectionReasons.push(`(${ruleInfo['com.libertymutual.ci_UnderwritingDecisionName'][0]}): ${ruleInfo['com.libertymutual.ci_UnderwritingMessage'][0]}`);
+                        }
+                    });
+
+                    if (rejectionReasons.length > 0) {
+                        const rejectionReason = rejectionReasons.shift();
+                        log.warn(`${logPrefix}${rejectionReason}. ` + __location);
+                        return this.client_declined(rejectionReason, rejectionReasons);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Application was rejected, failed to parse reasons.` + __location);
+                        return this.client_declined(`Application was rejected.`);
+                    }
+                }
+                else {
+                    log.warn(`${logPrefix}Application was rejected, no reasons specified.` + __location);
+                    return this.client_declined(`Application was rejected.`);
+                }
             }
         }
 
