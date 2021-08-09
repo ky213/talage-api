@@ -1417,6 +1417,39 @@ async function bindQuote(req, res, next) {
     return next();
 }
 
+
+async function getBopCodes(req, res, next){
+
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //GetQuestion require agencylist to check auth.
+    // auth has already been check - use skipAuthCheck.
+    // eslint-disable-next-line prefer-const
+
+    let bopIcList = null;
+    try{
+        const applicationBO = new ApplicationBO();
+        bopIcList = await applicationBO.getAppBopCodes(appId);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info(`Error getting BOP codes for appId ${appId} ` + err + __location);
+        return next(serverHelper.requestError('An error occured while retrieving BOP codes questions. ' + err));
+    }
+
+    if(!bopIcList){
+        log.error(`No response from BOP codes:  appId ${appId} ${JSON.stringify(bopIcList)}` + __location);
+        return next(serverHelper.requestError('An error occured while retrieving BOP codes questions.'));
+    }
+
+    res.send(200, bopIcList);
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAppApi("POST Application",`${basePath}/application`, applicationSave);
@@ -1425,6 +1458,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`, getApplication);
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
+    server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
@@ -1432,4 +1466,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Request Bind Quote', `${basePath}/application/request-bind-quote`, requestToBindQuote);
     server.addPutAuthAppApi('PUT Mark Quote Bound', `${basePath}/application/mark-quote-bound`, markQuoteAsBound);
     server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
+
 }
