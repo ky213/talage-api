@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
 'use strict';
@@ -29,7 +30,7 @@ function validateParameters(parent, expectedParameters){
     }
     for (let i = 0; i < expectedParameters.length; i++){
         const expectedParameter = expectedParameters[i];
-        if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type && expectedParameters[i].optional !== true){
+        if ((!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type) && expectedParameters[i].optional !== true){
             log.error(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})` + __location);
             return false;
         }
@@ -203,15 +204,10 @@ function generateCSV(applicationList){
  */
 async function getApplications(req, res, next){
     let error = false;
-
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if(error){
-        return next(error);
-    }
-    log.debug(`get Application req.auth ${JSON.stringify(req.authentication)} ` + __location);
+    let noCacheUse = false;
+    log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
+    const initialRequestParms = JSON.parse(JSON.stringify(req.params))
+    const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
@@ -280,18 +276,6 @@ async function getApplications(req, res, next){
         }
     ];
 
-
-    //Fix bad dates coming in.
-    if(!req.params.startDate){
-        req.params.startDate = moment('2017-01-01').toISOString();
-    }
-
-    if(!req.params.endDate){
-        // now....
-        log.debug('AP Application Search resetting end date' + __location);
-        req.params.endDate = moment().toISOString();
-    }
-
     // Validate the parameters
     if (returnCSV === false && !validateParameters(req.params, expectedParameters)){
         return next(serverHelper.requestError('Bad Request: missing expected parameter'));
@@ -300,8 +284,25 @@ async function getApplications(req, res, next){
 
 
     // Create MySQL date strings
-    const startDateMoment = moment(req.params.startDate).utc();
-    const endDateMoment = moment(req.params.endDate).utc();
+    let startDateMoment = null;
+    let endDateMoment = null;
+
+    //Fix bad dates coming in.
+    if(req.params.startDate){
+        //req.params.startDate = moment('2017-01-01').toISOString();
+        startDateMoment = moment(req.params.startDate).utc();
+    }
+
+    if(req.params.endDate){
+        endDateMoment = moment(req.params.endDate).utc();
+        const now = moment().utc();
+        if(now.diff(endDateMoment, 'seconds') < 5){
+            endDateMoment = null;
+        }
+        // now....
+        // log.debug('AP Application Search resetting end date' + __location);
+        //req.params.endDate = moment().toISOString();
+    }
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
@@ -315,6 +316,7 @@ async function getApplications(req, res, next){
     const orClauseArray = [];
 
     if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
+        noCacheUse = true;
         log.debug("Insurer Search")
         try{
             //insurer search
@@ -439,15 +441,20 @@ async function getApplications(req, res, next){
 
     }
     if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+        noCacheUse = true;
         query.handledByTalage = true;
         req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
     }
     //let skiprenewals = false;
     if(req.params.searchText && req.params.searchText.toLowerCase().includes("skiprenewals")){
+        noCacheUse = true;
         query.renewal = {$ne: true};
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
 
+    if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){
+        req.params.searchText = '';
+    }
 
     // ================================================================================
     // Build the Mongo $OR array
@@ -455,6 +462,7 @@ async function getApplications(req, res, next){
     const productTypeList = ["WC","GL", "BOP"];
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 0){
+        noCacheUse = true;
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
 
@@ -463,24 +471,24 @@ async function getApplications(req, res, next){
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
         let industryCodeQuery = {};
-        if(req.params.searchText){
+        if(req.params.searchText.length > 1){
             industryCodeQuery.description = req.params.searchText
-        }
-        const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
-            log.error("industryCodeBO List load error " + err + __location);
-            error = err;
-        });
-        if (industryCodeList && industryCodeList.length > 0) {
-            // eslint-disable-next-line prefer-const
-            let industryCodeIdArray = [];
-            for (const industryCode of industryCodeList) {
-                industryCodeIdArray.push(industryCode.id);
+            const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
+                log.error("industryCodeBO List load error " + err + __location);
+                error = err;
+            });
+            if (industryCodeList && industryCodeList.length > 0) {
+                // eslint-disable-next-line prefer-const
+                let industryCodeIdArray = [];
+                for (const industryCode of industryCodeList) {
+                    industryCodeIdArray.push(industryCode.id);
+                }
+                const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
+                orClauseArray.push(industryCodeListFilter);
             }
-            const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
-            orClauseArray.push(industryCodeListFilter);
-        }
-        else {
-            log.warn("Application Search no agencies found " + __location);
+            else {
+                log.warn("Application Search no agencies found " + __location);
+            }
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
@@ -494,8 +502,10 @@ async function getApplications(req, res, next){
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
 
-        const uuid = {uuid: `%${req.params.searchText}%`}
-        orClauseArray.push(uuid);
+        if(req.params.searchText.length > 2){
+            const uuid = {uuid: `%${req.params.searchText}%`}
+            orClauseArray.push(uuid);
+        }
 
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
             const testInteger = Number(req.params.searchText);
@@ -523,13 +533,13 @@ async function getApplications(req, res, next){
             }
             // eslint-disable-next-line prefer-const
             let donotReportAgencyIdArray = []
-            const noReportAgencyList = await agencyBO.getList(agencyQuery);
+            //use agencybo method that does redis caching.
+            const noReportAgencyList = await agencyBO.getByAgencyNetworkDoNotReport(agencyNetworkId);
             if(noReportAgencyList && noReportAgencyList.length > 0){
                 for(const agencyJSON of noReportAgencyList){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
-                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
                     query.agencyId = {$nin: donotReportAgencyIdArray};
                 }
             }
@@ -560,6 +570,13 @@ async function getApplications(req, res, next){
             }
         }
         else {
+            // Get the agents that we are permitted to view
+            const agents = await auth.getAgents(req).catch(function(e){
+                error = e;
+            });
+            if(error){
+                return next(error);
+            }
             query.agencyId = agents[0];
             if(query.agencyId === 12){
                 query.solepro = true;
@@ -602,10 +619,9 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
-        log.debug(`app list ${JSON.stringify(query)}`)
-        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
+        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
@@ -641,6 +657,9 @@ async function getApplications(req, res, next){
 
         // Send the CSV data
         res.end(csvData);
+        const endMongo = moment();
+        const diff = endMongo.diff(start, 'milliseconds', true);
+        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
         return next();
 
     }
@@ -664,6 +683,9 @@ async function getApplications(req, res, next){
         };
         // Return the response
         res.send(200, response);
+        const endMongo = moment();
+        const diff = endMongo.diff(start, 'milliseconds', true);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} request parms ${JSON.stringify(initialRequestParms)}` + __location);
         return next();
     }
 }

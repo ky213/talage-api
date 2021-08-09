@@ -85,8 +85,8 @@ module.exports = class LibertyWC extends Integration {
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            log.error(`${logPrefix}Autodeclined: no limits. Insurer does not support the requested liability limits. ${__location}`)
-            this.reasons.push(`${logPrefix}Insurer does not support the requested liability limits`);
+            log.error(`${logPrefix}Autodeclined: no limits. Insurer does not support the requested liability limits. ${__location}`);
+            this.reasons.push(`Insurer does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
@@ -506,7 +506,7 @@ module.exports = class LibertyWC extends Integration {
         }
         catch (e) {
             log.error(`${logPrefix}${e}${__location}`);
-            return this.client_error(`${logPrefix}${e}`, __location);
+            return this.client_error(`${e}`, __location);
         }
 
         const host = 'apis.us-east-1.libertymutual.com';
@@ -519,8 +519,8 @@ module.exports = class LibertyWC extends Integration {
             });
         }
         catch (e) {
-            const errorMessage = `${logPrefix}An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `
-            log.error(errorMessage + __location);
+            const errorMessage = `An error occurred while trying to hit the Liberty Quote API endpoint: ${e}. `;
+            log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
         // Parse the various status codes and take the appropriate action
@@ -529,7 +529,7 @@ module.exports = class LibertyWC extends Integration {
         // Check that there was success at the root level
         if (res.Status[0].StatusCd[0] !== '0') {
             log.error(`${logPrefix}Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]} ${__location}`);
-            this.reasons.push(`${logPrefix}Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]}`);
+            this.reasons.push(`Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]}`);
             return this.return_result('error');
         }
 
@@ -549,13 +549,13 @@ module.exports = class LibertyWC extends Integration {
             // Check if quote was declined because there was a pre-existing application for this customer
             const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
             if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
-                this.reasons.push(`${logPrefix}blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+                this.reasons.push(`blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
                 return this.return_result('declined');
             }
 
             // This was some other sort of error
             log.error(`${logPrefix}Insurer's API Responded With ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ${__location}`);
-            this.reasons.push(`${logPrefix}${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
             return this.return_result('error');
         }
 
@@ -646,7 +646,7 @@ module.exports = class LibertyWC extends Integration {
         try {
             // Capture Reasons
             res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].UnderwritingRuleInfo[0].UnderwritingRuleInfoExt.forEach((rule) => {
-                this.reasons.push(`${logPrefix}${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
+                this.reasons.push(`${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
             });
         }
         catch (e) {
@@ -671,7 +671,7 @@ module.exports = class LibertyWC extends Integration {
                                 this.limits[3] = parseInt(limit.FormatCurrencyAmt[0].Amt[0],10);
                                 break;
                             default:
-                                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+                                log.warn(`${logPrefix}Integration Error: Unexpected limit found in response` + __location);
                                 break;
                         }
                     });
