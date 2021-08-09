@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
 'use strict';
@@ -29,7 +30,7 @@ function validateParameters(parent, expectedParameters){
     }
     for (let i = 0; i < expectedParameters.length; i++){
         const expectedParameter = expectedParameters[i];
-        if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type && expectedParameters[i].optional !== true){
+        if ((!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type) && expectedParameters[i].optional !== true){
             log.error(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})` + __location);
             return false;
         }
@@ -203,14 +204,8 @@ function generateCSV(applicationList){
  */
 async function getApplications(req, res, next){
     let error = false;
-
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if(error){
-        return next(error);
-    }
+    let noCacheUse = false;
+    log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
     const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
@@ -280,18 +275,6 @@ async function getApplications(req, res, next){
         }
     ];
 
-
-    //Fix bad dates coming in.
-    if(!req.params.startDate){
-        req.params.startDate = moment('2017-01-01').toISOString();
-    }
-
-    if(!req.params.endDate){
-        // now....
-        log.debug('AP Application Search resetting end date' + __location);
-        req.params.endDate = moment().toISOString();
-    }
-
     // Validate the parameters
     if (returnCSV === false && !validateParameters(req.params, expectedParameters)){
         return next(serverHelper.requestError('Bad Request: missing expected parameter'));
@@ -300,8 +283,25 @@ async function getApplications(req, res, next){
 
 
     // Create MySQL date strings
-    const startDateMoment = moment(req.params.startDate).utc();
-    const endDateMoment = moment(req.params.endDate).utc();
+    let startDateMoment = null;
+    let endDateMoment = null;
+
+    //Fix bad dates coming in.
+    if(req.params.startDate){
+        //req.params.startDate = moment('2017-01-01').toISOString();
+        startDateMoment = moment(req.params.startDate).utc();
+    }
+
+    if(req.params.endDate){
+        endDateMoment = moment(req.params.endDate).utc();
+        const now = moment().utc();
+        if(now.diff(endDateMoment, 'seconds') < 5){
+            endDateMoment = null;
+        }
+        // now....
+        // log.debug('AP Application Search resetting end date' + __location);
+        //req.params.endDate = moment().toISOString();
+    }
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
@@ -315,6 +315,7 @@ async function getApplications(req, res, next){
     const orClauseArray = [];
 
     if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
+        noCacheUse = true;
         log.debug("Insurer Search")
         try{
             //insurer search
@@ -439,11 +440,13 @@ async function getApplications(req, res, next){
 
     }
     if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+        noCacheUse = true;
         query.handledByTalage = true;
         req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
     }
     //let skiprenewals = false;
     if(req.params.searchText && req.params.searchText.toLowerCase().includes("skiprenewals")){
+        noCacheUse = true;
         query.renewal = {$ne: true};
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
@@ -455,6 +458,7 @@ async function getApplications(req, res, next){
     const productTypeList = ["WC","GL", "BOP"];
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 0){
+        noCacheUse = true;
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
 
@@ -523,7 +527,8 @@ async function getApplications(req, res, next){
             }
             // eslint-disable-next-line prefer-const
             let donotReportAgencyIdArray = []
-            const noReportAgencyList = await agencyBO.getList(agencyQuery);
+            //use agencybo method that does redis caching.
+            const noReportAgencyList = await agencyBO.getByAgencyNetworkDoNotReport(agencyNetworkId);
             if(noReportAgencyList && noReportAgencyList.length > 0){
                 for(const agencyJSON of noReportAgencyList){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
@@ -559,6 +564,13 @@ async function getApplications(req, res, next){
             }
         }
         else {
+            // Get the agents that we are permitted to view
+            const agents = await auth.getAgents(req).catch(function(e){
+                error = e;
+            });
+            if(error){
+                return next(error);
+            }
             query.agencyId = agents[0];
             if(query.agencyId === 12){
                 query.solepro = true;
@@ -601,9 +613,9 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
-        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
+        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;

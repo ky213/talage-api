@@ -21,6 +21,7 @@ const collectionName = 'Agencies'
 
 const REDIS_AGENCYID_PREFIX = 'agency-';
 const REDIS_AGENCY_SLUG_PREFIX = 'agencyslug-'
+const REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX = 'agencynetwork-donotreport-'
 
 module.exports = class AgencyBO {
 
@@ -605,6 +606,58 @@ module.exports = class AgencyBO {
 
     }
 
+    async getByAgencyNetworkDoNotReport(agencyNetworkId) {
+
+        //validate
+        if (agencyNetworkId && agencyNetworkId > 0) {
+
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                let docList = null;
+                const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        docList = parsedJSON.value;
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
+                    if(docList){
+                        return docList;
+                    }
+                }
+            }
+            //hit database
+            const query = {
+                agencyNetworkId: agencyNetworkId,
+                doNotReport: true
+            }
+            const docList = await this.getList(query);
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && docList){
+                const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
+                try{
+                    const ttlSeconds = 900; //15 minutes
+                    const redisResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(docList),ttlSeconds)
+                    if(redisResponse && redisResponse.saved){
+                        log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                    }
+                }
+                catch(err){
+                    log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
+                }
+            }
+            return docList;
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+
+    }
+
     async updateMongo(docId, newObjectJSON) {
         if (docId) {
             if (typeof newObjectJSON === "object") {
@@ -676,7 +729,7 @@ module.exports = class AgencyBO {
         });
         newObjectJSON.id = newSystemId;
         if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
-            await this.updateRedisCache(newObjectJSON);
+            await this.updateRedisCache(agency);
         }
         return mongoUtils.objCleanup(agency);
     }
@@ -1045,6 +1098,21 @@ module.exports = class AgencyBO {
             catch(err){
                 log.error(`Error save ${redisKey} to Redis cache ` + err + __location);
             }
+
+            //just delete the agencynetwork do not report.
+            //it will rebuild on the next agencynetwork get applist request.
+            redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyJSON.agencyNetworkId;
+            try{
+                const redisResponse = await global.redisSvc.deleteKey(redisKey)
+                if(redisResponse){
+                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                }
+            }
+            catch(err){
+                log.error(`REDIS: Error removing ${redisKey} to Redis cache ` + err + __location);
+            }
+
+
             return true;
         }
         else {

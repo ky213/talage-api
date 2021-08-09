@@ -11,10 +11,6 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const moment = require('moment');
-const fs = require('fs');
-
-
-
 
 module.exports = class PieWC extends Integration {
 
@@ -368,21 +364,61 @@ module.exports = class PieWC extends Integration {
                 data.contacts.push(contact_object);
             }
         }
+        if(Object.keys(this.questions).length === 0){
+            log.error(`Appid: ${this.app.id} PIE WC missing universal questions. ${__location}`);
+        }
+
+        if(!this.app.questions || Object.keys(this.app.questions).length === 0){
+            log.error(`Appid: ${this.app.id} PIE WC missing this.app.questions questions. ${__location}`);
+        }
+
+        if(!this.insurerQuestionList || this.insurerQuestionList.length === 0){
+            log.error(`Appid: ${this.app.id} PIE WC missing this.insurerQuestionList. ${__location}`);
+        }
 
         const questionsArray = [];
-        for(const question_id in this.questions){
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
-                const pieQuestionId = this.question_identifiers[question.id];
-                const questionAnswer = this.determine_question_answer(question, question.required);
-                if (questionAnswer) {
-                    questionsArray.push({
-                        "id": pieQuestionId,
-                        "answer": questionAnswer
-                    })
+        for(const insurerQuestion of this.insurerQuestionList){
+        //for (const question_id in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                //const question = this.questions[question_id];
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    continue;
                 }
+                let answer = '';
+                try {
+                    answer = this.determine_question_answer(question);
+                }
+                catch (error) {
+                    log.error(`Appid: ${this.app.id} PIE WC Could not determine question ${insurerQuestion.talageQuestionId} answer: ${error}. ${__location}`);
+                }
+                if(answer){
+                    questionsArray.push({
+                        "id": insurerQuestion.identifier,
+                        "answer": answer
+                    });
+                }
+                // else {
+                //     //may be children that parent did not trigger
+                //     log.warn(`Appid: ${this.app.id} PIE WC Could not determine answer for question ${insurerQuestion.talageQuestionId}. ${__location}`);
+                // }
+
             }
         }
+        // const questionsArray = [];
+        // for(const question_id in this.questions){
+        //     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+        //         const question = this.questions[question_id];
+        //         const pieQuestionId = this.question_identifiers[question.id];
+        //         const questionAnswer = this.determine_question_answer(question, question.required);
+        //         if (questionAnswer) {
+        //             questionsArray.push({
+        //                 "id": pieQuestionId,
+        //                 "answer": questionAnswer
+        //             })
+        //         }
+        //     }
+        // }
 
         data.eligibilityAnswers = questionsArray;
 

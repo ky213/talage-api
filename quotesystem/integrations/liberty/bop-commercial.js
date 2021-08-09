@@ -299,7 +299,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (!this.industry_code) {
             const errorMessage = `No Industry Code was found for Commercial BOP. `;
-            log.error(`${logPrefix}${errorMessage} ${__location}`);
+            log.warn(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_autodeclined_out_of_appetite();
         }
 
@@ -1144,18 +1144,24 @@ module.exports = class LibertySBOP extends Integration {
         // </ACORD> */}
 
         applicationDocData.locations.forEach((location, index) => {
+            // FOR BACKWARDS COMPATIBILITY
+            // These fields were originally questions. For old applications, we have to check whether the answer exists as a question or on the app doc
+            // If either one is encountered, these flags guarantee that we do not double up the value in the request
+            let fireAlarmTypeAdded = false;
+            let roofingImprovementYearAdded = false;
+            let wiringImprovementYearAdded = false;
+            let heatingImprovementYearAdded = false;
+            let plumbingImprovementYearAdded = false;
+            let constructionTypeAdded = false;
+            let numStoriesAdded = false;
+            let yearBuiltAdded = false;
+            let interestAdded = false;
+
             const LocationUWInfo = PolicyRq.ele('LocationUWInfo').att('LocationRef', `L${index}`);
             const allLocationQuestions = location.questions;
             const standardLocationQuestions = allLocationQuestions.filter(q => !locationQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
             const specialLocationQuestions = allLocationQuestions.filter(q => locationQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
             const yearBuiltQuestion = specialLocationQuestions.find(q => q.insurerQuestionIdentifier === "LMBOP_YearBuilt");
-
-            let yearBuilt = null;
-            if (yearBuiltQuestion) {
-                if (!isNaN(parseInt(yearBuiltQuestion.answerValue, 10))) {
-                    yearBuilt = parseInt(yearBuiltQuestion.answerValue, 10);
-                }
-            }
 
             const BldgProtection = LocationUWInfo.ele('BldgProtection');
             const Construction = LocationUWInfo.ele('Construction');
@@ -1176,12 +1182,64 @@ module.exports = class LibertySBOP extends Integration {
             BldgArea.ele('UnitMeasurementCd', 'SquareFeet');
 
             let LocationUWInfoExt = null;
-            let BldgImprovements = null;
+            const BldgImprovements = LocationUWInfo.ele('BldgImprovements');
             let BldgImprovementExt = null;
             let BldgOccupancyExt = null;
 
             let unoccupied = 0;
             let occupiedByOthers = 0;
+
+            // data injection from location object
+            let yearBuilt = location.yearBuilt;
+            if (yearBuilt) {
+                yearBuiltAdded = true;
+                Construction.ele('YearBuilt', yearBuilt);
+            }
+            else if (yearBuiltQuestion) {
+                if (!isNaN(parseInt(yearBuiltQuestion.answerValue, 10))) {
+                    yearBuilt = parseInt(yearBuiltQuestion.answerValue, 10);
+                }
+            }
+
+            if (location?.constructionType) {
+                constructionTypeAdded = true;
+                Construction.ele('ConstructionCd', constructionMatrix[location.constructionType]);
+            }
+
+            if (location.hasOwnProperty('numStories')) {
+                numStoriesAdded = true;
+                Construction.ele('NumStories', location.numStories > 0 ? location.numStories : 1);
+            }
+
+            if (location.hasOwnProperty('own')) {
+                interestAdded = true;
+                LocationUWInfo.ele('InterestCd', location.own ? 'OWNER' : 'TENANT');
+            }
+
+            if (location?.bop?.fireAlarmType) {
+                fireAlarmTypeAdded = true;
+                BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[location.bop.fireAlarmType]);
+            }
+
+            if (location?.bop?.wiringImprovementYear) {
+                wiringImprovementYearAdded = true;
+                BldgImprovements.ele('WiringImprovementYear', location.bop.wiringImprovementYear);
+            }
+
+            if (location?.bop?.heatingImprovementYear) {
+                heatingImprovementYearAdded = true;
+                BldgImprovements.ele('HeatingImprovementYear', location.bop.heatingImprovementYear);
+            }
+
+            if (location?.bop?.plumbingImprovementYear) {
+                plumbingImprovementYearAdded = true;
+                BldgImprovements.ele('PlumbingImprovementYear', location.bop.plumbingImprovementYear);
+            }
+
+            if (location?.bop?.roofingImprovementYear) {
+                roofingImprovementYearAdded = true;
+                BldgImprovements.ele('RoofingImprovementYear', location.bop.roofingImprovementYear);
+            }
 
             // handle special case questions first
             specialLocationQuestions.forEach(question => {
@@ -1221,37 +1279,36 @@ module.exports = class LibertySBOP extends Integration {
                             LocationUWInfoExt.ele('com.libertymutual.ci_DeepFatFryersCountCd', question.answerValue);
                             break;
                         case "CP64":
-                            if (!BldgImprovements) {
-                                BldgImprovements = LocationUWInfo.ele('BldgImprovements');
-                            }
                             if (!BldgImprovementExt) {
                                 BldgImprovementExt = BldgImprovements.ele('BldgImprovementExt');
                             }
                             BldgImprovementExt.ele('com.libertymutual.ci_ResidentialOccupancyPct', question.answerValue);
                             break;
                         case "LMBOP_YearRoofReplaced":
-                            if (!BldgImprovements) {
-                                BldgImprovements = LocationUWInfo.ele('BldgImprovements');
+                            if (!roofingImprovementYearAdded) {
+                                BldgImprovements.ele('RoofingImprovementYear', question.answerValue);
                             }
-                            BldgImprovements.ele('RoofingImprovementYear', question.answerValue);
                             break;
                         case "BOP8":
                         case "BOP186":
                         case "BOP185":
                             // only provide these questions if year built was over 24 years ago
                             if (!yearBuilt || moment().year() - yearBuilt > 24) {
-                                if (!BldgImprovements) {
-                                    BldgImprovements = LocationUWInfo.ele('BldgImprovements');
-                                }
                                 const qId = question.insurerQuestionIdentifier;
                                 if (qId === 'BOP8') {
-                                    BldgImprovements.ele('WiringImprovementYear', question.answerValue);
+                                    if (!wiringImprovementYearAdded) {
+                                        BldgImprovements.ele('WiringImprovementYear', question.answerValue);
+                                    }
                                 }
                                 else if (qId === 'BOP186') {
-                                    BldgImprovements.ele('PlumbingImprovementYear', question.answerValue);
+                                    if (!plumbingImprovementYearAdded) {
+                                        BldgImprovements.ele('PlumbingImprovementYear', question.answerValue);
+                                    }
                                 }
-                                else { // if BOP185
-                                    BldgImprovements.ele('HeatingImprovementYear', question.answerValue);
+                                else if (qId === 'BOP185') {
+                                    if (!heatingImprovementYearAdded) {
+                                        BldgImprovements.ele('HeatingImprovementYear', question.answerValue);
+                                    }
                                 }
                             }
                             break;
@@ -1307,10 +1364,14 @@ module.exports = class LibertySBOP extends Integration {
                             }
                             break;
                         case "LMBOP_Interest":
-                            LocationUWInfo.ele('InterestCd', question.answerValue.trim().toUpperCase());
+                            if (!interestAdded) {
+                                LocationUWInfo.ele('InterestCd', question.answerValue.trim().toUpperCase());
+                            }
                             break;
                         case "LMBOP_Construction":
-                            Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
+                            if (!constructionTypeAdded) {
+                                Construction.ele('ConstructionCd', constructionMatrix[question.answerValue.trim()]);
+                            }
                             break;
                         case "LMBOP_RoofConstruction":
                             RoofingMaterial.ele('RoofMaterialCd', roofConstructionMatrix[question.answerValue.trim()]);
@@ -1319,13 +1380,19 @@ module.exports = class LibertySBOP extends Integration {
                             RoofingMaterial.ele('com.libertymutual.ci_RoofMaterialResistanceCd', roofTypeMatrix[question.answerValue.trim()]);
                             break;
                         case "LMBOP_YearBuilt":
-                            Construction.ele('YearBuilt', question.answerValue);
+                            if (!yearBuiltAdded) {
+                                Construction.ele('YearBuilt', question.answerValue);
+                            }
                             break;
                         case "LMBOP_NumStories":
-                            Construction.ele('NumStories', question.answerValue);
+                            if (!numStoriesAdded) {
+                                Construction.ele('NumStories', question.answerValue);
+                            }
                             break;
                         case "LMBOP_AlarmType":
-                            BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[question.answerValue.trim()]);
+                            if (!fireAlarmTypeAdded) {
+                                BldgProtection.ele('ProtectionDeviceBurglarCd', alarmTypeMatrix[question.answerValue.trim()]);
+                            }
                             break;
                         case "UWQ6003":
                             // only provide answer to this question if year built is over 24 years ago
@@ -1520,7 +1587,7 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                log.error(`${logPrefix}Application was rejected.`);
+                log.warn(`${logPrefix}Application was rejected.`);
                 return this.client_declined(`Application was rejected.`);
             }
         }

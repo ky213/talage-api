@@ -212,7 +212,8 @@ const PolicySchema = new Schema({
     currentPremium: {type: Number, required: false},
     yearsWithCurrentInsurance: {type: Number, required: false},
     cyber: cyberPolicySchema,
-    profLiability: professionalLiabilityPolicySchema
+    profLiability: professionalLiabilityPolicySchema,
+    bopIndustryCodeId: {type: Number, required: false}
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
