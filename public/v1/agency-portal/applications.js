@@ -206,6 +206,7 @@ async function getApplications(req, res, next){
     let error = false;
     let noCacheUse = false;
     log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
+    const initialRequestParms = JSON.parse(JSON.stringify(req.params))
     const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
@@ -451,6 +452,9 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
 
+    if(req.params.searchText === ":"){
+        req.params.searchText = '';
+    }
 
     // ================================================================================
     // Build the Mongo $OR array
@@ -467,24 +471,24 @@ async function getApplications(req, res, next){
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
         let industryCodeQuery = {};
-        if(req.params.searchText){
+        if(req.params.searchText.length > 1){
             industryCodeQuery.description = req.params.searchText
-        }
-        const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
-            log.error("industryCodeBO List load error " + err + __location);
-            error = err;
-        });
-        if (industryCodeList && industryCodeList.length > 0) {
-            // eslint-disable-next-line prefer-const
-            let industryCodeIdArray = [];
-            for (const industryCode of industryCodeList) {
-                industryCodeIdArray.push(industryCode.id);
+            const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
+                log.error("industryCodeBO List load error " + err + __location);
+                error = err;
+            });
+            if (industryCodeList && industryCodeList.length > 0) {
+                // eslint-disable-next-line prefer-const
+                let industryCodeIdArray = [];
+                for (const industryCode of industryCodeList) {
+                    industryCodeIdArray.push(industryCode.id);
+                }
+                const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
+                orClauseArray.push(industryCodeListFilter);
             }
-            const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
-            orClauseArray.push(industryCodeListFilter);
-        }
-        else {
-            log.warn("Application Search no agencies found " + __location);
+            else {
+                log.warn("Application Search no agencies found " + __location);
+            }
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
@@ -498,8 +502,10 @@ async function getApplications(req, res, next){
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
 
-        const uuid = {uuid: `%${req.params.searchText}%`}
-        orClauseArray.push(uuid);
+        if(req.params.searchText.length > 2){
+            const uuid = {uuid: `%${req.params.searchText}%`}
+            orClauseArray.push(uuid);
+        }
 
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
             const testInteger = Number(req.params.searchText);
@@ -679,7 +685,7 @@ async function getApplications(req, res, next){
         res.send(200, response);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} request parms ${JSON.stringify(req.params)}` + __location);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} request parms ${JSON.stringify(initialRequestParms)}` + __location);
         return next();
     }
 }
