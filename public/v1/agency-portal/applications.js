@@ -452,7 +452,7 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
 
-    if(req.params.searchText === ":"){
+    if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){
         req.params.searchText = '';
     }
 
