@@ -272,6 +272,43 @@ module.exports = class MarkelWC extends Integration {
             yearsInsured = 1
         }
 
+        const industryCode = {};
+        if (BOPPolicy.bopIndustryCodeId) {
+            industryCode.code = BOPPolicy.bopIndustryCodeId;
+            const insurer = this.app.insurers.find(ins => ins.name === "Markel");
+
+            const query = {
+                active: true,
+                insurerId: insurer.id,
+                insurerIndustryCodeId: industryCode.code
+            };
+
+            let result = null;
+            try {
+                result = await global.mongoose.InsurerIndustryCode.findOne(query);
+                console.log(result);
+            }
+            catch (e) {
+                log.error(`${logPrefix}An error occurred trying to get the description for the insurer industry code ${industryCode.code}: ${e}. Falling back to industry_code.description. ` + __location);
+                industryCode.description = this.industry_code.description;
+            }
+
+            if (!result) {
+                log.error(`${logPrefix}An error occurred trying to get the description for the insurer industry code: ${industryCode.code}. Falling back to industry_code.description. ` + __location);
+                industryCode.description = this.industry_code.description;
+            }
+
+            industryCode.description = result.description;
+        }
+        else {
+            industryCode.code = this.industry_code.code;
+            industryCode.description = this.industry_code.description;
+        }
+
+        console.log("--------------------------------");
+        console.log(industryCode);
+        console.log("--------------------------------");
+
         // Prepare limits
         //This may result in no limit being found. needs defaults
         //Plus need to use best match.   Note: limits variable not used submission.
