@@ -679,7 +679,7 @@ async function getApplications(req, res, next){
         res.send(200, response);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} request parms ${JSON.stringify(req.params)}` + __location);
         return next();
     }
 }

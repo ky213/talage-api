@@ -2908,7 +2908,7 @@ module.exports = class ApplicationModel {
             log.error("getAppBopCodes: Error getting application doc " + err + __location)
         }
         if(!applicationDocDB){
-            log.error("getAppBopCodes: application not found"  + __location)
+            log.error("getAppBopCodes: application not found" + __location)
             return [];
         }
 
