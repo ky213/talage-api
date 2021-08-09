@@ -2898,4 +2898,29 @@ module.exports = class ApplicationModel {
 
     }
 
+    async getAppBopCodes(applicationId){
+        const IndustryCodeSvc = global.requireShared('services/industrycodesvc.js');
+        let applicationDocDB = null;
+        try{
+            applicationDocDB = await this.loadDocfromMongoByAppId(applicationId);
+        }
+        catch(err){
+            log.error("getAppBopCodes: Error getting application doc " + err + __location)
+        }
+        if(!applicationDocDB){
+            log.error("getAppBopCodes: application not found"  + __location)
+            return [];
+        }
+
+        let iicList = [];
+        try{
+            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationDocDB.industryCode)
+        }
+        catch(err){
+            log.error(`getAppBopCodes:  Error get BOP industrycodes ${applicationId} - ${err}. ` + __location);
+        }
+
+        return iicList;
+    }
+
 }
