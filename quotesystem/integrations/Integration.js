@@ -54,6 +54,10 @@ module.exports = class Integration {
         //      - set to true if the policy type must be used to filter industry codes.
         //      - if set to true, set the policyTYpeFilter to the string policy type (f.e. 'GL')
         this.requiresProductPolicyTypeFilter = false;
+
+        //If BOP insurer uses detailed BOPCodes
+        this.usePolciyBOPindustryCode = false; 
+
         this.policyTypeFilter = null;
 
         // Integration Data
@@ -2350,9 +2354,13 @@ module.exports = class Integration {
             
             let industryCodeId = parseInt(this.app.applicationDocData.industryCode,10);
 
-            const bopPolicy = this.app.applicationDocData.policies.find((p) => p.policyType === "BOP")
-            if(bopPolicy && bopPolicy.bopIndustryCodeId){
-                industryCodeId = bopPolicy.bopIndustryCodeId;
+            
+            if(this.policy.type === 'BOP' && this.usePolciyBOPindustryCode){
+                const bopPolicy = this.app.applicationDocData.policies.find((p) => p.policyType === "BOP")
+                if(bopPolicy && bopPolicy.bopIndustryCodeId){
+                    industryCodeId = bopPolicy.bopIndustryCodeId;
+                }
+                
             }
             // eslint-disable-next-line prefer-const
             let industryQuery = {
