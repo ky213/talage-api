@@ -54,6 +54,10 @@ module.exports = class Integration {
         //      - set to true if the policy type must be used to filter industry codes.
         //      - if set to true, set the policyTYpeFilter to the string policy type (f.e. 'GL')
         this.requiresProductPolicyTypeFilter = false;
+
+        //If BOP insurer uses detailed BOPCodes
+        this.usePolciyBOPindustryCode = false; 
+
         this.policyTypeFilter = null;
 
         // Integration Data
@@ -2347,10 +2351,21 @@ module.exports = class Integration {
         return new Promise(async(fulfill) => {
             const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
+            
+            let industryCodeId = parseInt(this.app.applicationDocData.industryCode,10);
+
+            
+            if(this.policy.type === 'BOP' && this.usePolciyBOPindustryCode){
+                const bopPolicy = this.app.applicationDocData.policies.find((p) => p.policyType === "BOP")
+                if(bopPolicy && bopPolicy.bopIndustryCodeId){
+                    industryCodeId = bopPolicy.bopIndustryCodeId;
+                }
+                
+            }
             // eslint-disable-next-line prefer-const
             let industryQuery = {
                 insurerId: this.insurer.id,
-                talageIndustryCodeIdList: this.app.applicationDocData.industryCode,
+                talageIndustryCodeIdList: industryCodeId,
                 territoryList: this.app.applicationDocData.mailingState,
                 effectiveDate: {$lte: policyEffectiveDate},
                 expirationDate: {$gte: policyEffectiveDate},

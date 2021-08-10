@@ -2426,7 +2426,7 @@ module.exports = class ApplicationModel {
             throw new Error("Incomplete Application: Application Industry Code")
         }
         const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
-        if(bopPolicy){
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
             industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
 
@@ -2940,7 +2940,7 @@ module.exports = class ApplicationModel {
 
         let iicList = [];
         try{
-            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode)
+            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode, insurerArray)
         }
         catch(err){
             log.error(`getAppBopCodes:  Error get BOP industrycodes ${applicationId} - ${err}. ` + __location);
