@@ -2940,7 +2940,7 @@ module.exports = class ApplicationModel {
 
         let iicList = [];
         try{
-            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode)
+            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode, insurerArray)
         }
         catch(err){
             log.error(`getAppBopCodes:  Error get BOP industrycodes ${applicationId} - ${err}. ` + __location);
