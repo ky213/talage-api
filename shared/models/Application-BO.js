@@ -2418,13 +2418,17 @@ module.exports = class ApplicationModel {
         }
 
         //industrycode
-        let industryCodeString = '';
+        let industryCodeStringArray = [];
         if(applicationDocDB.industryCode){
-            industryCodeString = applicationDocDB.industryCode;
+            industryCodeStringArray.push(applicationDocDB.industryCode);
         }
         else {
             log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Industry Code")
+        }
+        const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy){
+            industryCodeStringArray.push(applicationDocDB.bopIndustryCodeId.toString());
         }
 
         //policyType.
@@ -2618,10 +2622,10 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeList, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
