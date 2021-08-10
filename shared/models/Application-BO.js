@@ -2426,7 +2426,7 @@ module.exports = class ApplicationModel {
             throw new Error("Incomplete Application: Application Industry Code")
         }
         const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
-        if(bopPolicy){
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
             industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
 
