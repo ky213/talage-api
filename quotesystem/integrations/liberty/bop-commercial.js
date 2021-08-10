@@ -374,8 +374,8 @@ module.exports = class LibertySBOP extends Integration {
             for (const location of applicationDocData.locations) {
                 const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_receipts');
                 if (!annualReceiptsQuestion || parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10) <= 0) {
-                    const errorMessage = `Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. ${__location}`;
-                    log.error(logPrefix + errorMessage);
+                    const errorMessage = `Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. `;
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_autodeclined(errorMessage);
                 }
             }
@@ -1587,8 +1587,36 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                log.warn(`${logPrefix}Application was rejected.`);
-                return this.client_declined(`Application was rejected.`);
+                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo && policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.length > 0) {
+                    const rejectionReasons = [];
+                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.forEach(rule => {
+                        if (rule.UnderwritingDecisionCd[0].toLowerCase() === 'reject') {
+                            const ruleInfo = rule.UnderwritingRuleInfoExt[0];
+                            rejectionReasons.push(`(${ruleInfo['com.libertymutual.ci_UnderwritingDecisionName'][0]}): ${ruleInfo['com.libertymutual.ci_UnderwritingMessage'][0]}`);
+                        }
+                    });
+
+                    if (rejectionReasons.length > 0) {
+                        const rejectionReason = rejectionReasons.shift();
+                        log.warn(`${logPrefix}${rejectionReason}. ` + __location);
+                        return this.client_declined(rejectionReason, rejectionReasons);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Application was rejected, failed to parse reasons.` + __location);
+                        return this.client_declined(`Application was rejected.`);
+                    }
+                }
+                else {
+                    log.warn(`${logPrefix}Application was rejected, no reasons specified.` + __location);
+                    return this.client_declined(`Application was rejected.`);
+                }
+            }
+
+            if (policyStatus.toLowerCase() === "refer") {
+                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0] && 
+                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0]['com.libertymutual.ci_UnderwritingDecisionName']) {
+                    this.reasons.push(policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0]['com.libertymutual.ci_UnderwritingDecisionName'][0]);
+                } 
             }
         }
 
