@@ -186,12 +186,27 @@ module.exports = class HiscoxGL extends Integration {
         if (this.employeeCount === 0) {
             this.employeeCount = 1;
         }
+        //Wholesale swap already done if necessary.
+        this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+
+        this.agencyId = this.app.agencyLocation.agencyId
+        this.agency = this.app.agencyLocation.agency;
         this.agencyEmail = this.app.agencyLocation.agencyEmail
         this.agencyPhone = this.app.agencyLocation.agencyPhone
+        this.first_name = this.app.agencyLocation.first_name
+        this.last_name = this.app.agencyLocation.last_name
         // If talageWholeSale
         if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
+            this.agencyId = this.app.agencyLocation.quotingAgencyLocationDB.agencyId
+
+            const AgencyBO = global.requireShared('./models/Agency-BO.js');
+            const agencyBO = new AgencyBO();
+            const agencyInfo = await agencyBO.getById(this.app.agencyLocation.quotingAgencyLocationDB.agencyId);
+            this.agency = agencyInfo.name;
             this.agencyEmail = this.app.agencyLocation.quotingAgencyLocationDB.agencyEmail;
             this.agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.agencyPhone;
+            this.first_name = this.app.agencyLocation.quotingAgencyLocationDB.first_name
+            this.last_name = this.app.agencyLocation.quotingAgencyLocationDB.last_name
         }
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
