@@ -17,6 +17,8 @@ const htmlentities = require('html-entities').Html5Entities;
 const moment = require('moment');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
+const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 
 const entityTypeMatrix = {
     "Association": "AS",
@@ -204,7 +206,11 @@ module.exports = class MarkelWC extends Integration {
      * @returns {void}
      */
     _insurer_init() {
-        this.requiresInsurerIndustryCodes = true;
+        // This is false because we may not have a BOP code selected that fits this insurer and we don't want to bail out yet with an out of market
+        this.requiresInsurerIndustryCodes = false;
+
+        // this integration uses BOP codes
+        this.usePolciyBOPindustryCode = true;
     }
 
     /**
@@ -269,45 +275,23 @@ module.exports = class MarkelWC extends Integration {
             yearsInsured = 10;
         }
         else if (yearsInsured === 0) {
-            yearsInsured = 1
+            yearsInsured = 1;
         }
 
-        const industryCode = {};
-        if (BOPPolicy.bopIndustryCodeId) {
-            industryCode.code = BOPPolicy.bopIndustryCodeId;
-            const insurer = this.app.insurers.find(ins => ins.name === "Markel");
-
-            const query = {
-                active: true,
-                insurerId: insurer.id,
-                insurerIndustryCodeId: industryCode.code
-            };
-
-            let result = null;
-            try {
-                result = await global.mongoose.InsurerIndustryCode.findOne(query);
-                console.log(result);
-            }
-            catch (e) {
-                log.error(`${logPrefix}An error occurred trying to get the description for the insurer industry code ${industryCode.code}: ${e}. Falling back to industry_code.description. ` + __location);
-                industryCode.description = this.industry_code.description;
-            }
-
-            if (!result) {
-                log.error(`${logPrefix}An error occurred trying to get the description for the insurer industry code: ${industryCode.code}. Falling back to industry_code.description. ` + __location);
-                industryCode.description = this.industry_code.description;
-            }
-
-            industryCode.description = result.description;
+        let industryCode = null;
+        // if the BOP code selected is Markel's, we can just use it
+        if (this.industry_code) {
+            industryCode = this.industry_code;
         }
         else {
-            industryCode.code = this.industry_code.code;
-            industryCode.description = this.industry_code.description;
+            // otherwise, look it up and try to find the best match using ranking
+            industryCode = await this.getIndustryCode();
         }
 
-        console.log("--------------------------------");
-        console.log(industryCode);
-        console.log("--------------------------------");
+        if (!industryCode) {
+            log.error(`${logPrefix}Unable to get Industry Code, applicantion Out of Market. ` + __location);
+            return this.client_autodeclined_out_of_appetite();
+        }
 
         // Prepare limits
         //This may result in no limit being found. needs defaults
@@ -696,8 +680,8 @@ module.exports = class MarkelWC extends Integration {
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
                 // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
-                classCode: this.industry_code.code, // this may need to change
-                classCodeDescription: this.industry_code.attributes["NAICS Descriptor"], // this needs to change
+                classCode: industryCode.code, // this may need to change
+                classCodeDescription: industryCode.attributes["NAICS Descriptor"], // this needs to change
                 // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
@@ -781,7 +765,7 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // contractorsInstallationToolsEquipment endorsement required if contractor industry is selected
-        if (contractorClassCodes.includes(this.industry_code.code)) {
+        if (contractorClassCodes.includes(industryCode.code)) {
             policyObj.optionalEndorsements = {
                 contractorsInstallationToolsEquipment: {
                     eachJobLimitAllJobLimit: "3000/9000",
@@ -837,7 +821,7 @@ module.exports = class MarkelWC extends Integration {
                     },
                     "Underwriter Questions": {
                         "UWQuestions": questionObj,
-                        "Description of Operations": this.app.business.industry_code_description
+                        "Description of Operations": industryCode.description
                     },
                     "signaturePreference": "Electronic"
                 }
@@ -1023,5 +1007,76 @@ module.exports = class MarkelWC extends Integration {
         }
 
         return 10000;
+    }
+
+    async getIndustryCode() {
+        const insurer = this.app.insurers.find(ins => ins.name === "Markel");
+
+        const industryCodeBO = new IndustryCodeBO();
+        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+
+        const bopCodeQuery = {
+            parentIndustryCodeId: this.app.applicationDocData.industryCode
+        };
+
+        // find all bop codes for this parent talage industry code
+        let bopCodeRecords = null;
+        try {
+            bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
+        }
+        catch (e) {
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}: ${e}. ` + __location);
+            return null;
+        }
+
+        if (!bopCodes) {
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        if (bopCodes.length === 0) {
+            log.warn(`There were no BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        // reduce array to code ids
+        const bopCodes = bopCodeRecords.map(code => code.industryCodeId);
+
+        const insurerIndustryCodeQuery = {
+            insurerId: insurer.id,
+            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopCodes}}}
+        };
+
+        // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
+        let insurerIndustryCodes = null;
+        try {
+            insurerIndustryCodes = await insurerIndustryCodeBO.getList(insurerIndustryCodeQuery);
+        }
+        catch (e) {
+            log.error(`There was an error grabbing Insurer Industry Codes for Markel: ${e}. ` + __location);
+            return null;
+        }
+
+        if (!insurerIndustryCodes) {
+            log.error(`There was an error grabbing Insurer Industry Codes for Markel. ` + __location);
+            return null;
+        }
+
+        if (insurerIndustryCodes.length === 0) {
+            log.warn(`There were no matching Insurer Industry Codes for the selected industry. ` + __location);
+            return null;
+        }
+
+        // Return the highest ranking code
+        // NOTE: Currently not using NAICS/SIC/ISOGL, since w/ Markel, all the Insurer Codes are generally 1:1 to their BOP code, and they all have 
+        //       matching codes, the only difference being the NAICSReference ID, which is used for ranking
+        let industryCode = null;
+        insurerIndustryCodes.forEach(ic => {
+            if (!industryCode || ic.ranking < industryCode.ranking) {
+                industryCode = ic;
+            }
+        });
+
+        return industryCode;
     }
 };
