@@ -26,9 +26,6 @@ const moment = require('moment');
 const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
 const fs = require('fs'); // zy debug remove
 
-// TODO: Update to toggle between test/prod 
-const host = 'https://stag-api.nationalprograms.io';
-const path = '/Quote/v0.2-beta/CreateQuote';
 let logPrefix = "";
 const MAX_RETRY_ATTEMPTS = 10;
 
@@ -49,6 +46,18 @@ module.exports = class ArrowheadBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote() {
+        // Determine which URL to use
+        let host = null; 
+        let path = null; 
+        if (this.insurer.useSandbox) {
+            host = 'https://stag-api.nationalprograms.io';
+            path = '/Quote/v0.2-beta/CreateQuote';
+        }
+        else {
+            host = 'bad';
+            path = 'bad';
+        }
+
         // "Other" is not included, as anything not below is defaulted to it
         const supportedEntityTypes = [
             "Corporation",
@@ -114,8 +123,8 @@ module.exports = class ArrowheadBOP extends Integration {
             },
             controlSet: {
                 leadid: this.generate_uuid(),
-                prodcode: "111111", // <--- TODO: Get the producer code
-                prodsubcode: "qatest"
+                prodcode: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                prodsubcode: this.app.agencyLocation.insurers[this.insurer.id].agent_id
             },
             policy: {
                 effectiveProduct: "BBOP",
@@ -205,9 +214,9 @@ module.exports = class ArrowheadBOP extends Integration {
                 result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
                 fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/response.json', JSON.stringify(result.data, null, 4)); // zy debug remove
             } catch(e) {
-                const errorMessage = `There was an error sending the application request. `;
-                log.error(logPrefix + errorMessage + e + __location);
-                return this.client_error(errorMessage, __location, e);
+                const errorMessage = `There was an error sending the application request: ${e}`;
+                log.error(logPrefix + errorMessage + __location);
+                return this.client_error(errorMessage, __location);
             }
 
             if (!result.data.hasOwnProperty("error") || result.data.error.code !== "CALLOUT_FAILURE") {
@@ -439,6 +448,7 @@ module.exports = class ArrowheadBOP extends Integration {
 
     async getLocationList() {
         const applicationDocData = this.app.applicationDocData;
+        const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const locationList = [];
         
         for (const location of applicationDocData.locations) {
@@ -464,10 +474,16 @@ module.exports = class ArrowheadBOP extends Integration {
                 smartyStreetsResponse = null;
             }
 
+            // Get the total payroll for the location
+            let liabPayroll = 0;
+            for (const activityPayroll of location.activityPayrollList) {
+                liabPayroll += activityPayroll.employeeTypeList.reduce((payroll, employeeType) => payroll + employeeType.employeeTypePayroll, 0);
+            }
+
             const locationObj = {
                 countyName: smartyStreetsResponse ? smartyStreetsResponse.addressInformation.county_name : ``,
                 city: location.city,
-                classCodes: this.industry_code.code,
+                classCodes: BOPPolicy.bopIndustryCodeId ? BOPPolicy.bopIndustryCodeId : 0,
                 address: applicationDocData.mailingAddress,
                 rawProtectionClass: "", // hardset value expected by Arrowhead
                 state: location.state,
@@ -495,6 +511,7 @@ module.exports = class ArrowheadBOP extends Integration {
                             // this is required because classTag is set to "SALES"
                             liab: {
                                 includeInd: true,
+                                payroll: `${liabPayroll}`,
                                 sales: `${applicationDocData.grossSalesAmt}`
                             }
                         }
