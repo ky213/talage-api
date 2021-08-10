@@ -161,6 +161,7 @@ module.exports = class ChubbGL extends Integration {
 
         // <Addr>
         let Addr = GeneralPartyInfo.ele('Addr');
+        let Communications = GeneralPartyInfo.ele('Communications');
         Addr.att('Action', 'Create');
         Addr.att('id', this.generate_uuid());
         Addr.ele('AddrTypeCd', 'MailingAddress');
@@ -171,26 +172,27 @@ module.exports = class ChubbGL extends Integration {
             Addr.ele('City', 'Reno');
             Addr.ele('StateProvCd', 'NV');
             Addr.ele('PostalCode', '89510');
+            Communications.ele('PhoneInfo').ele('PhoneNumber', '8334725243');
+            Communications.ele('EmailInfo').ele('EmailAddr', 'info@talageins.com');
+
         }
-        else if(this.app.agencyLocation.quotingAgencyLocationDB){
-            Addr.ele('Addr1', this.app.agencyLocation.quotingAgencyLocationDB.address);
-            Addr.ele('Addr2', this.app.agencyLocation.quotingAgencyLocationDB.address2);
-            Addr.ele('City', this.app.agencyLocation.quotingAgencyLocationDB.city);
-            Addr.ele('StateProvCd', this.app.agencyLocation.quotingAgencyLocationDB.state);
-            Addr.ele('PostalCode', this.app.agencyLocation.quotingAgencyLocationDB.zipcode);
+        else {
+            //Dis-allowing direct appointment until API login is moved t agencylevel.
+            return this.client_autodeclined("Direct Appointments not allowed for Chubb");
+
+
+            // Addr.ele('Addr1', this.app.agencyLocation.address);
+            // Addr.ele('Addr2', this.app.agencyLocation.address2);
+            // Addr.ele('City', this.app.agencyLocation.city);
+            // Addr.ele('StateProvCd', this.app.agencyLocation.state);
+            // Addr.ele('PostalCode', this.app.agencyLocation.zipcode);
+
+            // Communications.ele('PhoneInfo').ele('PhoneNumber', this.app.agencyLocation.agencyPhone);
+            // Communications.ele('EmailInfo').ele('EmailAddr', this.app.agencyLocation.agencyEmail);
         }
-        // </Addr>
-
-        // <Communications>
-        let Communications = GeneralPartyInfo.ele('Communications');
-        Communications.ele('PhoneInfo').ele('PhoneNumber', '8334725243');
-        Communications.ele('EmailInfo').ele('EmailAddr', 'info@talageins.com');
-        // </Communications>
-
-        // </GeneralPartyInfo>
-
+        //wholesale decision/swap already handle is setup.
         Producer.ele('ProducerInfo').ele('ContractNumber', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
-        // </Producer>
+        // </Addr>
 
         // <InsuredOrPrincipal>
         const InsuredOrPrincipal = BOPPolicyQuoteInqRq.ele('InsuredOrPrincipal');

@@ -14,17 +14,17 @@
         <StateOrProvCd>{{>app.business.primary_territory}}</StateOrProvCd>
         <ClassOfBusinessCd>{{>industry_code.hiscox}}</ClassOfBusinessCd>
         <ProducerInfo>
-            <ProducerUID>{{>app.agencyLocation.agencyId}}</ProducerUID>
-            <ProducerType>{{>app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerType>{{!-- Per Hiscox, send in the Agent ID here also --}}
-            <ProducerAgency>{{>app.agencyLocation.agency.substring(0, 100)}}</ProducerAgency>
-            <ProducerAgentID>{{>app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerAgentID>
-			{{if app.agencyLocation.first_name && app.agencyLocation.last_name}}
+            <ProducerUID>{{>agencyId}}</ProducerUID>
+            <ProducerType>{{>agency_id}}</ProducerType>{{!-- Per Hiscox, send in the Agent ID here also --}}
+            <ProducerAgency>{{>agency.toString().substring(0, 100)}}</ProducerAgency>
+            <ProducerAgentID>{{>agency_id}}</ProducerAgentID>
+			{{if first_name && last_name}}
             <PersonName>
-				{{if app.agencyLocation.first_name}}
-                <FirstName>{{>app.agencyLocation.first_name.substring(0,75)}}</FirstName>
+				{{if first_name}}
+                <FirstName>{{>first_name.toString().substring(0,75)}}</FirstName>
 				{{/if}}
-				{{if app.agencyLocation.last_name}}
-                <LastName>{{>app.agencyLocation.last_name.substring(0,75)}}</LastName>
+				{{if last_name}}
+                <LastName>{{>last_name.toString().substring(0,75)}}</LastName>
 				{{/if}}
             </PersonName>
 			{{/if}}

@@ -1975,6 +1975,30 @@ async function markQuoteAsDead(req, res, next){
     return next();
 }
 
+
+async function GetBopCodes(req, res, next){
+    let bopIcList = null;
+    try{
+        const applicationBO = new ApplicationBO();
+        bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!bopIcList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, bopIcList);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1992,6 +2016,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
+    server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage')
 
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
