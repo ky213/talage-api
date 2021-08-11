@@ -1204,7 +1204,7 @@ module.exports = class ApplicationModel {
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    log.debug("updated to " + JSON.stringify(newObjectJSON));
+                    log.debug("updated to " + JSON.stringify(newObjectJSON) + __location);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){

@@ -73,7 +73,10 @@ exports.taskProcessorExternal = async function(){
 }
 
 var quoteReportTask = async function(){
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    // const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    // const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+
+    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     const quoteBO = new QuoteBO()
@@ -95,7 +98,10 @@ var quoteReportTask = async function(){
     const industryCodeBO = new IndustryCodeBO();
     let industryCodeDocs = null;
     try {
-        industryCodeDocs = await industryCodeBO.getList({});
+        industryCodeDocs = await industryCodeBO.getList({
+            active: true,
+            talageStandard: true
+        });
     }
     catch (err) {
         const error = `quotereportTask: ERROR: Could not get industry codes ${err}. ${__location}`;
@@ -108,6 +114,7 @@ var quoteReportTask = async function(){
     const toEmail = global.settings.ENV === 'production' ? 'quotereport@talageins.com' : 'brian@talageins.com';
 
     if(quoteList && quoteList.length > 0){
+        const activityCodeBO = new ActivityCodeBO();
         let lastAppDoc = null;
         const reportRows = [];
         // get insurer list
@@ -140,9 +147,12 @@ var quoteReportTask = async function(){
                     const applicationBO = new ApplicationBO();
                     try{
 
-                        lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+                        lastAppDoc = await applicationBO.loadDocfromMongoByAppId(quoteDoc.applicationId);
                         if(!lastAppDoc){
                             log.info(`quotereportTask did not find appid ${quoteDoc.applicationId} ` + __location);
+                        }
+                        else if(!lastAppDoc.activityCodes || lastAppDoc.activityCodes.length === 0){
+                            lastAppDoc.updateActivityPayroll();
                         }
                     }
                     catch(err){
@@ -167,33 +177,44 @@ var quoteReportTask = async function(){
                 if(lastAppDoc){
                     newRow.territory = lastAppDoc.mailingState;
                 }
-                if(lastAppDoc && industryCodeDocs && industryCodeDocs.length > 0){
+                if(lastAppDoc.industryCode && industryCodeDocs && industryCodeDocs.length > 0){
                     const appIndustryCode = lastAppDoc.industryCode;
-                    const industryCode = industryCodeDocs.find(doc => doc.industryCodeId === Number(appIndustryCode));
-                    newRow.industry_code_desc = industryCode.hasOwnProperty('description') ? industryCode.description : "";
+                    const industryCode = industryCodeDocs.find(icDoc => icDoc.industryCodeId === parseInt(appIndustryCode,10));
+                    newRow.industry_code_desc = industryCode?.description ? industryCode?.description : "";
+
                 }
+                newRow.industryCodeId = lastAppDoc.industryCode;
                 newRow.api_result = quoteDoc.apiResult;
                 newRow.reasons = quoteDoc.reasons;
                 newRow.seconds = quoteDoc.quoteTimeSeconds;
                 //Activty codes
                 if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
-                    const activityCodeBO = new ActivityCodeBO();
                     for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
                         try{
                             if(lastAppDoc.activityCodes[j].activityCodeId){
+                                newRow["activitycodeId" + j] = lastAppDoc.activityCodes[j].activityCodeId;
                                 const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].activityCodeId)
                                 if(activityCodeJSON){
                                     newRow["activitycode" + j] = activityCodeJSON.description;
                                 }
+                                else {
+                                    newRow["activitycode" + j] = "not found";
+                                }
+                            }
+                            else {
+                                log.info(`bad activityCodeId  ${JSON.stringify(lastAppDoc.activityCodes[j])} for ${newRow.application} ` + __location)
                             }
                         }
                         catch(err){
                             log.error("activity code load error " + err + __location);
                         }
-                        if(j > 1){
+                        if(j > 2){
                             break;
                         }
                     }
+                }
+                else if(newRow.policy_type === "WC") {
+                    log.info(`no activtycodes for ${newRow.application} ` + __location)
                 }
                 reportRows.push(newRow)
             }
@@ -212,9 +233,13 @@ var quoteReportTask = async function(){
             "reasons": "Reasons",
             "seconds": "Seconds",
             "industry_code_desc": "Industry Code Description",
-            "activitycode1": "Activity Code 1",
-            "activitycode2": "Activity Code 2",
-            "activitycode3": "Activity Code 3"
+            "industryCodeId": "Industry Code Id",
+            "activitycode0": "Activity Code 1",
+            "activitycodeId0": "Activity Code 1 Id",
+            "activitycode1": "Activity Code 2",
+            "activitycodeId1": "Activity Code 2 Id",
+            "activitycode2": "Activity Code 3",
+            "activitycodeId2": "Activity Code 3 Id"
         };
         //Map Quote list to CSV.
         // eslint-disable-next-line object-property-newline
@@ -222,7 +247,7 @@ var quoteReportTask = async function(){
             "header": true,
             "columns": cvsHeaderColumns
         };
-
+        //log.debug(`reportRows ${JSON.stringify(reportRows)}`)
         const csvData = await csvStringify(reportRows, stringifyOptions).catch(function(err){
             log.error("Quote Report JSON to CSV error: " + err + __location);
             return;
