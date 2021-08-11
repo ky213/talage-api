@@ -30,10 +30,10 @@ const getToken = async(integration) => {
     }
     catch(err){
         //console.log(err);
-        log.error(`Error getting token from Great American ${err} @ ` + __location);
+        log.error(`Error getting token from Great American ${err} from ${getApiUrl(integration)}/oauth/accesstoken?grant_type=client_credentials  ` + __location);
     }
 
-    if (!out.access_token) {
+    if (!out?.access_token) {
         log.error(`NO access token returned: ${JSON.stringify(out, null, 2)} @ ` + __location);
         throw new Error(`NO access token returned: ${JSON.stringify(out, null, 2)}`);
     }
