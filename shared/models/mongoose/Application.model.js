@@ -369,13 +369,18 @@ ApplicationSchema.pre('save', async function() {
 });
 
 ApplicationSchema.pre('updateOne', async function(next) {
-
+    log.debug(`Mongoose applicagion.model in updateOne ` + __location);
     // Populate top-level this.activityCodes array
     populateActivityCodePayroll(this);
 
     next();
 });
 
+
+ApplicationSchema.methods.updateActivityPayroll = function(){
+    populateActivityCodePayroll(this);
+    return true;
+}
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
@@ -390,19 +395,15 @@ mongoose.model('Application', ApplicationSchema);
  */
 function populateActivityCodePayroll(schema) {
     //log.debug(`in populateActivityCodePayroll ` + __location)
-    const application = schema.getUpdate();
-    if (application.hasOwnProperty("locations")) {
+    //const application = schema.getUpdate();
+    const application = schema;
+    log.debug(`populateActivityCodePayroll application ${application}`)
+    if (application.locations) {
         const activityCodesPayrollSumList = [];
         for (const location of application.locations) {
             for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
                 // Find the entry for this activity code
                 let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.activityCodeId === ActivtyCodeEmployeeType.activityCodeId);
-                if(!activityCodePayrollSum){
-                    activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === ActivtyCodeEmployeeType.ncciCode);
-                    if(activityCodePayrollSum){
-                        activityCodePayrollSum.activityCodeId = activityCodePayrollSum.ncciCode;
-                    }
-                }
                 if (!activityCodePayrollSum) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
