@@ -37,6 +37,7 @@ module.exports = class ArrowheadBOP extends Integration {
      * @returns {void}
      */
     _insurer_init() {
+        this.usePolciyBOPindustryCode = true;
         this.requiresInsurerIndustryCodes = true;
     }
 
@@ -135,17 +136,17 @@ module.exports = class ArrowheadBOP extends Integration {
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
                     stateOfDomicile: applicationDocData.mailingState,
-                    naicsCode: this.industry_code.attributes.NAICSCode,
-                    classCode: this.industry_code.code, 
+                    classCode: this.insurerIndustryCode.code,
+                    naicsCode: this.industry_code.naics,
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
-                    sicCode: this.industry_code.attributes.SIC, 
+                    sicCode: this.industry_code.sic, 
                     state: applicationDocData.mailingState,
                     effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                     quoteType: "NB"
                 },
                 bbopSet: {
-                    classCodes: "",
+                    classCodes: this.insurerIndustryCode.code,
                     finalized: true,
                     GLOccurrenceLimit: limits[0],
                     productsCOA: limits[2],
@@ -192,6 +193,7 @@ module.exports = class ArrowheadBOP extends Integration {
         this.log += `URL: ${host}${path}<br><br>`;
         this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
+        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/app.json', JSON.stringify(this.app, null, 4)); // zy debug remove
         fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/appDocData.json', JSON.stringify(applicationDocData, null, 4)); // zy debug remove
         fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/request.json', JSON.stringify(requestJSON, null, 4)); // zy debug remove
         fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/industryCode.json', JSON.stringify(this.industry_code, null, 4)); // zy debug remove
@@ -448,7 +450,6 @@ module.exports = class ArrowheadBOP extends Integration {
 
     async getLocationList() {
         const applicationDocData = this.app.applicationDocData;
-        const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const locationList = [];
         
         for (const location of applicationDocData.locations) {
@@ -480,10 +481,12 @@ module.exports = class ArrowheadBOP extends Integration {
                 liabPayroll += activityPayroll.employeeTypeList.reduce((payroll, employeeType) => payroll + employeeType.employeeTypePayroll, 0);
             }
 
+            fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/insurerIndustryCode.json', JSON.stringify(this.insurerIndustryCode, null, 4)); // zy debug remove
+
             const locationObj = {
                 countyName: smartyStreetsResponse ? smartyStreetsResponse.addressInformation.county_name : ``,
                 city: location.city,
-                classCodes: BOPPolicy.bopIndustryCodeId ? BOPPolicy.bopIndustryCodeId : 0,
+                classCodes: this.insurerIndustryCode.code,
                 address: applicationDocData.mailingAddress,
                 rawProtectionClass: "", // hardset value expected by Arrowhead
                 state: location.state,
@@ -497,9 +500,9 @@ module.exports = class ArrowheadBOP extends Integration {
                         classTag: "SALES", // hardcode to SALES and set liab coverage sales amount to application gross sales
                         industrySegment: "",
                         premOpsILF: "", 
-                        classCode: this.industry_code.code,
-                        sicCode: `${this.industry_code.attributes.SIC}`,
-                        naicsCode: this.industry_code.attributes.NAICSCode,
+                        classCode: this.insurerIndustryCode.code,
+                        sicCode: `${this.industry_code.sic}`,
+                        naicsCode: this.industry_code.naics,
                         yearBuilt: location.yearBuilt,
                         uw: {
                             roofUpdates: location.bop.roofingImprovementYear,
@@ -507,6 +510,8 @@ module.exports = class ArrowheadBOP extends Integration {
                             plumbingUpdates: location.bop.plumbingImprovementYear,
                             electricalUpdates: location.bop.wiringImprovementYear
                         },
+                        sprinklered: location.bop.sprinklerEquipped ? location.bop.sprinklerEquipped : false, // zy debug fix, we shoudl always have "sprinklered" on the application right?
+                        numStories: location.numStories, 
                         coverages: {
                             // this is required because classTag is set to "SALES"
                             liab: {
@@ -666,7 +671,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
                 case "liquorLiab":
                     bbopSet.coverages.liqLia = {
-                        includeInd: this.convertToBoolean(answer)
+                        includeInd: answer === "Liquor Liability Coverage"
                     };
                     break;
                 case "liquorLiab.typeOfSales":
@@ -676,10 +681,10 @@ module.exports = class ArrowheadBOP extends Integration {
                     liquorLiab.push({id: "limit", answer})
                     break;
                 case "liquorLiab.totalSales":
-                    liquorLiab.push({id: "salesTotal", answer: this.convertToInteger(answer)});
+                    liquorLiab.push({id: "salesTotal", answer: answer});
                     break;
                 case "liquorLiab.liquorSales":
-                    liquorLiab.push({id: "salesLiquor", answer: this.convertToInteger(answer)});
+                    liquorLiab.push({id: "salesLiquor", answer: answer});
                     break;
                 case "liquorLiab.premOp":
                     liquorLiab.push({id: "premOp", answer})
@@ -689,7 +694,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
-                case "empLiab.limit": // zy Limits are different for certain states. Not worrying about the rules right now.
+                case "empLiab.limit":
                     empLiab.push({id: "limit", answer});
                     break;
                 case "empLiab.defenseLimit":
@@ -837,7 +842,7 @@ module.exports = class ArrowheadBOP extends Integration {
             if (applicationDocData.primaryState !== "MN") {
                 bbopSet.coverages.emplia.numNonFTEmp = applicationDocData.locations.reduce((acc, location) => acc + location.part_time_employees, 0);
             }
-            bbopSet.coverages.emplia.sic = this.industry_code.attributes.SIC;
+            bbopSet.coverages.emplia.sic = this.industry_code.sic;
         }
 
         // hydrate Liquor Liability coverage with child question data, if any exist
@@ -1056,14 +1061,8 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "construction":
                         building[id] = answer;
                         break;
-                    case "sprinklered":
-                        building[id] = this.convertToBoolean(answer);
-                        break;
                     case "description":
                         building[id] = answer;
-                        break;
-                    case "numStories":
-                        building[id] = this.convertToInteger(answer);
                         break;
                     case "occupancy":
                         building[id] = answer === 'Non-Owner Occupied Bldg' ? 'Non-Owner Occupied Bldg.' : answer; // Arrowhead needs the '.' on the end for this answer
@@ -1092,12 +1091,20 @@ module.exports = class ArrowheadBOP extends Integration {
                             includeInd: this.convertToBoolean(answer)
                         }; 
                         break;
-                    case "spoil.spoilageDescription": // child
-                    case "spoil.spoilageLimit": // child
-                    case "spoil.powerOutInd": // child
-                    case "spoil.refrigerationInd": // child
-                    case "spoil.breakContInd": // child
-                        spoil.push({id: id.replace("spoil.", ""), answer});
+                    case "spoil.limit":
+                        spoil.push({id: "limit", answer});
+                        break;
+                    case "spoil.breakCont.refrigMaint":
+                        spoil.push({id: "refrigerationInd", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "spoil.breakCont":
+                        spoil.push({id: "breakContInd", answer: this.convertToBoolean(answer)});
+                        break;
+                    case "spoil.stockDesc":
+                        spoil.push({id: "description", answer});
+                        break;
+                    case "spoil.powerOut":
+                        spoil.push({id: "powerOutInd", answer: this.convertToBoolean(answer)});
                         break;
                     case "mineSubsidenceCoverage":
                         if (location.state === "IL") {
@@ -1575,20 +1582,12 @@ module.exports = class ArrowheadBOP extends Integration {
 
                 spoil.forEach(({id, answer}) => {
                     switch (id) {
-                        case "spoilageDescription":
-                            building.coverages.spoil[id] = answer;
-                            break;
-                        case "spoilageLimit":
-                            building.coverages.spoil[id] = this.convertToInteger(answer);
-                            break;
-                        case "powerOutInd": 
-                            building.coverages.spoil[id] = this.convertToBoolean(answer);
-                            break;
-                        case "refrigerationInd": 
-                            building.coverages.spoil[id] = this.convertToBoolean(answer);
-                            break;
                         case "breakContInd":
-                            building.coverages.spoil[id] = this.convertToBoolean(answer);
+                        case "description":
+                        case "powerOutInd":
+                        case "refrigerationInd":
+                        case "limit":
+                            building.coverages.spoil[id] = answer;
                             break;
                         default:
                             log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for spoil coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
