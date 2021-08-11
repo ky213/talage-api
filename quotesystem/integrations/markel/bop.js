@@ -280,7 +280,7 @@ module.exports = class MarkelWC extends Integration {
 
         let industryCode = null;
         // if the BOP code selected is Markel's, we can just use it
-        if (this.industry_code) {
+        if (this.industry_code && !this.industry_code.talageIndustryCodeUuid) {
             industryCode = this.industry_code;
         }
         else {
@@ -677,12 +677,13 @@ module.exports = class MarkelWC extends Integration {
                 locationTotalPayroll += apl.payroll;
             });
 
+            console.log(industryCode);
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
                 // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
-                classCode: industryCode.code, // this may need to change
-                classCodeDescription: industryCode.attributes["NAICS Descriptor"], // this needs to change
-                // naicsReferenceId: "", not required, but can replace classCode and classCodeDescription
+                // classCode: industryCode.code,
+                // classCodeDescription: industryCode.description, 
+                naicsReferenceId: industryCode.attributes.NAICSReferenceId, // not required, but can replace classCode and classCodeDescription
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
                 annualPayroll: locationTotalPayroll,
@@ -1029,12 +1030,12 @@ module.exports = class MarkelWC extends Integration {
             return null;
         }
 
-        if (!bopCodes) {
+        if (!bopCodeRecords) {
             log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
-        if (bopCodes.length === 0) {
+        if (bopCodeRecords.length === 0) {
             log.warn(`There were no BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
             return null;
         }
