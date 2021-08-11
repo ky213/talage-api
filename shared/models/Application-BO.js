@@ -1204,7 +1204,7 @@ module.exports = class ApplicationModel {
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    log.debug("updated to " + JSON.stringify(newObjectJSON));
+                    log.debug("updated to " + JSON.stringify(newObjectJSON) + __location);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
@@ -1346,7 +1346,6 @@ module.exports = class ApplicationModel {
         if(applicationDoc){
             if(applicationDoc.einEncryptedT2 && applicationDoc.einEncryptedT2.length > 0){
                 try{
-                    log.debug(`Using new decrypt ` + __location);
                     applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncryptedT2);
                     applicationDoc.ein = applicationDoc.einClear;
                 }
@@ -2418,13 +2417,17 @@ module.exports = class ApplicationModel {
         }
 
         //industrycode
-        let industryCodeString = '';
+        let industryCodeStringArray = [];
         if(applicationDocDB.industryCode){
-            industryCodeString = applicationDocDB.industryCode;
+            industryCodeStringArray.push(applicationDocDB.industryCode);
         }
         else {
             log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Industry Code")
+        }
+        const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
+            industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
 
         //policyType.
@@ -2618,10 +2621,10 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeList, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
@@ -2900,21 +2903,44 @@ module.exports = class ApplicationModel {
 
     async getAppBopCodes(applicationId){
         const IndustryCodeSvc = global.requireShared('services/industrycodesvc.js');
-        let applicationDocDB = null;
+        let applicationJsonDB = null;
         try{
-            applicationDocDB = await this.loadDocfromMongoByAppId(applicationId);
+            applicationJsonDB = await this.getById(applicationId);
         }
         catch(err){
             log.error("getAppBopCodes: Error getting application doc " + err + __location)
         }
-        if(!applicationDocDB){
+        if(!applicationJsonDB){
             log.error("getAppBopCodes: application not found" + __location)
             return [];
+        }
+        let insurerArray = [];
+        if(applicationJsonDB.agencyLocationId){
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = false;
+            const addAgencyPrimaryLocation = true;
+            let agencylocationJSON = await agencyLocationBO.getById(applicationJsonDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+                log.error(`Error getting Agency Location ${applicationJsonDB.uuid} ` + err + __location);
+            });
+            if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                    if(agencylocationJSON.insurers[i].policyTypeInfo["BOP"]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
+                        insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                    }
+                }
+            }
+            else {
+                log.debug(`getAppBopCodes no location insurers for appId ${applicationId} in \n ${JSON.stringify(agencylocationJSON)}` + __location);
+            }
+        }
+        if(insurerArray.length === 0){
+            log.debug(`getAppBopCodes no location insurers appId ${applicationId} appLocId ${applicationJsonDB.agencyLocationId}` + __location);
+            insurerArray = null;
         }
 
         let iicList = [];
         try{
-            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationDocDB.industryCode)
+            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode, insurerArray)
         }
         catch(err){
             log.error(`getAppBopCodes:  Error get BOP industrycodes ${applicationId} - ${err}. ` + __location);
