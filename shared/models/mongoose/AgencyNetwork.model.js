@@ -30,7 +30,8 @@ const featureSchema = new Schema({
     agencyPortalRequestToBind: {type: Boolean, required: true, default: false},
     abandonAppEmailsCustomer: {type: Boolean, required: true, default: true},
     abandonAppEmailsAgency: {type: Boolean, required: true, default: false},
-    quoteAppBinding: {type: Boolean, required: true, default: false}
+    quoteAppBinding: {type: Boolean, required: true, default: false},
+    appRequirementOverrides: {type: Object, required: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
