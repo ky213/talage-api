@@ -1139,12 +1139,6 @@ module.exports = class ApplicationModel {
         if(newObjectJSON.locations && newObjectJSON.locations.length > 0){
             let hasBillingLocation = false;
             let hasPrimaryLocation = false;
-            let receivedPrimaryLocation = false;
-            //Note does not check for more than 1.
-            const primaryLocation = newObjectJSON.locations.find((newLoc) => newLoc.primary === true)
-            if(primaryLocation){
-                receivedPrimaryLocation = true;
-            }
             for(let location of newObjectJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
                     log.warn(`Application will multiple billing received AppId ${newObjectJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
@@ -1153,12 +1147,6 @@ module.exports = class ApplicationModel {
                 else if(location.billing === true){
                     hasBillingLocation = true;
                 }
-                // primaryLocation
-                if(receivedPrimaryLocation === false){
-                    //client did not send primary, so use Billing
-                    log.debug(`setting primary from billing ${newObjectJSON.applicationId} ` + __location)
-                    location.primary = location.billing
-                }
                 if(location.primary === true && hasPrimaryLocation === false){
                     hasPrimaryLocation = true;
                     newObjectJSON.primaryState = location.state
@@ -1166,7 +1154,6 @@ module.exports = class ApplicationModel {
                 else {
                     location.primary = false;
                 }
-
             }
         }
         return true;
@@ -1204,7 +1191,7 @@ module.exports = class ApplicationModel {
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    log.debug("updated to " + JSON.stringify(newObjectJSON));
+                    log.debug("updated to " + JSON.stringify(newObjectJSON) + __location);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
