@@ -21,7 +21,6 @@ const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
-const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
 const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
