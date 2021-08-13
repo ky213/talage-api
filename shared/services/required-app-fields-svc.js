@@ -328,7 +328,7 @@ const overrideRequiredObject = (override, requirementObj, newObj) => {
             if(!override[key] || !override[key].hasOwnProperty("requirement")){
                 newObj[key].requirement = requirementObj[key].requirement;
             }
-            // otherwise just use the original value
+            // otherwise use the override value
             else{
                 newObj[key].requirement = override[key].requirement;
             }
