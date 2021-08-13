@@ -20,6 +20,7 @@
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
@@ -107,6 +108,7 @@ module.exports = class ArrowheadBOP extends Integration {
 
         // hydrate the request JSON object with generic info
         const requestJSON = {
+            rateCallType: "RATE_INDICATION",
             insuredSet: {
                 firstName: primaryContact.firstName,
                 lastName: primaryContact.lastName,
@@ -451,29 +453,12 @@ module.exports = class ArrowheadBOP extends Integration {
     async getLocationList() {
         const applicationDocData = this.app.applicationDocData;
         const locationList = [];
-        
+        const zipCodeBO = new ZipCodeBO();
         for (const location of applicationDocData.locations) {
-            let smartyStreetsResponse = await smartystreetSvc.checkAddress(
-                applicationDocData.mailingAddress,
-                applicationDocData.mailingCity,
-                applicationDocData.mailingState,
-                applicationDocData.mailingZipcode
-            );
-
-            // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine a county
-            if (smartyStreetsResponse.hasOwnProperty("error") ||
-                !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
-                !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
-                let errorMessage = "";
-                if (smartyStreetsResponse.hasOwnProperty("error")) {
-                    errorMessage += `${smartyStreetsResponse.error}: ${smartyStreetsResponse.errorReason}. Due to this, we are unable to look up County information.`;
-                } else {
-                    errorMessage += `SmartyStreets could not determine the county for address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
-                }
-
-                log.error(`${logPrefix}${errorMessage}`);
-                smartyStreetsResponse = null;
-            }
+            const zipCodeDoc = await zipCodeBO.loadByZipCode(location.zipcode).
+                catch(err => {
+                    log.error(`Could not get zip code (${location.zipcode}) information from ZipCodeBO: ${err}` + __location);
+                });
 
             // Get the total payroll for the location
             let liabPayroll = 0;
@@ -484,7 +469,7 @@ module.exports = class ArrowheadBOP extends Integration {
             fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/insurerIndustryCode.json', JSON.stringify(this.insurerIndustryCode, null, 4)); // zy debug remove
 
             const locationObj = {
-                countyName: smartyStreetsResponse ? smartyStreetsResponse.addressInformation.county_name : ``,
+                countyName: zipCodeDoc.county,
                 city: location.city,
                 classCodes: this.insurerIndustryCode.code,
                 address: applicationDocData.mailingAddress,
