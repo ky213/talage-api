@@ -52,19 +52,19 @@ exports.checkAddress = async function(streetAddress, city, state, zipCode) {
             // If there is a "status" property, return the error in the "reason" property
             return {
                 error: "SmartyStreets could not validate the address",
-                errorReason: addressData?.reason ? addressData?.reason : "Not Found";
+                errorReason: addressData?.reason ? addressData?.reason : "Not Found"
             };
         }
     }
     else {
         return {
             error: "SmartyStreets could not validate the address",
-            errorReason: "Not Found";
+            errorReason: "Not Found"
         };
     }
     // We received an unexpected error. Log it as an error.
-    log.error(`SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)} ${__location}`);
-    return {error: `SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)}`};
+    // log.error(`SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)} ${__location}`);
+    // return {error: `SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)}`};
 };
 
 exports.checkZipCode = async function(zipCode){
