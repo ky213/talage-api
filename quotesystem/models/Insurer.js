@@ -103,7 +103,9 @@ module.exports = class Insurer {
                         this.policy_types.push(insurerPolicyTypeJSON.policy_type);
                         this.policy_type_details[insurerPolicyTypeJSON.policy_type] = {
                             'api_support': insurerPolicyTypeJSON.api_support,
-                            'acord_support': insurerPolicyTypeJSON.acord_support
+                            'acord_support': insurerPolicyTypeJSON.acord_support,
+                            'pricing_support': insurerPolicyTypeJSON.acord_support,
+                            'bind_support': insurerPolicyTypeJSON.bind_support
                         }
                     }
                 }

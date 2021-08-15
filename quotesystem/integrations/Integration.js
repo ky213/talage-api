@@ -1121,6 +1121,85 @@ module.exports = class Integration {
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
+    pricing() {
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        return new Promise(async(fulfill) => {
+
+            // if (!this.quoteId) {
+            //     this.quoteId = await this.run_pricing(null, quoteStatus.initiated.description);
+            // }
+
+            // Get the credentials ready for use
+            this.password = await this.insurer.get_password();
+            this.username = await this.insurer.get_username();
+
+            // Make sure expiration_date is set
+            if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
+                log.warn(`Appid: ${this.app.id} Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
+                this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
+            }
+
+            // Make sure the insurer_quote() function exists
+            if (typeof this._insurer_pricing === 'undefined') {
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the insurer_quote() function`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                fulfill(false);
+                return;
+            }
+
+            // Check that industry codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
+                // No industry codes when they are required
+                fulfill(false);
+                return;
+            }
+
+            // Check that activity class codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
+                // No activity class codes when they are required
+                fulfill(false);
+                return;
+            }
+
+            // ========================================================================================================================
+            // Filter the application questions to remove hidden qustions, unanswered questions, and question for other carriers
+
+            // Create a working copy of the applicationDocData just for this integration
+            this.app.applicationDocData = jsonFunctions.jsonCopy(this.app.applicationDocData);
+
+            // NOTE: filterApplicationQuestionListForInsurer will log its own errors
+
+            
+
+            // Run the Pricing
+            const appId = this.app.id;
+            const insurerName = this.insurer.name;
+            const policyType = this.policy.type
+            let error = null;
+            const result = await this._insurer_pricing().catch(function(err) {
+                const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to price ${err}`;
+                log.error(error_message + __location);
+                error = err;
+            });
+
+            if(error){
+                //need to save quote with reason.
+                //const error_message = `${insurerName} ${policyType} is unable to price ${error}`;
+                //this.reasons.push(error_message)
+                //this.return_result('error');
+                fulfill(null);
+            }
+            fulfill(result);
+        });
+    }
+
+
+    /**
+     * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+     */
     quote() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {

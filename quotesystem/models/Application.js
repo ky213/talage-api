@@ -432,10 +432,6 @@ module.exports = class Application {
             industryCodeStringArray.push(this.applicationDocData.bopIndustryCodeId.toString());
         }
 
-
-
-
-
         let talageQuestionDefList = null;
         try {
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
@@ -637,6 +633,110 @@ module.exports = class Application {
         return rtn;
     }
 
+
+    /**
+	 * Begins the process of getting and returning price_indications from insurers
+	 *
+	 * @returns {void}
+	 */
+    async run_priceindications() {
+
+        // appStatusId > 70 is finished.(request to bind)
+        if(this.applicationDocData.appStatusId >= 70){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+        }
+
+        // Generate quotes for each policy type
+        const fs = require('fs');
+        const pricing_promises = [];
+
+        if(this.policies && this.policies.length === 0){
+            log.error(`No policies for Application ${this.id} ` + __location)
+        }
+
+        // set the quoting started date right before we start looking for quotes
+        let applicationBO = new ApplicationBO();
+        await applicationBO.updateMongo(this.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
+        this.policies.forEach((policy) => {
+            let policyTypeAbbr = '';
+            if(policy?.type){
+                policyTypeAbbr = policy.type.toLowerCase()
+            }
+            // Generate quotes for each insurer for the given policy type
+            this.insurers.forEach((insurer) => {
+                let quoteInsurer = true;
+                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId !== insurer.id){
+                    quoteInsurer = false;
+                }
+                // Only run quotes against requested insurers (if present)
+                // Check that the given policy type is enabled for this insurer
+                if (insurer.policy_types.indexOf(policy.type) >= 0 && quoteInsurer) {
+
+                    // Get the agency_location_insurer data for this insurer from the agency location
+                    //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
+                    if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
+
+                        //Retrieve the data for this policy type
+                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
+                        if (agency_location_insurer_data && insurer.policy_type_details[policy.type.toUpperCase()].pricing_support) {
+
+                            if (agency_location_insurer_data.enabled) {
+                                let slug = insurer.slug;
+                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
+                                log.debug(`normalizedPathnormalizedPath}`)
+                                try{
+                                    if (slug.length > 0 && fs.existsSync(normalizedPath)) {
+                                        // Require the integration file and add the response to our promises
+                                        const IntegrationClass = require(normalizedPath);
+                                        const integration = new IntegrationClass(this, insurer, policy);
+                                        pricing_promises.push(integration.pricing());
+                                    }
+                                    else {
+                                        log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
+                                    }
+                                }
+                                catch(err){
+                                    log.error(`Error getting Insurer integration file ${normalizedPath} ${err} ` + __location)
+                                }
+                            }
+                            else {
+                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
+                            }
+                        }
+                        else {
+                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                        }
+                    }
+                    else {
+                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                    }
+                }
+            });
+        });
+
+        // Wait for all quotes to finish
+        let pricingIds = null;
+        try {
+            pricingIds = await Promise.all(pricing_promises);
+        }
+        catch (error) {
+            log.error(`Quoting did not complete successfully for application ${this.id}: ${error} ${__location}`);
+            return;
+        }
+
+        //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
+
+        // Check for no quotes
+        if (pricingIds.length < 1) {
+            log.warn(`No quotes returned for application ${this.id}` + __location);
+            return;
+        }
+
+        return true;
+    }
+
+
     /**
 	 * Begins the process of getting and returning quotes from insurers
 	 *
@@ -804,7 +904,6 @@ module.exports = class Application {
         catch(err){
             log.error(`Quote Application ${this.id} error sending notifications ` + err + __location);
         }
-
     }
 
     /**
