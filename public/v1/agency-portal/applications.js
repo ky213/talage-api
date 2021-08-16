@@ -459,7 +459,7 @@ async function getApplications(req, res, next){
     // ================================================================================
     // Build the Mongo $OR array
     // eslint-disable-next-line array-element-newline
-    const productTypeList = ["WC","GL", "BOP"];
+    const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 0){
         noCacheUse = true;

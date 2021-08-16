@@ -460,6 +460,19 @@ module.exports = class cowbellCyber extends Integration {
                             this.number = responseQD.quoteNumber;
                             quotePremium = responseQD.totalPremium;
                             this.quoteLink = responseQD.agencyDeepLinkURL
+                            this.purchaseLink = responseQD.policyHolderDeepLinkURL
+
+                            //check we got more then just "https://" for links
+                            if(this.quoteLink === "https://"){
+                                log.error(`Cowbell AppId ${appDoc.applicationId} did not return a FQN for agencyDeepLinkURL` + __location)
+                                this.quoteLink = ''
+                            }
+
+                            if(this.purchaseLink === "https://"){
+                                log.error(`Cowbell AppId ${appDoc.applicationId} did not return a FQN for policyHolderDeepLinkURL` + __location)
+                                this.purchaseLink = ''
+                            }
+
                             accountId = responseQD.accountId
                             this.isBindable = true
                             break;
