@@ -117,9 +117,110 @@ async function GetIndustryCodes(){
     }
 }
 
+async function GetBopIndustryCodes(industryCodeId, insurerArray){
 
+    industryCodeId = parseInt(industryCodeId,10);
+    if(!industryCodeId){
+        log.info(`industrycodesvc.GetBopIndustryCodes bad industryCodeId ` + __location)
+        return [];
+    }
+    const start = moment();
+    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    let IndustryCodeList = [];
+    let runQuery = true;
+    const icQuery = {
+        active: true,
+        codeGroupList: "BOP",
+        parentIndustryCodeId: industryCodeId
+    }
+    try{
+        if(insurerArray?.length > 0){
+            log.debug(`industrycodesvc.GetBopIndustryCodes filtering on insurers`)
+            const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+            let insurerIndustryCodeList = null;
+            try{
+                const pipeLine = [
+                    {$match: {
+                        insurerId: {$in: insurerArray},
+                        policyTypeList: "BOP",
+                        active: true
+                    }},
+                    {"$unwind": "$talageIndustryCodeIdList"} ,
+                    {$group:{
+                        _id : null,
+                        uniqueTalageIndustryCodes : {$addToSet : "$talageIndustryCodeIdList"}
+                    }}
+                ]
+                log.debug(`Mongo IndustryCode BOP List InsurerIndustryCodeModel pipeline \n ${JSON.stringify(pipeLine)} ` + __location)
+                insurerIndustryCodeList = await InsurerIndustryCodeModel.aggregate(pipeLine)
+                log.debug(`Mongo IndustryCode BOP List InsurerIndustryCodeModel pipeline result \n ${JSON.stringify(insurerIndustryCodeList)} ` + __location)
+                if(insurerIndustryCodeList[0] && insurerIndustryCodeList[0].uniqueTalageIndustryCodes && insurerIndustryCodeList[0].uniqueTalageIndustryCodes.length > 0){
+                    const industryIdList = insurerIndustryCodeList[0].uniqueTalageIndustryCodes;
+                    if(industryIdList?.length > 0){
+                        log.debug(`GetBopIndustryCodes industryIdList ${industryIdList}` + __location)
+                        icQuery.industryCodeId = {$in: industryIdList}
+                    }
+                    else {
+                        runQuery = false;
+                    }
+                }
+                else {
+                    runQuery = false;
+                }
+            }
+            catch(err){
+                log.warn(`industryCodeId: ${industryCodeId} Error IndustryCodeSvc.GetIndustryCodes ` + __location);
+            }
+        }
+
+        if(runQuery){
+            const queryProjection = {
+                "__v": 0,
+                "_id": 0,
+                "id": 0,
+                "talageStandard": 0,
+                "codeGroupList":0,
+                active: 0,
+                talageIndustryCodeUuid: 0,
+                activityCodeIdList: 0,
+                primaryActivityCodeId: 0,
+                updatedAt: 0,
+                createdAt: 0
+            };
+            const queryOptions = {sort: {description: 1}};
+
+            IndustryCodeList = await IndustryCodeModel.find(icQuery, queryProjection, queryOptions).lean();
+        }
+
+    }
+    catch(err){
+        log.warn(`IndustryCodeSvc.GetIndustryCodes  ${err}` + __location);
+    }
+
+    const endMongo = moment();
+    const diff = endMongo.diff(start, 'milliseconds', true);
+    log.info(`Mongo IndustryCode BOP List processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds runQuery ${runQuery} ${JSON.stringify(icQuery)} ` + __location);
+
+    if(IndustryCodeList.length > 0) {
+        IndustryCodeList.forEach(function(ic) {
+            ic.id = ic.industryCodeId;
+            ic.isFeatured = ic.featured;
+            ic.featured = ic.featured ? 1 : 0;
+            if (ic.alternateNames && ic.alternateNames.length > 0) {
+                ic.alternate_names = ic.alternateNames;
+            }
+        });
+        return IndustryCodeList;
+    }
+    else {
+        return [];
+    }
+
+
+}
 module.exports = {
     GetIndustryCodes: GetIndustryCodes,
-    GetIndustryCodeCategories: GetIndustryCodeCategories
+    GetIndustryCodeCategories: GetIndustryCodeCategories,
+    GetBopIndustryCodes: GetBopIndustryCodes
     //UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
 }

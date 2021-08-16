@@ -186,17 +186,33 @@ module.exports = class HiscoxGL extends Integration {
         if (this.employeeCount === 0) {
             this.employeeCount = 1;
         }
+        //Wholesale swap already done if necessary.
+        this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+
+        this.agencyId = this.app.agencyLocation.agencyId
+        this.agency = this.app.agencyLocation.agency;
         this.agencyEmail = this.app.agencyLocation.agencyEmail
         this.agencyPhone = this.app.agencyLocation.agencyPhone
+        this.first_name = this.app.agencyLocation.first_name
+        this.last_name = this.app.agencyLocation.last_name
         // If talageWholeSale
         if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
+            this.agencyId = this.app.agencyLocation.quotingAgencyLocationDB.agencyId
+
+            const AgencyBO = global.requireShared('./models/Agency-BO.js');
+            const agencyBO = new AgencyBO();
+            const agencyInfo = await agencyBO.getById(this.app.agencyLocation.quotingAgencyLocationDB.agencyId);
+            this.agency = agencyInfo.name;
             this.agencyEmail = this.app.agencyLocation.quotingAgencyLocationDB.agencyEmail;
             this.agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.agencyPhone;
+            this.first_name = this.app.agencyLocation.quotingAgencyLocationDB.first_name
+            this.last_name = this.app.agencyLocation.quotingAgencyLocationDB.last_name
         }
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.agencyEmail || !this.agencyPhone) {
-            this.log_error(`Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
+            this.log_error(`AppId: ${this.app.id} Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
+            this.reasons.push(`Hiscox requires an agency to provide both a phone number and email address`);
             return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
 
@@ -228,34 +244,36 @@ module.exports = class HiscoxGL extends Integration {
         for (const location of locations) {
             if (["FL", "MO", "TX"].includes(location.territory)) {
                 // Hiscox requires a county in these states
-                if (!location.county) {
-                    const smartyStreetsResponse = await smartystreetSvc.checkAddress(this.app.business.locations[0].address,
+                if (location.county) {
+                    const addressInfoResponse = await smartystreetSvc.checkAddress(this.app.business.locations[0].address,
                         this.app.business.locations[0].city,
                         this.app.business.locations[0].state_abbr,
                         this.app.business.locations[0].zip);
                     // If the responsee has an error property, or doesn't have addressInformation.county_name, we can't determine
                     // a county so return an error.
-                    if (smartyStreetsResponse.hasOwnProperty("error") ||
-                        !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
-                        !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
-                        if (smartyStreetsResponse.hasOwnProperty("error")) {
+                    if(addressInfoResponse.county){
+                        location.county = addressInfoResponse.county;
+                    }
+                    else {
+                        if (addressInfoResponse.hasOwnProperty("error")) {
                             this.log += `Invalid business address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
-                            this.log += `${smartyStreetsResponse.error}<br>`;
-                            this.log += `SmartyStreets error reason: ${smartyStreetsResponse.errorReason}<br><br>`;
+                            this.log += `${addressInfoResponse.error}<br>`;
+                            this.log += `SmartyStreets error reason: ${addressInfoResponse.errorReason}<br><br>`;
                         }
                         else {
                             this.log += `SmartyStreets could not determine the county: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
                         }
-                        if (smartyStreetsResponse.hasOwnProperty("errorReason")) {
+                        if (addressInfoResponse.hasOwnProperty("errorReason")) {
                             // If SmartyStreets returned a error reason, show that to the user
-                            return this.client_error(`Invalid business address: ${smartyStreetsResponse.errorReason}`);
+                            log.error(`AppId: ${this.app.id} Smarty Streets - Invalid business address: ${addressInfoResponse.errorReason}` + __location);
+                            return this.client_error(`Invalid business address: ${addressInfoResponse.errorReason}`);
                         }
                         else {
                             // If not, show that it was unable to validate the address
+                            log.error(`AppId: ${this.app.id} Smarty Streets - Invalid business address` + __location);
                             return this.client_error('Unable to validate address before submission.');
                         }
                     }
-                    location.county = smartyStreetsResponse.addressInformation.county_name;
                 }
                 // We have a valid county now.
 

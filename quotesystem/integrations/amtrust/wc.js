@@ -155,6 +155,8 @@ module.exports = class AMTrustWC extends Integration {
 
     getOfficers(officerInformationList) {
         const officersList = [];
+        let validationError = `Officer Type, Endorsement ID, or Form Type were not provided in AMTrust's response.`;
+
         for (const owner of this.app.applicationDocData.owners) {
             //Need to be primary state not mailing.
             const primaryLocation = this.app.applicationDocData.locations.find(location => location.primary);
@@ -165,6 +167,14 @@ module.exports = class AMTrustWC extends Integration {
             for (const officerInformation of officerInformationList) {
                 if (officerInformation.State === state) {
                     officerType = officerInformation.OfficerType;
+
+                    // add validation errors if they exist - we likely didn't get the endorsement information we need to send a successful request
+                    if (officerInformation.EndorsementInformation && officerInformation.EndorsementInformation.ValidationMessage) {
+                        if (officerInformation.EndorsementInformation.ValidationMessage.length > 0) {
+                            validationError = officerInformation.EndorsementInformation.ValidationMessage;
+                        }
+                    }
+
                     const endorsementList = this.getChildProperty(officerInformation, "EndorsementInformation.Endorsements");
                     if (endorsementList) {
                         for (const endorsement of endorsementList) {
@@ -177,9 +187,11 @@ module.exports = class AMTrustWC extends Integration {
                     }
                 }
             }
+
             if (!officerType || !endorsementId || !formType) {
-                return null;
+                return validationError;
             }
+
             officersList.push({
                 "Name": `${owner.fname} ${owner.lname}`,
                 "EndorsementId": endorsementId,
@@ -413,6 +425,11 @@ module.exports = class AMTrustWC extends Integration {
 
         // =========================================================================================================
         // Create the quote request
+        if (!this.app.business.contacts[0].phone || this.app.business.contacts[0].phone.length === 0) {
+            log.error(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust submission.`);
+            return this.client_error(`AMTrust submission requires phone number.`);
+        }
+
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
@@ -488,6 +505,13 @@ module.exports = class AMTrustWC extends Integration {
             additionalInformationRequestData.Officers = [];
             additionalInformationRequestData.AdditionalInsureds = [];
             appDoc.owners.forEach((owner) => {
+                // do not send null; errors out at Amtrust
+                // do not auto set percent ownership.
+                // it may be an officer/Manager who does
+                // not own any part of Crop (LLC that has hired a manager)
+                if(!owner.ownership){
+                    owner.ownership = 0;
+                }
                 const officerJSON = {
                     "Name": owner.fname + " " + owner.lname,
                     //"EndorsementId": "WC040303C",
@@ -698,9 +722,13 @@ module.exports = class AMTrustWC extends Integration {
         // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
         if (officerInformation && officerInformation.Data) {
             // Populate the officers
-            const officers = this.getOfficers(officerInformation.Data)
-            if (officers) {
-                additionalInformationRequestData.Officers = officers;
+            const officersResult = this.getOfficers(officerInformation.Data)
+            if (Array.isArray(officersResult)) {
+                additionalInformationRequestData.Officers = officersResult;
+            }
+            else {
+                log.error(officersResult);
+                return this.client_error(officersResult, __location);
             }
         }
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));

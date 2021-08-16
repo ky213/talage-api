@@ -5,8 +5,7 @@
 "use strict";
 const serverHelper = require("../../../server.js");
 // const validator = global.requireShared("./helpers/validator.js");
-const ApplicationBO = global.requireShared("models/Application-BO.js");
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
+// const ApplicationBO = global.requireShared("models/Application-BO.js");
 // const AgencyBO = global.requireShared('models/Agency-BO.js');
 // const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 // const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
@@ -34,13 +33,13 @@ async function getResources(req, res, next){
     switch(req.query.page) {
         case "_basic":
         case "_basic-created":
-            entityTypes(resources);
             break;
         case "_policies":
             await policyHelper.populatePolicyResources(resources, req.query.appId);
             break;
         case "_business-questions":
             membershipTypes(resources);
+            entityTypes(resources);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_business":
@@ -62,29 +61,12 @@ async function getResources(req, res, next){
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_quotes":
-            await agencyNetworkFeatures(resources, req.query.appId);
+            territories(resources);
             break;
     }
 
     res.send(200, resources);
 }
-
-const agencyNetworkFeatures = async(resources, appId) => {
-    const applicationBO = new ApplicationBO();
-    const applicationDB = await applicationBO.getById(appId);
-
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
-
-    // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
-    const quoteAppBinding = agencyNetworkDB.featureJson.quoteAppBinding === true;
-
-    // get the agency network features we care about here.
-    resources.agencyNetworkFeatures = {
-        quoteAppBinding
-    };
-}
-
 const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];
 }
@@ -126,9 +108,7 @@ const officerTitles = resources => {
         "Pres-Secy",
         "VP-Treas",
         "VP-Secy-Treas",
-        "VP-Secy",
-        "Member",
-        "Manager"
+        "VP-Secy"
     ];
 }
 
@@ -137,7 +117,8 @@ const employeeTypes = resources => {
     [
         "Full Time",
         "Part Time",
-        "Owners"
+        "Owners",
+        "Contractors (1099)"
     ];
 }
 
@@ -145,11 +126,8 @@ const entityTypes = resources => {
     resources.entityTypes =
     [
         "Association",
-        "Corporation (C-Corp)",
-        "Corporation (S-Corp)",
-        "Non Profit Corporation",
-        "Limited Liability Company (Member Managed)",
-        "Limited Liability Company (Manager Managed)",
+        "Corporation",
+        "Limited Liability Company",
         "Limited Partnership",
         "Partnership",
         "Sole Proprietorship",

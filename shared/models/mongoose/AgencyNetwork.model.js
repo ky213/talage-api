@@ -29,7 +29,9 @@ const featureSchema = new Schema({
     agencyNetworkDailyDigestEmail: {type: Boolean, required: true, default: false},
     agencyPortalRequestToBind: {type: Boolean, required: true, default: false},
     abandonAppEmailsCustomer: {type: Boolean, required: true, default: true},
-    abandonAppEmailsAgency: {type: Boolean, required: true, default: false}
+    abandonAppEmailsAgency: {type: Boolean, required: true, default: false},
+    quoteAppBinding: {type: Boolean, required: true, default: false},
+    appRequirementOverrides: {type: Object, required: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({

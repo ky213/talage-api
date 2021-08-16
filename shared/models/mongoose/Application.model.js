@@ -62,6 +62,22 @@ const QuestionSchema = new Schema({
     answerList: [String]
 });
 
+const locationBOPPolicySchema = new Schema({
+    fireAlarmType: {type: String, required: false},
+    sprinklerEquipped: {type: Boolean, required: false},
+    roofingImprovementYear: {type: Number, required: false},
+    wiringImprovementYear: {type: Number, required: false},
+    heatingImprovementYear: {type: Number, required: false},
+    plumbingImprovementYear: {type: Number, required: false}
+
+    // TODO: Add these later from location schema...
+    // constructionType:{type: String, required:false},
+    // numStories:{type: Number, required:false},
+    // yearBuilt: {type: Number, required:false}
+    // businessPersonalPropertyLimit: {type: Number, required:false},
+    // buildingLimit: {type: Number, required:false},
+});
+
 const locationSchema = new Schema({
     address: {type: String, required: false},
     address2: {type: String, required: false},
@@ -71,8 +87,8 @@ const locationSchema = new Schema({
     county: {type: String, required: false},
     phone: {type: String, required: false},
     ein: {type: String, required: false},
-    full_time_employees:  {type: Number, required: false},
-    part_time_employees:  {type: Number, required: false},
+    full_time_employees:  {type: Number, required: false, default: 0},
+    part_time_employees:  {type: Number, required: false, default: 0},
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false}, //For new app for  AP this primary.  Billing is a Mailing address.
@@ -84,7 +100,8 @@ const locationSchema = new Schema({
     numStories:{type: Number, required:false},
     yearBuilt: {type: Number, required:false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
-    questions: [QuestionSchema]
+    questions: [QuestionSchema],
+    bop: locationBOPPolicySchema
 },opts);
 
 locationSchema.virtual('locationId').
@@ -110,15 +127,17 @@ const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
     lname: {type: String, required: true},
-    ownership: {type: Number, required: false},
+    ownership: {type: Number, required: false, default: 0},
     officerTitle: {type: String},
     include: {type: Boolean, required: false},
     activityCodeId: {type: Number, required: false},
     payroll: {type: Number, required: false}
 });
 
+//IP required false in case we do not get it or maybe copying an old app.
+// issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: true},
+    ip: {type: String, required: false},
     version: {type: Number, required: true}
 });
 
@@ -193,7 +212,8 @@ const PolicySchema = new Schema({
     currentPremium: {type: Number, required: false},
     yearsWithCurrentInsurance: {type: Number, required: false},
     cyber: cyberPolicySchema,
-    profLiability: professionalLiabilityPolicySchema
+    profLiability: professionalLiabilityPolicySchema,
+    bopIndustryCodeId: {type: Number, required: false}
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
@@ -294,7 +314,8 @@ const ApplicationSchema = new Schema({
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
     handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
-    copiedFromAppId: {type: String, required: false}
+    copiedFromAppId: {type: String, required: false},
+    renewal: {type: Boolean, default: false}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 
@@ -348,13 +369,18 @@ ApplicationSchema.pre('save', async function() {
 });
 
 ApplicationSchema.pre('updateOne', async function(next) {
-
+    log.debug(`Mongoose applicagion.model in updateOne ` + __location);
     // Populate top-level this.activityCodes array
     populateActivityCodePayroll(this);
 
     next();
 });
 
+
+ApplicationSchema.methods.updateActivityPayroll = function(){
+    populateActivityCodePayroll(this);
+    return true;
+}
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
@@ -369,19 +395,15 @@ mongoose.model('Application', ApplicationSchema);
  */
 function populateActivityCodePayroll(schema) {
     //log.debug(`in populateActivityCodePayroll ` + __location)
-    const application = schema.getUpdate();
-    if (application.hasOwnProperty("locations")) {
+    //const application = schema.getUpdate();
+    const application = schema;
+    log.debug(`populateActivityCodePayroll application ${application}`)
+    if (application.locations) {
         const activityCodesPayrollSumList = [];
         for (const location of application.locations) {
             for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
                 // Find the entry for this activity code
                 let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.activityCodeId === ActivtyCodeEmployeeType.activityCodeId);
-                if(!activityCodePayrollSum){
-                    activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === ActivtyCodeEmployeeType.ncciCode);
-                    if(activityCodePayrollSum){
-                        activityCodePayrollSum.activityCodeId = activityCodePayrollSum.ncciCode;
-                    }
-                }
                 if (!activityCodePayrollSum) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {

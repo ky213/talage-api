@@ -1,127 +1,145 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable default-case */
 const ApplicationBO = global.requireShared("models/Application-BO.js");
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
 
-// if the property is provided:
-
-// required is assumed true if not provided
-// if required is true, visible will be true
-
-// visible is assumed true if not provided
-// if visible is false, required will be false
-
-// required takes precedence over visible if "required: true" and "visible: false"
+// higher values will override lower values
+// if one policy says hidden and another says required then (hidden < required): it will be required
 
 // if the property is NOT provided:
-// TODO: the client side handles some of the requirements for now, for things that are always required
-// required is assumed false
-// visible is assumed true
+// It will be assumed optional
+
+// the client side handles some of the requirements for now, for things that are always required
+
+// if hidden the property will not show
+const hidden = 0;
+
+// if optional the property will show, and be OPTIONAL
+const optional = 5;
+
+// if required the property will show, and be REQUIRED
+const required = 10;
 
 const bopRequirements = {
     location: {
-        buildingLimit: {},
-        businessPersonalPropertyLimit: {},
-        own: {
-            required: false
-        },
-        unemployment_num: {
-            visible: false,
-            required: false
-        },
-        square_footage: {}
+        activityPayrollList: {requirement: optional},
+        buildingLimit: {requirement: optional},
+        businessPersonalPropertyLimit: {requirement: optional},
+        own: {requirement: optional},
+        numStories: {requirement: required},
+        constructionType: {requirement: required},
+        yearBuilt: {requirement: required},
+        unemployment_num: {requirement: hidden},
+        square_footage: {requirement: required},
+        bop: {
+            requirement: required,
+            sprinklerEquipped: {requirement: optional},
+            fireAlarmType: {requirement: required},
+            roofingImprovementYear: {requirement: required},
+            wiringImprovementYear: {requirement: required},
+            heatingImprovementYear: {requirement: required},
+            plumbingImprovementYear: {requirement: required}
+        }
     },
-    grossSalesAmt: {}
+    grossSalesAmt: {requirement: required},
+    ein: {requirement: optional}
 };
 
 const glRequirements = {
     location: {
-        buildingLimit: {
-            visible: false,
-            required: false
-        },
-        businessPersonalPropertyLimit: {
-            visible: false,
-            required: false
-        },
-        own: {
-            visible: false,
-            required: false
-        },
-        unemployment_num: {
-            visible: false,
-            required: false
-        },
-        square_footage: {}
+        activityPayrollList: {requirement: optional},
+        buildingLimit: {requirement: hidden},
+        businessPersonalPropertyLimit: {requirement: hidden},
+        own: {requirement: hidden},
+        numStories: {requirement: hidden},
+        constructionType: {requirement: hidden},
+        yearBuilt: {requirement: hidden},
+        unemployment_num: {requirement: hidden},
+        square_footage: {requirement: required},
+        bop: {
+            requirement: hidden,
+            sprinklerEquipped: {requirement: hidden},
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
+        }
     },
-    grossSalesAmt: {}
+    grossSalesAmt: {requirement: required}
 };
 
 const wcRequirements = {
     owner: {
-        officerTitle: {}
+        requirement: required,
+        officerTitle: {requirement: optional}
     },
     location: {
-        buildingLimit: {
-            visible: false,
-            required: false
-        },
-        businessPersonalPropertyLimit: {
-            visible: false,
-            required: false
-        },
-        own: {
-            visible: false,
-            required: false
-        },
-        unemployment_num: {
-            visible: true,
-            required: true
+        activityPayrollList: {requirement: required},
+        buildingLimit: {requirement: hidden},
+        businessPersonalPropertyLimit: {requirement: hidden},
+        own: {requirement: hidden},
+        numStories: {requirement: hidden},
+        constructionType: {requirement: hidden},
+        yearBuilt: {requirement: hidden},
+        unemployment_num: {requirement: required},
+        square_footage: {requirement: hidden},
+        bop: {
+            requirement: hidden,
+            sprinklerEquipped: {requirement: hidden},
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
         }
     },
-    grossSalesAmt: {},
-    ein: {}
+    grossSalesAmt: {requirement: hidden},
+    ein: {requirement: required}
 };
 
 const plRequirements = {
-    grossSalesAmt: {},
+    grossSalesAmt: {requirement: required},
     location: {
-        buildingLimit: {
-            visible: false,
-            required: false
-        },
-        businessPersonalPropertyLimit: {
-            visible: false,
-            required: false
-        },
-        own: {
-            visible: false,
-            required: false
-        },
-        unemployment_num: {
-            visible: false,
-            required: false
+        activityPayrollList: {requirement: optional},
+        buildingLimit: {requirement: hidden},
+        businessPersonalPropertyLimit: {requirement: hidden},
+        own: {requirement: hidden},
+        numStories: {requirement: hidden},
+        constructionType: {requirement: hidden},
+        yearBuilt: {requirement: hidden},
+        unemployment_num: {requirement: hidden},
+        bop: {
+            sprinklerEquipped: {requirement: hidden},
+            requirement: hidden,
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
         }
     }
 };
 
 const cyberRequirements = {
-    grossSalesAmt: {},
+    grossSalesAmt: {requirement: required},
     location: {
-        buildingLimit: {
-            visible: false,
-            required: false
-        },
-        businessPersonalPropertyLimit: {
-            visible: false,
-            required: false
-        },
-        own: {
-            visible: false,
-            required: false
-        },
-        unemployment_num: {
-            visible: false,
-            required: false
+        activityPayrollList: {requirement: hidden},
+        buildingLimit: {requirement: hidden},
+        businessPersonalPropertyLimit: {requirement: hidden},
+        own: {requirement: hidden},
+        numStories: {requirement: hidden},
+        constructionType: {requirement: hidden},
+        yearBuilt: {requirement: hidden},
+        unemployment_num: {requirement: hidden},
+        bop: {
+            requirement: hidden,
+            sprinklerEquipped: {requirement: hidden},
+            fireAlarmType: {requirement: hidden},
+            roofingImprovementYear: {requirement: hidden},
+            wiringImprovementYear: {requirement: hidden},
+            heatingImprovementYear: {requirement: hidden},
+            plumbingImprovementYear: {requirement: hidden}
         }
     }
 };
@@ -192,14 +210,32 @@ exports.requiredFields = async(appId) => {
                     break;
             }
         }
+
+
+        // apply agency network overrides
+        let agencyNetworkDB = null;
+        const agencyNetworkBO = new AgencyNetworkBO();
+        try{
+            agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+        }
+        catch(err){
+            log.error("Error getting agencyNetwork doc " + err + __location);
+        }
+
+        if(agencyNetworkDB && agencyNetworkDB.featureJson && agencyNetworkDB.featureJson.appRequirementOverrides){
+            const newRequirements = {};
+            overrideRequiredObject(agencyNetworkDB.featureJson.appRequirementOverrides, requiredFields, newRequirements);
+            requiredFields = newRequirements;
+        }
     }
 
     // TODO: eventually we can make more determinations off the application to decide what is required (and not)
+
     return requiredFields;
 };
-// combine objects, this needs to merge both objects with true taking precedence above false for both required and visible
+// combine objects, this needs to merge both objects with higher values taking precedence
 const combineRequiredObjects = (obj1, obj2, newObj) => {
-    const keysToSkip = ["required", "visible"];
+    const keysToSkip = ["requirement"];
 
     // if we hit the bottom on an object, just set it to empty (the behavior is the same as not providing the prop)
     let object1 = obj1;
@@ -218,49 +254,28 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
     };
     for(const key in navObj){
         if(!keysToSkip.includes(key)){
-            // if the property is provided:
-            // if required is true, visible will be true
-            // if visible is false, required will be false
-            // required takes precedence over visible if "required: true" and "visible: false"
-
-            // if the property is NOT provided:
-            // required is assumed false
-            // visible is assumed true
-
             newObj[key] = {};
 
-            // if the key is not provided for an obj default required to false
-            let obj1Required = Boolean(object1[key]);
-            const checkObj1Required = object1[key] && object1[key].hasOwnProperty("required");
-            if(checkObj1Required){
-                obj1Required = object1[key].required;
+            // if the property is NOT provided:
+            // requirement is assumed optional
+
+            if(!object1[key]){
+                object1[key] = {};
+            }
+            if(!object2[key]){
+                object2[key] = {};
             }
 
-            // if the key is not provided for an obj default required to false
-            let obj2Required = Boolean(object2[key]);
-            const checkObj2Required = object2[key] && object2[key].hasOwnProperty("required");
-            if(checkObj2Required){
-                obj2Required = object2[key].required;
+            if(!object1[key].hasOwnProperty("requirement")){
+                object1[key].requirement = optional;
+            }
+            if(!object2[key].hasOwnProperty("requirement")){
+                object2[key].requirement = optional;
             }
 
-            newObj[key].required = obj1Required || obj2Required;
-
-            // if the key is not provided for an obj default visible to true
-            let obj1Visible = !(object1[key] && object1[key].hasOwnProperty("visible"));
-            const checkObj1Visible = object1[key] && object1[key].hasOwnProperty("visible");
-            if(checkObj1Visible){
-                obj1Visible = object1[key].visible;
-            }
-
-            // if the key is not provided for an obj default visible to true
-            let obj2Visible = !(object2[key] && object2[key].hasOwnProperty("visible"));
-            const checkObj2Visible = object2[key] && object2[key].hasOwnProperty("visible");
-            if(checkObj2Visible){
-                obj2Visible = object2[key].visible;
-            }
-
-            // if required is true, then visible is true
-            newObj[key].visible = newObj[key].required || obj1Visible || obj2Visible;
+            // if the property is provided:
+            // highest value wins, if they are equal it doesn't matter which is assigned
+            newObj[key].requirement = object1[key].requirement > object2[key].requirement ? object1[key].requirement : object2[key].requirement;
 
             combineRequiredObjects(object1[key], object2[key], newObj[key]);
         }
@@ -268,31 +283,57 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
 }
 
 const populateSingleRequiredObject = (obj, newObj) => {
-    const keysToSkip = ["required", "visible"];
+    const keysToSkip = ["requirement"];
 
     // For single object we know all the keys are present
     for(const key in obj){
         if(!keysToSkip.includes(key)){
             newObj[key] = {};
 
-            // if required is provided, check it, otherwise true
-            if(obj[key].hasOwnProperty("required")){
-                newObj[key].required = obj[key].required;
+            // if requirement is provided, check it, otherwise optional
+            if(obj[key].hasOwnProperty("requirement")){
+                newObj[key].requirement = obj[key].requirement;
             }
             else{
-                newObj[key].required = true;
-            }
-
-            // if visible is provided, check it, otherwise true
-            if(obj[key].hasOwnProperty("visible")){
-                // if required is true, then visible is true
-                newObj[key].visible = newObj[key].required || obj[key].visible;
-            }
-            else{
-                newObj[key].visible = true;
+                newObj[key].requirement = optional;
             }
 
             populateSingleRequiredObject(obj[key], newObj[key]);
+        }
+    }
+}
+
+const overrideRequiredObject = (override, requirementObj, newObj) => {
+    const keysToSkip = ["requirement"];
+
+    // if we hit the bottom on an object, just set it to empty (the behavior is the same as not providing the prop)
+    if(!override){
+        override = {};
+    }
+    if(!requirementObj){
+        requirementObj = {};
+    }
+
+    // combine the objects to make an amalgamation to use for navigating the keys
+    const navObj = {
+        ...override,
+        ...requirementObj
+    };
+    for(const key in navObj){
+        if(!keysToSkip.includes(key)){
+            newObj[key] = {};
+
+            // if the override does not have the key, populate it with the original value
+            // if the override didnt provide a requirement, use the original value
+            if(!override[key] || !override[key].hasOwnProperty("requirement")){
+                newObj[key].requirement = requirementObj[key].requirement;
+            }
+            // otherwise use the override value
+            else{
+                newObj[key].requirement = override[key].requirement;
+            }
+
+            overrideRequiredObject(override[key], requirementObj[key], newObj[key]);
         }
     }
 }

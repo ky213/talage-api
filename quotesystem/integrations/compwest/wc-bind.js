@@ -6,6 +6,9 @@ const moment = require('moment');
 const htmlentities = require('html-entities').Html5Entities;
 // const util = require('util');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const util = require('util');
+const xmlToObj = util.promisify(require('xml2js').parseString);
 
 class CompuwestBind extends Bind {
     async bind() {
@@ -94,7 +97,20 @@ class CompuwestBind extends Bind {
             return "error";
             //throw new Error(JSON.stringify(error));
         }
-        if (!result && !result.data || !result.data.ACORD) {
+        if (result?.data && !result?.data?.ACORD) {
+            //Axios did not parse xml to json for us.
+            //try to fix it .
+            try {
+                const xml2JsonObj = await xmlToObj(result?.data);
+                log.debug(JSON.stringify(xml2JsonObj) + __location)
+                result.data = JSON.parse(JSON.stringify(xml2JsonObj));
+            }
+            catch (error) {
+                log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response not XML: ${JSON.stringify(result.data)} ${__location}`);
+            }
+
+        }
+        if (!result?.data?.ACORD) {
             if(result){
                 log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response no ACORD node: ${JSON.stringify(result.data)} ${__location}`);
                 log.error(result.data);
@@ -108,7 +124,7 @@ class CompuwestBind extends Bind {
             }
             return "error";
         }
-        log.debug(`typeof result.data.ACORD ${typeof result.data.ACORD}` + __location)
+        log.debug(`typeof result.data.ACORD ${typeof result?.data?.ACORD}` + __location)
         const res = result.data.ACORD;
         let status = ''
         try{
@@ -143,9 +159,11 @@ class CompuwestBind extends Bind {
             return "updated"
         }
         else if (status === 'REFERRALNEEDED'){
+            log.info(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response - REFERRALNEEDED ${__location}`);
             return "updated"
         }
         else if (status === 'SMARTEDITS'){
+            log.info(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response - SMARTEDITS ${__location}`);
             return "updated"
         }
         else if (status === "ERROR"){
@@ -263,7 +281,17 @@ class CompuwestBind extends Bind {
 
         // <CommlPolicySupplement>
         const PaymentOption = CommlPolicy.ele('PaymentOption');
-        PaymentOption.ele('PaymentPlanCd', "bcpayplan:11");
+        let afPaymentPlanCode = "bcpayplan:11";
+        const paymentPlanMap = {
+            "1": "bcpayplan:11",
+            "2": "bcpayplan:10",
+            "3": "bcpayplan:9",
+            "4": "bcpayplan:1"
+        }
+        if(paymentPlanMap[this.quote.paymentPlanId.toString().trim()]){
+            afPaymentPlanCode = paymentPlanMap[this.quote.paymentPlanId.toString().trim()]
+        }
+        PaymentOption.ele('PaymentPlanCd',afPaymentPlanCode);
         const Location = WorkCompPolicyAddRq.ele('Location');
         Location.att('id', `l1`);
         let cCount = 1;
@@ -288,7 +316,7 @@ class CompuwestBind extends Bind {
                         CommlNameAddInfo.ele('Type',"Company");
                         const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                         DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-                        DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                        DBATaxIdentity.ele('TaxId',stringFunctions.santizeNumber(additionalInsured.ein,false));
                         DBANameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
                         // </NameInfo>
                         // <Addr>
@@ -343,7 +371,7 @@ class CompuwestBind extends Bind {
                     }
                     CommlNameAddInfo.ele('Type',taxIdType === 'FEIN' ? "Company" : "Person");
                     DBATaxIdentity.ele('TaxIdTypeCd', taxIdType);
-                    DBATaxIdentity.ele('TaxCd',additionalInsured.ein);
+                    DBATaxIdentity.ele('TaxId',stringFunctions.santizeNumber(additionalInsured.ein,false));
                     nameInsuredNameInfo.ele('LegalEntityCd', entityMatrix[additionalInsured.entityType]);
                     // </NameInfo>
                     // <Addr>
@@ -393,9 +421,6 @@ class CompuwestBind extends Bind {
                         const SupplementaryNameInfo = CommlNameAddInfo.ele('SupplementaryNameInfo');
                         SupplementaryNameInfo.ele('SupplementaryName',officerMap[owner.officerTitle]);
                     }
-                    // const DBATaxIdentity = nameInsuredNameInfo.ele('TaxIdentity');
-                    // DBATaxIdentity.ele('TaxIdTypeCd', 'SSN');
-                    // DBATaxIdentity.ele('TaxCd',owner.ein);
                     nameInsuredNameInfo.ele('LegalEntityCd', 'Individual');
                     // </NameInfo>
                     // <Addr>
@@ -494,29 +519,31 @@ class CompuwestBind extends Bind {
         catch(err){
             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error additionalInsuredList owner processing ${err} ` + __location);
         }
+        // only add WorkCompLineBusiness if there is waivers
         // <WorkCompLineBusiness>
-        const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
+        if(policy.waiverSubrogationList && policy.waiverSubrogationList.length > 0){
+            const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
 
-        // Separate out the states
-        const territories = [];
+            // Separate out the states
+            const territories = [];
 
-        appDoc.locations.forEach(function(loc) {
-            if (!territories.includes(loc.state)) {
-                territories.push(loc.state);
+            appDoc.locations.forEach(function(loc) {
+                if (!territories.includes(loc.state)) {
+                    territories.push(loc.state);
+                }
+            });
+
+            for(let t = 0; t < territories.length; t++){
+                //territories.forEach((territory) => {
+                const territory = territories[t];
+                // <WorkCompRateState>
+                const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
+                //<StateProvCd>CA</StateProvCd>
+                WorkCompRateState.ele('StateProvCd', territory);
+
+                // </WorkCompRateState>
             }
-        });
-
-        for(let t = 0; t < territories.length; t++){
-            //territories.forEach((territory) => {
-            const territory = territories[t];
-            // <WorkCompRateState>
-            const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-            //<StateProvCd>CA</StateProvCd>
-            WorkCompRateState.ele('StateProvCd', territory);
-
-            // </WorkCompRateState>
         }
-
 
         /* ---=== End Ineligibility and Statement Questions ===--- */
 

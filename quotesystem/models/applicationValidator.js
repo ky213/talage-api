@@ -135,10 +135,15 @@ const validateBusiness = (applicationDocData) => {
      * - Must be a 5 digit string
      */
     if (applicationDocData.mailingZipcode) {
+        applicationDocData.mailingZipcode = applicationDocData.mailingZipcode.slice(0,5);
         //let 9 digit zipcodes process. log an error
         if (!validator.isZip(applicationDocData.mailingZipcode)) {
-            log.error(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
+            log.warn(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
+            if(applicationDocData.mailingZipcode.length > 5){
+                applicationDocData.mailingZipcode = applicationDocData.mailingZipcode.slice(0,5);
+            }
         }
+
     }
     else {
         log.error('Missing required field: business mailingZipcode' + __location);
@@ -319,7 +324,8 @@ const validateContacts = async(applicationDocData) => {
             contact.phone = parseInt(contact.phone, 10);
         }
         else {
-            throw new Error('Phone number is required');
+            // throw new Error('Phone number is required');
+            log.warn(`Application contact validation: Phone number not provided.`);
         }
     }
 }
@@ -355,24 +361,37 @@ const validateLocations = (applicationDocData) => {
         //     }
         // }
 
-        /**
-         * Full-Time Employees
-         * - Integer (enforced with parseInt() on load())
-         * - >= 0
-         * - <= 99,999
-         */
-        if (isNaN(location.full_time_employees) || location.full_time_employees < 0 || location.full_time_employees > 255) {
-            throw new Error('full_time_employees must be an integer between 0 and 255 inclusive');
-        }
+        // Employee count needs to be redone for new data structure
 
-        /**
-         * Part-Time Employees
-         * - Integer (enforced with parseInt() on load())
-         * - >= 0
-         * - <= 99,999
-         */
-        if (isNaN(location.part_time_employees) || location.part_time_employees < 0 || location.part_time_employees > 255) {
-            throw new Error('part_time_employees must be an integer between 0 and 255 inclusive');
+        const hasWCPolicy = Boolean(applicationDocData.policies.filter(policy => policy === "WC").length);
+
+        if(hasWCPolicy){
+
+            /**
+             * Full-Time Employees
+             * - Integer (enforced with parseInt() on load())
+             * - >= 0
+             * - <= 99,999
+             */
+            if (location.full_time_employees && isNaN(location.full_time_employees) || location.full_time_employees < 0 || location.full_time_employees > 255) {
+                throw new Error('full_time_employees must be an integer between 0 and 255 inclusive');
+            }
+            else if(!location.full_time_employees){
+                location.full_time_employees = 0;
+            }
+
+            /**
+             * Part-Time Employees
+             * - Integer (enforced with parseInt() on load())
+             * - >= 0
+             * - <= 99,999
+             */
+            if (location.part_time_employees && (isNaN(location.part_time_employees) || location.part_time_employees < 0 || location.part_time_employees > 255)) {
+                throw new Error('part_time_employees must be an integer between 0 and 255 inclusive');
+            }
+            else if(!location.part_time_employees){
+                location.part_time_employees = 0;
+            }
         }
 
         // Validate square footage
@@ -388,8 +407,9 @@ const validateLocations = (applicationDocData) => {
             }
         }
 
-        // Validate zip
+        // Validate zip - remove formatting "-"
         if (location.zipcode) {
+            location.zipcode = location.zipcode.slice(0,5);
             if (!validator.isZip(location.zipcode)) {
                 log.error('Invalid formatting for location: mailing_zip. Expected 5 or 9 digit format. actual zip: ' + location.zipcode + __location)
                 throw new Error('Invalid formatting for location: zip. Expected 5 or 9 digit format');

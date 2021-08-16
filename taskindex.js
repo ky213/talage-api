@@ -19,6 +19,7 @@ global.DIGALENT_AGENCYNETWORK_ID = 2;
 const colors = require('colors');
 
 const logger = require('./shared/services/logger.js');
+
 const globalSettings = require('./settings.js');
 const utility = require('./shared/helpers/utility.js');
 const taskDistributor = require('./tasksystem/task-distributor.js');
@@ -113,8 +114,19 @@ async function main(){
         // leave rest of API functional.
         //return;
     }
+
+    if(!await redisSvc.connectReadOnly()){
+        logLocalErrorMessage('Error connecting to redis.');
+        //Only used by QuoteApp V2 and public API.
+        // leave rest of API functional.
+        //return;
+    }
+
+
     //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
     global.redisSvc = redisSvc;
+    log.info('Startup Redis Svc')
+
 
     // MONGO
     var mongoose = require('./mongoose');
@@ -164,7 +176,7 @@ async function startQueueProcessing() {
     if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
-        const taskJson = {"taskname": "abandonquote"};
+        const taskJson = {"taskname": "quotereport"};
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
         const testMessage = {

@@ -165,6 +165,7 @@ module.exports = class Application {
                     questionJSON[question.questionId] = question.answerId
                 }
             }
+            //dead.....
             this.questions = questionJSON
         }
 
@@ -212,6 +213,15 @@ module.exports = class Application {
         }
         if(!this.applicationDocData.numOwners && this.applicationDocData.owners.length > 0){
             this.applicationDocData.numOwners = this.applicationDocData.owners.length
+            this.applicationDocData.owners.forEach((owner) => {
+                // do not auto set percent ownership.
+                // it may be an officer/Manager who does
+                // not own any part of Crop (LLC that has hired a manager)
+                if(!owner.ownership){
+                    owner.ownership = 0;
+                }
+            });
+
         }
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
@@ -413,43 +423,63 @@ module.exports = class Application {
         // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
+        const industryCodeStringArray = [];
+        if(this.applicationDocData.industryCode){
+            industryCodeStringArray.push(this.applicationDocData.industryCode);
+        }
+        const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy){
+            industryCodeStringArray.push(this.applicationDocData.bopIndustryCodeId.toString());
+        }
+
+
+
+
+
         let talageQuestionDefList = null;
         try {
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
-            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
-            log.info(`Got questions Quoting Application Model loading questions for ${this.id} ` + __location)
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
             //throw e;
         }
         // Grab the answers the user provided to our questions and reset the question object
-        const user_questions = this.questions;
-        this.questions = {};
 
+        this.questions = {};
         // Convert each question from the database into a question object and load in the user's answer to each
         if (talageQuestionDefList) {
             //await questions.forEach((question) => {
             for (const questionDef of talageQuestionDefList) {
+                //log.debug(`questionDef ${JSON.stringify(questionDef)}`)
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
                 q.load(questionDef);
 
                 // Load the user's answer
-                if (user_questions) {
-                    if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
-                        const user_answer = user_questions[q.id];
-
+                //work with Application dataa
+                if (this.applicationDocData.questions) {
+                    const appQuestionJSON = this.applicationDocData.questions.find((appQ) => appQ.questionId === questionDef.talageQuestionId)
+                    if (appQuestionJSON) {
+                        //log.debug(`setting answer for ${questionDef.talageQuestionId}`)
+                        //TODO refactor to so question has appId;
                         try {
-                            q.set_answer(user_answer);
+                            q.set_answer(appQuestionJSON);
                         }
                         catch (e) {
-                            throw e;
+                            //do not stop porcess with throwing an error.  Caused Production problem.
+                            //log the issue
+                            //throw e;
+                            log.error(`AppId: ${this.id} set answer for ${q.id} problem ${e} ` + __location);
                         }
                     }
                 }
 
                 // Store the question object in the Application for later use
+                // NOTE this technique may result in the JSON property by a string or an integer.  - causes problems.
+                //          TODO convert quoting to use array not JSON object
                 this.questions[q.id] = q;
             }
         }
@@ -1217,7 +1247,7 @@ module.exports = class Application {
                         }
                         catch (e) {
                             // This issue should not result in a stoppage of quoting with all insurers
-                            log.error(`Failed validating question ${question.questionId}: ${e}. ` + __location);
+                            log.error(`AppId ${this.id} Failed validating question ${question.questionId}: ${e}. ` + __location);
                         }
                     }
                 }
@@ -1226,7 +1256,7 @@ module.exports = class Application {
             // Check agent support
             await this.agencyLocation.supports_application().catch(function(error) {
                 // This issue should not result in a stoppage of quoting with all insureres - BP 2020-10-04
-                log.error('agencyLocation.supports_application() error ' + error + __location);
+                log.error(`agencyLocation.supports_application() error ` + error + __location);
             });
 
             fulfill(true);

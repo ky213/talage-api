@@ -16,7 +16,7 @@ const IndustryCodeSchema = new Schema({
     talageIndustryCodeUuid: {type: String, required: [true, 'talageIndustryCodeUuid required'], unique: true},
     industryCodeId: {type: Number, required: [true, 'industryCodeId required']},
     industryCodeCategoryId: {type: Number},
-    featured:{type: Boolean, default: true},
+    featured:{type: Boolean, default: false},
     naics: {type: String, required: false},
     cgl: {type: String, required: false},
     sic: {type: String, required: false},
@@ -29,6 +29,7 @@ const IndustryCodeSchema = new Schema({
     primaryActivityCodeId: {type: Number, required: false}, //used when InsurerId only want the primary ActivityCode for the industry
     alternateNames: [String],
     attributes: {type: Schema.Types.Mixed},
+    parentIndustryCodeId: {type: Number, required: false},
     active: {type: Boolean, default: true}
 },opts)
 

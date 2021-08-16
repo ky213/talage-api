@@ -75,7 +75,10 @@ var activityCodeCacheUpdate = async function(){
         "NV",
         "NY",
         "AZ",
-        "TX"]
+        "TX",
+        "NC",
+        "PA",
+        "VA"]
 
     let territoryList = [];
     let error = null;
@@ -108,6 +111,7 @@ var activityCodeCacheUpdate = async function(){
         // get all non-deleted agencies
         const query = {
             active: true,
+            talageStandard: true,
             featured: true
         };
         industryCodeList = await IndustryCode.find(query);

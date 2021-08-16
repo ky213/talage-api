@@ -236,8 +236,10 @@ async function getApplication(req, res, next) {
                 for (const quoteLimit of quoteJSON.limits) {
                     try {
                         const limit = await limitsModel.getById(quoteLimit.limitId);
-                        // NOTE: frontend expects a string.
-                        limitsList[limit.description] = `${quoteLimit.amount}`;
+                        if(limit?.description){
+                            // NOTE: frontend expects a string.
+                            limitsList[limit.description] = `${quoteLimit.amount}`;
+                        }
                     }
                     catch (err) {
                         log.error(`Could not get limits for ${quoteJSON.insurerId}:` + err + __location);
@@ -392,8 +394,24 @@ async function setupReturnedApplicationJSON(applicationJSON){
 
     // process location for Activity Code Description
     if(applicationJSON.locations && applicationJSON.locations.length > 0){
+
+        // figure out if a location is already set to primary
+        const hasPrimary = applicationJSON.locations.some(loc => loc.primary === true);
+
         for(let i = 0; i < applicationJSON.locations.length; i++){
             const location = applicationJSON.locations[i];
+            
+            // make sure primary (address) boolean is present
+            // if both exist they could be different, so only do this if billing is present and primary is not
+            if(location.hasOwnProperty("billing") && !location.hasOwnProperty("primary")){
+                if(hasPrimary) {
+                    location.primary = false;
+                }
+                else {
+                    location.primary = location.billing;
+                }
+            }
+
             if(location.activityPayrollList && location.activityPayrollList.length > 0){
                 const activityCodeBO = new ActivityCodeBO();
                 for(let j = 0; j < location.activityPayrollList.length; j++){
@@ -1536,7 +1554,10 @@ async function GetResources(req, res, next){
         "Pres-Secy",
         "VP-Treas",
         "VP-Secy-Treas",
-        "VP-Secy"
+        "VP-Secy",
+        "Member",
+        "Manager"
+
     ];
 
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
@@ -1954,6 +1975,30 @@ async function markQuoteAsDead(req, res, next){
     return next();
 }
 
+
+async function GetBopCodes(req, res, next){
+    let bopIcList = null;
+    try{
+        const applicationBO = new ApplicationBO();
+        bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!bopIcList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, bopIcList);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1971,6 +2016,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
+    server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage')
 
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
