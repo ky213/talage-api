@@ -135,6 +135,7 @@ const validateBusiness = (applicationDocData) => {
      * - Must be a 5 digit string
      */
     if (applicationDocData.mailingZipcode) {
+        applicationDocData.mailingZipcode = applicationDocData.mailingZipcode.slice(0,5);
         //let 9 digit zipcodes process. log an error
         if (!validator.isZip(applicationDocData.mailingZipcode)) {
             log.warn(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
@@ -406,8 +407,9 @@ const validateLocations = (applicationDocData) => {
             }
         }
 
-        // Validate zip
+        // Validate zip - remove formatting "-"
         if (location.zipcode) {
+            location.zipcode = location.zipcode.slice(0,5);
             if (!validator.isZip(location.zipcode)) {
                 log.error('Invalid formatting for location: mailing_zip. Expected 5 or 9 digit format. actual zip: ' + location.zipcode + __location)
                 throw new Error('Invalid formatting for location: zip. Expected 5 or 9 digit format');

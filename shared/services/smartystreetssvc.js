@@ -9,7 +9,7 @@ const smartyestreetsAuthToken = "IMdKxY0M3wKJzAms36ZY";
 const smartStreetUrl = `https://us-zipcode.api.smartystreets.com/lookup?auth-id=${smartyestreetsAuthId}&auth-token=${smartyestreetsAuthToken}`
 
 exports.checkAddress = async function(streetAddress, city, state, zipCode) {
-    let requestUrl = smartStreetUrl;
+    let requestUrl = `https://us-street.api.smartystreets.com/street-address?auth-id=${smartyestreetsAuthId}&auth-token=${smartyestreetsAuthToken}`;
     // Build the request
     if (streetAddress) {
         requestUrl += "&street=" + encodeURI(streetAddress);
@@ -38,21 +38,33 @@ exports.checkAddress = async function(streetAddress, city, state, zipCode) {
     if (smartystreetsResponse.data.length > 0) {
         // Get the first address response
         const addressData = smartystreetsResponse.data[0];
-        if (addressData.hasOwnProperty("status")) {
+        if (addressData?.analysis?.dpv_match_code === "Y") {
+            const addressInfo = {
+                address: addressData.delivery_line_1,
+                city: addressData.components.city_name,
+                state: addressData.components.state_abbreviation,
+                zipcode: addressData.components.zipcode,
+                county: addressData.metadata.county_name
+            }
+            return addressInfo
+        }
+        else {
             // If there is a "status" property, return the error in the "reason" property
             return {
                 error: "SmartyStreets could not validate the address",
-                errorReason: addressData.reason
+                errorReason: addressData?.reason ? addressData?.reason : "Not Found"
             };
         }
-        if (addressData.zipcodes.length > 0) {
-            // Return the first address record
-            return {addressInformation: addressData.zipcodes[0]};
-        }
+    }
+    else {
+        return {
+            error: "SmartyStreets could not validate the address",
+            errorReason: "Not Found"
+        };
     }
     // We received an unexpected error. Log it as an error.
-    log.error(`SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)} ${__location}`);
-    return {error: `SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)}`};
+    // log.error(`SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)} ${__location}`);
+    // return {error: `SmartyStreets returned an unrecognized response: ${JSON.stringify(smartystreetsResponse.data, null, 4)}`};
 };
 
 exports.checkZipCode = async function(zipCode){
