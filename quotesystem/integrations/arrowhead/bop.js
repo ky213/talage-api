@@ -24,7 +24,6 @@ const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
 const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
-const fs = require('fs'); // zy debug remove
 
 let logPrefix = "";
 const MAX_RETRY_ATTEMPTS = 10;
@@ -194,10 +193,6 @@ module.exports = class ArrowheadBOP extends Integration {
         this.log += `URL: ${host}${path}<br><br>`;
         this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
-        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/app.json', JSON.stringify(this.app, null, 4)); // zy debug remove
-        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/appDocData.json', JSON.stringify(applicationDocData, null, 4)); // zy debug remove
-        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/request.json', JSON.stringify(requestJSON, null, 4)); // zy debug remove
-        fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/industryCode.json', JSON.stringify(this.industry_code, null, 4)); // zy debug remove
 
         let result = null;
         const headers = {
@@ -215,7 +210,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 // advantage of the logging done implicitly by this method...
                 // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
                 result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
-                fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/response.json', JSON.stringify(result.data, null, 4)); // zy debug remove
             } catch(e) {
                 const errorMessage = `There was an error sending the application request: ${e}`;
                 log.error(logPrefix + errorMessage + __location);
@@ -465,8 +459,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 liabPayroll += activityPayroll.employeeTypeList.reduce((payroll, employeeType) => payroll + employeeType.employeeTypePayroll, 0);
             }
 
-            fs.writeFileSync('/Users/talageuser/Desktop/arrowhead-bop/insurerIndustryCode.json', JSON.stringify(this.insurerIndustryCode, null, 4)); // zy debug remove
-
             const locationObj = {
                 countyName: zipCodeDoc.county,
                 city: location.city,
@@ -494,7 +486,7 @@ module.exports = class ArrowheadBOP extends Integration {
                             plumbingUpdates: location.bop.plumbingImprovementYear,
                             electricalUpdates: location.bop.wiringImprovementYear
                         },
-                        sprinklered: location.bop.sprinklerEquipped ? location.bop.sprinklerEquipped : false, // zy debug fix, we shoudl always have "sprinklered" on the application right?
+                        sprinklered: location.bop.sprinklerEquipped,
                         numStories: location.numStories, 
                         coverages: {
                             // this is required because classTag is set to "SALES"
