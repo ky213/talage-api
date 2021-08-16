@@ -7,6 +7,8 @@ const htmlentities = require('html-entities').Html5Entities;
 // const util = require('util');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const util = require('util');
+const xmlToObj = util.promisify(require('xml2js').parseString);
 
 class CompuwestBind extends Bind {
     async bind() {
@@ -95,7 +97,20 @@ class CompuwestBind extends Bind {
             return "error";
             //throw new Error(JSON.stringify(error));
         }
-        if (!result && !result.data || !result.data.ACORD) {
+        if (result?.data && !result?.data?.ACORD) {
+            //Axios did not parse xml to json for us.
+            //try to fix it .
+            try {
+                const xml2JsonObj = await xmlToObj(result?.data);
+                log.debug(JSON.stringify(xml2JsonObj) + __location)
+                result.data = JSON.parse(JSON.stringify(xml2JsonObj));
+            }
+            catch (error) {
+                log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response not XML: ${JSON.stringify(result.data)} ${__location}`);
+            }
+
+        }
+        if (!result?.data?.ACORD) {
             if(result){
                 log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response no ACORD node: ${JSON.stringify(result.data)} ${__location}`);
                 log.error(result.data);
@@ -109,7 +124,7 @@ class CompuwestBind extends Bind {
             }
             return "error";
         }
-        log.debug(`typeof result.data.ACORD ${typeof result.data.ACORD}` + __location)
+        log.debug(`typeof result.data.ACORD ${typeof result?.data?.ACORD}` + __location)
         const res = result.data.ACORD;
         let status = ''
         try{
@@ -144,9 +159,11 @@ class CompuwestBind extends Bind {
             return "updated"
         }
         else if (status === 'REFERRALNEEDED'){
+            log.info(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response - REFERRALNEEDED ${__location}`);
             return "updated"
         }
         else if (status === 'SMARTEDITS'){
+            log.info(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response - SMARTEDITS ${__location}`);
             return "updated"
         }
         else if (status === "ERROR"){
