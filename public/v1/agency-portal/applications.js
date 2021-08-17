@@ -461,7 +461,7 @@ async function getApplications(req, res, next){
     // eslint-disable-next-line array-element-newline
     const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
     // Add a text search clause if requested
-    if (req.params.searchText && req.params.searchText.length > 0){
+    if (req.params.searchText && req.params.searchText.length > 1){
         noCacheUse = true;
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
@@ -471,7 +471,7 @@ async function getApplications(req, res, next){
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
         let industryCodeQuery = {};
-        if(req.params.searchText.length > 1){
+        if(req.params.searchText.length > 2){
             industryCodeQuery.description = req.params.searchText
             const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
                 log.error("industryCodeBO List load error " + err + __location);
@@ -492,15 +492,19 @@ async function getApplications(req, res, next){
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
-        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
-        const mailingState = {mailingState: `%${req.params.searchText}%`}
+
         const businessName = {businessName: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
-
-        orClauseArray.push(mailingCity);
-        orClauseArray.push(mailingState);
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
+
+        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
+        orClauseArray.push(mailingCity);
+
+        if(req.params.searchText.length === 2){
+            const mailingState = {mailingState: `%${req.params.searchText}%`}
+            orClauseArray.push(mailingState);
+        }
 
         if(req.params.searchText.length > 2){
             const uuid = {uuid: `%${req.params.searchText}%`}
