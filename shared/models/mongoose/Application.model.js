@@ -259,6 +259,7 @@ const ApplicationSchema = new Schema({
     abandonedAppEmail:  {type: Boolean, default: false},
     optedOutOnlineEmailsent:  {type: Boolean, default: false},
     optedOutOnline:  {type: Boolean, default: false},
+    stoppedAfterPricing:  {type: Boolean, default: false},
     processStateOld: {type: Number, default: 1},
     referrer: {type: String, required: false},
     industryCode: {type: String, required: false},
