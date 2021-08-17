@@ -461,7 +461,7 @@ async function getApplications(req, res, next){
     // eslint-disable-next-line array-element-newline
     const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
     // Add a text search clause if requested
-    if (req.params.searchText && req.params.searchText.length > 0){
+    if (req.params.searchText && req.params.searchText.length > 1){
         noCacheUse = true;
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
@@ -471,7 +471,7 @@ async function getApplications(req, res, next){
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
         let industryCodeQuery = {};
-        if(req.params.searchText.length > 1){
+        if(req.params.searchText.length > 2){
             industryCodeQuery.description = req.params.searchText
             const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
                 log.error("industryCodeBO List load error " + err + __location);
@@ -492,15 +492,19 @@ async function getApplications(req, res, next){
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
-        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
-        const mailingState = {mailingState: `%${req.params.searchText}%`}
+
         const businessName = {businessName: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
-
-        orClauseArray.push(mailingCity);
-        orClauseArray.push(mailingState);
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
+
+        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
+        orClauseArray.push(mailingCity);
+
+        if(req.params.searchText.length === 2){
+            const mailingState = {mailingState: `%${req.params.searchText}%`}
+            orClauseArray.push(mailingState);
+        }
 
         if(req.params.searchText.length > 2){
             const uuid = {uuid: `%${req.params.searchText}%`}
@@ -599,9 +603,9 @@ async function getApplications(req, res, next){
 
     // eslint-disable-next-line prefer-const
     let requestParms = JSON.parse(JSON.stringify(req.params));
-    let applicationsTotalCount = 0;
-    let applicationsSearchCount = 0;
 
+    let applicationsSearchCount = 0;
+    let applicationsTotalCount = 0;
     const applicationBO = new ApplicationBO();
 
     let applicationList = [];
@@ -619,7 +623,7 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON, noCacheUse)
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
         for (const application of applicationList) {
@@ -659,33 +663,35 @@ async function getApplications(req, res, next){
         res.end(csvData);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
+        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
         return next();
 
     }
     else {
         // Exit with default values if no applications were received
         if (!applicationList || !applicationList.length){
+            // Removed applicationsTotalCount after Sept 1st, 2021
             res.send(200, {
                 "applications": [],
                 "applicationsSearchCount": 0,
-                "applicationsTotalCount": applicationsTotalCount
+                "applicationsTotalCount": 1
             });
             return next();
         }
 
 
         // Build the response
+        // Removed applicationsTotalCount after Sept 1st, 2021
         const response = {
             "applications": applicationList,
             "applicationsSearchCount": applicationsSearchCount,
-            "applicationsTotalCount": applicationsTotalCount
+            "applicationsTotalCount": 1
         };
         // Return the response
         res.send(200, response);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} request parms ${JSON.stringify(initialRequestParms)}` + __location);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} noCacheUse ${noCacheUse}  request parms ${JSON.stringify(initialRequestParms)}` + __location);
         return next();
     }
 }
