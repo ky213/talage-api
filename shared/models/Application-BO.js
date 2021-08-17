@@ -1801,7 +1801,7 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, noCacheUse = false, forceRedisUpdate = false){
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCount = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
             log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
@@ -1970,10 +1970,10 @@ module.exports = class ApplicationModel {
                     else if(useRedisCache){
                         //useRedisCache at this point means there is not filter, only date range.
                         const now = moment().utc();
-                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCount < pageSize){
                             addDateFilter = true
                         }
-                        else if(requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                        else if(requestParms.page > 0 || applicationsTotalCount < pageSize){
                             addDateFilter = true
                         }
                     }
