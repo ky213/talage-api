@@ -169,7 +169,7 @@ module.exports = class Question{
                     const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
                     log.error(errorMessage + __location);
                     //logging in calling method.
-                    throw new Error(errorMessage);
+                    //throw new Error(errorMessage);
                 }
             }
 
@@ -184,7 +184,9 @@ module.exports = class Question{
             //issues are logged in calling methods.  It has the applicationId
             // If the answer wasn't numeric, it is wrong
             if (typeof answer !== 'number') {
-                throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+                const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answer} typeof answerId ${typeof answer}`
+                log.error(errorMessage + __location);
+                //throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
             }
 
             // If the answer isn't one of those that are possible
@@ -203,7 +205,9 @@ module.exports = class Question{
                     }
                 }
                 if(found === false){
-                    throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
+                    const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`
+                    log.error(errorMessage + __location);
+                    //throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
                 }
             }
 
