@@ -677,13 +677,12 @@ module.exports = class MarkelWC extends Integration {
                 locationTotalPayroll += apl.payroll;
             });
 
-            console.log(industryCode);
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
                 // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
-                // classCode: industryCode.code,
-                // classCodeDescription: industryCode.description, 
-                naicsReferenceId: industryCode.attributes.NAICSReferenceId, // not required, but can replace classCode and classCodeDescription
+                classCode: industryCode.code,
+                classCodeDescription: industryCode.description, 
+                // naicsReferenceId: industryCode.attributes.NAICSReferenceId, // currently not supported. Can replace class code/description once it is
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
                 annualPayroll: locationTotalPayroll,
