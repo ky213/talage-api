@@ -605,24 +605,22 @@ async function getApplications(req, res, next){
     let requestParms = JSON.parse(JSON.stringify(req.params));
 
     let applicationsSearchCount = 0;
-
+    let applicationsTotalCount = 0;
     const applicationBO = new ApplicationBO();
 
     let applicationList = [];
     try{
-        // no longer needed by the client.
         // eslint-disable-next-line prefer-const
-        // let totalQueryJson = {};
-        // if(query.agencyNetworkId){
-        //     totalQueryJson.agencyNetworkId = query.agencyNetworkId
-        // }
-        // else if(query.agencyId){
-        //     totalQueryJson.agencyId = query.agencyId
-        // }
-        //const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
-        //applicationsTotalCount = applicationsTotalCountJSON.count;
+        let totalQueryJson = {};
+        if(query.agencyNetworkId){
+            totalQueryJson.agencyNetworkId = query.agencyNetworkId
+        }
+        else if(query.agencyId){
+            totalQueryJson.agencyId = query.agencyId
+        }
+        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
+        applicationsTotalCount = applicationsTotalCountJSON.count;
 
-        const applicationsTotalCount = 0;
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
@@ -665,7 +663,7 @@ async function getApplications(req, res, next){
         res.end(csvData);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
+        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
         return next();
 
     }
@@ -693,7 +691,7 @@ async function getApplications(req, res, next){
         res.send(200, response);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} request parms ${JSON.stringify(initialRequestParms)}` + __location);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} noCacheUse ${noCacheUse}  request parms ${JSON.stringify(initialRequestParms)}` + __location);
         return next();
     }
 }
