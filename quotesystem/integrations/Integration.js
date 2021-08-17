@@ -2415,7 +2415,7 @@ module.exports = class Integration {
                             // eslint-disable-next-line guard-for-in
                             this.industry_code.id = industryCodeJson.industryCodeId;
                             for(const prop in industryCodeJson){
-                                if(propsToCopy.indexOf(prop) > -1){
+                                if(propsToCopy.indexOf(prop) > -1 && !this.industry_code.hasOwnProperty(prop)){
                                     this.insurerIndustryCode[prop] = industryCodeJson[prop];
                                     this.industry_code[prop] = industryCodeJson[prop];
                                 }

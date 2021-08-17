@@ -1268,7 +1268,7 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseDB = application;
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
-            await this.updateRedisForAppAddDelete(application.applicationId, application);
+            await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
         }
 
         return mongoUtils.objCleanup(application);
@@ -1763,7 +1763,7 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    async updateRedisForAppAddDelete(appId,applicationJSON){
+    async updateRedisForAppAddDelete(appId,applicationJSON, countChange = 1){
         if(!applicationJSON){
             const query = {"applicationId": appId};
             applicationJSON = await ApplicationMongooseModel.findOne(query);
@@ -1772,9 +1772,28 @@ module.exports = class ApplicationModel {
         if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             let redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId;
             try{
-                const redisResponse = await global.redisSvc.deleteKey(redisKey)
-                if(redisResponse){
-                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        let appCount = parseInt(parsedJSON.value,10);
+                        appCount += countChange
+                        let ttlSeconds = 86400; //1 display
+                        if(appCount > 1000){
+                            //make permanent key.
+                            ttlSeconds = null;
+                        }
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, appCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
                 }
             }
             catch(err){
@@ -1782,9 +1801,28 @@ module.exports = class ApplicationModel {
             }
             redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + applicationJSON.agencyId;
             try{
-                const redisResponse = await global.redisSvc.deleteKey(redisKey)
-                if(redisResponse){
-                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        let appCount = parseInt(parsedJSON.value,10);
+                        appCount += countChange
+                        let ttlSeconds = 86400; //1 display
+                        if(appCount > 1000){
+                            //make permanent key.
+                            ttlSeconds = null;
+                        }
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, appCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
                 }
             }
             catch(err){
@@ -1801,7 +1839,7 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, noCacheUse = false, forceRedisUpdate = false){
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCount = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
             log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
@@ -1970,10 +2008,10 @@ module.exports = class ApplicationModel {
                     else if(useRedisCache){
                         //useRedisCache at this point means there is not filter, only date range.
                         const now = moment().utc();
-                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCount < pageSize){
                             addDateFilter = true
                         }
-                        else if(requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                        else if(requestParms.page > 0 || applicationsTotalCount < pageSize){
                             addDateFilter = true
                         }
                     }
@@ -2170,7 +2208,7 @@ module.exports = class ApplicationModel {
                         let appCount = null;
                         const resp = await global.redisSvc.getKeyValue(redisKey);
                         if(resp.found){
-                            //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                            log.debug(`REDIS: getAppListForAgencyPortalSearch Count got rediskey ${redisKey}`)
                             try{
                                 const parsedJSON = new FastJsonParse(resp.value)
                                 if(parsedJSON.err){
@@ -2190,7 +2228,7 @@ module.exports = class ApplicationModel {
 
                     }
                 }
-
+                log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error("Application.countDocuments error " + err + __location);
                     error = null;
@@ -2202,7 +2240,7 @@ module.exports = class ApplicationModel {
                 }
                 if(useRedisCache === true && redisKey && docCount){
                     try{
-                        const ttlSeconds = 900; //15 minutes
+                        const ttlSeconds = 86400; //1 day
                         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, docCount,ttlSeconds)
                         if(redisResponse && redisResponse.saved){
                             log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
@@ -2242,7 +2280,7 @@ module.exports = class ApplicationModel {
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
                         await this.updateRedisForAppUpdatebyAppId(id);
-                        await this.updateRedisForAppAddDelete(id);
+                        await this.updateRedisForAppAddDelete(id,null , -1);
                     }
 
                 }
