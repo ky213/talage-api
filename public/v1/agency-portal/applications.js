@@ -603,27 +603,29 @@ async function getApplications(req, res, next){
 
     // eslint-disable-next-line prefer-const
     let requestParms = JSON.parse(JSON.stringify(req.params));
-    let applicationsTotalCount = 0;
+
     let applicationsSearchCount = 0;
 
     const applicationBO = new ApplicationBO();
 
     let applicationList = [];
     try{
+        // no longer needed by the client.
         // eslint-disable-next-line prefer-const
-        let totalQueryJson = {};
-        if(query.agencyNetworkId){
-            totalQueryJson.agencyNetworkId = query.agencyNetworkId
-        }
-        else if(query.agencyId){
-            totalQueryJson.agencyId = query.agencyId
-        }
-        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
-        applicationsTotalCount = applicationsTotalCountJSON.count;
+        // let totalQueryJson = {};
+        // if(query.agencyNetworkId){
+        //     totalQueryJson.agencyNetworkId = query.agencyNetworkId
+        // }
+        // else if(query.agencyId){
+        //     totalQueryJson.agencyId = query.agencyId
+        // }
+        //const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
+        //applicationsTotalCount = applicationsTotalCountJSON.count;
 
+        const applicationsTotalCount = 0;
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCountJSON, noCacheUse)
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
         for (const application of applicationList) {
@@ -670,20 +672,22 @@ async function getApplications(req, res, next){
     else {
         // Exit with default values if no applications were received
         if (!applicationList || !applicationList.length){
+            // Removed applicationsTotalCount after Sept 1st, 2021
             res.send(200, {
                 "applications": [],
                 "applicationsSearchCount": 0,
-                "applicationsTotalCount": applicationsTotalCount
+                "applicationsTotalCount": 1
             });
             return next();
         }
 
 
         // Build the response
+        // Removed applicationsTotalCount after Sept 1st, 2021
         const response = {
             "applications": applicationList,
             "applicationsSearchCount": applicationsSearchCount,
-            "applicationsTotalCount": applicationsTotalCount
+            "applicationsTotalCount": 1
         };
         // Return the response
         res.send(200, response);
