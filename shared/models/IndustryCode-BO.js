@@ -62,7 +62,7 @@ module.exports = class IndustryCodeBO{
         });
     }
 
-    getList(requestQueryJSON) {
+    getList(requestQueryJSON, getParentDesc = false) {
         return new Promise(async(resolve, reject) => {
 
             if(!requestQueryJSON){
@@ -89,6 +89,9 @@ module.exports = class IndustryCodeBO{
             let error = null;
 
             var queryOptions = {};
+            if(getParentDesc){
+                queryOptions.lean = true
+            }
             queryOptions.sort = {industryCodeId: 1};
             if (queryJSON.sort) {
                 var acs = 1;
@@ -203,9 +206,21 @@ module.exports = class IndustryCodeBO{
                     return;
                 }
                 if(docList && docList.length > 0){
-                    docList.forEach((doc) => {
+                    for(const doc of docList) {
                         doc.id = doc.industryCodeId
-                    })
+                        if(getParentDesc && doc.parentIndustryCodeId > 0){
+                            try{
+                                const parentIC = await IndustryCode.findOne({industryCodeId: doc.parentIndustryCodeId});
+                                if(parentIC){
+                                    doc.parentDesc = parentIC.description
+                                }
+                            }
+                            catch (err) {
+                                log.error(`IC parent error: ${err}` + __location);
+                            }
+
+                        }
+                    }
                     resolve(docList);
                 }
                 else {
