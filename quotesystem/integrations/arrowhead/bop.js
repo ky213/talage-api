@@ -548,7 +548,12 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "automaticIncr":
-                    bbopSet.automaticIncr = this.convertToInteger(answer);
+                    if (answer === 'No Building Coverage') {
+                        bbopSet.automaticIncr = 0;
+                    }
+                    else {
+                        bbopSet.automaticIncr = this.convertToInteger(answer);
+                    }
                     break;
                 case "medicalExpenses":
                     bbopSet.medicalExpenses = answer;
