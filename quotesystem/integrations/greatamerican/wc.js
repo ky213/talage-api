@@ -73,7 +73,7 @@ module.exports = class GreatAmericanWC extends Integration {
             id: c.code,
             value: c.attributes.classIndustry
         }));
-        if(!sessionCodes[0].id || !sessionCodes[0].value){
+        if(!sessionCodes[0]?.id || !sessionCodes[0]?.value){
             log.error(`${logPrefix}Bad session Code ${JSON.stringify(sessionCodes)}. ` + __location);
             this.reasons.push(`Bad session Code ${JSON.stringify(sessionCodes)}`);
         }
@@ -103,8 +103,8 @@ module.exports = class GreatAmericanWC extends Integration {
             questions[this.question_identifiers[q.id]] = q.answer;
         }
 
-        if (session.newBusiness.workflowControl !== 'CONTINUE') {
-            this.log += `Great American returned a bad workflow control response: ${session.newBusiness.workflowControl} @ ` + __location;
+        if (session.newBusiness?.workflowControl !== 'CONTINUE') {
+            this.log += `Great American returned a bad workflow control response: ${session.newBusiness?.workflowControl} @ ` + __location;
             return this.return_result('declined');
         }
 
