@@ -457,7 +457,7 @@ module.exports = class AMTrustWC extends Integration {
             },
             "NatureOfBusiness": this.industry_code.description,
             "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
-            "YearsInBusiness": this.get_years_in_business(),
+            "YearsInBusiness": this.get_years_in_business() > 99 ? 99 : this.get_years_in_business(),
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
             //"IsIncumbantAgent": false,
