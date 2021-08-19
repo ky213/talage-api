@@ -82,11 +82,11 @@ module.exports = class AMTrustWC extends Integration {
                 if (insurerClassCodeDoc && insurerClassCodeDoc.code) {
                     let addAmtrustClassCode = false;
                     const amTrustCodeSub = insurerClassCodeDoc.code + insurerClassCodeDoc.sub;
-                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === amTrustCodeSub && acc.state === location.state);
+                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === amTrustCodeSub && acc?.state === location.state);
                     if (!amtrustClassCode) {
                         amtrustClassCode = {
                             ncciCode: amTrustCodeSub,
-                            state: location.state,
+                            state: location?.state,
                             payroll: 0,
                             fullTimeEmployees: 0,
                             partTimeEmployees: 0
@@ -153,19 +153,18 @@ module.exports = class AMTrustWC extends Integration {
         return additionalLocationList;
     }
 
-    getOfficers(officerInformationList) {
+    getOfficers(officerInformationList, primaryLocation) {
         const officersList = [];
         let validationError = `Officer Type, Endorsement ID, or Form Type were not provided in AMTrust's response.`;
 
         for (const owner of this.app.applicationDocData.owners) {
             //Need to be primary state not mailing.
-            const primaryLocation = this.app.applicationDocData.locations.find(location => location.primary);
             const state = primaryLocation.state;
             let officerType = null;
             let endorsementId = null;
             let formType = null;
             for (const officerInformation of officerInformationList) {
-                if (officerInformation.State === state) {
+                if (officerInformation?.State === state) {
                     officerType = officerInformation.OfficerType;
 
                     // add validation errors if they exist - we likely didn't get the endorsement information we need to send a successful request
@@ -338,11 +337,18 @@ module.exports = class AMTrustWC extends Integration {
         // Validation
 
         // Get primary location
-        const primaryLocation = appDoc.locations.find(location => location.primary);
+        let primaryLocation = appDoc.locations.find(location => location.primary);
+        if(!primaryLocation && appDoc.locations.length === 1){
+            primaryLocation = appDoc.locations[0]
+            log.debug(`AmTrust Setting Primary location to the ONLY location \n ${JSON.stringify(primaryLocation)}` + __location)
+        }
+        else if(!primaryLocation) {
+            return this.client_error("Missing a location being marked as the primary location");
+        }
 
         // Per AmTrust e-mail from 2/4/2021, Partnerships in CA require at least 2 partners/owners
         if (appDoc.entityType === "Partnership" &&
-            primaryLocation.state === "CA" &&
+            primaryLocation?.state === "CA" &&
             this.app.business.owners.length < 2) {
             return this.client_declined("AmTrust requires partnerships in CA to have at least 2 partners.");
         }
@@ -430,7 +436,7 @@ module.exports = class AMTrustWC extends Integration {
             return this.client_error(`AMTrust submission requires phone number.`);
         }
 
-        const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
+        const primaryAddressLine = primaryLocation?.address + (primaryLocation?.address2 ? ", " + primaryLocation?.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
         const quoteRequestDataV2 = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
@@ -722,7 +728,7 @@ module.exports = class AMTrustWC extends Integration {
         // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
         if (officerInformation && officerInformation.Data) {
             // Populate the officers
-            const officersResult = this.getOfficers(officerInformation.Data)
+            const officersResult = this.getOfficers(officerInformation.Data, primaryLocation)
             if (Array.isArray(officersResult)) {
                 additionalInformationRequestData.Officers = officersResult;
             }
