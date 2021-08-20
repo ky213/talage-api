@@ -1,10 +1,11 @@
 /* eslint-disable require-jsdoc */
 
 "use strict";
+const ttlSeconds = 3600; // Used for redis storage
 const serverHelper = require("../../../server.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
 
-// dummy endpoint to stimulate routing
 async function getNextRoute(req, res, next){
     // Check that at least some post parameters were received
     // Let basic through with no app id
@@ -24,51 +25,88 @@ async function getNextRoute(req, res, next){
         nextRouteName = "_policies";
     }
     else {
-        nextRouteName = await getRoute(req.query.currentRoute, req.query.appId, req.header('authorization').replace("Bearer ", ""));
+        nextRouteName = await getRoute(req.header('authorization').replace("Bearer ", ""), req.query.currentRoute, req.query.appId);
     }
 
     res.send(200, nextRouteName);
 }
-//, appId, redisKey
-const getRoute = async(currentRoute, appId) => {
-    let app = null;
-    // if redis agency network id then pull it
-    const redisVal = null;
-    // otherwise 
-    if(redisVal ){
-        // if the network Id is not equla to one
-        // grab the network route
-        // if the custom route exists then use it
-        // else nothing the default route will kick in
-    }else {
-        // else grab current id from application
-        app = await getApplication(appId);
-        if(app.agencyNetworkId){
-            // store the networkId into redis
+/**
+ * Gets the next route, if custom route exists for an agency network it utilized that else defaults to the wheelhouse routes flow
+ * @param {string} reqHeader - Request object header
+ * @param {string} currentRoute - The current route of the application flow (not application as in software application)
+ * @param {string} appId - Application Id (application the user is filling out)
+ *
+ * @returns {string}  Returns the next route, either based on the custom flow for agencyNetwork or the default for wheelhouse if one not found
+ */
+const getRoute = async(reqHeader, currentRoute, appId) => {
+    // if our current route is locations, check if we have mailing, 
+    // if we do not have mailing route to the mailing address, else continue through flow bypassing mailing
+    if(currentRoute === "_locations"){
+        const app = await getApplication(appId);
+        log.debug(`app.locations.some(location => location.billing): ${app.locations.some(location => location.billing)}`);
+
+        if(app.locations && app.locations.some(location => location.billing) === true){
+            // since we already have a mailing address, assumption is we will bypass mailing by setting current route to mailing-address
+            currentRoute =  "_mailing-address";
         }
-        // if application agency network is not wheelhouse, currently 1 the do stuff
-        if(app.agencyNetworkId !== 1){
-            const customRoutingFlow = agencyNetworkDB.featureJson.appCustomRoutingFlow;
-            // if there is custom routing flow then 
-            if(customRoutingFlow){
-                // if current route is locations then check to see if application has billing if not then route to billing else route to the customroute
-                if(currentRoute === "_locations"){
-                    if(app.locations && app.locations.some(location => location.billing)){
-                        return customRoutingFlow["_mailing-address"];
-                    }else{
-                        return "_mailing-address";
-                    }
-                }
-                const route = customRoutingFlow[currentRoute];
-                if(route){
-                    return route;
+    }
+    // if redis has agencyNetwork id then grab it
+    const appMetaData = await getApplicationMeta(reqHeader);
+    if(appMetaData){
+        log.debug(`appMetaData from redis ${JSON.stringify(appMetaData)} ${__location}`);
+    }else {
+        log.debug(`No appMetaData found, value returned by redis: ${appMetaData} ${__location}`);
+    }
+    if(appMetaData && appMetaData.agencyNetworkId){
+        // if we have agency network id and it is not 1 we check for custom routes
+        if(appMetaData.agencyNetworkId !== 1){
+            const customRoutesFlow = appMetaData.appCustomRouteFlow;
+            // if we have custom route flow we grab the next route
+            if(customRoutesFlow){
+                const nextRoute = customRoutesFlow[currentRoute];
+                // if the next route exists we return it else we log error and let app continue via default route
+                if(nextRoute){
+                    return nextRoute;
                 }else {
-                    log.error(`Error retrieving custom flow for agencyNetworkId ${app.agencyNetworkId}, application ${appId} ` + __location);
+                    log.warn(`Missing next route for current route ${currentRoute} from appCustomRouteFlow schema for agencyNetwork ${appMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
                 }
             }
         }
+    }else {
+        // We don't have agency networkId so we will grab it from application
+        const app = await getApplication(appId);
+        const agencyNetworkId = app.agencyNetworkId;
+        log.debug(`agencyNetworkId ${agencyNetworkId}`);
+        // If we have agencyNetworkId
+        if(agencyNetworkId){
+            // Save agencyNetworkId into redis
+            await putApplicationMeta(reqHeader, {'agencyNetworkId': agencyNetworkId});
+            // If agencyNetworkId is not 1 we will see if the agencyNetorkFeatures object has an appCustomRouteFlow object
+            if(agencyNetworkId !== 1){
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
+                const customRouteFlowObj = agencyNetworkDB.featureJson.appCustomRouteFlow;
+                if(customRouteFlowObj){
+                    // If there is a custom route flow we will save it into redis
+                    await putApplicationMeta(reqHeader, {'appCustomRouteFlow': customRouteFlowObj});
+                    // we will grab the next route
+                    const nextRoute = customRouteFlowObj[currentRoute];
+                    // if the next route is valid (meaning not undefined or null) we will return it
+                    if(nextRoute){
+                        return nextRoute;
+                    }
+                    else {
+                        // otherwise we will log a warning and continue so default functionality will kick in towards end of function
+                        log.warn(`Missing next route for current route ${currentRoute} from appCustomRouteFlow schema for agencyNetwork ${appMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
+                    }
+                }
+            }
+        }else {
+            // log the warning and continue with default routing
+            log.warn(`Missing agencyNetworkId from app ${appId} ${__location}`);
+        }
     }
-    
+    // Default routes path
     switch(currentRoute){
         case "_policies":
             return "_business-questions"
@@ -79,13 +117,6 @@ const getRoute = async(currentRoute, appId) => {
         case "_claims":
             return "_locations";
         case "_locations":
-            if(app == null){
-                app = await getApplication(appId);
-            }
-            // if there are locations and one is set as the mailing address, skip mailing page
-            if(app.locations && app.locations.some(location => location.billing)){
-                return "_questions";
-            }
             return "_mailing-address";
         case "_mailing-address":
             return "_questions";
@@ -95,11 +126,56 @@ const getRoute = async(currentRoute, appId) => {
             break;
     }
 }
-
+// Returns the Application BO object
 const getApplication = async(appId) => {
     const applicationBO = new ApplicationBO();
     const applicationDB = await applicationBO.getById(appId);
     return applicationDB;
+}
+// Retrieves meta data for an application from Redis
+ const getApplicationMeta = async (reqHeader) => {
+    const redisKey = reqHeader;
+    const redisValue = await global.redisSvc.getKeyValue(redisKey);
+    if(redisValue.found){
+        const redisJSON = JSON.parse(redisValue.value);
+        // Only return the client session
+        if(redisJSON.clientSession){
+            return redisJSON.clientSession;
+        }
+    }
+        return null;
+}
+// Stores (puts) application meta data into Redis
+const putApplicationMeta = async (reqHeader, params) => {
+    if(Object.keys(params).length === 0){
+        log.error(`No Metadata provided for Application ${__location}`);
+        return;
+    }
+    const redisKey = reqHeader;
+    const redisValue = await global.redisSvc.getKeyValue(redisKey);
+    if(redisValue.found){
+        const redisJSON = JSON.parse(redisValue.value);
+        // if clientSession has not been defined yet, define it
+        if(!redisJSON.clientSession)
+        {
+            redisJSON.clientSession = {};
+        }
+        // Save all client redis metadata under clientSession
+        Object.keys(params).forEach(async key => {
+            redisJSON.clientSession[key] = params[key];
+        });
+
+        const redisSetResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(redisJSON), ttlSeconds);
+        if(!redisSetResponse.saved){
+            log.error(`Failed to save for redis key: ${redisKey}` + __location);
+            return;
+        }
+    }else{
+        log.error(`Could not find redis value for key: ${redisKey}` + __location);
+        return;
+    }
+
+    log.debug(`Saved metadata ${JSON.stringify(params)}`);
 }
 
 /* -----==== Endpoints ====-----*/
