@@ -43,8 +43,6 @@ const getRoute = async(reqHeader, currentRoute, appId) => {
     // if we do not have mailing route to the mailing address, else continue through flow bypassing mailing
     if(currentRoute === "_locations"){
         const app = await getApplication(appId);
-        log.debug(`app.locations.some(location => location.billing): ${app.locations.some(location => location.billing)}`);
-
         if(app.locations && app.locations.some(location => location.billing) === true){
             // since we already have a mailing address, assumption is we will bypass mailing by setting current route to mailing-address
             currentRoute =  "_mailing-address";
