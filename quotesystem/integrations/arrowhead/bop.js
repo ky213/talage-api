@@ -137,9 +137,9 @@ module.exports = class ArrowheadBOP extends Integration {
                 commonSet: {
                     stateOfDomicile: applicationDocData.mailingState,
                     classCode: this.insurerIndustryCode.code,
-                    naicsCode: this.industry_code.naics,
+                    naicsCode: this.insurerIndustryCode.attributes['New NAICS'],
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
-                    sicCode: this.industry_code.sic, 
+                    sicCode: this.insurerIndustryCode.attributes['SIC Code'], 
                     state: applicationDocData.mailingState,
                     effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
@@ -477,8 +477,8 @@ module.exports = class ArrowheadBOP extends Integration {
                         industrySegment: "",
                         premOpsILF: "", 
                         classCode: this.insurerIndustryCode.code,
-                        sicCode: `${this.industry_code.sic}`,
-                        naicsCode: this.industry_code.naics,
+                        sicCode: this.insurerIndustryCode.attributes['SIC Code'],
+                        naicsCode: this.insurerIndustryCode.attributes['New NAICS'],
                         yearBuilt: location.yearBuilt,
                         uw: {
                             roofUpdates: location.bop.roofingImprovementYear,
@@ -823,7 +823,7 @@ module.exports = class ArrowheadBOP extends Integration {
             if (applicationDocData.primaryState !== "MN") {
                 bbopSet.coverages.emplia.numNonFTEmp = applicationDocData.locations.reduce((acc, location) => acc + location.part_time_employees, 0);
             }
-            bbopSet.coverages.emplia.sic = this.industry_code.sic;
+            bbopSet.coverages.emplia.sic = this.insurerIndustryCode.attributes['SIC Code'];
         }
 
         // hydrate Liquor Liability coverage with child question data, if any exist
