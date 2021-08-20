@@ -2879,7 +2879,7 @@ module.exports = class ApplicationModel {
                                 appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
                                 appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                                 await appDoc.save();
-                                errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                                errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
                             }
                         }
                     }
@@ -2888,7 +2888,7 @@ module.exports = class ApplicationModel {
                         appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
                         appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                         await appDoc.save();
-                        errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                        errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
                     }
                     else {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
