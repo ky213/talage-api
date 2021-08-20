@@ -570,12 +570,19 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('error');
         }
 
-        const rquIdKey = Object.keys(response)[0];
+        let rquIdKey = null;
+        try {
+            rquIdKey = Object.keys(response)[0];
+        }
+        catch (e) {
+            log.error(`${logPrefix}Error parsing response structure for request ID: ${e}. ` + __location);
+            return this.return_result('error');
+        }
 
         try {
             if (response && (response[rquIdKey]?.underwritingDecisionCode === 'SUBMITTED' || response[rquIdKey]?.underwritingDecisionCode === 'QUOTED')) {
 
-                if(response[rquIdKey]?.premium){
+                if (response[rquIdKey]?.premium?.totalPremium) {
                     this.amount = response[rquIdKey].premium.totalPremium;
                 }
 
@@ -586,7 +593,7 @@ module.exports = class MarkelWC extends Integration {
                     log.error(`${logPrefix}Integration Error: Unable to find quote number. ${__location}`);
                 }
                 // null is a valid response. isBindable defaults to false.  null equals false.
-                if(response[rquIdKey]?.isBindAvailable){
+                if (response[rquIdKey]?.isBindAvailable) {
                     this.isBindable = response[rquIdKey].isBindAvailable;
                 }
                 // Get the quote limits
@@ -710,7 +717,13 @@ module.exports = class MarkelWC extends Integration {
                             this.log += `<pre>${htmlentities.encode(JSON.stringify(referralReasons.ReferralReasons, null, 4))}</pre><br><br>`;
                         }
                     }
-                    return this.return_result('referred_with_price');
+
+                    if (this.amount > 0) {
+                        return this.return_result('referred_with_price');
+                    }
+                    else {
+                        return this.return_result('referred');
+                    }
                 }
                 else {
                     return this.return_result('quoted');
@@ -718,7 +731,7 @@ module.exports = class MarkelWC extends Integration {
             }
         }
         catch (error) {
-            log.error(`${logPrefix}Error getting amount ${error} ${__location}`);
+            log.error(`${logPrefix}Error parsing response structure: ${error}. ` + __location);
             return this.return_result('error');
         }
 
@@ -736,22 +749,17 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('declined');
         }
         else if (response[rquIdKey].errors) {
-            response[rquIdKey].errors.forEach((error) => {
+            for (const error of response[rquIdKey].errors) {
                 if(typeof error === 'string'){
+                    this.reasons.push(`${error}`);
                     if(error.indexOf("One or more class codes are Declined") > -1){
-                        this.reasons.push(`Declined: ${error}`);
-                        return this.return_result('declined');
-                    }
-                    else {
-                        this.reasons.push(`${error}`);
-
+                        return this.client_autodeclined_out_of_appetite();
                     }
                 }
                 else {
                     this.reasons.push(`${JSON.stringify(error)}`);
                 }
-
-            });
+            }
         }
         else {
             this.reasons.push(`Unknown error for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
