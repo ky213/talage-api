@@ -33,19 +33,27 @@ async function getNextRoute(req, res, next){
 /**
  * Gets the next route, if custom route exists for an agency network it utilized that else defaults to the wheelhouse routes flow
  * @param {string} reqHeader - Request object header
- * @param {string} currentRoute - The current route of the application flow (not application as in software application)
+ * @param {string} currentRT - The current route of the application flow (not application as in software application)
  * @param {string} appId - Application Id (application the user is filling out)
  *
  * @returns {string}  Returns the next route, either based on the custom flow for agencyNetwork or the default for wheelhouse if one not found
  */
-const getRoute = async(reqHeader, currentRoute, appId) => {
+const getRoute = async(reqHeader, currentRT, appId) => {
+    // copy the current route (currentRT) value into a local variable which might change based on whether locations have a mailing address
+    let currentRoute = currentRT;
+
     // if our current route is locations, check if we have mailing, 
-    // if we do not have mailing route to the mailing address, else continue through flow bypassing mailing
+    // if we do not have mailing route to the mailing address, else continue through flow bypassing mailing page
     if(currentRoute === "_locations"){
         const app = await getApplication(appId);
-        if(app.locations && app.locations.some(location => location.billing) === true){
-            // since we already have a mailing address, assumption is we will bypass mailing by setting current route to mailing-address
-            currentRoute =  "_mailing-address";
+        if(app.locations){
+            const haveMailingAddress = app.locations.some(location => location.billing) === true;
+            if(haveMailingAddress === true){
+                // since we already have a mailing address, assumption is we will bypass mailing by setting current route to mailing-address
+                currentRoute =  "_mailing-address";
+            }else {
+                return "_mailing-address";
+            }
         }
     }
     // if redis has agencyNetwork id then grab it
