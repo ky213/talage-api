@@ -445,7 +445,7 @@ module.exports = class cowbellCyber extends Integration {
                 try{
                     const quoteUrl = `${host}${basePath}/quote/v1/${cowbellQuoteId}`;
                     //5 tries with 5 seconds waits
-                    const NUMBER_OF_TRIES = 12;
+                    const NUMBER_OF_TRIES = 24;
                     for(let i = 0; i < NUMBER_OF_TRIES; i++){
                         this.log += `----quote url ${quoteUrl} ----- try count: ${i + 1}\n`
                         this.log += `GET Request`;
