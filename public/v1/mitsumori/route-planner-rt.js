@@ -31,6 +31,44 @@ async function getNextRoute(req, res, next){
 }
 //, appId, redisKey
 const getRoute = async(currentRoute, appId) => {
+    let app = null;
+    // if redis agency network id then pull it
+    const redisVal = null;
+    // otherwise 
+    if(redisVal ){
+        // if the network Id is not equla to one
+        // grab the network route
+        // if the custom route exists then use it
+        // else nothing the default route will kick in
+    }else {
+        // else grab current id from application
+        app = await getApplication(appId);
+        if(app.agencyNetworkId){
+            // store the networkId into redis
+        }
+        // if application agency network is not wheelhouse, currently 1 the do stuff
+        if(app.agencyNetworkId !== 1){
+            const customRoutingFlow = agencyNetworkDB.featureJson.appCustomRoutingFlow;
+            // if there is custom routing flow then 
+            if(customRoutingFlow){
+                // if current route is locations then check to see if application has billing if not then route to billing else route to the customroute
+                if(currentRoute === "_locations"){
+                    if(app.locations && app.locations.some(location => location.billing)){
+                        return customRoutingFlow["_mailing-address"];
+                    }else{
+                        return "_mailing-address";
+                    }
+                }
+                const route = customRoutingFlow[currentRoute];
+                if(route){
+                    return route;
+                }else {
+                    log.error(`Error retrieving custom flow for agencyNetworkId ${app.agencyNetworkId}, application ${appId} ` + __location);
+                }
+            }
+        }
+    }
+    
     switch(currentRoute){
         case "_policies":
             return "_business-questions"
@@ -41,7 +79,9 @@ const getRoute = async(currentRoute, appId) => {
         case "_claims":
             return "_locations";
         case "_locations":
-            const app = await getApplication(appId);
+            if(app == null){
+                app = await getApplication(appId);
+            }
             // if there are locations and one is set as the mailing address, skip mailing page
             if(app.locations && app.locations.some(location => location.billing)){
                 return "_questions";
