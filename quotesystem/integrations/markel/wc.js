@@ -851,10 +851,16 @@ module.exports = class MarkelWC extends Integration {
 
                 // Special rules for Question com.markel.uw.questions.Question1548
                 if (insurerQuestion.identifier === "com.markel.uw.questions.Question1548") {
+                    
                     // Replace any percentages that are present
                     if (typeof answer === 'string') {
                         answer = answer.replace('%', '');
                     }
+                    //false means it was not answers  it is child question so this happens.
+                    if(answer === false){
+                        answer = 'Less than 15';
+                    }
+
 
                     // In case we got a numeric flip it to Markel's answer.
                     if (/^\d+$/.test(answer)) {
