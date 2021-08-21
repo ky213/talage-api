@@ -1139,12 +1139,6 @@ module.exports = class ApplicationModel {
         if(newObjectJSON.locations && newObjectJSON.locations.length > 0){
             let hasBillingLocation = false;
             let hasPrimaryLocation = false;
-            let receivedPrimaryLocation = false;
-            //Note does not check for more than 1.
-            const primaryLocation = newObjectJSON.locations.find((newLoc) => newLoc.primary === true)
-            if(primaryLocation){
-                receivedPrimaryLocation = true;
-            }
             for(let location of newObjectJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
                     log.warn(`Application will multiple billing received AppId ${newObjectJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
@@ -1153,12 +1147,6 @@ module.exports = class ApplicationModel {
                 else if(location.billing === true){
                     hasBillingLocation = true;
                 }
-                // primaryLocation
-                if(receivedPrimaryLocation === false){
-                    //client did not send primary, so use Billing
-                    log.debug(`setting primary from billing ${newObjectJSON.applicationId} ` + __location)
-                    location.primary = location.billing
-                }
                 if(location.primary === true && hasPrimaryLocation === false){
                     hasPrimaryLocation = true;
                     newObjectJSON.primaryState = location.state
@@ -1166,7 +1154,6 @@ module.exports = class ApplicationModel {
                 else {
                     location.primary = false;
                 }
-
             }
         }
         return true;
@@ -1281,7 +1268,7 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseDB = application;
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
-            await this.updateRedisForAppAddDelete(application.applicationId, application);
+            await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
         }
 
         return mongoUtils.objCleanup(application);
@@ -1346,7 +1333,6 @@ module.exports = class ApplicationModel {
         if(applicationDoc){
             if(applicationDoc.einEncryptedT2 && applicationDoc.einEncryptedT2.length > 0){
                 try{
-                    log.debug(`Using new decrypt ` + __location);
                     applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncryptedT2);
                     applicationDoc.ein = applicationDoc.einClear;
                 }
@@ -1777,7 +1763,7 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    async updateRedisForAppAddDelete(appId,applicationJSON){
+    async updateRedisForAppAddDelete(appId,applicationJSON, countChange = 1){
         if(!applicationJSON){
             const query = {"applicationId": appId};
             applicationJSON = await ApplicationMongooseModel.findOne(query);
@@ -1786,9 +1772,28 @@ module.exports = class ApplicationModel {
         if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             let redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId;
             try{
-                const redisResponse = await global.redisSvc.deleteKey(redisKey)
-                if(redisResponse){
-                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        let appCount = parseInt(parsedJSON.value,10);
+                        appCount += countChange
+                        let ttlSeconds = 86400; //1 display
+                        if(appCount > 1000){
+                            //make permanent key.
+                            ttlSeconds = null;
+                        }
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, appCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
                 }
             }
             catch(err){
@@ -1796,9 +1801,28 @@ module.exports = class ApplicationModel {
             }
             redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + applicationJSON.agencyId;
             try{
-                const redisResponse = await global.redisSvc.deleteKey(redisKey)
-                if(redisResponse){
-                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        let appCount = parseInt(parsedJSON.value,10);
+                        appCount += countChange
+                        let ttlSeconds = 86400; //1 display
+                        if(appCount > 1000){
+                            //make permanent key.
+                            ttlSeconds = null;
+                        }
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, appCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
                 }
             }
             catch(err){
@@ -1815,7 +1839,7 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCountJSON = 0, noCacheUse = false, forceRedisUpdate = false){
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCount = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
             log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
@@ -1984,10 +2008,10 @@ module.exports = class ApplicationModel {
                     else if(useRedisCache){
                         //useRedisCache at this point means there is not filter, only date range.
                         const now = moment().utc();
-                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCount < pageSize){
                             addDateFilter = true
                         }
-                        else if(requestParms.page > 0 || applicationsTotalCountJSON < pageSize){
+                        else if(requestParms.page > 0 || applicationsTotalCount < pageSize){
                             addDateFilter = true
                         }
                     }
@@ -2184,7 +2208,7 @@ module.exports = class ApplicationModel {
                         let appCount = null;
                         const resp = await global.redisSvc.getKeyValue(redisKey);
                         if(resp.found){
-                            //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                            log.debug(`REDIS: getAppListForAgencyPortalSearch Count got rediskey ${redisKey}`)
                             try{
                                 const parsedJSON = new FastJsonParse(resp.value)
                                 if(parsedJSON.err){
@@ -2204,7 +2228,7 @@ module.exports = class ApplicationModel {
 
                     }
                 }
-
+                log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error("Application.countDocuments error " + err + __location);
                     error = null;
@@ -2216,7 +2240,7 @@ module.exports = class ApplicationModel {
                 }
                 if(useRedisCache === true && redisKey && docCount){
                     try{
-                        const ttlSeconds = 900; //15 minutes
+                        const ttlSeconds = 86400; //1 day
                         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, docCount,ttlSeconds)
                         if(redisResponse && redisResponse.saved){
                             log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
@@ -2256,7 +2280,7 @@ module.exports = class ApplicationModel {
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
                         await this.updateRedisForAppUpdatebyAppId(id);
-                        await this.updateRedisForAppAddDelete(id);
+                        await this.updateRedisForAppAddDelete(id,null , -1);
                     }
 
                 }
@@ -2418,13 +2442,17 @@ module.exports = class ApplicationModel {
         }
 
         //industrycode
-        let industryCodeString = '';
+        let industryCodeStringArray = [];
         if(applicationDocDB.industryCode){
-            industryCodeString = applicationDocDB.industryCode;
+            industryCodeStringArray.push(applicationDocDB.industryCode);
         }
         else {
             log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Industry Code")
+        }
+        const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
+            industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
 
         //policyType.
@@ -2618,10 +2646,10 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeList, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
@@ -2851,7 +2879,7 @@ module.exports = class ApplicationModel {
                                 appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
                                 appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                                 await appDoc.save();
-                                errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                                errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
                             }
                         }
                     }
@@ -2860,7 +2888,7 @@ module.exports = class ApplicationModel {
                         appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
                         appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                         await appDoc.save();
-                        errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                        errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
                     }
                     else {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
@@ -2900,21 +2928,44 @@ module.exports = class ApplicationModel {
 
     async getAppBopCodes(applicationId){
         const IndustryCodeSvc = global.requireShared('services/industrycodesvc.js');
-        let applicationDocDB = null;
+        let applicationJsonDB = null;
         try{
-            applicationDocDB = await this.loadDocfromMongoByAppId(applicationId);
+            applicationJsonDB = await this.getById(applicationId);
         }
         catch(err){
             log.error("getAppBopCodes: Error getting application doc " + err + __location)
         }
-        if(!applicationDocDB){
+        if(!applicationJsonDB){
             log.error("getAppBopCodes: application not found" + __location)
             return [];
+        }
+        let insurerArray = [];
+        if(applicationJsonDB.agencyLocationId){
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = false;
+            const addAgencyPrimaryLocation = true;
+            let agencylocationJSON = await agencyLocationBO.getById(applicationJsonDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+                log.error(`Error getting Agency Location ${applicationJsonDB.uuid} ` + err + __location);
+            });
+            if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                    if(agencylocationJSON.insurers[i].policyTypeInfo["BOP"]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
+                        insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                    }
+                }
+            }
+            else {
+                log.debug(`getAppBopCodes no location insurers for appId ${applicationId} in \n ${JSON.stringify(agencylocationJSON)}` + __location);
+            }
+        }
+        if(insurerArray.length === 0){
+            log.debug(`getAppBopCodes no location insurers appId ${applicationId} appLocId ${applicationJsonDB.agencyLocationId}` + __location);
+            insurerArray = null;
         }
 
         let iicList = [];
         try{
-            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationDocDB.industryCode)
+            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode, insurerArray)
         }
         catch(err){
             log.error(`getAppBopCodes:  Error get BOP industrycodes ${applicationId} - ${err}. ` + __location);

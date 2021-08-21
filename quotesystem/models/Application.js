@@ -423,10 +423,23 @@ module.exports = class Application {
         // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
+        const industryCodeStringArray = [];
+        if(this.applicationDocData.industryCode){
+            industryCodeStringArray.push(this.applicationDocData.industryCode);
+        }
+        const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy){
+            industryCodeStringArray.push(this.applicationDocData.bopIndustryCodeId.toString());
+        }
+
+
+
+
+
         let talageQuestionDefList = null;
         try {
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
-            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, this.business.getZips(), policyList, insurer_ids, "general", true);
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
         }
         catch (e) {

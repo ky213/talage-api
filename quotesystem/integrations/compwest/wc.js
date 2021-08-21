@@ -44,9 +44,6 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
 
-
-       
-
         //const appDoc = this.app.applicationDocData
 
         // eslint-disable-next-line prefer-const
@@ -141,7 +138,7 @@ module.exports = class CompwestWC extends Integration {
         else if (this.insurer.useSandbox) {
                 host = 'npsv.afgroup.com';
                 path = '/TEST_DigitalAq/rest/getworkcompquote';
-        } 
+        }
         else {
             host = 'psv.afgroup.com';
             path = '/DigitalAq/rest/getworkcompquote';
@@ -689,7 +686,6 @@ module.exports = class CompwestWC extends Integration {
                         log.debug(`!classCode ${classCode} || !subCode ${subCode}) && guideWireAPI ${guideWireAPI} === true || guideWireAPI === false`)
                         //if((classCode || subCode) && guideWireAPI === false || guideWireAPI === true){
 
-                        
                         //get insurerActivityCode doc.
                         const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
                         const activityCodeQuery = {
