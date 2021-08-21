@@ -478,7 +478,8 @@ module.exports = class MarkelWC extends Integration {
                         buildingObj.occupancyType = question.answerValue;
                         break;
                     default:
-                        log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}". ${__location}`);
+                        //Another insurer questions...
+                        //log.warn(`${logPrefix}Encountered unknown question identifier "${question.insurerQuestionIdentifier}". ${__location}`);
                         break;
                 }
             });
