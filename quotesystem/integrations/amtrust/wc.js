@@ -72,7 +72,7 @@ module.exports = class AMTrustWC extends Integration {
     async getClassCodeList() {
         // First we need to group the AmTrust class codes by state and class code.
         const amtrustClassCodeList = [];
-        for (const location of this.app.applicationDocData.locations) {
+        for (const location of this.applicationDocData.locations) {
             for (const activityPayroll of location.activityPayrollList) {
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
                 if(!activityPayroll.activityCodeId){
@@ -157,7 +157,7 @@ module.exports = class AMTrustWC extends Integration {
         const officersList = [];
         let validationError = `Officer Type, Endorsement ID, or Form Type were not provided in AMTrust's response.`;
 
-        for (const owner of this.app.applicationDocData.owners) {
+        for (const owner of this.applicationDocData.owners) {
             //Need to be primary state not mailing.
             const state = primaryLocation.state;
             let officerType = null;
@@ -262,7 +262,7 @@ module.exports = class AMTrustWC extends Integration {
 	 */
     async _insurer_quote() {
 
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',

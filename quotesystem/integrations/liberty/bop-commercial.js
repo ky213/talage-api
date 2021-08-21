@@ -369,8 +369,6 @@ module.exports = class LibertySBOP extends Integration {
             .filter(q => q.insurerQuestionAttributes?.commercialBOP)
             .filter(q => !bopLineBusinessCoverageQuestions.includes(q.insurerQuestionIdentifier));
         
-
-
         // if Liquor Liability Coverage is selected and any location has Annual Liquor Receipts value === 0, auto decline application
         const liqurCoverageQuestion = commercialBOPQuestions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_byob');
         if (liqurCoverageQuestion && liqurCoverageQuestion.answerValue.toLowerCase() === 'liquor liability coverage') {
