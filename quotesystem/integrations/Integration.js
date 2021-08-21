@@ -1201,7 +1201,7 @@ module.exports = class Integration {
                                 }
                             }
                             else if(insurerQuestion.universal){
-                                log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal q:  ${insurerQuestion.insurerQuestionId}` + __location);
+                                log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
                             }
 
                             // const iQFound = insurerPolicyTypeQuestionList.find((iq) => iq.talageQuestionId === appQuestion.questionId);
@@ -1211,7 +1211,7 @@ module.exports = class Integration {
                             // }
                         }
                         catch(err){
-                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error get question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
+                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting Talage question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
                         }
                     }
                 }

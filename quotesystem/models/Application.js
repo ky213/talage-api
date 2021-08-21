@@ -374,8 +374,11 @@ module.exports = class Application {
                     if (typeof claim.amountPaid === 'number') {
                         claim.amountPaid = Math.round(claim.amountPaid);
                     }
-                    else {
+                    else if(typeof claim.amountPaid === 'string') {
                         claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                    else {
+                        claim.amountPaid = 0;
                     }
                 }
                 else {
@@ -396,8 +399,11 @@ module.exports = class Application {
                     if (typeof claim.amountReserved === 'number') {
                         claim.amountReserved = Math.round(claim.amountReserved);
                     }
-                    else {
+                    else if (typeof claim.amountReserved === 'string') {
                         claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                    else {
+                        claim.amountReserved = 0;
                     }
                 }
                 else {
@@ -428,13 +434,9 @@ module.exports = class Application {
             industryCodeStringArray.push(this.applicationDocData.industryCode);
         }
         const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
-        if(bopPolicy){
-            industryCodeStringArray.push(this.applicationDocData.bopIndustryCodeId.toString());
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
+            industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
-
-
-
-
 
         let talageQuestionDefList = null;
         try {
