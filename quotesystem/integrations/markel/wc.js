@@ -135,7 +135,7 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
 
         const special_activity_codes = {
             AK: [
@@ -819,9 +819,13 @@ module.exports = class MarkelWC extends Integration {
                 unique_territories.push(location.territory);
             }
         });
-        for (const question_id in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
+
+
+
+        for(const insurerQuestion of this.insurerQuestionList){
+        //for (const question_id in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                const question = this.questions[insurerQuestion.talageQuestionId];
                 const QuestionCd = this.question_identifiers[question.id];
 
                 // If there is no question code, this question is for another insurer, just move on
@@ -841,12 +845,12 @@ module.exports = class MarkelWC extends Integration {
                 }
 
                 // This question was not answered
-                if (!answer && !this.universal_questions.includes(question_id)) {
+                if (!answer && !insurerQuestion.universal) {
                     continue;
                 }
 
                 // Special rules for Question 1045
-                if (question_id === 1045) {
+                if (insurerQuestion.talageQuestionId === 1045) {
                     // Replace any percentages that are present
                     if (typeof answer === 'string') {
                         answer = answer.replace('%', '');

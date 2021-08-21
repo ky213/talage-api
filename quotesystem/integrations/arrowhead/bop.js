@@ -67,7 +67,7 @@ module.exports = class ArrowheadBOP extends Integration {
             "Partnership"
         ];
 
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
         const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
@@ -444,7 +444,7 @@ module.exports = class ArrowheadBOP extends Integration {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     async getLocationList() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const locationList = [];
         const zipCodeBO = new ZipCodeBO();
         for (const location of applicationDocData.locations) {
@@ -517,7 +517,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // hydrate the request JSON object with general question data
         // NOTE: Add additional general questions here if more get imported  
 
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         
         // parent questions
         const datcom = [];

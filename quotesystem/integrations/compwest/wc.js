@@ -44,8 +44,6 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
 
-        //const appDoc = this.app.applicationDocData
-
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
         const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
@@ -346,8 +344,7 @@ module.exports = class CompwestWC extends Integration {
 
 
     async createRequestXML(request_id, guideWireAPI){
-        const appDoc = this.app.applicationDocData
-
+        const appDoc = this.applicationDocData;
         // These are the limits supported by AF Group - checked earlier.
         const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
         const limits = this.getBestLimits(carrierLimits);
@@ -407,12 +404,11 @@ module.exports = class CompwestWC extends Integration {
 
         // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
         ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
-        if(this.app.applicationDocData
-            && this.app.applicationDocData.businessDataJSON
-            && this.app.applicationDocData.businessDataJSON.afBusinessData
-            && this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId){
-                ClientApp.ele('SubmissionId', this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
-                log.debug("CompWest WC added SubmissionId");
+        if(this.applicationDocData
+            && this.applicationDocData.businessDataJSON
+            && this.applicationDocData.businessDataJSON.afBusinessData
+            && this.applicationDocData.businessDataJSON.afBusinessData.requestResponseId){
+                ClientApp.ele('SubmissionId', this.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
         }
         //SubmissionId
 

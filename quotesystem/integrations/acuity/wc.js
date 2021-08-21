@@ -150,10 +150,10 @@ module.exports = class AcuityWC extends Integration {
 
         // Set the type of corporation
         if (this.entityType === "CP") {
-            if (this.app.applicationDocData.corporationType) {
-                this.corporationType = corporationTypeMatrix[this.app.applicationDocData.corporationType];
+            if (this.applicationDocData.corporationType) {
+                this.corporationType = corporationTypeMatrix[this.applicationDocData.corporationType];
             }
-            else if (this.app.applicationDocData.mailingState === "PA") {
+            else if (this.applicationDocData.mailingState === "PA") {
                 this.log_warn("Corporation in Pennsylvania needs corporation type, but it isn't specified. Non-fatal so continuing quote.", __location);
             }
         }
