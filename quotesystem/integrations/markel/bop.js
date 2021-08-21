@@ -220,7 +220,7 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Markel BOP (Appid: ${this.app.id}): `;
         const BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === "BOP");
 
@@ -830,7 +830,7 @@ module.exports = class MarkelWC extends Integration {
         const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
         const bopCodeQuery = {
-            parentIndustryCodeId: this.app.applicationDocData.industryCode
+            parentIndustryCodeId: this.applicationDocData.industryCode
         };
 
         // find all bop codes for this parent talage industry code
@@ -839,17 +839,17 @@ module.exports = class MarkelWC extends Integration {
             bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
         }
         catch (e) {
-            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}: ${e}. ` + __location);
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}: ${e}. ` + __location);
             return null;
         }
 
         if (!bopCodeRecords) {
-            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
         if (bopCodeRecords.length === 0) {
-            log.warn(`There were no BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
+            log.warn(`There were no BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
