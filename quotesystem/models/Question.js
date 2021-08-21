@@ -30,6 +30,11 @@ module.exports = class Question{
     get_answer_as_boolean(){
 
         if(this.type === 'Yes/No'){
+            //Yes/No anwers tend to be Yes and No. A user can break the "Higher key is always yes" rule
+            if(this.answer.toLowerCase() === 'yes' || this.answer.toLowerCase() === 'true'){
+                return true
+            }
+
             // The higher key is always 'Yes'
             let highest_id = 0;
             Object.keys(this.possible_answers).forEach((answer_id) => {
