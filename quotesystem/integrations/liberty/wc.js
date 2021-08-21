@@ -408,7 +408,7 @@ module.exports = class LibertyWC extends Integration {
                                     QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
                                 }
                                 catch(err){
-                                    log.error(`${logPrefix}Issue withTalage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err}. ${__location}`);
+                                    log.error(`${logPrefix}Issue with Talage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err} question object ${JSON.stringify(question)}. ${__location}`);
                                 }
                             }
                             else {
