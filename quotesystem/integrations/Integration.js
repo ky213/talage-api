@@ -1690,8 +1690,9 @@ module.exports = class Integration {
         this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
         if (!this.limits && !this.quoteCoverages) {
-            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
-            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+            this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
+            //BP - Do not error out the quote on lack of limits
+            //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
 
         if (premiumAmount) {
@@ -1733,13 +1734,16 @@ module.exports = class Integration {
         this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
         if (!this.limits && !this.quoteCoverages) {
-            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
-            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+            this.log_error('Received a quote but no limits or coverages were supplied.', __location);
+            //BP - Do not error out the quote on lack of limits
+            //return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
 
         if (!premiumAmount) {
+            //TODO make sure that this logic in in the insure integration code
+            // this is catch all in case the insurer level code does not catch this and log it.
             this.log_error(`Received a quote but no premium amount for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
-            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+            return this.return_error('error', `Could not locate the premium in the quote returned from the carrier.`);
         }
         this.amount = premiumAmount;
 
