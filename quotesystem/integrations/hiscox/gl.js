@@ -296,12 +296,12 @@ module.exports = class HiscoxGL extends Integration {
                         location.county = "Harris county (other than Houston)";
                     }
                 }
-                else if (location.county.length > 0 && !location.county.toLowerCase().endsWith("county")) {
+                else if (location.county?.length > 0 && !location.county?.toLowerCase().endsWith("county")) {
                     // Hiscox requires the word 'county' on the end of the county name
                     location.county += " county";
                 }
                 // "county" MUST be lower case. MUST.
-                location.county = location.county.replace("County", "county");
+                location.county = location.county?.replace("County", "county");
 
                 // If it isn't in the list of valid counties, set it to "Remainder of State"
                 if (!validCounties.includes(location.county)) {
@@ -317,8 +317,10 @@ module.exports = class HiscoxGL extends Integration {
         // Determine the primary and secondary locations
         this.primaryLocation = locations.shift();
         this.secondaryLocations = locations;
-        this.secondaryLocationsCount = this.secondaryLocations.length >= 5 ? "5+" : this.secondaryLocations.length.toString();
-
+        this.secondaryLocationsCount = this.secondaryLocations?.length >= 5 ? "5+" : this.secondaryLocations?.length.toString();
+        if(!this.secondaryLocationsCount){
+            this.secondaryLocationsCount = 0;
+        }
         let questionDetails = null;
         try {
             questionDetails = await this.get_question_details();
