@@ -631,42 +631,44 @@ module.exports = class AcuityGL extends Integration {
                 let foundLimitsCount = 0;
                 const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.GeneralLiabilityLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
-                    this.reasons.push(`Could not find CommlCoverage node in response.`);
-                    log.error(`Acuity (application ${this.app.id}): Could not find the CommlCoverage node. ${__location}`);
-                    return this.return_error('error', 'Acuity returned an unexpected reply');
+                    this.reasons.push(`Could not find CommlCoverage node  with Limit information in response.`);
+                    log.error(`Acuity GL (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
+                    //return this.return_error('error', 'Acuity returned an unexpected reply');
                 }
-                commlCoverage.forEach((coverage) => {
-                    if (!coverage.Limit || !coverage.Limit.length) {
-                        return;
+                if(commlCoverage){
+                    commlCoverage.forEach((coverage) => {
+                        if (!coverage.Limit || !coverage.Limit.length) {
+                            return;
+                        }
+                        const amount = parseInt(coverage.Limit[0].FormatInteger[0], 10);
+                        switch (coverage.CoverageCd[0]) {
+                            case "EAOCC":
+                                this.limits[4] = amount;
+                                foundLimitsCount++;
+                                break;
+                            case "GENAG":
+                                this.limits[8] = amount;
+                                foundLimitsCount++;
+                                break;
+                            case "PRDCO":
+                                this.limits[9] = amount;
+                                foundLimitsCount++;
+                                break;
+                            case "PIADV":
+                                this.limits[7] = amount;
+                                foundLimitsCount++;
+                                break;
+                            default:
+                                break;
+                        }
+                    });
+                    if (!foundLimitsCount) {
+                        //this.reasons.push(`Did not recognized any returned limits.`);
+                        log.error(`Acuity GL (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
+                        //return this.return_error('error', 'Acuity returned an unexpected reply');
                     }
-                    const amount = parseInt(coverage.Limit[0].FormatInteger[0], 10);
-                    switch (coverage.CoverageCd[0]) {
-                        case "EAOCC":
-                            this.limits[4] = amount;
-                            foundLimitsCount++;
-                            break;
-                        case "GENAG":
-                            this.limits[8] = amount;
-                            foundLimitsCount++;
-                            break;
-                        case "PRDCO":
-                            this.limits[9] = amount;
-                            foundLimitsCount++;
-                            break;
-                        case "PIADV":
-                            this.limits[7] = amount;
-                            foundLimitsCount++;
-                            break;
-                        default:
-                            break;
-                    }
-                });
+                }
                 // Ensure we found some limits
-                if (!foundLimitsCount) {
-                    this.reasons.push(`Did not recognized any returned limits.`);
-                    log.error(`Acuity (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
-                    return this.return_error('error', 'Acuity returned an unexpected reply');
-                }
                 if (policyAmount) {
                     // Set the policy amount
                     this.amount = policyAmount;
@@ -680,20 +682,22 @@ module.exports = class AcuityGL extends Integration {
 
                 // Retrieve and the quote letter if it exists
                 const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo', true);
-                for (const fileAttachmentInfo of fileAttachmentInfoList) {
-                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
-                        case "Policy Quote Print":
-                            this.quote_letter = {
-                                content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
-                                data: fileAttachmentInfo.cData[0],
-                                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
-                            };
-                            break;
-                        case "URL":
-                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
-                            break;
-                        default:
-                            break;
+                if(fileAttachmentInfoList){
+                    for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                        switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                            case "Policy Quote Print":
+                                this.quote_letter = {
+                                    content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
+                                    data: fileAttachmentInfo.cData[0],
+                                    file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                                };
+                                break;
+                            case "URL":
+                                this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
 
