@@ -826,6 +826,9 @@ module.exports = class MarkelWC extends Integration {
         //for (const question_id in this.questions) {
             if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
                 const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    continue;
+                }
                 const questionIdentifier = insurerQuestion.identifier;
 
                 // If there is no question code, this question is for another insurer, just move on
