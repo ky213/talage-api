@@ -874,7 +874,7 @@ module.exports = class Integration {
                 const identifiers = {};
                 this.insurerQuestionList.forEach((insurerQuestion) => {
                     identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
-                    if (insurerQuestion.universal) {
+                    if (insurerQuestion.universal && this.universal_questions.indexOf(insurerQuestion.talageQuestionId === -1)) {
                         this.universal_questions.push(insurerQuestion.talageQuestionId);
                     }
                 });
@@ -1219,7 +1219,8 @@ module.exports = class Integration {
                         try{
                             //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
                             const qId_String = insurerQuestion.talageQuestionId.toString();
-                            if(this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]){
+                            if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
+                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
                                 
                                 this.insurerQuestionList.push(insurerQuestion)
                                 
@@ -1229,12 +1230,12 @@ module.exports = class Integration {
                                 }
                             }
                             else if(insurerQuestion.universal && insurerQuestion.allTerritories){
-                                log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
+                                log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}-${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
                             }
                             else if(insurerQuestion.universal && insurerQuestion){
                                 const qForTerritory = insurerQuestion.territoryList.some(r => territoryList.includes(r))
                                 if(qForTerritory){
-                                    log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
+                                    log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}-${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
                                 }
                             }
                             
@@ -1277,6 +1278,8 @@ module.exports = class Integration {
             // Filter the application questions to remove hidden qustions, unanswered questions, and question for other carriers
             // NOTE: filterApplicationQuestionListForInsurer will log its own errors
 
+
+            //TODO - 2021/08/21 research if this is necessary
             // General questions
             const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.applicationDocData.questions);
             if (!filteredGeneralQuestionList) {
@@ -1284,6 +1287,7 @@ module.exports = class Integration {
                 return;
             }
             this.applicationDocData.questions = filteredGeneralQuestionList;
+
 
             // Location questions
             for (const location of this.applicationDocData.locations) {
@@ -1358,7 +1362,7 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}. ${error}}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return null;
+                //return null;
             }
             if (talageQuestion) {
                 talageQuestionList.push(talageQuestion);
@@ -1368,7 +1372,7 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}: could not find ID.`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return null;
+                //return null;
             }
         }
 
@@ -1381,7 +1385,8 @@ module.exports = class Integration {
         for (const applicationQuestion of applicationQuestionList) {
             let questionWasAnswered = true;
             let childApplicationQuestion = applicationQuestion;
-            let childTalageQuestion = talageQuestionList.find((tq) => tq.id === childApplicationQuestion.questionId);
+            let childTalageQuestion = talageQuestionList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
+           
             // While the question has a parent (not top-level)
             while (childTalageQuestion.parent) {
                 // Find the parent application question for this child
@@ -1390,7 +1395,7 @@ module.exports = class Integration {
                 if (!parentApplicationQuestion) {
                     questionWasAnswered = false;
                     break;
-                }
+                } 
                 // Determine if the parent was answered such that the child became visible. If not, flag it and stop.
                 if (childTalageQuestion.parent_answer && childTalageQuestion.parent_answer !== parentApplicationQuestion.answerId) {
                     questionWasAnswered = false;
@@ -1401,10 +1406,16 @@ module.exports = class Integration {
                 childTalageQuestion = talageQuestionList.find((tq) => tq.id === parentApplicationQuestion.questionId);
                 childApplicationQuestion = parentApplicationQuestion;
             }
+           
             // Add it to the filtered question list if the parent was answered
             if (questionWasAnswered) {
                 answeredApplicationQuestionList.push(applicationQuestion);
             }
+            // TODO regression test more insurers to see if this is needed.
+            // else if(this.questions[applicationQuestion.questionId]) {
+            //     log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} removing question ${applicationQuestion.questionId}`)
+            //     delete this.questions[applicationQuestion.questionId];
+            // }
         }
 
         // Next we remove question for other insurers and hidden questions. This must be done AFTER we determine if a question was answered because
@@ -1436,7 +1447,7 @@ module.exports = class Integration {
                 notHiddenInsurerApplicationQuestionList.push(applicationQuestion);
             }
         }
-
+            
         return notHiddenInsurerApplicationQuestionList;
     }
 
