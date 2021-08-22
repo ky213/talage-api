@@ -821,7 +821,6 @@ module.exports = class MarkelWC extends Integration {
         });
 
 
-
         for(const insurerQuestion of this.insurerQuestionList){
         //for (const question_id in this.questions) {
             if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
@@ -848,7 +847,9 @@ module.exports = class MarkelWC extends Integration {
                 }
 
                 // This question was not answered
-                if (!answer && !insurerQuestion.universal) {
+                //if (!answer && !insurerQuestion.universal) {
+                //this.universal_questions.includes(question_id)
+                if (!answer) {
                     continue;
                 }
 
