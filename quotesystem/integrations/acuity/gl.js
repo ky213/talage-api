@@ -616,6 +616,9 @@ module.exports = class AcuityGL extends Integration {
         }
 
         switch (policyStatusCode) {
+            case 'com.acuity_Incomplete':
+                log.error(`Acuity GL (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
+                return this.client_declined("incomplete information to quote");
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
             case "com.acuity_NonBindableQuote":
