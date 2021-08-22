@@ -218,6 +218,16 @@
     "description": "Cowbell Cyber Barber NV",
     "sourceAppId": "3a8bc765-b89d-4116-8874-3ce1c99acc98",
     "requiresNewEin": false
+  },
+  {
+    "description": "Acuity WC Auto Parts NH",
+    "sourceAppId": "1b23435f-2d60-466d-a111-f495ab79579d",
+    "requiresNewEin": true
+  },
+  {
+    "description": "Acuity WC Barber Shop MN",
+    "sourceAppId": "96c06e62-8b3e-43b0-a739-fa709bc547dd",
+    "requiresNewEin": true
   }
 
 ]
