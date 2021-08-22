@@ -234,7 +234,7 @@ async function runFunction() {
                     delete mongoApp.createdAt
 
                     //update policies dates
-                    const newEffectiveDate = moment().add(1,"months");
+                    const newEffectiveDate = moment().add(15,"days");
                     const newExpirationDate = newEffectiveDate.clone().add(1,'years');
 
                     if(mongoApp.policies && mongoApp.policies.length > 0){
