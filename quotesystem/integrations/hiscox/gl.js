@@ -460,7 +460,7 @@ module.exports = class HiscoxGL extends Integration {
         // Specify the path to the Quote endpoint
         const path = "/partner/v3/quote";
 
-        this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`);
+        this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
 
         // console.log("request", xml);
 
