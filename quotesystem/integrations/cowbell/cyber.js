@@ -52,7 +52,7 @@ module.exports = class cowbellCyber extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
 
         const aggregateLimits = [50000,
@@ -440,12 +440,13 @@ module.exports = class cowbellCyber extends Integration {
 
                 // Give Cowbell 5 seconds to run there process.
                 await utility.Sleep(5000);
-
+                let declined = false;
+                let declientReason = null;
                 let accountId = null;
                 try{
                     const quoteUrl = `${host}${basePath}/quote/v1/${cowbellQuoteId}`;
                     //5 tries with 5 seconds waits
-                    const NUMBER_OF_TRIES = 12;
+                    const NUMBER_OF_TRIES = 24;
                     for(let i = 0; i < NUMBER_OF_TRIES; i++){
                         this.log += `----quote url ${quoteUrl} ----- try count: ${i + 1}\n`
                         this.log += `GET Request`;
@@ -456,6 +457,11 @@ module.exports = class cowbellCyber extends Integration {
                         this.log += `<pre>${JSON.stringify(apiCall.data, null, 2)}</pre>`;
                         this.quoteResponseJSON = responseQD;
                         this.quoteResponseJSON.quoteId = cowbellQuoteId;
+                        if(responseQD.agencyStatus === 'INVALID'){
+                            declined = true;
+                            declientReason = responseQD.agencyDescription
+                            break;
+                        }
                         if(responseQD.totalPremium){
                             this.number = responseQD.quoteNumber;
                             quotePremium = responseQD.totalPremium;
@@ -538,6 +544,9 @@ module.exports = class cowbellCyber extends Integration {
 
                     }
                     return this.client_quoted(this.number, quoteLimits, quotePremium, null,null, quoteCoverages);
+                }
+                else if (declined){
+                    return this.client_declined(declientReason);
                 }
                 else {
 

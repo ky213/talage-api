@@ -267,10 +267,10 @@ module.exports = class CnaWC extends Integration {
             if (generalPartyInfo.NameInfo[0].LegalEntityCd.value && ssnLegalEntities.includes(generalPartyInfo.NameInfo[0].LegalEntityCd.value)) {
                 generalPartyInfo.NameInfo[0].PersonName = {
                     GivenName: {
-                        value: this.app.applicationDocData.contacts[0].firstName
+                        value: this.applicationDocData.contacts[0]?.firstName
                     },
                     Surname: {
-                        value: this.app.applicationDocData.contacts[0].lastName
+                        value: this.applicationDocData.contacts[0]?.lastName
                     }
                 }
             }
@@ -299,7 +299,7 @@ module.exports = class CnaWC extends Integration {
             if (!this.industry_code) {
                 log.error(`CNA WC missing this.industry_code ` + __location);
                 // might be mapping issue. industry code table has what we need. (SQL in integration.js does a join)
-                // this.app.applicationDocData as the industryCode.
+                // this.applicationDocData as the industryCode.
             }
             insuredOrPrincipalInfo.InsuredOrPrincipalRoleCd[0].value = "Insured";
             insuredOrPrincipalInfo.BusinessInfo.SICCd.value = this.industry_code.sic;
@@ -362,8 +362,8 @@ module.exports = class CnaWC extends Integration {
 
             // NOTE: CNA has a bug on their side which requires NumLosses be 0 as a workaround
             // TODO: Once CNA fixes their bug, use the claims length again... 
-            commlPolicy.NumLosses.value = 0; //this.app.applicationDocData.claims.length; 
-            if (this.app.applicationDocData.claims.length > 0) {
+            commlPolicy.NumLosses.value = 0; //this.applicationDocData.claims.length; 
+            if (this.applicationDocData.claims.length > 0) {
                 wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Loss = this.getLosses();
             }
 
@@ -614,7 +614,7 @@ module.exports = class CnaWC extends Integration {
         // We don't store loss type information, so hardcoded to "Both", meaning Medical & Indemnity
         const losses = [];
 
-        this.app.applicationDocData.claims.forEach(claim => {
+        this.applicationDocData.claims.forEach(claim => {
             losses.push({
                 "com.cna_LossTypeCd": {
                     value: "Both"
@@ -649,7 +649,7 @@ module.exports = class CnaWC extends Integration {
         // even if hasEin is FALSE (we're provided an SSN), CNA still expects us to have the TaxTypeCd as FEIN
         const taxIdentity = {
             TaxIdTypeCd: {value: "FEIN"},
-            TaxId: {value: this.app.applicationDocData.ein}
+            TaxId: {value: this.applicationDocData.ein}
         }
     
         return [taxIdentity];

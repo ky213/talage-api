@@ -234,7 +234,7 @@ async function runFunction() {
                     delete mongoApp.createdAt
 
                     //update policies dates
-                    const newEffectiveDate = moment().add(1,"months");
+                    const newEffectiveDate = moment().add(15,"days");
                     const newExpirationDate = newEffectiveDate.clone().add(1,'years');
 
                     if(mongoApp.policies && mongoApp.policies.length > 0){
@@ -254,6 +254,13 @@ async function runFunction() {
                         mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
                         mongoApp.businessName = `${mongoApp.businessName} - ${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
                     }
+                    if(appList[i].agencyId){
+                        mongoApp.agencyId = appList[i].agencyId
+                    }
+                    if(appList[i].agencyLocationId){
+                        mongoApp.agencyLocationId = appList[i].agencyLocationId
+                    }
+
 
                     //save mongoinsert
                     const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
