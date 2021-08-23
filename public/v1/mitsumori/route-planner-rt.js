@@ -130,7 +130,7 @@ const getRoute = async(jwtToken, currentRT, appId) => {
             return "_quotes";
         default:
             log.error(`User trying to navigate from a non-existing route path for agencyNetworkId ${agencyNetworkId}, on current route of ${currentRoute} ${__location}`)
-            "_error"
+            return "_unknown";
             break;
     }
 }
