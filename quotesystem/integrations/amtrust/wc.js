@@ -72,7 +72,7 @@ module.exports = class AMTrustWC extends Integration {
     async getClassCodeList() {
         // First we need to group the AmTrust class codes by state and class code.
         const amtrustClassCodeList = [];
-        for (const location of this.app.applicationDocData.locations) {
+        for (const location of this.applicationDocData.locations) {
             for (const activityPayroll of location.activityPayrollList) {
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
                 if(!activityPayroll.activityCodeId){
@@ -157,7 +157,7 @@ module.exports = class AMTrustWC extends Integration {
         const officersList = [];
         let validationError = `Officer Type, Endorsement ID, or Form Type were not provided in AMTrust's response.`;
 
-        for (const owner of this.app.applicationDocData.owners) {
+        for (const owner of this.applicationDocData.owners) {
             //Need to be primary state not mailing.
             const state = primaryLocation.state;
             let officerType = null;
@@ -262,7 +262,7 @@ module.exports = class AMTrustWC extends Integration {
 	 */
     async _insurer_quote() {
 
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',
@@ -598,7 +598,8 @@ module.exports = class AMTrustWC extends Integration {
         // Send the quote request
         const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestJSON);
         if (!quoteResponse) {
-            return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location);
+            log.error(`Amtrust WC Application ${this.app.id} returned no response on Quote Post` + __location)
+            return this.client_error("The Amtrust server returned an unexpected empty response when submitting the quote information.", __location);
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
@@ -609,9 +610,15 @@ module.exports = class AMTrustWC extends Integration {
             if (quoteResponse.error) {
                 return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
             }
-            else {
-                return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location, {statusCode: statusCode});
+            else if(typeof quoteResponse === 'string'){
+                log.error(`Amtrust WC Application ${this.app.id} returned unexpected response of ${quoteResponse} on Quote Post` + __location)
+                return this.client_error(`The AmTrust's server returned an unspecified response of ${quoteResponse} when submitting the quote information.`, __location, {statusCode: statusCode});
             }
+            else {
+                log.error(`Amtrust WC Application ${this.app.id} returned unexpected response of ${JSON.stringify(quoteResponse)} on Quote Post` + __location)
+                return this.client_error("The AmTrust's server returned an unspecified error when submitting the quote information.", __location, {statusCode: statusCode});
+            }
+
         }
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.

@@ -27,8 +27,8 @@ module.exports = class AcuityGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
-        const bopPolicy = this.app.applicationDocData.policies.find((appPolicy) => appPolicy.policyType === "BOP")
+        const appDoc = this.applicationDocData
+        const bopPolicy = this.applicationDocData.policies.find((appPolicy) => appPolicy.policyType === "BOP")
         if(!bopPolicy){
             log.error(`Acuity (application ${this.app.id}): Does not have policy ${this.policy.type}  ${__location}`);
             this.reasons.push(`Application does not have BOP policy`);
