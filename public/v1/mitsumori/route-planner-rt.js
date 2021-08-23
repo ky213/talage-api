@@ -102,8 +102,8 @@ const getRoute = async(jwtToken, currentRT, appId) => {
                         return nextRoute;
                     }
                     else {
-                        // otherwise we will log a warning and continue so default functionality will kick in towards end of function
-                        log.warn(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
+                        // otherwise we will log an error and continue so default functionality will kick in towards end of function
+                        log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
                     }
                 }
             }
