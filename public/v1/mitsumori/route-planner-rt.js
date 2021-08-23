@@ -69,10 +69,10 @@ const getRoute = async(jwtToken, currentRT, appId) => {
             const customRoutesFlow = userSessionMetaData.quoteAppCustomRouting;
             // if we have custom route flow we grab the next route
             if(customRoutesFlow){
-                const nextRoute = customRoutesFlow[currentRoute];
+                const customRouteObj = customRoutesFlow[currentRoute];
                 // if the next route exists we return it else we log error and let app continue via default route
-                if(nextRoute){
-                    return nextRoute;
+                if(customRouteObj && customRouteObj.next){
+                    return customRouteObj.next;
                 }else {
                     log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
                 }
@@ -96,10 +96,10 @@ const getRoute = async(jwtToken, currentRT, appId) => {
                     // If there is a custom route flow we will save it into redis
                     await putUserSessionMetaData(jwtToken, {'quoteAppCustomRouting': customRouteFlowObj});
                     // we will grab the next route
-                    const nextRoute = customRouteFlowObj[currentRoute];
+                    const customRouteObj = customRouteFlowObj[currentRoute];
                     // if the next route is valid (meaning not undefined or null) we will return it
-                    if(nextRoute){
-                        return nextRoute;
+                    if(customRouteObj && customRouteObj.next){
+                        return customRouteObj.next;
                     }
                     else {
                         // otherwise we will log an error and continue so default functionality will kick in towards end of function
