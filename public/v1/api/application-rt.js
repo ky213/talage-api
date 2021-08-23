@@ -1450,6 +1450,19 @@ async function getBopCodes(req, res, next){
     res.send(200, bopIcList);
 }
 
+async function getPricingIndication(req, res, next){
+    
+    const mockData = {
+        gotPricing: true,
+        price: 1200,
+        lowPrice: 800,
+        highPrice: 1500,
+        outOfAppetite: false,
+        pricingError: false
+      };
+    res.send(200, mockData);
+    return next();
+}
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAppApi("POST Application",`${basePath}/application`, applicationSave);
@@ -1459,6 +1472,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
+    server.addGetAuthAppApi('GET Price Indiation for Application', `${basePath}/application/:id/pricing`, getPricingIndication);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
