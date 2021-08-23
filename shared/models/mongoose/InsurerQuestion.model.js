@@ -17,7 +17,6 @@ const opts = {toJSON: {virtuals: true}};
 
 const InsurerQuestionSchema = new Schema({
     insurerQuestionId: {type: String, required: [true, 'insurerQuestionId required'], unique: true},
-    systemId: {type: Number},
     insurerId: {type: Number},
     talageQuestionId: {type: Number},
     policyTypeList: {type: [String], required: false, default: []},

@@ -135,7 +135,7 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
 
         const special_activity_codes = {
             AK: [
@@ -819,13 +819,19 @@ module.exports = class MarkelWC extends Integration {
                 unique_territories.push(location.territory);
             }
         });
-        for (const question_id in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
-                const QuestionCd = this.question_identifiers[question.id];
+
+
+        for(const insurerQuestion of this.insurerQuestionList){
+        //for (const question_id in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    continue;
+                }
+                const questionIdentifier = insurerQuestion.identifier;
 
                 // If there is no question code, this question is for another insurer, just move on
-                if (!QuestionCd) {
+                if (!questionIdentifier) {
                     continue;
                 }
 
@@ -841,18 +847,26 @@ module.exports = class MarkelWC extends Integration {
                 }
 
                 // This question was not answered
-                if (!answer && !this.universal_questions.includes(question_id)) {
+                //if (!answer && !insurerQuestion.universal) {
+                //this.universal_questions.includes(question_id)
+                if (!answer) {
                     continue;
                 }
 
-                // Special rules for Question 1045
-                if (question_id === 1045) {
+                // Special rules for Question com.markel.uw.questions.Question1548
+                if (insurerQuestion.identifier === "com.markel.uw.questions.Question1548") {
+                    
                     // Replace any percentages that are present
                     if (typeof answer === 'string') {
                         answer = answer.replace('%', '');
                     }
+                    //false means it was not answers  it is child question so this happens.
+                    if(answer === false){
+                        answer = 'Less than 15';
+                    }
 
-                    // Make sure the answer is numeric
+
+                    // In case we got a numeric flip it to Markel's answer.
                     if (/^\d+$/.test(answer)) {
                         const answerInt = parseInt(answer, 10);
 
@@ -866,24 +880,25 @@ module.exports = class MarkelWC extends Integration {
                             answer = 'Greater than 25';
                         }
                     }
-                    else {
-                        log.error(`Appid: ${this.app.id} Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
-                        this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
-                        return this.return_result('error');
-                    }
+                    // a drop down list this is with the anwser string.
+                    // else {
+                    //     log.error(`Appid: ${this.app.id} Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
+                    //     this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
+                    //    // return this.return_result('error');
+                    // }
                 }
 
                 let questionAnswer = '';
 
                 //Special Questions and defaults
-                if (QuestionCd === 'com.markel.uw.questions.submission.EMod') {
+                if (questionIdentifier === 'com.markel.uw.questions.submission.EMod') {
                     questionAnswer = 'NA'
                 }
 
-                if (QuestionCd === 'com.markel.uw.questions.submission.ExposureOutsideState') {
+                if (questionIdentifier === 'com.markel.uw.questions.submission.ExposureOutsideState') {
                     questionAnswer = 'NA'
                 }
-                if (QuestionCd === 'com.markel.uw.questions.submission.YearsWithWC') {
+                if (questionIdentifier === 'com.markel.uw.questions.submission.YearsWithWC') {
                     if (question.type === 'Yes/No') {
                         questionAnswer = 'NA'
                     }
@@ -892,13 +907,13 @@ module.exports = class MarkelWC extends Integration {
                     }
                 }
 
-                if (specialQuestions.includes(QuestionCd)) {
+                if (specialQuestions.includes(questionIdentifier)) {
                     questionAnswer = 'N0'
                 }
-                if (QuestionCd === 'com.markel.uw.questions.Question1590') {
+                if (questionIdentifier === 'com.markel.uw.questions.Question1590') {
                     questionAnswer = this.policy.coverage_lapse ? 'YES' : 'NO'
                 }
-                if (QuestionCd === 'com.markel.uw.questions.Question29') {
+                if (questionIdentifier === 'com.markel.uw.questions.Question29') {
                     questionAnswer = this.policy.claims.length ? 'YES' : 'NO';
                 }
 
@@ -920,10 +935,10 @@ module.exports = class MarkelWC extends Integration {
                 // Multi-State?
                 if (unique_territories.length > 1) {
 
-                    if (QuestionCd === 'com.markel.uw.questions.Question30') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question30') {
                         questionAnswer = 'YES'
                     }
-                    if (QuestionCd === 'com.markel.uw.questions.Question1551') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question1551') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -933,17 +948,17 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                 }
-                else if (QuestionCd === 'com.markel.uw.questions.Question30') {
+                else if (questionIdentifier === 'com.markel.uw.questions.Question30') {
                     questionAnswer = 'NO'
                 }
 
-                if (QuestionCd === 'com.markel.uw.questions.Question870') {
+                if (questionIdentifier === 'com.markel.uw.questions.Question870') {
                     questionAnswer = this.app.business.website ? 'YES' : 'NO'
                 }
 
                 if (this.app.business.website) {
 
-                    if (QuestionCd === 'com.markel.uw.questions.Question1041') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question1041') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -968,7 +983,7 @@ module.exports = class MarkelWC extends Integration {
                 ];
 
                 if (safety_committee_states.includes(this.app.business.primary_territory)) {
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.CertSafetyCommNotification') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.CertSafetyCommNotification') {
                         questionAnswer = 'NO'
                     }
 
@@ -992,7 +1007,7 @@ module.exports = class MarkelWC extends Integration {
                         }
                     }
 
-                    if (QuestionCd === `com.markel.uw.questions.stateSpecific.${this.app.business.primary_territory.toLowerCase()}.NumberOfClaims`) {
+                    if (questionIdentifier === `com.markel.uw.questions.stateSpecific.${this.app.business.primary_territory.toLowerCase()}.NumberOfClaims`) {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1007,7 +1022,7 @@ module.exports = class MarkelWC extends Integration {
                 if (this.app.business.primary_territory === 'AL') {
 
                     // How many claims were within the last year?
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLastYear') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLastYear') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1017,7 +1032,7 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                     // How many claims were within the last 2 years?
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLast2Years') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLast2Years') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1031,7 +1046,7 @@ module.exports = class MarkelWC extends Integration {
                 if (this.app.business.primary_territory === 'CO') {
 
                     // How many loss time claims were within the last year?
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.co.NumberOfLossTimeClaimsLastYr') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.co.NumberOfLossTimeClaimsLastYr') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1041,7 +1056,7 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                     // How many medical claims of $250 or more were within the last?
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.co.NumberOfMedClaimsLastYr') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.co.NumberOfMedClaimsLastYr') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1051,7 +1066,7 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                     // Certified Risk Management Program
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.co.CRMPFlag') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.co.CRMPFlag') {
                         questionAnswer = 'N0'
 
                     }
@@ -1062,19 +1077,19 @@ module.exports = class MarkelWC extends Integration {
                     if (this.app.business.bureau_number === 0) {
 
                         // Do you know the DCRB file number?
-                        if (QuestionCd === 'com.markel.uw.questions.Question1206') {
+                        if (questionIdentifier === 'com.markel.uw.questions.Question1206') {
                             questionAnswer = 'N0'
                         }
                     }
                     else {
 
                         // Do you know the DCRB file number?
-                        if (QuestionCd === 'com.markel.uw.questions.Question1206') {
+                        if (questionIdentifier === 'com.markel.uw.questions.Question1206') {
                             questionAnswer = 'YES'
                         }
 
                         // Please enter the DCRB file number
-                        if (QuestionCd === 'com.markel.uw.questions.Question1207') {
+                        if (questionIdentifier === 'com.markel.uw.questions.Question1207') {
                             if (question.type === 'Yes/No') {
                                 questionAnswer = 'NA'
                             }
@@ -1090,12 +1105,12 @@ module.exports = class MarkelWC extends Integration {
                 if (this.app.business.primary_territory === 'HI') {
 
                     // Default to NO
-                    if (QuestionCd === 'com.markel.uw.questions.Question1783') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question1783') {
                         questionAnswer = 'N0'
                     }
 
                     // You can contact the DOL for assistance in obtaining or verifying a DOL number by calling 808-586-8914
-                    if (QuestionCd === 'com.markel.uw.questions.Question1784') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question1784') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1110,7 +1125,7 @@ module.exports = class MarkelWC extends Integration {
                 if (this.app.business.primary_territory === 'KY') {
 
                     // Does the applicant wish to select a deductible?
-                    if (QuestionCd === 'com.markel.uw.questions.Question1638') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question1638') {
                         questionAnswer = 'N0'
                     }
 
@@ -1121,12 +1136,12 @@ module.exports = class MarkelWC extends Integration {
                     if (this.app.business.bureau_number) {
 
                         // Do you know the PCRB file number?
-                        if (QuestionCd === 'com.markel.uw.questions.Question1204') {
+                        if (questionIdentifier === 'com.markel.uw.questions.Question1204') {
                             questionAnswer = 'YES'
                         }
 
                         // Please enter the PCRB file number
-                        if (QuestionCd === 'com.markel.uw.questions.Question1205') {
+                        if (questionIdentifier === 'com.markel.uw.questions.Question1205') {
                             if (question.type === 'Yes/No') {
                                 questionAnswer = 'NA'
                             }
@@ -1136,7 +1151,7 @@ module.exports = class MarkelWC extends Integration {
                         }
 
                     }
-                    else if (QuestionCd === 'com.markel.uw.questions.Question1204') {
+                    else if (questionIdentifier === 'com.markel.uw.questions.Question1204') {
                         // Do you know the PCRB file number?
                         questionAnswer = 'NO';
                     }
@@ -1146,7 +1161,7 @@ module.exports = class MarkelWC extends Integration {
                 if (this.app.business.primary_territory === 'RI') {
 
                     // Consecutive years with no losses (between 0 and 6 inclusive)
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.ri.ClaimFreeYearNumber') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.ri.ClaimFreeYearNumber') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1161,7 +1176,7 @@ module.exports = class MarkelWC extends Integration {
                 if (this.app.business.primary_territory === 'TX') {
 
                     // How many claims were within the last year?
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLastYear') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLastYear') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1171,7 +1186,7 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                     // How many claims were within the last 2 years?
-                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLast2Years') {
+                    if (questionIdentifier === 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLast2Years') {
                         if (question.type === 'Yes/No') {
                             questionAnswer = 'NA'
                         }
@@ -1181,7 +1196,7 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                     // Any lapse in coverage?
-                    if (QuestionCd === 'com.markel.uw.questions.Question1594') {
+                    if (questionIdentifier === 'com.markel.uw.questions.Question1594') {
                         questionAnswer = this.policy.coverage_lapse ? 'YES' : 'NO';
                     }
 
@@ -1213,14 +1228,14 @@ module.exports = class MarkelWC extends Integration {
                     if (match) {
 
                         // Add the additional question
-                        if (QuestionCd === 'com.markel.uw.questions.Question1203') {
+                        if (questionIdentifier === 'com.markel.uw.questions.Question1203') {
                             questionAnswer = 'NO'
                         }
 
                     }
                 }
                 //Add Question to the question object for the API
-                questionObj[QuestionCd] = questionAnswer;
+                questionObj[questionIdentifier] = questionAnswer;
             }
         }
 
