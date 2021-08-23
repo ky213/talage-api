@@ -32,13 +32,13 @@ async function getNextRoute(req, res, next){
 }
 /**
  * Gets the next route, if custom route exists for an agency network it utilized that else defaults to the wheelhouse routes flow
- * @param {string} reqHeader - Request object header
+ * @param {string} jwtToken - Request jwtToken
  * @param {string} currentRT - The current route of the application flow (not application as in software application)
  * @param {string} appId - Application Id (application the user is filling out)
  *
  * @returns {string}  Returns the next route, either based on the custom flow for agencyNetwork or the default for wheelhouse if one not found
  */
-const getRoute = async(reqHeader, currentRT, appId) => {
+const getRoute = async(jwtToken, currentRT, appId) => {
     // copy the current route (currentRT) value into a local variable which might change based on whether locations have a mailing address
     let currentRoute = currentRT;
 
@@ -57,16 +57,16 @@ const getRoute = async(reqHeader, currentRT, appId) => {
         }
     }
     // if redis has agencyNetwork id then grab it
-    const appMetaData = await getApplicationMeta(reqHeader);
-    if(appMetaData){
-        log.debug(`appMetaData from redis ${JSON.stringify(appMetaData)} ${__location}`);
+    const userSessionMetaData = await getUserSessionMetaData(jwtToken);
+    if(userSessionMetaData){
+        log.debug(`userSessionMetaData from redis ${JSON.stringify(userSessionMetaData)} ${__location}`);
     }else {
-        log.debug(`No appMetaData found, value returned by redis: ${appMetaData} ${__location}`);
+        log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
     }
-    if(appMetaData && appMetaData.agencyNetworkId){
-        // if we have agency network id and it is not 1 we check for custom routes
-        if(appMetaData.agencyNetworkId !== 1){
-            const customRoutesFlow = appMetaData.appCustomRouteFlow;
+    if(userSessionMetaData && userSessionMetaData.agencyNetworkId){
+        // if we have agency network id and it is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
+        if(userSessionMetaData.agencyNetworkId !== 1 && userSessionMetaData.agencyNetworkId !== 2){
+            const customRoutesFlow = userSessionMetaData.quoteAppCustomRouting;
             // if we have custom route flow we grab the next route
             if(customRoutesFlow){
                 const nextRoute = customRoutesFlow[currentRoute];
@@ -74,7 +74,7 @@ const getRoute = async(reqHeader, currentRT, appId) => {
                 if(nextRoute){
                     return nextRoute;
                 }else {
-                    log.warn(`Missing next route for current route ${currentRoute} from appCustomRouteFlow schema for agencyNetwork ${appMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
+                    log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
                 }
             }
         }
@@ -86,15 +86,15 @@ const getRoute = async(reqHeader, currentRT, appId) => {
         // If we have agencyNetworkId
         if(agencyNetworkId){
             // Save agencyNetworkId into redis
-            await putApplicationMeta(reqHeader, {'agencyNetworkId': agencyNetworkId});
-            // If agencyNetworkId is not 1 we will see if the agencyNetorkFeatures object has an appCustomRouteFlow object
+            await putUserSessionMetaData(jwtToken, {'agencyNetworkId': agencyNetworkId});
+            // If agencyNetworkId is not 1 we will see if the agencyNetorkFeatures object has an quoteAppCustomRouting object
             if(agencyNetworkId !== 1){
                 const agencyNetworkBO = new AgencyNetworkBO();
                 const agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
-                const customRouteFlowObj = agencyNetworkDB.featureJson.appCustomRouteFlow;
+                const customRouteFlowObj = agencyNetworkDB.quoteAppCustomRouting;
                 if(customRouteFlowObj){
                     // If there is a custom route flow we will save it into redis
-                    await putApplicationMeta(reqHeader, {'appCustomRouteFlow': customRouteFlowObj});
+                    await putUserSessionMetaData(jwtToken, {'quoteAppCustomRouting': customRouteFlowObj});
                     // we will grab the next route
                     const nextRoute = customRouteFlowObj[currentRoute];
                     // if the next route is valid (meaning not undefined or null) we will return it
@@ -103,7 +103,7 @@ const getRoute = async(reqHeader, currentRT, appId) => {
                     }
                     else {
                         // otherwise we will log a warning and continue so default functionality will kick in towards end of function
-                        log.warn(`Missing next route for current route ${currentRoute} from appCustomRouteFlow schema for agencyNetwork ${appMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
+                        log.warn(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
                     }
                 }
             }
@@ -139,8 +139,8 @@ const getApplication = async(appId) => {
     return applicationDB;
 }
 // Retrieves meta data for an application from Redis
- const getApplicationMeta = async (reqHeader) => {
-    const redisKey = reqHeader;
+ const getUserSessionMetaData = async (jwtToken) => {
+    const redisKey = jwtToken;
     const redisValue = await global.redisSvc.getKeyValue(redisKey);
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
@@ -152,12 +152,12 @@ const getApplication = async(appId) => {
         return null;
 }
 // Stores (puts) application meta data into Redis
-const putApplicationMeta = async (reqHeader, params) => {
+const putUserSessionMetaData = async (jwtToken, params) => {
     if(Object.keys(params).length === 0){
         log.error(`No Metadata provided for Application ${__location}`);
         return;
     }
-    const redisKey = reqHeader;
+    const redisKey = jwtToken;
     const redisValue = await global.redisSvc.getKeyValue(redisKey);
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
