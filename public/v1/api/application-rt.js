@@ -1472,7 +1472,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
-    server.addGetAuthAppApi('GET Price Indiation for Application', `${basePath}/application/:id/pricing`, getPricingIndication);
+    server.addGetAuthAppApi('GET Price Indication for Application', `${basePath}/application/:id/pricing`, getPricingIndication);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);

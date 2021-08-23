@@ -81,7 +81,7 @@ function parseQuoteURL(url) {
         "_basic",
         "_policies",
         "_business-questions",
-        "_price-indication",
+        "_pricing",
         "_locations",
         "_mailing-address",
         "_claims",
