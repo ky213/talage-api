@@ -32,7 +32,6 @@ const featureSchema = new Schema({
     abandonAppEmailsAgency: {type: Boolean, required: true, default: false},
     quoteAppBinding: {type: Boolean, required: true, default: false},
     appRequirementOverrides: {type: Object, required: false},
-    appCustomRouteFlow: {type: Object, required: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
@@ -51,6 +50,7 @@ const AgencyNetworkSchema = new Schema({
     landing_page_content: {type: Schema.Types.Mixed},
     custom_emails: {type: Schema.Types.Mixed},
     phone: {type: String, required: false},
+    quoteAppCustomRouting: {type: Object, required: false},
     featureJson: {type: featureSchema},
     additionalInfo: {type: Schema.Types.Mixed},
     insurerIds: [Number],
