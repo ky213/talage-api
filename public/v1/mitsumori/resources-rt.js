@@ -78,10 +78,11 @@ const agencyNetworkFeatures = async(resources, appId) => {
 
     // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
     const quoteAppBinding = agencyNetworkDB.featureJson.quoteAppBinding === true;
-
+    const appSingleQuotePath = agencyNetworkDB.featureJson.appSingleQuotePath === true;
     // get the agency network features we care about here.
     resources.agencyNetworkFeatures = {
-        quoteAppBinding
+        quoteAppBinding,
+        appSingleQuotePath
     };
 }
 
