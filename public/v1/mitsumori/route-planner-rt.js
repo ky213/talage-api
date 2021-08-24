@@ -56,18 +56,35 @@ const getRoute = async(jwtToken, currentRT, appId) => {
             }
         }
     }
-    // if redis has agencyNetwork id then grab it
+    // if redis userSessionMetaData has agencyNetwork id then grab it
     const userSessionMetaData = await getUserSessionMetaData(jwtToken);
     if(userSessionMetaData){
         log.debug(`UserSessionMetaData from redis ${JSON.stringify(userSessionMetaData)} ${__location}`);
     }else {
         log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
     }
-    if(userSessionMetaData && userSessionMetaData.agencyNetworkId){
-        // if we have agency network id and it is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
-        if(userSessionMetaData.agencyNetworkId !== 1 && userSessionMetaData.agencyNetworkId !== 2){
-            //look at boolean value for checkedAppCustomRouting (ensures we don't just rely on Agency network id 
-            //being present to determine if we checked for custom route for an agency network)
+    let agencyNetworkId = null;
+    if(userSessionMetaData){
+        agencyNetworkId = userSessionMetaData.agencyNetworkId;
+    }
+    if(agencyNetworkId == null){
+            // We don't have agency networkId so we will grab it from application
+            const app = await getApplication(appId);
+             agencyNetworkId = app.agencyNetworkId;
+            log.debug(`agencyNetworkId ${agencyNetworkId}`);
+            // If we have agencyNetworkId
+            if(agencyNetworkId){
+                // Save agencyNetworkId into redis
+                await putUserSessionMetaData(jwtToken, {'agencyNetworkId': agencyNetworkId});
+            }else {
+                // log the warning and continue with default routing
+                log.warn(`Missing agencyNetworkId from app ${appId} ${__location}`);
+            }
+    }
+        // if we agency network id  is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
+        if(agencyNetworkId && agencyNetworkId !== 1 && agencyNetworkId !== 2){
+            //look at boolean value for checkedAppCustomRouting (ensures we don't just rely on Agency network id being in redis to determine  
+            //if we checked for custom route for an agency network)
             const checkedAppCustomRouting = userSessionMetaData.checkedAppCustomRouting;
             // if we have already checked custom routing on the application then we look in redis to see for the custom routing object
             let customRouteFlowObj = null;
@@ -93,39 +110,6 @@ const getRoute = async(jwtToken, currentRT, appId) => {
                     }
                 }
             
-        }
-    }else {
-        // We don't have agency networkId so we will grab it from application
-        const app = await getApplication(appId);
-        const agencyNetworkId = app.agencyNetworkId;
-        log.debug(`agencyNetworkId ${agencyNetworkId}`);
-        // If we have agencyNetworkId
-        if(agencyNetworkId){
-            // Save agencyNetworkId into redis
-            await putUserSessionMetaData(jwtToken, {'agencyNetworkId': agencyNetworkId});
-            // If agencyNetworkId is not 1 we will see if the agencyNetorkFeatures object has an quoteAppCustomRouting object
-            if(agencyNetworkId !== 1){
-                const agencyNetworkBO = new AgencyNetworkBO();
-                const agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
-                const customRouteFlowObj = agencyNetworkDB.quoteAppCustomRouting;
-                if(customRouteFlowObj){
-                    // If there is a custom route flow we will save it into redis
-                    await putUserSessionMetaData(jwtToken, {'quoteAppCustomRouting': customRouteFlowObj});
-                    // we will grab the next route
-                    const customRouteObj = customRouteFlowObj[currentRoute];
-                    // if the next route is valid (meaning not undefined or null) we will return it
-                    if(customRouteObj && customRouteObj.next){
-                        return customRouteObj.next;
-                    }
-                    else {
-                        // otherwise we will log an error and continue so default functionality will kick in towards end of function
-                        log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
-                    }
-                }
-            }
-        }else {
-            // log the warning and continue with default routing
-            log.warn(`Missing agencyNetworkId from app ${appId} ${__location}`);
         }
     }
     // Default routes path
