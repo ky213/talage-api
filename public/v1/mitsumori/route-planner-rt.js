@@ -85,7 +85,10 @@ const getRoute = async(jwtToken, currentRT, appId) => {
     if(agencyNetworkId && agencyNetworkId !== 1 && agencyNetworkId !== 2){
         //look at boolean value for checkedAppCustomRouting (ensures we don't just rely on Agency network id being in redis to determine  
         //if we checked for custom route for an agency network)
-        const checkedAppCustomRouting = userSessionMetaData.checkedAppCustomRouting;
+        let checkedAppCustomRouting = null; 
+        if(userSessionMetaData){
+            checkedAppCustomRouting = userSessionMetaData.checkedAppCustomRouting;
+        }
         // if we have already checked custom routing on the application then we look in redis to see for the custom routing object
         let customRouteFlowObj = null;
         if(checkedAppCustomRouting === true){
