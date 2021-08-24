@@ -11,10 +11,10 @@ const moment = require('moment');
  * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
  *  since rules vary by insurer and policy type.
  * @param {string} applicationDocData - The applicationDocData
+ * @param {boolean} logValidationErrors - true = log.error is written
  * @returns {void}
 */
-
-const validateBusiness = (applicationDocData) => {
+const validateBusiness = (applicationDocData, logValidationErrors = true) => {
 
     /**
      * Bureau Number (optional)
@@ -30,17 +30,23 @@ const validateBusiness = (applicationDocData) => {
             if (applicationDocData.primary_territory.toString().toUpperCase() === 'CA') {
                 // Expected Formatting for 'CA' is 99-99-99
                 if (!validator.isBureauNumberCA(applicationDocData.bureauNumber)) {
-                    log.error(`Bureau Number must be formatted as 99-99-99 applicationId: ${applicationDocData.applicationId}` + __location);
+                    if(logValidationErrors){
+                        log.error(`Bureau Number must be formatted as 99-99-99 applicationId: ${applicationDocData.applicationId}` + __location);
+                    }
                 }
             }
             else if (!validator.isBureauNumberNotCA(applicationDocData.bureauNumber)) {
                 // Expected Formatting for all other states is 999999999
-                log.error(`Bureau Number must be numeric applicationId: ${applicationDocData.applicationId}` + __location);
+                if(logValidationErrors){
+                    log.error(`Bureau Number must be numeric applicationId: ${applicationDocData.applicationId}` + __location);
+                }
             }
         }
     }
     catch (e) {
-        log.error(`Business Validation bureauNumber error: ${e} ${__location}`)
+        if(logValidationErrors){
+            log.error(`Business Validation bureauNumber error: ${e} ${__location}`)
+        }
     }
 
     /**
@@ -72,7 +78,9 @@ const validateBusiness = (applicationDocData) => {
             'Other'
         ];
         if (valid_types.indexOf(applicationDocData.entityType) === -1) {
-            log.error(`Invalid data in property: entityType applicationId ${applicationDocData.applicationId}` + __location);
+            if(logValidationErrors){
+                log.error(`Invalid data in property: entityType applicationId ${applicationDocData.applicationId}` + __location);
+            }
         }
     }
     else {
@@ -111,12 +119,16 @@ const validateBusiness = (applicationDocData) => {
 
         // Confirm date is not in the future
         if (foundedMoment.isAfter(moment())) {
-            throw new Error('Invalid value for property: founded. Founded date cannot be in the future');
+            if(logValidationErrors){
+                throw new Error('Invalid value for property: founded. Founded date cannot be in the future');
+            }
         }
 
         // Confirm founded date is at least somewhat reasonable
         if (foundedMoment.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
-            throw new Error('Invalid value for property: founded. Founded date is too far in the past.');
+            if(logValidationErrors){
+                throw new Error('Invalid value for property: founded. Founded date is too far in the past.');
+            }
         }
     }
     else {
@@ -252,10 +264,11 @@ const validateBusiness = (applicationDocData) => {
 /**
  * Checks that the data supplied is valid
  * @param {string} applicationDocData - The applicationDocData
+ * @param {boolean} logValidationErrors - true = log.error is written
  * @returns {void}
  */
 
-const validateContacts = async(applicationDocData) => {
+const validateContacts = async(applicationDocData, logValidationErrors = true) => {
     if (applicationDocData.contacts.length === 0) {
         throw new Error('At least 1 contact must be provided');
     }
@@ -323,7 +336,7 @@ const validateContacts = async(applicationDocData) => {
             contact.phone = contact.phone.replace(/[^0-9]/ig, '');
             contact.phone = parseInt(contact.phone, 10);
         }
-        else {
+        else if (logValidationErrors){
             // throw new Error('Phone number is required');
             log.warn(`Application contact validation: Phone number not provided.`);
         }
@@ -333,9 +346,10 @@ const validateContacts = async(applicationDocData) => {
 /**
  * Checks that the data supplied is valid
  * @param {string} applicationDocData - The applicationDocData
+ * @param {boolean} logValidationErrors - true = log.error is written
  * @returns {void}
  */
-const validateLocations = (applicationDocData) => {
+const validateLocations = (applicationDocData, logValidationErrors = true) => {
     if (applicationDocData.locations.length === 0) {
         throw new Error('At least 1 location must be provided');
     }
@@ -411,7 +425,9 @@ const validateLocations = (applicationDocData) => {
         if (location.zipcode) {
             location.zipcode = location.zipcode.slice(0,5);
             if (!validator.isZip(location.zipcode)) {
-                log.error('Invalid formatting for location: mailing_zip. Expected 5 or 9 digit format. actual zip: ' + location.zipcode + __location)
+                if(logValidationErrors){
+                    log.error(`AppId: ${applicationDocData.applicationId} Invalid formatting for location: mailing_zip. Expected 5 or 9 digit format. actual zip: ` + location.zipcode + __location)
+                }
                 throw new Error('Invalid formatting for location: zip. Expected 5 or 9 digit format');
             }
         }
@@ -585,9 +601,10 @@ const validatePolicies = (applicationDocData) => {
 /**
  * Checks that the data supplied is valid
  * @param {string} question - The question
+ * @param {boolean} logValidationErrors - true = log.error is written
  * @returns {void}
  */
-const validateQuestion = async(question) => {
+const validateQuestion = async(question, logValidationErrors = true) => {
     // If this question is not required, just return true
     if (!question.required) {
         return;
@@ -632,6 +649,9 @@ const validateQuestion = async(question) => {
             // Check that the answer ID is one of those available for this question
             if(Object.keys(question.possible_answers).indexOf(answer.toString()) < 0){
                 // Answer is invalid, return an error and stop
+                if(logValidationErrors){
+                    log.error(`AppId: ${applicationDocData.applicationId} Answer to question ${question.id} is invalid. (${type_help}) ` + __location)
+                }
                 throw new Error(`Answer to question ${question.id} is invalid. (${type_help})`);
             }
         }
