@@ -305,44 +305,25 @@ module.exports = class MarkelWC extends Integration {
             return this.client_autodeclined_out_of_appetite();
         }
 
-        // Prepare limits
-        //This may result in no limit being found. needs defaults
-        //Plus need to use best match.   Note: limits variable not used submission.
-        let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
-        const limits = this.getBestLimits(carrierLimits);
-        if (limits) {
-            const markelBestLimits = limits.join("/");
-            const markelLimitsSubmission = mapCarrierLimits[markelBestLimits];
-            if(markelLimitsSubmission){
-                markelLimits = markelLimitsSubmission;
-            }
-            else {
-                markelLimits = '100/500/100';
-            }
-        }
-        else {
-            log.warn(`${logPrefix}autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ${__location}`);
-            this.reasons.push(`Markel does not support the requested liability limits`);
-            return this.return_result('autodeclined');
-        }
-
         // Check the number of claims
-        if (excessive_loss_states.includes(this.app.business.primary_territory)) {
-            if (this.policy.claims.length > 2) {
-                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
-                this.reasons.push(`Too many past claims`);
-                return this.return_result('autodeclined');
-            }
-        }
+        // NOTE: Disabling this, as it's better to send to Markel anyways and let it decline on their end. 
+        // if (excessive_loss_states.includes(this.app.business.primary_territory)) {
+        //     if (this.policy.claims.length > 2) {
+        //         log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
+        //         this.reasons.push(`Too many past claims`);
+        //         return this.return_result('autodeclined');
+        //     }
+        // }
 
         // Check for excessive losses in South Dakota
-        if (this.app.business.primary_territory === 'SD') {
-            if (this.policy.claims.length > 4) {
-                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
-                this.reasons.push(`Too many past claims`);
-                return this.return_result('autodeclined');
-            }
-        }
+        // NOTE: Disabling this, as it's better to send to Markel anyways and let it decline on their end. 
+        // if (this.app.business.primary_territory === 'SD') {
+        //     if (this.policy.claims.length > 4) {
+        //         log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
+        //         this.reasons.push(`Too many past claims`);
+        //         return this.return_result('autodeclined');
+        //     }
+        // }
 
         const primaryAddress = this.app.business.locations[0];
 
