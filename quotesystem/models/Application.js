@@ -374,8 +374,11 @@ module.exports = class Application {
                     if (typeof claim.amountPaid === 'number') {
                         claim.amountPaid = Math.round(claim.amountPaid);
                     }
-                    else {
+                    else if(typeof claim.amountPaid === 'string') {
                         claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                    else {
+                        claim.amountPaid = 0;
                     }
                 }
                 else {
@@ -396,8 +399,11 @@ module.exports = class Application {
                     if (typeof claim.amountReserved === 'number') {
                         claim.amountReserved = Math.round(claim.amountReserved);
                     }
-                    else {
+                    else if (typeof claim.amountReserved === 'string') {
                         claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                    else {
+                        claim.amountReserved = 0;
                     }
                 }
                 else {
@@ -428,8 +434,8 @@ module.exports = class Application {
             industryCodeStringArray.push(this.applicationDocData.industryCode);
         }
         const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
-        if(bopPolicy){
-            industryCodeStringArray.push(this.applicationDocData.bopIndustryCodeId.toString());
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
+            industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
 
         let talageQuestionDefList = null;
@@ -1164,17 +1170,20 @@ module.exports = class Application {
     /**
 	 * Checks that the data supplied is valid
 	 *
+     * @param {boolean} logValidationErrors - true = log.error is written
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    validate() {
+    validate(logValidationErrors = true) {
         return new Promise(async(fulfill, reject) => {
             // Agent
             try {
                 //Check Agencylocation Choice.
-                await validateAgencyLocation(this.applicationDocData, this.agencyLocation);
+                await validateAgencyLocation(this.applicationDocData, this.agencyLocation, logValidationErrors);
             }
             catch (e) {
-                log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                if(logValidationErrors){
+                    log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                }
                 return reject(e);
             }
 
@@ -1193,7 +1202,7 @@ module.exports = class Application {
                 if (e.toLowerCase() === 'agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
-                        log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.mysqlId}` + __location)
+                        log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.applicationId}` + __location)
                         this.agencyLocation = new AgencyLocation(this);
                         await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
@@ -1225,7 +1234,9 @@ module.exports = class Application {
             }
 
             if (!insurers || !Array.isArray(insurers) || insurers.length === 0) {
-                log.error('Invalid insurer(s) specified in policy. ' + __location);
+                if(logValidationErrors){
+                    log.error('Invalid insurer(s) specified in policy. ' + __location);
+                }
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
 
@@ -1251,7 +1262,7 @@ module.exports = class Application {
 
             // Business (required)
             try {
-                await validateBusiness(this.applicationDocData);
+                await validateBusiness(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating business: ${e}`));
@@ -1259,7 +1270,7 @@ module.exports = class Application {
 
             // Contacts (required)
             try {
-                validateContacts(this.applicationDocData);
+                validateContacts(this.applicationDocData,logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating contacts: ${e}`));
@@ -1267,7 +1278,7 @@ module.exports = class Application {
 
             // Locations (required)
             try {
-                validateLocations(this.applicationDocData);
+                validateLocations(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating locations: ${e}`));
@@ -1275,7 +1286,7 @@ module.exports = class Application {
 
             // Claims (optional)
             try {
-                validateClaims(this.applicationDocData);
+                validateClaims(this.applicationDocData,logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating claims: ${e}`));
@@ -1284,7 +1295,7 @@ module.exports = class Application {
             // Activity Codes (required)
             if (this.has_policy_type("WC")) {
                 try {
-                    validateActivityCodes(this.applicationDocData);
+                    validateActivityCodes(this.applicationDocData, logValidationErrors);
                 }
                 catch (e) {
                     return reject(new Error(`Failed validating activity codes: ${e}`));
@@ -1331,7 +1342,7 @@ module.exports = class Application {
 
             // Validate all policies
             try {
-                validatePolicies(this.applicationDocData);
+                validatePolicies(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating policy: ${e}`));
@@ -1342,11 +1353,13 @@ module.exports = class Application {
                 for (const question of this.applicationDocData.questions) {
                     if (question.questionId && !question.hidden) {
                         try {
-                            validateQuestion(question);
+                            validateQuestion(question, logValidationErrors);
                         }
                         catch (e) {
                             // This issue should not result in a stoppage of quoting with all insurers
-                            log.error(`AppId ${this.id} Failed validating question ${question.questionId}: ${e}. ` + __location);
+                            if(logValidationErrors){
+                                log.error(`AppId ${this.id} Failed validating question ${question.questionId}: ${e}. ` + __location);
+                            }
                         }
                     }
                 }
@@ -1355,7 +1368,9 @@ module.exports = class Application {
             // Check agent support
             await this.agencyLocation.supports_application().catch(function(error) {
                 // This issue should not result in a stoppage of quoting with all insureres - BP 2020-10-04
-                log.error(`agencyLocation.supports_application() error ` + error + __location);
+                if(logValidationErrors){
+                    log.error(`agencyLocation.supports_application() error ` + error + __location);
+                }
             });
 
             fulfill(true);

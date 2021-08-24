@@ -52,7 +52,7 @@ module.exports = class ChubbGL extends Integration {
             'Trust - Non-Profit': 'TE'
         };
 
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Chubb GL (Appid: ${applicationDocData.applicationId}): `;
 
         let chubbClassCode = this.industry_code.cgl
@@ -166,7 +166,7 @@ module.exports = class ChubbGL extends Integration {
         Addr.att('id', this.generate_uuid());
         Addr.ele('AddrTypeCd', 'MailingAddress');
         if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale ||
-           this.app.applicationDocData.agencyId === 1){
+           this.applicationDocData.agencyId === 1){
             Addr.ele('Addr1', 'PO Box 12332');
             Addr.ele('Addr2');
             Addr.ele('City', 'Reno');

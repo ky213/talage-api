@@ -150,10 +150,10 @@ module.exports = class AcuityWC extends Integration {
 
         // Set the type of corporation
         if (this.entityType === "CP") {
-            if (this.app.applicationDocData.corporationType) {
-                this.corporationType = corporationTypeMatrix[this.app.applicationDocData.corporationType];
+            if (this.applicationDocData.corporationType) {
+                this.corporationType = corporationTypeMatrix[this.applicationDocData.corporationType];
             }
-            else if (this.app.applicationDocData.mailingState === "PA") {
+            else if (this.applicationDocData.mailingState === "PA") {
                 this.log_warn("Corporation in Pennsylvania needs corporation type, but it isn't specified. Non-fatal so continuing quote.", __location);
             }
         }
@@ -380,8 +380,11 @@ module.exports = class AcuityWC extends Integration {
         // Find the policy information
         const policyStatusCd = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.PolicyStatusCd");
         switch (policyStatusCd) {
+            case 'com.acuity_Incomplete':
+                log.error(`AcuityWC (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
+                return this.client_declined("incomplete information to quote");
             case 'com.acuity_BindableQuoteIncompleteData':
-                this.log_info(`Reporting incomplete information for a bindable quote. The quote will be a referral. Non-fatal so continuing.`);
+                this.log_info(`Reporting incomplete information for a bindable quote. The quote will be a referral. Non-fatal so continuing.`, __location);
                 // eslint-disable-line no-fallthrough
             case 'com.acuity_BindableQuote':
             case "com.acuity_BindableModifiedQuote":
@@ -395,21 +398,23 @@ module.exports = class AcuityWC extends Integration {
                 // Retrieve and populate the quote limits
                 const limitNodeList = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.WorkCompLineBusiness.CommlCoverage.Limit", true);
                 const quoteLimits = {};
-                limitNodeList.forEach((limitNode) => {
-                    switch (limitNode.LimitAppliesToCd[0]) {
-                        case 'PerAcc':
-                            quoteLimits[1] = limitNode.FormatInteger[0];
-                            break;
-                        case 'DisEachEmpl':
-                            quoteLimits[2] = limitNode.FormatInteger[0];
-                            break;
-                        case 'DisPol':
-                            quoteLimits[3] = limitNode.FormatInteger[0];
-                            break;
-                        default:
-                            break;
-                    }
-                });
+                if(limitNodeList){
+                    limitNodeList.forEach((limitNode) => {
+                        switch (limitNode.LimitAppliesToCd[0]) {
+                            case 'PerAcc':
+                                quoteLimits[1] = limitNode.FormatInteger[0];
+                                break;
+                            case 'DisEachEmpl':
+                                quoteLimits[2] = limitNode.FormatInteger[0];
+                                break;
+                            case 'DisPol':
+                                quoteLimits[3] = limitNode.FormatInteger[0];
+                                break;
+                            default:
+                                break;
+                        }
+                    });
+                }
 
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {

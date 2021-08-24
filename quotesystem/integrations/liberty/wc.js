@@ -33,7 +33,7 @@ module.exports = class LibertyWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
         const logPrefix = `Liberty Mutual WC (Appid: ${this.app.id}): `;
 
@@ -408,7 +408,7 @@ module.exports = class LibertyWC extends Integration {
                                     QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
                                 }
                                 catch(err){
-                                    log.error(`${logPrefix}Issue withTalage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err}. ${__location}`);
+                                    log.error(`${logPrefix}Issue with Talage Question ${iq.talageQuestionId} for InsurerQuestion : ${iq.identifier} error: ${err} question object ${JSON.stringify(question)}. ${__location}`);
                                 }
                             }
                             else {
