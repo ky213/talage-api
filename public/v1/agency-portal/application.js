@@ -955,11 +955,13 @@ async function validate(req, res, next) {
     }
     // Validate
     try {
-        passValidation = await applicationQuoting.validate();
+        const doNotLogValidationErrors = false
+        passValidation = await applicationQuoting.validate(doNotLogValidationErrors);
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        // This is a user triggered validation check.  Do not log.
+        // log.error(errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -1087,6 +1089,7 @@ async function requote(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
+        //pre quote validation log any errors
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
         log.warn(errMessage + __location);
         res.send(400, errMessage);

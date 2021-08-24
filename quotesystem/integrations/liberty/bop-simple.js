@@ -68,7 +68,7 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `;
         const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
 
@@ -656,7 +656,7 @@ module.exports = class LibertySBOP extends Integration {
     async _getLibertyIndustryCodes() {
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
 
         const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `
 

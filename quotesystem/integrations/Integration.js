@@ -17,7 +17,7 @@ const xmlToObj = util.promisify(require('xml2js').parseString);
 const xmlFormatter = require('xml-formatter');
 global.requireShared('./helpers/tracker.js');
 const utility = global.requireShared('./helpers/utility.js');
-const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
+
 
 // eslint-disable-next-line object-curly-newline
 const {quoteStatus, getQuoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
@@ -35,9 +35,10 @@ module.exports = class Integration {
      * @param {object} insurer - An object containing all of the insurer information
      * @param {object} policy - The data related to the current policy
      * @param {uuid} quoteId - This there is already an open quote.
+    * @param {applicationDoc} applicationDoc - applicationDoc for application
      * @returns {void}
      */
-    constructor(app, insurer, policy, quoteId) {
+    constructor(app, insurer, policy, quoteId, applicationDoc) {
         // Integration flags
 
         // requiresInsurerIndustryCodes:
@@ -60,8 +61,19 @@ module.exports = class Integration {
 
         this.policyTypeFilter = null;
 
-        // Integration Data
+        // Integration Data - Make the copy of the application 
         this.app = app;
+        //  Make the copy of the application data so we can independently modify it.
+        if(applicationDoc){
+            this.applicationDocData = JSON.parse(JSON.stringify(applicationDoc));
+        }
+        else {
+            this.applicationDocData = JSON.parse(JSON.stringify(app.applicationDocData));
+        }
+        
+        //make
+
+
         //this.industry_code is combination of Talage industrycode and insurer industry code.
         this.industry_code = {};
         this.insurerIndustryCode = {};
@@ -251,7 +263,7 @@ module.exports = class Integration {
             log.debug(`get_insurer_code_for_activity_code query ${activityCodeQuery}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
-                log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
+                log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
                 insurerActivityCode = {attributes: {}};
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
@@ -262,7 +274,7 @@ module.exports = class Integration {
             }
         }
         catch(err){
-            log.error(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for  InsurerId: ${insurerId},  ${this.insurer.name}:${this.insurer.id},  ${this.app.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}  error ${err}` + __location);
+            log.error(`Appid: ${this.app.id} Error get_insurer_code_for_activity_code for  InsurerId: ${insurerId},  ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}  error ${err}` + __location);
         }
         return insurerActivityCode;
 
@@ -694,10 +706,14 @@ module.exports = class Integration {
         if (talageQuestionIdList.length > 0) {
             
             talageQuestionIdList = talageQuestionIdList.map(Number)
+            const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const query = {
                 "insurerId": this.insurer.id,
                 "questionSubjectArea": questionSubjectArea,
-                "talageQuestionId": {$in: talageQuestionIdList}
+                "talageQuestionId": {$in: talageQuestionIdList},
+                effectiveDate: {$lte: policyEffectiveDate},
+                expirationDate: {$gte: policyEffectiveDate},
+                active: true
             }
 
             if (policyTypes.length > 0) {
@@ -731,7 +747,7 @@ module.exports = class Integration {
      */
     get_application_activitycodes(){
         const activityCodeArray = [];
-        this.app.applicationDocData.locations.forEach(function(location) {
+        this.applicationDocData.locations.forEach(function(location) {
             location.activityPayrollList.forEach(function(activtyCodePayroll) {
                 if(!activityCodeArray.activityCodeId){
                     activityCodeArray.activityCodeId = activityCodeArray.ncciCode
@@ -752,7 +768,7 @@ module.exports = class Integration {
      */
     get_application_territorylist(){
         const territoryList = [];
-        this.app.applicationDocData.locations.forEach(function(location) {
+        this.applicationDocData.locations.forEach(function(location) {
             if(!territoryList.includes(location.state)){
                 territoryList.push(location.state)
             }
@@ -819,7 +835,7 @@ module.exports = class Integration {
                 }
             }
             catch(err){
-                log.error(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: get_insurer_questions_by_activitycodes error ${err} ` + __location);
+                log.error(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: get_insurer_questions_by_activitycodes error ${err} ` + __location);
             }
             return insurerQuestionList;
         }
@@ -858,7 +874,7 @@ module.exports = class Integration {
                 const identifiers = {};
                 this.insurerQuestionList.forEach((insurerQuestion) => {
                     identifiers[insurerQuestion.talageQuestionId] = insurerQuestion.identifier;
-                    if (insurerQuestion.universal) {
+                    if (insurerQuestion.universal && this.universal_questions.indexOf(insurerQuestion.talageQuestionId === -1)) {
                         this.universal_questions.push(insurerQuestion.talageQuestionId);
                     }
                 });
@@ -867,7 +883,7 @@ module.exports = class Integration {
 
             }
             else {
-                log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No question_ids ${JSON.stringify(this.questions)}` + __location);
+                log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No question_ids ${JSON.stringify(this.questions)}` + __location);
                 fulfill({});
             }
         });
@@ -918,7 +934,7 @@ module.exports = class Integration {
     get_total_employees() {
         let total = 0;
         //New more detailed info in AppDoc.
-        this.app.applicationDocData.locations.forEach((appLocation) => {
+        this.applicationDocData.locations.forEach((appLocation) => {
             appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
                 activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
                     total += employeeType.employeeTypeCount;
@@ -944,7 +960,7 @@ module.exports = class Integration {
     get_total_full_time_employees() {
         let total = 0;
         let totalLocLevel = 0;
-        this.app.applicationDocData.locations.forEach(loc => {
+        this.applicationDocData.locations.forEach(loc => {
             totalLocLevel += loc.full_time_employees;
             loc.activityPayrollList.forEach((activtyCodePayroll) => {
                 activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
@@ -970,7 +986,7 @@ module.exports = class Integration {
     get_total_part_time_employees() {
         let total = 0;
         let totalLocLevel = 0;
-        this.app.applicationDocData.locations.forEach(loc => {
+        this.applicationDocData.locations.forEach(loc => {
             totalLocLevel += loc.part_time_employees;
             loc.activityPayrollList.forEach((activtyCodePayroll) => {
                 activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
@@ -996,7 +1012,7 @@ module.exports = class Integration {
     get_total_payroll() {
         let total = 0;
         //new more complex storage
-        this.app.applicationDocData.locations.forEach((appLocation) => {
+        this.applicationDocData.locations.forEach((appLocation) => {
             appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
                 activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
                     total += employeeType.employeeTypePayroll;
@@ -1036,8 +1052,8 @@ module.exports = class Integration {
     get_years_in_business() {
         // not correct for Employers Feb 2021.
         //return moment().diff(this.app.business.founded, 'years');
-        if(this.app.applicationDocData.founded){
-            return moment().diff(this.app.applicationDocData.founded, 'years');
+        if(this.applicationDocData.founded){
+            return moment().diff(this.applicationDocData.founded, 'years');
         }
         else {
             return 0;
@@ -1117,6 +1133,78 @@ module.exports = class Integration {
     }
 
     /**
+     * An entry point for getting pricing that conducts some necessary pre-processing before calling the insurer_price function.
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+     */
+    price() {
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        return new Promise(async(fulfill) => {
+
+            // if (!this.quoteId) {
+            //     this.quoteId = await this.run_pricing(null, quoteStatus.initiated.description);
+            // }
+
+            // Get the credentials ready for use
+            this.password = await this.insurer.get_password();
+            this.username = await this.insurer.get_username();
+
+            // Make sure expiration_date is set
+            if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
+                log.warn(`Appid: ${this.app.id} Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
+                this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
+            }
+
+            // Make sure the insurer_quote() function exists
+            if (typeof this._insurer_price === 'undefined') {
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                fulfill(false);
+                return;
+            }
+
+            // Check that industry codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
+                // No industry codes when they are required
+                fulfill(false);
+                return;
+            }
+
+            // Check that activity class codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
+                // No activity class codes when they are required
+                fulfill(false);
+                return;
+            }
+
+            // Run the Pricing
+            const appId = this.app.id;
+            const insurerName = this.insurer.name;
+            const policyType = this.policy.type
+            let error = null;
+            const pricingResults = await this._insurer_price().catch(function(err) {
+                const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to price ${err}`;
+                log.warn(error_message + __location);
+                error = err;
+            });
+            //pricingResult JSON
+            // const pricingResult =  {
+            //     gotPricing: true,
+            //     price: 1200,
+            //     lowPrice: 800,
+            //     highPrice: 1500,
+            //     outOfAppetite: false,
+            //     pricingError: false
+            // }
+            if(error){
+                fulfill(null);
+            }
+            fulfill(pricingResults);
+        });
+    }
+
+    /**
      * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
@@ -1162,15 +1250,27 @@ module.exports = class Integration {
                 return;
             }
 
+
+            //get territory list
+            const territoryList = [];
+            for (const location of this.applicationDocData.locations) {
+                if(location.state){
+                    territoryList.push(location.state)
+                }
+            }
+
+
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
             let insurerPolicyTypeQuestionList = null;
 
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
+            //TODO add territory to query
             const query = {
                 "insurerId": this.insurer.id,
                 "policyTypeList": this.policy.type,
                 effectiveDate: {$lte: policyEffectiveDate},
                 expirationDate: {$gte: policyEffectiveDate},
+                questionSubjectArea: "general",
                 active: true
             }
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
@@ -1191,7 +1291,8 @@ module.exports = class Integration {
                         try{
                             //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
                             const qId_String = insurerQuestion.talageQuestionId.toString();
-                            if(this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]){
+                            if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
+                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
                                 
                                 this.insurerQuestionList.push(insurerQuestion)
                                 
@@ -1200,18 +1301,20 @@ module.exports = class Integration {
                                     this.questions[insurerQuestion.talageQuestionId] = question;
                                 }
                             }
-                            else if(insurerQuestion.universal){
-                                log.warn(`Appid ${this.app.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal q:  ${insurerQuestion.insurerQuestionId}` + __location);
+                            else if(insurerQuestion.universal && insurerQuestion.allTerritories){
+                                log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}-${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
                             }
+                            else if(insurerQuestion.universal && insurerQuestion){
+                                const qForTerritory = insurerQuestion.territoryList.some(r => territoryList.includes(r))
+                                if(qForTerritory){
+                                    log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}-${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
+                                }
+                            }
+                            
 
-                            // const iQFound = insurerPolicyTypeQuestionList.find((iq) => iq.talageQuestionId === appQuestion.questionId);
-                            // if(iQFound){
-                            //     const question = this.app.questions[iQFound.talageQuestionId];
-                            //     this.questions[iQFound.talageQuestionId] = question;
-                            // }
                         }
                         catch(err){
-                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error get question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
+                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting Talage question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
                         }
                     }
                 }
@@ -1245,22 +1348,21 @@ module.exports = class Integration {
 
             // ========================================================================================================================
             // Filter the application questions to remove hidden qustions, unanswered questions, and question for other carriers
-
-            // Create a working copy of the applicationDocData just for this integration
-            this.app.applicationDocData = jsonFunctions.jsonCopy(this.app.applicationDocData);
-
             // NOTE: filterApplicationQuestionListForInsurer will log its own errors
 
+
+            //TODO - 2021/08/21 research if this is necessary
             // General questions
-            const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.app.applicationDocData.questions);
+            const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.applicationDocData.questions);
             if (!filteredGeneralQuestionList) {
                 fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 return;
             }
-            this.app.applicationDocData.questions = filteredGeneralQuestionList;
+            this.applicationDocData.questions = filteredGeneralQuestionList;
+
 
             // Location questions
-            for (const location of this.app.applicationDocData.locations) {
+            for (const location of this.applicationDocData.locations) {
                 if (location.questions) {
                     const filteredLocationQuestionList = await this.filterApplicationQuestionListForInsurer("location", location.questions);
                     if (!filteredLocationQuestionList) {
@@ -1332,7 +1434,7 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}. ${error}}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return null;
+                //return null;
             }
             if (talageQuestion) {
                 talageQuestionList.push(talageQuestion);
@@ -1342,7 +1444,7 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}: could not find ID.`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return null;
+                //return null;
             }
         }
 
@@ -1355,7 +1457,8 @@ module.exports = class Integration {
         for (const applicationQuestion of applicationQuestionList) {
             let questionWasAnswered = true;
             let childApplicationQuestion = applicationQuestion;
-            let childTalageQuestion = talageQuestionList.find((tq) => tq.id === childApplicationQuestion.questionId);
+            let childTalageQuestion = talageQuestionList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
+           
             // While the question has a parent (not top-level)
             while (childTalageQuestion.parent) {
                 // Find the parent application question for this child
@@ -1364,7 +1467,7 @@ module.exports = class Integration {
                 if (!parentApplicationQuestion) {
                     questionWasAnswered = false;
                     break;
-                }
+                } 
                 // Determine if the parent was answered such that the child became visible. If not, flag it and stop.
                 if (childTalageQuestion.parent_answer && childTalageQuestion.parent_answer !== parentApplicationQuestion.answerId) {
                     questionWasAnswered = false;
@@ -1375,10 +1478,16 @@ module.exports = class Integration {
                 childTalageQuestion = talageQuestionList.find((tq) => tq.id === parentApplicationQuestion.questionId);
                 childApplicationQuestion = parentApplicationQuestion;
             }
+           
             // Add it to the filtered question list if the parent was answered
             if (questionWasAnswered) {
                 answeredApplicationQuestionList.push(applicationQuestion);
             }
+            // TODO regression test more insurers to see if this is needed.
+            // else if(this.questions[applicationQuestion.questionId]) {
+            //     log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} removing question ${applicationQuestion.questionId}`)
+            //     delete this.questions[applicationQuestion.questionId];
+            // }
         }
 
         // Next we remove question for other insurers and hidden questions. This must be done AFTER we determine if a question was answered because
@@ -1388,7 +1497,7 @@ module.exports = class Integration {
         for (const applicationQuestion of answeredApplicationQuestionList) {
             // Check if the application question is relevant to this insurer and isn't hidden. We do this by looking for the
             // Talage question ID in the insurer question list we retrieved above. If we find it, then this insurer asked it.
-            const insurerQuestion = insurerQuestionList.find((iq) => iq.question === applicationQuestion.questionId);
+            const insurerQuestion = insurerQuestionList.find((iq) => iq.talageQuestionId === applicationQuestion.questionId);
             if (insurerQuestion && !applicationQuestion.hidden) {
                 let insurerQuestionAttributes = null;
                 if (insurerQuestion.attributes) {
@@ -1404,12 +1513,13 @@ module.exports = class Integration {
                         log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Could not parse attributes for insurer question ${insurerQuestion.identifier}`);
                     }
                 }
+                //TODO This needs to be eliminated to remove One Talage Quesetion to One Insurer Questions.
                 applicationQuestion.insurerQuestionIdentifier = insurerQuestion.identifier;
                 applicationQuestion.insurerQuestionAttributes = insurerQuestionAttributes;
                 notHiddenInsurerApplicationQuestionList.push(applicationQuestion);
             }
         }
-
+            
         return notHiddenInsurerApplicationQuestionList;
     }
 
@@ -1421,14 +1531,14 @@ module.exports = class Integration {
      * @returns {mixed} - ID on success, error on error
      */
     async record_quote(amount, apiResult) {
-        const appId = this.app.applicationDocData.applicationId
+        const appId = this.applicationDocData.applicationId
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
 
 
         //build mongo Document
         const quoteJSON = {
-            applicationId: this.app.applicationDocData.applicationId,
+            applicationId: this.applicationDocData.applicationId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
@@ -1652,8 +1762,9 @@ module.exports = class Integration {
         this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
         if (!this.limits && !this.quoteCoverages) {
-            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
-            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+            this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
+            //BP - Do not error out the quote on lack of limits
+            //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
 
         if (premiumAmount) {
@@ -1695,13 +1806,16 @@ module.exports = class Integration {
         this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
         if (!this.limits && !this.quoteCoverages) {
-            this.log_error('Received a referred quote but no limits or coverages were supplied.', __location);
-            return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+            this.log_error('Received a quote but no limits or coverages were supplied.', __location);
+            //BP - Do not error out the quote on lack of limits
+            //return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
         }
 
         if (!premiumAmount) {
+            //TODO make sure that this logic in in the insure integration code
+            // this is catch all in case the insurer level code does not catch this and log it.
             this.log_error(`Received a quote but no premium amount for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
-            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+            return this.return_error('error', `Could not locate the premium in the quote returned from the carrier.`);
         }
         this.amount = premiumAmount;
 
@@ -2339,7 +2453,7 @@ module.exports = class Integration {
                 }
             }
             catch(err){
-                log.warn(`Appid: ${this.app.id} Error checking ActivtyCodes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                log.warn(`Appid: ${this.app.id} Error checking ActivtyCodes for ${this.insurer.name}:${this.insurer.id} and ${this.applicationDocData.mailingState}` + __location);
                 fullFillValue = false;
             }
             fulfill(fullFillValue);
@@ -2356,11 +2470,11 @@ module.exports = class Integration {
             const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             
-            let industryCodeId = parseInt(this.app.applicationDocData.industryCode,10);
+            let industryCodeId = parseInt(this.applicationDocData.industryCode,10);
 
             
             if(this.policy.type === 'BOP' && this.usePolciyBOPindustryCode){
-                const bopPolicy = this.app.applicationDocData.policies.find((p) => p.policyType === "BOP")
+                const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
                 if(bopPolicy && bopPolicy.bopIndustryCodeId){
                     industryCodeId = bopPolicy.bopIndustryCodeId;
                 }
@@ -2370,7 +2484,7 @@ module.exports = class Integration {
             let industryQuery = {
                 insurerId: this.insurer.id,
                 talageIndustryCodeIdList: industryCodeId,
-                territoryList: this.app.applicationDocData.mailingState,
+                territoryList: this.applicationDocData.mailingState,
                 effectiveDate: {$lte: policyEffectiveDate},
                 expirationDate: {$gte: policyEffectiveDate},
                 active: true
@@ -2406,7 +2520,7 @@ module.exports = class Integration {
                 try{
                     const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
                     const industryCodeBO = new IndustryCodeBO();
-                    const industryCodeJson = await industryCodeBO.getById(this.app.applicationDocData.industryCode);
+                    const industryCodeJson = await industryCodeBO.getById(this.applicationDocData.industryCode);
                     if(industryCodeJson){
                         if(this.industry_code){
                             //backward compatible with old multi-table query.
@@ -2433,7 +2547,7 @@ module.exports = class Integration {
                 fulfill(true);
             }
             catch(err){
-                log.warn(`Appid: ${this.app.id} Error checking Industry_code for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState} error: ${err}` + __location);
+                log.warn(`Appid: ${this.app.id} Error checking Industry_code for ${this.insurer.name}:${this.insurer.id} and ${this.applicationDocData.mailingState} error: ${err}` + __location);
                 fulfill(false)
             }
             return;
