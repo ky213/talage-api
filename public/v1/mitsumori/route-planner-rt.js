@@ -83,38 +83,37 @@ const getRoute = async(jwtToken, currentRT, appId) => {
     }
     // if we agency network id  is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
     if(agencyNetworkId && agencyNetworkId !== 1 && agencyNetworkId !== 2){
-        //look at boolean value for checkedAppCustomRouting (ensures we don't just rely on Agency network id being in redis to determine  
+        //look at boolean value for checkedForCustomRouting (ensures we don't just rely on Agency network id being in redis to determine  
         //if we checked for custom route for an agency network)
-        let checkedAppCustomRouting = null; 
+        let checkedForCustomRouting = null; 
         if(userSessionMetaData){
-            checkedAppCustomRouting = userSessionMetaData.checkedAppCustomRouting;
+            checkedForCustomRouting = userSessionMetaData.checkedForCustomRouting;
         }
         // if we have already checked custom routing on the application then we look in redis to see for the custom routing object
         let customRouteFlowObj = null;
-        if(checkedAppCustomRouting === true){
+        if(checkedForCustomRouting === true){
             customRouteFlowObj = userSessionMetaData.quoteAppCustomRouting;
         }else {
-            await putUserSessionMetaData(jwtToken, {'checkedAppCustomRouting': true});
+            await putUserSessionMetaData(jwtToken, {'checkedForCustomRouting': true});
             // otherwise we look on the application for the custom routing
             const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
             customRouteFlowObj = agencyNetworkDB.quoteAppCustomRouting;
         }
-            // if we have custom route flow we grab the next route
-            if(customRouteFlowObj){
-                // If there is a custom route flow we will save it into redis
-                await putUserSessionMetaData(jwtToken, {'quoteAppCustomRouting': customRouteFlowObj});
-                const customRouteObj = customRouteFlowObj[currentRoute];
-                // if the next route exists we return it else we log error and let app continue via default route
-                if(customRouteObj && customRouteObj.next){
-                    return customRouteObj.next;
-                }else {
-                    log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
-                }
+        // if we have custom route flow we grab the next route
+        if(customRouteFlowObj){
+            // If there is a custom route flow we will save it into redis
+            await putUserSessionMetaData(jwtToken, {'quoteAppCustomRouting': customRouteFlowObj});
+            const customRouteObj = customRouteFlowObj[currentRoute];
+            // if the next route exists we return it else we log error and let app continue via default route
+            if(customRouteObj && customRouteObj.next){
+                return customRouteObj.next;
+            }else {
+                log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
             }
+        }
         
     }
-    
     // Default routes path
     switch(currentRoute){
         case "_policies":
@@ -134,7 +133,6 @@ const getRoute = async(jwtToken, currentRT, appId) => {
         default:
             log.warn(`User trying to navigate from a route not part of their application flow for application ${appId}, on current route of ${currentRoute} ${__location}`);
             return "_unknown";
-            break;
     }
 }
 // Returns the Application BO object
