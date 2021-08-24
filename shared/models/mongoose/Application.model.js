@@ -237,6 +237,14 @@ const AdditionalInsuredSchema = new Schema({
     ein: {type: String, required: false}
 },opts);
 
+const PricingInfoSchema = new Schema({
+    gotPricing: {type: Boolean, default: false},
+    price: {type: Number, required: false},
+    lowPrice: {type: Number, required: false},
+    highPrice: {type: Number, required: false},
+    outOfAppetite: {type: Boolean, default: false},
+    pricingError: {type: Boolean, default: false}
+},opts);
 
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
@@ -309,13 +317,14 @@ const ApplicationSchema = new Schema({
     businessDataJSON: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
-    active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
     handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
     copiedFromAppId: {type: String, required: false},
-    renewal: {type: Boolean, default: false}
+    renewal: {type: Boolean, default: false},
+    pricingInfo: {type:PricingInfoSchema, required: false},
+    active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 

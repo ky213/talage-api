@@ -255,6 +255,192 @@ module.exports = class AMTrustWC extends Integration {
         return response;
     }
 
+    async _insurer_price(){
+
+
+        const appDoc = this.app.applicationDocData
+
+        // Load the API credentials
+        let credentials = null;
+        try {
+            credentials = JSON.parse(this.password);
+        }
+        catch (error) {
+            return this.client_error("Could not load AmTrust API credentials", __location);
+        }
+        log.info(`AmTrust AL insurer ${JSON.stringify(this.app.agencyLocation.insurers[this.insurer.id])}` + __location)
+        let agentId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim();
+        const agentUserNamePassword = this.app.agencyLocation.insurers[this.insurer.id].agentId.trim();
+
+        // Ensure the agent ID is a number (required for the API request)
+        try {
+            agentId = parseInt(agentId, 10);
+        }
+        catch (error) {
+            log.error(`AMTrust WC error parsing AgentId ${error}` + __location)
+            //return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
+        }
+        if (!agentId || agentId === 0) {
+            return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location);
+        }
+
+        // Split the comma-delimited username,password field.
+        const commaIndex = agentUserNamePassword.indexOf(',');
+        if (commaIndex <= 0) {
+            return this.client_error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} `, __location);
+        }
+        const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
+        const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
+
+        // Authorize the client
+        const accessToken = await amtrustClient.authorize(credentials.clientId, credentials.clientSecret, agentUsername, agentPassword, credentials.mulesoftSubscriberId, this.insurer.useSandbox);
+        if (!accessToken) {
+            return this.client_error("Authorization with AmTrust server failed", __location);
+        }
+
+
+        // Ensure we have a supported legal entity.
+        // The map values were pulled from https://anypoint.mulesoft.com/exchange/portals/amtrust-financial-service-9/acf997e3-018a-45c2-bbfa-52d79acf6edb/digitalapi/minor/1.0/console/method/%235970/
+        const amtrustLegalEntityMap = {
+            'Association': 4,
+            'Corporation': 3,
+            'Limited Liability Company': 12,
+            'Limited Partnership': 7,
+            'Partnership': 2,
+            'Sole Proprietorship': 1
+            // 'Other': null <- Not supported
+        };
+        if (!amtrustLegalEntityMap.hasOwnProperty(appDoc.entityType)) {
+            log.info(`AMtrust WC Pricing (application ${this.app.id}) The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
+        }
+
+        // =========================================================================================================
+        // Create the quote request
+        if (!this.app.business.contacts[0].phone || this.app.business.contacts[0].phone.length === 0) {
+            log.warn(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust Pricing submission.`);
+            //return this.client_error(`AMTrust submission requires phone number.`);
+        }
+
+        // Get primary location
+        const primaryLocation = appDoc.locations.find(location => location.primary);
+
+        const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
+        const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
+        const quoteRequestDataV2 = {"Quote": {
+            "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
+            "PrimaryAddress": {
+                "Line1": primaryAddressLine.slice(0,50),
+                "City": primaryLocation.city,
+                "State": primaryLocation.state,
+                "Zip": primaryLocation.zipcode.slice(0,5)
+            },
+            "MailingAddress": {
+                "Line1": mailingAddressLine.slice(0,50),
+                "City": this.app.business.mailing_city,
+                "State": this.app.business.mailing_state_abbr,
+                "Zip": this.app.business.mailing_zipcode.slice(0,5)
+            },
+            "BusinessName": this.app.business.name,
+            "ContactInformation": {
+                "FirstName": this.app.business.contacts[0].first_name,
+                "LastName": this.app.business.contacts[0].last_name,
+                "Email": this.app.business.contacts[0].email,
+                "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
+                "AgentContactId": agentId
+            },
+            "NatureOfBusiness": this.industry_code.description,
+            "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
+            "YearsInBusiness": this.get_years_in_business(),
+            "IsNonProfit": false,
+            "IsIncumbentAgent": false,
+            "CompanyWebsiteAddress": this.app.business.website,
+            "ClassCodes": await this.getClassCodeList()
+        }};
+
+        // Add the rating zip if any location is in California
+        let ratingZip = null;
+        let ratingZipPayroll = 0;
+        for (const location of this.app.business.locations) {
+            if (location.state_abbr === "CA") {
+                let locationPayroll = 0;
+                for (const activityCode of location.activity_codes) {
+                    locationPayroll += activityCode.payroll;
+                }
+                if (locationPayroll > ratingZipPayroll) {
+                    ratingZip = location.zipcode.slice(0,5);
+                    ratingZipPayroll = locationPayroll;
+                }
+            }
+        }
+        if (ratingZip) {
+            quoteRequestDataV2.Quote.RatingZip = ratingZip;
+        }
+
+        // =========================================================================================================
+        // Send the requests
+        const successfulStatusCodes = [200, 201];
+        const createQuoteMethod = 'POST';
+        const createRoute = '/api/v2/quotes'
+        const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestDataV2);
+        if (!quoteResponse) {
+            //pricingResult JSON
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+            return pricingResult;
+        }
+        // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
+        const statusCode = this.getChildProperty(quoteResponse, "StatusCode");
+        if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
+            log.error(`AMtrust WC (application ${this.app.id}) pricing returned StatusCode ${statusCode}` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+            return pricingResult;
+        }
+
+        // Check if the quote has been declined. If declined, subsequent requests will fail.
+        const quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
+        if (quoteEligibility === "Decline") {
+            // A decline at this stage is based on the class codes; they are out of appetite.
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult
+        }
+        if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
+            //pricingResult JSON
+            const pricingResult = {
+                gotPricing: true,
+                price: quoteResponse.Data.PremiumDetails.PriceIndication,
+                outOfAppetite: false,
+                pricingError: false
+            }
+            return pricingResult;
+        }
+        else {
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
+        }
+    }
+
+
     /**
 	 * Requests a quote from AMTrust and returns. This request is not intended to be called directly.
 	 *

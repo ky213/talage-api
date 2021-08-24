@@ -32,6 +32,7 @@ const featureSchema = new Schema({
     abandonAppEmailsAgency: {type: Boolean, required: true, default: false},
     quoteAppBinding: {type: Boolean, required: true, default: false},
     appRequirementOverrides: {type: Object, required: false},
+    appSingleQuotePath: {type: Boolean, required: true, default: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
