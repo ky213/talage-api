@@ -368,16 +368,19 @@ module.exports = class MarkelWC extends Integration {
         applicationDocData.questions.forEach(question => {
             if (question.insurerQuestionAttributes?.QuestionCode) {
                 const questionCode = question.insurerQuestionAttributes.QuestionCode;
-                let questionAnswer = null;
 
-                if (question.questionType === 'Yes/No') {
-                    questionAnswer = question.answerValue.toUpperCase();
-                }
-                else {
-                    questionAnswer = question.answerValue;
-                }
+                if (!specialCaseQuestions.includes(questionCode)) {
+                    let questionAnswer = null;
 
-                questionObj[questionCode] = questionAnswer;
+                    if (question.questionType === 'Yes/No') {
+                        questionAnswer = question.answerValue.toUpperCase();
+                    }
+                    else {
+                        questionAnswer = question.answerValue;
+                    }
+    
+                    questionObj[questionCode] = questionAnswer;
+                }
             }
         });
 
