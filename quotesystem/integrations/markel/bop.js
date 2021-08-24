@@ -154,6 +154,11 @@ const contractorClassCodes = [
     "76231"
 ];
 
+const pesticideClassCodes = [
+    '74891',
+    '74901'
+];
+
 // Certified Safety Committee Notification
 // eslint-disable-next-line no-unused-vars
 const safety_committee_states = [
@@ -500,15 +505,27 @@ module.exports = class MarkelWC extends Integration {
             // optionalEndorsements: [] // Optional, not supporting in phase 1
         }
 
+        // SET OPTIONAL ENDORSEMENTS WHERE REQUIRED 
+
+        policyObj.optionalEndorsements = {};
+
         // contractorsInstallationToolsEquipment endorsement required if contractor industry is selected
         if (contractorClassCodes.includes(industryCode.code)) {
-            policyObj.optionalEndorsements = {
-                contractorsInstallationToolsEquipment: {
-                    eachJobLimitAllJobLimit: "3000/9000",
-                    blanketLimit: 3000,
-                    blanketSubLimit: 500
-                }
-            }
+            policyObj.optionalEndorsements.contractorsInstallationToolsEquipment = {
+                eachJobLimitAllJobLimit: "3000/9000",
+                blanketLimit: 3000,
+                blanketSubLimit: 500
+            };
+        }
+
+        // pesticideHerbicideApplicatorLimitedPollution endorsement required if specific industry selected and NOT in Texas (TX)
+        if (pesticideClassCodes.includes(industryCode.code) && applicationDocData.mailingState !== "TX") {
+            policyObj.optionalEndorsements.pesticideHerbicideApplicatorLimitedPollution = true;
+        }
+
+        // Remove optional endorsements property if none added
+        if (Object.keys(policyObj.optionalEndorsements).length === 0) {
+            delete policyObj.optionalEndorsements;
         }
 
         const medicalLimitQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.medicalLimit");
