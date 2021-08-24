@@ -1451,17 +1451,89 @@ async function getBopCodes(req, res, next){
 }
 
 async function getPricing(req, res, next){
-    const mockData = {
-        gotPricing: true,
-        price: 1200,
-        lowPrice: 800,
-        highPrice: 1500,
-        outOfAppetite: false,
-        pricingError: false
-    };
-    res.send(200, mockData);
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    const applicationId = req.body.applicationId;
+    const rightsToApp = await isAuthForApplication(req, applicationId);
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //Get app and check status
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
+        log.error("applicationBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if (!applicationDB) {
+        return next(serverHelper.requestError('Not Found'));
+    }
+
+
+    if (applicationDB.appStatusId > 60) {
+        return next(serverHelper.requestError('Cannot Requote Application'));
+    }
+
+    const applicationQuoting = new ApplicationQuoting();
+    // Populate the Application object
+
+    // Load
+    try {
+        const forceQuoting = true;
+        const loadJson = {
+            "id": applicationId,
+            agencyPortalQuote: true
+        };
+        if(applicationDB.insurerId && validator.is_valid_id(applicationDB.insurerId)){
+            loadJson.insurerId = parseInt(applicationDB.insurerId, 10);
+        }
+        await applicationQuoting.load(loadJson, forceQuoting);
+    }
+    catch (err) {
+        log.error(`Error loading application ${applicationId}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+    let pricingJSON = {}
+    try {
+        pricingJSON = await applicationQuoting.run_pricing()
+    }
+    catch (err) {
+        pricingJSON = {
+            gotPricing: false,
+            outOfAppetite: false,
+            pricingError: true
+        }
+        log.error(`Getting pricing on application ${applicationId} failed: ${err} ${__location}`);
+    }
+    res.send(200, pricingJSON);
     return next();
+
+    // const examplePricingData = {
+    //     gotPricing: true,
+    //     price: 1200,
+    //     highPrice: 1500,
+    //     outOfAppetite: false,
+    //     pricingError: false
+    //   };
+    // };
+
 }
+
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
@@ -1472,7 +1544,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
-    server.addGetAuthAppApi('GET Price Indication for Application', `${basePath}/application/:id/pricing`, getPricing);
+    server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);

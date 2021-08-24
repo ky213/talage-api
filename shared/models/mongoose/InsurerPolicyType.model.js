@@ -23,6 +23,7 @@ const InsurerPolicyTypeSchema = new Schema({
     slug: {type: String, required: false},
     api_support: {type: Boolean, default: false},
     wheelhouse_support: {type: Boolean, default: false},
+    pricing_support: {type: Boolean, default: false},
     bind_support: {type: Boolean, default: false},
     acord_support: {type: Boolean, default: false},
     territories: [String],
