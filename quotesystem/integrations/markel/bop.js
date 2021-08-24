@@ -179,6 +179,7 @@ const safety_committee_states = [
 ];
 
 // NumberOfClaims within last 3 years
+// eslint-disable-next-line no-unused-vars
 const number_of_claims_states = [
     'DE',
     'HI',
@@ -259,6 +260,7 @@ module.exports = class MarkelWC extends Integration {
         this.possible_api_responses.Quoted = 'quoted';
 
         // These are the limits supported by Markel * 1000
+        // eslint-disable-next-line no-unused-vars
         const carrierLimits = ['100000/500000/100000',
             '500000/500000/500000',
             '1000000/1000000/1000000',
@@ -266,6 +268,7 @@ module.exports = class MarkelWC extends Integration {
             '2000000/2000000/2000000'];
         let yearsInsured = moment().diff(this.app.business.founded, 'years');
 
+        // eslint-disable-next-line no-unused-vars
         const mapCarrierLimits = {
             '100000/500000/100000': '100/500/100',
             '500000/500000/500000': '500/500/500',
@@ -275,6 +278,7 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // Check for excessive losses in DE, HI, MI, PA and VT
+        // eslint-disable-next-line no-unused-vars
         const excessive_loss_states = [
             'DE',
             'HI',
