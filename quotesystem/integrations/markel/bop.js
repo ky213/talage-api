@@ -159,6 +159,13 @@ const pesticideClassCodes = [
     '74901'
 ];
 
+const propDamageDeductibleClassCodes = [
+    '75601', 
+    '75611', 
+    '75631', 
+    '75641'
+];
+
 // Certified Safety Committee Notification
 // eslint-disable-next-line no-unused-vars
 const safety_committee_states = [
@@ -503,6 +510,10 @@ module.exports = class MarkelWC extends Integration {
             yearsInsuredBOP: yearsInsured,
             "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO'
             // optionalEndorsements: [] // Optional, not supporting in phase 1
+        };
+
+        if (propDamageDeductibleClassCodes.includes(industryCode.code)) {
+            policyObj.propDamageDeductible = '250';
         }
 
         // SET OPTIONAL ENDORSEMENTS WHERE REQUIRED 
@@ -536,10 +547,6 @@ module.exports = class MarkelWC extends Integration {
         const terrorismCoverageQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.terrorismCoverage");
         if (terrorismCoverageQuestion) {
             policyObj.terrorismCoverage = terrorismCoverageQuestion.answerValue.toUpperCase();
-        }
-        
-        if(!markelLimits){
-            log.error(`${logPrefix}Markel WC missing markelLimits. ${__location}`);
         }
 
         const jsonRequest = {submissions: [
