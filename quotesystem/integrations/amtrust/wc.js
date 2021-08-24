@@ -255,41 +255,10 @@ module.exports = class AMTrustWC extends Integration {
         return response;
     }
 
-    async _insurer_pricing(){
+    async _insurer_price(){
 
 
         const appDoc = this.app.applicationDocData
-
-        // These are the limits supported AMTrust
-        const carrierLimits = ['100000/500000/100000',
-            '500000/500000/500000',
-            '1000000/1000000/1000000'];
-
-        const mapCarrierLimits = {
-            '100000/500000/100000': '100/500/100',
-            '500000/500000/500000': '500/500/500',
-            '1000000/1000000/1000000': '1000/1000/1000',
-            '1500000/1500000/1500000': '1500/1500/1500',
-            '2000000/2000000/2000000': '2000/2000/2000'
-        }
-
-        let amTrustLimits = mapCarrierLimits[this.app.policies[0].limits];
-        const limits = this.getBestLimits(carrierLimits);
-        if (limits) {
-            const amtrustBestLimits = limits.join("/");
-            const amtrustLimitsSubmission = mapCarrierLimits[amtrustBestLimits];
-            if(amtrustLimitsSubmission){
-                amTrustLimits = amtrustLimitsSubmission;
-            }
-            else {
-                amTrustLimits = '100/500/100';
-            }
-        }
-        else {
-            log.warn(`Appid: ${this.app.id} AmTrust WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
-            return this.return_result('autodeclined');
-        }
 
         // Load the API credentials
         let credentials = null;
@@ -343,14 +312,19 @@ module.exports = class AMTrustWC extends Integration {
         };
         if (!amtrustLegalEntityMap.hasOwnProperty(appDoc.entityType)) {
             log.info(`AMtrust WC Pricing (application ${this.app.id}) The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
-            return false
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
         }
 
         // =========================================================================================================
         // Create the quote request
         if (!this.app.business.contacts[0].phone || this.app.business.contacts[0].phone.length === 0) {
-            log.error(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust submission.`);
-            return this.client_error(`AMTrust submission requires phone number.`);
+            log.warn(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust Pricing submission.`);
+            //return this.client_error(`AMTrust submission requires phone number.`);
         }
 
         // Get primary location
@@ -385,23 +359,9 @@ module.exports = class AMTrustWC extends Integration {
             "YearsInBusiness": this.get_years_in_business(),
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
-            //"IsIncumbantAgent": false,
-            // "ExpiredPremium": 10000,
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
         }};
-
-        // Add the unemployment number if required
-        const requiredUnemploymentNumberStates = ["MN",
-            "HI",
-            "RI",
-            "ME"];
-        if (requiredUnemploymentNumberStates.includes(primaryLocation.state)) {
-            if (primaryLocation.unemployment_num === 0) {
-                return this.client_error("AmTrust requires an unemployment number if located in MN, HI, RI, or ME.", __location);
-            }
-            quoteRequestDataV2.Quote.UnemploymentId = primaryLocation.unemployment_num.toString();
-        }
 
         // Add the rating zip if any location is in California
         let ratingZip = null;
@@ -429,30 +389,55 @@ module.exports = class AMTrustWC extends Integration {
         const createRoute = '/api/v2/quotes'
         const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestDataV2);
         if (!quoteResponse) {
-            return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location);
+            //pricingResult JSON
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+            return pricingResult;
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         const statusCode = this.getChildProperty(quoteResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-            if (quoteResponse.error) {
-                return false;
+            log.error(`AMtrust WC (application ${this.app.id}) pricing returned StatusCode ${statusCode}` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
             }
-            else {
-                return false;
-            }
+            return pricingResult;
         }
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.
         const quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
         if (quoteEligibility === "Decline") {
             // A decline at this stage is based on the class codes; they are out of appetite.
-            return false
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult
         }
-        if(quoteResponse.PremiumDetails.PriceIndication){
-            return quoteResponse.PremiumDetails.PriceIndication;
-
+        if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
+            //pricingResult JSON
+            const pricingResult = {
+                gotPricing: true,
+                price: quoteResponse.Data.PremiumDetails.PriceIndication,
+                outOfAppetite: false,
+                pricingError: false
+            }
+            return pricingResult;
         }
-
+        else {
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
+        }
     }
 
 

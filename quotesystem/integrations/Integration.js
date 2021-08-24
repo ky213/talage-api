@@ -1133,11 +1133,11 @@ module.exports = class Integration {
     }
 
     /**
-     * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
+     * An entry point for getting pricing that conducts some necessary pre-processing before calling the insurer_price function.
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
-    pricing() {
+    price() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
@@ -1156,8 +1156,8 @@ module.exports = class Integration {
             }
 
             // Make sure the insurer_quote() function exists
-            if (typeof this._insurer_pricing === 'undefined') {
-                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the insurer_quote() function`;
+            if (typeof this._insurer_price === 'undefined') {
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 fulfill(false);
@@ -1178,38 +1178,31 @@ module.exports = class Integration {
                 return;
             }
 
-            // ========================================================================================================================
-            // Filter the application questions to remove hidden qustions, unanswered questions, and question for other carriers
-
-            // Create a working copy of the applicationDocData just for this integration
-            this.app.applicationDocData = jsonFunctions.jsonCopy(this.app.applicationDocData);
-
-            // NOTE: filterApplicationQuestionListForInsurer will log its own errors
-
-            
-
             // Run the Pricing
             const appId = this.app.id;
             const insurerName = this.insurer.name;
             const policyType = this.policy.type
             let error = null;
-            const result = await this._insurer_pricing().catch(function(err) {
+            const pricingResults = await this._insurer_price().catch(function(err) {
                 const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to price ${err}`;
-                log.error(error_message + __location);
+                log.warn(error_message + __location);
                 error = err;
             });
-
+            //pricingResult JSON
+            // const pricingResult =  {
+            //     gotPricing: true,
+            //     price: 1200,
+            //     lowPrice: 800,
+            //     highPrice: 1500,
+            //     outOfAppetite: false,
+            //     pricingError: false
+            // }
             if(error){
-                //need to save quote with reason.
-                //const error_message = `${insurerName} ${policyType} is unable to price ${error}`;
-                //this.reasons.push(error_message)
-                //this.return_result('error');
                 fulfill(null);
             }
-            fulfill(result);
+            fulfill(pricingResults);
         });
     }
-
 
     /**
      * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
