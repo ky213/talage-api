@@ -765,7 +765,7 @@ module.exports = class MarkelWC extends Integration {
             for (const error of response[rquIdKey].errors) {
                 if(typeof error === 'string'){
                     this.reasons.push(`${error}`);
-                    if(error.indexOf("One or more class codes are Declined") > -1){
+                    if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){
                         return this.client_autodeclined_out_of_appetite();
                     }
                 }
