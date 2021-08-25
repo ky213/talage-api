@@ -19,13 +19,16 @@ async function getNextRoute(req, res, next){
         res.send(403);
         return;
     }
-
     let nextRouteName = null;
     if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_basic-created"){
         nextRouteName = "_policies";
     }
     else {
-        nextRouteName = await getRoute(req.header('authorization').replace("Bearer ", ""), req.query.currentRoute, req.query.appId);
+        let userSessionMetaData = null;
+        if(req.userTokenData){
+            userSessionMetaData = req.userTokenData.userSessionMetaData; 
+        }
+        nextRouteName = await getRoute(req.header('authorization').replace("Bearer ", ""), userSessionMetaData, req.query.currentRoute, req.query.appId);
     }
 
     res.send(200, nextRouteName);
@@ -33,12 +36,13 @@ async function getNextRoute(req, res, next){
 /**
  * Gets the next route, if custom route exists for an agency network it utilized that else defaults to the wheelhouse routes flow
  * @param {string} jwtToken - Request jwtToken
+ * @param {object} userSessionMetaData - contains info related to current user session
  * @param {string} currentRT - The current route of the application flow (not application as in software application)
  * @param {string} appId - Application Id (application the user is filling out)
  *
  * @returns {string}  Returns the next route, either based on the custom flow for agencyNetwork or the default for wheelhouse if one not found
  */
-const getRoute = async(jwtToken, currentRT, appId) => {
+const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
     // copy the current route (currentRT) value into a local variable which might change based on whether locations have a mailing address
     let currentRoute = currentRT;
 
@@ -57,16 +61,15 @@ const getRoute = async(jwtToken, currentRT, appId) => {
         }
     }
     // if redis userSessionMetaData has agencyNetwork id then grab it
-    const userSessionMetaData = await getUserSessionMetaData(jwtToken);
-    if(userSessionMetaData){
-        log.debug(`UserSessionMetaData from redis ${JSON.stringify(userSessionMetaData)} ${__location}`);
-    }else {
-        log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
-    }
     let agencyNetworkId = null;
     if(userSessionMetaData){
+        log.debug(`UserSessionMetaData from redis ${JSON.stringify(userSessionMetaData)} ${__location}`);
         agencyNetworkId = userSessionMetaData.agencyNetworkId;
+    }else {
+        // else just for debugging
+        log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
     }
+
     if(agencyNetworkId == null){
             // We don't have agency networkId so we will grab it from application
             const app = await getApplication(appId);
@@ -141,19 +144,7 @@ const getApplication = async(appId) => {
     const applicationDB = await applicationBO.getById(appId);
     return applicationDB;
 }
-// Retrieves meta data for an application from Redis
- const getUserSessionMetaData = async (jwtToken) => {
-    const redisKey = jwtToken;
-    const redisValue = await global.redisSvc.getKeyValue(redisKey);
-    if(redisValue.found){
-        const redisJSON = JSON.parse(redisValue.value);
-        // Only return the client session
-        if(redisJSON.clientSession){
-            return redisJSON.clientSession;
-        }
-    }
-        return null;
-}
+
 // Stores (puts) application meta data into Redis
 const putUserSessionMetaData = async (jwtToken, params) => {
     if(Object.keys(params).length === 0){
@@ -164,14 +155,14 @@ const putUserSessionMetaData = async (jwtToken, params) => {
     const redisValue = await global.redisSvc.getKeyValue(redisKey);
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
-        // if clientSession has not been defined yet, define it
-        if(!redisJSON.clientSession)
+        // if userSessionMetaData has not been defined yet, define it
+        if(!redisJSON.userSessionMetaData)
         {
-            redisJSON.clientSession = {};
+            redisJSON.userSessionMetaData = {};
         }
-        // Save all client redis metadata under clientSession
+        // Save all user redis metadata under userSession
         Object.keys(params).forEach(async key => {
-            redisJSON.clientSession[key] = params[key];
+            redisJSON.userSessionMetaData[key] = params[key];
         });
 
         const redisSetResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(redisJSON), ttlSeconds);
