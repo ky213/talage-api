@@ -51,6 +51,7 @@ const AgencyNetworkSchema = new Schema({
     landing_page_content: {type: Schema.Types.Mixed},
     custom_emails: {type: Schema.Types.Mixed},
     phone: {type: String, required: false},
+    quoteAppCustomRouting: {type: Object, required: false},
     featureJson: {type: featureSchema},
     additionalInfo: {type: Schema.Types.Mixed},
     insurerIds: [Number],
