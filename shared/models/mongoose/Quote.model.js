@@ -55,7 +55,7 @@ const TalageInsurerInvoiceSchema = new Schema({
 const TalageInsurerPaymentPlanSchema = new Schema({
     paymentPlanId: {type: Number, required: true},
     insurerPaymentPlanId: {type: String, required: true},
-    InsurerPaymentPlanDescription: {type: String, required: false},
+    insurerPaymentPlanDescription: {type: String, required: false},
     NumberPayments: {type: Number, required: true},
     TotalCost: {type: Number, required: true},
     TotalPremium: {type: Number, required: true},
