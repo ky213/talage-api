@@ -33,6 +33,7 @@ async function getNextRoute(req, res, next){
 
     res.send(200, nextRouteName);
 }
+
 /**
  * Gets the next route, if custom route exists for an agency network it utilized that else defaults to the wheelhouse routes flow
  * @param {string} jwtToken - Request jwtToken
@@ -46,7 +47,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
     // copy the current route (currentRT) value into a local variable which might change based on whether locations have a mailing address
     let currentRoute = currentRT;
 
-    // if our current route is locations, check if we have mailing, 
+    // if our current route is locations, check if we have mailing,
     // if we do not have mailing route to the mailing address, else continue through flow bypassing mailing page
     if(currentRoute === "_locations"){
         const app = await getApplication(appId);
@@ -54,8 +55,9 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
             const haveMailingAddress = app.locations.some(location => location.billing) === true;
             if(haveMailingAddress === true){
                 // since we already have a mailing address, assumption is we will bypass mailing by setting current route to mailing-address
-                currentRoute =  "_mailing-address";
-            }else {
+                currentRoute = "_mailing-address";
+            }
+            else {
                 return "_mailing-address";
             }
         }
@@ -86,9 +88,9 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
     }
     // if we agency network id  is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
     if(agencyNetworkId && agencyNetworkId !== 1 && agencyNetworkId !== 2){
-        //look at boolean value for checkedForCustomRouting (ensures we don't just rely on Agency network id being in redis to determine  
+        //look at boolean value for checkedForCustomRouting (ensures we don't just rely on Agency network id being in redis to determine
         //if we checked for custom route for an agency network)
-        let checkedForCustomRouting = null; 
+        let checkedForCustomRouting = null;
         if(userSessionMetaData){
             checkedForCustomRouting = userSessionMetaData.checkedForCustomRouting;
         }
@@ -96,7 +98,8 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
         let customRouteFlowObj = null;
         if(checkedForCustomRouting === true){
             customRouteFlowObj = userSessionMetaData.quoteAppCustomRouting;
-        }else {
+        }
+        else {
             await putUserSessionMetaData(jwtToken, {'checkedForCustomRouting': true});
             // otherwise we look on the application for the custom routing
             const agencyNetworkBO = new AgencyNetworkBO();
@@ -111,11 +114,11 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
             // if the next route exists we return it else we log error and let app continue via default route
             if(customRouteObj && customRouteObj.next){
                 return customRouteObj.next;
-            }else {
+            }
+            else {
                 log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
             }
         }
-        
     }
     // Default routes path
     switch(currentRoute){
@@ -144,9 +147,8 @@ const getApplication = async(appId) => {
     const applicationDB = await applicationBO.getById(appId);
     return applicationDB;
 }
-
 // Stores (puts) application meta data into Redis
-const putUserSessionMetaData = async (jwtToken, params) => {
+const putUserSessionMetaData = async(jwtToken, params) => {
     if(Object.keys(params).length === 0){
         log.error(`No Metadata provided for Application ${__location}`);
         return;
@@ -170,7 +172,8 @@ const putUserSessionMetaData = async (jwtToken, params) => {
             log.error(`Failed to save for redis key: ${redisKey}` + __location);
             return;
         }
-    }else{
+    }
+    else{
         log.error(`Could not find redis value for key: ${redisKey}` + __location);
         return;
     }
