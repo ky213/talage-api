@@ -186,20 +186,21 @@ const hardwareReplCostLimit = [50000];
 const postBreachRemediationLimit = [50000];
 const telecomsFraudEndorsementLimit = [50000];
 
+const territoryWCLimits = {
+    "CA": ["1000000/1000000/1000000"],
+    "OR": [
+        "500000/500000/500000",
+        "500000/1000000/500000",
+        "1000000/1000000/1000000"
+    ]
+};
+
 // does it match helpers.limits ?
 const limitsSelectionAmounts = async(resources, applicationDB, zipCodeData) => {
-    console.log(zipCodeData);
-
     const limits = {
         bop: bopAndGlLimits,
         gl: bopAndGlLimits,
-        wc:
-        [
-            "100000/500000/100000",
-            "500000/500000/500000",
-            "500000/1000000/500000",
-            "1000000/1000000/1000000"
-        ],
+        wc: getWCLimits(applicationDB?.agencyNetworkId, zipCodeData?.state),
         cyber: {
             aggregateLimitList: cyberAggregateLimitList,
             // businessIncomeCoverageList, cowbell has custom list
@@ -260,4 +261,18 @@ const limitsSelectionAmounts = async(resources, applicationDB, zipCodeData) => {
         }
     }
     resources.limitsSelectionAmounts = {...limits};
+};
+
+const getWCLimits = (agencyNetworkId, territory) => {
+    if(territory && territoryWCLimits[territory]){
+        return territoryWCLimits[territory];
+    }
+
+    // default WC limits
+    return [
+        "100000/500000/100000",
+        "500000/500000/500000",
+        "500000/1000000/500000",
+        "1000000/1000000/1000000"
+    ];
 };
