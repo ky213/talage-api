@@ -1005,6 +1005,42 @@ module.exports = class AMTrustWC extends Integration {
                         }
                     }
                     this.insurerPaymentPlans = directPlans;
+
+                    //TalageInsurerPaymentPlans
+                    // eslint-disable-next-line prefer-const
+                    let talageInsurerPaymentPlans = JSON.parse(JSON.stringify(paymentPlanList.Direct));
+                    if(talageInsurerPaymentPlans){
+                        for (let i = 0; i < talageInsurerPaymentPlans.length; i++) {
+                            // eslint-disable-next-line prefer-const
+                            let paymentPlan = talageInsurerPaymentPlans[i];
+                            paymentPlan.insurerPaymentPlanId = paymentPlan.PaymentPlanId;
+                            paymentPlan.insurerPaymentPlanDescription = paymentPlan.PaymentPlanDescription;
+                            paymentPlan.invoices = paymentPlan.Invoices
+                            for(const invoice of paymentPlan.Invoices){
+                                if(invoice.isDownPayment === false){
+                                    paymentPlan.installmentPayment = invoice.TotalBillAmount;
+                                }
+                            }
+                            if(paymentPlan.PaymentPlanId < 3){
+                                paymentPlan.paymentPlanId = paymentPlan.PaymentPlanId
+                            }
+                            else {
+                                switch(paymentPlan.PaymentPlanId){
+                                    case 4:
+                                        paymentPlan.paymentPlanId = 3;
+                                        break;
+                                    case 8:
+                                        paymentPlan.paymentPlanId = 4;
+                                        break;
+                                    default:
+                                        //does not mapp to Talage PaymentPlan
+                                        break;
+                                }
+                            }
+
+                        }
+                    }
+                    this.talageInsurerPaymentPlans = talageInsurerPaymentPlans;
                 }
                 else {
                     log.error(`Appid: ${this.app.id} AmTrust WC did not get payment plans QuoteId: ${quoteId} ` + __location);

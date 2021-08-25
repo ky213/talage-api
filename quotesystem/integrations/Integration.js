@@ -109,7 +109,8 @@ module.exports = class Integration {
         this.reasons = [];
         this.quoteId = null;
         this.isBindable = false;
-        this.insurerPaymentPlans = null;
+        this.insurerPaymentPlans = null; //raw insurer structure
+        this.talageInsurerPaymentPlans = null; //standardized Talage InsurerPaymentPlan structure
         this.insurerPolicyInfo = null;
         this.productDesc = '';
 
@@ -1590,6 +1591,9 @@ module.exports = class Integration {
 
             if(this.insurerPaymentPlans){
                 quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
+            }
+            if(this.talageInsurerPaymentPlans){
+                quoteJSON.talageInsurerPaymentPlans = this.talageInsurerPaymentPlans
             }
             if(this.insurerPolicyInfo){
                 quoteJSON.policyInfo = this.insurerPolicyInfo
