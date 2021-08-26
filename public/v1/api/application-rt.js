@@ -1206,7 +1206,7 @@ async function requestToBindQuote(req, res, next) {
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
 
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'paymentPlanId')) {
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'paymentPlanId') && !Object.prototype.hasOwnProperty.call(req.body, 'insurerPaymentPlanId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
@@ -1233,6 +1233,7 @@ async function requestToBindQuote(req, res, next) {
     const applicationBO = new ApplicationBO();
     const quoteId = req.body.quoteId;
     const paymentPlanId = req.body.paymentPlanId;
+    const insurerPaymentPlanId = req.body.insurerPaymentPlanId;
 
     //assume uuid input
     log.debug(`Getting app id  ${applicationId} from mongo` + __location)
@@ -1249,7 +1250,8 @@ async function requestToBindQuote(req, res, next) {
         try{
             const quoteJSON = {
                 quoteId: quoteId,
-                paymentPlanId: paymentPlanId
+                paymentPlanId: paymentPlanId,
+                insurerPaymentPlanId: insurerPaymentPlanId
             };
             await applicationBO.processRequestToBind(applicationId,quoteJSON);
 
@@ -1396,7 +1398,7 @@ async function bindQuote(req, res, next) {
         if(req.body.paymentPlanId){
             paymentPlanId = req.body.paymentPlanId
         }
-        await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+        await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID, req.body.insurerPaymentPlanId);
         const bindResp = await quoteBind.bindPolicy();
         if(bindResp === "success"){
             log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location);
