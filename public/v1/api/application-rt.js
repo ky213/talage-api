@@ -1070,23 +1070,42 @@ async function createQuoteSummary(quote) {
             else if (insurerLogoUrl.includes("images/images")){
                 insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
             }
-            // Return the quote summary
-            return {
-                id: quote.quoteId,
-                policy_type: quote.policyType,
-                amount: quote.amount,
-                deductible: quote.deductible,
-                instant_buy: instantBuy,
-                letter: quoteLetterContent,
-                insurer: {
-                    id: insurer.id,
-                    logo: insurerLogoUrl,
-                    name: insurer.name,
-                    rating: insurer.rating
-                },
-                limits: limits,
-                payment_options: paymentOptions
+            const quoteSummary = JSON.parse(JSON.stringify(quote));
+
+            quoteSummary.id = quote.quoteId;
+            quoteSummary.policy_type = quote.policyType;
+            quoteSummary.instant_buy = instantBuy;
+            quoteSummary.letter = quoteLetterContent;
+            quoteSummary.insurer = {
+                id: insurer.id,
+                logo: insurerLogoUrl,
+                name: insurer.name,
+                rating: insurer.rating
             };
+
+            quoteSummary.limits = limits
+            quoteSummary.payment_options = paymentOptions
+            // Return the quote summary
+            // return {
+            //     id: quote.quoteId,
+            //     policy_type: quote.policyType,
+            //     instant_buy: instantBuy,
+            //     letter: quoteLetterContent,
+            //     talageInsurerPaymentPlans: quote.talageInsurerPaymentPlans,
+            //     iaBindable: quote.isBindable,
+            // insurer: {
+            //     id: insurer.id,
+            //     logo: insurerLogoUrl,
+            //     name: insurer.name,
+            //     rating: insurer.rating
+            // },
+            // limits: limits,
+            // payment_options: paymentOptions
+            // };
+
+
+            return quoteSummary
+
         default:
             // We don't return a quote for any other status
             // log.error(`Quote ${quote.id} has a unknown status of ${quote.aggregated_status} when creating quote summary ${__location}`);
@@ -1549,6 +1568,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
+    server.addGetAuthAppApi('GET Quotes for Application', `${basePath}/application/:id/quotes`, quotingCheck);
     server.addPutAuthAppApi('PUT Request Bind Quote', `${basePath}/application/request-bind-quote`, requestToBindQuote);
     server.addPutAuthAppApi('PUT Mark Quote Bound', `${basePath}/application/mark-quote-bound`, markQuoteAsBound);
     server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
