@@ -1270,7 +1270,7 @@ async function bindQuote(req, res, next) {
             if(req.body.paymentPlanId){
                 paymentPlanId = req.body.paymentPlanId
             }
-            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID,req.body.insurerPaymentPlanId);
             const bindResp = await quoteBind.bindPolicy();
             if(bindResp === "success"){
                 log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
@@ -1318,6 +1318,7 @@ async function bindQuote(req, res, next) {
                 quote: quoteDoc.quoteId,
                 quoteId: quoteDoc.quoteId,
                 paymentPlanId: paymentPlanId,
+                insurerPaymentPlanId: req.body.insurerPaymentPlanId,
                 noCustomerEmail: true
             }
             const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){

@@ -36,6 +36,7 @@ class AmTrustBind extends Bind {
         // eslint-disable-next-line no-unused-vars
         let error = null;
 
+        // eslint-disable-next-line max-statements-per-line
         const accessToken = await amtrustClient.authorize(credentials.clientId, credentials.clientSecret, agentUsername, agentPassword, credentials.mulesoftSubscriberId, this.insurer.useSandbox).catch((err) => {error = err});
         if (!accessToken || error) {
             log.error(`Authorization with AmTrust server failed ${error}` + __location);
@@ -103,19 +104,30 @@ class AmTrustBind extends Bind {
         let numberOfPlanments = 1
         let IsDirectDebit = false;
         let DepositPercent = 0;
-        switch(this.quote.paymentPlanId){
-            case 2:
-                paymentPlanId = 2;
-                numberOfPlanments = 2;
-                DepositPercent = 50;
-                break;
-            case 5:
-                paymentPlanId = 7;
-                numberOfPlanments = 12;
-                IsDirectDebit = true;
-                DepositPercent = 8.33;
-                break;
-            default:
+        if(this.quote.insurerPaymentPlanId){
+            paymentPlanId = parseInt(this.quote.insurerPaymentPlanId,10);
+            //look up in this.quoteDoc.talageInsurerPaymentPlans
+            const insurerPaymentPlanDetails = this.quoteDoc.talageInsurerPaymentPlans.find((ipp) => ipp.paymentPlanId === this.quote.insurerPaymentPlanId);
+            if(insurerPaymentPlanDetails){
+                numberOfPlanments = insurerPaymentPlanDetails.NumberPayments;
+                DepositPercent = insurerPaymentPlanDetails.DepositPercent;
+            }
+        }
+        else {
+            switch(this.quote.paymentPlanId){
+                case 2:
+                    paymentPlanId = 2;
+                    numberOfPlanments = 2;
+                    DepositPercent = 50;
+                    break;
+                case 5:
+                    paymentPlanId = 7;
+                    numberOfPlanments = 12;
+                    IsDirectDebit = true;
+                    DepositPercent = 8.33;
+                    break;
+                default:
+            }
         }
         const paymentPlanJSON = {
             "BillingType": "Direct",

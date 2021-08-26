@@ -1017,7 +1017,7 @@ module.exports = class AMTrustWC extends Integration {
                             paymentPlan.insurerPaymentPlanDescription = paymentPlan.PaymentPlanDescription;
                             paymentPlan.invoices = paymentPlan.Invoices
                             for(const invoice of paymentPlan.Invoices){
-                                if(invoice.isDownPayment === false){
+                                if(invoice.IsDownPayment === false){
                                     paymentPlan.installmentPayment = invoice.TotalBillAmount;
                                 }
                             }
