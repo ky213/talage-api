@@ -264,15 +264,25 @@ const limitsSelectionAmounts = async(resources, applicationDB, zipCodeData) => {
 };
 
 const getWCLimits = (agencyNetworkId, territory) => {
-    if(territory && territoryWCLimits[territory]){
-        return territoryWCLimits[territory];
-    }
-
-    // default WC limits
-    return [
+    // start with default, change on territory, THEN remove insurer values
+    let limits = [
         "100000/500000/100000",
         "500000/500000/500000",
         "500000/1000000/500000",
         "1000000/1000000/1000000"
     ];
+
+    // territory wins limit amounts
+    if(territory && territoryWCLimits[territory]){
+        limits = territoryWCLimits[territory];
+    }
+
+    // remove any limits the insurer does not want
+    if(agencyNetworkId === 1){//AMTrustAgencyNetworkId){
+        // TODO: this will come from DB eventually, agency network level.
+        const limitsToRemove = ["500000/1000000/500000"];
+        limits = limits.filter(lim => !limitsToRemove.includes(lim));
+    }
+
+    return limits;
 };
