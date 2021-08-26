@@ -278,7 +278,7 @@ const getWCLimits = (agencyNetworkId, territory) => {
     }
 
     // remove any limits the insurer does not want
-    if(agencyNetworkId === 1){//AMTrustAgencyNetworkId){
+    if(agencyNetworkId === AMTrustAgencyNetworkId){
         // TODO: this will come from DB eventually, agency network level.
         const limitsToRemove = ["500000/1000000/500000"];
         limits = limits.filter(lim => !limitsToRemove.includes(lim));
