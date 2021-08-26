@@ -1078,6 +1078,7 @@ async function createQuoteSummary(quote) {
                 deductible: quote.deductible,
                 instant_buy: instantBuy,
                 letter: quoteLetterContent,
+                talageInsurerPaymentPlans: quote.talageInsurerPaymentPlans,
                 insurer: {
                     id: insurer.id,
                     logo: insurerLogoUrl,
