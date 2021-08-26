@@ -944,6 +944,7 @@ module.exports = class ApplicationModel {
             const quoteUpdate = {
                 "status": "bind_requested",
                 "paymentPlanId": quote.paymentPlanId,
+                "insurerPaymentPlanId": quote.insurerPaymentPlanId,
                 "quoteStatusId": status.id,
                 "quoteStatusDescription": status.description
             }
@@ -957,7 +958,7 @@ module.exports = class ApplicationModel {
             try{
                 // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
-                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
+                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId, null, quote.insurerPaymentPlanId);
                 //isolate to not prevent Digalent bind request to update submission.
                 try{
                     await quoteBind.send_slack_notification("requested");
