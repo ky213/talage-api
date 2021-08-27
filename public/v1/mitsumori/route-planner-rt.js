@@ -5,7 +5,7 @@ const ttlSeconds = 3600; // Used for redis storage
 const serverHelper = require("../../../server.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
-
+const AmTrustAgencyNetworkId = 10;
 async function getNextRoute(req, res, next){
     // Check that at least some post parameters were received
     // Let basic through with no app id
@@ -118,6 +118,8 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
             else {
                 log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
             }
+        }else if(agencyNetworkId === AmTrustAgencyNetworkId){
+            log.error(`Missing quoteAppCustomRouting property for Am Trust. Please Review agencyNetworkId ${agencyNetworkId} ${__location}`);
         }
     }
     // Default routes path
