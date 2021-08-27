@@ -16,7 +16,7 @@ const Integration = require('../Integration.js');
 const htmlentities = require('html-entities').Html5Entities;
 const moment = require('moment');
 global.requireShared('./helpers/tracker.js');
-const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const {convertToDollarFormat, removeDiacritics} = global.requireShared('./helpers/stringFunctions.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 
@@ -397,7 +397,7 @@ module.exports = class MarkelWC extends Integration {
         // for each location, push a location object into the locationList
         applicationDocData.locations.forEach(location => {
             const locationObj = {
-                "Location Address1":location.address,
+                "Location Address1": removeDiacritics(location.address),
                 "Location Zip": location.zipcode,
                 "Location City": location.city,
                 "Location State": location.state,
@@ -544,10 +544,10 @@ module.exports = class MarkelWC extends Integration {
                     licensingAgentUsername: this.app.agencyLocation.insurers[this.insurer.id].agent_id
                 },
                 insured: {
-                    address1: this.app.business.mailing_address,
+                    address1: removeDiacritics(this.app.business.mailing_address),
                     city: this.app.business.mailing_city,
                     documentDeliveryPreference: "EM",
-                    name: this.app.business.name,
+                    name: removeDiacritics(this.app.business.name),
                     dba: this.app.business.dba,
                     website: this.app.business.website,
                     fein: applicationDocData.ein,
