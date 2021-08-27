@@ -911,7 +911,8 @@ for (let i = 0; i < replacementList.length; i += 1) {
         diacriticsMap[chars[j]] = replacementList[i].base;
     }
 }
-  
+
+// SOURCE: This solution is derived from the npm package at https://www.npmjs.com/package/diacritics
 exports.removeDiacritics = function(str) {
     // eslint-disable-next-line no-control-regex
     return str.replace(/[^\u0000-\u007e]/g, function(c) {
