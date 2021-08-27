@@ -20,7 +20,7 @@ const utility = global.requireShared('./helpers/utility.js');
 
 
 // eslint-disable-next-line object-curly-newline
-const {quoteStatus, getQuoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus, getQuoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -1646,15 +1646,6 @@ module.exports = class Integration {
         quoteJSON.quoteStatusId = status.id;
         quoteJSON.quoteStatusDescription = status.description;
 
-        // backwards compatibility w/ old Mongo property and existing code logic
-        try{
-            quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
-            // Aggregated Status (backwards compatibility w/ SQL)
-        }
-        catch(err){
-            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error setting  aggregatedStatus. error ${err} ` + __location)
-        }
-
         try{
             // Set up quote limits for old-style hydration (should be deprecated eventually)
             if (this.limits && Object.keys(this.limits).length) {
@@ -2283,7 +2274,7 @@ module.exports = class Integration {
             req.on('error', (err) => {
                 log.error(`Connection to ${this.insurer.name} timedout. error ${err}` + __location);
                 this.log += `Connection to ${this.insurer.name} timedout. error ${err} `;
-                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timeout. Reason: ${err.code}`));
             });
 
             if (data) {

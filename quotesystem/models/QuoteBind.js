@@ -15,6 +15,7 @@ const fs = require('fs');
 
 //const fs = require('fs');
 const slack = global.requireShared('./services/slacksvc.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 
 module.exports = class QuoteBind{
@@ -47,29 +48,9 @@ module.exports = class QuoteBind{
         }
 
         let statusWithinBindingRange = false;
-        let quoteStatus = '';
-        if(this.quoteDoc.aggregatedStatus){
-            quoteStatus = this.quoteDoc.aggregatedStatus;
-        }
-        else if (this.quoteDoc.status){
-            quoteStatus = this.quoteDoc.status;
-        }
-        else if (this.quoteDoc.apiResult){
-            quoteStatus = this.quoteDoc.apiResult
-        }
-        switch(quoteStatus){
-            case 'acord_emailed':
-            case 'bind_requested':
-            case 'quoted':
-            case 'quoted_referred':
-            case 'referred':
-            case 'referred_with_price':
-            case 'request_to_bind':
-            case 'request_to_bind_referred:':
-                statusWithinBindingRange = true;
-                break;
-            default:
-                break;
+        // eslint-disable-next-line no-shadow
+        if(this.quoteDoc.quoteStatusId < quoteStatus.declined.id && this.quoteDoc.quoteStatusId < quoteStatus.bound.id){
+            statusWithinBindingRange = true;
         }
 
         // Make sure that this quote was quoted by the API
@@ -81,7 +62,7 @@ module.exports = class QuoteBind{
 
             // Return an error
             log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);
-            throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
+            throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.status} - ${this.quoteDoc.quoteStatusId}`);
         }
 
 

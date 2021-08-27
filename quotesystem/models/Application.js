@@ -11,7 +11,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const status = global.requireShared('./models/status/applicationStatus.js');
+const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
@@ -35,6 +35,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 module.exports = class Application {
     constructor() {
@@ -873,7 +874,7 @@ module.exports = class Application {
         }
 
         // Update the application status
-        await status.updateApplicationStatus(this.applicationDocData.applicationId);
+        await applicationStatus.updateApplicationStatus(this.applicationDocData.applicationId);
 
         // Get the quotes from the database
         const quoteBO = new QuoteBO();
@@ -940,7 +941,7 @@ module.exports = class Application {
             }}
         }
         quoteList.forEach((quoteDoc) => {
-            if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
+            if (quoteDoc.quoteStatusId === quoteStatus.quoted.id || quoteDoc.quoteStatusId === quoteStatus.quoted_referred.id) {
                 some_quotes = true;
             }
             //quote Docs are marked with handledByTalage

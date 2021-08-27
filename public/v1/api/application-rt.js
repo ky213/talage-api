@@ -20,6 +20,7 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const clonedeep = require('lodash.clonedeep');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const moment = require('moment');
 
@@ -954,8 +955,8 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-    switch (quote.aggregatedStatus) {
-        case 'declined':
+    switch (quote.quoteStatusId) {
+        case quoteStatus.declined.id:
             // Return a declined quote summary
             return {
                 id: quote.qouteId,
@@ -969,9 +970,9 @@ async function createQuoteSummary(quote) {
                     rating: insurer.rating
                 }
             };
-        case 'quoted_referred':
-        case 'quoted':
-            const instantBuy = quote.aggregatedStatus === 'quoted';
+        case quoteStatus.quoted_referred.id:
+        case quoteStatus.quoted.id:
+            const instantBuy = quote.quoteStatusId === quoteStatus.quoted.id;
 
             // Retrieve the limits and create the limits object
             const limits = {};
