@@ -356,10 +356,15 @@ module.exports = class AcuityWC extends Integration {
         }
         catch (error) {
             try {
-                response = JSON.parse(error.response);
+                if(error.indexOf("ETIMEDOUT") > -1){
+                    return this.client_error(`The Submission to Travelers timed out`, __location, {error: error});
+                }
+                else {
+                    response = JSON.parse(error.response);
+                }
             }
             catch (error2) {
-                return this.client_error(`The insurer returned an error code of ${error.httpStatusCode}`, __location, {error: error});
+                return this.client_error(`The Requeset to insurer had an error of ${error}`, __location, {error: error});
             }
         }
 
