@@ -83,7 +83,6 @@ const QuoteSchema = new Schema({
     status: {type: String},
     quoteStatusId: {type: Number},
     quoteStatusDescription: {type: String},
-    aggregatedStatus: {type: String},
     apiResult: {type: String},
     isBindable: {type: Boolean, default: false},
     bound: {type: Boolean, default: false},

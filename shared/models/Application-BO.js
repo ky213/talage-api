@@ -30,8 +30,6 @@ const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-//const crypt = global.requireShared('./services/crypt.js');
-
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
 const log = global.log;
@@ -836,19 +834,6 @@ module.exports = class ApplicationModel {
                         }
 
                     });
-                    // const questionAnswerListDB = await .getListByAnswerIDList(questionRequest.answer).catch(function(err) {
-                    //     log.error("questionBO load error " + err + __location);
-                    // });
-                    // if (questionAnswerListDB && questionAnswerListDB.length > 0) {
-                    //     questionJSON.answerList = [];
-                    //     for (let j = 0; j < questionAnswerListDB.length; j++) {
-                    //         questionJSON.answerList.push(questionAnswerListDB[j].answer);
-                    //     }
-
-                    // }
-                    // else {
-                    //     log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
-                    // }
                 }
                 else {
                     questionJSON.answerId = questionRequest.answer;
@@ -856,18 +841,6 @@ module.exports = class ApplicationModel {
                     if(answerValue){
                         questionJSON.answerValue = answerValue.answer;
                     }
-                    // Need answer value
-                    // Load the request data into it
-                    // const questionAnswerDB = await .getById(questionJSON.answerId).catch(function(err) {
-                    //     log.error("questionBO load error " + err + __location);
-                    // });
-                    // if (questionAnswerDB) {
-                    //     questionJSON.answerValue = questionAnswerDB.answer;
-                    // }
-                    // else {
-                    //     log.error(`no question record for id ${questionJSON.questionId} ` + __location);
-                    // }
-
                 }
                 processedQuestionList.push(questionJSON);
             }
@@ -1308,17 +1281,17 @@ module.exports = class ApplicationModel {
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started` + __location);
-                    const status = global.requireShared('./models/status/applicationStatus.js');
-                    const applicationStatus = await status.updateApplicationStatus(applicationDoc, true);
+                    const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
+                    const appStatus = await applicationStatus.updateApplicationStatus(applicationDoc, true);
                     // eslint-disable-next-line object-curly-newline
                     //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
-                    if(applicationStatus && applicationStatus.appStatusId > -1){
-                        applicationDoc.status = applicationStatus.appStatusDesc;
-                        applicationDoc.appStatusId = applicationStatus.appStatusId;
+                    if(appStatus && appStatus.appStatusId > -1){
+                        applicationDoc.status = appStatus.appStatusDesc;
+                        applicationDoc.appStatusId = appStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
-                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
+                        applicationDoc.status = applicationStatus.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = applicationStatus.applicationStatus.error.appStatusId;
                     }
 
                 }
