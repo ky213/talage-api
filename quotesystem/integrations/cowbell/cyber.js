@@ -52,7 +52,7 @@ module.exports = class cowbellCyber extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
 
         const aggregateLimits = [50000,

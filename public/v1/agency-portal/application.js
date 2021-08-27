@@ -955,11 +955,13 @@ async function validate(req, res, next) {
     }
     // Validate
     try {
-        passValidation = await applicationQuoting.validate();
+        const doNotLogValidationErrors = false
+        passValidation = await applicationQuoting.validate(doNotLogValidationErrors);
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        // This is a user triggered validation check.  Do not log.
+        // log.error(errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -1087,6 +1089,7 @@ async function requote(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
+        //pre quote validation log any errors
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
         log.warn(errMessage + __location);
         res.send(400, errMessage);
@@ -1267,7 +1270,7 @@ async function bindQuote(req, res, next) {
             if(req.body.paymentPlanId){
                 paymentPlanId = req.body.paymentPlanId
             }
-            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID,req.body.insurerPaymentPlanId);
             const bindResp = await quoteBind.bindPolicy();
             if(bindResp === "success"){
                 log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
@@ -1315,6 +1318,7 @@ async function bindQuote(req, res, next) {
                 quote: quoteDoc.quoteId,
                 quoteId: quoteDoc.quoteId,
                 paymentPlanId: paymentPlanId,
+                insurerPaymentPlanId: req.body.insurerPaymentPlanId,
                 noCustomerEmail: true
             }
             const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){
