@@ -23,42 +23,39 @@ exports.processtask = async function(queueMessage) {
     var now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
     if (messageAge < 30) {
-
-        //DO STUFF
-
-        await optoutapplicationtask().catch(err => error = err);
+        await stoppedAfterPricingTask().catch(err => error = err);
         if(error){
-            log.error("Error optoutapplicationtask " + error + __location);
+            log.error("Error stoppedAfterPricingTask " + error + __location);
         }
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err) {
             error = err;
         });
         if (error) {
-            log.error("Error optoutapplicationtask deleteTaskQueueItem " + error);
+            log.error("Error stoppedAfterPricingTask deleteTaskQueueItem " + error);
         }
         return;
     }
     else {
-        log.info('removing old Opt Out Email Message from queue');
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
+        log.info('removing old Stopped After Pricing Email Message from queue');
+        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err);
         if (error) {
-            log.error("Error optoutapplicationtask deleteTaskQueueItem old " + error);
+            log.error("Error stoppedAfterPricingTask deleteTaskQueueItem old " + error);
         }
         return;
     }
 }
 
 /**
- * Exposes optoutapplicationtask for testing
+ * Exposes stoppedAfterPricingTask for testing
  *
  * @returns {void}
  */
 exports.taskProcessorExternal = async function() {
     let error = null;
-    await optoutapplicationtask().catch(err => error = err);
+    await stoppedAfterPricingTask().catch(err => error = err);
     if (error) {
-        log.error('optoutapplicationtask external: ' + error);
+        log.error('stoppedAfterPricingTask external: ' + error);
     }
     return;
 }
@@ -68,16 +65,14 @@ exports.taskProcessorExternal = async function() {
  *
  * @returns {void}
  */
-var optoutapplicationtask = async function() {
-
+var stoppedAfterPricingTask = async function() {
     const now = moment();
     const oneHourAgo = moment().subtract(1, 'h');
 
-
     const query = {
-        "optedOutOnline": true,
-        "optedOutOnlineEmailsent": false,
-        "ltAppStatusId": 50,
+        "stoppedAfterPricing": true,
+        "stoppedAfterPricingEmailSent": false,
+        "ltAppStatusId": 50, // TODO: what is this magic number?
         "searchenddate": now,
         "searchbegindate": oneHourAgo
     };
@@ -89,7 +84,7 @@ var optoutapplicationtask = async function() {
         appList = await applicationBO.getList(query);
     }
     catch(err){
-        log.error("optoutapplicationtask getting appid list error " + err + __location);
+        log.error("stoppedAfterPricingTask getting appid list error " + err + __location);
         throw err;
     }
 
@@ -101,7 +96,7 @@ var optoutapplicationtask = async function() {
             let error = null
             let succesfulProcess = false;
             try {
-                succesfulProcess = await processOptOutEmail(appDoc)
+                succesfulProcess = await processStoppedAfterPricingEmail(appDoc);
             }
             catch (err) {
                 error = err;
@@ -123,14 +118,13 @@ var optoutapplicationtask = async function() {
     return;
 }
 
-var processOptOutEmail = async function(applicationDoc) {
-
+var processStoppedAfterPricingEmail = async function(applicationDoc) {
     if (applicationDoc) {
         let error = null;
         const agencyBO = new AgencyBO();
         let agencyJSON = {};
         try{
-            agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
+            agencyJSON = await agencyBO.getById(applicationDoc.agencyId);
         }
         catch(err){
             log.error("Error getting agencyBO " + err + __location);
@@ -141,21 +135,18 @@ var processOptOutEmail = async function(applicationDoc) {
             return false;
         }
 
-
         const agencyLocationBO = new AgencyLocationBO();
         let agencyLocationJSON = null;
         try{
-            agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
+            agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId);
         }
         catch(err){
             log.error("Error getting agencyLocationBO " + err + __location);
             error = true;
-
         }
         if(error){
             return false;
         }
-
 
         //decrypt info...
         let agencyLocationEmail = null;
@@ -166,6 +157,7 @@ var processOptOutEmail = async function(applicationDoc) {
             agencyLocationEmail = agencyJSON.email;
         }
 
+        // TODO: this message is the same as opt out, but it reads okay for this situation, should we change the wording?
         log.debug("processing appDoc in processOptOutEmail agencyLocationEmail " + agencyLocationEmail);
         let message = `A potential policyholder has requested that you reach out to help them through the process.<br/>
         <br/>
@@ -181,10 +173,8 @@ var processOptOutEmail = async function(applicationDoc) {
         -the {{BrandName}} team<br/>`;
         let subject = "Incoming Contact from your {{BrandName}} Page!";
 
-
         const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
         const customerEmail = customerContact.email;
-
 
         // Format the full name and phone number
         const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
@@ -214,9 +204,6 @@ var processOptOutEmail = async function(applicationDoc) {
         message = message.replace(/{{Contact Name}}/g, fullName);
         message = message.replace(/{{Contact Phone}}/g, phone);
         message = message.replace(/{{BrandName}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
-
-        //message = message.replace(/{{Industry}}/g, applications[0].industryCode);
-
         subject = subject.replace(/{{BrandName}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
 
         // Send the email
@@ -230,20 +217,17 @@ var processOptOutEmail = async function(applicationDoc) {
         else {
             log.error(`Opt Out Email no agencyLocationEmail email address for appId: ${applicationDoc.applicationId} ` + __location);
         }
-
         return true;
     }
     else {
         return false;
     }
-
 }
 
 var markApplicationProcess = async function(appDoc) {
-
     // Call BO updateMongo
     const applicationBO = new ApplicationBO();
-    const docUpdate = {"optedOutOnlineEmailsent": true};
+    const docUpdate = {"stoppedAfterPricingEmailSent": true};
     try{
         await applicationBO.updateMongo(appDoc.applicationId,docUpdate);
     }

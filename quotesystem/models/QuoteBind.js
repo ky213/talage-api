@@ -15,6 +15,7 @@ const fs = require('fs');
 
 //const fs = require('fs');
 const slack = global.requireShared('./services/slacksvc.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 
 module.exports = class QuoteBind{
@@ -24,7 +25,8 @@ module.exports = class QuoteBind{
         this.quoteDoc = {};
         this.agencyJSON = {};
         this.insurer = {};
-        this.paymnet_plan = 0;
+        this.payment_plan = 0;
+        this.insurerPaymentPlanId = null;
         this.agencyLocation = null;
         this.requestUserId = null;
         this.policyInfo = {};
@@ -46,29 +48,9 @@ module.exports = class QuoteBind{
         }
 
         let statusWithinBindingRange = false;
-        let quoteStatus = '';
-        if(this.quoteDoc.aggregatedStatus){
-            quoteStatus = this.quoteDoc.aggregatedStatus;
-        }
-        else if (this.quoteDoc.status){
-            quoteStatus = this.quoteDoc.status;
-        }
-        else if (this.quoteDoc.apiResult){
-            quoteStatus = this.quoteDoc.apiResult
-        }
-        switch(quoteStatus){
-            case 'acord_emailed':
-            case 'bind_requested':
-            case 'quoted':
-            case 'quoted_referred':
-            case 'referred':
-            case 'referred_with_price':
-            case 'request_to_bind':
-            case 'request_to_bind_referred:':
-                statusWithinBindingRange = true;
-                break;
-            default:
-                break;
+        // eslint-disable-next-line no-shadow
+        if(this.quoteDoc.quoteStatusId < quoteStatus.declined.id && this.quoteDoc.quoteStatusId < quoteStatus.bound.id){
+            statusWithinBindingRange = true;
         }
 
         // Make sure that this quote was quoted by the API
@@ -80,7 +62,7 @@ module.exports = class QuoteBind{
 
             // Return an error
             log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);
-            throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
+            throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.status} - ${this.quoteDoc.quoteStatusId}`);
         }
 
 
@@ -187,11 +169,12 @@ module.exports = class QuoteBind{
 	 * Populates this object with data from the database
 	 *
 	 * @param {int} id - The ID of the quote
-	 * @param {int} payment_plan_id - The ID of the payment plan selected by the user
-      @param {int} requestUserId - The Agency Portal user ID that requested the bind.
+	 * @param {int} paymentPlanId - The ID of the payment plan selected by the user
+     * @param {int} requestUserId - The Agency Portal user ID that requested the bind.
+     * @param {int} insurerPaymentPlanId - The ID of the Insurer payment plan selected by the user
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
-    async load(id, payment_plan_id, requestUserId){
+    async load(id, paymentPlanId, requestUserId, insurerPaymentPlanId){
         if(requestUserId){
             this.requestUserId = requestUserId;
         }
@@ -216,11 +199,31 @@ module.exports = class QuoteBind{
             log.error(`No quoteDoc quoteId ${id} ` + __location);
             throw new Error(`No quoteDoc quoteId ${id}`);
         }
-        if(this.quoteDoc.paymentPlanId && !payment_plan_id){
-            payment_plan_id = this.quoteDoc.paymentPlanId;
+        //If there is an insurer payment plan it overrided the talage paymentplan
+        if(insurerPaymentPlanId || this.quoteDoc.insurerPaymentPlanId){
+            if(this.quoteDoc.insurerPaymentPlanId && !insurerPaymentPlanId){
+                insurerPaymentPlanId = this.quoteDoc.insurerPaymentPlanId;
+            }
+            else if(this.quoteDoc.insurerPaymentPlanId !== insurerPaymentPlanId) {
+                this.quoteDoc.insurerPaymentPlanId = insurerPaymentPlanId;
+                await this.quoteDoc.save().catch((err) => {
+                    log.error(`failed to save quoteDoc after processing ${err}` + __location);
+                })
+            }
+            paymentPlanId = null
+            this.insurerPaymentPlanId = insurerPaymentPlanId;
         }
-        if(!payment_plan_id){
-            payment_plan_id = 1;
+        else if(this.quoteDoc.paymentPlanId && !paymentPlanId){
+            paymentPlanId = this.quoteDoc.paymentPlanId;
+        }
+        else if(this.quoteDoc.paymentPlanId !== paymentPlanId) {
+            this.quoteDoc.paymentPlanId = paymentPlanId;
+            await this.quoteDoc.save().catch((err) => {
+                log.error(`failed to save quoteDoc after processing ${err}` + __location);
+            })
+        }
+        if(!paymentPlanId && !insurerPaymentPlanId){
+            paymentPlanId = 1;
         }
         //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
         const ApplicationBO = global.requireShared('./models/Application-BO.js');
@@ -265,16 +268,16 @@ module.exports = class QuoteBind{
         }
 
         // Validate the payment plan
-        // - Only set payment plan if passed in.
-        if (payment_plan_id) {
+        // - Only set payment plan if passed in. No need to validate insurerPaymentPlanId it came from quote response.
+        if (!this.insurerPaymentPlanId && paymentPlanId) {
             const insurerPaymentPlan = this.insurer.insurerDoc.paymentPlans;
             if(!insurerPaymentPlan || !insurerPaymentPlan.length > 0){
-                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${id} payment_plan: ${payment_plan_id} insurer ${this.quoteDoc.insurerId}`);
+                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${id} payment_plan: ${paymentPlanId} insurer ${this.quoteDoc.insurerId}`);
             }
-            this.payment_plan = payment_plan_id;
+            this.payment_plan = paymentPlanId;
         }
-        else{
-            log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${payment_plan_id}:` + __location);
+        else if(!this.insurerPaymentPlanId){
+            log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${paymentPlanId}:` + __location);
         }
     }
 

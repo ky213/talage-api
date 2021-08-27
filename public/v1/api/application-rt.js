@@ -20,6 +20,7 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const clonedeep = require('lodash.clonedeep');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const moment = require('moment');
 
@@ -954,8 +955,8 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-    switch (quote.aggregatedStatus) {
-        case 'declined':
+    switch (quote.quoteStatusId) {
+        case quoteStatus.declined.id:
             // Return a declined quote summary
             return {
                 id: quote.qouteId,
@@ -969,9 +970,9 @@ async function createQuoteSummary(quote) {
                     rating: insurer.rating
                 }
             };
-        case 'quoted_referred':
-        case 'quoted':
-            const instantBuy = quote.aggregatedStatus === 'quoted';
+        case quoteStatus.quoted_referred.id:
+        case quoteStatus.quoted.id:
+            const instantBuy = quote.quoteStatusId === quoteStatus.quoted.id;
 
             // Retrieve the limits and create the limits object
             const limits = {};
@@ -1070,23 +1071,42 @@ async function createQuoteSummary(quote) {
             else if (insurerLogoUrl.includes("images/images")){
                 insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
             }
-            // Return the quote summary
-            return {
-                id: quote.quoteId,
-                policy_type: quote.policyType,
-                amount: quote.amount,
-                deductible: quote.deductible,
-                instant_buy: instantBuy,
-                letter: quoteLetterContent,
-                insurer: {
-                    id: insurer.id,
-                    logo: insurerLogoUrl,
-                    name: insurer.name,
-                    rating: insurer.rating
-                },
-                limits: limits,
-                payment_options: paymentOptions
+            const quoteSummary = JSON.parse(JSON.stringify(quote));
+
+            quoteSummary.id = quote.quoteId;
+            quoteSummary.policy_type = quote.policyType;
+            quoteSummary.instant_buy = instantBuy;
+            quoteSummary.letter = quoteLetterContent;
+            quoteSummary.insurer = {
+                id: insurer.id,
+                logo: insurerLogoUrl,
+                name: insurer.name,
+                rating: insurer.rating
             };
+
+            quoteSummary.limits = limits
+            quoteSummary.payment_options = paymentOptions
+            // Return the quote summary
+            // return {
+            //     id: quote.quoteId,
+            //     policy_type: quote.policyType,
+            //     instant_buy: instantBuy,
+            //     letter: quoteLetterContent,
+            //     talageInsurerPaymentPlans: quote.talageInsurerPaymentPlans,
+            //     iaBindable: quote.isBindable,
+            // insurer: {
+            //     id: insurer.id,
+            //     logo: insurerLogoUrl,
+            //     name: insurer.name,
+            //     rating: insurer.rating
+            // },
+            // limits: limits,
+            // payment_options: paymentOptions
+            // };
+
+
+            return quoteSummary
+
         default:
             // We don't return a quote for any other status
             // log.error(`Quote ${quote.id} has a unknown status of ${quote.aggregated_status} when creating quote summary ${__location}`);
@@ -1187,7 +1207,7 @@ async function requestToBindQuote(req, res, next) {
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
 
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'paymentPlanId')) {
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'paymentPlanId') && !Object.prototype.hasOwnProperty.call(req.body, 'insurerPaymentPlanId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
@@ -1214,6 +1234,7 @@ async function requestToBindQuote(req, res, next) {
     const applicationBO = new ApplicationBO();
     const quoteId = req.body.quoteId;
     const paymentPlanId = req.body.paymentPlanId;
+    const insurerPaymentPlanId = req.body.insurerPaymentPlanId;
 
     //assume uuid input
     log.debug(`Getting app id  ${applicationId} from mongo` + __location)
@@ -1230,7 +1251,8 @@ async function requestToBindQuote(req, res, next) {
         try{
             const quoteJSON = {
                 quoteId: quoteId,
-                paymentPlanId: paymentPlanId
+                paymentPlanId: paymentPlanId,
+                insurerPaymentPlanId: insurerPaymentPlanId
             };
             await applicationBO.processRequestToBind(applicationId,quoteJSON);
 
@@ -1377,7 +1399,7 @@ async function bindQuote(req, res, next) {
         if(req.body.paymentPlanId){
             paymentPlanId = req.body.paymentPlanId
         }
-        await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+        await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID, req.body.insurerPaymentPlanId);
         const bindResp = await quoteBind.bindPolicy();
         if(bindResp === "success"){
             log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location);
@@ -1450,6 +1472,91 @@ async function getBopCodes(req, res, next){
     res.send(200, bopIcList);
 }
 
+async function getPricing(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    const applicationId = req.body.applicationId;
+    const rightsToApp = await isAuthForApplication(req, applicationId);
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //Get app and check status
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
+        log.error("applicationBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if (!applicationDB) {
+        return next(serverHelper.requestError('Not Found'));
+    }
+
+
+    if (applicationDB.appStatusId > 60) {
+        return next(serverHelper.requestError('Cannot Requote Application'));
+    }
+
+    const applicationQuoting = new ApplicationQuoting();
+    // Populate the Application object
+
+    // Load
+    try {
+        const forceQuoting = true;
+        const loadJson = {
+            "id": applicationId,
+            agencyPortalQuote: true
+        };
+        if(applicationDB.insurerId && validator.is_valid_id(applicationDB.insurerId)){
+            loadJson.insurerId = parseInt(applicationDB.insurerId, 10);
+        }
+        await applicationQuoting.load(loadJson, forceQuoting);
+    }
+    catch (err) {
+        log.error(`Error loading application ${applicationId}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+    let pricingJSON = {}
+    try {
+        pricingJSON = await applicationQuoting.run_pricing()
+    }
+    catch (err) {
+        pricingJSON = {
+            gotPricing: false,
+            outOfAppetite: false,
+            pricingError: true
+        }
+        log.error(`Getting pricing on application ${applicationId} failed: ${err} ${__location}`);
+    }
+    res.send(200, pricingJSON);
+    return next();
+
+    // const examplePricingData = {
+    //     gotPricing: true,
+    //     price: 1200,
+    //     highPrice: 1500,
+    //     outOfAppetite: false,
+    //     pricingError: false
+    //   };
+    // };
+
+}
+
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAppApi("POST Application",`${basePath}/application`, applicationSave);
@@ -1459,10 +1566,12 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
+    server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
+    server.addGetAuthAppApi('GET Quotes for Application', `${basePath}/application/:id/quotes`, quotingCheck);
     server.addPutAuthAppApi('PUT Request Bind Quote', `${basePath}/application/request-bind-quote`, requestToBindQuote);
     server.addPutAuthAppApi('PUT Mark Quote Bound', `${basePath}/application/mark-quote-bound`, markQuoteAsBound);
     server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);

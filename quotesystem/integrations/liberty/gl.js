@@ -34,7 +34,7 @@ module.exports = class LibertyGL extends Integration{
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote(){
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
 		// These are the statuses returned by the insurer and how they map to our Talage statuses
 		this.possible_api_responses.Accept = 'quoted';
