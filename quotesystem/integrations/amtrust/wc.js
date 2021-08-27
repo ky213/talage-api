@@ -798,11 +798,11 @@ module.exports = class AMTrustWC extends Integration {
             }
             else if(typeof quoteResponse === 'string'){
                 log.error(`Amtrust WC Application ${this.app.id} returned unexpected response of ${quoteResponse} on Quote Post` + __location)
-                return this.client_error(`The AmTrust's server returned an unspecified response of ${quoteResponse} when submitting the quote information.`, __location, {statusCode: statusCode});
+                return this.client_error(`The AmTrust's server returned: ${quoteResponse}.`, __location, {statusCode: statusCode});
             }
             else {
                 log.error(`Amtrust WC Application ${this.app.id} returned unexpected response of ${JSON.stringify(quoteResponse)} on Quote Post` + __location)
-                return this.client_error("The AmTrust's server returned an unspecified error when submitting the quote information.", __location, {statusCode: statusCode});
+                return this.client_error(`The AmTrust's server returned an unspecified error when submitting the quote information.  ${JSON.stringify(quoteResponse)}`, __location, {statusCode: statusCode});
             }
 
         }
