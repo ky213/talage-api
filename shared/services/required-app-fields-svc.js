@@ -222,9 +222,9 @@ exports.requiredFields = async(appId) => {
             log.error("Error getting agencyNetwork doc " + err + __location);
         }
 
-        if(agencyNetworkDB && agencyNetworkDB.featureJson && agencyNetworkDB.featureJson.appRequirementOverrides){
+        if(agencyNetworkDB?.appRequirementOverrides){
             const newRequirements = {};
-            overrideRequiredObject(agencyNetworkDB.featureJson.appRequirementOverrides, requiredFields, newRequirements);
+            overrideRequiredObject(agencyNetworkDB.appRequirementOverrides, requiredFields, newRequirements);
             requiredFields = newRequirements;
         }
     }
