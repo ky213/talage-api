@@ -2146,8 +2146,6 @@ module.exports = class ApplicationModel {
                 }
             }
 
-
-
             //Policy EffectDate Date Searching
             if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
                 let fromDate = moment(queryJSON.beginpolicydate);
