@@ -1594,7 +1594,7 @@ module.exports = class ApplicationModel {
                 query.appStatusId = {$gt: parseInt(queryJSON.gtAppStatusId, 10)};
                 delete queryJSON.gtAppStatusId;
             }
-
+            //Create Date Searching
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
                 let fromDate = moment(queryJSON.searchbegindate);
                 let toDate = moment(queryJSON.searchenddate);
@@ -1636,6 +1636,95 @@ module.exports = class ApplicationModel {
                 }
             }
 
+
+            //Policy EffectDate Date Searching
+            if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
+                let fromDate = moment(queryJSON.beginpolicydate);
+                let toDate = moment(queryJSON.endpolicydate);
+                // if(!query.policies){
+                //     query.policies = {}
+                // }
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.effectiveDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicydate;
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicydate);
+                if (fromDate.isValid()) {
+                    query["policies.effectiveDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicydate);
+                if (toDate.isValid()) {
+                    query["policies.effectiveDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            //Policy expirationDate Searching
+            if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.expirationDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicyexprdate;
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                if (fromDate.isValid()) {
+                    query["policies.expirationDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (toDate.isValid()) {
+                    query["policies.expirationDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
             if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
                 query.agencyId = {$in: queryJSON.agencyId};
                 delete queryJSON.agencyId;
@@ -1665,7 +1754,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    //log.debug("ApplicationList query " + JSON.stringify(query))
+                    log.debug("AppBO: ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -1931,50 +2020,6 @@ module.exports = class ApplicationModel {
             }
 
 
-            if (queryJSON) {
-                for (var key in queryJSON) {
-                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
-                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                            let clearString = queryJSON[key].replace("%", "");
-                            clearString = clearString.replace("%", "");
-                            useRedisCache = false;
-                            query[key] = {
-                                "$regex": clearString,
-                                "$options": "i"
-                            };
-                        }
-                        else {
-                            query[key] = queryJSON[key];
-                        }
-                    }
-                }
-            }
-
-            if(orParamList && orParamList.length > 0){
-                for (let i = 0; i < orParamList.length; i++){
-                    let orItem = orParamList[i];
-                    if(orItem.policies && queryJSON.orItem.policyType){
-                        //query.policies = {};
-                        useRedisCache = false;
-                        orItem["policies.policyType"] = queryJSON.policies.policyType;
-                    }
-                    else {
-                        // eslint-disable-next-line no-redeclare
-                        for (var key2 in orItem) {
-                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
-                                useRedisCache = false;
-                                let clearString = orItem[key2].replace("%", "");
-                                clearString = clearString.replace("%", "");
-                                orItem[key2] = {
-                                    "$regex": clearString,
-                                    "$options": "i"
-                                };
-                            }
-                        }
-                    }
-                }
-                query.$or = orParamList
-            }
             //
 
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
@@ -2043,6 +2088,141 @@ module.exports = class ApplicationModel {
                     return;
                 }
             }
+            //Policy EffectDate Date Searching
+            if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
+                let fromDate = moment(queryJSON.beginpolicydate);
+                let toDate = moment(queryJSON.endpolicydate);
+                // if(!query.policies){
+                //     query.policies = {}
+                // }
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.effectiveDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicydate;
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicydate);
+                delete queryJSON.beginpolicydate;
+                if (fromDate.isValid()) {
+                    query["policies.effectiveDate"] = {$gte: fromDate};
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+                log.debug(`getAppListForAgencyPortalSearch beginpolicydate ${JSON.stringify(queryJSON)} ` + __location)
+            }
+            else if (queryJSON.endpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicydate);
+                if (toDate.isValid()) {
+                    query["policies.effectiveDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            //Policy expirationDate Searching
+            if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.expirationDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicyexprdate;
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                if (fromDate.isValid()) {
+                    query["policies.expirationDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (toDate.isValid()) {
+                    query["policies.expirationDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
+                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                            let clearString = queryJSON[key].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            useRedisCache = false;
+                            query[key] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                        else {
+                            query[key] = queryJSON[key];
+                        }
+                    }
+                }
+            }
+
+            if(orParamList && orParamList.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    let orItem = orParamList[i];
+                    if(orItem.policies && queryJSON.orItem.policyType){
+                        //query.policies = {};
+                        useRedisCache = false;
+                        orItem["policies.policyType"] = queryJSON.policies.policyType;
+                    }
+                    else {
+                        // eslint-disable-next-line no-redeclare
+                        for (var key2 in orItem) {
+                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                                useRedisCache = false;
+                                let clearString = orItem[key2].replace("%", "");
+                                clearString = clearString.replace("%", "");
+                                orItem[key2] = {
+                                    "$regex": clearString,
+                                    "$options": "i"
+                                };
+                            }
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+
 
             if (findCount === false) {
                 let docList = null;
@@ -2110,7 +2290,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("ApplicationList query " + JSON.stringify(query) + __location)
+                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
                     //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();

@@ -313,6 +313,33 @@ async function getApplications(req, res, next){
     if(endDateMoment){
         query.searchenddate = endDateMoment.toISOString();
     }
+    if(req.params.searchText && req.params.searchText.indexOf("pd:") > -1){
+        noCacheUse = true;
+        req.params.searchText = req.params.searchText.replace("pd:", "").trim()
+        query.beginpolicydate = query.searchbegindate
+        query.endpolicydate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+
+    }
+
+    if(req.params.searchText && req.params.searchText.indexOf("pde:") > -1){
+        noCacheUse = true;
+        req.params.searchText = req.params.searchText.replace("pde:", "").trim()
+        query.beginpolicyexprdate = query.searchbegindate
+        query.endpolicyexprdate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+    }
+
     const orClauseArray = [];
 
     if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
