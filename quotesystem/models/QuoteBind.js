@@ -49,7 +49,7 @@ module.exports = class QuoteBind{
 
         let statusWithinBindingRange = false;
         // eslint-disable-next-line no-shadow
-        if(this.quoteDoc.quoteStatusId < quoteStatus.declined.id && this.quoteDoc.quoteStatusId < quoteStatus.bound.id){
+        if(this.quoteDoc.quoteStatusId > quoteStatus.declined.id && this.quoteDoc.quoteStatusId < quoteStatus.bound.id){
             statusWithinBindingRange = true;
         }
 
