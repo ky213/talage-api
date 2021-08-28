@@ -1636,6 +1636,47 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            //Modifed Date (updatedAt) Searching
+            if (queryJSON.beginmodifieddate && queryJSON.endmodifieddate) {
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.updatedAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginmodifieddate;
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                if (fromDate.isValid()) {
+                    query.updatedAt = {$gte: fromDate};
+                    delete queryJSON.beginmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (toDate.isValid()) {
+                    query.updatedAt = {$lte: toDate};
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
 
             //Policy EffectDate Date Searching
             if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
@@ -2088,6 +2129,51 @@ module.exports = class ApplicationModel {
                     return;
                 }
             }
+
+            //Modifed Date (updatedAt) Searching
+            if (queryJSON.beginmodifieddate && queryJSON.endmodifieddate) {
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.updatedAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginmodifieddate;
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                if (fromDate.isValid()) {
+                    query.updatedAt = {$gte: fromDate};
+                    delete queryJSON.beginmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (toDate.isValid()) {
+                    query.updatedAt = {$lte: toDate};
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+
             //Policy EffectDate Date Searching
             if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
                 let fromDate = moment(queryJSON.beginpolicydate);
@@ -2290,7 +2376,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
+                    //log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
                     //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
