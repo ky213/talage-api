@@ -42,7 +42,7 @@ const PolicySchema = new Schema({
 
 
 const TalageInsurerInvoiceSchema = new Schema({
-    installmentNumber: {type: Number, required: true},
+    installmentNumber: {type: Number, required: false},
     PremiumAmount: {type: Number, required: true},
     Taxes: {type: Number, required: false, default: 0},
     Fees: {type: Number, required: false, default: 0},
