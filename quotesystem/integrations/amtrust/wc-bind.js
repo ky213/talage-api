@@ -108,7 +108,7 @@ class AmTrustBind extends Bind {
             if(this.quote.insurerPaymentPlanId){
                 paymentPlanId = parseInt(this.quote.insurerPaymentPlanId,10);
                 //look up in this.quoteDoc.talageInsurerPaymentPlans
-                const insurerPaymentPlanDetails = this.quoteDoc.talageInsurerPaymentPlans.find((ipp) => ipp.insurerPaymentPlanId === this.quote.insurerPaymentPlanId);
+                const insurerPaymentPlanDetails = this.quote.talageInsurerPaymentPlans.find((ipp) => ipp.insurerPaymentPlanId === this.quote.insurerPaymentPlanId);
                 if(insurerPaymentPlanDetails){
                     numberOfPlanments = insurerPaymentPlanDetails.NumberPayments;
                     DepositPercent = insurerPaymentPlanDetails.DepositPercent;
