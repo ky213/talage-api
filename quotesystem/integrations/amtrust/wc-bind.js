@@ -104,30 +104,36 @@ class AmTrustBind extends Bind {
         let numberOfPlanments = 1
         let IsDirectDebit = false;
         let DepositPercent = 0;
-        if(this.quote.insurerPaymentPlanId){
-            paymentPlanId = parseInt(this.quote.insurerPaymentPlanId,10);
-            //look up in this.quoteDoc.talageInsurerPaymentPlans
-            const insurerPaymentPlanDetails = this.quoteDoc.talageInsurerPaymentPlans.find((ipp) => ipp.paymentPlanId === this.quote.insurerPaymentPlanId);
-            if(insurerPaymentPlanDetails){
-                numberOfPlanments = insurerPaymentPlanDetails.NumberPayments;
-                DepositPercent = insurerPaymentPlanDetails.DepositPercent;
+        try{
+            if(this.quote.insurerPaymentPlanId){
+                paymentPlanId = parseInt(this.quote.insurerPaymentPlanId,10);
+                //look up in this.quoteDoc.talageInsurerPaymentPlans
+                const insurerPaymentPlanDetails = this.quote.talageInsurerPaymentPlans.find((ipp) => ipp.insurerPaymentPlanId === this.quote.insurerPaymentPlanId);
+                if(insurerPaymentPlanDetails){
+                    numberOfPlanments = insurerPaymentPlanDetails.NumberPayments;
+                    DepositPercent = insurerPaymentPlanDetails.DepositPercent;
+                }
+            }
+            else {
+                switch(this.quote.paymentPlanId){
+                    case 2:
+                        paymentPlanId = 2;
+                        numberOfPlanments = 2;
+                        DepositPercent = 50;
+                        break;
+                    case 5:
+                        paymentPlanId = 7;
+                        numberOfPlanments = 12;
+                        IsDirectDebit = true;
+                        DepositPercent = 8.33;
+                        break;
+                    default:
+                }
             }
         }
-        else {
-            switch(this.quote.paymentPlanId){
-                case 2:
-                    paymentPlanId = 2;
-                    numberOfPlanments = 2;
-                    DepositPercent = 50;
-                    break;
-                case 5:
-                    paymentPlanId = 7;
-                    numberOfPlanments = 12;
-                    IsDirectDebit = true;
-                    DepositPercent = 8.33;
-                    break;
-                default:
-            }
+        catch(err){
+           log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: setup payment plans error: ${err} ${__location}`);
+
         }
         const paymentPlanJSON = {
             "BillingType": "Direct",
