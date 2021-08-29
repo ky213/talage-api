@@ -1021,11 +1021,11 @@ module.exports = class AMTrustWC extends Integration {
                                     paymentPlan.installmentPayment = invoice.TotalBillAmount;
                                 }
                             }
-                            if(paymentPlan.PaymentPlanId < 3){
-                                paymentPlan.paymentPlanId = paymentPlan.PaymentPlanId
+                            if(paymentPlan.insurerPaymentPlanId < 3){
+                                paymentPlan.paymentPlanId = paymentPlan.insurerPaymentPlanId
                             }
                             else {
-                                switch(paymentPlan.PaymentPlanId){
+                                switch(paymentPlan.insurerPaymentPlanId){
                                     case 4:
                                         paymentPlan.paymentPlanId = 3;
                                         break;
