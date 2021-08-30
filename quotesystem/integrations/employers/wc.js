@@ -238,10 +238,8 @@ module.exports = class EmployersWC extends Integration {
                     "businessName": appDoc.businessName.substring(0,60).replace('&', ''),
                     "taxPayerId": appDoc.ein,
                     "unemploymentId": location.unemploymentId ? location.unemploymentId : 0,
-                    "bureauId": 0, // zy Where can we get this? Seem to be state based. Not required for Quote but is required for Bind
-                    "sourceBureau": "", // zy Optional for Quote and Bind.
                     "numberOfEmployees": location.full_time_employees + location.part_time_employees,
-                    "shift1EmployeesCount": location.full_time_employees + location.part_time_employees, // zy Should we break up employees by shift somehow?
+                    "shift1EmployeesCount": location.full_time_employees + location.part_time_employees,
                     "shift2EmployeesCount": 0,
                     "shift3EmployeesCount": 0,
                     "address": {
@@ -265,7 +263,6 @@ module.exports = class EmployersWC extends Integration {
                         }),
                     "rateClasses": location.activityPayrollList.map(activityCode => ({
                         "classCode": this.insurer_wc_codes[location.state + activityCode.activityCodeId],
-                        "classCodeDescription": "", // zy debug Fix. I don't know where to get the classCode description. Can we add the insurer description to the insurer_wc_codes in Integration.js?
                         "payrollAmount": activityCode.payroll
                         }))
                     };
@@ -318,6 +315,8 @@ module.exports = class EmployersWC extends Integration {
                 }
             }
 
+            requestJSON.disclaimers = [];
+
             // Prepare questions
             const validQuestions = [];
             for (const question_id in this.questions) {
@@ -332,6 +331,16 @@ module.exports = class EmployersWC extends Integration {
 
                     // For Yes/No questions, if they are not required and the user answered 'No', simply don't send them
                     if (!required_questions.includes(question.id) && question.type !== 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()) {
+                        continue;
+                    }
+
+                    // Do not add disclaimer question to questions. Put it in the disclaimers property instead
+                    if (questionCode === 'OOEA') {
+                        requestJSON.disclaimers.push({
+                                "disclaimerCode": questionCode,
+                                "stateCode": appDoc.primaryState,
+                                "affirmed": this.determine_question_answer(question, true) === "Yes"
+                            });
                         continue;
                     }
 
@@ -373,17 +382,6 @@ module.exports = class EmployersWC extends Integration {
                 "value": question.entry.get_answer_as_boolean() ? 'YES' : 'NO'
             }))
 
-            requestJSON.disclaimers = []; // zy How to handle the disclaimer? Is it a new question for employers?
-            if (appDoc.experienceModifier) {
-                requestJSON.stateMods = [
-                    {
-                    "state": appDoc.primaryState,
-                    "modType": "EMOD",
-                    "value": appDoc.experienceModifier
-                    }
-                ];
-            }
-
             //call API
             let host = null;
             if (this.insurer.useSandbox) {
@@ -411,7 +409,7 @@ module.exports = class EmployersWC extends Integration {
                 quoteResponse = await this.send_json_request(host, path, JSON.stringify(requestJSON), additionalHeaders, 'POST', true, true);
             }
             catch (err) {
-                log.error(`Employers API: Appid: ${this.app.id} API call error: ${err}  ` + __location)
+                log.error(`Employers API: Appid: ${this.app.id} API call error: ${err}  ` + __location);
                 this.reasons.push(`Employers API Error: ${err}`);
                 this.log += `--------======= Employers Request Error =======--------<br><br>`;
                 this.log += err;
@@ -419,7 +417,7 @@ module.exports = class EmployersWC extends Integration {
 
             }
 
-            if (!quoteResponse.success) {
+            if (!quoteResponse || !quoteResponse.success) {
                 this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
                 if (quoteResponse.errors) {
                     // quoteResponse.errors array also contains info and warnings. Get the actual errors which can make a quote fail
@@ -482,7 +480,7 @@ module.exports = class EmployersWC extends Integration {
             try {
                 const quoteLetter = quoteResponse.attachments.find(attachment => attachment.attachmentType === "QuoteLetter");
                 if (quoteLetter) {
-                    this.quoteLetter = {
+                    this.quote_letter = {
                         content_type: quoteLetter.contentType,
                         data: quoteLetter.contentBody,
                         file_name: quoteLetter.contentDisposition.match(/"(.*)"/)[1],
