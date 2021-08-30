@@ -14,8 +14,6 @@ const Integration = require('../Integration.js');
 const moment_timezone = require('moment-timezone');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const fs = require('fs'); // zy debug remove
-const colors = require('colors'); // zy debug remove
 
 module.exports = class EmployersWC extends Integration {
 
@@ -76,8 +74,6 @@ module.exports = class EmployersWC extends Integration {
         this.possible_api_responses.PENDING_REFERRAL = 'referred_with_price';
         this.possible_api_responses.QUOTED = 'quoted';
         this.possible_api_responses.REFERRED = 'referred';
-
-        console.log(`Performing Employers WC Integration`.yellow); // zy debug remove
 
         // These are the limits supported by Employers
         const carrierLimits = ['100000/500000/100000',
@@ -242,8 +238,8 @@ module.exports = class EmployersWC extends Integration {
                     "businessName": appDoc.businessName.substring(0,60).replace('&', ''),
                     "taxPayerId": appDoc.ein,
                     "unemploymentId": location.unemploymentId ? location.unemploymentId : 0,
-                    "bureauId": 0, // zy This doesn't seem to be necessary. Review
-                    "sourceBureau": "", // zy This doesn't seem to be necessary. Review
+                    "bureauId": 0, // zy Where can we get this? Seem to be state based. Not required for Quote but is required for Bind
+                    "sourceBureau": "", // zy Optional for Quote and Bind.
                     "numberOfEmployees": location.full_time_employees + location.part_time_employees,
                     "shift1EmployeesCount": location.full_time_employees + location.part_time_employees, // zy Should we break up employees by shift somehow?
                     "shift2EmployeesCount": 0,
@@ -261,14 +257,14 @@ module.exports = class EmployersWC extends Integration {
                         "lastName": owner.lname,
                         "isIncluded": owner.include,
                         "ownershipPercent": owner.ownership,
-                        "ownershipSalary": 0 // zy Dummy data for now. How to get ownershipSalary?
+                        "ownershipSalary": owner.payroll
                         };
                         const ownerTitle = ownerTitleMatrix[owner.officerTitle];
-                        ownerObj.ownerTitle = {"code": ownerTitle ? ownerTitle : ""} // zy Is it okay to send blank ownerTitle if we can't find owner in ownerTitleMatrix?
+                        ownerObj.ownerTitle = {"code": ownerTitle ? ownerTitle : ""}
                         return ownerObj;
                         }),
                     "rateClasses": location.activityPayrollList.map(activityCode => ({
-                        "classCode": this.insurer_wc_codes[location.state + activityCode.activityCodeId], // zy This is activity code right?
+                        "classCode": this.insurer_wc_codes[location.state + activityCode.activityCodeId],
                         "classCodeDescription": "", // zy debug Fix. I don't know where to get the classCode description. Can we add the insurer description to the insurer_wc_codes in Integration.js?
                         "payrollAmount": activityCode.payroll
                         }))
@@ -308,7 +304,7 @@ module.exports = class EmployersWC extends Integration {
                 claimsByYear = this.claims_to_policy_years();
             }
             requestJSON.priorLosses = [];
-            if (claimsByYear && claimsByYear.length > 1) {
+            if (claimsByYear) {
                 for (let i = 1; i <= 4; i++){ // Employers wants at most 4 years of prior losses
                     const claimYear = claimsByYear[i];
                     if (claimYear) {
@@ -316,8 +312,7 @@ module.exports = class EmployersWC extends Integration {
                             "effectiveDate": claimYear.effective_date.format("YYYY-MM-DD"),
                             "numberOfClaims": claimYear.count,
                             "numberOfLostTimeClaims": 0,
-                            "amountPaidAndReserved": claimYear.amountPaid + claimYear.amountReserved,
-                            "annualPayroll": 0 // zy How do we get this?
+                            "amountPaidAndReserved": claimYear.amountPaid + claimYear.amountReserved
                         })
                     }
                 }
@@ -378,13 +373,16 @@ module.exports = class EmployersWC extends Integration {
                 "value": question.entry.get_answer_as_boolean() ? 'YES' : 'NO'
             }))
 
-            requestJSON.disclaimers = []; // zy Should I worry about disclaimers?
-            requestJSON.stateMods = []; // zy Should I worry about stateMods. Sounds like EMOD. If provided, we also need to provide a bureau ID
-
-            console.log(`Writing out employers quote request JSON`.yellow); // zy debug remove
-            fs.writeFileSync('/Users/talageuser/Desktop/appDocData.json', JSON.stringify(appDoc, null, 4)); // zy debug remove
-            fs.writeFileSync('/Users/talageuser/Desktop/app.json', JSON.stringify(this.app, null, 4)); // zy debug remove
-            fs.writeFileSync('/Users/talageuser/Desktop/employersQuoteRequest.json', JSON.stringify(requestJSON, null, 4)); // zy debug remove
+            requestJSON.disclaimers = []; // zy How to handle the disclaimer? Is it a new question for employers?
+            if (appDoc.experienceModifier) {
+                requestJSON.stateMods = [
+                    {
+                    "state": appDoc.primaryState,
+                    "modType": "EMOD",
+                    "value": appDoc.experienceModifier
+                    }
+                ];
+            }
 
             //call API
             let host = null;
@@ -413,8 +411,6 @@ module.exports = class EmployersWC extends Integration {
                 quoteResponse = await this.send_json_request(host, path, JSON.stringify(requestJSON), additionalHeaders, 'POST', true, true);
             }
             catch (err) {
-                console.log(`Error with Employers quote response and we are writing it to file`.yellow); // zy debug remove
-                fs.writeFileSync('/Users/talageuser/Desktop/employersAPIError.json', JSON.stringify(quoteResponse, null, 4)); // zy debug remove
                 log.error(`Employers API: Appid: ${this.app.id} API call error: ${err}  ` + __location)
                 this.reasons.push(`Employers API Error: ${err}`);
                 this.log += `--------======= Employers Request Error =======--------<br><br>`;
