@@ -1766,14 +1766,6 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
-                query.agencyId = {$in: queryJSON.agencyId};
-                delete queryJSON.agencyId;
-            }
-            else if(queryJSON.agencyId){
-                query.agencyId = queryJSON.agencyId;
-                delete queryJSON.agencyId;
-            }
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -1795,7 +1787,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    log.debug("AppBO: ApplicationList query " + JSON.stringify(query))
+                    //log.debug("AppBO: ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -2262,6 +2254,14 @@ module.exports = class ApplicationModel {
                     return;
                 }
             }
+            if(queryJSON.handledByTalage){
+                query.handledByTalage = queryJSON.handledByTalage
+                delete queryJSON.handledByTalage
+            }
+            if(queryJSON.renewal){
+                query.renewal = queryJSON.renewal
+                delete queryJSON.renewal
+            }
 
 
             if (queryJSON) {
@@ -2376,7 +2376,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    //log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
+                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
                     //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
