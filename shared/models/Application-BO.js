@@ -30,8 +30,6 @@ const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-//const crypt = global.requireShared('./services/crypt.js');
-
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
 const log = global.log;
@@ -836,19 +834,6 @@ module.exports = class ApplicationModel {
                         }
 
                     });
-                    // const questionAnswerListDB = await .getListByAnswerIDList(questionRequest.answer).catch(function(err) {
-                    //     log.error("questionBO load error " + err + __location);
-                    // });
-                    // if (questionAnswerListDB && questionAnswerListDB.length > 0) {
-                    //     questionJSON.answerList = [];
-                    //     for (let j = 0; j < questionAnswerListDB.length; j++) {
-                    //         questionJSON.answerList.push(questionAnswerListDB[j].answer);
-                    //     }
-
-                    // }
-                    // else {
-                    //     log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
-                    // }
                 }
                 else {
                     questionJSON.answerId = questionRequest.answer;
@@ -856,18 +841,6 @@ module.exports = class ApplicationModel {
                     if(answerValue){
                         questionJSON.answerValue = answerValue.answer;
                     }
-                    // Need answer value
-                    // Load the request data into it
-                    // const questionAnswerDB = await .getById(questionJSON.answerId).catch(function(err) {
-                    //     log.error("questionBO load error " + err + __location);
-                    // });
-                    // if (questionAnswerDB) {
-                    //     questionJSON.answerValue = questionAnswerDB.answer;
-                    // }
-                    // else {
-                    //     log.error(`no question record for id ${questionJSON.questionId} ` + __location);
-                    // }
-
                 }
                 processedQuestionList.push(questionJSON);
             }
@@ -944,6 +917,7 @@ module.exports = class ApplicationModel {
             const quoteUpdate = {
                 "status": "bind_requested",
                 "paymentPlanId": quote.paymentPlanId,
+                "insurerPaymentPlanId": quote.insurerPaymentPlanId,
                 "quoteStatusId": status.id,
                 "quoteStatusDescription": status.description
             }
@@ -957,7 +931,7 @@ module.exports = class ApplicationModel {
             try{
                 // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
-                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
+                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId, null, quote.insurerPaymentPlanId);
                 //isolate to not prevent Digalent bind request to update submission.
                 try{
                     await quoteBind.send_slack_notification("requested");
@@ -1307,17 +1281,17 @@ module.exports = class ApplicationModel {
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started` + __location);
-                    const status = global.requireShared('./models/status/applicationStatus.js');
-                    const applicationStatus = await status.updateApplicationStatus(applicationDoc, true);
+                    const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
+                    const appStatus = await applicationStatus.updateApplicationStatus(applicationDoc, true);
                     // eslint-disable-next-line object-curly-newline
                     //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
-                    if(applicationStatus && applicationStatus.appStatusId > -1){
-                        applicationDoc.status = applicationStatus.appStatusDesc;
-                        applicationDoc.appStatusId = applicationStatus.appStatusId;
+                    if(appStatus && appStatus.appStatusId > -1){
+                        applicationDoc.status = appStatus.appStatusDesc;
+                        applicationDoc.appStatusId = appStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
-                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
+                        applicationDoc.status = applicationStatus.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = applicationStatus.applicationStatus.error.appStatusId;
                     }
 
                 }
@@ -1594,7 +1568,7 @@ module.exports = class ApplicationModel {
                 query.appStatusId = {$gt: parseInt(queryJSON.gtAppStatusId, 10)};
                 delete queryJSON.gtAppStatusId;
             }
-
+            //Create Date Searching
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
                 let fromDate = moment(queryJSON.searchbegindate);
                 let toDate = moment(queryJSON.searchenddate);
@@ -1636,14 +1610,136 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
-                query.agencyId = {$in: queryJSON.agencyId};
-                delete queryJSON.agencyId;
+            //Modifed Date (updatedAt) Searching
+            if (queryJSON.beginmodifieddate && queryJSON.endmodifieddate) {
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.updatedAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginmodifieddate;
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
             }
-            else if(queryJSON.agencyId){
-                query.agencyId = queryJSON.agencyId;
-                delete queryJSON.agencyId;
+            else if (queryJSON.beginmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                if (fromDate.isValid()) {
+                    query.updatedAt = {$gte: fromDate};
+                    delete queryJSON.beginmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
             }
+            else if (queryJSON.endmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (toDate.isValid()) {
+                    query.updatedAt = {$lte: toDate};
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+            //Policy EffectDate Date Searching
+            if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
+                let fromDate = moment(queryJSON.beginpolicydate);
+                let toDate = moment(queryJSON.endpolicydate);
+                // if(!query.policies){
+                //     query.policies = {}
+                // }
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.effectiveDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicydate;
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicydate);
+                if (fromDate.isValid()) {
+                    query["policies.effectiveDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicydate);
+                if (toDate.isValid()) {
+                    query["policies.effectiveDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            //Policy expirationDate Searching
+            if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.expirationDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicyexprdate;
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                if (fromDate.isValid()) {
+                    query["policies.expirationDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (toDate.isValid()) {
+                    query["policies.expirationDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -1665,7 +1761,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    //log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("AppBO: ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -1931,50 +2027,6 @@ module.exports = class ApplicationModel {
             }
 
 
-            if (queryJSON) {
-                for (var key in queryJSON) {
-                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
-                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                            let clearString = queryJSON[key].replace("%", "");
-                            clearString = clearString.replace("%", "");
-                            useRedisCache = false;
-                            query[key] = {
-                                "$regex": clearString,
-                                "$options": "i"
-                            };
-                        }
-                        else {
-                            query[key] = queryJSON[key];
-                        }
-                    }
-                }
-            }
-
-            if(orParamList && orParamList.length > 0){
-                for (let i = 0; i < orParamList.length; i++){
-                    let orItem = orParamList[i];
-                    if(orItem.policies && queryJSON.orItem.policyType){
-                        //query.policies = {};
-                        useRedisCache = false;
-                        orItem["policies.policyType"] = queryJSON.policies.policyType;
-                    }
-                    else {
-                        // eslint-disable-next-line no-redeclare
-                        for (var key2 in orItem) {
-                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
-                                useRedisCache = false;
-                                let clearString = orItem[key2].replace("%", "");
-                                clearString = clearString.replace("%", "");
-                                orItem[key2] = {
-                                    "$regex": clearString,
-                                    "$options": "i"
-                                };
-                            }
-                        }
-                    }
-                }
-                query.$or = orParamList
-            }
             //
 
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
@@ -2044,6 +2096,192 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            //Modifed Date (updatedAt) Searching
+            if (queryJSON.beginmodifieddate && queryJSON.endmodifieddate) {
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.updatedAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginmodifieddate;
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                if (fromDate.isValid()) {
+                    query.updatedAt = {$gte: fromDate};
+                    delete queryJSON.beginmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (toDate.isValid()) {
+                    query.updatedAt = {$lte: toDate};
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+            //Policy EffectDate Date Searching
+            if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
+                let fromDate = moment(queryJSON.beginpolicydate);
+                let toDate = moment(queryJSON.endpolicydate);
+                // if(!query.policies){
+                //     query.policies = {}
+                // }
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.effectiveDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicydate;
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicydate);
+                delete queryJSON.beginpolicydate;
+                if (fromDate.isValid()) {
+                    query["policies.effectiveDate"] = {$gte: fromDate};
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+                log.debug(`getAppListForAgencyPortalSearch beginpolicydate ${JSON.stringify(queryJSON)} ` + __location)
+            }
+            else if (queryJSON.endpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicydate);
+                if (toDate.isValid()) {
+                    query["policies.effectiveDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            //Policy expirationDate Searching
+            if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.expirationDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicyexprdate;
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                if (fromDate.isValid()) {
+                    query["policies.expirationDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (toDate.isValid()) {
+                    query["policies.expirationDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            if(queryJSON.handledByTalage){
+                query.handledByTalage = queryJSON.handledByTalage
+                delete queryJSON.handledByTalage
+            }
+            if(queryJSON.renewal){
+                query.renewal = queryJSON.renewal
+                delete queryJSON.renewal
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
+                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                            let clearString = queryJSON[key].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            useRedisCache = false;
+                            query[key] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                        else {
+                            query[key] = queryJSON[key];
+                        }
+                    }
+                }
+            }
+
+            if(orParamList && orParamList.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    let orItem = orParamList[i];
+                    if(orItem.policies && queryJSON.orItem.policyType){
+                        //query.policies = {};
+                        useRedisCache = false;
+                        orItem["policies.policyType"] = queryJSON.policies.policyType;
+                    }
+                    else {
+                        // eslint-disable-next-line no-redeclare
+                        for (var key2 in orItem) {
+                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                                useRedisCache = false;
+                                let clearString = orItem[key2].replace("%", "");
+                                clearString = clearString.replace("%", "");
+                                orItem[key2] = {
+                                    "$regex": clearString,
+                                    "$options": "i"
+                                };
+                            }
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+
+
             if (findCount === false) {
                 let docList = null;
                 let redisKey = null
@@ -2110,7 +2348,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("ApplicationList query " + JSON.stringify(query) + __location)
+                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
                     //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
@@ -2156,13 +2394,18 @@ module.exports = class ApplicationModel {
                             //bring policyType to property on top level.
                             if(application.policies.length > 0){
                                 let policyTypesString = "";
+                                let effectiveDate = moment("2100-12-31")
                                 application.policies.forEach((policy) => {
                                     if(policyTypesString.length > 0){
                                         policyTypesString += ","
                                     }
                                     policyTypesString += policy.policyType;
+                                    if(policy.effectiveDate < effectiveDate){
+                                        effectiveDate = policy.effectiveDate
+                                    }
                                 });
                                 application.policyTypes = policyTypesString;
+                                application.policyEffectiveDate = effectiveDate;
                             }
                         }
                         //update redis

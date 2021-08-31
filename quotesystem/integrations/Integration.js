@@ -20,7 +20,7 @@ const utility = global.requireShared('./helpers/utility.js');
 
 
 // eslint-disable-next-line object-curly-newline
-const {quoteStatus, getQuoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus, getQuoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
@@ -109,7 +109,8 @@ module.exports = class Integration {
         this.reasons = [];
         this.quoteId = null;
         this.isBindable = false;
-        this.insurerPaymentPlans = null;
+        this.insurerPaymentPlans = null; //raw insurer structure
+        this.talageInsurerPaymentPlans = null; //standardized Talage InsurerPaymentPlan structure
         this.insurerPolicyInfo = null;
         this.productDesc = '';
 
@@ -1133,6 +1134,78 @@ module.exports = class Integration {
     }
 
     /**
+     * An entry point for getting pricing that conducts some necessary pre-processing before calling the insurer_price function.
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+     */
+    price() {
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        return new Promise(async(fulfill) => {
+
+            // if (!this.quoteId) {
+            //     this.quoteId = await this.run_pricing(null, quoteStatus.initiated.description);
+            // }
+
+            // Get the credentials ready for use
+            this.password = await this.insurer.get_password();
+            this.username = await this.insurer.get_username();
+
+            // Make sure expiration_date is set
+            if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
+                log.warn(`Appid: ${this.app.id} Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
+                this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
+            }
+
+            // Make sure the insurer_quote() function exists
+            if (typeof this._insurer_price === 'undefined') {
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                fulfill(false);
+                return;
+            }
+
+            // Check that industry codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
+                // No industry codes when they are required
+                fulfill(false);
+                return;
+            }
+
+            // Check that activity class codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
+                // No activity class codes when they are required
+                fulfill(false);
+                return;
+            }
+
+            // Run the Pricing
+            const appId = this.app.id;
+            const insurerName = this.insurer.name;
+            const policyType = this.policy.type
+            let error = null;
+            const pricingResults = await this._insurer_price().catch(function(err) {
+                const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to price ${err}`;
+                log.warn(error_message + __location);
+                error = err;
+            });
+            //pricingResult JSON
+            // const pricingResult =  {
+            //     gotPricing: true,
+            //     price: 1200,
+            //     lowPrice: 800,
+            //     highPrice: 1500,
+            //     outOfAppetite: false,
+            //     pricingError: false
+            // }
+            if(error){
+                fulfill(null);
+            }
+            fulfill(pricingResults);
+        });
+    }
+
+    /**
      * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
@@ -1519,6 +1592,9 @@ module.exports = class Integration {
             if(this.insurerPaymentPlans){
                 quoteJSON.insurerPaymentPlans = this.insurerPaymentPlans
             }
+            if(this.talageInsurerPaymentPlans){
+                quoteJSON.talageInsurerPaymentPlans = this.talageInsurerPaymentPlans
+            }
             if(this.insurerPolicyInfo){
                 quoteJSON.policyInfo = this.insurerPolicyInfo
             }
@@ -1569,15 +1645,6 @@ module.exports = class Integration {
         const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;
         quoteJSON.quoteStatusDescription = status.description;
-
-        // backwards compatibility w/ old Mongo property and existing code logic
-        try{
-            quoteJSON.aggregatedStatus = convertToAggregatedStatus(status);
-            // Aggregated Status (backwards compatibility w/ SQL)
-        }
-        catch(err){
-            log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error setting  aggregatedStatus. error ${err} ` + __location)
-        }
 
         try{
             // Set up quote limits for old-style hydration (should be deprecated eventually)
@@ -2207,7 +2274,7 @@ module.exports = class Integration {
             req.on('error', (err) => {
                 log.error(`Connection to ${this.insurer.name} timedout. error ${err}` + __location);
                 this.log += `Connection to ${this.insurer.name} timedout. error ${err} `;
-                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timeout. Reason: ${err.code}`));
             });
 
             if (data) {

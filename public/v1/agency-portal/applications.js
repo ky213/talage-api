@@ -313,6 +313,48 @@ async function getApplications(req, res, next){
     if(endDateMoment){
         query.searchenddate = endDateMoment.toISOString();
     }
+    if(req.params.searchText && req.params.searchText.indexOf("md:") > -1){
+        noCacheUse = true;
+        req.params.searchText = req.params.searchText.replace("md:", "").trim()
+        query.beginmodifieddate = query.searchbegindate
+        query.endmodifieddate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+
+    }
+
+
+    if(req.params.searchText && req.params.searchText.indexOf("pd:") > -1){
+        noCacheUse = true;
+        req.params.searchText = req.params.searchText.replace("pd:", "").trim()
+        query.beginpolicydate = query.searchbegindate
+        query.endpolicydate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+
+    }
+
+    if(req.params.searchText && req.params.searchText.indexOf("pde:") > -1){
+        noCacheUse = true;
+        req.params.searchText = req.params.searchText.replace("pde:", "").trim()
+        query.beginpolicyexprdate = query.searchbegindate
+        query.endpolicyexprdate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+    }
+
     const orClauseArray = [];
 
     if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
@@ -440,13 +482,13 @@ async function getApplications(req, res, next){
         }
 
     }
-    if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+    if(req.params.searchText && req.params.searchText.toLowerCase().indexOf("handledbytalage") > -1){
         noCacheUse = true;
         query.handledByTalage = true;
-        req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
+        req.params.searchText = req.params.searchText.replace("handledbytalage", "").trim();
     }
     //let skiprenewals = false;
-    if(req.params.searchText && req.params.searchText.toLowerCase().includes("skiprenewals")){
+    if(req.params.searchText && req.params.searchText.toLowerCase().indexOf("skiprenewals") > -1){
         noCacheUse = true;
         query.renewal = {$ne: true};
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
