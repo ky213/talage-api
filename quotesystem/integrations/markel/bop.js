@@ -362,26 +362,42 @@ module.exports = class MarkelWC extends Integration {
             }
         });
 
-        applicationDocData.questions.forEach(question => {
-            if (question.insurerQuestionAttributes?.QuestionCode) {
-                const questionCode = question.insurerQuestionAttributes.QuestionCode;
+        // filter insurer questions down to those matching answered talage questions
+        const answeredQuestionList = [];
+        this.insurerQuestionList.forEach(insurerQuestionDoc => {
+            const talageQuestion = applicationDocData.questions.find(tq => insurerQuestionDoc._doc.talageQuestionId === tq.questionId);
 
-                if (!specialCaseQuestions.includes(questionCode)) {
-                    let questionAnswer = null;
+            if (talageQuestion) {
+                answeredQuestionList.push({
+                    ...talageQuestion,
+                    attributes: insurerQuestionDoc._doc.attributes
+                });
+            }
+        });
 
-                    if (question.questionType === 'Yes/No') {
-                        questionAnswer = question.answerValue.toUpperCase();
-                    }
-                    else {
-                        questionAnswer = question.answerValue;
-                    }
-    
-                    questionObj[questionCode] = questionAnswer;
+        answeredQuestionList.forEach(question => {    
+            const questionCode = question?.attributes?.QuestionCode;
+            if (questionCode && !specialCaseQuestions.includes(questionCode)) {
+                let questionAnswer = null;
+
+                if (question.questionType === 'Yes/No') {
+                    questionAnswer = question.answerValue.toUpperCase();
                 }
+                else if (questionCode === "com.markel.uw.questions.Question1399") {
+                    // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
+                    // If more occurrences are found, add them here for general questions
+                    questionAnswer = question?.answerList[0]?.trim();
+                }
+                else {
+                    questionAnswer = question.answerValue;
+                }
+
+                questionObj[questionCode] = questionAnswer;
             }
         });
 
         // NOTE: This isn't a great solution. If Markel has more occurrences like this, it will require further manual injection here...
+        //       This is ultimately a mapping problem
 
         // Markel asks essentially the same question twice. We have two questions mapped to the same Talage question, so we only get one 
         // answer back, for question1956. This makes sure we answer the other question (question1233) the same way
