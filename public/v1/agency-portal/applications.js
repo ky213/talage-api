@@ -406,6 +406,9 @@ async function getApplications(req, res, next){
                     insurerId: insurerId
                 }
                 let dateQuery = null;
+                if(!startDateMoment || !startDateMoment.isValid()){
+                    startDateMoment = moment().add(-90,"d");
+                }
                 if(startDateMoment && startDateMoment.isValid() && endDateMoment && endDateMoment.isValid()){
                     dateQuery = {
                         $gte: startDateMoment.toDate(),
