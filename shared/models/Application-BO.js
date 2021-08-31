@@ -2422,13 +2422,18 @@ module.exports = class ApplicationModel {
                             //bring policyType to property on top level.
                             if(application.policies.length > 0){
                                 let policyTypesString = "";
+                                let effectiveDate = moment("2100-12-31")
                                 application.policies.forEach((policy) => {
                                     if(policyTypesString.length > 0){
                                         policyTypesString += ","
                                     }
                                     policyTypesString += policy.policyType;
+                                    if(policy.effectiveDate < effectiveDate){
+                                        effectiveDate = policy.effectiveDate
+                                    }
                                 });
                                 application.policyTypes = policyTypesString;
+                                application.policyEffectiveDate = effectiveDate;
                             }
                         }
                         //update redis
