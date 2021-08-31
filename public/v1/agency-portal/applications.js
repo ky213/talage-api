@@ -296,7 +296,8 @@ async function getApplications(req, res, next){
     if(req.params.endDate){
         endDateMoment = moment(req.params.endDate).utc();
         const now = moment().utc();
-        if(now.diff(endDateMoment, 'seconds') < 5){
+        const diffSecond = now.diff(endDateMoment, 'seconds')
+        if(diffSecond < 5 && req.params.searchText && req.params.searchText.indexOf("pd:") === -1 && req.params.searchText && req.params.searchText.indexOf("pde:") === -1){
             endDateMoment = null;
         }
         // now....
@@ -306,6 +307,10 @@ async function getApplications(req, res, next){
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
+    let policyDateSearch = false;
+    let policyDateExpiredSearch = false;
+    let modifiedSearch = false;
+
     const query = {"active": true};
     if(startDateMoment){
         query.searchbegindate = startDateMoment.toISOString();
@@ -315,6 +320,7 @@ async function getApplications(req, res, next){
     }
     if(req.params.searchText && req.params.searchText.indexOf("md:") > -1){
         noCacheUse = true;
+        modifiedSearch = true;
         req.params.searchText = req.params.searchText.replace("md:", "").trim()
         query.beginmodifieddate = query.searchbegindate
         query.endmodifieddate = query.searchenddate
@@ -330,6 +336,7 @@ async function getApplications(req, res, next){
 
     if(req.params.searchText && req.params.searchText.indexOf("pd:") > -1){
         noCacheUse = true;
+        policyDateSearch = true;
         req.params.searchText = req.params.searchText.replace("pd:", "").trim()
         query.beginpolicydate = query.searchbegindate
         query.endpolicydate = query.searchenddate
@@ -344,6 +351,7 @@ async function getApplications(req, res, next){
 
     if(req.params.searchText && req.params.searchText.indexOf("pde:") > -1){
         noCacheUse = true;
+        policyDateExpiredSearch = true;
         req.params.searchText = req.params.searchText.replace("pde:", "").trim()
         query.beginpolicyexprdate = query.searchbegindate
         query.endpolicyexprdate = query.searchenddate
@@ -397,22 +405,58 @@ async function getApplications(req, res, next){
                     active: true,
                     insurerId: insurerId
                 }
+                let dateQuery = null;
                 if(startDateMoment && startDateMoment.isValid() && endDateMoment && endDateMoment.isValid()){
-                    matchClause.createdAt = {
+                    dateQuery = {
                         $gte: startDateMoment.toDate(),
                         $lte: endDateMoment.toDate()
                     }
                 }
                 else if(startDateMoment && startDateMoment.isValid()){
-                    matchClause.createdAt = {
+                    dateQuery = {
                         $gte: startDateMoment.toDate()
                     }
                 }
                 else if(endDateMoment && endDateMoment.isValid()){
-                    matchClause.createdAt = {
+                    dateQuery = {
                         $lte: endDateMoment.toDate()
                     }
                 }
+                if(policyDateSearch){
+                    //Created in previous 90 days. application part of filter will refine the filter to exact match.
+                    if(!endDateMoment){
+                        endDateMoment = moment();
+                    }
+
+                    matchClause.createdAt = {
+                        $gte: startDateMoment.add(-90,"d").toDate(),
+                        $lte: endDateMoment.toDate()
+                    }
+                }
+                else if(policyDateExpiredSearch){
+                    //Created in previous 90 days. application part of filter will refine the filter to exact match.
+                    // we only do annual policies - 2021-08-31
+                    if(!endDateMoment){
+                        endDateMoment = moment();
+                    }
+                    matchClause.createdAt = {
+                        $gte: startDateMoment.add(-1,"y").add(-90,"d").toDate(),
+                        $lte: endDateMoment.add(-1,"y").toDate()
+                    }
+
+                }
+                else if(modifiedSearch) {
+                    matchClause.updatedAt = dateQuery
+                }
+                else {
+                    matchClause.createdAt = dateQuery
+                }
+
+                // let policyDateSearch = false;
+                // let policyDateExpiredSearch = false;
+                // let modifiedSearch = false;
+
+
                 if(req.params.searchText.toLowerCase().startsWith("iq:")){
                     const searchWords2 = req.params.searchText.split(" ");
                     const insurerStatusIdText = searchWords2[0].substring(3);
