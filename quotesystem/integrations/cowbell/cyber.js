@@ -702,8 +702,19 @@ module.exports = class cowbellCyber extends Integration {
 
         // =========================================================================================================
         // request to get token
-        const clientId = this.username
-        const clientSecret = this.password;
+        let clientId = this.username
+        let clientSecret = this.password;
+        if(this.app.agencyLocation.insurers[this.insurer.id].agent_id){
+            const agentKeys = this.app.agencyLocation.insurers[this.insurer.id].agent_id
+            const commaIndex = agentKeys.indexOf(',');
+            if (commaIndex <= 0) {
+                log.error(`Cowbell clientId and clientSecret are not comma-delimited. commaIndex ${commaIndex} insurerId: ${this.insurer.insurerId} agentId: ${agentKeys} al: ${JSON.stringify(this.app.agencyLocation.insurers[this.insurer.id])}` + __location);
+                return this.client_error(`The Cowbell clientId and clientSecret are not configured properly`, __location);
+            }
+            clientId = agentKeys.substring(0, commaIndex).trim();
+            clientSecret = agentKeys.substring(commaIndex + 1).trim();
+            log.debug("Cowbell using Agency Location CLIENT_ID AND SECRET" + __location);
+        }
         const authBody = {
             "clientId": clientId,
             "secret": clientSecret
