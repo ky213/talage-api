@@ -7,6 +7,7 @@
 'use strict';
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth-agencyportal.js');
+const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
@@ -29,6 +30,7 @@ const moment = require('moment');
 const {Error} = require('mongoose');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
+const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -2003,9 +2005,37 @@ async function GetBopCodes(req, res, next){
     return next();
 }
 
+async function PostApplicationLink(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    
+    const applicationId = req.body.applicationId;
+
+    // create hash
+    const hash = await crypt.hash(applicationId);
+
+    // store hash in redis with application id as value
+    // eslint-disable-next-line object-shorthand
+    await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId}), applicationLinkTimeout);
+
+    // return hash to frontend to show link (SHOULD WE STORE THE HASH ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
+    res.send(200, {linkCode: hash});
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
+    server.addPostAuth('POST Application Link', `${basePath}/application/link`, PostApplicationLink, 'applications', 'manage');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
