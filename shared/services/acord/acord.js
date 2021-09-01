@@ -476,19 +476,19 @@ console.log('acord-823', pdfDataFieldsObj);
         const page1Obj = {
             "Form_CompletionDate_A": moment().format('L'),
             "Producer_FullName_A": removeDiacritics(this.agencyDoc.name),
-            "Producer_MailingAddress_LineOne_A": removeDiacritics(this.agencyLocationDoc.address),
+            "Producer_MailingAddress_LineOne_A": this.agencyLocationDoc.address,
             "Producer_MailingAddress_LineTwo_A": this.agencyLocationDoc.address2,
             "Producer_MailingAddress_CityName_A": this.agencyLocationDoc.city,
             "Producer_MailingAddress_StateOrProvinceCode_A": this.agencyLocationDoc.state_abbr,
             "Producer_MailingAddress_PostalCode_A": this.agencyLocationDoc.zip,
-            "Producer_ContactPerson_FullName_A": removeDiacritics(this.agencyLocationDoc.fname + ' ' + this.agencyLocationDoc.lname),
+            "Producer_ContactPerson_FullName_A": this.agencyLocationDoc.fname + ' ' + this.agencyLocationDoc.lname,
             "Producer_ContactPerson_PhoneNumber_A": phoneHelper(this.agencyLocationDoc.phone),
             "Producer_ContactPerson_EmailAddress_A": this.agencyLocationDoc.email,
-            "Insurer_FullName_A": removeDiacritics(this.insurerDoc.name),
-            "NamedInsured_FullName_A": removeDiacritics(this.applicationDoc.businessName),
-            "NamedInsured_MailingAddress_LineOne_A": removeDiacritics(this.applicationDoc.mailingAddress),
-            "NamedInsured_MailingAddress_LineTwo_A": removeDiacritics(this.applicationDoc.mailingAddress2),
-            "NamedInsured_MailingAddress_CityName_A": removeDiacritics(this.applicationDoc.mailingCity),
+            "Insurer_FullName_A": this.insurerDoc.name,
+            "NamedInsured_FullName_A": this.applicationDoc.businessName,
+            "NamedInsured_MailingAddress_LineOne_A": this.applicationDoc.mailingAddress,
+            "NamedInsured_MailingAddress_LineTwo_A": this.applicationDoc.mailingAddress2,
+            "NamedInsured_MailingAddress_CityName_A": this.applicationDoc.mailingCity,
             "NamedInsured_MailingAddress_StateOrProvinceCode_A": this.applicationDoc.mailingState,
             "NamedInsured_MailingAddress_PostalCode_A": this.applicationDoc.mailingZipcode,
             "NamedInsured_SICCode_A": this.industryCodeDoc.sic,
@@ -501,7 +501,7 @@ console.log('acord-823', pdfDataFieldsObj);
             "NamedInsured_InBusinessYearCount_A": moment().diff(this.applicationDoc.founded, 'years'),
             "Policy_Status_QuoteIndicator_A": 1,
             "Policy_Payment_DirectBillIndicator_A": 1,
-            "NamedInsured_InspectionContact_FullName_A": removeDiacritics(this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName),
+            "NamedInsured_InspectionContact_FullName_A": this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName,
             "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj.phone,
             "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email
         }
@@ -514,6 +514,8 @@ console.log('acord-130', page1Obj);
             page1Obj["WorkersCompensation_PartOne_StateOrProvinceCode_" + currentLetter] = state;
             pdfKey += 1;
         })
+
+        console.log('unique-state-list', uniqueStateList);
 
         // Write the locations
         pdfKey = 65;
@@ -528,6 +530,7 @@ console.log('acord-130', page1Obj);
             pdfKey += 1;
         })
 
+console.log('acord-130-2', page1Obj);
         // If the WC policy details exist, add them
         if(this.policyObj){
             // Get individual limits formatted as dollar amounts (ex. ['1,000,000' , '2,000,000' , '1,000,000'])
@@ -634,11 +637,13 @@ console.log('acord-130', page1Obj);
                         pdfKey += 1;
                     }
                 }
+                
             }
-
             stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
             pageCounter += 1;
         }
+
+        
 
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
 
