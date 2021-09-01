@@ -10,6 +10,7 @@ const applicationStatus = {
     outOfMarket: { appStatusId: 4, appStatusDesc: "out_of_market" },
     wholesale: { appStatusId: 5, appStatusDesc: 'wholesale'},
     questionsDone: { appStatusId: 10, appStatusDesc: 'questions_done' },
+    quoting: { appStatusId: 15, appStatusDesc: 'quoting' },
     error: { appStatusId: 20, appStatusDesc: 'error' },
     declined: { appStatusId: 30, appStatusDesc: 'declined' },
     referred: { appStatusId: 40, appStatusDesc: 'referred' },
@@ -166,7 +167,7 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         return applicationStatus.declined;
     }
     else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.error.id)) {
-        //appStatusId = 20q
+        //appStatusId = 20
         //  return 'error';
         return applicationStatus.error;
     }
