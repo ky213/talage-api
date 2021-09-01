@@ -1613,7 +1613,7 @@ module.exports = class ArrowheadBOP extends Integration {
             building.coverages.bld = {
                 includeInd: true,
                 valuation: "Replacement Cost",
-                limit: location.buildingLimit
+                limit: building.occupancy === "Tenant" ? 0 : location.buildingLimit
             };
         }
     }
