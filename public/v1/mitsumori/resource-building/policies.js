@@ -25,7 +25,7 @@ exports.populatePolicyResources = async(resources, appId) => {
     const zipCodeBO = new ZipCodeBO();
     try{
         const primaryLocation = applicationDB?.locations?.find(loc => loc.primary);
-        zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation.zipcode);
+        zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
     }
     catch(err){
         log.error("Error getting zipCodeData " + err + __location);
