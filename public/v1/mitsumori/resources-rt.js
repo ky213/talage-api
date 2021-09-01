@@ -4,13 +4,10 @@
 
 "use strict";
 const serverHelper = require("../../../server.js");
-// const validator = global.requireShared("./helpers/validator.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
-// const AgencyBO = global.requireShared('models/Agency-BO.js');
-// const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
-// const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
-// const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
+const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
 
 const policyHelper = require("./resource-building/policies");
 const requirementHelper = global.requireShared('./services/required-app-fields-svc.js');
@@ -59,6 +56,7 @@ async function getResources(req, res, next){
             break;
         case "_officers":
             officerTitles(resources);
+            await officerEmployeeTypes(resources, req.query.appId);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_quotes":
@@ -69,16 +67,46 @@ async function getResources(req, res, next){
     res.send(200, resources);
 }
 
+const officerEmployeeTypes = async(resources, appId) => {
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getById(appId);
+
+    let activityCodes = [];
+    if(applicationDB){
+        try{
+            // use the zipcode from the primary location
+            const zipCodeBO = new ZipCodeBO();
+            const primaryLocation = applicationDB.locations?.find(loc => loc.primary);
+            const zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
+
+            // get the activity codes for the territory of the zipcode provided
+            activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, applicationDB.industryCodeId);
+
+            // filter it down to only suggested activity codes
+            activityCodes = activityCodes.filter(ac => ac.suggested);
+        }
+        catch(err){
+            log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
+        }
+    }
+
+    resources.officerEmployeeTypes = activityCodes;
+}
+
 const agencyNetworkFeatures = async(resources, appId) => {
     const applicationBO = new ApplicationBO();
     const applicationDB = await applicationBO.getById(appId);
 
     const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+    let agencyNetworkDB = null;
+
+    if(applicationDB){
+        agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+    }
 
     // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
-    const quoteAppBinding = agencyNetworkDB.featureJson.quoteAppBinding === true;
-    const appSingleQuotePath = agencyNetworkDB.featureJson.appSingleQuotePath === true;
+    const quoteAppBinding = agencyNetworkDB?.featureJson?.quoteAppBinding === true;
+    const appSingleQuotePath = agencyNetworkDB?.featureJson?.appSingleQuotePath === true;
     // get the agency network features we care about here.
     resources.agencyNetworkFeatures = {
         quoteAppBinding,
