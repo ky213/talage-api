@@ -388,7 +388,7 @@ module.exports = class EmployersWC extends Integration {
                 host = 'api-qa.employers.com';
             }
             else {
-                host = ''; // zy Need to fill this in
+                host = 'api.employers.com';
             }
             const path = '/DigitalAgencyServices/quote';
 
@@ -472,7 +472,7 @@ module.exports = class EmployersWC extends Integration {
                 this.writer = quoteResponse.writingCompany;
             }
             catch (err) {
-                if (status === 'QUOTED' || status === 'PENDING_REFER') { // zy Why is "REFERRED" not an acceptable status here?
+                if (status === 'QUOTED' || status === 'PENDING_REFER') {
                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
                 }
             }
