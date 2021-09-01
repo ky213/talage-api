@@ -160,6 +160,11 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         // return 'declined';
         return applicationStatus.declined;
     }
+    else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.autodeclined.id)) {
+        //appStatusId = 30
+        // return 'declined';
+        return applicationStatus.declined;
+    }
     else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.error.id)) {
         //appStatusId = 20q
         //  return 'error';
