@@ -423,7 +423,11 @@ async function getAgencyLandingPage(req, res, next) {
     }
 
     const landingPageLocation = overrideLocation ? overrideLocation : primaryLocation;
-
+    let agencyAddress = landingPageLocation ? landingPageLocation.address : null;
+    const agencyAddress2 = landingPageLocation ? landingPageLocation.address2 : null;
+    if(agencyAddress2){
+        agencyAddress += `, ${agencyAddress2}`
+    }
     const landingPage = {
         agencyId: agency.agencyId,
         banner: agency.banner,
@@ -441,7 +445,7 @@ async function getAgencyLandingPage(req, res, next) {
         locationId: landingPageLocation.mysqlId,
         email: landingPageLocation ? landingPageLocation.email : null,
         phone: landingPageLocation ? landingPageLocation.phone : null,
-        address: landingPageLocation ? landingPageLocation.address : null,
+        address: agencyAddress,
         addressCityState: landingPageLocation ? `${landingPageLocation.city}, ${landingPageLocation.territory} ${landingPageLocation.zip}` : null,
         ...agency.landingPageContent
     };
