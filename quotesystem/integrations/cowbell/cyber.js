@@ -1,6 +1,7 @@
 /* eslint-disable no-unneeded-ternary */
 const Integration = require('../Integration.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -66,6 +67,371 @@ module.exports = class cowbellCyber extends Integration {
             4000000,
             5000000];
 
+
+        const subLimitsMatrix = [
+            {
+                "AggregateLimit": 50000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 50000,
+                "SocialEngineeringSublimit": 50000,
+                "SocialEngineeringDeductible": 5000,
+                "RansomPaymentsSublimit": 50000,
+                "WebsiteMedia": 50000
+            },
+            {
+                "AggregateLimit": 50000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 50000,
+                "SocialEngineeringSublimit": 50000,
+                "SocialEngineeringDeductible": 5000,
+                "RansomPaymentsSublimit": 50000,
+                "WebsiteMedia": 50000
+            },
+            {
+                "AggregateLimit": 50000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 50000,
+                "SocialEngineeringSublimit": 50000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 50000,
+                "WebsiteMedia": 50000
+            },
+            {
+                "AggregateLimit": 50000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 50000,
+                "SocialEngineeringSublimit": 50000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 50000,
+                "WebsiteMedia": 50000
+            },
+            {
+                "AggregateLimit": 100000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 100000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 100000,
+                "WebsiteMedia": 100000
+            },
+            {
+                "AggregateLimit": 100000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 100000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 100000,
+                "WebsiteMedia": 100000
+            },
+            {
+                "AggregateLimit": 100000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 100000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 100000,
+                "WebsiteMedia": 100000
+            },
+            {
+                "AggregateLimit": 100000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 100000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 100000,
+                "WebsiteMedia": 100000
+            },
+            {
+                "AggregateLimit": 100000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 100000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 100000,
+                "WebsiteMedia": 100000
+            },
+            {
+                "AggregateLimit": 250000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 250000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 250000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 250000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 250000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 250000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 250000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 250000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 250000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 250000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 500000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 500000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 500000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 500000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 500000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 500000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 500000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 500000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 500000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 500000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 250000,
+                "WebsiteMedia": 250000
+            },
+            {
+                "AggregateLimit": 750000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 750000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 750000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 750000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 750000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 750000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 500000,
+                "WebsiteMedia": 500000
+            },
+            {
+                "AggregateLimit": 1000000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 1000000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 1000000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 1000000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 1000000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 750000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 2000000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 2000000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 2000000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 2000000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 2000000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 3000000,
+                "DeductibleAmount": 1000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 3000000,
+                "DeductibleAmount": 5000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 3000000,
+                "DeductibleAmount": 10000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 10000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 3000000,
+                "DeductibleAmount": 25000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 25000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            },
+            {
+                "AggregateLimit": 3000000,
+                "DeductibleAmount": 50000,
+                "BusinessIncome": 1000000,
+                "SocialEngineeringSublimit": 100000,
+                "SocialEngineeringDeductible": 50000,
+                "RansomPaymentsSublimit": 1000000,
+                "WebsiteMedia": 1000000
+            }
+        ]
+
+
         // const businessIncomeCoverageLimits = [100000,
         //     150000,
         //     200000,
@@ -108,6 +474,22 @@ module.exports = class cowbellCyber extends Integration {
                 }
             }
         }
+        //Get subLimitsMatrix for policyaggregateLimit
+        const limitSet = subLimitsMatrix.find((ls) => ls.AggregateLimit === policyaggregateLimit)
+        if(!limitSet){
+            log.error(`Cowbell AppId ${appDoc.applicationId} unable to find limit set for aggregateLimit of ${policyaggregateLimit}`, __location);
+        }
+        //set the cyberPolicy limits to the limitSet and default limits
+        const deductible = limitSet?.DeductibleAmount
+        const businessIncomeCoverage = limitSet?.BusinessIncome;
+        const socialEngLimit = limitSet?.SocialEngineeringSublimit;
+        const socialEngDeductible = limitSet?.SocialEngineeringDeductible;
+        const ransomPaymentLimit = limitSet?.RansomPaymentsSublimit;
+        const WebsiteMediaLimit = limitSet?.WebsiteMedia;
+        const postBreachRemediationLimit = 50000;
+        const hardwareReplCostLimit = 50000;
+        const telecomsFraudEndorsementLimit = 50000;
+
         //waiting period check
         // eslint-disable-next-line array-element-newline
         const waitingPeriodList = [6,8,12,24]
@@ -115,17 +497,6 @@ module.exports = class cowbellCyber extends Integration {
             cyberPolicy.waitingPeriod = 6;
         }
 
-        // same for businessIncomeCoverageLimits
-        const businessIncomeCoverage = cyberPolicy.businessIncomeCoverage
-        // if(businessIncomeCoverageLimits.indexOf(businessIncomeCoverage) === -1){
-        //     //find best match
-        //     for(let i = 0; i < businessIncomeCoverageLimits.length; i++){
-        //         if(businessIncomeCoverage < businessIncomeCoverageLimits[i]){
-        //             businessIncomeCoverage = businessIncomeCoverageLimits[i]
-        //             break;
-        //         }
-        //     }
-        // }
         // =========================================================================================================
         // Validation
 
@@ -144,7 +515,7 @@ module.exports = class cowbellCyber extends Integration {
             "Limited Liability Company (Manager Managed)": "Private"
         };
         if (!legalEntityMap.hasOwnProperty(appDoc.entityType)) {
-            log.error(`The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
+            log.error(`Cowbell appId ${appDoc.applicationId} the business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
             //return this.client_error(`The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
         }
         //If Corporation,  check if Corporation (C-Corp)
@@ -234,7 +605,7 @@ module.exports = class cowbellCyber extends Integration {
             "claimHistory": claimHistory,
             //"daAgencyId": "string",
             "dbaOrTradestyle": appDoc.dba,
-            "deductible": policy.deductible,
+            "deductible": deductible,
             "domainName": mainDomain,
             "domains": cyberPolicy.domains,
             //"dunsNumber": "string",
@@ -265,21 +636,23 @@ module.exports = class cowbellCyber extends Integration {
             "policyContactLastName": primaryContact.lastName,
             "policyContactPhone": stringFunctions.santizeNumber(contactPhone),
             "hardwareReplCostEndorsement": cyberPolicy.hardwareReplCostEndorsement ? true : false,
-            "hardwareReplCostSubLimit": cyberPolicy.hardwareReplCostEndorsement ? cyberPolicy.hardwareReplCostLimit : null,
+            "hardwareReplCostSubLimit": cyberPolicy.hardwareReplCostEndorsement ? hardwareReplCostLimit : null,
             "computerFraudEndorsement": cyberPolicy.computerFraudEndorsement ? true : false,
             "postBreachRemediationEndorsement": cyberPolicy.postBreachRemediationEndorsement ? true : false,
-            "postBreachRemediationSubLimit": cyberPolicy.postBreachRemediationEndorsement ? cyberPolicy.postBreachRemediationLimit : null,
+            "postBreachRemediationSubLimit": cyberPolicy.postBreachRemediationEndorsement ? postBreachRemediationLimit : null,
             "ransomPaymentEndorsement": cyberPolicy.ransomPaymentEndorsement ? true : false,
-            "ransomPaymentLimit": cyberPolicy.ransomPaymentEndorsement ? cyberPolicy.ransomPaymentLimit : null,
+            "ransomPaymentLimit": cyberPolicy.ransomPaymentEndorsement ? ransomPaymentLimit : null,
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
             "revenue": appDoc.grossSalesAmt,
             "socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
-            "socialEngLimit": cyberPolicy.socialEngEndorsement ? cyberPolicy.socialEngLimit : null,
-            "socialEngDeductible": cyberPolicy.socialEngEndorsement ? cyberPolicy.socialEngDeductible : null,
+            "socialEngLimit": cyberPolicy.socialEngEndorsement ? socialEngLimit : null,
+            "socialEngDeductible": cyberPolicy.socialEngEndorsement ? socialEngDeductible : null,
             "telecomsFraudEndorsement":  cyberPolicy.telecomsFraudEndorsement ? true : false,
-            "telecomsFraudSubLimit": cyberPolicy.telecomsFraudEndorsement ? cyberPolicy.telecomsFraudEndorsementLimit : null,
+            "telecomsFraudSubLimit": cyberPolicy.telecomsFraudEndorsement ? telecomsFraudEndorsementLimit : null,
+            websiteMediaContentLiabilityEndorsement: cyberPolicy.websiteMediaContentLiabilityEndorsement,
+            "websiteMediaContentLiabilityLimit": cyberPolicy.websiteMediaContentLiabilityEndorsement ? WebsiteMediaLimit : null,
             "url": appDoc.website,
             "yearEstablished": moment(appDoc.founded).year(),
             "yearsInBusiness": this.get_years_in_business()
@@ -298,16 +671,6 @@ module.exports = class cowbellCyber extends Integration {
             // ]
 
         };
-
-        // TODO Question overrides
-        //   "isAuthenticatingFundTransferRequests": true,
-        //     "isFranchise": false,
-        //     "isPreventingUnauthorizedWireTransfers": true,
-        //     "isSecurityOfficer": true,
-        //     "isSecurityTraining": true,
-        //     "isVerifyingBankAccounts": true,
-        //     "useCloudStorage": true,
-        //     "useEncryption": true,
 
         //TODO Additional Insurered
         //Question Processing.
@@ -330,8 +693,27 @@ module.exports = class cowbellCyber extends Integration {
 
         // =========================================================================================================
         // request to get token
-        const clientId = this.username
-        const clientSecret = this.password;
+        let clientId = this.username
+        let clientSecret = this.password;
+        //look at AgencyNetwork.additionalInfo.cowbell for clientId and clientsecret overrides.  No need to look for wheelhouse.
+        if(appDoc.agencyNetworkId > 1){
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(appDoc.agencyNetworkId).catch(function(err){
+                log.error("Cowbell Cyber Get AgencyNetwork Error " + err + __location);
+            });
+            if(typeof agencyNetworkJSON?.additionalInfo?.cowbell === 'object'){
+                if(agencyNetworkJSON?.additionalInfo?.cowbell.clientId && agencyNetworkJSON?.additionalInfo?.cowbell.clientSecret){
+                    clientId = agencyNetworkJSON?.additionalInfo?.cowbell.clientId
+                    clientSecret = agencyNetworkJSON?.additionalInfo?.cowbell.clientSecret
+                    log.info(`Cowbell appId ${appDoc.applicationId} using agencynetwork ${agencyNetworkJSON.name} credentials ` + __location)
+                }
+                else {
+                    log.error(`Cowbell clientId and clientSecret override are not properly configured for Agency Network (additionalInfo.cowbell) insurerId: ${this.insurer.insurerId} agencyNetwork.additionalInfo: ${JSON.stringify(agencyNetworkJSON?.additionalInfo)}` + __location);
+                    return this.client_error(`The Cowbell clientId and clientSecret are not configured properly`, __location);
+                }
+            }
+        }
+
         const authBody = {
             "clientId": clientId,
             "secret": clientSecret
@@ -365,14 +747,6 @@ module.exports = class cowbellCyber extends Integration {
             if(responseAuth && responseAuth.accessToken){
                 authToken = responseAuth.accessToken;
             }
-
-            // responseAuth = await this.send_json_request(host, basePath + "/auth/v1/api/token",
-            //     JSON.stringify(authBody),
-            //     null,
-            //     "POST");
-            // if(responseAuth && responseAuth.accessToken){
-            //     authToken = responseAuth.accessToken;
-            // }
 
         }
         catch (error) {
@@ -429,14 +803,79 @@ module.exports = class cowbellCyber extends Integration {
                     sort: coverageSort++,
                     category: "Liability Coverages"
                 });
-                if(policy.deductible){
+                if(deductible){
                     quoteCoverages.push({
                         description: `Deductible`,
-                        value: convertToDollarFormat(policy.deductible, true),
+                        value: convertToDollarFormat(deductible, true),
                         sort: coverageSort++,
                         category: "Liability Coverages"
                     });
                 }
+                if(businessIncomeCoverage){
+                    quoteCoverages.push({
+                        description: `Business Income Coverage`,
+                        value: convertToDollarFormat(businessIncomeCoverage, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+                if(cyberPolicy.hardwareReplCostEndorsement && hardwareReplCostLimit){
+                    quoteCoverages.push({
+                        description: `Hardware Replacement Cost Limit`,
+                        value: convertToDollarFormat(hardwareReplCostLimit, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+
+                if(cyberPolicy.postBreachRemediationEndorsement && postBreachRemediationLimit){
+                    quoteCoverages.push({
+                        description: `Post Breach Remediation Limit`,
+                        value: convertToDollarFormat(postBreachRemediationLimit, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+                if(cyberPolicy.ransomPaymentEndorsement && ransomPaymentLimit){
+                    quoteCoverages.push({
+                        description: `Ransom Payment Limit`,
+                        value: convertToDollarFormat(ransomPaymentLimit, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+                if(cyberPolicy.socialEngEndorsement && socialEngLimit){
+                    quoteCoverages.push({
+                        description: `Social Engineering Limit`,
+                        value: convertToDollarFormat(socialEngLimit, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                    quoteCoverages.push({
+                        description: `Social Engineering Deductible`,
+                        value: convertToDollarFormat(socialEngDeductible, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+                if(cyberPolicy.telecomsFraudEndorsement && telecomsFraudEndorsementLimit){
+                    quoteCoverages.push({
+                        description: `Ransom Payment Limit`,
+                        value: convertToDollarFormat(telecomsFraudEndorsementLimit, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+
+                if(cyberPolicy.websiteMediaContentLiabilityEndorsement && WebsiteMediaLimit){
+                    quoteCoverages.push({
+                        description: `Website Media Content Liability Limit`,
+                        value: convertToDollarFormat(WebsiteMediaLimit, true),
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+
 
                 // Give Cowbell 5 seconds to run there process.
                 await utility.Sleep(5000);

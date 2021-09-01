@@ -26,7 +26,7 @@ async function getNextRoute(req, res, next){
     else {
         let userSessionMetaData = null;
         if(req.userTokenData){
-            userSessionMetaData = req.userTokenData.userSessionMetaData; 
+            userSessionMetaData = req.userTokenData.userSessionMetaData;
         }
         nextRouteName = await getRoute(req.header('authorization').replace("Bearer ", ""), userSessionMetaData, req.query.currentRoute, req.query.appId);
     }
@@ -67,24 +67,26 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
     if(userSessionMetaData){
         log.debug(`UserSessionMetaData from redis ${JSON.stringify(userSessionMetaData)} ${__location}`);
         agencyNetworkId = userSessionMetaData.agencyNetworkId;
-    }else {
+    }
+    else{
         // else just for debugging
         log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
     }
 
     if(agencyNetworkId == null){
-            // We don't have agency networkId so we will grab it from application
-            const app = await getApplication(appId);
-             agencyNetworkId = app.agencyNetworkId;
-            log.debug(`agencyNetworkId ${agencyNetworkId}`);
-            // If we have agencyNetworkId
-            if(agencyNetworkId){
-                // Save agencyNetworkId into redis
-                await putUserSessionMetaData(jwtToken, {'agencyNetworkId': agencyNetworkId});
-            }else {
-                // log the warning and continue with default routing
-                log.warn(`Missing agencyNetworkId from app ${appId} ${__location}`);
-            }
+        // We don't have agency networkId so we will grab it from application
+        const app = await getApplication(appId);
+        agencyNetworkId = app.agencyNetworkId;
+        log.debug(`agencyNetworkId ${agencyNetworkId}`);
+        // If we have agencyNetworkId
+        if(agencyNetworkId){
+            // Save agencyNetworkId into redis
+            await putUserSessionMetaData(jwtToken, {'agencyNetworkId': agencyNetworkId});
+        }
+        else{
+            // log the warning and continue with default routing
+            log.warn(`Missing agencyNetworkId from app ${appId} ${__location}`);
+        }
     }
     // if we agency network id  is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
     if(agencyNetworkId && agencyNetworkId !== 1 && agencyNetworkId !== 2){
@@ -99,7 +101,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
         if(checkedForCustomRouting === true){
             customRouteFlowObj = userSessionMetaData.quoteAppCustomRouting;
         }
-        else {
+        else{
             await putUserSessionMetaData(jwtToken, {'checkedForCustomRouting': true});
             // otherwise we look on the application for the custom routing
             const agencyNetworkBO = new AgencyNetworkBO();
@@ -118,7 +120,8 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
             else {
                 log.error(`Missing next route for current route ${currentRoute} from quoteAppCustomRouting schema for agencyNetwork ${userSessionMetaData.agencyNetworkId}, applicationId ${appId} ${__location}`);
             }
-        }else if(agencyNetworkId === AmTrustAgencyNetworkId){
+        }
+        else if(agencyNetworkId === AmTrustAgencyNetworkId){
             log.error(`Missing quoteAppCustomRouting property for Am Trust. Please Review agencyNetworkId ${agencyNetworkId} ${__location}`);
         }
     }
@@ -160,8 +163,7 @@ const putUserSessionMetaData = async(jwtToken, params) => {
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
         // if userSessionMetaData has not been defined yet, define it
-        if(!redisJSON.userSessionMetaData)
-        {
+        if(!redisJSON.userSessionMetaData){
             redisJSON.userSessionMetaData = {};
         }
         // Save all user redis metadata under userSession
