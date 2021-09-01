@@ -64,7 +64,10 @@ async function GetIndustryCodes(){
     const IndustryCodeModel = require('mongoose').model('IndustryCode');
     let IndustryCodeList = [];
     try{
-        const icQuery = {active: true}
+        const icQuery = {
+            active: true,
+            talageStandard: true
+        }
         const queryProjection = {
             "__v": 0,
             "_id": 0,
