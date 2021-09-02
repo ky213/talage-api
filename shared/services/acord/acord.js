@@ -547,6 +547,8 @@ console.log('acord-130-2', page1Obj);
             if(this.policyObj.expirationDate !== '0000-00-00'){
                 page1Obj.Policy_ExpirationDate_A = moment(this.policyObj.expirationDate).format('L');
             }
+console.log('policydb is live:', this.policyObj)
+
         }
 
         // Check the appropriate entity checkbox
@@ -646,13 +648,14 @@ console.log('acord-130-2', page1Obj);
         
 
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
+        console.log('page 30 b--->', page3Obj)
 
         let pdf = null;
         try {
             pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
-            pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
-            pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
-            pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
+            // pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
+            // pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
+            // pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
             pdf = await PdfHelper.createMultiPagePDF(pdfList);
         }
@@ -660,7 +663,7 @@ console.log('acord-130-2', page1Obj);
             log.error('Failed creating accord 130' + err + __location);
             throw err;
         }
-
+            console.log('pdf-listing -->', pdfList)
         return pdf;
     }
 
