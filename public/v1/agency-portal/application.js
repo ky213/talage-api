@@ -1293,7 +1293,7 @@ async function bindQuote(req, res, next) {
                 res.send(200, {"bound": true, policyNumber: quoteBind.policyInfo.policyNumber});
             }
             else {
-                res.send(bindFailureMessage);
+                res.send({"message":bindFailureMessage});
             }
 
             return next();
