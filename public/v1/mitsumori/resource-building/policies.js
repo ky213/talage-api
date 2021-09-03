@@ -25,7 +25,7 @@ exports.populatePolicyResources = async(resources, appId) => {
     const zipCodeBO = new ZipCodeBO();
     try{
         const primaryLocation = applicationDB?.locations?.find(loc => loc.primary);
-        zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation.zipcode);
+        zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
     }
     catch(err){
         log.error("Error getting zipCodeData " + err + __location);
@@ -220,46 +220,6 @@ const limitsSelectionAmounts = async(resources, applicationDB, zipCodeData) => {
         }
     };
 
-    if(applicationDB && applicationDB.hasOwnProperty('agencyId')){
-        const arrowHeadInsurerId = 27;
-        // TODO: make this smart logic where we don't do hardcoded check
-        // given an agency grab all of its locations
-        const agencyId = applicationDB.agencyId;
-        const agencyLocationBO = new AgencyLocationBO();
-        let locationList = null;
-        const query = {"agencyId": agencyId}
-        const getAgencyName = true;
-        const getChildren = true;
-        const useAgencyPrimeInsurers = true;
-        let error = null;
-        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-            log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-            error = err;
-        });
-        if(!error){
-            if(locationList && locationList.length > 0){
-                // for each location go through the list of insurers
-                for(let i = 0; i < locationList.length; i++){
-                    if(locationList[i].hasOwnProperty('insurers')){
-                        // grab all the insurers
-                        const locationInsurers = locationList[i].insurers;
-                        if(locationInsurers && locationInsurers.length > 0){
-                            // grab all the insurer ids
-                            const insurerIdList = locationInsurers.map(insurerObj => insurerObj.insurerId);
-                            // are any of the insurer id equal 27
-                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
-                                limits.bop = ["1000000/1000000/1000000"];
-                                if(insurerIdList.length > 1){
-                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
     resources.limitsSelectionAmounts = {...limits};
 };
 
