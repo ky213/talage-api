@@ -124,9 +124,9 @@ module.exports = class GreatAmericanWC extends Integration {
             });
         });
         //Questions from appDoc Data.
-        if(this.app.applicationDocData.founded){
-            const yearsWhole = moment().diff(this.app.applicationDocData.founded, 'years',false);
-            const years = moment().diff(this.app.applicationDocData.founded, 'years',true);
+        if(this.applicationDocData.founded){
+            const yearsWhole = moment().diff(this.applicationDocData.founded, 'years',false);
+            const years = moment().diff(this.applicationDocData.founded, 'years',true);
             questions['generalEligibilityYearsOfExperience'] = yearsWhole.toString();
 
 
@@ -159,8 +159,8 @@ module.exports = class GreatAmericanWC extends Integration {
         else {
             questions['generalEligibilityYearsOfExperience'] = '5';
         }
-        if(this.app.applicationDocData.yearsOfExp){
-            questions['generalEligibilityYearsOfExperience'] = this.app.applicationDocData.yearsOfExp;
+        if(this.applicationDocData.yearsOfExp){
+            questions['generalEligibilityYearsOfExperience'] = this.applicationDocData.yearsOfExp;
         }
 
         //Employee Info
@@ -174,7 +174,7 @@ module.exports = class GreatAmericanWC extends Integration {
         let claimOver50K = false;
         let claimCount = 0;
         let years = 5;
-        this.app.applicationDocData.claims.forEach((claim) => {
+        this.applicationDocData.claims.forEach((claim) => {
             if(claim.eventDate){
                 try{
                     years = moment().diff(claim.eventDate, 'years',false);
@@ -212,7 +212,7 @@ module.exports = class GreatAmericanWC extends Integration {
             questions['claimsLossesMoreThan50K'] = "Yes, I’ve had a single loss more than $50,000";
         }
         //PolicyQuestions
-        this.app.applicationDocData.policies.forEach((policy) => {
+        this.applicationDocData.policies.forEach((policy) => {
             if(policy.policyType === "WC"){
                 //Q: Prior Insurance?
                 questions['scheduleRatingPriorInsurance'] = policy.coverageLapse ? "No" : "Yes";
@@ -292,20 +292,13 @@ module.exports = class GreatAmericanWC extends Integration {
     }
 
     async generateAndSendACORD() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Appid: ${applicationDocData.applicationId} ${this.insurer.name} WC Request Error: `;
         const recipients = `AltSubmissions@gaig.com,mdowd@gaig.com`;
         const emailSubject = `WC Application - ${this.number} - ${applicationDocData.businessName}`;
         const emailBody = `See attached PDF`;
 
         log.info(`Sending underwriting email to Great American with subject: ${emailSubject}.`);
-
-        // Prepare keys so that the record of the email being sent is written (currently not doing this)
-        // const email_keys = {
-        //     'applicationId': this.app.applicationDocData.applicationId,
-        //     'agencyLocationId': this.app.agencyLocation.id,
-        //     'applicationDoc': this.app.applicationDocData
-        // };
 
         // generate the ACORD form
         let ACORDForm = null;

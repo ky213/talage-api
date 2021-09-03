@@ -64,7 +64,10 @@ async function GetIndustryCodes(){
     const IndustryCodeModel = require('mongoose').model('IndustryCode');
     let IndustryCodeList = [];
     try{
-        const icQuery = {active: true}
+        const icQuery = {
+            active: true,
+            talageStandard: true
+        }
         const queryProjection = {
             "__v": 0,
             "_id": 0,
@@ -151,9 +154,9 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
                         uniqueTalageIndustryCodes : {$addToSet : "$talageIndustryCodeIdList"}
                     }}
                 ]
-                log.debug(`Mongo IndustryCode BOP List InsurerIndustryCodeModel pipeline \n ${JSON.stringify(pipeLine)} ` + __location)
+                //log.debug(`Mongo IndustryCode BOP List InsurerIndustryCodeModel pipeline \n ${JSON.stringify(pipeLine)} ` + __location)
                 insurerIndustryCodeList = await InsurerIndustryCodeModel.aggregate(pipeLine)
-                log.debug(`Mongo IndustryCode BOP List InsurerIndustryCodeModel pipeline result \n ${JSON.stringify(insurerIndustryCodeList)} ` + __location)
+                //log.debug(`Mongo IndustryCode BOP List InsurerIndustryCodeModel pipeline result \n ${JSON.stringify(insurerIndustryCodeList)} ` + __location)
                 if(insurerIndustryCodeList[0] && insurerIndustryCodeList[0].uniqueTalageIndustryCodes && insurerIndustryCodeList[0].uniqueTalageIndustryCodes.length > 0){
                     const industryIdList = insurerIndustryCodeList[0].uniqueTalageIndustryCodes;
                     if(industryIdList?.length > 0){

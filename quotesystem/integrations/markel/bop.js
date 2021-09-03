@@ -16,7 +16,7 @@ const Integration = require('../Integration.js');
 const htmlentities = require('html-entities').Html5Entities;
 const moment = require('moment');
 global.requireShared('./helpers/tracker.js');
-const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const {convertToDollarFormat, removeDiacritics} = global.requireShared('./helpers/stringFunctions.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 
@@ -154,6 +154,18 @@ const contractorClassCodes = [
     "76231"
 ];
 
+const pesticideClassCodes = [
+    '74891',
+    '74901'
+];
+
+const propDamageDeductibleClassCodes = [
+    '75601', 
+    '75611', 
+    '75631', 
+    '75641'
+];
+
 // Certified Safety Committee Notification
 // eslint-disable-next-line no-unused-vars
 const safety_committee_states = [
@@ -167,6 +179,7 @@ const safety_committee_states = [
 ];
 
 // NumberOfClaims within last 3 years
+// eslint-disable-next-line no-unused-vars
 const number_of_claims_states = [
     'DE',
     'HI',
@@ -220,7 +233,7 @@ module.exports = class MarkelWC extends Integration {
      */
 
     async _insurer_quote() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Markel BOP (Appid: ${this.app.id}): `;
         const BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === "BOP");
 
@@ -247,6 +260,7 @@ module.exports = class MarkelWC extends Integration {
         this.possible_api_responses.Quoted = 'quoted';
 
         // These are the limits supported by Markel * 1000
+        // eslint-disable-next-line no-unused-vars
         const carrierLimits = ['100000/500000/100000',
             '500000/500000/500000',
             '1000000/1000000/1000000',
@@ -254,6 +268,7 @@ module.exports = class MarkelWC extends Integration {
             '2000000/2000000/2000000'];
         let yearsInsured = moment().diff(this.app.business.founded, 'years');
 
+        // eslint-disable-next-line no-unused-vars
         const mapCarrierLimits = {
             '100000/500000/100000': '100/500/100',
             '500000/500000/500000': '500/500/500',
@@ -263,6 +278,7 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // Check for excessive losses in DE, HI, MI, PA and VT
+        // eslint-disable-next-line no-unused-vars
         const excessive_loss_states = [
             'DE',
             'HI',
@@ -293,44 +309,25 @@ module.exports = class MarkelWC extends Integration {
             return this.client_autodeclined_out_of_appetite();
         }
 
-        // Prepare limits
-        //This may result in no limit being found. needs defaults
-        //Plus need to use best match.   Note: limits variable not used submission.
-        let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
-        const limits = this.getBestLimits(carrierLimits);
-        if (limits) {
-            const markelBestLimits = limits.join("/");
-            const markelLimitsSubmission = mapCarrierLimits[markelBestLimits];
-            if(markelLimitsSubmission){
-                markelLimits = markelLimitsSubmission;
-            }
-            else {
-                markelLimits = '100/500/100';
-            }
-        }
-        else {
-            log.warn(`${logPrefix}autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ${__location}`);
-            this.reasons.push(`Markel does not support the requested liability limits`);
-            return this.return_result('autodeclined');
-        }
-
         // Check the number of claims
-        if (excessive_loss_states.includes(this.app.business.primary_territory)) {
-            if (this.policy.claims.length > 2) {
-                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
-                this.reasons.push(`Too many past claims`);
-                return this.return_result('autodeclined');
-            }
-        }
+        // NOTE: Disabling this, as it's better to send to Markel anyways and let it decline on their end. 
+        // if (excessive_loss_states.includes(this.app.business.primary_territory)) {
+        //     if (this.policy.claims.length > 2) {
+        //         log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
+        //         this.reasons.push(`Too many past claims`);
+        //         return this.return_result('autodeclined');
+        //     }
+        // }
 
         // Check for excessive losses in South Dakota
-        if (this.app.business.primary_territory === 'SD') {
-            if (this.policy.claims.length > 4) {
-                log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
-                this.reasons.push(`Too many past claims`);
-                return this.return_result('autodeclined');
-            }
-        }
+        // NOTE: Disabling this, as it's better to send to Markel anyways and let it decline on their end. 
+        // if (this.app.business.primary_territory === 'SD') {
+        //     if (this.policy.claims.length > 4) {
+        //         log.info(`${logPrefix}Autodeclined: Insurer reports too many claims. ${__location}`);
+        //         this.reasons.push(`Too many past claims`);
+        //         return this.return_result('autodeclined');
+        //     }
+        // }
 
         const primaryAddress = this.app.business.locations[0];
 
@@ -365,13 +362,31 @@ module.exports = class MarkelWC extends Integration {
             }
         });
 
-        applicationDocData.questions.forEach(question => {
-            if (question.insurerQuestionAttributes?.QuestionCode) {
-                const questionCode = question.insurerQuestionAttributes.QuestionCode;
+        // filter insurer questions down to those matching answered talage questions
+        const answeredQuestionList = [];
+        this.insurerQuestionList.forEach(insurerQuestionDoc => {
+            const talageQuestion = applicationDocData.questions.find(tq => insurerQuestionDoc._doc.talageQuestionId === tq.questionId);
+
+            if (talageQuestion) {
+                answeredQuestionList.push({
+                    ...talageQuestion,
+                    attributes: insurerQuestionDoc._doc.attributes
+                });
+            }
+        });
+
+        answeredQuestionList.forEach(question => {    
+            const questionCode = question?.attributes?.QuestionCode;
+            if (questionCode && !specialCaseQuestions.includes(questionCode)) {
                 let questionAnswer = null;
 
                 if (question.questionType === 'Yes/No') {
                     questionAnswer = question.answerValue.toUpperCase();
+                }
+                else if (questionCode === "com.markel.uw.questions.Question1399") {
+                    // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
+                    // If more occurrences are found, add them here for general questions
+                    questionAnswer = question?.answerList[0]?.trim();
                 }
                 else {
                     questionAnswer = question.answerValue;
@@ -382,6 +397,7 @@ module.exports = class MarkelWC extends Integration {
         });
 
         // NOTE: This isn't a great solution. If Markel has more occurrences like this, it will require further manual injection here...
+        //       This is ultimately a mapping problem
 
         // Markel asks essentially the same question twice. We have two questions mapped to the same Talage question, so we only get one 
         // answer back, for question1956. This makes sure we answer the other question (question1233) the same way
@@ -397,7 +413,7 @@ module.exports = class MarkelWC extends Integration {
         // for each location, push a location object into the locationList
         applicationDocData.locations.forEach(location => {
             const locationObj = {
-                "Location Address1":location.address,
+                "Location Address1": removeDiacritics(location.address),
                 "Location Zip": location.zipcode,
                 "Location City": location.city,
                 "Location State": location.state,
@@ -495,17 +511,33 @@ module.exports = class MarkelWC extends Integration {
             yearsInsuredBOP: yearsInsured,
             "Aware of any losses": applicationDocData.claims.length > 0 ? 'YES' : 'NO'
             // optionalEndorsements: [] // Optional, not supporting in phase 1
+        };
+
+        if (propDamageDeductibleClassCodes.includes(industryCode.code)) {
+            policyObj.propDamageDeductible = '250';
         }
+
+        // SET OPTIONAL ENDORSEMENTS WHERE REQUIRED 
+
+        policyObj.optionalEndorsements = {};
 
         // contractorsInstallationToolsEquipment endorsement required if contractor industry is selected
         if (contractorClassCodes.includes(industryCode.code)) {
-            policyObj.optionalEndorsements = {
-                contractorsInstallationToolsEquipment: {
-                    eachJobLimitAllJobLimit: "3000/9000",
-                    blanketLimit: 3000,
-                    blanketSubLimit: 500
-                }
-            }
+            policyObj.optionalEndorsements.contractorsInstallationToolsEquipment = {
+                eachJobLimitAllJobLimit: "3000/9000",
+                blanketLimit: 3000,
+                blanketSubLimit: 500
+            };
+        }
+
+        // pesticideHerbicideApplicatorLimitedPollution endorsement required if specific industry selected and NOT in Texas (TX)
+        if (pesticideClassCodes.includes(industryCode.code) && applicationDocData.mailingState !== "TX") {
+            policyObj.optionalEndorsements.pesticideHerbicideApplicatorLimitedPollution = true;
+        }
+
+        // Remove optional endorsements property if none added
+        if (Object.keys(policyObj.optionalEndorsements).length === 0) {
+            delete policyObj.optionalEndorsements;
         }
 
         const medicalLimitQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.medicalLimit");
@@ -516,10 +548,6 @@ module.exports = class MarkelWC extends Integration {
         const terrorismCoverageQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "markel.policy.terrorismCoverage");
         if (terrorismCoverageQuestion) {
             policyObj.terrorismCoverage = terrorismCoverageQuestion.answerValue.toUpperCase();
-        }
-        
-        if(!markelLimits){
-            log.error(`${logPrefix}Markel WC missing markelLimits. ${__location}`);
         }
 
         const jsonRequest = {submissions: [
@@ -532,10 +560,10 @@ module.exports = class MarkelWC extends Integration {
                     licensingAgentUsername: this.app.agencyLocation.insurers[this.insurer.id].agent_id
                 },
                 insured: {
-                    address1: this.app.business.mailing_address,
+                    address1: removeDiacritics(this.app.business.mailing_address),
                     city: this.app.business.mailing_city,
                     documentDeliveryPreference: "EM",
-                    name: this.app.business.name,
+                    name: removeDiacritics(this.app.business.name),
                     dba: this.app.business.dba,
                     website: this.app.business.website,
                     fein: applicationDocData.ein,
@@ -571,12 +599,19 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('error');
         }
 
-        const rquIdKey = Object.keys(response)[0];
+        let rquIdKey = null;
+        try {
+            rquIdKey = Object.keys(response)[0];
+        }
+        catch (e) {
+            log.error(`${logPrefix}Error parsing response structure for request ID: ${e}. ` + __location);
+            return this.return_result('error');
+        }
 
         try {
             if (response && (response[rquIdKey]?.underwritingDecisionCode === 'SUBMITTED' || response[rquIdKey]?.underwritingDecisionCode === 'QUOTED')) {
 
-                if(response[rquIdKey]?.premium){
+                if (response[rquIdKey]?.premium?.totalPremium) {
                     this.amount = response[rquIdKey].premium.totalPremium;
                 }
 
@@ -587,7 +622,7 @@ module.exports = class MarkelWC extends Integration {
                     log.error(`${logPrefix}Integration Error: Unable to find quote number. ${__location}`);
                 }
                 // null is a valid response. isBindable defaults to false.  null equals false.
-                if(response[rquIdKey]?.isBindAvailable){
+                if (response[rquIdKey]?.isBindAvailable) {
                     this.isBindable = response[rquIdKey].isBindAvailable;
                 }
                 // Get the quote limits
@@ -711,7 +746,13 @@ module.exports = class MarkelWC extends Integration {
                             this.log += `<pre>${htmlentities.encode(JSON.stringify(referralReasons.ReferralReasons, null, 4))}</pre><br><br>`;
                         }
                     }
-                    return this.return_result('referred_with_price');
+
+                    if (this.amount > 0) {
+                        return this.return_result('referred_with_price');
+                    }
+                    else {
+                        return this.return_result('referred');
+                    }
                 }
                 else {
                     return this.return_result('quoted');
@@ -719,7 +760,7 @@ module.exports = class MarkelWC extends Integration {
             }
         }
         catch (error) {
-            log.error(`${logPrefix}Error getting amount ${error} ${__location}`);
+            log.error(`${logPrefix}Error parsing response structure: ${error}. ` + __location);
             return this.return_result('error');
         }
 
@@ -737,22 +778,17 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('declined');
         }
         else if (response[rquIdKey].errors) {
-            response[rquIdKey].errors.forEach((error) => {
+            for (const error of response[rquIdKey].errors) {
                 if(typeof error === 'string'){
-                    if(error.indexOf("One or more class codes are Declined") > -1){
-                        this.reasons.push(`Declined: ${error}`);
-                        return this.return_result('declined');
-                    }
-                    else {
-                        this.reasons.push(`${error}`);
-
+                    this.reasons.push(`${error}`);
+                    if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){
+                        return this.client_autodeclined_out_of_appetite();
                     }
                 }
                 else {
                     this.reasons.push(`${JSON.stringify(error)}`);
                 }
-
-            });
+            }
         }
         else {
             this.reasons.push(`Unknown error for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
@@ -830,7 +866,7 @@ module.exports = class MarkelWC extends Integration {
         const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
         const bopCodeQuery = {
-            parentIndustryCodeId: this.app.applicationDocData.industryCode
+            parentIndustryCodeId: this.applicationDocData.industryCode
         };
 
         // find all bop codes for this parent talage industry code
@@ -839,17 +875,17 @@ module.exports = class MarkelWC extends Integration {
             bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
         }
         catch (e) {
-            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}: ${e}. ` + __location);
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}: ${e}. ` + __location);
             return null;
         }
 
         if (!bopCodeRecords) {
-            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
         if (bopCodeRecords.length === 0) {
-            log.warn(`There were no BOP codes for Talage Industry Code ${this.app.applicationDocData.industryCode}. ` + __location);
+            log.warn(`There were no BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 

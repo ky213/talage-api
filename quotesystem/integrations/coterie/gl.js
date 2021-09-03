@@ -31,7 +31,7 @@ module.exports = class CompwestWC extends Integration {
     async _insurer_quote() {
 
         log.debug('Coterie GL Quote starting ' + __location)
-        const appDoc = this.app.applicationDocData;
+        const appDoc = this.applicationDocData;
 
         // product array
         let policyTypeArray = [];

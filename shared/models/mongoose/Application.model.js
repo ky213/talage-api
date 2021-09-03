@@ -237,6 +237,14 @@ const AdditionalInsuredSchema = new Schema({
     ein: {type: String, required: false}
 },opts);
 
+const PricingInfoSchema = new Schema({
+    gotPricing: {type: Boolean, default: false},
+    price: {type: Number, required: false},
+    lowPrice: {type: Number, required: false},
+    highPrice: {type: Number, required: false},
+    outOfAppetite: {type: Boolean, default: false},
+    pricingError: {type: Boolean, default: false}
+},opts);
 
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
@@ -259,6 +267,8 @@ const ApplicationSchema = new Schema({
     abandonedAppEmail:  {type: Boolean, default: false},
     optedOutOnlineEmailsent:  {type: Boolean, default: false},
     optedOutOnline:  {type: Boolean, default: false},
+    stoppedAfterPricingEmailSent:  {type: Boolean, default: false},
+    stoppedAfterPricing:  {type: Boolean, default: false},
     processStateOld: {type: Number, default: 1},
     referrer: {type: String, required: false},
     industryCode: {type: String, required: false},
@@ -309,13 +319,14 @@ const ApplicationSchema = new Schema({
     businessDataJSON: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
-    active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false},
     handledByTalage: {type: Boolean, default: false}, // true with application as Talage Wholesale quote(s)
     copiedFromAppId: {type: String, required: false},
-    renewal: {type: Boolean, default: false}
+    renewal: {type: Boolean, default: false},
+    pricingInfo: {type:PricingInfoSchema, required: false},
+    active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
 
@@ -394,10 +405,7 @@ mongoose.model('Application', ApplicationSchema);
  * @returns {void}
  */
 function populateActivityCodePayroll(schema) {
-    //log.debug(`in populateActivityCodePayroll ` + __location)
-    //const application = schema.getUpdate();
     const application = schema;
-    log.debug(`populateActivityCodePayroll application ${application}`)
     if (application.locations) {
         const activityCodesPayrollSumList = [];
         for (const location of application.locations) {

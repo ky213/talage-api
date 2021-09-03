@@ -955,11 +955,13 @@ async function validate(req, res, next) {
     }
     // Validate
     try {
-        passValidation = await applicationQuoting.validate();
+        const doNotLogValidationErrors = false
+        passValidation = await applicationQuoting.validate(doNotLogValidationErrors);
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        // This is a user triggered validation check.  Do not log.
+        // log.error(errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -1087,6 +1089,7 @@ async function requote(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
+        //pre quote validation log any errors
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
         log.warn(errMessage + __location);
         res.send(400, errMessage);
@@ -1267,7 +1270,7 @@ async function bindQuote(req, res, next) {
             if(req.body.paymentPlanId){
                 paymentPlanId = req.body.paymentPlanId
             }
-            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID,req.body.insurerPaymentPlanId);
             const bindResp = await quoteBind.bindPolicy();
             if(bindResp === "success"){
                 log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
@@ -1290,7 +1293,7 @@ async function bindQuote(req, res, next) {
                 res.send(200, {"bound": true, policyNumber: quoteBind.policyInfo.policyNumber});
             }
             else {
-                res.send(bindFailureMessage);
+                res.send({"message":bindFailureMessage});
             }
 
             return next();
@@ -1315,6 +1318,7 @@ async function bindQuote(req, res, next) {
                 quote: quoteDoc.quoteId,
                 quoteId: quoteDoc.quoteId,
                 paymentPlanId: paymentPlanId,
+                insurerPaymentPlanId: req.body.insurerPaymentPlanId,
                 noCustomerEmail: true
             }
             const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){
@@ -1438,49 +1442,6 @@ async function GetPolicyLimits(agencyId){
             }
         ]
     };
-    if(agencyId){
-        const arrowHeadInsurerId = 27;
-        // TODO: make this smart logic where we don't do hardcoded check
-        // given an agency grab all of its locations
-        const agencyLocationBO = new AgencyLocationBO();
-        let locationList = null;
-        const query = {"agencyId": agencyId}
-        const getAgencyName = true;
-        const getChildren = true;
-        const useAgencyPrimeInsurers = true;
-        let error = null;
-        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-            log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-            error = err;
-        });
-        if(!error){
-            if(locationList && locationList.length > 0){
-                // for each location go through the list of insurers
-                for(let i = 0; i < locationList.length; i++){
-                    if(locationList[i].hasOwnProperty('insurers')){
-                        // grab all the insurers
-                        const locationInsurers = locationList[i].insurers;
-                        if(locationInsurers && locationInsurers.length > 0){
-                            // grab all the insurer ids
-                            const insurerIdList = locationInsurers.map(insurerObj => insurerObj.insurerId);
-                            // are any of the insurer id equal 27 (arrowHead)
-                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
-                                limits['BOP'] = [{
-                                    "key": "1000000/1000000/1000000",
-                                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
-                                }];
-                                if(insurerIdList.length > 1){
-                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-    }
     return limits;
 }
 

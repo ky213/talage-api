@@ -90,8 +90,8 @@ module.exports = class AcuityWC extends Integration {
      */
     async getLocationList() {
         const locationList = [];
-        for (let i = 0; i < this.app.applicationDocData.locations.length; i++) {
-            const location = this.app.applicationDocData.locations[i];
+        for (let i = 0; i < this.applicationDocData.locations.length; i++) {
+            const location = this.applicationDocData.locations[i];
             locationList.push({
                 address: {
                     "address": location.address,
@@ -137,7 +137,7 @@ module.exports = class AcuityWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
 
         const defaultLimits = [
             "100000/500000/100000",
@@ -169,7 +169,7 @@ module.exports = class AcuityWC extends Integration {
             ]
         }
 
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
 
         // Default limits (supported by all states)
         let applicationLimits = "1000000/1000000/1000000";
@@ -356,10 +356,15 @@ module.exports = class AcuityWC extends Integration {
         }
         catch (error) {
             try {
-                response = JSON.parse(error.response);
+                if(error.indexOf("ETIMEDOUT") > -1){
+                    return this.client_error(`The Submission to Travelers timed out`, __location, {error: error});
+                }
+                else {
+                    response = JSON.parse(error.response);
+                }
             }
             catch (error2) {
-                return this.client_error(`The insurer returned an error code of ${error.httpStatusCode}`, __location, {error: error});
+                return this.client_error(`The Requeset to insurer had an error of ${error}`, __location, {error: error});
             }
         }
 
