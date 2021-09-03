@@ -575,6 +575,8 @@ console.log('policydb is live:', this.policyObj)
         const stateRatingPdfList = [];
         let pageCounter = 1;
 
+        console.log('page ob ', page1Obj)
+
         for(const state of uniqueStateList){
             pdfKey = 65;
             const statePdfDataFieldsObj = {
@@ -645,16 +647,14 @@ console.log('policydb is live:', this.policyObj)
             pageCounter += 1;
         }
 
-        
-
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
         console.log('page 30 b--->', page3Obj)
 
         let pdf = null;
         try {
-            pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
+            // pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
             // pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
-            // pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
             // pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
             pdf = await PdfHelper.createMultiPagePDF(pdfList);
@@ -664,6 +664,7 @@ console.log('policydb is live:', this.policyObj)
             throw err;
         }
             console.log('pdf-listing -->', pdfList)
+            console.log('pdf-gen', pdf)
         return pdf;
     }
 
