@@ -1502,7 +1502,7 @@ module.exports = class Application {
         //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
         let appPricingResultJSON = {}
         // Check for no quotes
-        if (pricingResults.length === 1) {
+        if (pricingResults.length === 1 && typeof pricingResults[0] === 'object') {
             appPricingResultJSON = pricingResults[0]
         }
         else if (pricingResults.length < 1) {
