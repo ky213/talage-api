@@ -2034,6 +2034,14 @@ async function getOfficerEmployeeTypes(req, res, next){
 
         // filter it down to only suggested activity codes
         activityCodes = activityCodes.filter(ac => ac.suggested);
+        const officeEmployeeActivityCodeId = 2869;
+        const hasOfficeEmployeeCode = activityCodes.some(code => code.activityCodeId === officeEmployeeActivityCodeId);
+        if(hasOfficeEmployeeCode !== true){
+            activityCodes.push({
+                description: "Office Employees",
+                activityCodeId: 2869
+              });
+        }
     }
     catch(err){
         log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
