@@ -134,10 +134,12 @@ module.exports = class EmployersWC extends Integration {
                 "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
                 "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
                 "primaryRiskState": appDoc.primaryState,
-                "healthInsGroupId": "",
-                "yearsInBusiness": this.get_years_in_business(),
-                "yearsInIndustry": appDoc.yearsOfExp
+              //  "healthInsGroupId": "",
+                "yearsInBusiness": this.get_years_in_business()
             };
+            if(requestJSON.yearsInBusiness < 3){
+                requestJSON.yearsInIndustry = appDoc.yearsOfExp
+            }
 
             const primaryContact = appDoc.contacts.find(contact => contact.primary === true);
             const additionalContacts = appDoc.contacts.filter(contact => JSON.stringify(contact) !== JSON.stringify(primaryContact));
@@ -202,17 +204,11 @@ module.exports = class EmployersWC extends Integration {
                     "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
                 }
             };
+            //We use the Agency Code (Entered in AP) only send the agencyCode so not to trigger secondary employer search
+            requestJSON.agency = {"agencyCode": this.app.agencyLocation.insurers[this.insurer.id].agencyId};
 
-            requestJSON.agency = {
-                "agencyCode": this.app.agencyLocation.insurers[this.insurer.id].agencyId,
-                "accountName": this.app.agencyLocation.agency
-              };
-
-            requestJSON.agent = {
-                "customerNumber": this.app.agencyLocation.insurers[this.insurer.id].agencyId + "-" + this.app.agencyLocation.insurers[this.insurer.id].agentId,
-                "contactFirstname": this.app.agencyLocation.first_name,
-                "contactLastname": this.app.agencyLocation.last_name
-            };
+              //Just use the customerNumber for the agent, so not to trigger Employers secondary look up.
+            requestJSON.agent = {"customerNumber": this.app.agencyLocation.insurers[this.insurer.id].agencyId + "-" + this.app.agencyLocation.insurers[this.insurer.id].agentId};
 
             const association = this.app.agencyLocation.business.association;
             const associationMembershipId = this.app.agencyLocation.business.association_id;
@@ -227,11 +223,16 @@ module.exports = class EmployersWC extends Integration {
             if (!(appDoc.entityType in entityMatrix)) {
                 log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
                 this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the selected entity type`);
+                // What happens if we need it.  We want the insurer to decline vs killing it ourselves.
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
 
             const locations = [];
+            //If there is only one location make sure it is marked as primary.  Old apps used in renewal may not have it marked.
+            if(appDoc.locations?.length === 1 && appDoc.locations[0].primary !== true){
+                appDoc.locations[0].primary = true;
+            }
             appDoc.locations.forEach(location => {
                 const locationJSON = {
                     "primary": location.primary,
@@ -318,7 +319,10 @@ module.exports = class EmployersWC extends Integration {
             requestJSON.disclaimers = [];
 
             // Prepare questions
+
             const validQuestions = [];
+            //This needs to flip to be loop on talagequestions not insurer questions.
+            // currently Logic does not allow multiple insurer questions to be mapped to one talage question.
             for (const question_id in this.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
                     const question = this.questions[question_id];
@@ -360,23 +364,29 @@ module.exports = class EmployersWC extends Integration {
                     if (!answer) {
                         continue;
                     }
-
+                    let goodQuestion = true
                     // Ensure the question is only yes/no at this point
                     if (question.type !== 'Yes/No') {
+                        goodQuestion = false
+                        //More information in the log talageQuestionId and insurerquesiton id.
                         log.error(`Appid: ${this.app.id}Employers WC: Unknown question type supported. Employers only has Yes/No. ` + __location)
-                        this.reasons.push('Unknown question type supported. Employers only has Yes/No.');
-                        fulfill(this.return_result('error'));
-                        return;
+                        //this.reasons.push('Unknown question type supported. Employers only has Yes/No.');
+                        // Do not stop quoting over a single question.  Make insurer decline or referr it.
+                        // Do not add question to the submission either.
+                        // Mapping is bad. just log it so mapping team can fix it.
+                        // fulfill(this.return_result('error'));
+                        // return;
                     }
-
-                    // Save this as an answered question
-                    validQuestions.push({
-                        code: questionCode,
-                        entry: question
-                    });
+                    if(goodQuestion){
+                        // Save this as an answered question
+                        validQuestions.push({
+                            code: questionCode,
+                            entry: question
+                        });
+                    }
                 }
             }
-
+            //Why this unstead of building array in the question loop
             requestJSON.questions = validQuestions.map(question => ({
                 "questionCode": question.code,
                 "value": question.entry.get_answer_as_boolean() ? 'YES' : 'NO'
