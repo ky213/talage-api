@@ -1393,6 +1393,7 @@ async function bindQuote(req, res, next) {
  * @returns {Object} returns the policy limits object
  */
 async function GetPolicyLimits(agencyId){
+    log.debug(`policy limits for ${agencyId}` + __location)
     // eslint-disable-next-line prefer-const
     let limits = {
         "BOP": [
@@ -1959,6 +1960,7 @@ async function GetBopCodes(req, res, next){
     res.send(200, bopIcList);
     return next();
 }
+
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
