@@ -80,4 +80,5 @@ async function getToken(req, res, next) {
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get Token', `${basePath}/auth`, getToken);
     server.addPut('PUT getToken', `${basePath}/auth`, getToken);
+    server.addPost('POST getToken', `${basePath}/auth`, getToken);
 };
