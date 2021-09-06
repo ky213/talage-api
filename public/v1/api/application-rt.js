@@ -88,6 +88,7 @@ async function applicationSave(req, res, next) {
         return next(serverHelper.requestError("Bad Request: No data received"));
     }
 
+    //Why are we doing this check? -BP
     if (!req.body.applicationId && !req.body.uuid && req.body.id) {
         log.error("Bad Request: Missing applicationId " + __location);
         return next(serverHelper.requestError("Bad Request: Missing applicationId"));
@@ -168,6 +169,44 @@ async function applicationSave(req, res, next) {
             if (!applicationDB) {
                 return next(serverHelper.requestError("Not Found"));
             }
+            //check appStatusId to see if updating is allowed.  not allow updating if quoting or >= referred.
+
+            //Only allow DEAD status to be set via the API.
+
+            //cannot be udpated via API
+            const changeNotUpdateList = [
+                "abandonedEmail",
+                "abandonedAppEmail",
+                "optedOutOnlineEmailsent",
+                "optedOutOnline",
+                "stoppedAfterPricingEmailSent",
+                "stoppedAfterPricing",
+                "processStateOld",
+                "solepro",
+                "wholesale",
+                "progress",
+                "status",
+                "referrer",
+                "einEncrypted",
+                "einEncryptedT2",
+                "einHash",
+                "businessDataJSON",
+                "agencyPortalCreatedUser",
+                "agencyPortalModifiedUser",
+                "quotingStartedDate",
+                "metrics",
+                "handledByTalage",
+                "copiedFromAppId",
+                "renewal",
+                "pricingInfo"
+            ]
+
+            for (let i = 0; i < changeNotUpdateList.length; i++) {
+                if (req.body.hasOwnProperty(changeNotUpdateList[i])) {
+                    delete req.body[changeNotUpdateList[i]];
+                }
+            }
+
         }
         catch (err) {
             log.error("Error checking application doc " + err + __location);
@@ -958,6 +997,7 @@ async function createQuoteSummary(quote) {
     switch (quote.quoteStatusId) {
         case quoteStatus.declined.id:
             // Return a declined quote summary
+            //TODO full quote object for the carrier response json is available.
             return {
                 id: quote.qouteId,
                 policy_type: quote.policyType,
@@ -1127,11 +1167,6 @@ async function quotingCheck(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     const applicationId = req.params.id;
-    // Set the last quote ID retrieved
-    let lastQuoteID = -1;
-    if (req.query.after) {
-        lastQuoteID = req.query.after;
-    }
 
     // Retrieve if we are complete. Must be done first or we may miss quotes.
     // return not complete if there is db error.
@@ -1156,10 +1191,7 @@ async function quotingCheck(req, res, next) {
     let quoteList = null;
 
 
-    const query = {
-        applicationId: applicationId,
-        lastMysqlId: lastQuoteID
-    };
+    const query = {applicationId: applicationId};
     try {
         quoteList = await quoteModel.getNewAppQuotes(query);
     }

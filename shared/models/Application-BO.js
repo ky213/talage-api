@@ -333,7 +333,10 @@ module.exports = class ApplicationModel {
                         "id",
                         "mysqlId",
                         "applicationId",
-                        "uuid"]
+                        "uuid",
+                        "agencyNetworkId",
+                        "agencyId"]
+
                     for (let i = 0; i < changeNotUpdateList.length; i++) {
                         if (newObjectJSON[changeNotUpdateList[i]]) {
                             delete newObjectJSON[changeNotUpdateList[i]];
