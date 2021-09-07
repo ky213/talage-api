@@ -645,7 +645,7 @@ module.exports = class cowbellCyber extends Integration {
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
-            "revenue": appDoc.grossSalesAmt,
+            //"revenue": appDoc.grossSalesAmt,
             "socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
             "socialEngLimit": cyberPolicy.socialEngEndorsement ? socialEngLimit : null,
             "socialEngDeductible": cyberPolicy.socialEngEndorsement ? socialEngDeductible : null,
@@ -681,7 +681,15 @@ module.exports = class cowbellCyber extends Integration {
                     if(!question){
                         continue;
                     }
-                    quoteRequestData[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                    if(question.type === 'Yes/No'){
+                        quoteRequestData[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                    }
+                    else if(question.inputType === "number"){
+                        quoteRequestData[insurerQuestion.identifier] = parseInt(question.answer,10);
+                    }
+                    else {
+                        quoteRequestData[insurerQuestion.identifier] = question.answer;
+                    }
                 }
             }
         }
