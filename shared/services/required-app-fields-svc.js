@@ -135,6 +135,7 @@ const cyberRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: hidden},
+        square_footage: {requirement: hidden},
         bop: {
             requirement: hidden,
             sprinklerEquipped: {requirement: hidden},
