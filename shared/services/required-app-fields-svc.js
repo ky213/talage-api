@@ -42,7 +42,8 @@ const bopRequirements = {
         }
     },
     grossSalesAmt: {requirement: required},
-    ein: {requirement: optional}
+    ein: {requirement: optional},
+    coverageLapseWC: {requirement: hidden}
 };
 
 const glRequirements = {
@@ -66,13 +67,15 @@ const glRequirements = {
             plumbingImprovementYear: {requirement: hidden}
         }
     },
-    grossSalesAmt: {requirement: required}
+    grossSalesAmt: {requirement: required},
+    coverageLapseWC: {requirement: hidden}
 };
 
 const wcRequirements = {
     owner: {
         requirement: required,
-        officerTitle: {requirement: optional}
+        officerTitle: {requirement: optional},
+        birthdate: {requirement: required}
     },
     location: {
         activityPayrollList: {requirement: required},
@@ -99,7 +102,6 @@ const wcRequirements = {
 };
 
 const plRequirements = {
-    grossSalesAmt: {requirement: required},
     location: {
         activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: hidden},
@@ -118,11 +120,12 @@ const plRequirements = {
             heatingImprovementYear: {requirement: hidden},
             plumbingImprovementYear: {requirement: hidden}
         }
-    }
+    },
+    grossSalesAmt: {requirement: required},
+    coverageLapseWC: {requirement: hidden}
 };
 
 const cyberRequirements = {
-    grossSalesAmt: {requirement: required},
     location: {
         activityPayrollList: {requirement: optional},
         buildingLimit: {requirement: hidden},
@@ -141,7 +144,12 @@ const cyberRequirements = {
             heatingImprovementYear: {requirement: hidden},
             plumbingImprovementYear: {requirement: hidden}
         }
-    }
+    },
+    grossSalesAmt: {requirement: hidden},
+    ein: {requirement: hidden},
+    website: {requirement: hidden},
+    yearsOfExp: {requirement: hidden},
+    coverageLapseWC: {requirement: hidden}
 };
 
 exports.requiredFields = async(appId) => {
@@ -210,7 +218,6 @@ exports.requiredFields = async(appId) => {
                     break;
             }
         }
-
 
         // apply agency network overrides
         let agencyNetworkDB = null;
@@ -323,7 +330,6 @@ const overrideRequiredObject = (override, requirementObj, newObj) => {
         if(!keysToSkip.includes(key)){
             newObj[key] = {};
 
-            // if the override does not have the key, populate it with the original value
             // if the override didnt provide a requirement, use the original value
             if(!override[key] || !override[key].hasOwnProperty("requirement")){
                 newObj[key].requirement = requirementObj[key].requirement;
