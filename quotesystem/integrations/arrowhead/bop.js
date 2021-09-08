@@ -1053,6 +1053,17 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "windHailDeductible": 
                     location.WHDeductiblePcnt = answer;
                     break;
+                case "perilType": 
+                    location.perilType = answer;
+                    break;
+                case "WHDedPcnt": 
+                    location.WHDedPcnt = answer;
+                    location.StormPcnt = "N/A";
+                    break;
+                case "StormPcnt": 
+                    location.StormPcnt = answer;
+                    location.WHDedPcnt = "N/A";
+                    break;
                 default: 
                     log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration. ${__location}`);
                     break;
