@@ -95,7 +95,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
     let customRouteFlowObj = null;
 
     // if we agency network id  is not equal to 1 (wheelhouse) and not equal 2 (digalent) we check for custom routes
-    if(agencyNetworkId  && agencyNetworkId !== 2){
+    if(agencyNetworkId && agencyNetworkId !== 1 && agencyNetworkId !== 2){
         //look at boolean value for checkedForCustomRouting (ensures we don't just rely on Agency network id being in redis to determine
         //if we checked for custom route for an agency network)
         let checkedForCustomRouting = false;
