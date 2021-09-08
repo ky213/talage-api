@@ -37,7 +37,6 @@ const {
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 module.exports = class Application {

@@ -8,7 +8,7 @@ const QuoteBO = global.requireShared('./models/Quote-BO.js');
  *
  * @returns {void}
  */
-module.exports = async (app) => {
+module.exports = async(app) => {
     // appStatusId > 70 is finished.(request to bind)
     if(app.applicationDocData.appStatusId >= 70){
         log.warn("An attempt to quote application that is finished.")
@@ -24,7 +24,7 @@ module.exports = async (app) => {
     }
 
     // set the quoting started date right before we start looking for quotes
-    let applicationBO = new ApplicationBO();
+    const applicationBO = new ApplicationBO();
     await applicationBO.updateMongo(app.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
     app.policies.forEach((policy) => {
         // Generate quotes for each insurer for the given policy type
