@@ -4,6 +4,9 @@
 
 
 const moment = require('moment');
+const axios = require('axios');
+const _ = require('lodash');
+
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -11,7 +14,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
+const runQuoteRetrieval = require('../run-quote-retrieval.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
@@ -749,167 +752,23 @@ module.exports = class Application {
 	 *
 	 * @returns {void}
 	 */
-    async run_quotes() {
-
-        // appStatusId > 70 is finished.(request to bind)
-        if(this.applicationDocData.appStatusId >= 70){
-            log.warn("An attempt to quote application that is finished.")
-            throw new Error("Finished Application cannot be quoted")
-        }
-
-        // Generate quotes for each policy type
-        const fs = require('fs');
-        const quote_promises = [];
-
-        if(this.policies && this.policies.length === 0){
-            log.error(`No policies for Application ${this.id} ` + __location)
-        }
-
-        // set the quoting started date right before we start looking for quotes
-        let applicationBO = new ApplicationBO();
-        await applicationBO.updateMongo(this.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
-        this.policies.forEach((policy) => {
-            // Generate quotes for each insurer for the given policy type
-            this.insurers.forEach((insurer) => {
-                let quoteInsurer = true;
-                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId !== insurer.id){
-                    quoteInsurer = false;
+    async run_quotes(req) {
+        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
+            const axiosOptions = {
+                headers: {
+                    authorization: _.get(req.headers, 'authorization', ''),
+                    Accept: "application/json"
                 }
-                // Only run quotes against requested insurers (if present)
-                // Check that the given policy type is enabled for this insurer
-                if (insurer.policy_types.indexOf(policy.type) >= 0 && quoteInsurer) {
-
-                    // Get the agency_location_insurer data for this insurer from the agency location
-                    //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
-                    if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
-
-                        //Retrieve the data for this policy type
-                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
-                        if (agency_location_insurer_data) {
-
-                            if (agency_location_insurer_data.enabled) {
-                                let policyTypeAbbr = '';
-                                let slug = '';
-                                try{
-                                    // If agency wants to send acord, send acord
-                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === true) {
-                                        slug = 'acord';
-                                    }
-                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
-                                        // Otherwise use the api
-                                        slug = insurer.slug;
-                                    }
-                                    if(policy && policy.type){
-                                        policyTypeAbbr = policy.type.toLowerCase()
-                                    }
-                                    else {
-                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
-                                    }
-                                }
-                                catch(err){
-                                    log.error('SLUG ERROR ' + err + __location);
-                                }
-
-                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
-                                log.debug(`normalizedPathnormalizedPath}`)
-                                try{
-                                    if (slug.length > 0 && fs.existsSync(normalizedPath)) {
-                                        // Require the integration file and add the response to our promises
-                                        const IntegrationClass = require(normalizedPath);
-                                        const integration = new IntegrationClass(this, insurer, policy);
-                                        quote_promises.push(integration.quote());
-                                    }
-                                    else {
-                                        log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
-                                    }
-                                }
-                                catch(err){
-                                    log.error(`Error getting Insurer integration file ${normalizedPath} ${err} ` + __location)
-                                }
-                            }
-                            else {
-                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
-                            }
-                        }
-                        else {
-                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
-                        }
-                    }
-                    else {
-                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
-                    }
-                }
-            });
-        });
-
-        // Wait for all quotes to finish
-        let quoteIDs = null;
-        try {
-            quoteIDs = await Promise.all(quote_promises);
-        }
-        catch (error) {
-            log.error(`Quoting did not complete successfully for application ${this.id}: ${error} ${__location}`);
-            return;
-        }
-
-        //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
-
-        // Check for no quotes
-        if (quoteIDs.length < 1) {
-            log.warn(`No quotes returned for application ${this.id}` + __location);
-            return;
-        }
-
-
-        // Update the application quote metrics
-        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.applicationId);
-
-        // Update the application Status
-        // Update the application quote progress to "complete"
-        try{
-            await applicationBO.updateProgress(this.applicationDocData.applicationId, "complete");
-        }
-        catch(err){
-            log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
-        }
-
-        // Update the application status
-        await applicationStatus.updateApplicationStatus(this.applicationDocData.applicationId);
-
-        // Get the quotes from the database
-        const quoteBO = new QuoteBO();
-        let quoteList = null;
-        try {
-            const query = {"applicationId": this.applicationDocData.applicationId}
-            quoteList = await quoteBO.getList(query);
-            //if a quote is marked handedByTalage  mark the application as handedByTalage and wholesale = true
-            let isHandledByTalage = false
-            quoteList.forEach((quoteDoc) => {
-                if(quoteDoc.handledByTalage){
-                    isHandledByTalage = quoteDoc.handledByTalage;
-                }
-            });
-            if(isHandledByTalage){
-                // eslint-disable-next-line object-curly-newline
-                const appUpdateJSON = {handledByTalage: true};
-                try{
-                    await applicationBO.updateMongo(this.applicationDocData.applicationId, appUpdateJSON);
-                }
-                catch(err){
-                    log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
-                }
+            };
+            const postParams = {
+                id: this.id,
+                insurerId: this.quoteInsurerId,
+                agencyPortalQuote: this.agencyPortalQuote
             }
-        }
-        catch (error) {
-            log.error(`Could not retrieve quotes from the database for application ${this.applicationDocData.applicationId} ${__location}`);
-        }
-
-        // Send a notification to Slack about this application
-        try{
-            await this.send_notifications(quoteList);
-        }
-        catch(err){
-            log.error(`Quote Application ${this.id} error sending notifications ` + err + __location);
+            const requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-quote-retrieval`;
+            return axios.post(requestUrl, postParams, axiosOptions);
+        } else {
+            return runQuoteRetrieval(this);
         }
     }
 
