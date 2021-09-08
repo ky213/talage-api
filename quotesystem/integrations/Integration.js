@@ -261,7 +261,7 @@ module.exports = class Integration {
 
         let insurerActivityCode = {attributes: {}};
         try{
-            log.debug(`get_insurer_code_for_activity_code query ${activityCodeQuery}` + __location);
+            //log.debug(`get_insurer_code_for_activity_code query ${JSON.stringify(activityCodeQuery)}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
                 log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
@@ -2313,7 +2313,23 @@ module.exports = class Integration {
             // Send the request
             await this.send_request(host, path, json, additional_headers, method, log_errors, returnResponseOnAllStatusCodes).
                 then((result) => {
-                    fulfill(JSON.parse(result));
+                    let jsonResponse = null
+                    let error = null
+                    try{
+                        jsonResponse = JSON.parse(result);
+                    }
+                    catch(err){
+                        error = err;
+                        log.error(`send_json_request ${host}${path} error processing JSON  Response "${result}" Error: ${err} ` + __location)
+                    }
+                    if(error){
+                        const throwError = new Error(`${error} response  ${result}`)
+                        reject(throwError);
+                    }
+                    else {
+                        fulfill(jsonResponse);
+                    }
+                    
                 }).
                 catch((error) => {
                     reject(error);
