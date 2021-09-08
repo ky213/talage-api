@@ -105,6 +105,28 @@ module.exports = class ArrowheadBOP extends Integration {
         }
 
         // hydrate the request JSON object with generic info
+        let insurerIndustryCodeAttributes = null;
+        try {
+            insurerIndustryCodeAttributes = JSON.parse(this.insurerIndustryCode.attributes);
+        }
+        catch (err) {
+            log.error(`Could not parse Insurer Industry Code Attributes: ${err}` + __location);
+        }
+        let arrowheadNAICS = "000000";
+        let arrowheadSIC = "0000";
+        if (insurerIndustryCodeAttributes['New NAICS']) {
+            arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
+        }
+        else {
+            log.warn('Could not parse Insurer Industry Code for Arrowhead provided NAICS Code ' + __location);
+        }
+        if (insurerIndustryCodeAttributes['SIC Code']) {
+            arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
+        }
+        else {
+            log.warn('Could not parse Insurer Industry Code for Arrowhead provided SIC Code ' + __location);
+        }
+
         const requestJSON = {
             rateCallType: "RATE_INDICATION",
             insuredSet: {
@@ -137,9 +159,9 @@ module.exports = class ArrowheadBOP extends Integration {
                 commonSet: {
                     stateOfDomicile: applicationDocData.mailingState,
                     classCode: this.insurerIndustryCode.code,
-                    naicsCode: this.insurerIndustryCode.attributes['New NAICS'],
+                    naicsCode: arrowheadNAICS,
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
-                    sicCode: this.insurerIndustryCode.attributes['SIC Code'], 
+                    sicCode: arrowheadSIC, 
                     state: applicationDocData.mailingState,
                     effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
@@ -459,6 +481,28 @@ module.exports = class ArrowheadBOP extends Integration {
                 liabPayroll += activityPayroll.employeeTypeList.reduce((payroll, employeeType) => payroll + employeeType.employeeTypePayroll, 0);
             }
 
+            let insurerIndustryCodeAttributes = {};
+            try {
+                insurerIndustryCodeAttributes = JSON.parse(this.insurerIndustryCode.attributes);
+            }
+            catch (err) {
+                log.error(`Could not parse Insurer Industry Code Attributes: ${err} ` + __location);
+            }
+            let arrowheadNAICS = "000000";
+            let arrowheadSIC = "0000";
+            if (insurerIndustryCodeAttributes['New NAICS']) {
+                arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
+            }
+            else {
+                log.warn('Could not parse Insurer Industry Code for Arrowhead provided NAICS Code ' + __location);
+            }
+            if (insurerIndustryCodeAttributes['SIC Code']) {
+                arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
+            }
+            else {
+                log.warn('Could not parse Insurer Industry Code for Arrowhead provided SIC Code ' + __location);
+            }
+
             const locationObj = {
                 countyName: zipCodeDoc.county,
                 city: location.city,
@@ -477,8 +521,8 @@ module.exports = class ArrowheadBOP extends Integration {
                         industrySegment: "",
                         premOpsILF: "", 
                         classCode: this.insurerIndustryCode.code,
-                        sicCode: this.insurerIndustryCode.attributes['SIC Code'],
-                        naicsCode: this.insurerIndustryCode.attributes['New NAICS'],
+                        sicCode: arrowheadSIC,
+                        naicsCode: arrowheadNAICS,
                         yearBuilt: location.yearBuilt,
                         uw: {
                             roofUpdates: location.bop.roofingImprovementYear,
@@ -823,7 +867,12 @@ module.exports = class ArrowheadBOP extends Integration {
             if (applicationDocData.primaryState !== "MN") {
                 bbopSet.coverages.emplia.numNonFTEmp = applicationDocData.locations.reduce((acc, location) => acc + location.part_time_employees, 0);
             }
-            bbopSet.coverages.emplia.sic = this.insurerIndustryCode.attributes['SIC Code'];
+            let arrowheadSIC = "0000";
+            try {
+                arrowheadSIC = JSON.parse(this.insurerIndustryCode.attributes)['SIC Code'];
+                log.error(`Could not parse Insurer Industry Code attributes for arrowhead provided SIC Code: ${err} ` + __location);
+            }
+            bbopSet.coverages.emplia.sic = arrowheadSIC;
         }
 
         // hydrate Liquor Liability coverage with child question data, if any exist
@@ -993,19 +1042,15 @@ module.exports = class ArrowheadBOP extends Integration {
 
     injectLocationQuestions(location, locationQuestions) {
         // NOTE: Currently, none of these location questions are used, but keeping in case we need to introduce new location specific questions
-
         // hydrate the request JSON object with location question data
         // NOTE: Add additional location questions here if more get imported   
         for (const [id, answer] of Object.entries(locationQuestions)) {
             switch (id) {
-                case "WHDeductiblePcnt": // Not asked for Wendys
-                    location[id] = answer;
+                case "windHailCov": 
+                    location.WHExclusions = !this.convertToBoolean(answer);
                     break;
-                case "perilType": // Not asked for Wendys
-                    location[id] = answer;
-                    break;
-                case "deductiblePcnt": // Not asked for Wendys
-                    location[id] = answer;
+                case "windHailDeductible": 
+                    location.WHDeductiblePcnt = answer;
                     break;
                 default: 
                     log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration. ${__location}`);
