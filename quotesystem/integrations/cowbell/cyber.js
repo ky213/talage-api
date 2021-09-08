@@ -1,6 +1,7 @@
 /* eslint-disable no-unneeded-ternary */
 const Integration = require('../Integration.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -514,7 +515,7 @@ module.exports = class cowbellCyber extends Integration {
             "Limited Liability Company (Manager Managed)": "Private"
         };
         if (!legalEntityMap.hasOwnProperty(appDoc.entityType)) {
-            log.error(`The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
+            log.error(`Cowbell appId ${appDoc.applicationId} the business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
             //return this.client_error(`The business entity type '${appDoc.entityType}' is not supported by this insurer.`, __location);
         }
         //If Corporation,  check if Corporation (C-Corp)
@@ -644,7 +645,7 @@ module.exports = class cowbellCyber extends Integration {
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
-            "revenue": appDoc.grossSalesAmt,
+            //"revenue": appDoc.grossSalesAmt,
             "socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
             "socialEngLimit": cyberPolicy.socialEngEndorsement ? socialEngLimit : null,
             "socialEngDeductible": cyberPolicy.socialEngEndorsement ? socialEngDeductible : null,
@@ -671,16 +672,6 @@ module.exports = class cowbellCyber extends Integration {
 
         };
 
-        // TODO Question overrides
-        //   "isAuthenticatingFundTransferRequests": true,
-        //     "isFranchise": false,
-        //     "isPreventingUnauthorizedWireTransfers": true,
-        //     "isSecurityOfficer": true,
-        //     "isSecurityTraining": true,
-        //     "isVerifyingBankAccounts": true,
-        //     "useCloudStorage": true,
-        //     "useEncryption": true,
-
         //TODO Additional Insurered
         //Question Processing.
         for(const insurerQuestion of this.insurerQuestionList){
@@ -690,7 +681,15 @@ module.exports = class cowbellCyber extends Integration {
                     if(!question){
                         continue;
                     }
-                    quoteRequestData[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                    if(question.type === 'Yes/No'){
+                        quoteRequestData[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                    }
+                    else if(question.inputType === "number"){
+                        quoteRequestData[insurerQuestion.identifier] = parseInt(question.answer,10);
+                    }
+                    else {
+                        quoteRequestData[insurerQuestion.identifier] = question.answer;
+                    }
                 }
             }
         }
@@ -704,17 +703,25 @@ module.exports = class cowbellCyber extends Integration {
         // request to get token
         let clientId = this.username
         let clientSecret = this.password;
-        if(this.app.agencyLocation.insurers[this.insurer.id].agent_id){
-            const agentKeys = this.app.agencyLocation.insurers[this.insurer.id].agent_id
-            const commaIndex = agentKeys.indexOf(',');
-            if (commaIndex <= 0) {
-                log.error(`Cowbell clientId and clientSecret are not comma-delimited. commaIndex ${commaIndex} insurerId: ${this.insurer.insurerId} agentId: ${agentKeys} al: ${JSON.stringify(this.app.agencyLocation.insurers[this.insurer.id])}` + __location);
-                return this.client_error(`The Cowbell clientId and clientSecret are not configured properly`, __location);
+        //look at AgencyNetwork.additionalInfo.cowbell for clientId and clientsecret overrides.  No need to look for wheelhouse.
+        if(appDoc.agencyNetworkId > 1){
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(appDoc.agencyNetworkId).catch(function(err){
+                log.error("Cowbell Cyber Get AgencyNetwork Error " + err + __location);
+            });
+            if(typeof agencyNetworkJSON?.additionalInfo?.cowbell === 'object'){
+                if(agencyNetworkJSON?.additionalInfo?.cowbell.clientId && agencyNetworkJSON?.additionalInfo?.cowbell.clientSecret){
+                    clientId = agencyNetworkJSON?.additionalInfo?.cowbell.clientId
+                    clientSecret = agencyNetworkJSON?.additionalInfo?.cowbell.clientSecret
+                    log.info(`Cowbell appId ${appDoc.applicationId} using agencynetwork ${agencyNetworkJSON.name} credentials ` + __location)
+                }
+                else {
+                    log.error(`Cowbell clientId and clientSecret override are not properly configured for Agency Network (additionalInfo.cowbell) insurerId: ${this.insurer.insurerId} agencyNetwork.additionalInfo: ${JSON.stringify(agencyNetworkJSON?.additionalInfo)}` + __location);
+                    return this.client_error(`The Cowbell clientId and clientSecret are not configured properly`, __location);
+                }
             }
-            clientId = agentKeys.substring(0, commaIndex).trim();
-            clientSecret = agentKeys.substring(commaIndex + 1).trim();
-            log.debug("Cowbell using Agency Location CLIENT_ID AND SECRET" + __location);
         }
+
         const authBody = {
             "clientId": clientId,
             "secret": clientSecret
@@ -748,14 +755,6 @@ module.exports = class cowbellCyber extends Integration {
             if(responseAuth && responseAuth.accessToken){
                 authToken = responseAuth.accessToken;
             }
-
-            // responseAuth = await this.send_json_request(host, basePath + "/auth/v1/api/token",
-            //     JSON.stringify(authBody),
-            //     null,
-            //     "POST");
-            // if(responseAuth && responseAuth.accessToken){
-            //     authToken = responseAuth.accessToken;
-            // }
 
         }
         catch (error) {
