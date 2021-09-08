@@ -199,11 +199,34 @@ module.exports = class AcuityWC extends Integration {
         if (!legalEntityMap.hasOwnProperty(this.app.business.locations[0].business_entity_type)) {
             return this.client_error(`The business entity type '${this.app.business.locations[0].business_entity_type}' is not supported by this insurer.`, __location);
         }
-
-        // Ensure we have a valid SIC code
-        if (!this.industry_code.sic) {
-            return this.client_error(`Could not determine the SIC code for industry code ${this.industry_code.id}: '${this.industry_code_description}'`, __location);
+        //Travelers does not have Insurer Industry Code records with us .  WC only.  using this.industry_code (insurer's)  lead to sic errors
+        // in the submissions.
+        //Look up Talage industry Code to get Sic
+        let sicCode = null;
+        if(appDoc.industryCode){
+            const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+            const industryCodeBO = new IndustryCodeBO();
+            const industryCodeJson = await industryCodeBO.getById(appDoc.industryCode);
+            if(industryCodeJson){
+                sicCode = industryCodeJson.sic
+            }
         }
+
+
+        // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
+        // to "0000" to continue trying to quote since Travelers allows the agent to correct the application in the DeepLink.
+        if (this.industry_code.sic) {
+            sicCode = this.industry_code.sic.toString().padStart(4, '0');
+        }
+        else {
+            this.log_warn(`Appid: ${this.app.id} Travelers WC: Industry Code ${this.industry_code.id} ("${this.industry_code.description}") does not have an associated SIC code`);
+            sicCode = "0000";
+        }
+
+        // Ensure we have a valid SIC code -- see sic process below
+        // if (!this.industry_code.sic) {
+        //     return this.client_error(`Appid: ${this.app.id} Travelers WC: Could not determine the SIC code for industry code ${this.industry_code.id}: '${this.industry_code_description}'`, __location);
+        // }
 
         // Ensure we have valid NCCI code mappings
         for (const location of this.app.business.locations) {
@@ -239,17 +262,6 @@ module.exports = class AcuityWC extends Integration {
         }
         if(shiftEmployeeQuestionHit === false || !numberEmployeesPerShift){
             numberEmployeesPerShift = this.get_total_employees();
-        }
-
-        // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
-        // to "0000" to continue trying to quote since Travelers allows the agent to correct the application in the DeepLink.
-        let sicCode = null;
-        if (this.industry_code.sic) {
-            sicCode = this.industry_code.sic.toString().padStart(4, '0');
-        }
-        else {
-            this.log_warn(`Industry Code ${this.industry_code.id} ("${this.industry_code.description}") does not have an associated SIC code`);
-            sicCode = "0000";
         }
 
         const claims = this.claims_to_policy_years();
@@ -333,6 +345,10 @@ module.exports = class AcuityWC extends Integration {
                 // "operateAsGeneralContractorInd": true
             }
         };
+
+        if(this.get_years_in_business() < 4){
+            quoteRequestData.basisOfQuotation.threeYearsManagementExperienceInd = appDoc.yearsOfExp >= 3;
+        }
 
         if (claimObjects) {
             quoteRequestData.losses = claimObjects;

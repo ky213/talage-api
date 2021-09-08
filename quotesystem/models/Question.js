@@ -20,6 +20,7 @@ module.exports = class Question{
         this.possible_answers = {};
         this.required = false;
         this.text = '';
+        this.inputType = '';
     }
 
     /**

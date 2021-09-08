@@ -78,10 +78,7 @@ const deductibleAmounts = resources => {
     resources.deductibleAmounts = {
         bop: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
         gl: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
-        cyber: {
-            cyberDeductibleList: cyberDeductibleList,
-            customSocialEngDeductibleList: customSocialEngDeductibleList
-        },
+        cyber: cyberDeductibleList,
         pl: cyberDeductibleList
     };
 };
@@ -201,65 +198,13 @@ const limitsSelectionAmounts = async(resources, applicationDB, zipCodeData) => {
         bop: bopAndGlLimits,
         gl: bopAndGlLimits,
         wc: getWCLimits(applicationDB?.agencyNetworkId, zipCodeData?.state),
-        cyber: {
-            aggregateLimitList: cyberAggregateLimitList,
-            // businessIncomeCoverageList, cowbell has custom list
-            customBusinessIncomeCoverageList: customBusinessIncomeCoverageList,
-            ransomPaymentLimitList: ransomPaymentLimitList,
-            socialEngLimitList: socialEngLimitList,
-            waitingPeriodList: waitingPeriodList,
-            hardcodedLimits: {
-                hardwareReplCostLimit: hardwareReplCostLimit,
-                postBreachRemediationLimit: postBreachRemediationLimit,
-                telecomsFraudEndorsementLimit: telecomsFraudEndorsementLimit
-            }
-        },
+        cyber: {aggregateLimitList: cyberAggregateLimitList},
         pl: {
             aggregateLimitList: plAggregateLimitList,
             occurrenceLimitList: occurrenceLimitList
         }
     };
 
-    if(applicationDB && applicationDB.hasOwnProperty('agencyId')){
-        const arrowHeadInsurerId = 27;
-        // TODO: make this smart logic where we don't do hardcoded check
-        // given an agency grab all of its locations
-        const agencyId = applicationDB.agencyId;
-        const agencyLocationBO = new AgencyLocationBO();
-        let locationList = null;
-        const query = {"agencyId": agencyId}
-        const getAgencyName = true;
-        const getChildren = true;
-        const useAgencyPrimeInsurers = true;
-        let error = null;
-        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-            log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-            error = err;
-        });
-        if(!error){
-            if(locationList && locationList.length > 0){
-                // for each location go through the list of insurers
-                for(let i = 0; i < locationList.length; i++){
-                    if(locationList[i].hasOwnProperty('insurers')){
-                        // grab all the insurers
-                        const locationInsurers = locationList[i].insurers;
-                        if(locationInsurers && locationInsurers.length > 0){
-                            // grab all the insurer ids
-                            const insurerIdList = locationInsurers.map(insurerObj => insurerObj.insurerId);
-                            // are any of the insurer id equal 27
-                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
-                                limits.bop = ["1000000/1000000/1000000"];
-                                if(insurerIdList.length > 1){
-                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
     resources.limitsSelectionAmounts = {...limits};
 };
 
