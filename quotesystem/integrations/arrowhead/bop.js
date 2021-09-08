@@ -870,6 +870,8 @@ module.exports = class ArrowheadBOP extends Integration {
             let arrowheadSIC = "0000";
             try {
                 arrowheadSIC = JSON.parse(this.insurerIndustryCode.attributes)['SIC Code'];
+            }
+            catch (err) {
                 log.error(`Could not parse Insurer Industry Code attributes for arrowhead provided SIC Code: ${err} ` + __location);
             }
             bbopSet.coverages.emplia.sic = arrowheadSIC;
@@ -1041,7 +1043,6 @@ module.exports = class ArrowheadBOP extends Integration {
     }
 
     injectLocationQuestions(location, locationQuestions) {
-        // NOTE: Currently, none of these location questions are used, but keeping in case we need to introduce new location specific questions
         // hydrate the request JSON object with location question data
         // NOTE: Add additional location questions here if more get imported   
         for (const [id, answer] of Object.entries(locationQuestions)) {
