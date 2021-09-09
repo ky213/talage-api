@@ -481,10 +481,15 @@ async function setupReturnedApplicationJSON(applicationJSON){
         try{
             const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
             const apUser = await agencyPortalUserBO.getById(userId);
-            applicationJSON.creatorEmail = apUser.email;
+            if(apUser){
+                applicationJSON.creatorEmail = apUser.email;
+            }
+            else {
+                log.error(`Did not find agencyPortalUser ${applicationJSON.agencyPortalCreatedUser} for appId: ${applicationJSON.applicationId} ` + __location);
+            }
         }
         catch(err){
-            log.error("Error getting agencyPortalUserBO " + err + __location);
+            log.error(`Error getting agencyPortalUserBO for appId: ${applicationJSON.applicationId} ` + err + __location);
         }
     }
 
