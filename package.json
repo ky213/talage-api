@@ -8,7 +8,7 @@
         "servequote": "node index-quote.js",
         "dev": "nodemon --ext js,env,json,xmlt index.js",
         "devquote": "nodemon --ext js,env,json,xmlt index-quote.js",
-        "lint": "eslint ./public/ ./uptime/ ./shared/ *.js",
+        "lint": "eslint ./quotesystem/ ./public/ ./uptime/ ./shared/ *.js",
         "test": "mocha --reporter mochawesome",
         "testnyc": "nyc --reporter html mocha",
         "testcoverage": "nyc --reporter html mocha"
