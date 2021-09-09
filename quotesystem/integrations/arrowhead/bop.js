@@ -483,6 +483,14 @@ module.exports = class ArrowheadBOP extends Integration {
                 log.error(`Problem getting Insurer Industry Code Attributes: ${err} ` + __location);
             }
 
+            let occupancy = null;
+            if (location.own) {
+                occupancy = "Owner Occupied Bldg - More than 10%";
+            }
+            else {
+                occupancy = "Non-Owner Occupied Bldg."
+            }
+
             const locationObj = {
                 countyName: zipCodeDoc.county,
                 city: location.city,
@@ -504,6 +512,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         sicCode: arrowheadSIC,
                         naicsCode: arrowheadNAICS,
                         yearBuilt: location.yearBuilt,
+                        occupancy: occupancy,
                         uw: {
                             roofUpdates: location.bop.roofingImprovementYear,
                             hvacUpdates: location.bop.heatingImprovementYear,
