@@ -160,12 +160,12 @@ module.exports = class ArrowheadBOP extends Integration {
                 bbopSet: {
                     classCodes: this.insurerIndustryCode.code,
                     finalized: true,
-                    GLOccurrenceLimit: limits[0],
-                    productsCOA: limits[2],
+                    GLOccurrenceLimit: "1000000",
+                    productsCOA: "2000000",
                     liabCovInd: false, // documentation states this should be hardcoded to true, yet example wendy's request has as false?
                     propCovInd: false,
                     locationList: locationList,
-                    otherCOA: limits[1],
+                    otherCOA: "2000000",
                     addtlIntInd: false,
                     coverages: {
                         terror: {
