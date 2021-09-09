@@ -720,7 +720,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
                 case "liquorLiab":
                     bbopSet.coverages.liqLia = {
-                        includeInd: answer === "Liquor Liability Coverage"
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "liquorLiab.typeOfSales":
