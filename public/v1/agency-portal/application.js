@@ -1118,7 +1118,7 @@ async function requote(req, res, next) {
     res.send(200, token);
 
     // Begin running the quotes
-    runQuotes(applicationQuoting);
+    runQuotes(applicationQuoting, req);
 
     return next();
 }
@@ -1129,10 +1129,10 @@ async function requote(req, res, next) {
  * @param {object} application - Application object
  * @returns {void}
  */
-async function runQuotes(application) {
+async function runQuotes(application, req) {
     log.debug('running quotes' + __location)
 
-    await application.run_quotes();
+    await application.run_quotes(req);
 
     // try {
     //     await application.run_quotes();

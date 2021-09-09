@@ -85,6 +85,11 @@ exports.load = () => {
     //Default to cache 1st page of Applist for Agencies and AgencyNetworks
     variables.USE_REDIS_APP_LIST_CACHE = "YES"
 
+    // Default for quote service
+    variables.ENABLE_QUOTE_API_SERVER = "NO"
+    variables.QUOTE_PUBLIC_API_PORT = "4000"
+    variables.QUOTE_SERVER_URL = "http://localhost:4000"
+
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
         console.log('Loading settings from local.env file');
