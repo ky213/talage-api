@@ -29,6 +29,7 @@ const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+const emailsvc = global.requireShared('./services/emailsvc.js');
 
 const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
 
@@ -1970,12 +1971,36 @@ async function PostApplicationLink(req, res, next){
         return next(serverHelper.requestError('No data was received'));
     }
 
-    // Make sure basic elements are present
+    // Make sure all elements are present
     if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
-    
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'lastName')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'emailAddress')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agentEmail')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agentName')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'businessName')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
     const applicationId = req.body.applicationId;
 
     // create hash
@@ -1985,9 +2010,97 @@ async function PostApplicationLink(req, res, next){
     // eslint-disable-next-line object-shorthand
     await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId}), applicationLinkTimeout);
 
+    await SendApplicationLinkEmail(req.body, hash);
+
     // return hash to frontend to show link (SHOULD WE STORE THE HASH ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
     res.send(200, {linkCode: hash});
     return next();
+}
+
+async function SendApplicationLinkEmail(reqBody, hash){
+    console.log(reqBody);
+    // reqBody: {
+    //     firstName,
+    //     lastName,
+    //     emailAddress,
+    //     pageSlug,
+    //     applicationId,
+    //     businessName,
+    //     agentEmail
+    // }
+
+    // get agency
+    const applicationBO = new ApplicationBO();
+    const application = await applicationBO.getById(reqBody.applicationId);
+
+    const agencyBO = new AgencyBO();
+    const agency = await agencyBO.getById(application.agencyId);
+
+    let env = "";
+    switch(global.settings.ENV){
+        case "development":
+            env = "http://localhost:8080";
+            break;
+        case "awsdev":
+            env = "https://dev.wh-app.io";
+            break;
+        case "staging":
+            env = "https://stage.wh-app.io";
+            break;
+        case "demo":
+            env = "https://demo.wh-app.io";
+            break;
+        case "production":
+            env = "https://wh-app.io";
+            break;
+        default:
+            // dont send the email
+            return;
+    }
+
+    let link = "";
+    if(reqBody.pageSlug){
+        link = `${env}/${agency.slug}/${reqBody.pageSlug}/_load/${hash}`;
+    }
+    else{
+        link = `${env}/${agency.slug}/_load/${hash}`;
+    }
+    // console.log(link);
+    const emailData = {
+        html: `
+            <p>
+                Hello ${reqBody.firstName},
+            </p>
+            <p>
+                ${reqBody.agentName} at ${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
+                <br/>
+                Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
+                <br/>
+                If you ever need help, ${reqBody.agentName} is still right here to help ensure you get the best policy at the best value. 
+                <br/>
+                If you have any questions, let us know at ${agency.email} or reach out to ${reqBody.agentName} directly.
+            </p>
+            <div align="center">
+                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
+                <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
+                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
+                </a>
+                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
+            </div>
+            <p align="center">
+                If the button does not work try pasting this link into your browser:
+                <br/>
+                <a href="${link}" target="_blank">
+                    ${link}
+                </a>
+            </p>
+            
+        `,
+        subject: 'A portal to your application',
+        to: `${reqBody.emailAddress},${reqBody.agentEmail}`
+    };
+
+    const emailResponse = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
 }
 
 exports.registerEndpoint = (server, basePath) => {
