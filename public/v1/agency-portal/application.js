@@ -2032,6 +2032,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
     //     applicationId,
     //     businessName,
     //     agentEmail
+    //     agentName
     // }
 
     // get agency
@@ -2099,13 +2100,19 @@ async function SendApplicationLinkEmail(reqBody, hash){
                     ${link}
                 </a>
             </p>
-            
         `,
         subject: 'A portal to your application',
         to: `${reqBody.emailAddress},${reqBody.agentEmail}`
     };
 
-    const emailResponse = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
+    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
+    if(!emailSent){
+        log.error(`Failed to send application link to ${emailData.to}.`);
+    }
+    else {
+        log.info(`Application link email was sent successfully to ${emailData.to}.`);
+    }
+
 }
 
 exports.registerEndpoint = (server, basePath) => {
