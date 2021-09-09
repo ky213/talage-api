@@ -105,26 +105,16 @@ module.exports = class ArrowheadBOP extends Integration {
         }
 
         // hydrate the request JSON object with generic info
-        let insurerIndustryCodeAttributes = null;
-        try {
-            insurerIndustryCodeAttributes = JSON.parse(this.insurerIndustryCode.attributes);
-        }
-        catch (err) {
-            log.error(`Could not parse Insurer Industry Code Attributes: ${err}` + __location);
-        }
+        let insurerIndustryCodeAttributes = {};
         let arrowheadNAICS = "000000";
         let arrowheadSIC = "0000";
-        if (insurerIndustryCodeAttributes['New NAICS']) {
+        try {
+            insurerIndustryCodeAttributes = this.insurerIndustryCode.attributes;
             arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
-        }
-        else {
-            log.warn('Could not parse Insurer Industry Code for Arrowhead provided NAICS Code ' + __location);
-        }
-        if (insurerIndustryCodeAttributes['SIC Code']) {
             arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
         }
-        else {
-            log.warn('Could not parse Insurer Industry Code for Arrowhead provided SIC Code ' + __location);
+        catch (err) {
+            log.error(`${logPrefix} Problem getting Insurer Industry Code Attributes: ${err}` + __location);
         }
 
         const requestJSON = {
@@ -482,25 +472,15 @@ module.exports = class ArrowheadBOP extends Integration {
             }
 
             let insurerIndustryCodeAttributes = {};
-            try {
-                insurerIndustryCodeAttributes = JSON.parse(this.insurerIndustryCode.attributes);
-            }
-            catch (err) {
-                log.error(`Could not parse Insurer Industry Code Attributes: ${err} ` + __location);
-            }
             let arrowheadNAICS = "000000";
             let arrowheadSIC = "0000";
-            if (insurerIndustryCodeAttributes['New NAICS']) {
+            try {
+                insurerIndustryCodeAttributes = this.insurerIndustryCode.attributes;
                 arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
-            }
-            else {
-                log.warn('Could not parse Insurer Industry Code for Arrowhead provided NAICS Code ' + __location);
-            }
-            if (insurerIndustryCodeAttributes['SIC Code']) {
                 arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
             }
-            else {
-                log.warn('Could not parse Insurer Industry Code for Arrowhead provided SIC Code ' + __location);
+            catch (err) {
+                log.error(`Problem getting Insurer Industry Code Attributes: ${err} ` + __location);
             }
 
             const locationObj = {
@@ -564,6 +544,7 @@ module.exports = class ArrowheadBOP extends Integration {
         const applicationDocData = this.applicationDocData;
         
         // parent questions
+        const contractorCoverage = [];
         const datcom = [];
         const cyber = [];
         const edol = [];
@@ -581,6 +562,34 @@ module.exports = class ArrowheadBOP extends Integration {
 
         for (const [id, answer] of Object.entries(questions)) {
             switch (id) {
+                case "contractorInstallCov":
+                    bbopSet.coverages.conins = {
+                        includeInd: this.convertToBoolean(answer)
+                    };  
+                    break;
+                case "contractorInstallCov.limit":
+                    contractorCoverage.push({id: "limit", answer});
+                    break;
+                case "conToolsCovType":
+                case "blanketLimitNoMin":
+                case "itemSubLimitText":
+                case "conscd.equips.desc":
+                case "nonownTools.limit":
+                case "empTools.limit":
+                    contractorCoverage.push({id, answer});
+                    break;
+                case "nonownTools.includeInd":
+                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    break;
+                case "empTools.includeInd":
+                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    break;
+                case "conscd.equips.val":
+                    contractorCoverage.push({id, answer: this.convertToInteger(answer)});
+                    break;
+                case "actualCashValueInd":
+                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    break;
                 case "eqpbrk":
                     bbopSet.coverages.eqpbrk = {
                         includeInd: this.convertToBoolean(answer)
@@ -781,6 +790,69 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
             }
         }
+        // hydrate Contractors' Installation coverage with child question data, if any exist
+        if (contractorCoverage.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("conins")) {
+                bbopSet.coverages.conins = {
+                    includeInd: true
+                }
+            }
+            contractorCoverage.forEach(({id, answer}) => {
+                switch (id) {
+                    case "limit":
+                    case "conToolsCovType":
+                    case "blanketLimitNoMin":
+                    case "itemSubLimitText":
+                    case "actualCashValueInd":
+                        bbopSet.coverages.conins[id] = answer;
+                        break;
+                    case "conscd.equips.desc":
+                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
+                            bbopSet.coverages.conins.conscd = {
+                                equips: {}
+                            };
+                        }
+                        bbopSet.coverages.conins.conscd.equips.desc = answer;
+                        break;
+                    case "conscd.equips.val":
+                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
+                            bbopSet.coverages.conins.conscd = {
+                                equips: {}
+                            };
+                        }
+                        bbopSet.coverages.conins.conscd.equips.val = answer;
+                        break;
+                    case "nonownTools.includeInd":
+                        if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
+                            bbopSet.coverages.conins.nonownTools = {};
+                        }
+                            bbopSet.coverages.conins.nonownTools.includeInd = answer;
+                        break;
+                    case "nonownTools.limit":
+                        if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
+                            bbopSet.coverages.conins.nonownTools = {};
+                        }
+                            bbopSet.coverages.conins.nonownTools.limit = answer;
+                            break;
+                    case "empTools.includeInd":
+                        if (!bbopSet.coverages.conins.hasOwnProperty("empTools")) {
+                            bbopSet.coverages.conins.empTools = {};
+                        }
+                            bbopSet.coverages.conins.empTools.includeInd = answer;
+                            break;
+                    case "empTools.limit":
+                        if (!bbopSet.coverages.conins.hasOwnProperty("empTools")) {
+                            bbopSet.coverages.conins.empTools = {};
+                        }
+                            bbopSet.coverages.conins.empTools.limit = answer;
+                            break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Contractors' Installation Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
         // hydrate Computer Fraud coverage with child question data, if any exist
         if (compFraud.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("compf")) {
@@ -869,10 +941,10 @@ module.exports = class ArrowheadBOP extends Integration {
             }
             let arrowheadSIC = "0000";
             try {
-                arrowheadSIC = JSON.parse(this.insurerIndustryCode.attributes)['SIC Code'];
+                arrowheadSIC = this.insurerIndustryCode.attributes['SIC Code'];
             }
             catch (err) {
-                log.error(`Could not parse Insurer Industry Code attributes for arrowhead provided SIC Code: ${err} ` + __location);
+                log.error(`Could not get SIC Code from Insurer Industry Code attributes: ${err} ` + __location);
             }
             bbopSet.coverages.emplia.sic = arrowheadSIC;
         }
