@@ -105,16 +105,17 @@ module.exports = class ArrowheadBOP extends Integration {
         }
 
         // hydrate the request JSON object with generic info
-        let insurerIndustryCodeAttributes = {};
-        let arrowheadNAICS = "000000";
-        let arrowheadSIC = "0000";
-        try {
-            insurerIndustryCodeAttributes = this.insurerIndustryCode.attributes;
-            arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
-            arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
+        const insurerIndustryCodeAttributes = this.insurerIndustryCode.attributes;
+        let arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
+        let arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
+            
+        if (!arrowheadNAICS) {
+            log.error(`${logPrefix}Problem getting NAICS from Insurer Industry Code attributes ` + __location);
+            arrowheadNAICS = "000000";
         }
-        catch (err) {
-            log.error(`${logPrefix} Problem getting Insurer Industry Code Attributes: ${err}` + __location);
+        if (!arrowheadSIC) {
+            log.error(`${logPrefix}Problem getting SIC from Insurer Industry Code attributes ` + __location);
+            arrowheadSIC = "000000";
         }
 
         const requestJSON = {
@@ -478,16 +479,17 @@ module.exports = class ArrowheadBOP extends Integration {
                 liabPayroll += activityPayroll.employeeTypeList.reduce((payroll, employeeType) => payroll + employeeType.employeeTypePayroll, 0);
             }
 
-            let insurerIndustryCodeAttributes = {};
-            let arrowheadNAICS = "000000";
-            let arrowheadSIC = "0000";
-            try {
-                insurerIndustryCodeAttributes = this.insurerIndustryCode.attributes;
-                arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
-                arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
+            const insurerIndustryCodeAttributes = this.insurerIndustryCode.attributes;
+            let arrowheadNAICS = insurerIndustryCodeAttributes['New NAICS'];
+            let arrowheadSIC = insurerIndustryCodeAttributes['SIC Code'];
+                
+            if (!arrowheadNAICS) {
+                log.error(`${logPrefix}Problem getting NAICS from Insurer Industry Code attributes ` + __location);
+                arrowheadNAICS = "000000";
             }
-            catch (err) {
-                log.error(`Problem getting Insurer Industry Code Attributes: ${err} ` + __location);
+            if (!arrowheadSIC) {
+                log.error(`${logPrefix}Problem getting SIC from Insurer Industry Code attributes ` + __location);
+                arrowheadSIC = "000000";
             }
 
             let occupancy = null;
@@ -952,12 +954,11 @@ module.exports = class ArrowheadBOP extends Integration {
             if (applicationDocData.primaryState !== "MN") {
                 bbopSet.coverages.emplia.numNonFTEmp = applicationDocData.locations.reduce((acc, location) => acc + location.part_time_employees, 0);
             }
-            let arrowheadSIC = "0000";
-            try {
-                arrowheadSIC = this.insurerIndustryCode.attributes['SIC Code'];
-            }
-            catch (err) {
-                log.error(`Could not get SIC Code from Insurer Industry Code attributes: ${err} ` + __location);
+
+            let arrowheadSIC = this.insurerIndustryCode.attributes['SIC Code'];
+            if (!arrowheadSIC) {
+                log.error(`${logPrefix}Problem getting SIC from Insurer Industry Code attributes ` + __location);
+                arrowheadSIC = "000000";
             }
             bbopSet.coverages.emplia.sic = arrowheadSIC;
         }
