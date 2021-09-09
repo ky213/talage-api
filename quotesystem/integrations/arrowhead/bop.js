@@ -176,6 +176,13 @@ module.exports = class ArrowheadBOP extends Integration {
             }
         };
 
+        if (BOPPolicy.deductible) {
+            requestJSON.policy.bbopSet.fixedPropDeductible = this.bestFitArrowheadDeductible(BOPPolicy.deductible);
+        }
+        else {
+            requestJSON.policy.bbopSet.fixedPropDeductible = 250;
+        }
+
         try {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
@@ -623,9 +630,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "liaDed":
                     bbopSet.liaDed = answer;
                     break;       
-                case "fixedPropDeductible":
-                    bbopSet.fixedPropDeductible = this.convertToInteger(answer);
-                    break;  
                 case "cyber":
                     bbopSet.coverages.cyber = {
                         includeInd: this.convertToBoolean(answer)
@@ -1779,6 +1783,26 @@ module.exports = class ArrowheadBOP extends Integration {
 
         return parsedAnswer;
     }
+
+    bestFitArrowheadDeductible(givenDeductible) {
+        const arrowheadDeductibles = [
+            250,
+            500,
+            1000,
+            2500
+        ];
+
+        let deductible = givenDeductible;
+        if (typeof deductible !== 'number') {
+            deductible = parseInt(deductible);
+        }
+        if (isNaN(deductible)) {
+            return arrowheadDeductibles[0]; // Arrowhead's lowest acceptable deductible
+        }
+
+        const lowerDeductibles = arrowheadDeductibles.filter(ded => ded < deductible);
+        return Math.max(...lowerDeductibles);
+    } 
 
     removeCharacters(characters, value) {
         characters.forEach(c => {
