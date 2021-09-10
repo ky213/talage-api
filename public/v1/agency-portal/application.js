@@ -2015,15 +2015,15 @@ async function PostApplicationLink(req, res, next){
     // eslint-disable-next-line object-shorthand
     await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId}), applicationLinkTimeout);
 
-    await SendApplicationLinkEmail(req.body, hash);
+    const link = await SendApplicationLinkEmail(req.body, hash);
 
-    // return hash to frontend to show link (SHOULD WE STORE THE HASH ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
-    res.send(200, {linkCode: hash});
+    // return link to frontend to show link (SHOULD WE STORE THE LINK ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
+    // eslint-disable-next-line object-shorthand
+    res.send(200, {link});
     return next();
 }
 
 async function SendApplicationLinkEmail(reqBody, hash){
-    console.log(reqBody);
     // reqBody: {
     //     firstName,
     //     lastName,
@@ -2113,6 +2113,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
         log.info(`Application link email was sent successfully to ${emailData.to}.`);
     }
 
+    return link;
 }
 
 exports.registerEndpoint = (server, basePath) => {
