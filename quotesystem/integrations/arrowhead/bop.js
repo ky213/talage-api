@@ -1792,9 +1792,17 @@ module.exports = class ArrowheadBOP extends Integration {
             building.coverages.PP = {
                 includeInd: true,
                 seasonalIncrease: "25",
-                valuationInd: false,
-                limit: `${location.businessPersonalPropertyLimit}`
+                valuationInd: false
             };
+
+            if (location.businessPersonalPropertyLimit && location.businessPersonalPropertyLimit > 0) {
+                building.coverages.PP.includeInd = true;
+                building.coverages.PP.limit = `${location.businessPersonalPropertyLimit}`;
+            }
+            else {
+                building.coverages.PP.includeInd = false;
+                building.coverages.PP.limit = '0';
+            }
 
             // Business Personal Property Limit            
             building.coverages.bld = {
