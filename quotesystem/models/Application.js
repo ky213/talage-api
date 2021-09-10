@@ -755,7 +755,7 @@ module.exports = class Application {
     async run_quotes(req) {
         if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
             const axiosOptions = {
-                timeout: 2000, // Timeout after 2 seconds
+                timeout: 15000, // Timeout after 15 seconds
                 headers: {
                     authorization: _.get(req.headers, 'authorization', ''),
                     Accept: "application/json"
