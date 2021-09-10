@@ -14,7 +14,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const runQuoteRetrieval = require('../run-quote-retrieval.js');
+const runQuoting = require('../run-quoting.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
@@ -747,13 +747,15 @@ module.exports = class Application {
 
 
     /**
-	 * Begins the process of getting and returning quotes from insurers
-	 *
-	 * @returns {void}
-	 */
+     * Begins the process of getting and returning quotes from insurers
+     *
+     * @param {object} req - Restify req object.
+     * @returns {void}
+     */
     async run_quotes(req) {
         if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
             const axiosOptions = {
+                timeout: 2000, // Timeout after 2 seconds
                 headers: {
                     authorization: _.get(req.headers, 'authorization', ''),
                     Accept: "application/json"
@@ -764,10 +766,27 @@ module.exports = class Application {
                 insurerId: this.quoteInsurerId,
                 agencyPortalQuote: this.agencyPortalQuote
             }
-            const requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-quote-retrieval`;
-            return axios.post(requestUrl, postParams, axiosOptions);
-        } else {
-            return runQuoteRetrieval(this);
+            const requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-quoting`;
+
+            try {
+                return await axios.post(requestUrl, postParams, axiosOptions);
+            }
+            catch (ex) {
+                // If a timeout occurred.
+                if (ex.code === 'ECONNABORTED') {
+                    log.error(`Timeout to quoting server: ${requestUrl}: ${ex} ${__location}`);
+                }
+                // or if a 500 or other REST error was returned.
+                else {
+                    log.error(`Error when calling quoting server: ${requestUrl}: ${ex} ${__location}`);
+                }
+
+                // Run quoting manually if we are unable to run quoting via the quote server.
+                return runQuoting(this);
+            }
+        }
+        else {
+            return runQuoting(this);
         }
     }
 

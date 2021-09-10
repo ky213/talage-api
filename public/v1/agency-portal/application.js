@@ -1126,6 +1126,7 @@ async function requote(req, res, next) {
  * Runs the quote process for a given application
  *
  * @param {object} application - Application object
+ * @param {object} req - Restify req object
  * @returns {void}
  */
 async function runQuotes(application, req) {
