@@ -70,7 +70,6 @@ module.exports = class ArrowheadBOP extends Integration {
         const applicationDocData = this.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
-        const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
 
         logPrefix = `Arrowhead (Appid: ${applicationDocData.applicationId}): `;
 
@@ -321,7 +320,7 @@ module.exports = class ArrowheadBOP extends Integration {
         const quoteMIMEType = null; // not provided by Arrowhead
         let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
         const quoteCoverages = [];
-        let coverageSort = 0;
+        let coverageSort = 1;
 
         const res = result.data;
 
@@ -394,10 +393,6 @@ module.exports = class ArrowheadBOP extends Integration {
             log.warn(`${logPrefix}Payment Options not provided, or the result structure has changed.` + __location);
         }
 
-        // TODO: Arrowhead sends coverage information, however it is location/building specific, and they do not provide details on the 
-        //       location/building those coverages apply to. Eventually, we should build out this response parsing further to parse out
-        //       the coverage data they provide, instead of just providing the defaulted coverages below. 
-
         // 1 Employers Liability Per Occurrence
         // 2 Employers Liability Disease Per Employee
         // 3 Employers Liability Disease Policy Limit
@@ -410,30 +405,79 @@ module.exports = class ArrowheadBOP extends Integration {
         // 10 Business Personal Property
         // 11 Aggregate
 
-        // NOTE: We currently do not parse values from their response. Instead, we default to the following:
-        // Each Occurrence
-        quoteCoverages.push({
-            description: `Each Occurrence`,
-            value: convertToDollarFormat(`1000000`, true),
-            sort: coverageSort++,
-            category: "Liability Coverages"
-        });
+        try {
+            // Each Occurrence
+            quoteCoverages.push({
+                description: `Each Occurrence`,
+                value: convertToDollarFormat(res.coreCommVs.policy.bbopSet.GLOccurrenceLimit, true),
+                sort: coverageSort++,
+                category: "Liability Coverages"
+            });
 
-        // Aggregate
-        quoteCoverages.push({
-            description: `Aggregate`,
-            value: convertToDollarFormat(`2000000`, true),
-            sort: coverageSort++,
-            category: "Liability Coverages"
-        });
+            // Aggregate
+            quoteCoverages.push({
+                description: `Aggregate`,
+                value: convertToDollarFormat(res.coreCommVs.policy.bbopSet.otherCOA, true),
+                sort: coverageSort++,
+                category: "Liability Coverages"
+            });
 
-        // Products & Completed Operations
-        quoteCoverages.push({
-            description: `Products & Completed Operations`,
-            value: convertToDollarFormat(`2000000`, true),
-            sort: coverageSort++,
-            category: "Liability Coverages"
-        });
+            // Products & Completed Operations
+            quoteCoverages.push({
+                description: `Products & Completed Operations`,
+                value: convertToDollarFormat(res.coreCommVs.policy.bbopSet.productsCOA, true),
+                sort: coverageSort++,
+                category: "Liability Coverages"
+            });
+        }
+        catch (err) {
+            log.warn(`${logPrefix}Unable to get limits. Result structure may have changed: ${err}` + __location);
+        }
+
+        // Get other Policy Limits
+        try {
+            const bbopCoverages = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].instecResponse.rc1.bbopResponse.coverages;
+            for (const key of Object.keys(bbopCoverages)) {
+                const coverage = bbopCoverages[key];
+                if (coverage.limit && coverage.desc) {
+                    quoteCoverages.push({
+                        description: `${coverage.desc}`,
+                        value: coverage.limit,
+                        sort: coverageSort++,
+                        category: "Liability Coverages"
+                    });
+                }
+            }
+        }
+        catch (err) {
+            log.warn(`${logPrefix}Unable to get policy limits from response. Result structure may have changed: ${err}` + __location);
+        }
+
+        // Get Location based limits
+        try {
+            const resultLocationsList = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].bopReporting.locationList;
+            for (let i = 0; i < resultLocationsList.length; i++) {
+                const building = resultLocationsList[i].buildingList[0];
+                log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
+                log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
+                log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
+                for (const coverage of Object.keys(building.coverages)) {
+                    log.debug(`Coverage: ${JSON.stringify(coverage, null, 4)}`);
+                    if (building.coverages[coverage].limit && building.coverages[coverage].desc) {
+                        quoteCoverages.push({
+                            description: `${building.coverages[coverage].desc}: ${building.address}, ${building.city}`,
+                            value: convertToDollarFormat(building.coverages[coverage].limit, true),
+                            sort: coverageSort++,
+                            category: "Property Coverages"
+                        });
+                    }
+                }
+            }
+        }
+        catch (err) {
+            log.warn(`${logPrefix}Unable to get location based limits. Result structure may have changed: ${err}` + __location);
+        }
+
 
         // log any warnings they provided
         if (res.warnings && res.warnings.length > 0) {
@@ -1758,6 +1802,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 valuation: "Replacement Cost",
                 limit: building.occupancy === "Tenant" ? 0 : location.buildingLimit
             };
+
         }
     }
 
