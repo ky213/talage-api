@@ -16,6 +16,9 @@ const route = async(req, res, next) => {
     // NOTE: Do not use 'await'! Quoting is executed in the background! We do
     // not block before returning.
     doQuoting(app);
+    res.send(200, {
+        success: true
+    });
     next();
 }
 
