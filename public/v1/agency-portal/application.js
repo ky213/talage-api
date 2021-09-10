@@ -481,10 +481,15 @@ async function setupReturnedApplicationJSON(applicationJSON){
         try{
             const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
             const apUser = await agencyPortalUserBO.getById(userId);
-            applicationJSON.creatorEmail = apUser.email;
+            if(apUser){
+                applicationJSON.creatorEmail = apUser.email;
+            }
+            else {
+                log.error(`Did not find agencyPortalUser ${applicationJSON.agencyPortalCreatedUser} for appId: ${applicationJSON.applicationId} ` + __location);
+            }
         }
         catch(err){
-            log.error("Error getting agencyPortalUserBO " + err + __location);
+            log.error(`Error getting agencyPortalUserBO for appId: ${applicationJSON.applicationId} ` + err + __location);
         }
     }
 
@@ -1098,9 +1103,7 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.applicationId, "quoting");
-        const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.applicationId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateToQuoting(applicationDB.applicationId);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${applicationDB.applicationId} for quoting. ` + err + __location);
