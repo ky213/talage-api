@@ -5,8 +5,10 @@
     "main": "index.js",
     "scripts": {
         "serve": "node index.js",
+        "servequote": "node index-quote.js",
         "dev": "nodemon --ext js,env,json,xmlt index.js",
-        "lint": "eslint ./public/ ./uptime/ ./shared/ *.js",
+        "devquote": "nodemon --ext js,env,json,xmlt index-quote.js",
+        "lint": "eslint ./quotesystem/ ./public/ ./uptime/ ./shared/ *.js",
         "test": "mocha --reporter mochawesome",
         "testnyc": "nyc --reporter html mocha",
         "testcoverage": "nyc --reporter html mocha"

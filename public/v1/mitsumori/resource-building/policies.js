@@ -78,10 +78,7 @@ const deductibleAmounts = resources => {
     resources.deductibleAmounts = {
         bop: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
         gl: bopAndGlDeductibles, // send back as seperate entry incase bop/gl change in the future
-        cyber: {
-            cyberDeductibleList: cyberDeductibleList,
-            customSocialEngDeductibleList: customSocialEngDeductibleList
-        },
+        cyber: cyberDeductibleList,
         pl: cyberDeductibleList
     };
 };
@@ -201,19 +198,7 @@ const limitsSelectionAmounts = async(resources, applicationDB, zipCodeData) => {
         bop: bopAndGlLimits,
         gl: bopAndGlLimits,
         wc: getWCLimits(applicationDB?.agencyNetworkId, zipCodeData?.state),
-        cyber: {
-            aggregateLimitList: cyberAggregateLimitList,
-            // businessIncomeCoverageList, cowbell has custom list
-            customBusinessIncomeCoverageList: customBusinessIncomeCoverageList,
-            ransomPaymentLimitList: ransomPaymentLimitList,
-            socialEngLimitList: socialEngLimitList,
-            waitingPeriodList: waitingPeriodList,
-            hardcodedLimits: {
-                hardwareReplCostLimit: hardwareReplCostLimit,
-                postBreachRemediationLimit: postBreachRemediationLimit,
-                telecomsFraudEndorsementLimit: telecomsFraudEndorsementLimit
-            }
-        },
+        cyber: {aggregateLimitList: cyberAggregateLimitList},
         pl: {
             aggregateLimitList: plAggregateLimitList,
             occurrenceLimitList: occurrenceLimitList
