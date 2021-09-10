@@ -8,7 +8,8 @@ const route = async(req, res, next) => {
         // NOTE: forceQuoting should always be set to 'true' when using this
         // endpoint.
         await app.load(req.body, true);
-    } catch (ex) {
+    }
+    catch (ex) {
         log.error(`Quoting: Application load error ${ex} ` + __location);
         return next(serverHelper.requestError('An error occured while retrieving quotes.'));
     }
@@ -27,7 +28,8 @@ const route = async(req, res, next) => {
 async function doQuoting(app) {
     try {
         await runQuoting(app);
-    } catch (ex) {
+    }
+    catch (ex) {
         log.error(`Quoting error ${ex} ` + __location);
     }
 }
