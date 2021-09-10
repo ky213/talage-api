@@ -1998,7 +1998,7 @@ async function getOfficerEmployeeTypes(req, res, next){
             activityCodes.push({
                 description: "Office Employees",
                 activityCodeId: 2869
-              });
+            });
         }
     }
     catch(err){
