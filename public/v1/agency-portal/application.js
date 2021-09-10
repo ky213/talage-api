@@ -30,6 +30,7 @@ const moment = require('moment');
 const {Error} = require('mongoose');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
 const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
 
@@ -1106,9 +1107,7 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.applicationId, "quoting");
-        const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.applicationId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateToQuoting(applicationDB.applicationId);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${applicationDB.applicationId} for quoting. ` + err + __location);
@@ -2116,6 +2115,53 @@ async function SendApplicationLinkEmail(reqBody, hash){
     return link;
 }
 
+async function getOfficerEmployeeTypes(req, res, next){
+    if (!req.query || typeof req.query !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    if (!req.query.zipcode) {
+        log.error('Bad Request: Missing zipcode ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing zipcode'));
+    }
+
+    if (!req.query.industryCodeId){
+        log.error('Bad Request: Missing industryCodeId ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing industryCodeId'));
+    }
+
+    const zipcode = req.query.zipcode;
+    const industryCodeId = req.query.industryCodeId;
+
+    let activityCodes = [];
+    try{
+        // use the zipcode from the primary location
+        const zipCodeBO = new ZipCodeBO();
+        const zipCodeData = await zipCodeBO.loadByZipCode(zipcode);
+
+        // get the activity codes for the territory of the zipcode provided
+        activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, industryCodeId);
+
+        // filter it down to only suggested activity codes
+        activityCodes = activityCodes.filter(ac => ac.suggested);
+        const officeEmployeeActivityCodeId = 2869;
+        const hasOfficeEmployeeCode = activityCodes.some(code => code.activityCodeId === officeEmployeeActivityCodeId);
+        if(hasOfficeEmployeeCode !== true){
+            activityCodes.push({
+                description: "Office Employees",
+                activityCodeId: 2869
+            });
+        }
+    }
+    catch(err){
+        log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
+    }
+
+    res.send(200, activityCodes);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -2133,14 +2179,14 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
-    server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
-    server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage')
-
-    server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
-    server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
-    server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
+    server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage');
+    server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
+    server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
+    server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
+    server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);
+    server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
-    server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits)
+    server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
     server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
     server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');

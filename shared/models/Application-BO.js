@@ -227,6 +227,34 @@ module.exports = class ApplicationModel {
         }
     }
 
+    async updateToQuoting(appId) {
+        try {
+            const updateStatusJson = {
+                status: "quoting",
+                "appStatusId": 15,
+                progress: "quoting",
+                quotingStartedDate: moment.utc()
+
+            }
+
+            updateStatusJson.updatedAt = new Date();
+
+            updateStatusJson.updatedAt = new Date();
+            const query = {"applicationId": appId};
+
+            await ApplicationMongooseModel.updateOne(query, updateStatusJson);
+            if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+                await this.updateRedisForAppUpdatebyAppId(appId);
+            }
+        }
+        catch (error) {
+            log.error(`Could not update application progress mongo appId: ${appId}  ${error} ${__location}`);
+        }
+        return true;
+
+
+    }
+
     async updateProgress(id, progress) {
 
         try {
