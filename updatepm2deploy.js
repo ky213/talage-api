@@ -6,6 +6,7 @@ var fs = require('fs');
 var inputFile = 'pm2.json'
 var outputFile = 'pm2deployed.json'
 var outputFile2 = 'pm2deployedtask.json'
+var outputFile3 = 'pm2deployedquote.json'
 //load pm2.json
 let pm2json = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
 
@@ -60,6 +61,12 @@ function savepm2deployed(pm2json) {
     pm2json.apps[0].script ="taskindex.js"
 
     fs.writeFileSync(outputFile2, JSON.stringify(pm2json, null, 2));
+
+    pm2json.apps[0].name ="Quote System"
+    pm2json.apps[0].script ="index-quote.js"
+
+    fs.writeFileSync(outputFile3, JSON.stringify(pm2json, null, 2));
+
     process.exit(0);
 
 }

@@ -124,12 +124,7 @@ async function postApplication(req, res, next) {
     // Set the application progress to 'quoting'
     const applicationBO = new ApplicationBO();
     try{
-        await applicationBO.updateProgress(req.body.id, "quoting");
-
-        const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(application.id, "quoting", appStatusIdQuoting);
-
-
+        await applicationBO.updateToQuoting(req.body.id);
     }
     catch(err){
         log.error(`Error update appication progress and status appId = ${req.body.id}  for quoting. ` + err + __location);
@@ -143,7 +138,7 @@ async function postApplication(req, res, next) {
     res.send(200, token);
 
     // Begin running the quotes
-    runQuotes(application);
+    runQuotes(application, req);
 
     return next();
 }
@@ -152,12 +147,13 @@ async function postApplication(req, res, next) {
  * Runs the quote process for a given application
  *
  * @param {object} application - Application object
+ * @param {object} req - Restify req object
  * @returns {void}
  */
-async function runQuotes(application) {
+async function runQuotes(application, req) {
     log.debug('running quotes' + __location)
     try {
-        await application.run_quotes();
+        await application.run_quotes(req);
     }
     catch (error) {
         log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
