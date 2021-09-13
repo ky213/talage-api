@@ -6,9 +6,10 @@ const QuoteBO = global.requireShared('./models/Quote-BO.js');
 /**
  * Begins the process of getting and returning quotes from insurers
  *
+ * @param {object} app - Loaded application.
  * @returns {void}
  */
-module.exports = async function runQuoteRetrieval(app) {
+module.exports = async function runQuoting(app) {
     // appStatusId > 70 is finished.(request to bind)
     if(app.applicationDocData.appStatusId >= 70){
         log.warn("An attempt to quote application that is finished.")
