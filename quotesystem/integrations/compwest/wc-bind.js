@@ -445,7 +445,7 @@ class CompuwestBind extends Bind {
                     AdditionalInterestInfo.ele('NatureInterestCd', owner.include ? 'I' : 'E');
                     if(owner.ownership){
                         try{
-                            const OwnershipPct = addInsuredAdditionalInterest.ele('OwnershipPct')
+                            const OwnershipPct = AdditionalInterestInfo.ele('OwnershipPct')
                             const NumericValueNode = OwnershipPct.ele('NumericValue');
                             NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
                         }
