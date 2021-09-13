@@ -323,9 +323,8 @@ module.exports = class EmployersWC extends Integration {
             const validQuestions = [];
             //This needs to flip to be loop on talagequestions not insurer questions.
             // currently Logic does not allow multiple insurer questions to be mapped to one talage question.
-            for (const question_id in this.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                    const question = this.questions[question_id];
+            for (const insurerQuestion of this.insurerQuestionList) {
+                    const question = this.questions[insurerQuestion.talageQuestionId];
 
                     // Don't process questions without a code (not for this insurer)
                     const questionCode = this.question_identifiers[question.id];
@@ -338,7 +337,6 @@ module.exports = class EmployersWC extends Integration {
                         continue;
                     }
 
-                    // Do not add disclaimer question to questions. Put it in the disclaimers property instead
                     if (questionCode === 'OOEA') {
                         requestJSON.disclaimers.push({
                                 "disclaimerCode": questionCode,
@@ -384,7 +382,6 @@ module.exports = class EmployersWC extends Integration {
                             entry: question
                         });
                     }
-                }
             }
             //Why this unstead of building array in the question loop
             requestJSON.questions = validQuestions.map(question => ({
