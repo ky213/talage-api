@@ -2076,7 +2076,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
     const emailData = {
         html: `
             <p>
-                Hello ${reqBody.firstName},
+                Hello${reqBody.firstName ? ` ${reqBody.firstName}` : ""},
             </p>
             <p>
                 ${reqBody.agentName} at ${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
