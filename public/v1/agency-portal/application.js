@@ -2042,6 +2042,8 @@ async function SendApplicationLinkEmail(reqBody, hash){
     const agencyBO = new AgencyBO();
     const agency = await agencyBO.getById(application.agencyId);
 
+    // TODO: get agency location and read agent email from it
+
     let env = "";
     switch(global.settings.ENV){
         case "development":
@@ -2072,20 +2074,20 @@ async function SendApplicationLinkEmail(reqBody, hash){
     else{
         link = `${env}/${agency.slug}/_load/${hash}`;
     }
-    // console.log(link);
+    // TODO: should we use agency.email or agency location email?
     const emailData = {
         html: `
             <p>
                 Hello${reqBody.firstName ? ` ${reqBody.firstName}` : ""},
             </p>
             <p>
-                ${reqBody.agentName} at ${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
+                ${reqBody.agentName ? `${reqBody.agentName} at ` : ""}${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
                 <br/>
                 Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
                 <br/>
-                If you ever need help, ${reqBody.agentName} is still right here to help ensure you get the best policy at the best value. 
+                If you ever need help, ${reqBody.agentName ? `${reqBody.agentName} is ` : "we're"} still right here to help ensure you get the best policy at the best value. 
                 <br/>
-                If you have any questions, let us know at ${agency.email} or reach out to ${reqBody.agentName} directly.
+                If you have any questions, let us know at ${agency.email}${reqBody.agentName ? ` or reach out to ${reqBody.agentName} directly.` : "."}
             </p>
             <div align="center">
                 <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
