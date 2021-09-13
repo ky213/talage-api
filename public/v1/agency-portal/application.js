@@ -1981,27 +1981,11 @@ async function PutApplicationLink(req, res, next){
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'lastName')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
     if (!Object.prototype.hasOwnProperty.call(req.body, 'emailAddress')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
     if (!Object.prototype.hasOwnProperty.call(req.body, 'agentEmail')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'agentName')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'businessName')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
