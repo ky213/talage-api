@@ -13,11 +13,6 @@ const getApplicationFromHash = async(req, res, next) => {
 
     const redisKey = req.body.hash;
 
-
-    // TODO: TEST CODE, REMOVE ME
-    // await global.redisSvc.storeKeyValue(redisKey, JSON.stringify({applicationId: "e144c0cb-1daa-49f2-bae1-310cde71e32b"}), 60 * 60 * 60); // 1 hour (for now)
-
-
     const redisValue = await global.redisSvc.getKeyValue(redisKey);
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
