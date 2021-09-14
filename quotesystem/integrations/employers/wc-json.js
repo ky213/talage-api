@@ -33,6 +33,10 @@ module.exports = class EmployersWC extends Integration {
      * @returns {string} - Phone number in the form: "###-###-####"
      */
     formatPhoneForEmployers(phone) {
+        if (!phone || typeof phone !== 'string') {
+            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
+            return '';
+        }
         const phoneDigits = phone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
             log.warn(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
@@ -46,6 +50,10 @@ module.exports = class EmployersWC extends Integration {
     }
 
     formatZipCodeForEmployers(zipcode) {
+        if (!zipcode || typeof zipcode !== 'string') {
+            log.warn(`Employers WC App ID: ${this.app.id}: Bad zipcode format: "${zipcode}" ` + __location);
+            return '';
+        }
         const zipDigits = zipcode.trim().replace(/\D/g, '');
         if (zipDigits.length !== 5 && zipDigits.length !== 9) {
             log.warn(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in zip code: ${zipcode} ` + __location);
@@ -140,72 +148,66 @@ module.exports = class EmployersWC extends Integration {
                 "yearsInBusiness": this.get_years_in_business()
             };
             if(requestJSON.yearsInBusiness < 3){
-                requestJSON.yearsInIndustry = appDoc.yearsOfExp
+                requestJSON.yearsInIndustry = appDoc.yearsOfExp ? appDoc.yearsOfExp : 0;
             }
-
-            const primaryContact = appDoc.contacts.find(contact => contact.primary === true);
-            const additionalContacts = appDoc.contacts.filter(contact => JSON.stringify(contact) !== JSON.stringify(primaryContact));
 
             try {
-                requestJSON.applicantContact = {
-                    "name": `${primaryContact.firstName} ${primaryContact.lastName}`,
-                    "phoneNumber": this.formatPhoneForEmployers(primaryContact.phone),
-                    "email": primaryContact.email,
-                    "address": {
-                        "streetAddress1": appDoc.mailingAddress,
-                        "streetAddress2": appDoc.mailingAddress2,
-                        "city": appDoc.mailingCity,
-                        "state": appDoc.mailingState,
-                        "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
-                    },
-                    "additionalContacts": additionalContacts.map(contact => ({
-                            "name": `${contact.firstName} ${contact.lastName}`,
-                            "phoneNumber": this.formatPhoneForEmployers(contact.phone),
-                            "email": contact.email,
-                            "address": {
-                            "streetAddress1": "",
-                            "streetAddress2": "",
-                            "city": "",
-                            "state": "",
-                            "zipCode": ""
-                            },
-                            "roles": [
-                            ]
-                        }))
+                let primaryContact = null;
+                if (appDoc.contacts.length === 1) {
+                    primaryContact = appDoc.contacts[0];
+                }
+                else {
+                    primaryContact = appDoc.contacts.find(contact => contact.primary === true);
+                }
+                if (!primaryContact) {
+                    throw new Error(`Could not find primary contact`)
+                }
+
+                const applicantContact = {"email": primaryContact.email};
+                const billingContact = {"email": primaryContact.email};
+                const proposalContact = {"email": primaryContact.email};
+
+                const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
+                if (formattedPhone) {
+                    applicantContact.phoneNumber = formattedPhone;
+                }
+
+                const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
+                if (!primaryContact.firstName || !primaryContact.lastName) {
+                    log.warn(`Employers WC App ID: ${this.app.id}: Cannot construct applicant name: "${applicantName}" ` + __location);
+                }
+                else {
+                    applicantContact.name = applicantName;
+                    billingContact.name = applicantName;
+                    proposalContact.name = applicantName;
+                }
+
+                const address = {
+                    "streetAddress1": appDoc.mailingAddress,
+                    "streetAddress2": appDoc.mailingAddress2 ? appDoc.mailingAddress2 : "",
+                    "city": appDoc.mailingCity,
+                    "state": appDoc.mailingState,
+                    "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
                 };
+
+                if (!appDoc.mailingAddress || !appDoc.mailingCity || !appDoc.mailingState || !address.zipCode) {
+                    log.warn(`Employers WC App ID: ${this.app.id}: Cannot fully construct address information. Some fields missing:` + __location);
+                    log.debug(`Address: "${JSON.stringify(address)}"`);
+                }
+                else {
+                    applicantContact.address = address;
+                    billingContact.address = address;
+                    proposalContact.address = address;
+                }
+
+                requestJSON.applicantContact = applicantContact;
+                requestJSON.billingContact = billingContact;
+                requestJSON.proposalContact = proposalContact;
             }
             catch (err) {
-                log.error(`Employers WC: Appid: ${this.app.id} Problem creating quote request: ${err} ` + __location);
-                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} Problem creating quote request: ${err}`);
-                fulfill(this.return_result('autodeclined'));
-                return;
+                log.error(`Employers WC: Appid: ${this.app.id} Problem creating contact information on quote request: ${err} ` + __location);
             }
 
-            requestJSON.billingContact = {
-                "name": `${primaryContact.firstName} ${primaryContact.lastName}`,
-                "phoneNumber": this.formatPhoneForEmployers(primaryContact.phone),
-                "email": primaryContact.email,
-                "address": {
-                    "streetAddress1": appDoc.mailingAddress,
-                    "streetAddress2": appDoc.mailingAddress2,
-                    "city": appDoc.mailingCity,
-                    "state": appDoc.mailingState,
-                    "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
-                }
-            };
-
-            requestJSON.proposalContact = {
-                "name": `${primaryContact.firstName} ${primaryContact.lastName}`,
-                "phoneNumber": this.formatPhoneForEmployers(primaryContact.phone),
-                "email": primaryContact.email,
-                "address": {
-                    "streetAddress1": appDoc.mailingAddress,
-                    "streetAddress2": appDoc.mailingAddress2,
-                    "city": appDoc.mailingCity,
-                    "state": appDoc.mailingState,
-                    "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
-                }
-            };
             //We use the Agency Code (Entered in AP) only send the agencyCode so not to trigger secondary employer search
             requestJSON.agency = {"agencyCode": this.app.agencyLocation.insurers[this.insurer.id].agencyId};
 
