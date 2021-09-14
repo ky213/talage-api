@@ -753,7 +753,7 @@ module.exports = class Application {
      * @returns {void}
      */
     async run_quotes(req) {
-        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
+        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES' && req) {
             const axiosOptions = {
                 timeout: 15000, // Timeout after 15 seconds
                 headers: {
