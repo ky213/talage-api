@@ -233,7 +233,8 @@ module.exports = class EmployersWC extends Integration {
             if(appDoc.locations?.length === 1 && appDoc.locations[0].primary !== true){
                 appDoc.locations[0].primary = true;
             }
-            appDoc.locations.forEach(location => {
+
+            for (const location of appDoc.locations) {
                 const locationJSON = {
                     "primary": location.primary,
                     "businessName": appDoc.businessName.substring(0,60).replace('&', ''),
@@ -261,15 +262,29 @@ module.exports = class EmployersWC extends Integration {
                         const ownerTitle = ownerTitleMatrix[owner.officerTitle];
                         ownerObj.ownerTitle = {"code": ownerTitle ? ownerTitle : ""}
                         return ownerObj;
-                        }),
-                    "rateClasses": location.activityPayrollList.map(activityCode => ({
-                        "classCode": this.insurer_wc_codes[location.state + activityCode.activityCodeId],
-                        "payrollAmount": activityCode.payroll
-                        }))
+                        })
                     };
 
+                    locationJSON.rateClasses = [];
+                    for (const activityCode of location.activityPayrollList) {
+                        const insurerActivityCode = await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, activityCode.activityCodeId);
+                        log.debug(`Insurer Activity Code: ${JSON.stringify(insurerActivityCode)}`); // zy debug remove
+                        let classCode = "";
+                        if (!insurerActivityCode) {
+                            log.warn(`Appid: ${this.app.id}: ${this.insurer.name} Could not find insurerActivityCode for ${location.state} ` + __location);
+                        }
+                        else {
+                            classCode = insurerActivityCode.code + insurerActivityCode.sub;
+                        }
+                        const rateClass = {
+                            "classCode": classCode,
+                            "payrollAmount": activityCode.payroll
+                        }
+                        locationJSON.rateClasses.push(rateClass);
+                    }
+
                     locations.push(locationJSON);
-            })
+            }
 
             requestJSON.namedInsureds = [
                 {
