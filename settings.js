@@ -87,8 +87,6 @@ exports.load = () => {
 
     // Default for quote service
     variables.ENABLE_QUOTE_API_SERVER = "NO"
-    variables.QUOTE_PUBLIC_API_PORT = "4000"
-    variables.QUOTE_SERVER_URL = "http://localhost:4000"
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
