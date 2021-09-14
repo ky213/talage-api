@@ -35,7 +35,8 @@ module.exports = class EmployersWC extends Integration {
     formatPhoneForEmployers(phone) {
         const phoneDigits = phone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
-            throw new Error(`Incorrect number of digits in phone number: ${phone}`);
+            log.warn(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
+            return '';
         }
         const newPhone = [];
         newPhone.push(phoneDigits.slice(0,3));
@@ -47,7 +48,8 @@ module.exports = class EmployersWC extends Integration {
     formatZipCodeForEmployers(zipcode) {
         const zipDigits = zipcode.trim().replace(/\D/g, '');
         if (zipDigits.length !== 5 && zipDigits.length !== 9) {
-            throw new Error(`Incorrect number of digits in zip code: ${zipcode}`);
+            log.warn(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in zip code: ${zipcode} ` + __location);
+            return '';
         }
         if (zipDigits.length === 5) {
             return zipDigits;
