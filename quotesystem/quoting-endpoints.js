@@ -38,5 +38,5 @@ async function doQuoting(app) {
 }
 
 exports.registerEndpoints = (server) => {
-    server.addPostAuth('Run quote retrieval ', `/v1/run-quoting`, route);
+    server.addPost('Run quote retrieval ', `/v1/run-quoting`, route);
 };

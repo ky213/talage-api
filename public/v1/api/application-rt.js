@@ -858,7 +858,7 @@ async function startQuoting(req, res, next) {
     res.send(200);
 
     // Begin running the quotes
-    runQuotes(applicationQuoting, req);
+    runQuotes(applicationQuoting);
 
     return next();
 }
@@ -869,10 +869,10 @@ async function startQuoting(req, res, next) {
  * @param {object} application - Application object
  * @returns {void}
  */
-async function runQuotes(application, req) {
+async function runQuotes(application) {
     log.debug('running quotes' + __location)
     try {
-        await application.run_quotes(req);
+        await application.run_quotes();
     }
     catch (error) {
         log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
