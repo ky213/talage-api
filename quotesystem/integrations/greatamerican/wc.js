@@ -62,7 +62,7 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('error');
         }
 
-        if (!session || !session.newBusiness) {
+        if (!session?.newBusiness) {
             const errorMessage = `No new business information returned in application creation. `;
             log.error(logPrefix + errorMessage + __location);
             this.reasons.push(errorMessage);
@@ -104,7 +104,8 @@ module.exports = class GreatAmericanWC extends Integration {
             questions[this.question_identifiers[q.id]] = q.answer;
         }
 
-        if (session.newBusiness?.workflowControl !== 'CONTINUE') {
+        if (session.newBusiness?.workflowControl !== 'CONTINUE' ||
+            session.newBusiness?.status === 'DECLINE') {
             this.log += `Great American returned a bad workflow control response: ${session.newBusiness?.workflowControl} @ ` + __location;
             return this.return_result('declined');
         }
@@ -222,6 +223,11 @@ module.exports = class GreatAmericanWC extends Integration {
 
         // begins to hydrate (udpate) the question session
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
+        if (curAnswers?.newBusiness?.status === 'DECLINE') {
+            this.reasons.push(`Great American has declined to offer you coverage at this time`);
+            return this.return_result('declined');
+        }
+
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
         if(!curAnswers){
             this.reasons.push(`injectAnswers Error: No reponse`);
@@ -240,6 +246,11 @@ module.exports = class GreatAmericanWC extends Integration {
 
             // continue to update the question session until complete
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
+            if (curAnswers?.newBusiness?.status === 'DECLINE') {
+                this.reasons.push(`Great American has declined to offer you coverage at this time`);
+                return this.return_result('declined');
+            }
+
             this.logApiCall('injectAnswers', [curAnswers, questions], curAnswers);
             questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
