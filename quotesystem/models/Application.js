@@ -749,15 +749,13 @@ module.exports = class Application {
     /**
      * Begins the process of getting and returning quotes from insurers
      *
-     * @param {object} req - Restify req object.
      * @returns {void}
      */
-    async run_quotes(req) {
-        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES' && req) {
+    async run_quotes() {
+        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
             const axiosOptions = {
                 timeout: 15000, // Timeout after 15 seconds
                 headers: {
-                    authorization: _.get(req.headers, 'authorization', ''),
                     Accept: "application/json"
                 }
             };
