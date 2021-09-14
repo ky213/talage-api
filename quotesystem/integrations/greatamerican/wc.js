@@ -83,6 +83,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // creates the question session using the newBusiness ID from the application
         session = await GreatAmericanApi.getSession(this, token, session.newBusiness, sessionCodes)
         if(!session){
+            log.error(`${logPrefix}getSession failed: @ ` + __location);
             this.log += `Great American getSession failed: `;
             this.reasons.push(`Great American getSession failed`);
             return this.return_result('error');
@@ -108,7 +109,7 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('declined');
         }
 
-        const questionnaireInit = session.riskSelection.data.answerSession.questionnaire;
+        const questionnaireInit = session?.riskSelection.data.answerSession.questionnaire;
         let need_generalEligibility3OrMore = false;
         let need_generalEligibility3OrMoreRestManu = false;
         questionnaireInit.groups.forEach((groups) => {
@@ -226,7 +227,7 @@ module.exports = class GreatAmericanWC extends Integration {
             this.reasons.push(`injectAnswers Error: No reponse`);
             return this.return_result('error');
         }
-        let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
+        let questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
 
         // Often times follow-up questions are offered by the Great American
@@ -240,7 +241,7 @@ module.exports = class GreatAmericanWC extends Integration {
             // continue to update the question session until complete
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
             this.logApiCall('injectAnswers', [curAnswers, questions], curAnswers);
-            questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
+            questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
             // Prevent infinite loops with this check. Every call to
             // injectAnswers should answer more questions. If we aren't getting
