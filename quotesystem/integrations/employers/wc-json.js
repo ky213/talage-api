@@ -78,6 +78,9 @@ module.exports = class EmployersWC extends Integration {
 	 */
     _insurer_quote() {
         const appDoc = this.app.applicationDocData;
+
+        const logPrefix = `Employers WC (Appid: ${this.app.id}): `;
+
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINED = 'declined';
         this.possible_api_responses.IN_PROGRESS = 'referred';
@@ -144,7 +147,6 @@ module.exports = class EmployersWC extends Integration {
                 "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
                 "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
                 "primaryRiskState": appDoc.primaryState,
-              //  "healthInsGroupId": "",
                 "yearsInBusiness": this.get_years_in_business()
             };
             if(requestJSON.yearsInBusiness < 3){
@@ -174,7 +176,7 @@ module.exports = class EmployersWC extends Integration {
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
                 if (!primaryContact.firstName || !primaryContact.lastName) {
-                    log.warn(`Employers WC App ID: ${this.app.id}: Cannot construct applicant name: "${applicantName}" ` + __location);
+                    log.warn(`${logPrefix}Cannot construct applicant name: "${applicantName}" ` + __location);
                 }
                 else {
                     applicantContact.name = applicantName;
@@ -191,7 +193,7 @@ module.exports = class EmployersWC extends Integration {
                 };
 
                 if (!appDoc.mailingAddress || !appDoc.mailingCity || !appDoc.mailingState || !address.zipCode) {
-                    log.warn(`Employers WC App ID: ${this.app.id}: Cannot fully construct address information. Some fields missing:` + __location);
+                    log.warn(`${logPrefix}Cannot fully construct address information. Some fields missing:` + __location);
                     log.debug(`Address: "${JSON.stringify(address)}"`);
                 }
                 else {
@@ -205,13 +207,13 @@ module.exports = class EmployersWC extends Integration {
                 requestJSON.proposalContact = proposalContact;
             }
             catch (err) {
-                log.error(`Employers WC: Appid: ${this.app.id} Problem creating contact information on quote request: ${err} ` + __location);
+                log.error(`${logPrefix}Problem creating contact information on quote request: ${err} ` + __location);
             }
 
             //We use the Agency Code (Entered in AP) only send the agencyCode so not to trigger secondary employer search
             requestJSON.agency = {"agencyCode": this.app.agencyLocation.insurers[this.insurer.id].agencyId};
 
-              //Just use the customerNumber for the agent, so not to trigger Employers secondary look up.
+            //Just use the customerNumber for the agent, so not to trigger Employers secondary look up.
             requestJSON.agent = {"customerNumber": this.app.agencyLocation.insurers[this.insurer.id].agencyId + "-" + this.app.agencyLocation.insurers[this.insurer.id].agentId};
 
             const association = this.app.agencyLocation.business.association;
@@ -226,10 +228,6 @@ module.exports = class EmployersWC extends Integration {
             // Ensure this entity type is in the entity matrix above
             if (!(appDoc.entityType in entityMatrix)) {
                 log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
-                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the selected entity type`);
-                // What happens if we need it.  We want the insurer to decline vs killing it ourselves.
-                fulfill(this.return_result('autodeclined'));
-                return;
             }
 
             const locations = [];
@@ -239,55 +237,119 @@ module.exports = class EmployersWC extends Integration {
             }
 
             for (const location of appDoc.locations) {
-                const locationJSON = {
-                    "primary": location.primary,
-                    "businessName": appDoc.businessName.substring(0,60).replace('&', ''),
-                    "taxPayerId": appDoc.ein,
-                    "unemploymentId": location.unemploymentId ? location.unemploymentId : 0,
-                    "numberOfEmployees": location.full_time_employees + location.part_time_employees,
-                    "shift1EmployeesCount": location.full_time_employees + location.part_time_employees,
-                    "shift2EmployeesCount": 0,
-                    "shift3EmployeesCount": 0,
-                    "address": {
-                        "streetAddress1": location.address.length > 300 ? location.address.substring(0,299) : location.address,
-                        "streetAddress2": location.address2,
-                        "city": location.city,
-                        "state": location.state,
-                        "zipCode": this.formatZipCodeForEmployers(location.zipcode)
-                    },
-                    "owners": appDoc.owners.map(owner => {
+                const locationJSON = {};
+
+                locationJSON.primary = appDoc.locations[0].primary = true;
+
+                const businessName = appDoc.businessName.substring(0,60).replace('&', '');
+                if (businessName) {
+                    locationJSON.businessName = businessName;
+                }
+
+                if (location.state === "NJ" && !appDoc.ein) {
+                    log.error(`${logPrefix}EIN Required for ${location.state}: ` + __location);
+                }
+                else if (appDoc.ein) {
+                    locationJSON.taxPayerId = appDoc.ein;
+                }
+
+                const unemploymentIdRequiredStates = [
+                    'HI',
+                    'ME',
+                    'NJ',
+                    'RI',
+                    'MN',
+                    'IA'
+                ];
+                if (unemploymentIdRequiredStates.includes(location.state) && !location.unemploymentId) {
+                    log.error(`${logPrefix}Unemployment ID required for ${location.state}` + __location);
+                }
+                else if (location.unemploymentId) {
+                    locationJSON.unemploymentId = location.unemploymentId
+                }
+
+                locationJSON.numberOfEmployees = location.full_time_employees + location.part_time_employees;
+                locationJSON.shift1EmployeesCount = location.full_time_employees + location.part_time_employees;
+                locationJSON.shift2EmployeesCount = 0;
+                locationJSON.shift3EmployeesCount = 0;
+
+                const address = {};
+                if (location.address) {
+                    address.streetAddress1 = location.address.length > 300 ? location.address.substring(0,299) : location.address;
+                }
+                else {
+                    log.error(`${logPrefix}Could not get location address` + __location);
+                }
+
+                address.streetAddress2 = location.address2 ? location.address2 : "";
+                if (location.city) {
+                    address.city = location.city;
+                }
+                else {
+                    log.error(`${logPrefix}Could not get location city` + __location);
+                }
+
+                if (location.state) {
+                    address.state = location.state;
+                }
+                else {
+                    log.error(`${logPrefix}Could not get location state` + __location);
+                }
+
+                if (location.zipcode) {
+                    address.zipCode = this.formatZipCodeForEmployers(location.zipcode);
+                }
+                else {
+                    log.error(`${logPrefix}Could not get location zipcode` + __location);
+                }
+
+                locationJSON.address = address;
+
+                locationJSON.owners = appDoc.owners.map(owner => {
                         const ownerObj = {
                         "firstName": owner.fname,
                         "lastName": owner.lname,
-                        "isIncluded": owner.include,
-                        "ownershipPercent": owner.ownership,
-                        "ownershipSalary": owner.payroll
+                        "isIncluded": Boolean(owner.include),
+                        "ownershipPercent": owner.ownership
                         };
+                        if (owner.payroll) {
+                            ownerObj.ownershipSalary = owner.payroll;
+                        }
+                        else if (ownerObj.isIncluded && location.state === "MT") {
+                            log.error(`${logPrefix}Ownership Salary is included for State MT when owner is included ` + __location);
+                        }
                         const ownerTitle = ownerTitleMatrix[owner.officerTitle];
-                        ownerObj.ownerTitle = {"code": ownerTitle ? ownerTitle : ""}
+                        if (ownerTitle) {
+                            ownerObj.ownerTitle = {"code": ownerTitle}
+                        }
                         return ownerObj;
-                        })
-                    };
+                        });
 
-                    locationJSON.rateClasses = [];
-                    for (const activityCode of location.activityPayrollList) {
-                        const insurerActivityCode = await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, activityCode.activityCodeId);
-                        log.debug(`Insurer Activity Code: ${JSON.stringify(insurerActivityCode)}`); // zy debug remove
-                        let classCode = "";
-                        if (!insurerActivityCode) {
-                            log.warn(`Appid: ${this.app.id}: ${this.insurer.name} Could not find insurerActivityCode for ${location.state} ` + __location);
-                        }
-                        else {
-                            classCode = insurerActivityCode.code + insurerActivityCode.sub;
-                        }
-                        const rateClass = {
-                            "classCode": classCode,
-                            "payrollAmount": activityCode.payroll
-                        }
-                        locationJSON.rateClasses.push(rateClass);
+                locationJSON.rateClasses = [];
+                for (const activityCode of location.activityPayrollList) {
+                    let insurerActivityCode = null;
+                    if (location.state) {
+                        insurerActivityCode = await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, activityCode.activityCodeId);
                     }
+                    else {
+                        log.error(`${logPrefix}Unable to find Insurer Activity Code due to missing state information ` + __location);
+                        continue;
+                    }
+                    let classCode = "";
+                    if (!insurerActivityCode) {
+                        log.warn(`Appid: ${this.app.id}: ${this.insurer.name} Could not find insurerActivityCode for ${location.state} ` + __location);
+                    }
+                    else {
+                        classCode = insurerActivityCode.code + insurerActivityCode.sub;
+                    }
+                    const rateClass = {
+                        "classCode": classCode,
+                        "payrollAmount": activityCode.payroll
+                    }
+                    locationJSON.rateClasses.push(rateClass);
+                }
 
-                    locations.push(locationJSON);
+                locations.push(locationJSON);
             }
 
             requestJSON.namedInsureds = [
@@ -483,7 +545,7 @@ module.exports = class EmployersWC extends Integration {
                     this.amount = quoteResponse.totalPremium;
                 }
                 else {
-                    log.error(`Appid: ${this.app.id} Employers WC: Quote premium value in quote reponse is not of type 'number' but instead ${typeof premium}`)
+                    log.error(`Appid: ${this.app.id} Employers WC: Quote premium value in quote reponse is not of type 'number' but instead ${typeof premium}` + __location)
                 }
             }
 
