@@ -5,7 +5,7 @@
 
 const moment = require('moment');
 const axios = require('axios');
-const _ = require('lodash');
+//const _ = require('lodash');
 
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
@@ -755,18 +755,28 @@ module.exports = class Application {
         if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
             const axiosOptions = {
                 timeout: 15000, // Timeout after 15 seconds
-                headers: {
-                    Accept: "application/json"
-                }
+                headers: {Accept: "application/json"}
             };
             const postParams = {
                 id: this.id,
                 insurerId: this.quoteInsurerId,
                 agencyPortalQuote: this.agencyPortalQuote
             }
-            const requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-quoting`;
+            let requestUrl = `http://localhost:4000/v1/run-quoting`;
+            if (global.settings.ENV !== 'development') {
+                //use ${ENV}quote.internal.talageins.com
+                requestUrl = `https://${global.settings.ENV}quote.internal.talageins.com/v1/run-quoting`;
+            }
+            //if global.settings.QUOTE_SERVER_URL is set it wins....
+            if(global.settings.QUOTE_SERVER_URL && global.settings.QUOTE_PUBLIC_API_PORT){
+                requestUrl = `${global.settings.QUOTE_SERVER_URL}:${global.settings.QUOTE_PUBLIC_API_PORT}/v1/run-quoting`;
+            }
+            else if(global.settings.QUOTE_SERVER_URL){
+                requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-quoting`;
+            }
 
             try {
+                log.debug(`calling ${requestUrl} for quoting` + __location)
                 return await axios.post(requestUrl, postParams, axiosOptions);
             }
             catch (ex) {
