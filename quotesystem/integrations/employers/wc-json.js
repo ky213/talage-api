@@ -230,6 +230,10 @@ module.exports = class EmployersWC extends Integration {
                 log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
             }
 
+
+            //Prepare some fields for use by locations and namedInsureds
+            const businessName = appDoc.businessName.substring(0,60).replace('&', '');
+
             const locations = [];
             //If there is only one location make sure it is marked as primary.  Old apps used in renewal may not have it marked.
             if(appDoc.locations?.length === 1 && appDoc.locations[0].primary !== true){
@@ -241,7 +245,6 @@ module.exports = class EmployersWC extends Integration {
 
                 locationJSON.primary = appDoc.locations[0].primary = true;
 
-                const businessName = appDoc.businessName.substring(0,60).replace('&', '');
                 if (businessName) {
                     locationJSON.businessName = businessName;
                 }
@@ -352,29 +355,45 @@ module.exports = class EmployersWC extends Integration {
                 locations.push(locationJSON);
             }
 
-            requestJSON.namedInsureds = [
-                {
-                  "name": appDoc.businessName.substring(0,60).replace('&', ''),
-                  "fein": appDoc.ein,
-                  "legalEntity": {"code": entityMatrix[appDoc.entityType]},
-                  "locations": locations
-                }
-            ];
+            requestJSON.namedInsureds = [{}];
+            if (businessName) {
+                requestJSON.namedInsureds[0].name = businessName;
+            }
+            else {
+               log.error(`${logPrefix}Could not get business name` + __location);
+            }
+
+            if (appDoc.ein) {
+                requestJSON.namedInsureds[0].fein = appDoc.ein;
+            }
+            else {
+               log.error(`${logPrefix}Could not get EIN` + __location);
+            }
+
+            const entityCode = entityMatrix[appDoc.entityType];
+            if (entityCode) {
+                requestJSON.namedInsureds[0].legalEntity = {"code": entityCode}
+            }
+            else {
+               log.error(`${logPrefix}Could not find entity code ${appDoc.entityType} in Entity Matrix ` + __location);
+            }
+
+            requestJSON.namedInsureds[0].locations = locations;
+
 
             // Prepare limits
             const bestLimits = this.getBestLimits(carrierLimits);
             if (!bestLimits) {
-                log.warn(`Appid: ${this.app.id} autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
-                fulfill(this.return_result('autodeclined'));
-                return;
+                log.warn(`Appid: ${this.app.id} no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            }
+            else {
+                requestJSON.wcelCoverageLimits = {
+                    "claimLimit": bestLimits[0],
+                    "employeeLimit": bestLimits[2],
+                    "policyLimit": bestLimits[1]
+                };
             }
 
-            requestJSON.wcelCoverageLimits = {
-                "claimLimit": bestLimits[0],
-                "employeeLimit": bestLimits[2],
-                "policyLimit": bestLimits[1]
-            };
 
             // Prepare claims by year
             let claimsByYear = null;
@@ -401,9 +420,7 @@ module.exports = class EmployersWC extends Integration {
 
             // Prepare questions
 
-            const validQuestions = [];
-            //This needs to flip to be loop on talagequestions not insurer questions.
-            // currently Logic does not allow multiple insurer questions to be mapped to one talage question.
+            requestJSON.questions = [];
             for (const insurerQuestion of this.insurerQuestionList) {
                     const question = this.questions[insurerQuestion.talageQuestionId];
 
@@ -458,17 +475,12 @@ module.exports = class EmployersWC extends Integration {
                     }
                     if(goodQuestion){
                         // Save this as an answered question
-                        validQuestions.push({
-                            code: questionCode,
-                            entry: question
+                        requestJSON.questions.push({
+                            "questionCode": questionCode,
+                            "value": question.get_answer_as_boolean() ? 'YES' : 'NO'
                         });
                     }
             }
-            //Why this unstead of building array in the question loop
-            requestJSON.questions = validQuestions.map(question => ({
-                "questionCode": question.code,
-                "value": question.entry.get_answer_as_boolean() ? 'YES' : 'NO'
-            }))
 
             //call API
             let host = null;
