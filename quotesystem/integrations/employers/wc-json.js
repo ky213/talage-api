@@ -34,12 +34,12 @@ module.exports = class EmployersWC extends Integration {
      */
     formatPhoneForEmployers(phone) {
         if (!phone || typeof phone !== 'string') {
-            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
+            log.error(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
             return '';
         }
         const phoneDigits = phone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
-            log.warn(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
+            log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
             return '';
         }
         const newPhone = [];
@@ -51,12 +51,12 @@ module.exports = class EmployersWC extends Integration {
 
     formatZipCodeForEmployers(zipcode) {
         if (!zipcode || typeof zipcode !== 'string') {
-            log.warn(`Employers WC App ID: ${this.app.id}: Bad zipcode format: "${zipcode}" ` + __location);
+            log.error(`Employers WC App ID: ${this.app.id}: Bad zipcode format: "${zipcode}" ` + __location);
             return '';
         }
         const zipDigits = zipcode.trim().replace(/\D/g, '');
         if (zipDigits.length !== 5 && zipDigits.length !== 9) {
-            log.warn(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in zip code: ${zipcode} ` + __location);
+            log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in zip code: ${zipcode} ` + __location);
             return '';
         }
         if (zipDigits.length === 5) {
@@ -77,64 +77,64 @@ module.exports = class EmployersWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     _insurer_quote() {
-        const appDoc = this.app.applicationDocData;
-
-        const logPrefix = `Employers WC (Appid: ${this.app.id}): `;
-
-        // These are the statuses returned by the insurer and how they map to our Talage statuses
-        this.possible_api_responses.DECLINED = 'declined';
-        this.possible_api_responses.IN_PROGRESS = 'referred';
-        this.possible_api_responses.PENDING_REFERRAL = 'referred_with_price';
-        this.possible_api_responses.QUOTED = 'quoted';
-        this.possible_api_responses.REFERRED = 'referred';
-
-        // These are the limits supported by Employers
-        const carrierLimits = ['100000/500000/100000',
-            '500000/500000/500000',
-            '1000000/1000000/1000000',
-            '2000000/2000000/2000000'];
-
-        // Define how legal entities are mapped for Employers
-        const entityMatrix = {
-            Association: 'AS',
-            Corporation: 'CP',
-            'Limited Liability Company': 'LL',
-            'Limited Partnership': 'LP',
-            Partnership: 'PT',
-            'Sole Proprietorship': 'IN'
-        };
-
-        // Define how owner titles are mapped for Employers
-        // Owner title codes from https://eigservices.atlassian.net/wiki/spaces/DUG/pages/1070663103/WorkCompIndividuals+Endorsement+Codes
-        const ownerTitleMatrix = {
-            'Chief Executive Officer': 'CE',
-            'Chief Financial Officer': 'CF',
-            'Chief Operating Officer': 'CO',
-            'Director': 'DI',
-            'Vice President': 'VP',
-            'Executive Vice President': 'EV',
-            'Executive Secy-VP': 'EY',
-            'Executive Secretary': 'ES',
-            'Treasurer': 'TR',
-            'Secy-Treas': 'ST',
-            'Secretary': 'SE',
-            'President': 'PR',
-            'Pres-VP-Secy-Treas': 'PA',
-            'Pres-VP-Secy': 'PC',
-            'Pres-VP': 'PV',
-            'Pres-Treas': 'PE',
-            'Pres-Secy-Treas': 'PS',
-            'Pres-Secy': 'PY',
-            'VP-Treas': 'VT',
-            'VP-Secy-Treas': 'VY',
-            'VP-Secy': 'VS'
-        };
-
-        // Define a list of required questions
-        const required_questions = [979];
-
         // Build the Promise
         return new Promise(async(fulfill) => {
+            const appDoc = this.app.applicationDocData;
+
+            const logPrefix = `Employers WC (Appid: ${this.app.id}): `;
+
+            // These are the statuses returned by the insurer and how they map to our Talage statuses
+            this.possible_api_responses.DECLINED = 'declined';
+            this.possible_api_responses.IN_PROGRESS = 'referred';
+            this.possible_api_responses.PENDING_REFERRAL = 'referred_with_price';
+            this.possible_api_responses.QUOTED = 'quoted';
+            this.possible_api_responses.REFERRED = 'referred';
+
+            // These are the limits supported by Employers
+            const carrierLimits = ['100000/500000/100000',
+                '500000/500000/500000',
+                '1000000/1000000/1000000',
+                '2000000/2000000/2000000'];
+
+            // Define how legal entities are mapped for Employers
+            const entityMatrix = {
+                Association: 'AS',
+                Corporation: 'CP',
+                'Limited Liability Company': 'LL',
+                'Limited Partnership': 'LP',
+                Partnership: 'PT',
+                'Sole Proprietorship': 'IN'
+            };
+
+            // Define how owner titles are mapped for Employers
+            // Owner title codes from https://eigservices.atlassian.net/wiki/spaces/DUG/pages/1070663103/WorkCompIndividuals+Endorsement+Codes
+            const ownerTitleMatrix = {
+                'Chief Executive Officer': 'CE',
+                'Chief Financial Officer': 'CF',
+                'Chief Operating Officer': 'CO',
+                'Director': 'DI',
+                'Vice President': 'VP',
+                'Executive Vice President': 'EV',
+                'Executive Secy-VP': 'EY',
+                'Executive Secretary': 'ES',
+                'Treasurer': 'TR',
+                'Secy-Treas': 'ST',
+                'Secretary': 'SE',
+                'President': 'PR',
+                'Pres-VP-Secy-Treas': 'PA',
+                'Pres-VP-Secy': 'PC',
+                'Pres-VP': 'PV',
+                'Pres-Treas': 'PE',
+                'Pres-Secy-Treas': 'PS',
+                'Pres-Secy': 'PY',
+                'VP-Treas': 'VT',
+                'VP-Secy-Treas': 'VY',
+                'VP-Secy': 'VS'
+            };
+
+            // Define a list of required questions
+            const required_questions = [979];
+
 
             // Log a warning message if there is no location state that matches the business primary state, as Employers will decline
             if (!appDoc.locations.find(location => location.state === appDoc.primaryState)) {
@@ -384,7 +384,7 @@ module.exports = class EmployersWC extends Integration {
             // Prepare limits
             const bestLimits = this.getBestLimits(carrierLimits);
             if (!bestLimits) {
-                log.warn(`Appid: ${this.app.id} no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+                log.error(`Appid: ${this.app.id} no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
             }
             else {
                 requestJSON.wcelCoverageLimits = {
@@ -450,10 +450,7 @@ module.exports = class EmployersWC extends Integration {
                         answer = this.determine_question_answer(question, required_questions.includes(question.id));
                     }
                     catch (error) {
-                        log.error(`Appid: ${this.app.id} Employers WC: Unable to determine answer for question ${question.id} error: ${error} ` + __location)
-                        this.reasons.push(`Unable to determine answer for question ${question.id}`);
-                       // fulfill(this.return_result('error'));
-                       // return;
+                        log.error(`${logPrefix}Unable to determine question answer for Talage Question ${JSON.stringify(question)} linked to Insurer Question Id: ${insurerQuestion.insurerQuestionId}. Error: ${error} ` + __location);
                     }
 
                     // This question was not answered
@@ -464,14 +461,7 @@ module.exports = class EmployersWC extends Integration {
                     // Ensure the question is only yes/no at this point
                     if (question.type !== 'Yes/No') {
                         goodQuestion = false
-                        //More information in the log talageQuestionId and insurerquesiton id.
-                        log.error(`Appid: ${this.app.id}Employers WC: Unknown question type supported. Employers only has Yes/No. ` + __location)
-                        //this.reasons.push('Unknown question type supported. Employers only has Yes/No.');
-                        // Do not stop quoting over a single question.  Make insurer decline or referr it.
-                        // Do not add question to the submission either.
-                        // Mapping is bad. just log it so mapping team can fix it.
-                        // fulfill(this.return_result('error'));
-                        // return;
+                        log.error(`${logPrefix}Unsupported question type "${question.type}" for Talage Question ${JSON.stringify(question)} linked to Insurer Question Id: ${insurerQuestion.insurerQuestionId}. Employers only supports "Yes/No". ` + __location);
                     }
                     if(goodQuestion){
                         // Save this as an answered question
