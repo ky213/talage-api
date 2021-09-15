@@ -143,7 +143,7 @@ module.exports = class EmployersWC extends Integration {
 
             const requestJSON = {
             // Employers has us define our own Request ID
-                "id": this.generate_uuid(),
+                "id": this.app.id,
                 "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
                 "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
                 "primaryRiskState": appDoc.primaryState,
