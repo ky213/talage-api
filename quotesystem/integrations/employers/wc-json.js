@@ -487,14 +487,15 @@ module.exports = class EmployersWC extends Integration {
                     appToken: this.password
                 };
 
-            this.log += `--------======= Sending to Employers =======--------<br><br>`;
-            this.log += `<b>Request started at ${moment_timezone().utc().toISOString()}</b><br><br>`;
-            this.log += `URL: ${host}${path}<br><br>`;
-            this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
-            this.log += `--------======= End =======--------<br><br>`;
+            // This logging is being done by this.send_json_request()
+            // this.log += `--------======= Sending to Employers =======--------<br><br>`;
+            // this.log += `<b>Request started at ${moment_timezone().utc().toISOString()}</b><br><br>`;
+            // this.log += `URL: ${host}${path}<br><br>`;
+            // this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
+            // this.log += `--------======= End =======--------<br><br>`;
 
             let quoteResponse = null;
-            log.info(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
+            log.debug(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
             try {
                 quoteResponse = await this.send_json_request(host, path, JSON.stringify(requestJSON), additionalHeaders, 'POST', true, true);
             }
@@ -581,16 +582,6 @@ module.exports = class EmployersWC extends Integration {
             catch (err) {
                 if (status === 'QUOTED') {
                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.` + __location);
-                }
-            }
-
-            // Grab the reasons
-            try {
-                quoteResponse.errors.forEach(error => `${error.code} - ${error.message}`)
-            }
-            catch (err) {
-                if (status === 'IN_PROGRESS') {
-                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to grab reasons.` + __location);
                 }
             }
 
