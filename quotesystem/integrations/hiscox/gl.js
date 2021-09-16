@@ -197,21 +197,29 @@ module.exports = class HiscoxGL extends Integration {
         this.last_name = this.app.agencyLocation.last_name
         // If talageWholeSale
         if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
-            this.agencyId = this.app.agencyLocation.quotingAgencyLocationDB.agencyId
+            //Use Talage Agency.
+            const talageAgencyId = 1;
+            this.agencyId = talageAgencyId
 
             const AgencyBO = global.requireShared('./models/Agency-BO.js');
             const agencyBO = new AgencyBO();
-            const agencyInfo = await agencyBO.getById(this.app.agencyLocation.quotingAgencyLocationDB.agencyId);
+            const agencyInfo = await agencyBO.getById(this.agencyId);
             this.agency = agencyInfo.name;
-            this.agencyEmail = this.app.agencyLocation.quotingAgencyLocationDB.agencyEmail;
-            this.agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.agencyPhone;
-            this.first_name = this.app.agencyLocation.quotingAgencyLocationDB.first_name
-            this.last_name = this.app.agencyLocation.quotingAgencyLocationDB.last_name
+            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+            const agencyLocationBO = new AgencyLocationBO();
+            const talageAgencyLocationId = 1;
+
+            const agencyLocationInfo = await agencyLocationBO.getById(talageAgencyLocationId);
+
+            this.agencyEmail = agencyLocationInfo.email;
+            this.agencyPhone = agencyLocationInfo.phone;
+            this.first_name = agencyLocationInfo.firstName
+            this.last_name = agencyLocationInfo.lastName
         }
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.agencyEmail || !this.agencyPhone) {
-            this.log_error(`AppId: ${this.app.id} Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
+            this.log_error(`AppId: ${this.app.id} Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote. Talage Wholesale ${this.app.agencyLocation.insurers[this.insurer.id].talageWholesale}`, __location);
             this.reasons.push(`Hiscox requires an agency to provide both a phone number and email address`);
             return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
