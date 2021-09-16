@@ -102,3 +102,40 @@ Gitlab pipelines are configured to enforce linting on the server so it is highly
 ## Notes:
 
 - If you are running against a local MySQL instance and receive and error regarding incompatibility with "sql_mode=only_full_group_by", please notify someone of it immediately.
+
+# Quote Web Service
+
+Quote Web Service is a web service that allows you to run quoting in a separate process from talage-api. By default, this feature is disabled.
+
+## Where does quote service live?
+
+For now, it exists alongside talage-api in the talage-api repo.
+
+## Configuration:
+
+Set these local.env variables:
+
+	# Use the quote webservice. If this is off, then the talage-api server will run
+	# quoting locally. If set to 'YES', then talage-api will instead do a REST call
+	# to the Quote service.
+	ENABLE_QUOTE_API_SERVER=YES
+
+	QUOTE_PUBLIC_API_PORT=4000
+
+	# By default, quote server runs on localhost on port 4000. If this is not the
+	# case, then change this to something different. talage-api uses this variable
+	# to determine what host it should hit when doing the REST call for the quote
+	# service.
+	QUOTE_SERVER_URL=http://localhost:4000
+
+## How to start quote service:
+
+    npm run devquote
+
+--- or ---
+
+    npm run servequote
+
+--- or ---
+
+    node index-quote.js
