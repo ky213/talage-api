@@ -540,7 +540,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 occupancy = "Owner Occupied Bldg - More than 10%";
             }
             else {
-                occupancy = "Non-Owner Occupied Bldg."
+                occupancy = "Tenant"
             }
 
             const locationObj = {
