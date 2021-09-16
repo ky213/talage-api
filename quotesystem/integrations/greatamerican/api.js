@@ -11,7 +11,7 @@ const getApiUrl = (integration) => {
     if (integration.insurer.useSandbox) {
         return 'https://uat01.api.gaig.com';
     }
-    return 'https:///prod01.api.gaig.com';
+    return 'https://prod01.api.gaig.com';
 }
 
 const getToken = async(integration) => {
@@ -407,13 +407,15 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
 
     const newEligibilityParameters = _.cloneDeep(questionSession);
 
-    if(newEligibilityParameters && newEligibilityParameters.riskSelection){
-        delete newEligibilityParameters.riskSelection.data;
-    }
+    if(newEligibilityParameters){
+        if(newEligibilityParameters.riskSelection){
+            delete newEligibilityParameters.riskSelection.data;
+        }
 
-    newEligibilityParameters.riskSelection = {
-        input: answerSession
-    };
+        newEligibilityParameters.riskSelection = {
+            input: answerSession
+        };
+    }
     let appetite = null;
     try{
         appetite = await axios.post(`${getApiUrl(integration)}/shop/api/newBusiness/eligibility`, newEligibilityParameters, {

@@ -16,9 +16,7 @@ const route = async(req, res, next) => {
     // NOTE: Do not use 'await'! Quoting is executed in the background! We do
     // not block before returning.
     doQuoting(app);
-    res.send(200, {
-        success: true
-    });
+    res.send(200, {success: true});
     next();
 }
 
@@ -37,6 +35,32 @@ async function doQuoting(app) {
     }
 }
 
+
+// eslint-disable-next-line require-jsdoc
+async function getUptime(req, res, next) {
+    res.setHeader('content-type', 'application/xml');
+    const startTime = process.hrtime();
+    // Check the database connection by selecting all active activity codes
+    // let error = false;
+    // const agencyNetworkBO = new AgencyNetworkBO();
+    // await agencyNetworkBO.getById(1).catch(function(e){
+    //     log.error(e.message + __location);
+    //     error = true;
+    // });
+
+    // Calculate the elapsed time
+    const elapsed = process.hrtime(startTime)[1] / 1000000;
+
+    // Send the appropriate response
+    // if (error) {
+    //     res.end(`<pingdom_http_custom_check> <status>DOWN</status> <response_time>${elapsed.toFixed(8)}</response_time> <version>${global.version}</version> </pingdom_http_custom_check>`);
+    //     return next();
+    // }
+    res.end(`<pingdom_http_custom_check> <status>OK</status> <response_time>${elapsed.toFixed(8)}</response_time> <version>${global.version}</version> </pingdom_http_custom_check>`);
+    return next();
+}
+
 exports.registerEndpoints = (server) => {
-    server.addPostAuth('Run quote retrieval ', `/v1/run-quoting`, route);
+    server.addPost('Run quote retrieval ', `/v1/run-quoting`, route);
+    server.addGet('Run quote retrieval ', `/quote/uptime`, getUptime);
 };

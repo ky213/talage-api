@@ -167,7 +167,11 @@ async function setupListeners() {
     // Configure the server and register endpoints
     const isDevelopment = global.settings.ENV === 'development';
     // Create the public server
-    if(!await server.create('0.0.0.0', global.settings.QUOTE_PUBLIC_API_PORT, 'quotesystem/quoting-endpoints', true, isDevelopment, logInfoMessage, logErrorMessage)){
+    let quotePort = 4000;
+    if(global.settings.QUOTE_PUBLIC_API_PORT){
+        quotePort = global.settings.QUOTE_PUBLIC_API_PORT
+    }
+    if(!await server.create('0.0.0.0',quotePort, 'quotesystem/quoting-endpoints', true, isDevelopment, logInfoMessage, logErrorMessage)){
         logLocalErrorMessage('Error starting public quote server. Stopping.');
         return;
     }
