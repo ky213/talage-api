@@ -21,7 +21,6 @@ const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
-const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
 const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
 
@@ -768,7 +767,12 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "liquorLiab.typeOfSales":
-                    liquorLiab.push({id: "type", answer})
+                    const answerTranslations = {
+                        "Manufacturing Wholesalers or Distributors Selling Alcohol For Consumption Off Premises": "Type 1",
+                        "Restaurants or Motels Including Package Sales": "Type 2",
+                        "Package Stores and Other Retail Establishments Selling Alcohol For Consumption Off Premises": "Type 3"
+                    };
+                    liquorLiab.push({id: "type", answer: answerTranslations[answer]})
                     break;
                 case "liquorLiab.limit":
                     liquorLiab.push({id: "limit", answer})
