@@ -172,6 +172,8 @@ module.exports = class EmployersWC extends Integration {
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
+                    billingContact.phoneNumber = formattedPhone;
+                    proposalContact.phoneNumber = formattedPhone;
                 }
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
@@ -264,11 +266,11 @@ module.exports = class EmployersWC extends Integration {
                     'MN',
                     'IA'
                 ];
-                if (unemploymentIdRequiredStates.includes(location.state) && !location.unemploymentId) {
+                if (unemploymentIdRequiredStates.includes(location.state) && !location.unemployment_num) {
                     log.error(`${logPrefix}Unemployment ID required for ${location.state}` + __location);
                 }
-                else if (location.unemploymentId) {
-                    locationJSON.unemploymentId = location.unemploymentId
+                else if (location.unemployment_num) {
+                    locationJSON.unemploymentId = location.unemployment_num
                 }
 
                 locationJSON.numberOfEmployees = location.full_time_employees + location.part_time_employees;
