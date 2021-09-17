@@ -507,7 +507,7 @@ module.exports = class EmployersWC extends Integration {
                 this.log += `--------======= Employers Request Error =======--------<br><br>`;
                 this.log += err;
                 this.log += `--------======= End =======--------<br><br>`;
-
+                fulfill(this.return_result('error'));
             }
 
             if (!quoteResponse || !quoteResponse.success) {
