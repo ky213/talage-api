@@ -605,7 +605,8 @@ async function getAgencyMetadata(req, res, next) {
         metaPhone: landingPageLocation.phone,
         metaEmail: landingPageLocation.email,
         metaCALicence: agencyJson.caLicenseNumber,
-        metaHasAbout: Boolean(agencyJson.about)
+        metaHasAbout: Boolean(agencyJson.about),
+        metaAgencyNetworkId: agencyJson.agencyNetworkId
     };
 
     // dont pass back data that isnt there

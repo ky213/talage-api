@@ -32,9 +32,13 @@ async function getResources(req, res, next){
         case "_basic":
         case "_basic-created":
             entityTypes(resources);
+            if(req.query.agencyNetworkId){
+                await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId);
+            }
             break;
         case "_policies":
             await policyHelper.populatePolicyResources(resources, req.query.appId);
+            
             break;
         case "_business-questions":
             membershipTypes(resources);
@@ -94,24 +98,28 @@ const officerEmployeeTypes = async(resources, appId) => {
     resources.officerEmployeeTypes = activityCodes;
 }
 
-const agencyNetworkFeatures = async(resources, appId) => {
-    const applicationBO = new ApplicationBO();
-    const applicationDB = await applicationBO.getById(appId);
-
-    const agencyNetworkBO = new AgencyNetworkBO();
+const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
     let agencyNetworkDB = null;
-
-    if(applicationDB){
-        agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+    const agencyNetworkBO = new AgencyNetworkBO();
+    if(appId){
+        const applicationBO = new ApplicationBO();
+        const applicationDB = await applicationBO.getById(appId);
+        if(applicationDB){
+            agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+        }
+    }else {
+        agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
     }
 
     // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
     const quoteAppBinding = agencyNetworkDB?.featureJson?.quoteAppBinding === true;
     const appSingleQuotePath = agencyNetworkDB?.featureJson?.appSingleQuotePath === true;
+    const agencyCodeField = agencyNetworkDB?.featureJson.enableAgencyCodeField === true;
     // get the agency network features we care about here.
     resources.agencyNetworkFeatures = {
         quoteAppBinding,
-        appSingleQuotePath
+        appSingleQuotePath,
+        agencyCodeField
     };
 }
 
