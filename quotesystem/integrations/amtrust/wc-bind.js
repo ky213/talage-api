@@ -132,8 +132,7 @@ class AmTrustBind extends Bind {
             }
         }
         catch(err){
-           log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: setup payment plans error: ${err} ${__location}`);
-
+            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: setup payment plans error: ${err} ${__location}`);
         }
         const paymentPlanJSON = {
             "BillingType": "Direct",
