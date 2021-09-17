@@ -2,16 +2,14 @@
 'use strict';
 
 const moment = require('moment');
-const moment_timezone = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyModel = require('mongoose').model('Agency');
+const AgencyPortalUserModel = require('mongoose').model('AgencyPortalUser');
 
 /**
  * User Login Task processor
@@ -55,66 +53,70 @@ exports.processtask = async function(queueMessage){
 
 var siuUserLoginReportTask = async function(){
 
-   // query for SIU users.
+    // query for SIU users.
+    const query = {"$match": {$or: [
+        {"agencyId": {"$in": await AgencyModel.distinct("systemId",{"agencyNetworkId": 4})}}, {"agencyNetworkId": 4}
+    ]}};
 
+    const usersLoginInfoList = await AgencyPortalUserModel.aggregate([
+        query, {$project: {
+            _id:0,
+            email: 1,
+            lastLogin: 1
+        }}
+    ]);
 
-    const dbDataColumns = {
-        "id": "Agency ID",
-        "name": "Angency Name",
-        "state": "Active",
-        "networkName": "Agency Network",
-        "created": "Created",
-        "wholesale_agreement_signed":"Wholesale Agreement Signed",
-        "modified": "Modified",
-        "deleted": "Deleted"
-    };
-
-    
-
-        //Map list of agencies to CSV
-        // eslint-disable-next-line object-property-newline
-        const stringifyOptions = {
-            "header": true,
-            "columns": dbDataColumns
-        };
-        const csvData = await csvStringify(agencyList, stringifyOptions).catch(function(err){
-            log.error("User Login JSON to CSV error: " + err + __location);
-            return;
-        });
-
-
-        if(csvData){
-            var b = Buffer.from(csvData);
-            const csvContent = b.toString('base64');
-            // send email
-            // Production email goes to Adam.
-            // non production Brian so we can test it.
-            let toEmail = 'jmaloney@siuins.com';
-            if(global.settings.ENV !== 'production'){
-                toEmail = 'brian@talageins.com';
-            }
-            const attachmentJson = {
-                'content': csvContent,
-                'filename': 'AgencyReport.csv',
-                'type': 'text/csv',
-                'disposition': 'attachment'
-            };
-            const attachments = [];
-            attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'User Login', 'User Login Report', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
-            if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to send User Login email.`);
-            }
-            return;
+    for (const userLoginInfo of usersLoginInfoList) {
+        if (userLoginInfo.lastLogin === null) {
+            userLoginInfo.lastLogin = 'never logged in';
         }
         else {
-            log.error("User Login JSON to CSV error: csvData empty file: " + __location);
-            return;
+            userLoginInfo.lastLogin = userLoginInfo.lastLogin.toISOString();
         }
-
     }
-    // else {
-    //     // no users .... big error /bug
-    //     return;
-    // }
+
+    const dbDataColumns = {
+        "email": "Email",
+        "lastLogin": "Last Login"
+    };
+
+    //Map list of agencies to CSV
+    // eslint-disable-next-line object-property-newline
+    const stringifyOptions = {
+        "header": true,
+        "columns": dbDataColumns
+    };
+    const csvData = await csvStringify(usersLoginInfoList, stringifyOptions).catch(function(err){
+        log.error("User Login JSON to CSV error: " + err + __location);
+        return;
+    });
+
+    if(csvData){
+        var b = Buffer.from(csvData);
+        const csvContent = b.toString('base64');
+        // send email
+        // non-production send to Brian so we can test it.
+        let toEmail = 'jmaloney@siuins.com';
+        if(global.settings.ENV !== 'production'){
+            toEmail = 'brian@talageins.com';
+        }
+        const attachmentJson = {
+            'content': csvContent,
+            'filename': 'Agency User Login Report.csv',
+            'type': 'text/csv',
+            'disposition': 'attachment'
+        };
+        const attachments = [];
+        attachments.push(attachmentJson);
+        const emailResp = await emailSvc.send(toEmail, 'User Login', 'User Login Report', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
+        if(emailResp === false){
+            slack.send('#alerts', 'warning',`The system failed to send User Login email.`);
+        }
+        return;
+    }
+    else {
+        log.error("User Login JSON to CSV error: csvData empty file: " + __location);
+        return;
+    }
+
 }
