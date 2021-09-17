@@ -80,7 +80,7 @@ var siuUserLoginReportTask = async function(){
         "lastLogin": "Last Login"
     };
 
-    //Map list of agencies to CSV
+    //Map list of User Logins to CSV
     // eslint-disable-next-line object-property-newline
     const stringifyOptions = {
         "header": true,
@@ -102,7 +102,7 @@ var siuUserLoginReportTask = async function(){
         }
         const attachmentJson = {
             'content': csvContent,
-            'filename': 'Agency User Login Report.csv',
+            'filename': 'User Login Report.csv',
             'type': 'text/csv',
             'disposition': 'attachment'
         };
