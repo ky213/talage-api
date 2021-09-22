@@ -152,6 +152,7 @@ exports.registerEndpoints = (server) => {
     // new quote app endpoints
     registerEndpoint(server, 'mitsumori', 'route-planner-rt');
     registerEndpoint(server, 'mitsumori', 'resources-rt');
+    registerEndpoint(server, 'mitsumori', 'load-application-rt');
     registerEndpoint(server, 'mitsumori', 'agency-quote-rt');
     registerEndpoint(server, 'mitsumori', 'application-meta-rt');
     registerEndpoint(server, 'mitsumori', 'auth-quote-rt');

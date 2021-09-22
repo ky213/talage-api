@@ -43,7 +43,8 @@ const bopRequirements = {
     },
     grossSalesAmt: {requirement: required},
     ein: {requirement: optional},
-    coverageLapseWC: {requirement: hidden}
+    coverageLapseWC: {requirement: hidden},
+    yearsOfExp: {requirement: required}
 };
 
 const glRequirements = {
@@ -68,7 +69,8 @@ const glRequirements = {
         }
     },
     grossSalesAmt: {requirement: required},
-    coverageLapseWC: {requirement: hidden}
+    coverageLapseWC: {requirement: hidden},
+    yearsOfExp: {requirement: required}
 };
 
 const wcRequirements = {
@@ -98,7 +100,8 @@ const wcRequirements = {
         }
     },
     grossSalesAmt: {requirement: hidden},
-    ein: {requirement: required}
+    ein: {requirement: required},
+    yearsOfExp: {requirement: required}
 };
 
 const plRequirements = {
@@ -122,6 +125,7 @@ const plRequirements = {
         }
     },
     grossSalesAmt: {requirement: required},
+    yearsOfExp: {requirement: required},
     coverageLapseWC: {requirement: hidden}
 };
 
