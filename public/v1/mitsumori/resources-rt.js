@@ -22,7 +22,7 @@ async function getResources(req, res, next){
     if(req.userTokenData.applicationId !== req.query.appId){
         log.warn("Unauthorized attempt to access Application resources" + __location);
         res.send(403);
-        return;
+        return next(serverHelper.requestError('Unauthorized'));
     }
 
     // This endpoint recieves application Id, we should be able to utilize that to make this endpoint smart, i.e. agencyId for the application to determine policy limits
@@ -69,6 +69,7 @@ async function getResources(req, res, next){
     }
 
     res.send(200, resources);
+    return next();
 }
 
 const officerEmployeeTypes = async(resources, appId) => {
@@ -255,14 +256,14 @@ const territories = resources => {
 async function getRemoteAddress(req, res, next){
     const remoteAdd = req.connection.remoteAddress;
     if(!remoteAdd){
-        next(serverHelper.requestError(`Unable to detect the remote address.`));
-        return;
+        return next(serverHelper.requestError(`Unable to detect the remote address.`));
     }
     res.send(200, {remoteAddress: req.connection.remoteAddress});
+    return next();
 }
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthQuoteApp("Get Next Route", `${basePath}/resources`, getResources);
+    server.addGetAuthQuoteApp("Get Page Resources", `${basePath}/resources`, getResources);
     server.addGetAuthQuoteApp("Get IP Info", `${basePath}/remote-address`, getRemoteAddress);
 }
