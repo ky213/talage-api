@@ -88,6 +88,7 @@ function parseQuoteURL(url) {
         "_officers",
         "_questions",
         "_quotes",
+        "_load",
         "404"
     ];
 
