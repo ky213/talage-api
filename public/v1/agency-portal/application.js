@@ -1966,6 +1966,140 @@ async function GetBopCodes(req, res, next){
     return next();
 }
 
+async function PutApplicationLink(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure all elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'emailAddress')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agentEmail')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    const applicationId = req.body.applicationId;
+
+    // create hash
+    const hash = await crypt.hash(applicationId);
+
+    // store hash in redis with application id as value
+    // eslint-disable-next-line object-shorthand
+    await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId}), applicationLinkTimeout);
+
+    const link = await SendApplicationLinkEmail(req.body, hash);
+
+    // return link to frontend to show link (SHOULD WE STORE THE LINK ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
+    // eslint-disable-next-line object-shorthand
+    res.send(200, {link});
+    return next();
+}
+
+async function SendApplicationLinkEmail(reqBody, hash){
+    // reqBody: {
+    //     firstName,
+    //     lastName,
+    //     emailAddress,
+    //     pageSlug,
+    //     applicationId,
+    //     businessName,
+    //     agentEmail
+    //     agentName
+    // }
+
+    // get agency
+    const applicationBO = new ApplicationBO();
+    const application = await applicationBO.getById(reqBody.applicationId);
+
+    const agencyBO = new AgencyBO();
+    const agency = await agencyBO.getById(application.agencyId);
+
+    // TODO: get agency location and read agent email from it
+
+    let env = "";
+    switch(global.settings.ENV){
+        case "development":
+            env = "http://localhost:8080";
+            break;
+        case "awsdev":
+            env = "https://dev.wh-app.io";
+            break;
+        case "staging":
+            env = "https://sta.wh-app.io";
+            break;
+        case "demo":
+            env = "https://demo.wh-app.io";
+            break;
+        case "production":
+            env = "https://wh-app.io";
+            break;
+        default:
+            // dont send the email
+            log.error(`Failed to send application link to ${emailData.to}, invalid environment. ${__location}`);
+            return;
+    }
+
+    let link = "";
+    if(reqBody.pageSlug){
+        link = `${env}/${agency.slug}/${reqBody.pageSlug}/_load/${hash}`;
+    }
+    else{
+        link = `${env}/${agency.slug}/_load/${hash}`;
+    }
+    // TODO: should we use agency.email or agency location email?
+    const emailData = {
+        html: `
+            <p>
+                Hello${reqBody.firstName ? ` ${reqBody.firstName}` : ""},
+            </p>
+            <p>
+                ${reqBody.agentName ? `${reqBody.agentName} at ` : ""}${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
+                <br/>
+                Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
+                <br/>
+                If you ever need help, ${reqBody.agentName ? `${reqBody.agentName} is ` : "we're"} still right here to help ensure you get the best policy at the best value. 
+                <br/>
+                If you have any questions, let us know at ${agency.email}${reqBody.agentName ? ` or reach out to ${reqBody.agentName} directly.` : "."}
+            </p>
+            <div align="center">
+                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
+                <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
+                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
+                </a>
+                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
+            </div>
+            <p align="center">
+                If the button does not work try pasting this link into your browser:
+                <br/>
+                <a href="${link}" target="_blank">
+                    ${link}
+                </a>
+            </p>
+        `,
+        subject: 'A portal to your application',
+        to: `${reqBody.emailAddress},${reqBody.agentEmail}`
+    };
+
+    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
+    if(!emailSent){
+        log.error(`Failed to send application link to ${emailData.to}.`);
+    }
+    else {
+        log.info(`Application link email was sent successfully to ${emailData.to}.`);
+    }
+
+    return link;
+}
+
 async function getOfficerEmployeeTypes(req, res, next){
     if (!req.query || typeof req.query !== 'object') {
         log.error('Bad Request: No data received ' + __location);
