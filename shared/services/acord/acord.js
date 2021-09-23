@@ -426,14 +426,15 @@ console.log('acord-823', pdfDataFieldsObj);
 
             const pdfDataFieldsObj = {};
             questionTree.slice(15 * currentPage, 15 * (currentPage + 1)).forEach((question, index) => {
-                pdfDataFieldsObj["Question_" + index] = question.questionText.toString();
+                pdfDataFieldsObj["Question_" + index] = question.questionText.toString().replace(/[\u{0080}-\u{FFFF}]/gu,"");
                 if(question.answerList.length){
                     pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ').toString();
                 }
                 else{
-                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString();
+                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString().replace(/[\u{0080}-\u{FFFF}]/gu,"");
                 }
             })
+            console.log('question table obeject -->', pdfDataFieldsObj);
 
             const pdf = await PdfHelper.createPDF('question-table.pdf', pdfDataFieldsObj);
             pdfList.push(pdf);
@@ -471,7 +472,7 @@ console.log('acord-823', pdfDataFieldsObj);
             }
 
             return pdf;
-        }
+        } 
 
         const page1Obj = {
             "Form_CompletionDate_A": moment().format('L'),
