@@ -2037,7 +2037,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
             env = "https://dev.wh-app.io";
             break;
         case "staging":
-            env = "https://stage.wh-app.io";
+            env = "https://sta.wh-app.io";
             break;
         case "demo":
             env = "https://demo.wh-app.io";
