@@ -8,7 +8,7 @@
 /*jshint esversion: 10 */
 
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 //var moment = require('moment');
 var uuid = require('uuid');

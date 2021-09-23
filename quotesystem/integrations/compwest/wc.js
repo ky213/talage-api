@@ -683,7 +683,7 @@ module.exports = class CompwestWC extends Integration {
                         //if((classCode || subCode) && guideWireAPI === false || guideWireAPI === true){
 
                         //get insurerActivityCode doc.
-                        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+                        const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
                         const activityCodeQuery = {
                             insurerId: this.insurer.id,
                             code: classCode,
@@ -724,7 +724,7 @@ module.exports = class CompwestWC extends Integration {
                                     expirationDate: {$gte: this.policy.effective_date}
                                 }
                                 log.debug(`AF InsurerQuestionModel query \n ${JSON.stringify(query)} \n ` + __location)
-                                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                                const InsurerQuestionModel = global.mongodb.model('InsurerQuestion');
                                 let insurerQuestionList = null;
                                 try{
                                     insurerQuestionList = await InsurerQuestionModel.find(query);

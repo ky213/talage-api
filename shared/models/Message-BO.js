@@ -24,7 +24,7 @@ module.exports = class MessageBO{
         //   MongoDB Write
         //************************** */
 
-        var Message = require('mongoose').model('Message');
+        var Message = global.mongodb.model('Message');
         const mongoMessageDoc = {}
         mongoMessageDoc.recipients = recipients;
         mongoMessageDoc.sendGridResp = sendGridResp;

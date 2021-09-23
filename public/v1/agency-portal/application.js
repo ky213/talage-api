@@ -36,7 +36,7 @@ const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-var Message = require('mongoose').model('Message');
+var Message = global.mongodb.model('Message');
 
 /**
  * Responds to get requests for the application endpoint

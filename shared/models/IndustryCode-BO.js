@@ -3,7 +3,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var IndustryCode = require('mongoose').model('IndustryCode');
+var IndustryCode = global.mongodb.model('IndustryCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const collectionName = 'IndustryCodes'

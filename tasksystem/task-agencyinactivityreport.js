@@ -73,8 +73,8 @@ var agencyReportTask = async function(){
     log.debug(`fortyFiveDaysAgo ${fortyFiveDaysAgo}`)
     log.debug(`forteenDaysAgo ${forteenDaysAgo}`)
 
-    const Application = require('mongoose').model('Application');
-    const Agency = require('mongoose').model('Agency');
+    const Application = global.mongodb.model('Application');
+    const Agency = global.mongodb.model('Agency');
     const agencyBO = new AgencyBO();
 
     let agencyList = [];

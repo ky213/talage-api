@@ -6,7 +6,7 @@ const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const helper = global.requireShared('./helpers/helper.js');
 const log = global.log;
-const QuestionModel = require('mongoose').model('Question');
+const QuestionModel = global.mongodb.model('Question');
 const utility = global.requireShared('./helpers/utility.js');
 
 
@@ -159,7 +159,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     // let where = `q.state = 1
     //     ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
     // `;
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+    const InsurerQuestionModel = global.mongodb.model('InsurerQuestion');
     let questions = [];
     log.debug("Getting universal questions " + __location);
     // ============================================================
@@ -246,7 +246,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
     // if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
     // }
-    const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+    const InsurerIndustryCodeModel = global.mongodb.model('InsurerIndustryCode');
     start = moment();
     for(const industryCodeId of industryCodeIdList){
         if(industryCodeId > 0){
@@ -359,7 +359,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     log.debug("Getting activity questions " + __location);
     // ============================================================
     // Get activity-based questions
-    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+    const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
     start = moment();
     const now = moment();
     // eslint-disable-next-line prefer-const
@@ -367,8 +367,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
         insurerId: {$in: insurerArray},
         talageActivityCodeIdList: {$in: activityCodeArray},
         territoryList: {$in: territories},
-        effectiveDate: {$lte: now},
-        expirationDate: {$gte: now},
+        // effectiveDate: {$lte: now},
+        // expirationDate: {$gte: now},
         active: true
     }
     try{
@@ -457,7 +457,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
         log.error(`Error get Mongo Activity questions ${JSON.stringify(activityCodeQuery)}  ${err}` + __location);
     }
 
-    log.debug("Getting missing questions " + __location);
+    log.debug(`Getting missing questions ${questions.length} ` + __location);
     // Check for missing questions
     start = moment();
     let missing_questions = find_missing_questions(questions);
@@ -477,7 +477,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
     log.info(`Missing Question process duration: ${diff2} milliseconds`);
 
-    log.debug("Cleanup questions " + __location);
+    log.debug(`Cleanup questions ${questions.length} ` + __location);
     // Let's do some cleanup and get a list of question IDs
     for (let index = 0; index < questions.length; index++) {
         const question = questions[index];

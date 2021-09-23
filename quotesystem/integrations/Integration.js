@@ -249,7 +249,7 @@ module.exports = class Integration {
     async get_insurer_code_for_activity_code(insurerId, territory, activityCodeId) {
 
         const policyEffectiveDate = moment(this.policy.effective_date);
-        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+        const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
         const activityCodeQuery = {
             insurerId: insurerId,
             talageActivityCodeIdList: parseInt(activityCodeId,10),
@@ -721,7 +721,7 @@ module.exports = class Integration {
                 query.policyTypeList = {$in: policyTypes}
             }
 
-            const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+            const InsurerQuestionModel = global.mongodb.model('InsurerQuestion');
             let insurerQuestionListSA = null;
             try{
                 insurerQuestionListSA = await InsurerQuestionModel.find(query);
@@ -791,7 +791,7 @@ module.exports = class Integration {
         if (activityCodeArray.length > 0) {
             const territoryList = this.get_application_territorylist();
             //Find insurerActivityCode
-            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const activityCodeQuery = {
                 insurerId: this.insurer.id,
@@ -827,7 +827,7 @@ module.exports = class Integration {
                     "insurerId": this.insurer.id,
                     "insurerQuestionId": {$in: insurerQuestionIdList}
                 }
-                const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+                const InsurerQuestionModel = global.mongodb.model('InsurerQuestion');
                 try{
                     insurerQuestionList = await InsurerQuestionModel.find(query);
                 }
@@ -1274,7 +1274,7 @@ module.exports = class Integration {
                 questionSubjectArea: "general",
                 active: true
             }
-            const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+            const InsurerQuestionModel = global.mongodb.model('InsurerQuestion');
             try{
                 insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
             }
@@ -2419,7 +2419,7 @@ module.exports = class Integration {
                 });
             });
             let fullFillValue = false;
-            const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+            const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const activityCodeQuery = {
                 insurerId: this.insurer.id,
@@ -2478,7 +2478,7 @@ module.exports = class Integration {
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
-            const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+            const InsurerIndustryCodeModel = global.mongodb.model('InsurerIndustryCode');
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             
             let industryCodeId = parseInt(this.applicationDocData.industryCode,10);

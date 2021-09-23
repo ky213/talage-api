@@ -8,14 +8,14 @@ let credentials = null;
 
 async function authorize() {
     //get Amtrust insurer.
-    var InsurerModel = require('mongoose').model('Insurer');
+    var InsurerModel = global.mongodb.model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
     if (!insurer) {
         log.error(`No Amtrust record ` + __location)
         return false;
     }
     //get Talage's AgencyLocation
-    const AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
+    const AgencyLocationMongooseModel = global.mongodb.model('AgencyLocation');
     const agencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: 1}, '-__v');
     if(!agencyLocDoc){
         log.error(`Amtrust WC Importing Could not load Talage Agency Location` + __location);

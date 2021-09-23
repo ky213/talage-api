@@ -5,8 +5,8 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const moment = require('moment');
-var AgencyPortalUserModel = require('mongoose').model('AgencyPortalUser');
-var AgencyPortalUserGroup = require('mongoose').model('AgencyPortalUserGroup');
+var AgencyPortalUserModel = global.mongodb.model('AgencyPortalUser');
+var AgencyPortalUserGroup = global.mongodb.model('AgencyPortalUserGroup');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const collectionName = 'AgencyPortalUsers'
@@ -508,6 +508,7 @@ module.exports = class AgencyPortalUserBO{
         try{
             const query = {agencyPortalUserId: agencyPortalUserId};
             const queryProjection = {"__v": 0}
+            console.log('hitz', apuDoc);
             const apuDoc = await AgencyPortalUserModel.findOne(query,queryProjection)
             if(apuDoc){
                 apuDoc.lastLogin = new moment();
