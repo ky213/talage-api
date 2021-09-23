@@ -103,32 +103,36 @@ const policiesEnabled = async(resources, applicationDB) => {
         const getChildren = true;
         const useAgencyPrimeInsurers = true;
         let error = null;
-        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-            log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-            error = err;
-        });
         if(!error){
-            if(locationList && locationList.length > 0){
-                // for each location go through the list of insurers
-                for(let i = 0; i < locationList.length; i++){
-                    if(locationList[i].hasOwnProperty('insurers')){
+                if(applicationDB && applicationDB.lockAgencyLocationId === true && applicationDB.hasOwnProperty('agencyLocationId')){
+                    let locationObj = await agencyLocationBO.getById(applicationDB.agencyLocationId).catch(function(err){
+                        log.error(`Could not get agency location for agencyId ${agencyId} ` + err.message + __location);
+                        error = err;
+                    });
+                    if(locationObj && locationObj.insurers && locationObj.insurers.length > 0){
                         // grab all the insurers
-                        const locationInsurers = locationList[i].insurers;
+                        const locationInsurers = locationObj.insurers;
                         // for each insurer go through the list of policy type object
-                        for(let j = 0; j < locationInsurers.length; j++){
-                            const insurer = locationInsurers[j];
-                            if(insurer.hasOwnProperty('policyTypeInfo')){
-                                // for each default enabled policy type determine if policy is enabled for this insurer
-                                for(const pt of defaultEnabledPolicies){
-                                    if(insurer.policyTypeInfo[pt] && insurer.policyTypeInfo[pt].enabled === true){
-                                        enabledPoliciesSet.add(pt);
-                                    }
-                                }
+                        getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
+                    }
+                }
+                else {
+                    locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+                        log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
+                        error = err;
+                    });
+                    if(locationList && locationList.length > 0){
+                        // for each location go through the list of insurers
+                        for(let i = 0; i < locationList.length; i++){
+                            if(locationList[i].hasOwnProperty('insurers')){
+                                // grab all the insurers
+                                const locationInsurers = locationList[i].insurers;
+                                // for each insurer go through the list of policy type object
+                                getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
                             }
                         }
                     }
                 }
-            }
         }
     }
     let enabledPoliciesArray = null;
@@ -138,6 +142,19 @@ const policiesEnabled = async(resources, applicationDB) => {
     resources.policiesEnabled = enabledPoliciesArray ? enabledPoliciesArray : defaultEnabledPolicies;
 };
 
+const getPoliciesPerInsurer = (locationInsurers, defaultEnabledPolicies, enabledPoliciesSet) => {
+    for(let j = 0; j < locationInsurers.length; j++){
+        const insurer = locationInsurers[j];
+        if(insurer.hasOwnProperty('policyTypeInfo')){
+            // for each default enabled policy type determine if policy is enabled for this insurer
+            for(const pt of defaultEnabledPolicies){
+                if(insurer.policyTypeInfo[pt] && insurer.policyTypeInfo[pt].enabled === true){
+                    enabledPoliciesSet.add(pt);
+                }
+            }
+        }
+    }
+}
 const cyberAggregateLimitList = [
     50000, 100000, 250000, 500000, 750000, 1000000, 2000000, 3000000
 ];
