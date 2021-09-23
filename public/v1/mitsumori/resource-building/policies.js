@@ -106,7 +106,7 @@ const policiesEnabled = async(resources, applicationDB) => {
         if(!error){
                 if(applicationDB && applicationDB.lockAgencyLocationId === true && applicationDB.hasOwnProperty('agencyLocationId')){
                     let locationObj = await agencyLocationBO.getById(applicationDB.agencyLocationId).catch(function(err){
-                        log.error(`Could not get agency location for agencyId ${agencyId} ` + err.message + __location);
+                        log.error(`Could not get agency location for agencyLocationId ${applicationDB.agencyLocationId} ` + err.message + __location);
                         error = err;
                     });
                     if(locationObj && locationObj.insurers && locationObj.insurers.length > 0){
