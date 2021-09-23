@@ -166,19 +166,19 @@ module.exports = class ACORD{
 
         const pdfDataFieldsObj = {
             "Form_CompletionDate_A": moment().format('L'),
-            "Producer_FullName_A": removeDiacritics(this.agencyDoc.name),
-            "Producer_MailingAddress_LineOne_A": removeDiacritics(this.agencyLocationDoc.address),
-            "Producer_MailingAddress_LineTwo_A": removeDiacritics(this.agencyLocationDoc.address2),
+            "Producer_FullName_A": this.agencyDoc.name,
+            "Producer_MailingAddress_LineOne_A": this.agencyLocationDoc.address,
+            "Producer_MailingAddress_LineTwo_A": this.agencyLocationDoc.address2,
             "Producer_MailingAddress_CityName_A": this.agencyLocationDoc.city,
             "Producer_MailingAddress_StateOrProvinceCode_A": this.agencyLocationDoc.state_abbr,
             "Producer_MailingAddress_PostalCode_A": this.agencyLocationDoc.zip,
-            "Producer_ContactPerson_FullName_A": removeDiacritics(this.agencyLocationDoc.fname + ' ' + this.agencyLocationDoc.lname),
+            "Producer_ContactPerson_FullName_A": this.agencyLocationDoc.fname + ' ' + this.agencyLocationDoc.lname,
             "Producer_ContactPerson_PhoneNumber_A": phoneHelper(this.agencyLocationDoc.phone),
             "Producer_ContactPerson_EmailAddress_A": this.agencyLocationDoc.email,
-            "Insurer_FullName_A": removeDiacritics(this.insurerDoc.name),
-            "NamedInsured_FullName_A": removeDiacritics(this.applicationDoc.businessName),
-            "NamedInsured_MailingAddress_LineOne_A": removeDiacritics(this.applicationDoc.mailingAddress),
-            "NamedInsured_MailingAddress_LineTwo_A": removeDiacritics(this.applicationDoc.mailingAddress2),
+            "Insurer_FullName_A": this.insurerDoc.name,
+            "NamedInsured_FullName_A": this.applicationDoc.businessName,
+            "NamedInsured_MailingAddress_LineOne_A": this.applicationDoc.mailingAddress,
+            "NamedInsured_MailingAddress_LineTwo_A": this.applicationDoc.mailingAddress2,
             "NamedInsured_MailingAddress_CityName_A": this.applicationDoc.mailingCity,
             "NamedInsured_MailingAddress_StateOrProvinceCode_A": this.applicationDoc.mailingState,
             "NamedInsured_MailingAddress_PostalCode_A": this.applicationDoc.mailingZipcode,
@@ -188,11 +188,11 @@ module.exports = class ACORD{
             "NamedInsured_Primary_PhoneNumber_A": this.applicationDoc.phone,
             "NamedInsured_Primary_WebsiteAddress_A": this.applicationDoc.website,
             "NamedInsured_LegalEntity_OtherDescription_A": this.getEntityString === 'Other' ? this.applicationDoc.entityType : '',
-            "NamedInsured_Contact_FullName_A": removeDiacritics(this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName),
+            "NamedInsured_Contact_FullName_A": this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName,
             "NamedInsured_Contact_PrimaryPhoneNumber_A": this.primaryContactObj.phone,
             "NamedInsured_Contact_PrimaryEmailAddress_A": this.primaryContactObj.email,
             "NamedInsured_BusinessStartDate_A": moment(this.applicationDoc.founded).format('L'),
-            "CommercialPolicy_OperationsDescription_A": removeDiacritics(this.industryCodeDoc.description)
+            "CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description
         }
 
         // Add first 4 locations (only 4 spaces on Acord 125, additional locations will be added on Acord 823)
@@ -430,7 +430,7 @@ module.exports = class ACORD{
                     pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ').toString();
                 }
                 else{
-                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString().replace(/[\u{0080}-\u{FFFF}]/gu,"");
+                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString()
                 }
             })
 
@@ -474,7 +474,7 @@ module.exports = class ACORD{
 
         const page1Obj = {
             "Form_CompletionDate_A": moment().format('L'),
-            "Producer_FullName_A": removeDiacritics(this.agencyDoc.name),
+            "Producer_FullName_A": this.agencyDoc.name,
             "Producer_MailingAddress_LineOne_A": this.agencyLocationDoc.address,
             "Producer_MailingAddress_LineTwo_A": this.agencyLocationDoc.address2,
             "Producer_MailingAddress_CityName_A": this.agencyLocationDoc.city,
@@ -642,10 +642,10 @@ module.exports = class ACORD{
 
         let pdf = null;
         try {
-            // pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
-            // pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
+            pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
             pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
-            // pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
             pdf = await PdfHelper.createMultiPagePDF(pdfList);
         }
