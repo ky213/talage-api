@@ -197,7 +197,7 @@ module.exports = class ACORD{
 
         // Add first 4 locations (only 4 spaces on Acord 125, additional locations will be added on Acord 823)
         const firstLocationsArray = this.applicationDoc.locations.slice(0, 4);
-console.log('acord-125', pdfDataFieldsObj)
+
         // Starting at 65 (A) so we can increment through the alphabet because Acord thought it would be cool to use letters
         let pdfKey = 65;
         firstLocationsArray.forEach((location, index) => {
@@ -289,7 +289,6 @@ console.log('acord-125', pdfDataFieldsObj)
             "GeneralLiabilityLineOfBusiness_TailCoveragePurchasedPreviousPolicyExplanation_A": 'N'
 
         };
-console.log('acord-126', pdfDataFieldsObj);
 
         // If the GL policy details exist, add them
         if(this.policyObj){
@@ -367,7 +366,7 @@ console.log('acord-126', pdfDataFieldsObj);
             pdfDataFieldsObj["Construction_BuildingArea_" + currentLetter] = location.square_footage;
             pdfKey += 1;
         })
-console.log('acord-823', pdfDataFieldsObj);
+
         let pdf = null;
         try {
             pdf = await PdfHelper.createPDF('acord-823.pdf', pdfDataFieldsObj);
@@ -434,12 +433,11 @@ console.log('acord-823', pdfDataFieldsObj);
                     pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString().replace(/[\u{0080}-\u{FFFF}]/gu,"");
                 }
             })
-            console.log('question table obeject -->', pdfDataFieldsObj);
 
             const pdf = await PdfHelper.createPDF('question-table.pdf', pdfDataFieldsObj);
             pdfList.push(pdf);
         }
-        console.log('question table - ', pdfList);
+
         let pdf = null;
         try {
             pdf = await PdfHelper.createMultiPagePDF(pdfList);
@@ -506,7 +504,6 @@ console.log('acord-823', pdfDataFieldsObj);
             "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj.phone,
             "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email
         }
-console.log('acord-130', page1Obj);
         let pdfKey = 65;
         const uniqueStateList = [...new Set(this.applicationDoc.locations.map(location => location.state))]
 
@@ -515,8 +512,6 @@ console.log('acord-130', page1Obj);
             page1Obj["WorkersCompensation_PartOne_StateOrProvinceCode_" + currentLetter] = state;
             pdfKey += 1;
         })
-
-        console.log('unique-state-list', uniqueStateList);
 
         // Write the locations
         pdfKey = 65;
@@ -531,7 +526,6 @@ console.log('acord-130', page1Obj);
             pdfKey += 1;
         })
 
-console.log('acord-130-2', page1Obj);
         // If the WC policy details exist, add them
         if(this.policyObj){
             // Get individual limits formatted as dollar amounts (ex. ['1,000,000' , '2,000,000' , '1,000,000'])
@@ -548,8 +542,6 @@ console.log('acord-130-2', page1Obj);
             if(this.policyObj.expirationDate !== '0000-00-00'){
                 page1Obj.Policy_ExpirationDate_A = moment(this.policyObj.expirationDate).format('L');
             }
-console.log('policydb is live:', this.policyObj)
-
         }
 
         // Check the appropriate entity checkbox
@@ -575,8 +567,6 @@ console.log('policydb is live:', this.policyObj)
         // State rating sheets
         const stateRatingPdfList = [];
         let pageCounter = 1;
-
-        console.log('page ob ', page1Obj)
 
         for(const state of uniqueStateList){
             pdfKey = 65;
@@ -649,7 +639,6 @@ console.log('policydb is live:', this.policyObj)
         }
 
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
-        console.log('page 30 b--->', page3Obj)
 
         let pdf = null;
         try {
@@ -664,8 +653,6 @@ console.log('policydb is live:', this.policyObj)
             log.error('Failed creating accord 130' + err + __location);
             throw err;
         }
-            console.log('pdf-listing -->', pdfList)
-            console.log('pdf-gen', pdf)
         return pdf;
     }
 
