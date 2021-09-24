@@ -13,6 +13,8 @@ const insurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const phoneHelper = global.requireShared('./helpers/formatPhone.js');
 
+const { removeDiacritics } = global.requireShared('./helpers/stringFunctions.js');
+
 module.exports = class ACORD{
 
     /**
@@ -423,12 +425,12 @@ module.exports = class ACORD{
 
             const pdfDataFieldsObj = {};
             questionTree.slice(15 * currentPage, 15 * (currentPage + 1)).forEach((question, index) => {
-                pdfDataFieldsObj["Question_" + index] = question.questionText.toString();
+                pdfDataFieldsObj["Question_" + index] = question.questionText.toString().replace(/[\u{0080}-\u{FFFF}]/gu,"");
                 if(question.answerList.length){
                     pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ').toString();
                 }
                 else{
-                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString();
+                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString()
                 }
             })
 
@@ -468,7 +470,7 @@ module.exports = class ACORD{
             }
 
             return pdf;
-        }
+        } 
 
         const page1Obj = {
             "Form_CompletionDate_A": moment().format('L'),
@@ -502,7 +504,6 @@ module.exports = class ACORD{
             "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj.phone,
             "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email
         }
-
         let pdfKey = 65;
         const uniqueStateList = [...new Set(this.applicationDoc.locations.map(location => location.state))]
 
@@ -631,8 +632,8 @@ module.exports = class ACORD{
                         pdfKey += 1;
                     }
                 }
+                
             }
-
             stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
             pageCounter += 1;
         }
@@ -652,7 +653,6 @@ module.exports = class ACORD{
             log.error('Failed creating accord 130' + err + __location);
             throw err;
         }
-
         return pdf;
     }
 
