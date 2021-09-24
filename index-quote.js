@@ -138,7 +138,7 @@ async function main() {
     log.info('Startup Global DB')
     // MONGO
     var mongoose = require('./mongoose');
-    global.monogdb = mongoose();
+    global.mongodb = mongoose();
     //Mongo connect event here to setup listeners
     talageEvent.on('mongo-connected', function() {
         //log.info('Assetws Mongoose connected to mongodb');

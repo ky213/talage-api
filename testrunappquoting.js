@@ -108,7 +108,7 @@ async function main() {
 
     // MONGO
 
-    global.monogdb = mongoose();
+    global.mongodb = mongoose();
     //var mongoose = require('./mongoose');
 
     //Mongo connect event

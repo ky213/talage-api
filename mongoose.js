@@ -37,7 +37,6 @@ allConnections.init = async function init() {
     allConnections.insurerConn = mongoose.createConnection(mongoInsurerConnStr, connectionOption);
 
     global.mongodb = allConnections.conn;
-    global.monogdb = allConnections.conn;
     global.insurerMongodb = allConnections.insurerConn;
 
     // Wait for connections to complete.

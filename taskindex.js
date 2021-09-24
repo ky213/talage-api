@@ -130,7 +130,7 @@ async function main(){
 
     // MONGO
     var mongoose = require('./mongoose');
-    global.monogdb = mongoose();
+    global.mongodb = mongoose();
     //Mongo connect event here to start queue processing
     talageEvent.on('mongo-connected', function() {
         //log.info('Assetws Mongoose connected to mongodb');
