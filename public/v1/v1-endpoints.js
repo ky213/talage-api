@@ -152,12 +152,14 @@ exports.registerEndpoints = (server) => {
     // new quote app endpoints
     registerEndpoint(server, 'mitsumori', 'route-planner-rt');
     registerEndpoint(server, 'mitsumori', 'resources-rt');
+    registerEndpoint(server, 'mitsumori', 'load-application-rt');
     registerEndpoint(server, 'mitsumori', 'agency-quote-rt');
     registerEndpoint(server, 'mitsumori', 'application-meta-rt');
     registerEndpoint(server, 'mitsumori', 'auth-quote-rt');
 
     // digalent quote app endpoints
     registerEndpoint(server, 'digalent', 'resources-rt');
+    registerEndpoint(server, 'digalent', 'load-application-rt');
     registerEndpoint(server, 'digalent', 'agency-quote-rt');
     registerEndpoint(server, 'digalent', 'application-meta-rt');
     registerEndpoint(server, 'digalent', 'auth-quote-rt');

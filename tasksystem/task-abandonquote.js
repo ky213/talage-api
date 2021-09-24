@@ -445,6 +445,7 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                        subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
                         let recipientsString = agencyNetworkDB.email
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.

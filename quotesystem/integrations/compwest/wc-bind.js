@@ -30,8 +30,14 @@ class CompuwestBind extends Bind {
         }
 
 
-        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        let apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        //Production cutover date
+        if (!this.insurer.useSandbox) {
+            apiSwitchOverDateString = '2022-01-05T00:00:00-08'
+        }
         const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
+
+
         const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
         let notGwAPI = false;
         if(policy){
