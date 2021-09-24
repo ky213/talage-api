@@ -159,6 +159,7 @@ exports.registerEndpoints = (server) => {
 
     // digalent quote app endpoints
     registerEndpoint(server, 'digalent', 'resources-rt');
+    registerEndpoint(server, 'digalent', 'load-application-rt');
     registerEndpoint(server, 'digalent', 'agency-quote-rt');
     registerEndpoint(server, 'digalent', 'application-meta-rt');
     registerEndpoint(server, 'digalent', 'auth-quote-rt');
