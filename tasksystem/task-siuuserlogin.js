@@ -108,7 +108,7 @@ var siuUserLoginReportTask = async function(){
         };
         const attachments = [];
         attachments.push(attachmentJson);
-        const emailResp = await emailSvc.send(toEmail, 'User Login', 'User Login Report', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
+        const emailResp = await emailSvc.send(toEmail, 'User Login Report', 'User Login Report', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send User Login email.`);
         }
