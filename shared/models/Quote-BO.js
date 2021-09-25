@@ -119,7 +119,7 @@ module.exports = class QuoteBO {
             return this.getfromMongoByQuoteId(quoteId, returnModel)
         }
         else {
-            return this.getMongoDocbyMysqlId(quoteId, returnModel)
+            throw new Error("Bad QuoteId - must  be uuid");
         }
     }
 
@@ -239,9 +239,9 @@ module.exports = class QuoteBO {
                 queryJSON.quoteId = {$in: queryJSON.quoteId};
             }
 
-            if(queryJSON.mysqlId && Array.isArray(queryJSON.mysqlId)){
-                queryJSON.mysqlId = {$in: queryJSON.mysqlId};
-            }
+            // if(queryJSON.mysqlId && Array.isArray(queryJSON.mysqlId)){
+            //     queryJSON.mysqlId = {$in: queryJSON.mysqlId};
+            // }
 
 
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
@@ -416,37 +416,38 @@ module.exports = class QuoteBO {
         });
     }
 
-    async getMongoDocbyMysqlId(mysqlId, returnModel = false) {
-        return new Promise(async(resolve, reject) => {
-            if (mysqlId) {
-                const query = {
-                    "mysqlId": mysqlId,
-                    active: true
-                };
-                let quoteDoc = null;
-                try {
-                    const docDB = await Quote.findOne(query, '-__v');
-                    if (docDB && returnModel === false) {
-                        quoteDoc = mongoUtils.objCleanup(docDB);
-                    }
-                    else {
-                        quoteDoc = docDB
-                    }
-                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
-                        await this.checkAndFixQuoteStatus(quoteDoc);
-                    }
-                }
-                catch (err) {
-                    log.error("Getting Application error " + err + __location);
-                    reject(err);
-                }
-                resolve(quoteDoc);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
+    // async getMongoDocbyMysqlId(mysqlId, returnModel = false) {
+    //     return new Promise(async(resolve, reject) => {
+    //         if (mysqlId) {
+    //             const query = {
+    //                 "mysqlId": mysqlId,
+    //                 active: true
+    //             };
+    //             let quoteDoc = null;
+    //             try {
+    //                 const docDB = await Quote.findOne(query, '-__v');
+    //                 if (docDB && returnModel === false) {
+    //                     quoteDoc = mongoUtils.objCleanup(docDB);
+    //                 }
+    //                 else {
+    //                     quoteDoc = docDB
+    //                 }
+    //                 if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+    //                     await this.checkAndFixQuoteStatus(quoteDoc);
+    //                 }
+    //             }
+    //             catch (err) {
+    //                 log.error("Getting Application error " + err + __location);
+    //                 reject(err);
+    //             }
+    //             resolve(quoteDoc);
+    //         }
+    //         else {
+    //             reject(new Error('no id supplied'))
+    //         }
+    //     });
+    // }
+
 
     async updateMongo(quoteId, newObjectJSON) {
         if (quoteId) {
@@ -457,7 +458,10 @@ module.exports = class QuoteBO {
                     "mysqlAppId",
                     "quoteId",
                     "applicationId",
-                    "uuid"]
+                    "uuid",
+                    "agencyNetworkId",
+                    "agencyId",
+                    "agencyLocationId"]
                 for (let i = 0; i < changeNotUpdateList.length; i++) {
                     if (newObjectJSON[changeNotUpdateList[i]]) {
                         delete newObjectJSON[changeNotUpdateList[i]];
