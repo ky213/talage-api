@@ -77,6 +77,8 @@ const QuoteSchema = new Schema({
     agencyLocationId: {type: Number, default: 0},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
+    effectiveDate: {type: Date, required: false},
+    expirationDate: {type: Date, required: false},
     quoteNumber: {type: String},
     packageTypeId: {type: Number},
     requestId: {type: String},
