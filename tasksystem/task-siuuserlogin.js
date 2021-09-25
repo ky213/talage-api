@@ -67,11 +67,17 @@ var siuUserLoginReportTask = async function(){
     ]);
 
     for (const userLoginInfo of usersLoginInfoList) {
-        if (userLoginInfo.lastLogin === null) {
-            userLoginInfo.lastLogin = 'never logged in';
+        try{
+            if (userLoginInfo.lastLogin) {
+                userLoginInfo.lastLogin = userLoginInfo.lastLogin.toISOString();
+            }
+            else {
+                userLoginInfo.lastLogin = 'never logged in';
+            }
         }
-        else {
-            userLoginInfo.lastLogin = userLoginInfo.lastLogin.toISOString();
+        catch(err){
+            log.error("SIU User Login Report date processing error: " + err + __location);
+            userLoginInfo.lastLogin = 'unknwn';
         }
     }
 
@@ -87,7 +93,7 @@ var siuUserLoginReportTask = async function(){
         "columns": dbDataColumns
     };
     const csvData = await csvStringify(usersLoginInfoList, stringifyOptions).catch(function(err){
-        log.error("User Login JSON to CSV error: " + err + __location);
+        log.error("SIU User Login Report JSON to CSV error: " + err + __location);
         return;
     });
 
