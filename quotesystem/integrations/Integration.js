@@ -1545,7 +1545,10 @@ module.exports = class Integration {
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
-            quoteTimeSeconds: this.seconds
+            quoteTimeSeconds: this.seconds,
+            effectiveDate: this.policy.effective_date,
+            expirationDate: this.policy.expiration_date 
+
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
