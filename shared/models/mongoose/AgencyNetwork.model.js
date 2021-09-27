@@ -57,7 +57,7 @@ const AgencyNetworkSchema = new Schema({
     additionalInfo: {type: Schema.Types.Mixed},
     insurerIds: [Number],
     agencyFiveMinuteLimit: {type: Number, default: 500},
-    agencyNetworkFiveMinuteLimit: {type: Number, default: 500},
+    agencyNetworkFiveMinuteLimit: {type: Number, default: 600},
     agency24HourLimit: {type: Number, default: 1000},
     agencyNetwork24HourLimit: {type: Number, default: 1200},
     agencyMonthLimit: {type: Number, default: 15000},
