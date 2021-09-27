@@ -571,41 +571,43 @@ module.exports = class EmployersWC extends Integration {
                 }
             }
 
-            const insurerPaymentPlan = quoteResponse.paymentPlan;
+            const insurerPaymentPlans = quoteResponse.availablePaymentPlans;
             try {
-                if (insurerPaymentPlan) {
+                if (insurerPaymentPlans) {
+                    this.insurerPaymentPlans = insurerPaymentPlans;
                     this.talageInsurerPaymentPlans = [];
-                    const talagePaymentPlan = {};
-                    this.insurerPaymentPlans = insurerPaymentPlan;
-                    const employerPaymentPlanTranslations = {
-                        "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
-                        "DB-D-9": 4
-                    };
-                    const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
-                    const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
-                    if (!talagePaymentPlanId) {
-                        throw new Error(`Could not match Employers Payment Plan to a Talage Standard Payment Plan. Recommend checking Employers API documentation and determining whether we need to map the given payment plan to a Talage Payment Plan`);
-                    }
-                    talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
-                    talagePaymentPlan.insurerPaymentPlanId = insurerPaymentPlan.billingOptionId;
-                    talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
-                    talagePaymentPlan.NumberPayments = insurerPaymentPlan.numberOfInstallments;
-                    talagePaymentPlan.TotalPremium = quoteResponse.totalPremium;
+                    for (const insurerPaymentPlan of insurerPaymentPlans) {
+                        const talagePaymentPlan = {};
+                        const employerPaymentPlanTranslations = {
+                            "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
+                            "DB-D-9": 4
+                        };
+                        const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
+                        const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
+                        if (!talagePaymentPlanId) {
+                            continue;
+                        }
+                        talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
+                        talagePaymentPlan.insurerPaymentPlanId = insurerPaymentPlan.billingOptionId;
+                        talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
+                        talagePaymentPlan.NumberPayments = insurerPaymentPlan.numberOfInstallments;
+                        talagePaymentPlan.TotalPremium = quoteResponse.totalPremium;
 
-                    let totalInstallmentCost = 0;
-                    if (insurerPaymentPlan.amountDue) { // Amount due per installment if any
-                        talagePaymentPlan.installmentPayment = insurerPaymentPlan.amountDue
-                        totalInstallmentCost = insurerPaymentPlan.amountDue * insurerPaymentPlan.numberOfInstallments;
-                    }
-                    else {
-                        talagePaymentPlan.installmentPayment = 0;
-                    }
-                    talagePaymentPlan.TotalCost = insurerPaymentPlan.downPayment + totalInstallmentCost;
+                        let totalInstallmentCost = 0;
+                        if (insurerPaymentPlan.amountDue) { // Amount due per installment if any
+                            talagePaymentPlan.installmentPayment = insurerPaymentPlan.amountDue
+                            totalInstallmentCost = insurerPaymentPlan.amountDue * insurerPaymentPlan.numberOfInstallments;
+                        }
+                        else {
+                            talagePaymentPlan.installmentPayment = 0;
+                        }
+                        talagePaymentPlan.TotalCost = insurerPaymentPlan.downPayment + totalInstallmentCost;
 
-                    talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
-                    talagePaymentPlan.DownPayment = insurerPaymentPlan.downPayment;
-                    talagePaymentPlan.invoices = [];
-                    this.talageInsurerPaymentPlans.push(talagePaymentPlan);
+                        talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
+                        talagePaymentPlan.DownPayment = insurerPaymentPlan.downPayment;
+                        talagePaymentPlan.invoices = [];
+                        this.talageInsurerPaymentPlans.push(talagePaymentPlan);
+                    }
                 }
             }
             catch (err) {
