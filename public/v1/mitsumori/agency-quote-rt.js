@@ -88,6 +88,7 @@ function parseQuoteURL(url) {
         "_officers",
         "_questions",
         "_quotes",
+        "_load",
         "404"
     ];
 
@@ -247,6 +248,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             }
             if(landingPageJSON.agencyLocationId){
                 agencyWebInfo.lockAgencyLocationId = true;
+                agencyWebInfo.agencyLocationId = landingPageJSON.agencyLocationId;
             }
             haveLandingPage = true;
         }
@@ -631,7 +633,8 @@ async function getAgencyMetadata(req, res, next) {
 
     //So the client App know agencyLocation should not be changed.
     if(agencyJson.lockAgencyLocationId){
-        metaObject.lockAgencyLocationId = agencyJson.lockAgencyLocationId
+        metaObject.agencyLocationId = agencyJson.agencyLocationId;
+        metaObject.lockAgencyLocationId = agencyJson.lockAgencyLocationId;
     }
 
     res.send(200, metaObject);

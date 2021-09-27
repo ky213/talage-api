@@ -10,7 +10,6 @@ const collectionName = 'insurerPolicyTypes'
 
 module.exports = class InsurerPolicyTypeBO{
 
-    #dbTableORM = null;
 
     constructor(){
         this.id = '';
@@ -56,25 +55,6 @@ module.exports = class InsurerPolicyTypeBO{
 
         });
     }
-
-    loadFromIdMysql(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${collectionName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
 
     getList(requestQueryJSON) {
         return new Promise(async(resolve, reject) => {

@@ -1536,14 +1536,19 @@ module.exports = class Integration {
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
 
-
         //build mongo Document
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
+            agencyNetworkId: this.applicationDocData.agencyNetworkId,
+            agencyId: this.applicationDocData.agencyId,
+            agencyLocationId: this.applicationDocData.agencyLocationId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
-            quoteTimeSeconds: this.seconds
+            quoteTimeSeconds: this.seconds,
+            effectiveDate: this.policy.effective_date,
+            expirationDate: this.policy.expiration_date 
+
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
