@@ -84,6 +84,9 @@ exports.load = () => {
     variables.USE_REDIS_AGENCY_CACHE = "YES"
     //Default to cache 1st page of Applist for Agencies and AgencyNetworks
     variables.USE_REDIS_APP_LIST_CACHE = "YES"
+    //App Rate Limit
+    variables.USE_APP_RATE_LIMIT = "YES"
+
 
     // Default for quote service
     variables.ENABLE_QUOTE_API_SERVER = "NO"

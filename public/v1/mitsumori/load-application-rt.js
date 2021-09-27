@@ -36,5 +36,5 @@ const createApplicationToken = async(req, appId) => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addPutAuthQuoteApp("Put Hash Load Application", `${basePath}/load-application`, getApplicationFromHash);
+    server.addPut("Put Hash Load Application", `${basePath}/load-application`, getApplicationFromHash);
 }
