@@ -14,6 +14,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
@@ -782,7 +783,7 @@ async function applicationCopy(req, res, next) {
             userId = req.authentication.userID;
         }
         catch(err){
-            log.error("Error gettign userID " + err + __location);
+            log.error("Error getting userID " + err + __location);
         }
         newApplicationDoc.copiedFromAppId = req.body.applicationId;
         newApplicationDoc.agencyPortalCreatedUser = userId
@@ -797,7 +798,8 @@ async function applicationCopy(req, res, next) {
         await setupReturnedApplicationJSON(responseAppDoc)
     }
     catch(err){
-        log.error("Error checking application doc " + err + __location)
+        log.error("Error Copying application doc " + err + __location)
+        res.send(500, `No copied Application = ${err}`);
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
@@ -2026,37 +2028,45 @@ async function SendApplicationLinkEmail(reqBody, hash){
     const agencyBO = new AgencyBO();
     const agency = await agencyBO.getById(application.agencyId);
 
-    // TODO: get agency location and read agent email from it
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agnencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
-    let env = "";
-    switch(global.settings.ENV){
-        case "development":
-            env = "http://localhost:8080";
-            break;
-        case "awsdev":
-            env = "https://dev.wh-app.io";
-            break;
-        case "staging":
-            env = "https://stage.wh-app.io";
-            break;
-        case "demo":
-            env = "https://demo.wh-app.io";
-            break;
-        case "production":
-            env = "https://wh-app.io";
-            break;
-        default:
-            // dont send the email
-            log.error(`Failed to send application link to ${emailData.to}, invalid environment. ${__location}`);
-            return;
+    let domain = "";
+    if(agnencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
+        // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
+        domain = agnencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].APPLICATION_URL;
+    }
+    else{
+        // if environmentSettings is not defined for any reason, fall back to defaults
+        switch(global.settings.ENV){
+            case "development":
+                domain = "http://localhost:8080";
+                break;
+            case "awsdev":
+                domain = "https://dev.wh-app.io";
+                break;
+            case "staging":
+                domain = "https://sta.wh-app.io";
+                break;
+            case "demo":
+                domain = "https://demo.wh-app.io";
+                break;
+            case "production":
+                domain = "https://wh-app.io";
+                break;
+            default:
+                // dont send the email
+                log.error(`Failed to send application link to ${emailData.to}, invalid environment. ${__location}`);
+                return;
+        }
     }
 
     let link = "";
     if(reqBody.pageSlug){
-        link = `${env}/${agency.slug}/${reqBody.pageSlug}/_load/${hash}`;
+        link = `${domain}/${agency.slug}/${reqBody.pageSlug}/_load/${hash}`;
     }
     else{
-        link = `${env}/${agency.slug}/_load/${hash}`;
+        link = `${domain}/${agency.slug}/_load/${hash}`;
     }
     // TODO: should we use agency.email or agency location email?
     const emailData = {

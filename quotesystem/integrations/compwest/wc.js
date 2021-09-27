@@ -46,15 +46,16 @@ module.exports = class CompwestWC extends Integration {
 
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
-        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        let apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+
+        //Production cutover date
+        if (!this.insurer.useSandbox) {
+            apiSwitchOverDateString = '2022-01-05T00:00:00-08'
+        }
         const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
 
         //check policy effectiv date to determine API to call.
         if(this.policy.effective_date < apiSwitchOverDateDT){
-            guideWireAPI = false;
-        }
-        //prevent new API use in Production
-        if (!this.insurer.useSandbox) {
             guideWireAPI = false;
         }
         log.debug(`guideWireAPI: ${guideWireAPI}` + __location);

@@ -12,6 +12,7 @@ var FastJsonParse = require('fast-json-parse')
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
@@ -46,6 +47,13 @@ const REDIS_AGENCY_APPLIST_PREFIX = 'applist-agency-';
 const REDIS_AGENCYNETWORK_APPLIST_PREFIX = 'applist-agencynetwork-';
 const REDIS_AGENCY_APPCOUNT_PREFIX = 'appcount-agency-';
 const REDIS_AGENCYNETWORK_APPCOUNT_PREFIX = 'appcount-agencynetwork-';
+
+const REDIS_AGENCY_FIVE_MINUTE_PREFIX = 'agency-fiveminute-';
+const REDIS_AGENCYNETWORK_FIVE_MINUTE_PREFIX = 'agencynetwork-fiveminute-';
+const REDIS_AGENCY_24_HOUR_PREFIX = 'agency-24hours-';
+const REDIS_AGENCYNETWORK_24_HOUR_PREFIX = 'agencynetwork-24hours-';
+const REDIS_AGENCY_MONTH_APPCOUNT_PREFIX = 'agency-month-appcount-';
+const REDIS_AGENCYNETWORK_MONTH_APPCOUNT_PREFIX = 'agencynetwork-month-appcount-';
 
 
 module.exports = class ApplicationModel {
@@ -423,6 +431,10 @@ module.exports = class ApplicationModel {
         if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
             newObjectJSON.applicationId = newObjectJSON.uuid;
         }
+        const blockResp = await this.appInsertRateCheck(newObjectJSON);
+        if(blockResp.isBlocked){
+            throw new Error(blockResp.message)
+        }
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
@@ -450,6 +462,7 @@ module.exports = class ApplicationModel {
             await this.checkAndFixAppStatus(application);
         }
         this.#applicationMongooseDB = application;
+        await this.updateRedisForAppInsert(application);
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
             await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
@@ -1035,6 +1048,127 @@ module.exports = class ApplicationModel {
             await this.updateRedisForAppUpdate(newApplicationdoc)
         }
         return;
+    }
+    async appInsertRateCheck(applicationJSON){
+
+        const blockResp = {
+            isBlocked: false,
+            message: ''
+        }
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_APP_RATE_LIMIT === "YES"){
+            try{
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkJson = await agencyNetworkBO.getById(applicationJSON.agencyNetworkId);
+                if(!agencyNetworkJson || !agencyNetworkJson.agencyNetworkId){
+                    log.error(`appInsertRateCheck: No AgencyNetwork record Id: ${applicationJSON.agencyNetworkId} ` + __location);
+                    return blockResp;
+                }
+
+                //Agency Five Minute
+                let redisResp = await global.redisSvc.getKeyList(REDIS_AGENCY_FIVE_MINUTE_PREFIX + applicationJSON.agencyId + "-*");
+                if(redisResp?.found){
+                    const numberOfApps = redisResp.value.length;
+                    // log.debug(`${REDIS_AGENCY_FIVE_MINUTE_PREFIX}-${applicationJSON.agencyId} ${numberOfApps} appCount ` + __location);
+                    // log.debug(` AgencyNewtworkId ${agencyNetworkJson.agencyNetworkId} Five minute rate Limit ${agencyNetworkJson.agencyFiveMinuteLimit}  ` + __location);
+                    if(numberOfApps >= agencyNetworkJson.agencyFiveMinuteLimit){
+                        log.info(`Blocking AgencyId ${applicationJSON.agencyId} for adding applications. Five Minute Rate: ${numberOfApps}`)
+                        blockResp.isBlocked = true;
+                        blockResp.message = `BlOCKED: Blocking AgencyId ${applicationJSON.agencyId} for adding applications. Five Minute Rate: ${numberOfApps}`
+                    }
+                }
+                if(!blockResp.isBlocked){
+                    //check Agency Network.
+                    redisResp = await global.redisSvc.getKeyList(REDIS_AGENCYNETWORK_FIVE_MINUTE_PREFIX + applicationJSON.agencyNetworkId + "-*");
+                    if(redisResp?.found){
+                        const numberOfApps = redisResp.value.length;
+                        if(numberOfApps >= agencyNetworkJson.agencyNetworkFiveMinuteLimit){
+                            log.info(`Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. Five Minute Rate: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message = `BlOCKED: Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. Five Minute Rate: ${numberOfApps}`;
+                        }
+                    }
+                }
+                //24 Hour
+                if(!blockResp.isBlocked){
+                    //check Agency.
+                    redisResp = await global.redisSvc.getKeyList(REDIS_AGENCY_24_HOUR_PREFIX + applicationJSON.agencyId + "-*");
+                    if(redisResp?.found){
+                        const numberOfApps = redisResp.value.length;
+                        if(numberOfApps >= agencyNetworkJson.agency24HourLimit){
+                            log.info(`Blocking AgencyId ${applicationJSON.agencyId} for adding applications. 24 Hour Rate: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message = `BlOCKED: Blocking AgencyId ${applicationJSON.agencyId} for adding applications.  24 Hour Rate: ${numberOfApps}`;
+                        }
+                    }
+                }
+                if(!blockResp.isBlocked){
+                    //check Agency Network.
+                    redisResp = await global.redisSvc.getKeyList(REDIS_AGENCYNETWORK_24_HOUR_PREFIX + applicationJSON.agencyNetworkId + "-*");
+                    if(redisResp?.found){
+                        const numberOfApps = redisResp.value.length;
+                        if(numberOfApps >= agencyNetworkJson.agencyNetwork24HourLimit){
+                            log.info(`Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications.  24 Hour Rate: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message = `BlOCKED: Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. 24 Hour Rate: ${numberOfApps}`;
+                        }
+                    }
+                }
+                //Month checks
+                if(!blockResp.isBlocked){
+                    //check Agency.
+                    redisResp = await global.redisSvc.getKeyValue(REDIS_AGENCY_MONTH_APPCOUNT_PREFIX + applicationJSON.agencyId);
+                    if(redisResp?.found){
+                        const numberOfApps = parseInt(redisResp.value,10);
+                        if(numberOfApps >= agencyNetworkJson.agencyMonthLimit){
+                            log.info(`Blocking AgencyId ${applicationJSON.agencyId} for adding applications. Month Total: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message(`BlOCKED: Blocking AgencyId ${applicationJSON.agencyId} for adding applications.  Month Total: ${numberOfApps}`)
+                        }
+                    }
+                }
+                if(!blockResp.isBlocked){
+                    //check Agency Network.
+                    redisResp = await global.redisSvc.getKeyValue(REDIS_AGENCYNETWORK_MONTH_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId);
+                    if(redisResp?.found){
+                        const numberOfApps = parseInt(redisResp.value,10);
+                        if(numberOfApps >= agencyNetworkJson.agencyNetworkMonthLimit){
+                            log.info(`Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications.  Month Total: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message(`BlOCKED: Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. Month Total: ${numberOfApps}`)
+                        }
+                    }
+                }
+
+
+            }
+            catch(err){
+                log.error(`appInsertRateCheck: appID ${applicationJSON.applicationId} ` + err + __location);
+            }
+
+        }
+        return blockResp;
+    }
+    async updateRedisForAppInsert(applicationJSON){
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_APP_RATE_LIMIT === "YES"){
+            try{
+                const payloadJSON = {
+                    applicationId: applicationJSON.applicationId,
+                    createdAt: moment()
+                }
+                const payloadString = JSON.stringify(payloadJSON);
+                let ttlSeconds = 300;
+                await global.redisSvc.storeKeyValue(REDIS_AGENCY_FIVE_MINUTE_PREFIX + applicationJSON.agencyId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+                await global.redisSvc.storeKeyValue(REDIS_AGENCYNETWORK_FIVE_MINUTE_PREFIX + applicationJSON.agencyNetworkId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+                ttlSeconds = 86400;
+                await global.redisSvc.storeKeyValue(REDIS_AGENCY_24_HOUR_PREFIX + applicationJSON.agencyId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+                await global.redisSvc.storeKeyValue(REDIS_AGENCYNETWORK_24_HOUR_PREFIX + applicationJSON.agencyNetworkId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+
+
+            }
+            catch(err){
+                log.error(`updateRedisForAppInsert: appID ${applicationJSON.applicationId} ` + err + __location);
+            }
+        }
     }
     async updateRedisForAppUpdate(applicationJSON){
 

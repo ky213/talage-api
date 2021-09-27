@@ -71,10 +71,14 @@ const TalageInsurerPaymentPlanSchema = new Schema({
 
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
-    mysqlId: {type: Number, unique: false},
     applicationId: {type: String},
+    agencyNetworkId: {type: Number, required: true},
+    agencyId: {type: Number, required: true},
+    agencyLocationId: {type: Number, default: 0},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
+    effectiveDate: {type: Date, required: false},
+    expirationDate: {type: Date, required: false},
     quoteNumber: {type: String},
     packageTypeId: {type: Number},
     requestId: {type: String},

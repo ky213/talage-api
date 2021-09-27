@@ -1810,7 +1810,7 @@ module.exports = class ArrowheadBOP extends Integration {
 
             // Business Personal Property Limit            
             building.coverages.bld = {
-                includeInd: true,
+                includeInd: building.occupancy !== "Tenant",
                 valuation: "Replacement Cost",
                 limit: building.occupancy === "Tenant" ? 0 : location.buildingLimit
             };
