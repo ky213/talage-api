@@ -272,9 +272,9 @@ module.exports = class EmployersWC extends Integration {
                 else if (location.unemployment_num) {
                     locationJSON.unemploymentId = location.unemployment_num
                 }
-
-                locationJSON.numberOfEmployees = location.full_time_employees + location.part_time_employees;
-                locationJSON.shift1EmployeesCount = location.full_time_employees + location.part_time_employees;
+                const locationTotalEmployees = this.get_total_lociation_employees(location)
+                locationJSON.numberOfEmployees = locationTotalEmployees;
+                locationJSON.shift1EmployeesCount = locationTotalEmployees;
                 locationJSON.shift2EmployeesCount = 0;
                 locationJSON.shift3EmployeesCount = 0;
 
@@ -370,6 +370,8 @@ module.exports = class EmployersWC extends Integration {
             }
             else {
                log.error(`${logPrefix}Could not get EIN` + __location);
+               this.reasons.push("No FEIN - Stopped before submission to insurer");
+               fulfill(this.return_result('autodeclined'));
             }
 
             const entityCode = entityMatrix[appDoc.entityType];
