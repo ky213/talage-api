@@ -16,14 +16,22 @@ const getApplicationFromHash = async(req, res, next) => {
     const redisValue = await global.redisSvc.getKeyValue(redisKey);
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
-        const token = await createApplicationToken(req, redisJSON.applicationId);
-        res.send(200, {
-            token,
-            applicationId: redisJSON.applicationId
-        });
+        if(redisJSON?.applicationId){
+            const token = await createApplicationToken(req, redisJSON.applicationId);
+            res.send(200, {
+                token,
+                applicationId: redisJSON.applicationId
+            });
+        }
+        else {
+            log.error(`getApplicationFromHash Could not find Hash redis value for key: ${redisKey}` + __location);
+            res.send(404, {error: "Not Found"});
+            return next();
+
+        }
     }
     else{
-        log.error(`Could not find redis value for key: ${redisKey}`);
+        log.error(`CogetApplicationFromHash Could not find Hash redis value for key: ${redisKey}` + __location);
         res.send(404, {error: "Not Found"});
         return next();
     }
