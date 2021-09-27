@@ -241,6 +241,7 @@ module.exports = class AgencyNetworkBO{
     async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
+                //TODO update for Redis caching
                 const query = {
                     "systemId": mysqlId,
                     active: true
