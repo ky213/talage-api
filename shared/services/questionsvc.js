@@ -367,8 +367,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
         insurerId: {$in: insurerArray},
         talageActivityCodeIdList: {$in: activityCodeArray},
         territoryList: {$in: territories},
-        // effectiveDate: {$lte: now},
-        // expirationDate: {$gte: now},
+        effectiveDate: {$lte: now},
+        expirationDate: {$gte: now},
         active: true
     }
     try{
@@ -457,7 +457,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
         log.error(`Error get Mongo Activity questions ${JSON.stringify(activityCodeQuery)}  ${err}` + __location);
     }
 
-    log.debug(`Getting missing questions ${questions.length} ` + __location);
+    log.debug("Getting missing questions " + __location);
     // Check for missing questions
     start = moment();
     let missing_questions = find_missing_questions(questions);
@@ -477,7 +477,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
     log.info(`Missing Question process duration: ${diff2} milliseconds`);
 
-    log.debug(`Cleanup questions ${questions.length} ` + __location);
+    log.debug("Cleanup questions " + __location);
     // Let's do some cleanup and get a list of question IDs
     for (let index = 0; index < questions.length; index++) {
         const question = questions[index];
