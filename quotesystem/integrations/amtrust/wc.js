@@ -811,7 +811,7 @@ module.exports = class AMTrustWC extends Integration {
         let quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
         if (quoteEligibility === "Decline") {
             // A decline at this stage is based on the class codes; they are out of appetite.
-            return this.client_autodeclined_out_of_appetite();
+            return this.client_declined(`The insurer reports that they will not write a policy with the selected state and one of class codes`);
         }
 
 
