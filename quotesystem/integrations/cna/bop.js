@@ -33,6 +33,15 @@ let host = "";
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
 
+const constructionCodes = {
+    Frame: "F",
+    "Joisted Masonry": "JM",
+    "Fire Resistive": "R",
+    "Masonry Non Combustible": "MNC",
+    "Non Combustible": "LNC"
+    // "Modified Fire Resistive": "MFR"
+};
+
 const LIMIT_CODES = [
     'BIEachOcc',
     'DisPol',
@@ -49,7 +58,7 @@ const carrierLimits = [
     '500000/500000/500000',
     '500000/1000000/500000',
     '1000000/1000000/1000000' // if state = CA, this is ONLY option
-]
+];
 
 const legalEntityCodes = {
     "Government Entity": "FG",
@@ -143,7 +152,7 @@ const stateDeductables = {
     "UT": [500, 1000, 1500, 2000, 2500, 5000],
     "VA": [100, 250, 500, 1000, 2500, 5000, 7500, 10000],
     "WV": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 7500, 10000]
-}
+};
 
 module.exports = class CnaBOP extends Integration {
 
@@ -221,8 +230,6 @@ module.exports = class CnaBOP extends Integration {
         // fall back to outside phone IFF we cannot find primary contact phone
         phone = phone ? phone : applicationDocData.phone.toString();
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
-
-        const limits = getLimits();
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -449,69 +456,10 @@ module.exports = class CnaBOP extends Integration {
                                     "value":"BOP"
                                 },
                                 "PropertyInfo": {
-                                    "CommlPropertyInfo": this.getCoverages()
+                                    "CommlPropertyInfo": this.getPropertyCoverages()
                                 },
                                 "LiabilityInfo": {
-                                    "CommlCoverage": [
-                                        {
-                                            "CoverageCd": {
-                                                "value": "EAOCC"
-                                            },
-                                            "Limit": [
-                                                {
-                                                    "FormatInteger": {
-                                                        "value": parseInt(limits[0], 10)
-                                                    },
-                                                    "LimitAppliesToCd": [
-                                                        {
-                                                            "value": "PerOcc"
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "CoverageCd": {
-                                                "value": "GENAG"
-                                            },
-                                            "Limit": [
-                                                {
-                                                    "FormatInteger": {
-                                                        "value": parseInt(limits[1], 10)
-                                                    },
-                                                    "LimitAppliesToCd": [
-                                                        {
-                                                            "value": "Aggregate"
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        }
-                                        // {
-                                        //     "CoverageCd":{
-                                        //         "value":"MEDEX"
-                                        //     },
-                                        //     "Limit":[
-                                        //         {
-                                        //             "FormatInteger":{
-                                        //                 "value":10000
-                                        //             }
-                                        //         }
-                                        //     ]
-                                        // },
-                                        // {
-                                        //     "CoverageCd":{
-                                        //         "value":"FIRDM"
-                                        //     },
-                                        //     "Limit":[
-                                        //         {
-                                        //             "FormatInteger":{
-                                        //                 "value":1000000
-                                        //             }
-                                        //         }
-                                        //     ]
-                                        // }
-                                    ],
+                                    "CommlCoverage": this.getCoverages(limits),
                                     "GeneralLiabilityClassification": this.getGLClassifications()
                                 },
                                 // TODO: What is this? Is it a question? 
@@ -549,135 +497,9 @@ module.exports = class CnaBOP extends Integration {
                                 //     }
                                 // ],
                                 // TODO: Find out what questions should be in here, this might just be all general questions
-                                "com.cna_QuestionAnswer": this.getQuestionArray()
+                                "com.cna_QuestionAnswer": this.getQuestions(applicationDocData.questions)
                             },
-                            "CommlSubLocation":[
-                                {
-                                    "Construction":{
-                                        "ConstructionCd":[
-                                            {
-                                                "value":"F"
-                                            }
-                                        ],
-                                        "YearBuilt":{
-                                            "value":"2019"
-                                        },
-                                        "BldgArea":{
-                                            "NumUnits":{
-                                                "value":2000
-                                            }
-                                        },
-                                        "NumStories":{
-                                            "value":1
-                                        },
-                                        "NumBasements":{
-                                            "value":1
-                                        },
-                                        "com.cna_UnFinishedBasementArea":{
-                                            "NumUnits":{
-                                                "value":0
-                                            }
-                                        },
-                                        "com.cna_FinishedBasementArea":{
-                                            "NumUnits":{
-                                                "value":0
-                                            }
-                                        }
-                                    },
-                                    "BldgImprovements":{
-                                        "HeatingImprovementCd":{
-                                            "value":"C"
-                                        },
-                                        "HeatingImprovementYear":{
-                                            "value":"2019"
-                                        },
-                                        "PlumbingImprovementCd":{
-                                            "value":"C"
-                                        },
-                                        "PlumbingImprovementYear":{
-                                            "value":"2019"
-                                        },
-                                        "RoofingImprovementCd":{
-                                            "value":"C"
-                                        },
-                                        "RoofingImprovementYear":{
-                                            "value":"2019"
-                                        },
-                                        "WiringImprovementCd":{
-                                            "value":"C"
-                                        },
-                                        "WiringImprovementYear":{
-                                            "value":"2019"
-                                        }
-                                    },
-                                    "BldgProtection":{
-                                        "FireProtectionClassCd":{
-                                            "value":"1"
-                                        }
-                                    },
-                                    "BldgOccupancy":[
-                                        {
-                                            "OccupiedPct":{
-                                                "value":100
-                                            },
-                                            "AreaOccupied":{
-                                                "NumUnits":{
-                                                    "value":2000
-                                                },
-                                                "UnitMeasurementCd":{
-                                                    "value":"Feet"
-                                                }
-                                            },
-                                            "VacancyInfo":{
-                                                "VacantArea":{
-                                                    "value":0
-                                                },
-                                                "ReasonVacantDesc":{
-                                                    
-                                                }
-                                            },
-                                            "com.cna_OccupancyTypeCd":{
-                                                "value":"b"
-                                            },
-                                            "com.cna_AreaLeased":[
-                                                {
-                                                    "NumUnits":{
-                                                        "value":0
-                                                    }
-                                                }
-                                            ],
-                                            "com.cna_LeasedSpaceDesc":[
-                                                {
-                                                    
-                                                }
-                                            ]
-                                        }
-                                    ],
-                                    "com.cna_QuestionAnswer":[
-                                        {
-                                            "com.cna_QuestionCd":{
-                                                "value":"com.cna_hasRackStorageAboveTwelveFeet"
-                                            },
-                                            "YesNoCd":{
-                                                "value":"NO"
-                                            }
-                                        }
-                                    ],
-                                    "BldgFeatures":{
-                                        
-                                    },
-                                    "FinancialInfo":{
-                                        "com.cna_PayrollTypeCd":{
-                                            "value":"Limited"
-                                        }
-                                    },
-                                    "com.cna_CommonAreasMaintenanceCd":{
-                                        
-                                    },
-                                    "LocationRef":"L1",
-                                    "SubLocationRef":"L1S1"
-                                }
-                            ]
+                            "CommlSubLocation": this.getBuildings()
                         }
                     ]
                 }
@@ -925,6 +747,137 @@ module.exports = class CnaBOP extends Integration {
             });
     }
 
+    getBuildings() {
+        this.app.applicationDocData.locations.forEach((location, i) => {
+            const buildingObj = {
+                Construction: {
+                    ConstructionCd: [
+                        {
+                            value: constructionCodes[location.constructionType]
+                        }
+                    ],
+                    YearBuilt: {
+                        value: location.yearBuilt
+                    },
+                    BldgArea: {
+                        NumUnits: {
+                            value: location.square_footage
+                        }
+                    },
+                    NumStories: {
+                        value: location.numStories
+                    }
+                },
+                BldgImprovements: { 
+                    HeatingImprovementCd: {
+                        value: "C"
+                    },
+                    HeatingImprovementYear: {
+                        value: location.bop.heatingImprovementYear
+                    },
+                    PlumbingImprovementCd:{
+                        value: "C"
+                    },
+                    PlumbingImprovementYear: {
+                        value: location.bop.plumbingImprovementYear
+                    },
+                    RoofingImprovementCd: {
+                        value: "C"
+                    },
+                    RoofingImprovementYear: {
+                        value: location.bop.roofingImprovementYear
+                    },
+                    WiringImprovementCd: {
+                        value: "C"
+                    },
+                    WiringImprovementYear:{
+                        value: location.bop.wiringImprovementYear
+                    }
+                },
+                // BldgProtection: { // No explanation of value, but is optional field, so leaving out for now
+                //     FireProtectionClassCd: {
+                //         value: 
+                //     }
+                // }
+                BldgFeatures: {},
+                "com.cna_QuestionAnswer": this.getQuestions(location.questions),
+                "com.cna_CommonAreasMaintenanceCd": {},
+                LocationRef: `L${i}`,
+                SubLocationRef: `L${i}S1`
+            }
+        });
+        {
+            "Construction":{ // <--- Parent question to next 2 child basement questions
+                "NumBasements":{
+                    "value":1
+                },
+                "com.cna_UnFinishedBasementArea":{
+                    "NumUnits":{
+                        "value":0
+                    }
+                },
+                "com.cna_FinishedBasementArea":{
+                    "NumUnits":{
+                        "value":0
+                    }
+                }
+            },
+            "BldgOccupancy":[
+                {
+                    "OccupiedPct":{
+                        "value":100
+                    },
+                    "AreaOccupied":{
+                        "NumUnits":{
+                            "value":2000
+                        },
+                        "UnitMeasurementCd":{
+                            "value":"Feet"
+                        }
+                    },
+                    "VacancyInfo":{
+                        "VacantArea":{
+                            "value":0
+                        },
+                        "ReasonVacantDesc":{
+                            
+                        }
+                    },
+                    "com.cna_OccupancyTypeCd":{
+                        "value":"b"
+                    },
+                    "com.cna_AreaLeased":[
+                        {
+                            "NumUnits":{
+                                "value":0
+                            }
+                        }
+                    ],
+                    "com.cna_LeasedSpaceDesc":[
+                        {
+                            
+                        }
+                    ]
+                }
+            ],
+            "com.cna_QuestionAnswer":[
+                {
+                    "com.cna_QuestionCd":{
+                        "value":"com.cna_hasRackStorageAboveTwelveFeet"
+                    },
+                    "YesNoCd":{
+                        "value":"NO"
+                    }
+                }
+            ],
+            "FinancialInfo":{
+                "com.cna_PayrollTypeCd":{
+                    "value":"Limited"
+                }
+            }
+        }
+    }
+
     // generates the Loss array based off values from claims
     getLosses() {
         // NOTE: CNA supports Closed (C), Declined (D), Open (O), Other (OT), Reoponed (R), and Subrogation - Claim Open Pending Subrogation (S)
@@ -1028,29 +981,28 @@ module.exports = class CnaBOP extends Integration {
     }
 
     // transform our policy limit selection into limit objects array to be inserted into the BOP Request Object
-    getLimits(limits) {
-        const limitArray = [];
+    // getLimits(limits) {
+    //     const limitArray = [];
         
-        if (typeof limits === 'string') {
-            limits = limits.split('/');
-        }
+    //     if (typeof limits === 'string') {
+    //         limits = limits.split('/');
+    //     }
 
-        // for each limit, create a limit object with the limit value and applyTo code
-        limits.forEach((limit, i) => {
-            limitArray.push({
-                FormatInteger: {value: limit},
-                LimitAppliesToCd: [{value: LIMIT_CODES[i]}]
-            }); 
-        });
+    //     // for each limit, create a limit object with the limit value and applyTo code
+    //     limits.forEach((limit, i) => {
+    //         limitArray.push({
+    //             FormatInteger: {value: limit},
+    //             LimitAppliesToCd: [{value: LIMIT_CODES[i]}]
+    //         }); 
+    //     });
 
-        return limitArray;
-    }
+    //     return limitArray;
+    // }
 
     // transform our questions into question objects array to be inserted into the BOP Request Object
-    getQuestionArray() {
-        return this.applicationDocData.questions.map(question => {
+    getQuestions(questions) {
+        return questions.map(question => {
             // TODO: Check question.insurerQuestionAttributes to see what the QuestionCd should be
-            // TODO: Are all questions yes/no for CNA? For now, will use existing explanation logic for CNA WC
             const questionObj = {
                 "com.cna_QuestionCd": {
                     value: "dummy_id"
@@ -1150,15 +1102,11 @@ module.exports = class CnaBOP extends Integration {
                 InsurerName: {
                     value: "None"
                 }
-            }
+            };
         }
 
         if (yearsWithCarrier) {
             yearsWithCarrier = parseInt(yearsWithCarrier.answerValue, 10);
-
-            if (isNaN(yearsWithCarrier)) {
-                yearsWithCarrier = null;
-            }
         }
 
         // using manual entry instead of select list for existing talage question, so forcing to lower for comparison
@@ -1168,32 +1116,30 @@ module.exports = class CnaBOP extends Integration {
             InsurerName: {
                 value: previousCarrier && carrierListLowerCase.includes(previousCarrier.answerValue.toLowerCase()) ? previousCarrier.answerValue : "Unknown"
             }
-            // Optional, not providing
-            // "PolicyAmt":{
+            // "PolicyAmt":{ <--- Optional, not providing
             //     "Amt":{
             //         "value":0
             //     }
             // },
-            // Optional, not providing
-            // "com.cna_TargetPolicyAmt":{
+            // "com.cna_TargetPolicyAmt":{ <--- Optional, not providing
             //     "Amt":{
             //         "value":0
             //     }
             // }
         };
 
-        if (typeof yearsWithCarrier === "number") {
+        if (!isNaN(yearsWithCarrier)) {
             returnObj.LengthTimeWithPreviousInsurer = {
                 NumUnits: {
                     value: yearsWithCarrier
                 }
-            }
+            };
         }
 
         return returnObj;
     }
 
-    getCoverages() {
+    getPropertyCoverages() {
         const coverages = [];
 
         this.app.applicationDocData.locations.forEach((location, i) => {
@@ -1324,33 +1270,110 @@ module.exports = class CnaBOP extends Integration {
             ],
             "LocationRef":"L1",
             "SubLocationRef":"L1S1"
-        },
+        }
     }
 
-    getLimits(policy) {
-        const limitsStr = policy.limits;
+    getCoverages(limits) {
+        // grab general coverage questions
+        const medex = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.medex");
 
-        if (limitsStr === "") {
-            log.warn(`CNA: Provided limits are empty. ${__location}`);
-            return limitsStr;
-        }
+        const coverages = [
+            {
+                "CoverageCd": {
+                    "value": "EAOCC"
+                },
+                "Limit": [
+                    {
+                        "FormatInteger": {
+                            "value": parseInt(limits[0], 10)
+                        },
+                        "LimitAppliesToCd": [
+                            {
+                                "value": "PerOcc"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "CoverageCd": {
+                    "value": "GENAG"
+                },
+                "Limit": [
+                    {
+                        "FormatInteger": {
+                            "value": parseInt(limits[1], 10)
+                        },
+                        "LimitAppliesToCd": [
+                            {
+                                "value": "Aggregate"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
 
-        // skip first character, look for first occurance of non-zero number
-        const indexes = [];
-        for (let i = 1; i < limitsStr.length; i++) {
-            if (limitsStr[i] !== "0") {
-                indexes.push(i);
+        if (medex) {
+            const value = parseInt(medex.answerValue, 10);
+
+            if (!isNaN(value)) {
+                coverages.push({
+                    "CoverageCd": {
+                        "value": "MEDEX"
+                    },
+                    "Limit": [
+                        {
+                            "FormatInteger": {
+                                "value": value
+                            }
+                        }
+                    ]
+                });
             }
         }
 
-        // parse first limit out of limits string
-        const limits = [];
-        limits.push(limitsStr.substring(0, indexes[0])); // per occ
-        limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
-        limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
+        return coverages;
 
-        return limits;
+        // ----------- COVERAGES NOT SUPPORTED AT THIS TIME:
+        // { 
+        //     "CoverageCd":{
+        //         "value":"FIRDM"
+        //     },
+        //     "Limit":[
+        //         {
+        //             "FormatInteger":{
+        //                 "value":1000000
+        //             }
+        //         }
+        //     ]
+        // }
     }
+
+    // getLimits(policy) {
+    //     const limitsStr = policy.limits;
+
+    //     if (limitsStr === "") {
+    //         log.warn(`CNA: Provided limits are empty. ${__location}`);
+    //         return limitsStr;
+    //     }
+
+    //     // skip first character, look for first occurance of non-zero number
+    //     const indexes = [];
+    //     for (let i = 1; i < limitsStr.length; i++) {
+    //         if (limitsStr[i] !== "0") {
+    //             indexes.push(i);
+    //         }
+    //     }
+
+    //     // parse first limit out of limits string
+    //     const limits = [];
+    //     limits.push(limitsStr.substring(0, indexes[0])); // per occ
+    //     limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
+    //     limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
+
+    //     return limits;
+    // }
 
     getGLClassifications() {
         const industryCode = this.industry_code;
