@@ -92,6 +92,8 @@ async function main() {
         const checkRows2 = await global.insurerMongodb.collection(curCollection).find({});
         if (await checkRows1.count() !== await checkRows2.count()) {
             throw new Error(`Cannot continue. Insurer database rows in ${curCollection} does not equal old database rows.`);
+        } else {
+            await global.mongodb.collection(curCollection).drop();
         }
     }
 
