@@ -139,7 +139,7 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
     try{
         if(insurerArray?.length > 0){
             log.debug(`industrycodesvc.GetBopIndustryCodes filtering on insurers`)
-            const InsurerIndustryCodeModel = global.mongodb.model('InsurerIndustryCode');
+            const InsurerIndustryCodeModel = global.insurerMongodb.model('InsurerIndustryCode');
             let insurerIndustryCodeList = null;
             try{
                 const pipeLine = [

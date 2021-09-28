@@ -75,7 +75,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
     log.info(`Mongo IndustryCode Activity Code List processing ${territory} IndustryCode ${industryCodeId} count ${icActivityCodeList.length} duration: ${diff} milliseconds` + __location);
 
     //start = moment();
-    const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
+    const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
     let insurerActivityCodeList = null;
     try{
         const pipeLine = [

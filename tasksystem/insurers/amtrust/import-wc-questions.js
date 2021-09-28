@@ -56,10 +56,10 @@ const ncciStates = ["RI",
     "MT",
     "IN"];
 
-const InsurerActivityCodeModel = global.mongodb.model('InsurerActivityCode');
-const InsurerQuestion = global.mongodb.model('InsurerQuestion');
-const Question = global.mongodb.model('Question');
-const Insurer = global.mongodb.model('Insurer');
+const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
+const InsurerQuestion = global.insurerMongodb.model('InsurerQuestion');
+const Question = global.insurerMongodb.model('Question');
+const Insurer = global.insurerMongodb.model('Insurer');
 
 
 const logPrefix = "AmTrust Importing WC questions ";

@@ -5,7 +5,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var QuestionModel = global.mongodb.model('Question');
+var QuestionModel = global.insurerMongodb.model('Question');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 

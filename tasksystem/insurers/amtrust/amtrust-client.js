@@ -8,7 +8,7 @@ let credentials = null;
 
 async function authorize() {
     //get Amtrust insurer.
-    var InsurerModel = global.mongodb.model('Insurer');
+    var InsurerModel = global.insurerMongodb.model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
     if (!insurer) {
         log.error(`No Amtrust record ` + __location)

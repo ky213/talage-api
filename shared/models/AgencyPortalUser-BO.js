@@ -508,7 +508,6 @@ module.exports = class AgencyPortalUserBO{
         try{
             const query = {agencyPortalUserId: agencyPortalUserId};
             const queryProjection = {"__v": 0}
-            console.log('hitz', apuDoc);
             const apuDoc = await AgencyPortalUserModel.findOne(query,queryProjection)
             if(apuDoc){
                 apuDoc.lastLogin = new moment();
