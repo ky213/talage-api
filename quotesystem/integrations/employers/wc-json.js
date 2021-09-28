@@ -11,9 +11,10 @@
 'use strict';
 
 const Integration = require('../Integration.js');
-const moment_timezone = require('moment-timezone');
+//const moment_timezone = require('moment-timezone');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+//const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -143,7 +144,8 @@ module.exports = class EmployersWC extends Integration {
 
             const requestJSON = {
             // Employers has us define our own Request ID
-                "id": this.app.id,
+                //"id": this.app.id,
+                "id": this.quoteId,
                 "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
                 "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
                 "primaryRiskState": appDoc.primaryState,
@@ -491,13 +493,6 @@ module.exports = class EmployersWC extends Integration {
                     appToken: this.password
                 };
 
-            // This logging is being done by this.send_json_request()
-            // this.log += `--------======= Sending to Employers =======--------<br><br>`;
-            // this.log += `<b>Request started at ${moment_timezone().utc().toISOString()}</b><br><br>`;
-            // this.log += `URL: ${host}${path}<br><br>`;
-            // this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
-            // this.log += `--------======= End =======--------<br><br>`;
-
             let quoteResponse = null;
             log.debug(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
             try {
@@ -519,7 +514,8 @@ module.exports = class EmployersWC extends Integration {
                     const failingQuoteErrors = quoteResponse.errors.filter(error => {
                         const failingQuoteErrorCodes = ['required',
                                                         'invalid',
-                                                        'error'];
+                                                        'error',
+                                                        'nominal'];
                         const errorCode = error.code.split('.')[1];
                         return failingQuoteErrorCodes.includes(errorCode);
                     });
