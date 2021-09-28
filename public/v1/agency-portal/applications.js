@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
 'use strict';
@@ -203,7 +204,9 @@ function generateCSV(applicationList){
  */
 async function getApplications(req, res, next){
     let error = false;
+    let noCacheUse = false;
     log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
+    const initialRequestParms = JSON.parse(JSON.stringify(req.params))
     const start = moment();
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
@@ -292,9 +295,9 @@ async function getApplications(req, res, next){
 
     if(req.params.endDate){
         endDateMoment = moment(req.params.endDate).utc();
-        const now = moment();
-        if(now.diff(endDateMoment, 'seconds') < 5){
-            log.debug(`clearing end date ${now.diff(endDateMoment, 'seconds')} seconds`)
+        const now = moment().utc();
+        const diffSecond = now.diff(endDateMoment, 'seconds')
+        if(diffSecond < 5 && req.params.searchText && req.params.searchText.indexOf("pd:") === -1 && req.params.searchText && req.params.searchText.indexOf("pde:") === -1){
             endDateMoment = null;
         }
         // now....
@@ -304,6 +307,10 @@ async function getApplications(req, res, next){
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     // Build Mongo Query
+    let policyDateSearch = false;
+    let policyDateExpiredSearch = false;
+    let modifiedSearch = false;
+
     const query = {"active": true};
     if(startDateMoment){
         query.searchbegindate = startDateMoment.toISOString();
@@ -311,9 +318,55 @@ async function getApplications(req, res, next){
     if(endDateMoment){
         query.searchenddate = endDateMoment.toISOString();
     }
+    if(req.params.searchText && req.params.searchText.indexOf("md:") > -1){
+        noCacheUse = true;
+        modifiedSearch = true;
+        req.params.searchText = req.params.searchText.replace("md:", "").trim()
+        query.beginmodifieddate = query.searchbegindate
+        query.endmodifieddate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+
+    }
+
+
+    if(req.params.searchText && req.params.searchText.indexOf("pd:") > -1){
+        noCacheUse = true;
+        policyDateSearch = true;
+        req.params.searchText = req.params.searchText.replace("pd:", "").trim()
+        query.beginpolicydate = query.searchbegindate
+        query.endpolicydate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+
+    }
+
+    if(req.params.searchText && req.params.searchText.indexOf("pde:") > -1){
+        noCacheUse = true;
+        policyDateExpiredSearch = true;
+        req.params.searchText = req.params.searchText.replace("pde:", "").trim()
+        query.beginpolicyexprdate = query.searchbegindate
+        query.endpolicyexprdate = query.searchenddate
+        if(query.searchbegindate){
+            delete query.searchbegindate;
+        }
+        if(query.searchenddate){
+            delete query.searchenddate;
+        }
+    }
+
     const orClauseArray = [];
 
     if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
+        noCacheUse = true;
         log.debug("Insurer Search")
         try{
             //insurer search
@@ -352,22 +405,61 @@ async function getApplications(req, res, next){
                     active: true,
                     insurerId: insurerId
                 }
+                let dateQuery = null;
+                if(!startDateMoment || !startDateMoment.isValid()){
+                    startDateMoment = moment().add(-90,"d");
+                }
                 if(startDateMoment && startDateMoment.isValid() && endDateMoment && endDateMoment.isValid()){
-                    matchClause.createdAt = {
+                    dateQuery = {
                         $gte: startDateMoment.toDate(),
                         $lte: endDateMoment.toDate()
                     }
                 }
                 else if(startDateMoment && startDateMoment.isValid()){
-                    matchClause.createdAt = {
+                    dateQuery = {
                         $gte: startDateMoment.toDate()
                     }
                 }
                 else if(endDateMoment && endDateMoment.isValid()){
-                    matchClause.createdAt = {
+                    dateQuery = {
                         $lte: endDateMoment.toDate()
                     }
                 }
+                if(policyDateSearch){
+                    //Created in previous 90 days. application part of filter will refine the filter to exact match.
+                    if(!endDateMoment){
+                        endDateMoment = moment();
+                    }
+
+                    matchClause.createdAt = {
+                        $gte: startDateMoment.add(-90,"d").toDate(),
+                        $lte: endDateMoment.toDate()
+                    }
+                }
+                else if(policyDateExpiredSearch){
+                    //Created in previous 90 days. application part of filter will refine the filter to exact match.
+                    // we only do annual policies - 2021-08-31
+                    if(!endDateMoment){
+                        endDateMoment = moment();
+                    }
+                    matchClause.createdAt = {
+                        $gte: startDateMoment.add(-1,"y").add(-90,"d").toDate(),
+                        $lte: endDateMoment.add(-1,"y").toDate()
+                    }
+
+                }
+                else if(modifiedSearch) {
+                    matchClause.updatedAt = dateQuery
+                }
+                else {
+                    matchClause.createdAt = dateQuery
+                }
+
+                // let policyDateSearch = false;
+                // let policyDateExpiredSearch = false;
+                // let modifiedSearch = false;
+
+
                 if(req.params.searchText.toLowerCase().startsWith("iq:")){
                     const searchWords2 = req.params.searchText.split(" ");
                     const insurerStatusIdText = searchWords2[0].substring(3);
@@ -437,23 +529,29 @@ async function getApplications(req, res, next){
         }
 
     }
-    if(req.params.searchText && req.params.searchText.toLowerCase().includes("handledbytalage")){
+    if(req.params.searchText && req.params.searchText.toLowerCase().indexOf("handledbytalage") > -1){
+        noCacheUse = true;
         query.handledByTalage = true;
-        req.params.searchText = req.params.searchText.replace("handledByTalage", "").trim();
+        req.params.searchText = req.params.searchText.replace("handledbytalage", "").trim();
     }
     //let skiprenewals = false;
-    if(req.params.searchText && req.params.searchText.toLowerCase().includes("skiprenewals")){
+    if(req.params.searchText && req.params.searchText.toLowerCase().indexOf("skiprenewals") > -1){
+        noCacheUse = true;
         query.renewal = {$ne: true};
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
 
+    if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){
+        req.params.searchText = '';
+    }
 
     // ================================================================================
     // Build the Mongo $OR array
     // eslint-disable-next-line array-element-newline
-    const productTypeList = ["WC","GL", "BOP"];
+    const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
     // Add a text search clause if requested
-    if (req.params.searchText && req.params.searchText.length > 0){
+    if (req.params.searchText && req.params.searchText.length > 1){
+        noCacheUse = true;
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
 
@@ -462,39 +560,45 @@ async function getApplications(req, res, next){
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
         let industryCodeQuery = {};
-        if(req.params.searchText){
+        if(req.params.searchText.length > 2){
             industryCodeQuery.description = req.params.searchText
-        }
-        const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
-            log.error("industryCodeBO List load error " + err + __location);
-            error = err;
-        });
-        if (industryCodeList && industryCodeList.length > 0) {
-            // eslint-disable-next-line prefer-const
-            let industryCodeIdArray = [];
-            for (const industryCode of industryCodeList) {
-                industryCodeIdArray.push(industryCode.id);
+            const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
+                log.error("industryCodeBO List load error " + err + __location);
+                error = err;
+            });
+            if (industryCodeList && industryCodeList.length > 0) {
+                // eslint-disable-next-line prefer-const
+                let industryCodeIdArray = [];
+                for (const industryCode of industryCodeList) {
+                    industryCodeIdArray.push(industryCode.id);
+                }
+                const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
+                orClauseArray.push(industryCodeListFilter);
             }
-            const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
-            orClauseArray.push(industryCodeListFilter);
-        }
-        else {
-            log.warn("Application Search no agencies found " + __location);
+            else {
+                log.warn("Application Search no agencies found " + __location);
+            }
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
-        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
-        const mailingState = {mailingState: `%${req.params.searchText}%`}
+
         const businessName = {businessName: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
-
-        orClauseArray.push(mailingCity);
-        orClauseArray.push(mailingState);
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
 
-        const uuid = {uuid: `%${req.params.searchText}%`}
-        orClauseArray.push(uuid);
+        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
+        orClauseArray.push(mailingCity);
+
+        if(req.params.searchText.length === 2){
+            const mailingState = {mailingState: `%${req.params.searchText}%`}
+            orClauseArray.push(mailingState);
+        }
+
+        if(req.params.searchText.length > 2){
+            const uuid = {uuid: `%${req.params.searchText}%`}
+            orClauseArray.push(uuid);
+        }
 
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
             const testInteger = Number(req.params.searchText);
@@ -588,9 +692,9 @@ async function getApplications(req, res, next){
 
     // eslint-disable-next-line prefer-const
     let requestParms = JSON.parse(JSON.stringify(req.params));
-    let applicationsTotalCount = 0;
-    let applicationsSearchCount = 0;
 
+    let applicationsSearchCount = 0;
+    let applicationsTotalCount = 0;
     const applicationBO = new ApplicationBO();
 
     let applicationList = [];
@@ -608,9 +712,9 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         const countQuery = JSON.parse(JSON.stringify(query))
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
-        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);
+        applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
@@ -648,33 +752,35 @@ async function getApplications(req, res, next){
         res.end(csvData);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
+        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
         return next();
 
     }
     else {
         // Exit with default values if no applications were received
         if (!applicationList || !applicationList.length){
+            // Removed applicationsTotalCount after Sept 1st, 2021
             res.send(200, {
                 "applications": [],
                 "applicationsSearchCount": 0,
-                "applicationsTotalCount": applicationsTotalCount
+                "applicationsTotalCount": 1
             });
             return next();
         }
 
 
         // Build the response
+        // Removed applicationsTotalCount after Sept 1st, 2021
         const response = {
             "applications": applicationList,
             "applicationsSearchCount": applicationsSearchCount,
-            "applicationsTotalCount": applicationsTotalCount
+            "applicationsTotalCount": 1
         };
         // Return the response
         res.send(200, response);
         const endMongo = moment();
         const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)}` + __location);
+        log.info(`AP Get Application List duration: ${diff} milliseconds for query ${JSON.stringify(query)} orClauseArray ${JSON.stringify(orClauseArray)} noCacheUse ${noCacheUse}  request parms ${JSON.stringify(initialRequestParms)}` + __location);
         return next();
     }
 }

@@ -179,8 +179,9 @@ async function findAll(req, res, next) {
             req.query.industryCodeId = -999;
         }
     }
-    const industryCodeList = await industryCodeBO.getList(req.query).catch(function(err) {
-        log.error("admin agencynetwork error: " + err + __location);
+    const GET_PARENT_DESC = true;
+    const industryCodeList = await industryCodeBO.getList(req.query, GET_PARENT_DESC).catch(function(err) {
+        log.error("admin industry code Findall error: " + err + __location);
         error = err;
     })
     if (error) {
@@ -274,7 +275,7 @@ async function update(req, res, next) {
         return next(error);
     }
     //update redis cache.
-    ActivityCodeSvc.updateActivityCodeCacheByIndustryCode(id);
+    ActivityCodeSvc.removeActivityCodeCacheByActivityCode(id);
     res.send(200, industryCodeBO.mongoDoc);
     return next();
 

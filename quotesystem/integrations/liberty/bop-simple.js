@@ -68,7 +68,7 @@ module.exports = class LibertySBOP extends Integration {
      */
     async _insurer_quote() {
 
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `;
         const SBOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
 
@@ -78,7 +78,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (!this.industry_code) {
             const errorMessage = `${logPrefix}No Industry Code was found for Simple BOP. `;
-            log.error(`${errorMessage} ` + __location);
+            log.warn(`${errorMessage} ` + __location);
             return this.client_autodeclined_out_of_appetite();
         }
 
@@ -656,7 +656,7 @@ module.exports = class LibertySBOP extends Integration {
     async _getLibertyIndustryCodes() {
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
 
         const logPrefix = `Liberty Mutual Simple BOP (Appid: ${applicationDocData.applicationId}): `
 

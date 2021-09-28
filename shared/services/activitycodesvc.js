@@ -219,8 +219,46 @@ async function updateActivityCodeCacheByActivityCode(activityCodeId){
 
 }
 
+
+async function removeActivityCodeCacheByActivityCode(activityCodeId){
+    log.info(`Removing ActivityCode Redis cache for ${activityCodeId}` + __location)
+    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    let IndustryCodeList = null;
+    try{
+        const icQuery = {
+            activityCodeIdList: activityCodeId,
+            active: true
+        }
+        IndustryCodeList = await IndustryCodeModel.find(icQuery).lean();
+    }
+    catch(err){
+        log.warn(`removeActivityCodeCacheByActivityCode: ${activityCodeId} Error ${err} ` + __location);
+    }
+    if(IndustryCodeList){
+        const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+        const territoryBO = new TerritoryBO();
+        const territoryList = await territoryBO.getAbbrNameList().catch(function(err) {
+            log.error("updateActivityCodeCacheByIndustryCode: territory get getAbbrNameList " + err + __location);
+        });
+        if(territoryList){
+            for(const ic of IndustryCodeList){
+                for(const territory of territoryList){
+                    const redisKey = "activity-code-industrycode-" + territory.abbr + "-" + ic.industryCodeId.toString();
+                    await global.redisSvc.deleteKey(redisKey);
+                }
+            }
+        }
+    }
+    else {
+        log.debug(`No industry codes for ${activityCodeId}` + __location)
+    }
+
+
+}
+
+
 async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeList, territoryList){
-    log.info(`Update ActivityCode Redis cache for ${activityCodeList} & ${territoryList} ` + __location)
+    log.info(`Removing ActivityCode Redis cache for ${activityCodeList} & ${territoryList} ` + __location)
     if(!activityCodeList && activityCodeList.length === 0){
         return;
     }
@@ -239,11 +277,13 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
     catch(err){
         log.warn(`updateActivityCodeCacheByActivityCode: ${activityCodeList} Error ${err} ` + __location);
     }
-    const forceCacheUpdate = true;
+    //const forceCacheUpdate = true;
     if(IndustryCodeList){
         for(const ic of IndustryCodeList){
             for (const abbr of territoryList){
-                await GetActivityCodes(abbr,ic.industryCodeId, forceCacheUpdate)
+                //await GetActivityCodes(abbr,ic.industryCodeId, forceCacheUpdate)
+                const redisKey = "activity-code-industrycode-" + abbr + "-" + ic.industryCodeId.toString();
+                await global.redisSvc.deleteKey(redisKey);
             }
         }
     }
@@ -259,5 +299,6 @@ module.exports = {
     GetActivityCodes: GetActivityCodes,
     updateActivityCodeCacheByIndustryCode: updateActivityCodeCacheByIndustryCode,
     updateActivityCodeCacheByActivityCode: updateActivityCodeCacheByActivityCode,
-    updateActivityCodeCacheByActivityCodeTerritoryList: updateActivityCodeCacheByActivityCodeTerritoryList
+    updateActivityCodeCacheByActivityCodeTerritoryList: updateActivityCodeCacheByActivityCodeTerritoryList,
+    removeActivityCodeCacheByActivityCode: removeActivityCodeCacheByActivityCode
 }

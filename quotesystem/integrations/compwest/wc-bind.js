@@ -7,6 +7,8 @@ const htmlentities = require('html-entities').Html5Entities;
 // const util = require('util');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const util = require('util');
+const xmlToObj = util.promisify(require('xml2js').parseString);
 
 class CompuwestBind extends Bind {
     async bind() {
@@ -28,8 +30,14 @@ class CompuwestBind extends Bind {
         }
 
 
-        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        let apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        //Production cutover date
+        if (!this.insurer.useSandbox) {
+            apiSwitchOverDateString = '2022-01-05T00:00:00-08'
+        }
         const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
+
+
         const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
         let notGwAPI = false;
         if(policy){
@@ -53,7 +61,7 @@ class CompuwestBind extends Bind {
         }
         let xml = null;
         try{
-            const requestACORD = await this.createRequestXML(appDoc, this.quote.requestId)
+            const requestACORD = await this.createRequestXML(appDoc, this.quote.requestId, policy)
             // Get the XML structure as a string
             xml = requestACORD.end({pretty: true});
         }
@@ -95,7 +103,20 @@ class CompuwestBind extends Bind {
             return "error";
             //throw new Error(JSON.stringify(error));
         }
-        if (!result && !result.data || !result.data.ACORD) {
+        if (result?.data && !result?.data?.ACORD) {
+            //Axios did not parse xml to json for us.
+            //try to fix it .
+            try {
+                const xml2JsonObj = await xmlToObj(result?.data);
+                log.debug(JSON.stringify(xml2JsonObj) + __location)
+                result.data = JSON.parse(JSON.stringify(xml2JsonObj));
+            }
+            catch (error) {
+                log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response not XML: ${JSON.stringify(result.data)} ${__location}`);
+            }
+
+        }
+        if (!result?.data?.ACORD) {
             if(result){
                 log.error(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response no ACORD node: ${JSON.stringify(result.data)} ${__location}`);
                 log.error(result.data);
@@ -109,7 +130,7 @@ class CompuwestBind extends Bind {
             }
             return "error";
         }
-        log.debug(`typeof result.data.ACORD ${typeof result.data.ACORD}` + __location)
+        log.debug(`typeof result.data.ACORD ${typeof result?.data?.ACORD}` + __location)
         const res = result.data.ACORD;
         let status = ''
         try{
@@ -144,9 +165,11 @@ class CompuwestBind extends Bind {
             return "updated"
         }
         else if (status === 'REFERRALNEEDED'){
+            log.info(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response - REFERRALNEEDED ${__location}`);
             return "updated"
         }
         else if (status === 'SMARTEDITS'){
+            log.info(`Compwest Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind Response - SMARTEDITS ${__location}`);
             return "updated"
         }
         else if (status === "ERROR"){
@@ -161,7 +184,7 @@ class CompuwestBind extends Bind {
     }
 
     // Bind XML different than quote request...
-    async createRequestXML(appDoc, request_id, isGuideWireAPI = true){
+    async createRequestXML(appDoc, request_id, policy, isGuideWireAPI = true){
         const officerMap = {
             "Chief Executive Officer":"CEO",
             "Chief Financial Officer":"CFO",
@@ -245,7 +268,7 @@ class CompuwestBind extends Bind {
         const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
         // <ContractTerm>
         //get WC policy
-        const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
+        //const policy = appDoc.policies.find((appPolicy) => appPolicy.policyType === "WC")
         if(policy){
             try{
                 const ContractTerm = CommlPolicy.ele('ContractTerm');
@@ -283,9 +306,9 @@ class CompuwestBind extends Bind {
         }
         //Do not reprocess appDoc.dba here
         try{
-            if (appDoc.additionalInsuredList && appDoc.additionalInsuredList.length > 0){
+            if (appDoc.additionalInsuredList?.length > 0){
                 appDoc.additionalInsuredList.forEach((additionalInsured) => {
-                    if (additionalInsured.dba.length > 0) {
+                    if (additionalInsured.dba?.length > 0) {
                         cCount++;
                         const DBAAdditionalInterest = Location.ele('AdditionalInterest');
                         DBAAdditionalInterest.att('id', 'c' + cCount.toString());
@@ -428,7 +451,7 @@ class CompuwestBind extends Bind {
                     AdditionalInterestInfo.ele('NatureInterestCd', owner.include ? 'I' : 'E');
                     if(owner.ownership){
                         try{
-                            const OwnershipPct = addInsuredAdditionalInterest.ele('OwnershipPct')
+                            const OwnershipPct = AdditionalInterestInfo.ele('OwnershipPct')
                             const NumericValueNode = OwnershipPct.ele('NumericValue');
                             NumericValueNode.ele('FormatInteger', parseInt(owner.ownership,10));
                         }
@@ -504,27 +527,40 @@ class CompuwestBind extends Bind {
         }
         // only add WorkCompLineBusiness if there is waivers
         // <WorkCompLineBusiness>
-        if(policy.waiverSubrogationList && policy.waiverSubrogationList.length > 0){
+
+        if(policy.blanketWaiver === true){
             const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
-
-            // Separate out the states
-            const territories = [];
-
-            appDoc.locations.forEach(function(loc) {
-                if (!territories.includes(loc.state)) {
-                    territories.push(loc.state);
-                }
-            });
-
-            for(let t = 0; t < territories.length; t++){
-                //territories.forEach((territory) => {
-                const territory = territories[t];
-                // <WorkCompRateState>
+            const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
+            WorkCompRateState.ele('CreditSurchargeCd', "BWOS");
+        }
+        else if(policy?.waiverSubrogationList?.length > 0){
+            for(const waiver of policy.waiverSubrogationList) {
+                const WorkCompLineBusiness = WorkCompPolicyAddRq.ele('WorkCompLineBusiness');
                 const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-                //<StateProvCd>CA</StateProvCd>
-                WorkCompRateState.ele('StateProvCd', territory);
+                WorkCompRateState.ele('StateProvCd', waiver.state);
+                const WaiversClassPayrollWM = WorkCompRateState.ele('WaiversClassPayrollWM');
+                WaiversClassPayrollWM.ele('Payroll', waiver.payroll);
 
-                // </WorkCompRateState>
+                const iac = await this.GetIAC(this.quote.insurerId, waiver.activityCodeId, waiver.state);
+                if(iac){
+                    WaiversClassPayrollWM.ele('ClassCode', iac.code); // Get AF class code...
+                    WaiversClassPayrollWM.ele('WaiverName', iac.description);
+                }
+                const CreditOrSurcharge = WorkCompRateState.ele('CreditOrSurcharge');
+                CreditOrSurcharge.ele('CreditSurchargeCd', "FWOS");
+                const AdditionalInterest = CreditOrSurcharge.ele('AdditionalInterest');
+                AdditionalInterest.ele('WaiverName', iac.description);
+                const Addr = AdditionalInterest.ele('Addr');
+                Addr.ele('Addr1', waiver.address);
+                Addr.ele('City', waiver.city);
+                Addr.ele('StateProvCd', waiver.state);
+                Addr.ele('PostalCode', waiver.zipcode);
+                Addr.ele('CountryCd', "US");
+                const WaiverTotalNums = CreditOrSurcharge.ele('WaiverTotalNums');
+                WaiverTotalNums.ele('StateProvCd', waiver.state);
+                WaiverTotalNums.ele('TotalNumbers', 1);
+
+
             }
         }
 
@@ -539,6 +575,26 @@ class CompuwestBind extends Bind {
 
     }
 
+    async GetIAC(insurerId, activityCodeId, state){
+        const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
+        const insurerActivityCodeBO = new InsurerActivityCodeBO();
+        const iAC_Query = {
+            insurerId: insurerId,
+            talageActivityCodeIdList: activityCodeId,
+            territoryList:  state
+        }
+        const iacDocList = await insurerActivityCodeBO.getList(iAC_Query);
+        if(iacDocList && iacDocList.length === 1){
+            return iacDocList[0];
+        }
+        else if(iacDocList && iacDocList.length > 1){
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC multiple hits ${iAC_Query} ` + __location);
+        }
+        else {
+            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC no hits ${iAC_Query} ` + __location);
+        }
+        return null
+    }
 
 }
 

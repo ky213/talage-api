@@ -63,6 +63,15 @@ async function getAgencies(req, res, next){
                 else {
                     agencyInfo.primaryAgency = retAgencies[i].primaryAgency;
                 }
+                if(retAgencies[i].slug){
+                    agencyInfo.slug = retAgencies[i].slug;
+                }
+                if(retAgencies[i].firstName){
+                    agencyInfo.firstName = retAgencies[i].firstName;
+                }
+                if(retAgencies[i].lastName){
+                    agencyInfo.lastName = retAgencies[i].lastName;
+                }
                 const query = {"agencyId": retAgencies[i].systemId};
                 //use getAppListForAgencyPortalSearch get hit redis cache
                 //const appCount = await applicationBO.getAppListForAgencyPortalSearch(query);

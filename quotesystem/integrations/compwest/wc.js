@@ -44,22 +44,18 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
 
-
-       
-
-        //const appDoc = this.app.applicationDocData
-
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
-        const apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+        let apiSwitchOverDateString = '2021-07-01T00:00:00-08'
+
+        //Production cutover date
+        if (!this.insurer.useSandbox) {
+            apiSwitchOverDateString = '2022-01-05T00:00:00-08'
+        }
         const apiSwitchOverDateDT = moment(apiSwitchOverDateString)
 
         //check policy effectiv date to determine API to call.
         if(this.policy.effective_date < apiSwitchOverDateDT){
-            guideWireAPI = false;
-        }
-        //prevent new API use in Production
-        if (!this.insurer.useSandbox) {
             guideWireAPI = false;
         }
         log.debug(`guideWireAPI: ${guideWireAPI}` + __location);
@@ -141,7 +137,7 @@ module.exports = class CompwestWC extends Integration {
         else if (this.insurer.useSandbox) {
                 host = 'npsv.afgroup.com';
                 path = '/TEST_DigitalAq/rest/getworkcompquote';
-        } 
+        }
         else {
             host = 'psv.afgroup.com';
             path = '/DigitalAq/rest/getworkcompquote';
@@ -349,8 +345,7 @@ module.exports = class CompwestWC extends Integration {
 
 
     async createRequestXML(request_id, guideWireAPI){
-        const appDoc = this.app.applicationDocData
-
+        const appDoc = this.applicationDocData;
         // These are the limits supported by AF Group - checked earlier.
         const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
         const limits = this.getBestLimits(carrierLimits);
@@ -410,12 +405,11 @@ module.exports = class CompwestWC extends Integration {
 
         // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
         ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
-        if(this.app.applicationDocData
-            && this.app.applicationDocData.businessDataJSON
-            && this.app.applicationDocData.businessDataJSON.afBusinessData
-            && this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId){
-                ClientApp.ele('SubmissionId', this.app.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
-                log.debug("CompWest WC added SubmissionId");
+        if(this.applicationDocData
+            && this.applicationDocData.businessDataJSON
+            && this.applicationDocData.businessDataJSON.afBusinessData
+            && this.applicationDocData.businessDataJSON.afBusinessData.requestResponseId){
+                ClientApp.ele('SubmissionId', this.applicationDocData.businessDataJSON.afBusinessData.requestResponseId);
         }
         //SubmissionId
 
@@ -689,7 +683,6 @@ module.exports = class CompwestWC extends Integration {
                         log.debug(`!classCode ${classCode} || !subCode ${subCode}) && guideWireAPI ${guideWireAPI} === true || guideWireAPI === false`)
                         //if((classCode || subCode) && guideWireAPI === false || guideWireAPI === true){
 
-                        
                         //get insurerActivityCode doc.
                         const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
                         const activityCodeQuery = {

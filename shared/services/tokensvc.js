@@ -53,7 +53,12 @@ exports.createNewToken = async function(payload, additionalPayload) {
  * @returns {object} res - Returns an authorization token
  */
 exports.createApplicationToken = async function(req, applicationId) {
+    if(!req.userTokenData){
+        req.userTokenData = {};
+    }
     const payload = req.userTokenData;
+    payload.apiToken = true;
+    payload.quoteApp = true;
     payload.applicationId = applicationId;
     const rawJwt = await this.createNewToken(payload);
     const token = `Bearer ${rawJwt}`;

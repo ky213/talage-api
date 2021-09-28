@@ -81,12 +81,14 @@ function parseQuoteURL(url) {
         "_basic",
         "_policies",
         "_business-questions",
+        "_pricing",
         "_locations",
         "_mailing-address",
         "_claims",
         "_officers",
         "_questions",
         "_quotes",
+        "_load",
         "404"
     ];
 
@@ -246,6 +248,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             }
             if(landingPageJSON.agencyLocationId){
                 agencyWebInfo.lockAgencyLocationId = true;
+                agencyWebInfo.agencyLocationId = landingPageJSON.agencyLocationId;
             }
             haveLandingPage = true;
         }
@@ -422,7 +425,11 @@ async function getAgencyLandingPage(req, res, next) {
     }
 
     const landingPageLocation = overrideLocation ? overrideLocation : primaryLocation;
-
+    let agencyAddress = landingPageLocation ? landingPageLocation.address : null;
+    const agencyAddress2 = landingPageLocation ? landingPageLocation.address2 : null;
+    if(agencyAddress2){
+        agencyAddress += `, ${agencyAddress2}`
+    }
     const landingPage = {
         agencyId: agency.agencyId,
         banner: agency.banner,
@@ -440,17 +447,12 @@ async function getAgencyLandingPage(req, res, next) {
         locationId: landingPageLocation.mysqlId,
         email: landingPageLocation ? landingPageLocation.email : null,
         phone: landingPageLocation ? landingPageLocation.phone : null,
-        address: landingPageLocation ? landingPageLocation.address : null,
+        address: agencyAddress,
         addressCityState: landingPageLocation ? `${landingPageLocation.city}, ${landingPageLocation.territory} ${landingPageLocation.zip}` : null,
         ...agency.landingPageContent
     };
     if(agency.agencyLocationId){
         landingPage.agencyLocationId = agency.agencyLocationId;
-
-    }
-    //So the client App know agencyLocation should not be changed.
-    if(agency.lockAgencyLocationId){
-        landingPage.lockAgencyLocationId = agency.lockAgencyLocationId
     }
 
     res.send(200, landingPage);
@@ -596,15 +598,28 @@ async function getAgencyMetadata(req, res, next) {
         log.error(`Agency operation hours not set: ${__location}`);
     }
 
+
+    const metaObject = {
+        wholesale: agencyJson.wholesale,
+        metaAgencyId: agencyJson.agencyId,
+        metaName: agencyJson.name,
+        metaPhone: landingPageLocation.phone,
+        metaEmail: landingPageLocation.email,
+        metaCALicence: agencyJson.caLicenseNumber,
+        metaHasAbout: Boolean(agencyJson.about),
+        metaAgencyNetworkId: agencyJson.agencyNetworkId
+    };
+
     // dont pass back data that isnt there
-    const metaLogo = agencyJson.logo ? `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}` : null;
-    const metaFooterLogo = agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null;
-    const metaFavicon = agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null;
-    const metaWebsite = agencyJson.website ? agencyJson.website : null;
-    const socialMediaList = agencyJson.hasOwnProperty('socialMediaTags') ? agencyJson.socialMediaTags : null;
-    const enableOptOutSetting = agencyJson.hasOwnProperty('enableOptOut') ? agencyJson.enabelOptOut : null;
+    metaObject.metaLogo = agencyJson.logo ? `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}` : null;
+    metaObject.metaFooterLogo = agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null;
+    metaObject.metaFavicon = agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null;
+    metaObject.metaWebsite = agencyJson.website ? agencyJson.website : null;
+    metaObject.metaSocialMedia = agencyJson.hasOwnProperty('socialMediaTags') ? agencyJson.socialMediaTags : null;
+    metaObject.metaOptOut = agencyJson.hasOwnProperty('enableOptOut') ? agencyJson.enabelOptOut : null;
     // only pass back operation hours if both open and close time are present
-    const metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
+    metaObject.metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
+    metaObject.metaCss = metaCss;
 
     // use wheelhouse defaults if its not present
     let metaDescription = null;
@@ -614,24 +629,15 @@ async function getAgencyMetadata(req, res, next) {
     else if(agencyJson.defaultLandingPageContent) {
         metaDescription = agencyJson.defaultLandingPageContent.bannerHeadingDefault;
     }
+    metaObject.metaDescription = metaDescription;
 
-    res.send(200, {
-        wholesale: agencyJson.wholesale,
-        metaName: agencyJson.name,
-        metaPhone: landingPageLocation.phone,
-        metaEmail: landingPageLocation.email,
-        metaCALicence: agencyJson.caLicenseNumber,
-        metaLogo: metaLogo,
-        metaFooterLogo: metaFooterLogo,
-        metaFavicon: metaFavicon,
-        metaWebsite: metaWebsite,
-        metaSocialMedia: socialMediaList,
-        metaCss: metaCss,
-        metaDescription: metaDescription,
-        metaHasAbout: Boolean(agencyJson.about),
-        metaOperationHours: metaOperationHours,
-        metaOptOut: Boolean(enableOptOutSetting)
-    });
+    //So the client App know agencyLocation should not be changed.
+    if(agencyJson.lockAgencyLocationId){
+        metaObject.agencyLocationId = agencyJson.agencyLocationId;
+        metaObject.lockAgencyLocationId = agencyJson.lockAgencyLocationId;
+    }
+
+    res.send(200, metaObject);
     return next();
 }
 

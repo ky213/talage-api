@@ -62,7 +62,7 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('error');
         }
 
-        if (!session || !session.newBusiness) {
+        if (!session?.newBusiness) {
             const errorMessage = `No new business information returned in application creation. `;
             log.error(logPrefix + errorMessage + __location);
             this.reasons.push(errorMessage);
@@ -73,7 +73,7 @@ module.exports = class GreatAmericanWC extends Integration {
             id: c.code,
             value: c.attributes.classIndustry
         }));
-        if(!sessionCodes[0].id || !sessionCodes[0].value){
+        if(!sessionCodes[0]?.id || !sessionCodes[0]?.value){
             log.error(`${logPrefix}Bad session Code ${JSON.stringify(sessionCodes)}. ` + __location);
             this.reasons.push(`Bad session Code ${JSON.stringify(sessionCodes)}`);
         }
@@ -83,6 +83,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // creates the question session using the newBusiness ID from the application
         session = await GreatAmericanApi.getSession(this, token, session.newBusiness, sessionCodes)
         if(!session){
+            log.error(`${logPrefix}getSession failed: @ ` + __location);
             this.log += `Great American getSession failed: `;
             this.reasons.push(`Great American getSession failed`);
             return this.return_result('error');
@@ -103,12 +104,13 @@ module.exports = class GreatAmericanWC extends Integration {
             questions[this.question_identifiers[q.id]] = q.answer;
         }
 
-        if (session.newBusiness.workflowControl !== 'CONTINUE') {
-            this.log += `Great American returned a bad workflow control response: ${session.newBusiness.workflowControl} @ ` + __location;
+        if (session.newBusiness?.workflowControl !== 'CONTINUE' ||
+            session.newBusiness?.status === 'DECLINE') {
+            this.log += `Great American returned a bad workflow control response: ${session.newBusiness?.workflowControl} @ ` + __location;
             return this.return_result('declined');
         }
 
-        const questionnaireInit = session.riskSelection.data.answerSession.questionnaire;
+        const questionnaireInit = session?.riskSelection.data.answerSession.questionnaire;
         let need_generalEligibility3OrMore = false;
         let need_generalEligibility3OrMoreRestManu = false;
         questionnaireInit.groups.forEach((groups) => {
@@ -124,9 +126,9 @@ module.exports = class GreatAmericanWC extends Integration {
             });
         });
         //Questions from appDoc Data.
-        if(this.app.applicationDocData.founded){
-            const yearsWhole = moment().diff(this.app.applicationDocData.founded, 'years',false);
-            const years = moment().diff(this.app.applicationDocData.founded, 'years',true);
+        if(this.applicationDocData.founded){
+            const yearsWhole = moment().diff(this.applicationDocData.founded, 'years',false);
+            const years = moment().diff(this.applicationDocData.founded, 'years',true);
             questions['generalEligibilityYearsOfExperience'] = yearsWhole.toString();
 
 
@@ -159,8 +161,8 @@ module.exports = class GreatAmericanWC extends Integration {
         else {
             questions['generalEligibilityYearsOfExperience'] = '5';
         }
-        if(this.app.applicationDocData.yearsOfExp){
-            questions['generalEligibilityYearsOfExperience'] = this.app.applicationDocData.yearsOfExp;
+        if(this.applicationDocData.yearsOfExp){
+            questions['generalEligibilityYearsOfExperience'] = this.applicationDocData.yearsOfExp;
         }
 
         //Employee Info
@@ -174,7 +176,7 @@ module.exports = class GreatAmericanWC extends Integration {
         let claimOver50K = false;
         let claimCount = 0;
         let years = 5;
-        this.app.applicationDocData.claims.forEach((claim) => {
+        this.applicationDocData.claims.forEach((claim) => {
             if(claim.eventDate){
                 try{
                     years = moment().diff(claim.eventDate, 'years',false);
@@ -212,7 +214,7 @@ module.exports = class GreatAmericanWC extends Integration {
             questions['claimsLossesMoreThan50K'] = "Yes, I’ve had a single loss more than $50,000";
         }
         //PolicyQuestions
-        this.app.applicationDocData.policies.forEach((policy) => {
+        this.applicationDocData.policies.forEach((policy) => {
             if(policy.policyType === "WC"){
                 //Q: Prior Insurance?
                 questions['scheduleRatingPriorInsurance'] = policy.coverageLapse ? "No" : "Yes";
@@ -221,12 +223,17 @@ module.exports = class GreatAmericanWC extends Integration {
 
         // begins to hydrate (udpate) the question session
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
+        if (curAnswers?.newBusiness?.status === 'DECLINE') {
+            this.reasons.push(`Great American has declined to offer you coverage at this time`);
+            return this.return_result('declined');
+        }
+
         this.logApiCall('injectAnswers', [session, questions], curAnswers);
         if(!curAnswers){
             this.reasons.push(`injectAnswers Error: No reponse`);
             return this.return_result('error');
         }
-        let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
+        let questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
 
         // Often times follow-up questions are offered by the Great American
@@ -239,8 +246,13 @@ module.exports = class GreatAmericanWC extends Integration {
 
             // continue to update the question session until complete
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
+            if (curAnswers?.newBusiness?.status === 'DECLINE') {
+                this.reasons.push(`Great American has declined to offer you coverage at this time`);
+                return this.return_result('declined');
+            }
+
             this.logApiCall('injectAnswers', [curAnswers, questions], curAnswers);
-            questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
+            questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
             // Prevent infinite loops with this check. Every call to
             // injectAnswers should answer more questions. If we aren't getting
@@ -292,20 +304,13 @@ module.exports = class GreatAmericanWC extends Integration {
     }
 
     async generateAndSendACORD() {
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         const logPrefix = `Appid: ${applicationDocData.applicationId} ${this.insurer.name} WC Request Error: `;
         const recipients = `AltSubmissions@gaig.com,mdowd@gaig.com`;
         const emailSubject = `WC Application - ${this.number} - ${applicationDocData.businessName}`;
         const emailBody = `See attached PDF`;
 
         log.info(`Sending underwriting email to Great American with subject: ${emailSubject}.`);
-
-        // Prepare keys so that the record of the email being sent is written (currently not doing this)
-        // const email_keys = {
-        //     'applicationId': this.app.applicationDocData.applicationId,
-        //     'agencyLocationId': this.app.agencyLocation.id,
-        //     'applicationDoc': this.app.applicationDocData
-        // };
 
         // generate the ACORD form
         let ACORDForm = null;

@@ -124,12 +124,7 @@ async function postApplication(req, res, next) {
     // Set the application progress to 'quoting'
     const applicationBO = new ApplicationBO();
     try{
-        await applicationBO.updateProgress(req.body.id, "quoting");
-
-        const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(application.id, "quoting", appStatusIdQuoting);
-
-
+        await applicationBO.updateToQuoting(req.body.id);
     }
     catch(err){
         log.error(`Error update appication progress and status appId = ${req.body.id}  for quoting. ` + err + __location);

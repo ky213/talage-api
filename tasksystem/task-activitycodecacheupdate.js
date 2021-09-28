@@ -111,6 +111,7 @@ var activityCodeCacheUpdate = async function(){
         // get all non-deleted agencies
         const query = {
             active: true,
+            talageStandard: true,
             featured: true
         };
         industryCodeList = await IndustryCode.find(query);

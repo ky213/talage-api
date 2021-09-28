@@ -124,6 +124,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'agency-location-rt');
     registerEndpoint(server, 'administration', 'territory-rt');
     registerEndpoint(server, 'administration', 'question-rt');
+    registerEndpoint(server, 'administration', 'question-categories-rt');
     registerEndpoint(server, 'administration', 'activity-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-association-rt');
@@ -151,12 +152,14 @@ exports.registerEndpoints = (server) => {
     // new quote app endpoints
     registerEndpoint(server, 'mitsumori', 'route-planner-rt');
     registerEndpoint(server, 'mitsumori', 'resources-rt');
+    registerEndpoint(server, 'mitsumori', 'load-application-rt');
     registerEndpoint(server, 'mitsumori', 'agency-quote-rt');
     registerEndpoint(server, 'mitsumori', 'application-meta-rt');
     registerEndpoint(server, 'mitsumori', 'auth-quote-rt');
 
     // digalent quote app endpoints
     registerEndpoint(server, 'digalent', 'resources-rt');
+    registerEndpoint(server, 'digalent', 'load-application-rt');
     registerEndpoint(server, 'digalent', 'agency-quote-rt');
     registerEndpoint(server, 'digalent', 'application-meta-rt');
     registerEndpoint(server, 'digalent', 'auth-quote-rt');

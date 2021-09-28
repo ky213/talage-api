@@ -16,7 +16,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
 
 const SocialMediaSchema = new Schema({
-    socialMediaTag: {type: String, required: true},
+    socialMediaTag: {type: String, required: false}, //doc in production database without this.
     tagLabel:{type: String, required:false},
     tagType: {type: String, required:true}
 }, opts);

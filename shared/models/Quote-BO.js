@@ -11,7 +11,7 @@ const validator = global.requireShared('./helpers/validator.js');
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const {quoteStatus, convertToAggregatedStatus} = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const collectionName = 'Quotes'
 
@@ -119,7 +119,7 @@ module.exports = class QuoteBO {
             return this.getfromMongoByQuoteId(quoteId, returnModel)
         }
         else {
-            return this.getMongoDocbyMysqlId(quoteId, returnModel)
+            throw new Error("Bad QuoteId - must  be uuid");
         }
     }
 
@@ -239,9 +239,9 @@ module.exports = class QuoteBO {
                 queryJSON.quoteId = {$in: queryJSON.quoteId};
             }
 
-            if(queryJSON.mysqlId && Array.isArray(queryJSON.mysqlId)){
-                queryJSON.mysqlId = {$in: queryJSON.mysqlId};
-            }
+            // if(queryJSON.mysqlId && Array.isArray(queryJSON.mysqlId)){
+            //     queryJSON.mysqlId = {$in: queryJSON.mysqlId};
+            // }
 
 
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
@@ -416,37 +416,38 @@ module.exports = class QuoteBO {
         });
     }
 
-    async getMongoDocbyMysqlId(mysqlId, returnModel = false) {
-        return new Promise(async(resolve, reject) => {
-            if (mysqlId) {
-                const query = {
-                    "mysqlId": mysqlId,
-                    active: true
-                };
-                let quoteDoc = null;
-                try {
-                    const docDB = await Quote.findOne(query, '-__v');
-                    if (docDB && returnModel === false) {
-                        quoteDoc = mongoUtils.objCleanup(docDB);
-                    }
-                    else {
-                        quoteDoc = docDB
-                    }
-                    if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
-                        await this.checkAndFixQuoteStatus(quoteDoc);
-                    }
-                }
-                catch (err) {
-                    log.error("Getting Application error " + err + __location);
-                    reject(err);
-                }
-                resolve(quoteDoc);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
+    // async getMongoDocbyMysqlId(mysqlId, returnModel = false) {
+    //     return new Promise(async(resolve, reject) => {
+    //         if (mysqlId) {
+    //             const query = {
+    //                 "mysqlId": mysqlId,
+    //                 active: true
+    //             };
+    //             let quoteDoc = null;
+    //             try {
+    //                 const docDB = await Quote.findOne(query, '-__v');
+    //                 if (docDB && returnModel === false) {
+    //                     quoteDoc = mongoUtils.objCleanup(docDB);
+    //                 }
+    //                 else {
+    //                     quoteDoc = docDB
+    //                 }
+    //                 if(quoteDoc && quoteDoc.quoteStatusId === quoteStatus.initiated.id){
+    //                     await this.checkAndFixQuoteStatus(quoteDoc);
+    //                 }
+    //             }
+    //             catch (err) {
+    //                 log.error("Getting Application error " + err + __location);
+    //                 reject(err);
+    //             }
+    //             resolve(quoteDoc);
+    //         }
+    //         else {
+    //             reject(new Error('no id supplied'))
+    //         }
+    //     });
+    // }
+
 
     async updateMongo(quoteId, newObjectJSON) {
         if (quoteId) {
@@ -457,7 +458,10 @@ module.exports = class QuoteBO {
                     "mysqlAppId",
                     "quoteId",
                     "applicationId",
-                    "uuid"]
+                    "uuid",
+                    "agencyNetworkId",
+                    "agencyId",
+                    "agencyLocationId"]
                 for (let i = 0; i < changeNotUpdateList.length; i++) {
                     if (newObjectJSON[changeNotUpdateList[i]]) {
                         delete newObjectJSON[changeNotUpdateList[i]];
@@ -521,23 +525,26 @@ module.exports = class QuoteBO {
         return mongoUtils.objCleanup(quote);
     }
 
-    // NOTE: Keeping the name the same, even though aggregatedStatus will be deprecated. This function now updates both statuses
-    async updateQuoteAggregatedStatus(quote, status) {
+    // This function updates status and reason
+    async updateQuoteStatus(quote, status) {
         const {quoteId} = quote;
         if(quoteId && status){
             // update Mongo
             try{
                 const query = {quoteId: quoteId};
                 const updateJSON = {
-                    "aggregatedStatus": quote.aggregatedStatus,
                     "quoteStatusId": status.id, 
                     "quoteStatusDescription": status.description
+
                 };
+                if(quote.reasons){
+                    updateJSON.reasons = quote.reasons;
+                }
                 await Quote.updateOne(query, updateJSON);
-                log.info(`Update Mongo QuoteDoc aggregated status on mysqlId: ${quoteId}` + __location);
+                log.info(`Update Mongo QuoteDoc status on quoteId: ${quoteId}` + __location);
             }
             catch(err){
-                log.error(`Could not update mongo quote ${quoteId} aggregated status: ${err} ${__location}`);
+                log.error(`Could not update mongo quote ${quoteId}  status: ${err} ${__location}`);
                 throw err;
             }
         }
@@ -564,7 +571,6 @@ module.exports = class QuoteBO {
                         "bound": true,
                         "boundUser": bindUser,
                         "boundDate": bindDate,
-                        "aggregatedStatus": convertToAggregatedStatus(status),
                         "status": "bound",
                         "quoteStatusId": status.id,
                         "quoteStatusDescription": status.description
@@ -639,13 +645,20 @@ module.exports = class QuoteBO {
                     return;
                 }
 
-                const status = global.requireShared('./models/status/quoteStatus.js');
                 const duration = moment.duration(now.diff(moment(quoteDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`AppId: ${quoteDoc.applicationId} Quote: ${quoteDoc.quoteId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quote initiated.`);
-                    // This probably should just handle the update to mongo without the call to quotestatus.
-                    // we know exactly what should happen.
-                    await status.updateQuoteStatus(quoteDoc, true);
+                    //Need to update the current in memory doc. It could be from getList
+                    quoteDoc.reasons = 'Submission request timed out'
+                    quoteDoc.quoteStatusId = quoteStatus.error.id;
+                    quoteDoc.quoteStatusDescription = quoteStatus.error.description;
+                    try {
+                        await this.updateQuoteStatus(quoteDoc, quoteStatus.error);
+                    }
+                    catch (error) {
+                        log.error(`Could not update quote ${quoteDoc.quoteId} appId ${quoteDoc.applicationId} status: ${error} ${__location}`);
+                        return false;
+                    }
                 }
             }
             catch(err){

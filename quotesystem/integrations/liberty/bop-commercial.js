@@ -289,7 +289,7 @@ module.exports = class LibertySBOP extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
-        applicationDocData = this.app.applicationDocData;
+        applicationDocData = this.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
         logPrefix = `Liberty Mutual Commercial BOP (Appid: ${applicationDocData.applicationId}): `;
 
@@ -299,7 +299,7 @@ module.exports = class LibertySBOP extends Integration {
 
         if (!this.industry_code) {
             const errorMessage = `No Industry Code was found for Commercial BOP. `;
-            log.error(`${logPrefix}${errorMessage} ${__location}`);
+            log.warn(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_autodeclined_out_of_appetite();
         }
 
@@ -363,19 +363,20 @@ module.exports = class LibertySBOP extends Integration {
                 }
             }
         }
-
+        //TODO base it on InsurerQuestions, not the question in the application (Talage questions)
+        
         const commercialBOPQuestions = applicationDocData.questions
-            .filter(q => q.insurerQuestionAttributes.commercialBOP)
+            .filter(q => q.insurerQuestionAttributes?.commercialBOP)
             .filter(q => !bopLineBusinessCoverageQuestions.includes(q.insurerQuestionIdentifier));
-
+        
         // if Liquor Liability Coverage is selected and any location has Annual Liquor Receipts value === 0, auto decline application
         const liqurCoverageQuestion = commercialBOPQuestions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_byob');
         if (liqurCoverageQuestion && liqurCoverageQuestion.answerValue.toLowerCase() === 'liquor liability coverage') {
             for (const location of applicationDocData.locations) {
                 const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_liqur_receipts');
                 if (!annualReceiptsQuestion || parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10) <= 0) {
-                    const errorMessage = `Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. ${__location}`;
-                    log.error(logPrefix + errorMessage);
+                    const errorMessage = `Annual Liquor Receipts for a location must be greater than 0 when Liquor Liability Coverage is selected. `;
+                    log.error(logPrefix + errorMessage + __location);
                     return this.client_autodeclined(errorMessage);
                 }
             }
@@ -638,33 +639,40 @@ module.exports = class LibertySBOP extends Integration {
         //                     <!-- Please provide details of prior coverage -->
         //                     <Explanation>Prior Coverage detail goes here</Explanation>
         //                 </QuestionAnswer>
-
-        const allPolicyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.commercialBOP.ACORDValue === "Policy");
-        const standardPolicyQuestions = allPolicyQuestions.filter(q => !policyQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
-        const specialPolicyQuestions = allPolicyQuestions.filter(q => policyQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
+        let standardPolicyQuestions = [];
+        let specialPolicyQuestions = [];
+        try{
+            const allPolicyQuestions = commercialBOPQuestions.filter(q => q.insurerQuestionAttributes.commercialBOP.ACORDValue === "Policy");
+            standardPolicyQuestions = allPolicyQuestions.filter(q => !policyQuestionSpecialCases.concat().includes(q.insurerQuestionIdentifier));
+            specialPolicyQuestions = allPolicyQuestions.filter(q => policyQuestionSpecialCases.includes(q.insurerQuestionIdentifier));
+        }
+        catch(err){
+            log.error(`Liberty Comm BOP question setup ${err}` + __location)
+        }
+        
 
         let PolicySupplementExt = null;
         let UWQ5501Answered = false;
-        specialPolicyQuestions.forEach(question => {
-            if (this.includeQuestion(question.insurerQuestionIdentifier)) {
-                switch (question.insurerQuestionIdentifier) {
+        specialPolicyQuestions.forEach(specialPolicyQuestion => {
+            if (this.includeQuestion(specialPolicyQuestion.insurerQuestionIdentifier)) {
+                switch (specialPolicyQuestion.insurerQuestionIdentifier) {
                     case "UWQ5042":
                         const UWQ5042GrossReceipts = Policy.ele('GrossReceipts');
                         UWQ5042GrossReceipts.ele('OperationsCd', 'OUTSIDEUS');
-                        UWQ5042GrossReceipts.ele('RevenuePct', question.answerValue);
+                        UWQ5042GrossReceipts.ele('RevenuePct', specialPolicyQuestion.answerValue);
                         break;
                     case "UWQ2":
                         if (!PolicySupplementExt) {
                             PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                         }
-                        PolicySupplementExt.ele('com.libertymutual.ci_NonRenewalOrCancellationOtherReasonText', question.answerValue);
+                        PolicySupplementExt.ele('com.libertymutual.ci_NonRenewalOrCancellationOtherReasonText', specialPolicyQuestion.answerValue);
                         break;
                     case "UWQ1":
                         const UWQ1QuestionAnswer = Policy.ele('QuestionAnswer');
-                        UWQ1QuestionAnswer.ele('QuestionCd', question.insurerQuestionAttributes.commercialBOP.ACORDCd);
-                        UWQ1QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
+                        UWQ1QuestionAnswer.ele('QuestionCd', specialPolicyQuestion.insurerQuestionAttributes.commercialBOP.ACORDCd);
+                        UWQ1QuestionAnswer.ele('YesNoCd', specialPolicyQuestion.answerValue.toUpperCase());
     
-                        if (question.answerValue.toLowerCase() === "yes") {
+                        if (specialPolicyQuestion.answerValue.toLowerCase() === "yes") {
                             const explanation = specialPolicyQuestions.find(q => q.insurerQuestionIdentifier === "UWQ1_Explanation");
     
                             if (explanation) {
@@ -685,20 +693,20 @@ module.exports = class LibertySBOP extends Integration {
                         if (!PolicySupplementExt) {
                             PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                         }
-                        PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', question.answerValue);
+                        PolicySupplementExt.ele('com.libertymutual.ci_EquipLeasedRentedOperatorsStatusCd', specialPolicyQuestion.answerValue);
                         break;
                     case "BOP23":
                         if (!PolicySupplementExt) {
                             PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                         }
-                        PolicySupplementExt.ele('com.libertymutual.ci_TypeEquipLeasedRentedText', question.answerValue);
+                        PolicySupplementExt.ele('com.libertymutual.ci_TypeEquipLeasedRentedText', specialPolicyQuestion.answerValue);
                         break;
                     case "BOP2":
                         if (!PolicySupplementExt) {
                             PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                         }
     
-                        let yearsOfExp = parseInt(question.answerValue, 10);
+                        let yearsOfExp = parseInt(specialPolicyQuestion.answerValue, 10);
                         if (isNaN(yearsOfExp)) {
                             yearsOfExp = 0;
                         }
@@ -722,11 +730,11 @@ module.exports = class LibertySBOP extends Integration {
                             UWQ5501Answered = true;
                             const UWQ5501QuestionAnswer = Policy.ele('QuestionAnswer');
                             UWQ5501QuestionAnswer.ele('QuestionCd', 'RESTA07');
-                            UWQ5501QuestionAnswer.ele('YesNoCd', question.answerValue);
+                            UWQ5501QuestionAnswer.ele('YesNoCd', specialPolicyQuestion.answerValue);
                         }
                         break;
                     default:
-                        log.warn(`${logPrefix}Unknown question identifier [${question.insurerQuestionIdentifier}] encountered while adding Policy question special cases. ${__location}`);
+                        //log.warn(`${logPrefix}Unknown question identifier [${specialPolicyQuestion.insurerQuestionIdentifier}] encountered while adding Policy question special cases. ${__location}`);
                         break;
                 }
             }
@@ -1587,8 +1595,36 @@ module.exports = class LibertySBOP extends Integration {
         else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
             if (policyStatus.toLowerCase() === "reject") {
-                log.error(`${logPrefix}Application was rejected.`);
-                return this.client_declined(`Application was rejected.`);
+                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo && policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.length > 0) {
+                    const rejectionReasons = [];
+                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.forEach(rule => {
+                        if (rule.UnderwritingDecisionCd[0].toLowerCase() === 'reject') {
+                            const ruleInfo = rule.UnderwritingRuleInfoExt[0];
+                            rejectionReasons.push(`(${ruleInfo['com.libertymutual.ci_UnderwritingDecisionName'][0]}): ${ruleInfo['com.libertymutual.ci_UnderwritingMessage'][0]}`);
+                        }
+                    });
+
+                    if (rejectionReasons.length > 0) {
+                        const rejectionReason = rejectionReasons.shift();
+                        log.warn(`${logPrefix}${rejectionReason}. ` + __location);
+                        return this.client_declined(rejectionReason, rejectionReasons);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Application was rejected, failed to parse reasons.` + __location);
+                        return this.client_declined(`Application was rejected.`);
+                    }
+                }
+                else {
+                    log.warn(`${logPrefix}Application was rejected, no reasons specified.` + __location);
+                    return this.client_declined(`Application was rejected.`);
+                }
+            }
+
+            if (policyStatus.toLowerCase() === "refer") {
+                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0] && 
+                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0]['com.libertymutual.ci_UnderwritingDecisionName']) {
+                    this.reasons.push(policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0]['com.libertymutual.ci_UnderwritingDecisionName'][0]);
+                } 
             }
         }
 
@@ -1748,7 +1784,7 @@ module.exports = class LibertySBOP extends Integration {
 
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
-        applicationDocData = this.app.applicationDocData;
+        applicationDocData = this.applicationDocData;
 
         const industryQuery = {
             insurerId: this.insurer.id,
@@ -1998,7 +2034,10 @@ module.exports = class LibertySBOP extends Integration {
                     return true;
                 }
             default:
-                log.warn(`No case found for question identifier: ${questionIdentifier}. Defualting to included. ${__location}`);
+                //Could be the other Liberty BOP product
+                //Extra question not a problem
+                //Missing questions are a problem.
+                //log.warn(`No case found for question identifier: ${questionIdentifier}. Defualting to included. ${__location}`);
                 return true;
         }
     }

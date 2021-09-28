@@ -4,6 +4,9 @@
 
 
 const moment = require('moment');
+const axios = require('axios');
+//const _ = require('lodash');
+
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -11,7 +14,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const status = global.requireShared('./models/status/applicationStatus.js');
+const runQuoting = require('../run-quoting.js');
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
@@ -34,7 +37,7 @@ const {
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 module.exports = class Application {
     constructor() {
@@ -374,8 +377,11 @@ module.exports = class Application {
                     if (typeof claim.amountPaid === 'number') {
                         claim.amountPaid = Math.round(claim.amountPaid);
                     }
-                    else {
+                    else if(typeof claim.amountPaid === 'string') {
                         claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                    else {
+                        claim.amountPaid = 0;
                     }
                 }
                 else {
@@ -396,8 +402,11 @@ module.exports = class Application {
                     if (typeof claim.amountReserved === 'number') {
                         claim.amountReserved = Math.round(claim.amountReserved);
                     }
-                    else {
+                    else if (typeof claim.amountReserved === 'string') {
                         claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                    else {
+                        claim.amountReserved = 0;
                     }
                 }
                 else {
@@ -423,10 +432,19 @@ module.exports = class Application {
         // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
+        const industryCodeStringArray = [];
+        if(this.applicationDocData.industryCode){
+            industryCodeStringArray.push(this.applicationDocData.industryCode);
+        }
+        const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
+            industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
+        }
+
         let talageQuestionDefList = null;
         try {
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
-            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, this.business.getZips(), policyList, insurer_ids, "general", true);
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
         }
         catch (e) {
@@ -624,12 +642,13 @@ module.exports = class Application {
         return rtn;
     }
 
+
     /**
-	 * Begins the process of getting and returning quotes from insurers
+	 * Begins the process of getting and returning price_indications from insurers
 	 *
 	 * @returns {void}
 	 */
-    async run_quotes() {
+    async run_priceindications() {
 
         // appStatusId > 70 is finished.(request to bind)
         if(this.applicationDocData.appStatusId >= 70){
@@ -639,7 +658,7 @@ module.exports = class Application {
 
         // Generate quotes for each policy type
         const fs = require('fs');
-        const quote_promises = [];
+        const pricing_promises = [];
 
         if(this.policies && this.policies.length === 0){
             log.error(`No policies for Application ${this.id} ` + __location)
@@ -649,6 +668,10 @@ module.exports = class Application {
         let applicationBO = new ApplicationBO();
         await applicationBO.updateMongo(this.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
         this.policies.forEach((policy) => {
+            let policyTypeAbbr = '';
+            if(policy?.type){
+                policyTypeAbbr = policy.type.toLowerCase()
+            }
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 let quoteInsurer = true;
@@ -665,31 +688,10 @@ module.exports = class Application {
 
                         //Retrieve the data for this policy type
                         const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
-                        if (agency_location_insurer_data) {
+                        if (agency_location_insurer_data && insurer.policy_type_details[policy.type.toUpperCase()].pricing_support) {
 
                             if (agency_location_insurer_data.enabled) {
-                                let policyTypeAbbr = '';
-                                let slug = '';
-                                try{
-                                    // If agency wants to send acord, send acord
-                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === true) {
-                                        slug = 'acord';
-                                    }
-                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
-                                        // Otherwise use the api
-                                        slug = insurer.slug;
-                                    }
-                                    if(policy && policy.type){
-                                        policyTypeAbbr = policy.type.toLowerCase()
-                                    }
-                                    else {
-                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
-                                    }
-                                }
-                                catch(err){
-                                    log.error('SLUG ERROR ' + err + __location);
-                                }
-
+                                let slug = insurer.slug;
                                 const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 log.debug(`normalizedPathnormalizedPath}`)
                                 try{
@@ -697,7 +699,7 @@ module.exports = class Application {
                                         // Require the integration file and add the response to our promises
                                         const IntegrationClass = require(normalizedPath);
                                         const integration = new IntegrationClass(this, insurer, policy);
-                                        quote_promises.push(integration.quote());
+                                        pricing_promises.push(integration.pricing());
                                     }
                                     else {
                                         log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
@@ -723,9 +725,9 @@ module.exports = class Application {
         });
 
         // Wait for all quotes to finish
-        let quoteIDs = null;
+        let pricingIds = null;
         try {
-            quoteIDs = await Promise.all(quote_promises);
+            pricingIds = await Promise.all(pricing_promises);
         }
         catch (error) {
             log.error(`Quoting did not complete successfully for application ${this.id}: ${error} ${__location}`);
@@ -735,63 +737,65 @@ module.exports = class Application {
         //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
 
         // Check for no quotes
-        if (quoteIDs.length < 1) {
+        if (pricingIds.length < 1) {
             log.warn(`No quotes returned for application ${this.id}` + __location);
             return;
         }
 
+        return true;
+    }
 
-        // Update the application quote metrics
-        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.applicationId);
 
-        // Update the application Status
-        // Update the application quote progress to "complete"
-        try{
-            await applicationBO.updateProgress(this.applicationDocData.applicationId, "complete");
-        }
-        catch(err){
-            log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
-        }
+    /**
+     * Begins the process of getting and returning quotes from insurers
+     *
+     * @returns {void}
+     */
+    async run_quotes() {
+        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
+            const axiosOptions = {
+                timeout: 15000, // Timeout after 15 seconds
+                headers: {Accept: "application/json"}
+            };
+            const postParams = {
+                id: this.id,
+                insurerId: this.quoteInsurerId,
+                agencyPortalQuote: this.agencyPortalQuote
+            }
+            let requestUrl = `http://localhost:4000/v1/run-quoting`;
+            if (global.settings.ENV !== 'development') {
+                //use ${ENV}quote.internal.talageins.com
+                requestUrl = `https://${global.settings.ENV}quote.internal.talageins.com/v1/run-quoting`;
+            }
+            //if global.settings.QUOTE_SERVER_URL is set it wins....
+            if(global.settings.QUOTE_SERVER_URL && global.settings.QUOTE_PUBLIC_API_PORT){
+                requestUrl = `${global.settings.QUOTE_SERVER_URL}:${global.settings.QUOTE_PUBLIC_API_PORT}/v1/run-quoting`;
+            }
+            else if(global.settings.QUOTE_SERVER_URL){
+                requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-quoting`;
+            }
 
-        // Update the application status
-        await status.updateApplicationStatus(this.applicationDocData.applicationId);
-
-        // Get the quotes from the database
-        const quoteBO = new QuoteBO();
-        let quoteList = null;
-        try {
-            const query = {"applicationId": this.applicationDocData.applicationId}
-            quoteList = await quoteBO.getList(query);
-            //if a quote is marked handedByTalage  mark the application as handedByTalage and wholesale = true
-            let isHandledByTalage = false
-            quoteList.forEach((quoteDoc) => {
-                if(quoteDoc.handledByTalage){
-                    isHandledByTalage = quoteDoc.handledByTalage;
+            try {
+                log.debug(`calling ${requestUrl} for quoting` + __location)
+                return await axios.post(requestUrl, postParams, axiosOptions);
+            }
+            catch (ex) {
+                // If a timeout occurred.
+                if (ex.code === 'ECONNABORTED') {
+                    log.error(`Timeout to quoting server: ${requestUrl}: ${ex} ${__location}`);
                 }
-            });
-            if(isHandledByTalage){
-                // eslint-disable-next-line object-curly-newline
-                const appUpdateJSON = {handledByTalage: true};
-                try{
-                    await applicationBO.updateMongo(this.applicationDocData.applicationId, appUpdateJSON);
+                // or if a 500 or other REST error was returned.
+                else {
+                    log.error(`Error when calling quoting server: ${requestUrl}: ${ex} ${__location}`);
                 }
-                catch(err){
-                    log.error(`Error update appication progress appId = ${this.applicationDocData.applicationId}  for complete. ` + err + __location);
-                }
+
+                // Run quoting manually if we are unable to run quoting via the quote server.
+                return runQuoting(this);
             }
         }
-        catch (error) {
-            log.error(`Could not retrieve quotes from the database for application ${this.applicationDocData.applicationId} ${__location}`);
+        else {
+            return runQuoting(this);
         }
-
-        // Send a notification to Slack about this application
-        try{
-            await this.send_notifications(quoteList);
-        }
-        catch(err){
-            log.error(`Quote Application ${this.id} error sending notifications ` + err + __location);
-        }
-
     }
 
     /**
@@ -822,7 +826,7 @@ module.exports = class Application {
             }}
         }
         quoteList.forEach((quoteDoc) => {
-            if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
+            if (quoteDoc.quoteStatusId === quoteStatus.quoted.id || quoteDoc.quoteStatusId === quoteStatus.quoted_referred.id) {
                 some_quotes = true;
             }
             //quote Docs are marked with handledByTalage
@@ -1052,17 +1056,20 @@ module.exports = class Application {
     /**
 	 * Checks that the data supplied is valid
 	 *
+     * @param {boolean} logValidationErrors - true = log.error is written
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    validate() {
+    validate(logValidationErrors = true) {
         return new Promise(async(fulfill, reject) => {
             // Agent
             try {
                 //Check Agencylocation Choice.
-                await validateAgencyLocation(this.applicationDocData, this.agencyLocation);
+                await validateAgencyLocation(this.applicationDocData, this.agencyLocation, logValidationErrors);
             }
             catch (e) {
-                log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                if(logValidationErrors){
+                    log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                }
                 return reject(e);
             }
 
@@ -1081,7 +1088,7 @@ module.exports = class Application {
                 if (e.toLowerCase() === 'agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
-                        log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.mysqlId}` + __location)
+                        log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.applicationId}` + __location)
                         this.agencyLocation = new AgencyLocation(this);
                         await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
@@ -1113,7 +1120,9 @@ module.exports = class Application {
             }
 
             if (!insurers || !Array.isArray(insurers) || insurers.length === 0) {
-                log.error('Invalid insurer(s) specified in policy. ' + __location);
+                if(logValidationErrors){
+                    log.error('Invalid insurer(s) specified in policy. ' + __location);
+                }
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
 
@@ -1139,7 +1148,7 @@ module.exports = class Application {
 
             // Business (required)
             try {
-                await validateBusiness(this.applicationDocData);
+                await validateBusiness(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating business: ${e}`));
@@ -1147,7 +1156,7 @@ module.exports = class Application {
 
             // Contacts (required)
             try {
-                validateContacts(this.applicationDocData);
+                validateContacts(this.applicationDocData,logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating contacts: ${e}`));
@@ -1155,7 +1164,7 @@ module.exports = class Application {
 
             // Locations (required)
             try {
-                validateLocations(this.applicationDocData);
+                validateLocations(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating locations: ${e}`));
@@ -1163,7 +1172,7 @@ module.exports = class Application {
 
             // Claims (optional)
             try {
-                validateClaims(this.applicationDocData);
+                validateClaims(this.applicationDocData,logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating claims: ${e}`));
@@ -1172,7 +1181,7 @@ module.exports = class Application {
             // Activity Codes (required)
             if (this.has_policy_type("WC")) {
                 try {
-                    validateActivityCodes(this.applicationDocData);
+                    validateActivityCodes(this.applicationDocData, logValidationErrors);
                 }
                 catch (e) {
                     return reject(new Error(`Failed validating activity codes: ${e}`));
@@ -1219,7 +1228,7 @@ module.exports = class Application {
 
             // Validate all policies
             try {
-                validatePolicies(this.applicationDocData);
+                validatePolicies(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating policy: ${e}`));
@@ -1230,11 +1239,13 @@ module.exports = class Application {
                 for (const question of this.applicationDocData.questions) {
                     if (question.questionId && !question.hidden) {
                         try {
-                            validateQuestion(question);
+                            validateQuestion(question, logValidationErrors);
                         }
                         catch (e) {
                             // This issue should not result in a stoppage of quoting with all insurers
-                            log.error(`AppId ${this.id} Failed validating question ${question.questionId}: ${e}. ` + __location);
+                            if(logValidationErrors){
+                                log.error(`AppId ${this.id} Failed validating question ${question.questionId}: ${e}. ` + __location);
+                            }
                         }
                     }
                 }
@@ -1243,10 +1254,157 @@ module.exports = class Application {
             // Check agent support
             await this.agencyLocation.supports_application().catch(function(error) {
                 // This issue should not result in a stoppage of quoting with all insureres - BP 2020-10-04
-                log.error(`agencyLocation.supports_application() error ` + error + __location);
+                if(logValidationErrors){
+                    log.error(`agencyLocation.supports_application() error ` + error + __location);
+                }
             });
 
             fulfill(true);
         });
+    }
+
+
+    /**
+	 * Begins the process of getting and returning pricing from insurers
+	 *
+	 * @returns {void}
+	 */
+    async run_pricing() {
+
+        // appStatusId > 70 is finished.(request to bind)
+        if(this.applicationDocData.appStatusId >= 70){
+            log.warn("An attempt to priced application that is finished.")
+            throw new Error("Finished Application cannot be priced")
+        }
+
+        // Generate quotes for each policy type
+        const fs = require('fs');
+        const price_promises = [];
+
+        if(this.policies && this.policies.length === 0){
+            log.error(`No policies for Application ${this.id} ` + __location)
+        }
+
+        // set the quoting started date right before we start looking for quotes
+        this.policies.forEach((policy) => {
+            // Generate quotes for each insurer for the given policy type
+            this.insurers.forEach((insurer) => {
+                let quoteInsurer = true;
+                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId !== insurer.id){
+                    quoteInsurer = false;
+                }
+                // Only run quotes against requested insurers (if present)
+                // Check that the given policy type is enabled for this insurer
+                if (insurer.policy_types.indexOf(policy.type) >= 0 && quoteInsurer) {
+
+                    // Get the agency_location_insurer data for this insurer from the agency location
+                    //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
+                    if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
+
+                        //Retrieve the data for this policy type
+                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
+                        if (agency_location_insurer_data) {
+
+                            if (agency_location_insurer_data.enabled) {
+                                let policyTypeAbbr = '';
+                                let slug = '';
+                                try{
+                                    // If agency wants to send acord, send acord
+                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === true) {
+                                        slug = 'acord';
+                                    }
+                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
+                                        // Otherwise use the api
+                                        slug = insurer.slug;
+                                    }
+                                    if(policy && policy.type){
+                                        policyTypeAbbr = policy.type.toLowerCase()
+                                    }
+                                    else {
+                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                    }
+                                }
+                                catch(err){
+                                    log.error('SLUG ERROR ' + err + __location);
+                                }
+
+                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
+                                log.debug(`normalizedPathnormalizedPath}`)
+                                try{
+                                    if (slug.length > 0 && fs.existsSync(normalizedPath)) {
+                                        // Require the integration file and add the response to our promises
+                                        const IntegrationClass = require(normalizedPath);
+                                        const integration = new IntegrationClass(this, insurer, policy);
+                                        price_promises.push(integration.price());
+                                    }
+                                    else {
+                                        log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
+                                    }
+                                }
+                                catch(err){
+                                    log.error(`Error getting Insurer integration file ${normalizedPath} ${err} ` + __location)
+                                }
+                            }
+                            else {
+                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
+                            }
+                        }
+                        else {
+                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                        }
+                    }
+                    else {
+                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                    }
+                }
+            });
+        });
+
+        // Wait for all quotes to finish
+        let pricingResults = null;
+        //pricingResult JSON
+        // const pricingResult =  {
+        //     gotPricing: true,
+        //     price: 1200,
+        //     lowPrice: 800,
+        //     highPrice: 1500,
+        //     outOfAppetite: false,
+        //     pricingError: false
+        // }
+        try {
+            pricingResults = await Promise.all(price_promises);
+        }
+        catch (error) {
+            log.error(`Pricing did not complete successfully for application ${this.id}: ${error} ${__location}`);
+            const appPricingResultJSON = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+            return appPricingResultJSON;
+        }
+
+        //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
+        let appPricingResultJSON = {}
+        // Check for no quotes
+        if (pricingResults.length === 1 && typeof pricingResults[0] === 'object') {
+            appPricingResultJSON = pricingResults[0]
+        }
+        else if (pricingResults.length < 1) {
+            appPricingResultJSON = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+
+        }
+        // else {
+        //     //LOOP result for creating range.
+        // }
+        const appUpdateJSON = {pricingInfo: appPricingResultJSON}
+        const applicationBO = new ApplicationBO();
+        await applicationBO.updateMongo(this.applicationDocData.applicationId, appUpdateJSON);
+
+        return appPricingResultJSON
     }
 };

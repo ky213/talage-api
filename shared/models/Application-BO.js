@@ -6,18 +6,16 @@
 /* eslint-disable lines-between-class-members */
 
 const moment = require('moment');
-const clonedeep = require('lodash.clonedeep');
+
 const _ = require('lodash');
 var FastJsonParse = require('fast-json-parse')
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
-const QuestionBO = global.requireShared('./models/Question-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
-const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
-const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -30,10 +28,7 @@ const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-//const crypt = global.requireShared('./services/crypt.js');
-
 //const moment = require('moment');
-const {'v4': uuidv4} = require('uuid');
 const log = global.log;
 
 // eslint-disable-next-line no-unused-vars
@@ -43,7 +38,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 
 //businessDataJSON
-const QUOTE_STEP_NUMBER = 9;
+
 const QUOTING_STATUS = 15;
 const QUOTE_MIN_TIMEOUT = 5;
 
@@ -52,6 +47,13 @@ const REDIS_AGENCY_APPLIST_PREFIX = 'applist-agency-';
 const REDIS_AGENCYNETWORK_APPLIST_PREFIX = 'applist-agencynetwork-';
 const REDIS_AGENCY_APPCOUNT_PREFIX = 'appcount-agency-';
 const REDIS_AGENCYNETWORK_APPCOUNT_PREFIX = 'appcount-agencynetwork-';
+
+const REDIS_AGENCY_FIVE_MINUTE_PREFIX = 'agency-fiveminute-';
+const REDIS_AGENCYNETWORK_FIVE_MINUTE_PREFIX = 'agencynetwork-fiveminute-';
+const REDIS_AGENCY_24_HOUR_PREFIX = 'agency-24hours-';
+const REDIS_AGENCYNETWORK_24_HOUR_PREFIX = 'agencynetwork-24hours-';
+const REDIS_AGENCY_MONTH_APPCOUNT_PREFIX = 'agency-month-appcount-';
+const REDIS_AGENCYNETWORK_MONTH_APPCOUNT_PREFIX = 'agencynetwork-month-appcount-';
 
 
 module.exports = class ApplicationModel {
@@ -79,820 +81,6 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseDB = null;
         this.#applicationMongooseJSON = {};
         this.applicationDoc = null;
-
-    }
-
-
-    /**
-    *  For Quote App V1 - saved app based on workflow step.
-    *
-    * @param {object} applicationJSON - application JSON
-    * @param {string} workflowStep - QuoteApp Workflow step
-    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
-    */
-    saveApplicationStep(applicationJSON, workflowStep) {
-        return new Promise(async(resolve, reject) => {
-            if (!applicationJSON) {
-                reject(new Error("empty application object given"));
-                return;
-            }
-            // eslint-disable-next-line no-unused-vars
-            let error = null;
-            // log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
-
-            const stepMap = {
-                'contact': 2,
-                'coverage': 3,
-                'locations': 4,
-                'owners': 5,
-                'details': 6,
-                'claims': 7,
-                'questions': 8,
-                'quotes': 9,
-                'cart': 10,
-                'bindRequest': 10
-            };
-
-            if (!stepMap[workflowStep]) {
-                reject(new Error("Unknown Application Workflow Step"))
-                return;
-            }
-
-            const stepNumber = stepMap[workflowStep];
-            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' + stepNumber + __location);
-
-            if (!applicationJSON.id && applicationJSON.step !== "contact") {
-                log.error('saveApplicationStep missing application id ' + __location)
-                reject(new Error("missing application id"));
-                return;
-            }
-            if (applicationJSON.id) {
-
-                log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
-                const getModelDoc = true;
-                this.applicationDoc = await this.loadDocfromMongoByAppId(applicationJSON.id, getModelDoc).catch(function(err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
-                    return;
-                });
-
-                if(!this.applicationDoc){
-                    log.error(`saveApplicationStep cound not find appId ${applicationJSON.id}` + __location);
-                    reject(new Error("Data Error: Application may not be updated."));
-                    return;
-
-                }
-                if(this.applicationDoc.agencyNetworkId !== 2){
-                    log.error(`saveApplicationStep for non Digalent Application ${applicationJSON.id}` + __location);
-                    reject(new Error("Data Error: Application may not be updated with this request"));
-                    return;
-                }
-
-
-                this.id = this.applicationDoc.applicationId;
-                this.#applicationMongooseDB = this.applicationDoc;
-                this.updateProperty();
-                applicationJSON.applicationId = this.applicationDoc.applicationId
-                applicationJSON.uuid = this.applicationDoc.applicationId
-                applicationJSON.agencyNetworkId = this.applicationDoc.agencyNetworkId;
-                this.agencyNetworkId = this.applicationDoc.agencyNetworkId;
-                //Check that is still updateable. less than request to bind and not deleted.
-                if (this.applicationDoc.appStatusId >= 70 || this.applicationDoc.active === false) {
-                    log.warn(`Attempt to update a finished or deleted application. appid ${this.applicationDoc.applicationId}` + __location);
-                    reject(new Error("Data Error:Application may not be updated."));
-                    return;
-                }
-                // //Check that it is too old (1 hours) from creation
-                const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-                if (this.applicationDoc.createdAt && bypassAgeCheck === false) {
-                    const dbCreated = moment(this.applicationDoc.createdAt);
-                    const nowTime = moment().utc();
-                    const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
-                    log.debug('Application age in minutes ' + ageInMinutes);
-                    if (ageInMinutes > 60) {
-                        log.warn(`Attempt to update an old application. appid ${applicationJSON.id}` + __location);
-                        reject(new Error("Data Error:Application may not be updated."));
-                        return;
-                    }
-                }
-                else if(bypassAgeCheck === false){
-                    log.warn(`Application missing created value. appid ${applicationJSON.id}` + __location);
-                }
-
-                // Quote V1 only - if Application has been Quoted and this is an earlier step -- If we allows fixing the app to requote
-                if (this.applicationDoc.lastStep >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER) {
-                    log.warn(`Attempt to update a Quoted application. appid ${applicationJSON.id}` + __location);
-                    reject(new Error("Data Error:Application may not be updated."));
-                    return;
-                }
-            }
-            else {
-
-                //set uuid on new application
-                applicationJSON.applicationId = uuidv4().toString();
-                applicationJSON.uuid = applicationJSON.applicationId;
-                //Agency Defaults
-                if (applicationJSON.agency_id && !applicationJSON.agency) {
-                    applicationJSON.agency = applicationJSON.agency_id
-                }
-                if (!applicationJSON.agency) {
-                    applicationJSON.agency = 1
-                    applicationJSON.agency_location = 1
-                }
-                if (applicationJSON.agency === 0 && applicationJSON.agency === "0") {
-                    applicationJSON.agency = 1
-                    applicationJSON.agency_location = 1
-                }
-                if (applicationJSON.agencylocation_id === null) {
-                    delete applicationJSON.agencylocation_id
-                }
-                if (applicationJSON.agency_location === null) {
-                    delete applicationJSON.agency_location
-                }
-                //agency location defaults
-                if (applicationJSON.agencylocation_id && !applicationJSON.agency_location) {
-                    applicationJSON.agency_location = applicationJSON.agencylocation_id
-                    delete applicationJSON.agencylocation_id
-                }
-                //set to Agencylocation to Agency's primary if not set by request
-                if (typeof applicationJSON.agency_location !== 'number' && typeof applicationJSON.agency_location !== 'string') {
-                    log.info(`Setting App agency location to primary ${applicationJSON.uuid}` + __location)
-                    const agencyLocationBO = new AgencyLocationBO();
-                    const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(applicationJSON.agency).catch(function(err) {
-                        log.error(`Error getting Agency Primary Location ${applicationJSON.uuid} ` + err + __location);
-                    });
-                    if (locationPrimaryJSON && locationPrimaryJSON.systemId) {
-                        applicationJSON.agency_location = locationPrimaryJSON.systemId
-                        log.info(`Set App agency location to primary for ${applicationJSON.uuid} agency ${applicationJSON.agencyId} Location ${applicationJSON.agencyLocationId}` + __location)
-                    }
-                    else {
-                        log.warn(`Data problem prevented setting App agency location to primary for ${applicationJSON.uuid} agency ${applicationJSON.agencyId} Location ${applicationJSON.agencyLocationId}` + __location)
-                    }
-
-                }
-                //Agency Network check for new application
-                error = null;
-                const agencyBO = new AgencyBO();
-                // Load the request data into it
-                const agency = await agencyBO.getById(applicationJSON.agency).catch(function(err) {
-                    log.error("Agency load error " + err + __location);
-                    error = err;
-                });
-                if (agency) {
-                    applicationJSON.agencyNetworkId = agency.agencyNetworkId;
-                    applicationJSON.agency_network = agency.agencyNetworkId;
-                }
-                else {
-                    log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
-                }
-                //minium validation
-
-                const appUuid = applicationJSON.uuid;
-                this.id = appUuid;
-                applicationJSON.id = appUuid;
-
-
-            }
-
-            //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
-            error = null;
-            let updateBusiness = false;
-            const appId = applicationJSON.applicationId
-            switch (workflowStep) {
-                case "contact":
-                    applicationJSON.progress = 'incomplete';
-                    applicationJSON.status = 'incomplete';
-                    applicationJSON.appStatusId = 0;
-                    //setup business special case need new business ID back.
-                    if (applicationJSON.businessInfo) {
-                        await this.processMongooseBusiness(applicationJSON.businessInfo)
-                    }
-                    else {
-                        log.error(`No Business for Application ${appId} ` + __location)
-                        reject(new Error("No Business Information supplied"));
-                        return;
-                    }
-
-
-                    break;
-                case 'locations':
-                    if (applicationJSON.locations) {
-                        await this.processLocationsMongo(applicationJSON.locations);
-                    }
-                    updateBusiness = true;
-                    break;
-                case 'coverage':
-                    //processPolicyTypes
-                    if (applicationJSON.policy_types) {
-                        await this.processPolicyTypes(applicationJSON.policy_types, applicationJSON).catch(function(err) {
-                            log.error(`Adding coverage to appId ${appId} error:` + err + __location);
-                            reject(err);
-                        });
-                    }
-                    // update business data
-                    updateBusiness = true;
-                    break;
-                case 'owners':
-                    updateBusiness = true;
-                    this.processOwnersMongo(applicationJSON);
-                    break;
-                case 'details':
-                    updateBusiness = true;
-                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
-                    let updatePolicies = false;
-                    //defaults
-                    this.#applicationMongooseJSON.ein = applicationJSON.ein
-                    applicationJSON.coverageLapseWC = false;
-                    applicationJSON.coverageLapseNonPayment = false;
-                    if (applicationJSON.coverage_lapse === 1) {
-                        applicationJSON.coverageLapseWC = true;
-                        updatePolicies = true;
-                    }
-                    if (applicationJSON.coverage_lapse_non_payment === 1) {
-                        applicationJSON.coverageLapseNonPayment = true;
-                        updatePolicies = true;
-                    }
-                    // add terrorism coverage defaults to false. If true, it changed and we should update
-                    if (applicationJSON.add_terrorism_coverage) {
-                        applicationJSON.addTerrorismCoverage = true;
-                        updatePolicies = true;
-                    }
-                    if(updatePolicies){
-                        if(this.#applicationMongooseDB.policies && this.#applicationMongooseDB.policies.length > 0){
-                            for(let i = 0; i < this.#applicationMongooseDB.policies.length; i++){
-                                let policy = this.#applicationMongooseDB.policies[i];
-                                //if(policy.policyType === "WC"){
-                                policy.coverageLapse = applicationJSON.coverageLapseWC;
-                                policy.coverageLapseNonPayment = applicationJSON.coverageLapseNonPayment;
-                                //}
-                                if (policy.policyType !== "WC") {
-                                    policy.addTerrorismCoverage = applicationJSON.addTerrorismCoverage;
-                                }
-                            }
-                            //update working/request applicationMongooseJSON so it saves.
-                            this.#applicationMongooseJSON.policies = this.#applicationMongooseDB.policies
-                        }
-                    }
-                    break;
-                case 'claims':
-                    if (applicationJSON.claims) {
-                        await this.processClaimsWF(applicationJSON.claims).catch(function(err) {
-                            log.error(`Adding claims to appId ${appId} error:` + err + __location);
-                            reject(err);
-                        });
-                    }
-                    break;
-                case 'questions':
-                    if (applicationJSON.questions) {
-                        this.#applicationMongooseJSON.questions = await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
-                            log.error(`Adding Questions to appId ${appId}  error:` + err + __location);
-                        });
-                    }
-                    await this.processLegalAcceptance(applicationJSON).catch(function(err) {
-                        log.error(`Adding Legal Acceptance to appId ${appId} error:` + err + __location);
-                        reject(err);
-                    });
-                    applicationJSON.status = 'questions_done';
-                    applicationJSON.appStatusId = 10;
-                    if (applicationJSON.wholesale === 1 || applicationJSON.solepro === 1) {
-                        this.mapToMongooseJSON(applicationJSON)
-                        if (this.#applicationMongooseDB) {
-                            //update
-                            await this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-                        }
-                        else {
-                            //insert
-                            await this.insertMongo(this.#applicationMongooseJSON)
-                        }
-
-                        // save mongo before calls.
-                        // Email decision.  Where is wholesale or solepro decision made and saved //if wholesale or solepro - launch email tasks
-                        if (applicationJSON.wholesale === 1) {
-                            log.debug("sending wholesale email for AppId " + this.id);
-                            //no need to await app save should
-                            taskWholesaleAppEmail.wholesaleApplicationEmailTask(this.id);
-                        }
-                        //if solepro - launch email tasks
-                        if (applicationJSON.solepro === 1) {
-                            //no need to await
-                            log.debug("sending solepro email for AppId " + this.id);
-                            taskSoleProAppEmail.soleproApplicationEmailTask(this.id);
-                        }
-                    }
-                    break;
-                case 'quotes':
-                    // Do nothing - we only save here to update the last step
-                    workflowStep = "quotes";
-
-                    //TODO quotes (Status) setup Mapping to Mongoose Model not we already have one loaded.
-                    break;
-                case 'bindRequest':
-                    log.debug(`bindRequest json ${JSON.stringify(applicationJSON)}` + __location)
-                    let updateDdDoc = false;
-                    const newappJson = {};
-                    if(applicationJSON.waiverSubrogation){
-                        //since only AF which is only WC - 1 policy.
-                        if(this.applicationDoc.policies[0]){
-                            //waiverSubrogation defaults false
-                            this.applicationDoc.policies[0].waiverSubrogation = true
-                            updateDdDoc = true;
-                        }
-                    }
-
-                    if(applicationJSON.additionalInsured === true){
-                        this.applicationDoc.additionalInsuredList = [];
-                        const additionalInsuredJSON = {
-                            namedInsured: applicationJSON.additionalNamedInsuredName,
-                            dba: applicationJSON.additionalDBA,
-                            entityType: applicationJSON.additionalEntityType,
-                            ein: applicationJSON.additionalEIN
-                        }
-                        this.applicationDoc.additionalInsuredList.push(additionalInsuredJSON)
-                        updateDdDoc = true;
-                    }
-                    if(updateDdDoc){
-                        log.debug(`App BO bindRequest updating appId ${this.applicationDoc.applicationId} with ${JSON.stringify(newappJson)} ` + __location)
-                        await this.applicationDoc.save();
-                    }
-
-                    if (applicationJSON.quotes) {
-                        applicationJSON.progress = 'complete';
-                        applicationJSON.appStatusId = this.applicationDoc.appStatusId;
-
-                        await this.processQuotes(applicationJSON).catch(function(err) {
-                            log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
-                            reject(err);
-                            return;
-                        });
-                        //save take place in processQuotes.  return from here.
-                        resolve(true);
-                        return;
-                    }
-                    else {
-                        log.error(`AF Bindrequest no quotes appId ${this.applicationDoc.applicationId} ` + __location);
-                        resolve(true);
-                        return;
-                    }
-                default:
-                    // not from old Web application application flow.
-                    reject(new Error(`Unknown Application for appId ${appId} Workflow Step`))
-                    return;
-            }
-            if (updateBusiness === true) {
-                if (applicationJSON.businessInfo) {
-                    await this.processMongooseBusiness(applicationJSON.businessInfo);
-                    delete applicationJSON.businessInfo
-                }
-            }
-            //switch to applicationDoc
-            if (!this.applicationDoc || this.applicationDoc && !this.applicationDoc.lastStep) {
-                applicationJSON.lastStep = stepNumber;
-            }
-            else if (stepNumber > this.applicationDoc.lastStep) {
-                applicationJSON.lastStep = stepNumber;
-            }
-
-
-            //save
-            // mongoose model save.
-            this.mapToMongooseJSON(applicationJSON)
-            if (this.#applicationMongooseDB) {
-                //update
-                await this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-            }
-            else {
-                //insert
-                await this.insertMongo(this.#applicationMongooseJSON)
-            }
-
-
-            // Re-calculate our quote premium metrics whenever we bind.
-            // if (workflowStep === 'bindRequest') {
-            //     await this.recalculateQuoteMetrics(applicationJSON.uuid);
-            // }
-
-            resolve(true);
-
-
-        });
-    }
-
-    mapToMongooseJSON(sourceJSON) {
-        const propMappings = {
-            agency_location: "agencyLocationId",
-            agency_network: "agencyNetworkId",
-            agency: "agencyId",
-            name: "businessName",
-            "id": "mysqlId",
-            "state": "processStateOld",
-            "coverage_lapse": "coverageLapseWC",
-            coverage_lapse_non_payment: "coverageLapseNonPayment",
-            "primary_territory": "primaryState"
-        }
-
-        for (const sourceProp in sourceJSON) {
-            if (typeof sourceJSON[sourceProp] !== "object") {
-                if (propMappings[sourceProp]) {
-                    const appProp = propMappings[sourceProp]
-                    this.#applicationMongooseJSON[appProp] = sourceJSON[sourceProp];
-                }
-                else {
-                    //check if snake_case
-                    // eslint-disable-next-line no-lonely-if
-                    if (sourceProp.isSnakeCase()) {
-                        this.#applicationMongooseJSON[sourceProp.toCamelCase()] = sourceJSON[sourceProp];
-                    }
-                    else {
-                        this.#applicationMongooseJSON[sourceProp] = sourceJSON[sourceProp];
-                    }
-                }
-
-            }
-        }
-    }
-
-
-    async processMongooseBusiness(businessInfo) {
-        //Process Mongoose Model
-        //this.#applicationMongooseJSON
-        // BusinessInfo to mongoose model
-        const businessInfoMapping = {
-            entity_type: "entityType",
-            "mailing_state_abbr": "mailingState"
-        }
-        //owners if present needs to be removed.
-        if (businessInfo.owners) {
-            delete businessInfo.owners;
-        }
-
-        for (const businessProp in businessInfo) {
-            if (typeof businessInfo[businessProp] !== "object") {
-                if (businessInfoMapping[businessProp]) {
-                    const appProp = businessInfoMapping[businessProp]
-                    this.#applicationMongooseJSON[appProp] = businessInfo[businessProp];
-                }
-                else if (businessProp.isSnakeCase()) {
-                    this.#applicationMongooseJSON[businessProp.toCamelCase()] = businessInfo[businessProp];
-                }
-                else {
-                    this.#applicationMongooseJSON[businessProp] = businessInfo[businessProp];
-                }
-            }
-        }
-
-        if (businessInfo.contacts) {
-            //setup mongoose contanct
-            this.#applicationMongooseJSON.contacts = [];
-
-            for (var i = 0; i < businessInfo.contacts.length; i++) {
-                const businessContact = businessInfo.contacts[i]
-                const contactJSON = {};
-                contactJSON.email = businessContact.email;
-                contactJSON.firstName = businessContact.fname;
-                contactJSON.lastName = businessContact.lname;
-                contactJSON.phone = businessContact.phone;
-                contactJSON.primary = businessContact.primary;
-                this.#applicationMongooseJSON.contacts.push(contactJSON);
-            }
-
-        }
-        //save model if we have a model
-        if (this.#applicationMongooseDB) {
-            //save....
-            this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-        }
-
-        return;
-    }
-
-
-    /**
-    * update business object
-    *
-    * @param {object} claims - claims JSON
-    * @returns {Promise.<JSON, Error>} A promise that returns true/false , or an Error if rejected
-    */
-    processClaimsWF(claims) {
-        return new Promise(async(resolve) => {
-            //copy to mongoose json
-            //clonedeep
-            this.#applicationMongooseJSON.claims = clonedeep(claims);
-            for (let i = 0; i < this.#applicationMongooseJSON.claims.length; i++) {
-                const claim = this.#applicationMongooseJSON.claims[i];
-                for (const prop in claim) {
-                    //check if snake_case
-                    if (prop.isSnakeCase()) {
-                        claim[prop.toCamelCase()] = claim[prop];
-                        delete claim[prop];
-                    }
-                }
-            }
-            resolve(true);
-
-        });
-    }
-
-    processPolicyTypes(policyTypeArray, applicationJSON) {
-
-        return new Promise(async(resolve) => {
-
-            //this.#applicationMongooseJSON.policies = clonedeep(policyTypeArray);
-
-            const policyList = [];
-            for (let i = 0; i < policyTypeArray.length; i++) {
-                const policyType = policyTypeArray[i];
-                const policyTypeJSON = {"policyType": policyType}
-
-                if (policyType === "GL") {
-                    //GL limit and date fields.
-                    policyTypeJSON.effectiveDate = applicationJSON.gl_effective_date
-                    policyTypeJSON.expirationDate = applicationJSON.gl_expiration_date
-                    policyTypeJSON.limits = applicationJSON.limits
-                    policyTypeJSON.deductible = applicationJSON.deductible
-                    policyTypeJSON.addTerrorismCoverage = applicationJSON.add_terrorism_coverage
-                }
-                else if (policyType === "WC") {
-                    policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
-                    policyTypeJSON.expirationDate = applicationJSON.wc_expiration_date
-                    policyTypeJSON.limits = applicationJSON.wc_limits
-                    if(applicationJSON.coverageLapse || applicationJSON.coverageLapse === false){
-                        policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
-                    }
-                    if(applicationJSON.coverage_lapse_non_payment || applicationJSON.coverage_lapse_non_payment === false){
-                        policyTypeJSON.coverageLapseNonPayment = applicationJSON.coverage_lapse_non_payment
-                    }
-                }
-                else if (policyType === "BOP") {
-                    policyTypeJSON.effectiveDate = applicationJSON.bop_effective_date
-                    policyTypeJSON.expirationDate = applicationJSON.bop_expiration_date
-                    policyTypeJSON.limits = applicationJSON.limits
-                    policyTypeJSON.coverage = applicationJSON.coverage
-                    policyTypeJSON.deductible = applicationJSON.deductible
-                    policyTypeJSON.addTerrorismCoverage = applicationJSON.add_terrorism_coverage
-                }
-                policyList.push(policyTypeJSON);
-            }
-            this.#applicationMongooseJSON.policies = policyList
-            resolve(true);
-
-        });
-
-    }
-    async processLocationsMongo(locations) {
-        this.#applicationMongooseJSON.locations = locations
-        const businessInfoMapping = {"state_abbr": "state"};
-        // Note: square_footage full_time_employees part_time_employees are part of the model.
-        for (let i = 0; i < this.#applicationMongooseJSON.locations.length; i++) {
-            const location = this.#applicationMongooseJSON.locations[i];
-            for (const locationProp in location) {
-                //not in map check....
-                if (businessInfoMapping[locationProp]) {
-                    location[businessInfoMapping[locationProp]] = location[locationProp];
-                }
-                else {
-                    if (locationProp.isSnakeCase()) {
-                        location[locationProp.toCamelCase()] = location[locationProp];
-                    }
-                    //some condition where client sends null;
-                    if (!location.billing || location.billing === false || location.billing === 0) {
-                        location.billing = false;
-                    }
-                }
-            }
-            location.activityPayrollList = [];
-
-            if (location.activity_codes && location.activity_codes.length > 0) {
-                for (const activity_code of location.activity_codes) {
-                    // Convert props in the employee list to camel case
-                    if (activity_code.employeeTypeList) {
-                        for (const employeeType of activity_code.employeeTypeList) {
-                            for (const employeeProp in employeeType) {
-                                if (employeeProp.isSnakeCase()) {
-                                    employeeType[employeeProp.toCamelCase()] = employeeType[employeeProp];
-                                }
-                            }
-                        }
-                    }
-                    const activityPayrollJSON = {};
-                    activityPayrollJSON.ncciCode = activity_code.id;
-                    activityPayrollJSON.activityCodeId = activity_code.id;
-                    activityPayrollJSON.payroll = activity_code.payroll;
-                    activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
-                    location.activityPayrollList.push(activityPayrollJSON)
-                }
-            }
-            // Process location questions if they exist
-            if (location.questions && location.questions.length > 0) {
-                // Replace the location questions with the processed ones
-                location.questions = await this.processQuestionsMongo(location.questions).catch((err) => {
-                    log.error(`Adding Location Questions to appId ${this.applicationDoc.applicationId}  error:` + err + __location);
-                });
-            }
-        }
-
-    }
-
-
-    processOwnersMongo(applicationJSON) {
-        if (applicationJSON.owners_covered) {
-            try {
-                const tempInt = parseInt(applicationJSON.owners_covered, 10);
-                this.#applicationMongooseJSON.ownersCovered = tempInt === 1;
-                if (this.#applicationMongooseJSON.ownersCovered > 0 && applicationJSON.owner_payroll) {
-
-                    if (this.#applicationMongooseDB && this.#applicationMongooseDB.locations) {
-                        //Find primary location and update payroll - ownerPayroll field.
-                        for (let i = 0; i < this.#applicationMongooseDB.locations.length; i++) {
-                            const location = this.#applicationMongooseDB.locations[i];
-                            if (!location.activityPayrollList) {
-                                location.activityPayrollList = [];
-                            }
-                            // eslint-disable-next-line no-shadow
-                            const activityPayroll = location.activityPayrollList.find(activityPayroll => activityPayroll.ncciCode === applicationJSON.owner_payroll.activity_code);
-                            if (activityPayroll) {
-                                activityPayroll.ownerPayRoll = applicationJSON.owner_payroll.payroll
-                            }
-                            else {
-                                const activityPayrollJSON = {
-                                    activityCodeId: applicationJSON.owner_payroll.activity_code,
-                                    ncciCode: applicationJSON.owner_payroll.activity_code,
-                                    ownerPayRoll: applicationJSON.owner_payroll.payroll
-                                };
-                                location.activityPayrollList.push(activityPayrollJSON);
-
-                            }
-                        }
-                        this.#applicationMongooseJSON.locations = this.#applicationMongooseDB.locations;
-                    }
-                    else {
-                        log.error(`Missing this.#applicationMongooseJSON.locations for owner payroll appId: ${applicationJSON.id} ` + __location);
-                    }
-
-                }
-            }
-            catch (err) {
-                log.error(`Error Parsing appID: ${applicationJSON.id} applicationJSON.owners_covered ${applicationJSON.owners_covered}: ` + err + __location)
-            }
-        }
-
-        if (applicationJSON.businessInfo && applicationJSON.businessInfo.num_owners) {
-            try {
-                this.#applicationMongooseJSON.numOwners = parseInt(applicationJSON.businessInfo.num_owners, 10);
-            }
-            catch (err) {
-                log.error(`Error Parsing appID: ${applicationJSON.id} applicationJSON.owners_covered ${applicationJSON.businessInfo.num_owners}: ` + err + __location)
-            }
-        }
-
-
-        if (applicationJSON.businessInfo && applicationJSON.businessInfo.ownersJSON) {
-            try {
-                if (!this.#applicationMongooseJSON.owners) {
-                    this.#applicationMongooseJSON.owners = [];
-                }
-                for (let i = 0; i < applicationJSON.businessInfo.ownersJSON.length; i++) {
-                    const sourceJSON = applicationJSON.businessInfo.ownersJSON[i];
-                    const ownerJSON = {};
-                    for (const sourceProp in sourceJSON) {
-                        if (typeof sourceJSON[sourceProp] !== "object") {
-                            //check if snake_case
-                            if (sourceProp.isSnakeCase()) {
-                                ownerJSON[sourceProp.toCamelCase()] = sourceJSON[sourceProp];
-                            }
-                            else {
-                                ownerJSON[sourceProp] = sourceJSON[sourceProp];
-                            }
-                            if (sourceProp === "ownership") {
-                                try {
-                                    ownerJSON[sourceProp] = parseInt(ownerJSON[sourceProp], 10);
-                                }
-                                catch (err) {
-                                    log.error(`unable to convert ownership appId: ${applicationJSON.id} value: ${ownerJSON[sourceProp]} ` + err + __location);
-                                }
-                            }
-                        }
-                    }
-                    this.#applicationMongooseJSON.owners.push(ownerJSON);
-                }
-            }
-            catch (err) {
-                log.error(`Error Parsing  owner for appID: ${applicationJSON.id} applicationJSON.owners_covered ${JSON.stringify(applicationJSON.owners)}: ` + err + __location)
-            }
-        }
-    }
-
-    processQuestionsMongo(questionsRequest) {
-
-        return new Promise(async(resolve) => {
-            ///delete existing ?? old system did not.
-
-            const QuestionTypeSvc = global.requireShared('./services/questiontypesvc.js');
-            // Load the request data into it
-            const questionTypeList = QuestionTypeSvc.getList()
-
-            const processedQuestionList = []
-            //get text and turn into list of question objects.
-
-            for (var i = 0; i < questionsRequest.length; i++) {
-                const questionRequest = questionsRequest[i];
-                const questionJSON = {};
-                questionJSON.questionId = questionRequest.id
-                questionJSON.questionType = questionRequest.type;
-
-                //get Question def for Question Text and Yes
-                const questionBO = new QuestionBO();
-                // Load the request data into it
-                const questionDB = await questionBO.getById(questionJSON.questionId).catch(function(err) {
-                    log.error("questionBO load error " + err + __location);
-                });
-                if (questionDB) {
-                    questionJSON.questionText = questionDB.text;
-                    questionJSON.hint = questionDB.hint;
-                    questionJSON.hidden = questionDB.hidden;
-                    questionJSON.questionType = questionDB.typeId;
-                    if (questionTypeList) {
-                        const questionType = questionTypeList.find(questionTypeTest => questionTypeTest.id === questionDB.typeId);
-                        if (questionType) {
-                            questionJSON.questionType = questionType.name;
-                        }
-                    }
-                }
-                else {
-                    log.error(`no question record for id ${questionJSON.questionId} ` + __location);
-                }
-
-                if (questionRequest.type === 'text') {
-                    //const cleanString = questionRequest.answer.replace(/\|/g, ',')
-                    questionJSON.answerValue = questionRequest.answer;
-                }
-                else if (questionRequest.type === 'array') {
-                    const arrayString = "|" + questionRequest.answer.join('|');
-                    questionJSON.answerValue = arrayString;
-                    questionJSON.answerList = [];
-                    questionRequest.answer.forEach((requestAnswer) => {
-                        const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = requestAnswer)
-                        if(answerValue){
-                            questionJSON.answerList.push(answerValue.answer);
-                        }
-
-                    });
-                    // const questionAnswerListDB = await .getListByAnswerIDList(questionRequest.answer).catch(function(err) {
-                    //     log.error("questionBO load error " + err + __location);
-                    // });
-                    // if (questionAnswerListDB && questionAnswerListDB.length > 0) {
-                    //     questionJSON.answerList = [];
-                    //     for (let j = 0; j < questionAnswerListDB.length; j++) {
-                    //         questionJSON.answerList.push(questionAnswerListDB[j].answer);
-                    //     }
-
-                    // }
-                    // else {
-                    //     log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
-                    // }
-                }
-                else {
-                    questionJSON.answerId = questionRequest.answer;
-                    const answerValue = questionDB.answers.find(dbAnswer => dbAnswer.answerId = questionJSON.answerId)
-                    if(answerValue){
-                        questionJSON.answerValue = answerValue.answer;
-                    }
-                    // Need answer value
-                    // Load the request data into it
-                    // const questionAnswerDB = await .getById(questionJSON.answerId).catch(function(err) {
-                    //     log.error("questionBO load error " + err + __location);
-                    // });
-                    // if (questionAnswerDB) {
-                    //     questionJSON.answerValue = questionAnswerDB.answer;
-                    // }
-                    // else {
-                    //     log.error(`no question record for id ${questionJSON.questionId} ` + __location);
-                    // }
-
-                }
-                processedQuestionList.push(questionJSON);
-            }
-            resolve(processedQuestionList);
-
-        });
-
-    }
-
-    processLegalAcceptance(applicationJSON) {
-
-        return new Promise(async(resolve) => {
-            //delete existing ?? old system did not.
-
-            //agreement version
-            const version = 3;
-            const legalAcceptanceJSON = {
-                'ip': applicationJSON.remoteAddress,
-                'version': version
-            }
-            this.#applicationMongooseJSON.legalAcceptance = legalAcceptanceJSON;
-
-            resolve(true);
-
-        });
 
     }
 
@@ -944,6 +132,7 @@ module.exports = class ApplicationModel {
             const quoteUpdate = {
                 "status": "bind_requested",
                 "paymentPlanId": quote.paymentPlanId,
+                "insurerPaymentPlanId": quote.insurerPaymentPlanId,
                 "quoteStatusId": status.id,
                 "quoteStatusDescription": status.description
             }
@@ -957,7 +146,7 @@ module.exports = class ApplicationModel {
             try{
                 // This is just used to send slack message.
                 const quoteBind = new QuoteBind();
-                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId);
+                await quoteBind.load(quoteDBJSON.quoteId, quote.paymentPlanId, null, quote.insurerPaymentPlanId);
                 //isolate to not prevent Digalent bind request to update submission.
                 try{
                     await quoteBind.send_slack_notification("requested");
@@ -1012,34 +201,6 @@ module.exports = class ApplicationModel {
 
     }
 
-    processQuotes(applicationJSON) {
-
-        return new Promise(async(resolve) => {
-            if (applicationJSON.quotes) {
-                for (var i = 0; i < applicationJSON.quotes.length; i++) {
-                    let quote = applicationJSON.quotes[i];
-                    if(!quote.quoteId){
-                        quote.quoteId = quote.quote;
-                    }
-                    if(!quote.paymentPlanId){
-                        quote.paymentPlanId = quote.payment;
-                    }
-                    try{
-                        await this.processRequestToBind(this.#applicationMongooseDB.applicationId,quote)
-                    }
-                    catch(err){
-                        log.error(`ApplicationBO processQuotes appid ${this.#applicationMongooseDB.applicationId} error ${err} ` + __location)
-                    }
-                }
-            }
-            else {
-                log.error("in AppBO Process quote, but no quotes included in JSON " + JSON.stringify(applicationJSON) + __location)
-            }
-            resolve(true);
-
-        });
-
-    }
 
     async updateStatus(id, appStatusDesc, appStatusid) {
 
@@ -1072,6 +233,34 @@ module.exports = class ApplicationModel {
         else {
             log.error(`updateStatus missing id ` + __location);
         }
+    }
+
+    async updateToQuoting(appId) {
+        try {
+            const updateStatusJson = {
+                status: "quoting",
+                "appStatusId": 15,
+                progress: "quoting",
+                quotingStartedDate: moment.utc()
+
+            }
+
+            updateStatusJson.updatedAt = new Date();
+
+            updateStatusJson.updatedAt = new Date();
+            const query = {"applicationId": appId};
+
+            await ApplicationMongooseModel.updateOne(query, updateStatusJson);
+            if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
+                await this.updateRedisForAppUpdatebyAppId(appId);
+            }
+        }
+        catch (error) {
+            log.error(`Could not update application progress mongo appId: ${appId}  ${error} ${__location}`);
+        }
+        return true;
+
+
     }
 
     async updateProgress(id, progress) {
@@ -1139,12 +328,6 @@ module.exports = class ApplicationModel {
         if(newObjectJSON.locations && newObjectJSON.locations.length > 0){
             let hasBillingLocation = false;
             let hasPrimaryLocation = false;
-            let receivedPrimaryLocation = false;
-            //Note does not check for more than 1.
-            const primaryLocation = newObjectJSON.locations.find((newLoc) => newLoc.primary === true)
-            if(primaryLocation){
-                receivedPrimaryLocation = true;
-            }
             for(let location of newObjectJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
                     log.warn(`Application will multiple billing received AppId ${newObjectJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
@@ -1153,12 +336,6 @@ module.exports = class ApplicationModel {
                 else if(location.billing === true){
                     hasBillingLocation = true;
                 }
-                // primaryLocation
-                if(receivedPrimaryLocation === false){
-                    //client did not send primary, so use Billing
-                    log.debug(`setting primary from billing ${newObjectJSON.applicationId} ` + __location)
-                    location.primary = location.billing
-                }
                 if(location.primary === true && hasPrimaryLocation === false){
                     hasPrimaryLocation = true;
                     newObjectJSON.primaryState = location.state
@@ -1166,7 +343,6 @@ module.exports = class ApplicationModel {
                 else {
                     location.primary = false;
                 }
-
             }
         }
         return true;
@@ -1193,7 +369,10 @@ module.exports = class ApplicationModel {
                         "id",
                         "mysqlId",
                         "applicationId",
-                        "uuid"]
+                        "uuid",
+                        "agencyNetworkId",
+                        "agencyId"]
+
                     for (let i = 0; i < changeNotUpdateList.length; i++) {
                         if (newObjectJSON[changeNotUpdateList[i]]) {
                             delete newObjectJSON[changeNotUpdateList[i]];
@@ -1204,7 +383,7 @@ module.exports = class ApplicationModel {
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    log.debug("updated to " + JSON.stringify(newObjectJSON));
+                    log.debug("updated to " + JSON.stringify(newObjectJSON) + __location);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
@@ -1252,6 +431,10 @@ module.exports = class ApplicationModel {
         if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
             newObjectJSON.applicationId = newObjectJSON.uuid;
         }
+        const blockResp = await this.appInsertRateCheck(newObjectJSON);
+        if(blockResp.isBlocked){
+            throw new Error(blockResp.message)
+        }
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
@@ -1279,9 +462,10 @@ module.exports = class ApplicationModel {
             await this.checkAndFixAppStatus(application);
         }
         this.#applicationMongooseDB = application;
+        await this.updateRedisForAppInsert(application);
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
-            await this.updateRedisForAppAddDelete(application.applicationId, application);
+            await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
         }
 
         return mongoUtils.objCleanup(application);
@@ -1320,17 +504,17 @@ module.exports = class ApplicationModel {
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                     log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started` + __location);
-                    const status = global.requireShared('./models/status/applicationStatus.js');
-                    const applicationStatus = await status.updateApplicationStatus(applicationDoc, true);
+                    const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
+                    const appStatus = await applicationStatus.updateApplicationStatus(applicationDoc, true);
                     // eslint-disable-next-line object-curly-newline
                     //await this.updateMongo(applicationDoc.applicationId, {appStatusId: 20, appStatusDesc: 'error', status: 'error', progress: "complete"});
-                    if(applicationStatus && applicationStatus.appStatusId > -1){
-                        applicationDoc.status = applicationStatus.appStatusDesc;
-                        applicationDoc.appStatusId = applicationStatus.appStatusId;
+                    if(appStatus && appStatus.appStatusId > -1){
+                        applicationDoc.status = appStatus.appStatusDesc;
+                        applicationDoc.appStatusId = appStatus.appStatusId;
                     }
                     else {
-                        applicationDoc.status = status.applicationStatus.error.appStatusDesc;
-                        applicationDoc.appStatusId = status.applicationStatus.error.appStatusId;
+                        applicationDoc.status = applicationStatus.applicationStatus.error.appStatusDesc;
+                        applicationDoc.appStatusId = applicationStatus.applicationStatus.error.appStatusId;
                     }
 
                 }
@@ -1346,7 +530,6 @@ module.exports = class ApplicationModel {
         if(applicationDoc){
             if(applicationDoc.einEncryptedT2 && applicationDoc.einEncryptedT2.length > 0){
                 try{
-                    log.debug(`Using new decrypt ` + __location);
                     applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncryptedT2);
                     applicationDoc.ein = applicationDoc.einClear;
                 }
@@ -1608,7 +791,7 @@ module.exports = class ApplicationModel {
                 query.appStatusId = {$gt: parseInt(queryJSON.gtAppStatusId, 10)};
                 delete queryJSON.gtAppStatusId;
             }
-
+            //Create Date Searching
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
                 let fromDate = moment(queryJSON.searchbegindate);
                 let toDate = moment(queryJSON.searchenddate);
@@ -1650,14 +833,136 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
-                query.agencyId = {$in: queryJSON.agencyId};
-                delete queryJSON.agencyId;
+            //Modifed Date (updatedAt) Searching
+            if (queryJSON.beginmodifieddate && queryJSON.endmodifieddate) {
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.updatedAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginmodifieddate;
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
             }
-            else if(queryJSON.agencyId){
-                query.agencyId = queryJSON.agencyId;
-                delete queryJSON.agencyId;
+            else if (queryJSON.beginmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                if (fromDate.isValid()) {
+                    query.updatedAt = {$gte: fromDate};
+                    delete queryJSON.beginmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
             }
+            else if (queryJSON.endmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (toDate.isValid()) {
+                    query.updatedAt = {$lte: toDate};
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+            //Policy EffectDate Date Searching
+            if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
+                let fromDate = moment(queryJSON.beginpolicydate);
+                let toDate = moment(queryJSON.endpolicydate);
+                // if(!query.policies){
+                //     query.policies = {}
+                // }
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.effectiveDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicydate;
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicydate);
+                if (fromDate.isValid()) {
+                    query["policies.effectiveDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicydate);
+                if (toDate.isValid()) {
+                    query["policies.effectiveDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            //Policy expirationDate Searching
+            if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.expirationDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicyexprdate;
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                if (fromDate.isValid()) {
+                    query["policies.expirationDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (toDate.isValid()) {
+                    query["policies.expirationDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -1679,7 +984,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    //log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("AppBO: ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -1744,6 +1049,127 @@ module.exports = class ApplicationModel {
         }
         return;
     }
+    async appInsertRateCheck(applicationJSON){
+
+        const blockResp = {
+            isBlocked: false,
+            message: ''
+        }
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_APP_RATE_LIMIT === "YES"){
+            try{
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkJson = await agencyNetworkBO.getById(applicationJSON.agencyNetworkId);
+                if(!agencyNetworkJson || !agencyNetworkJson.agencyNetworkId){
+                    log.error(`appInsertRateCheck: No AgencyNetwork record Id: ${applicationJSON.agencyNetworkId} ` + __location);
+                    return blockResp;
+                }
+
+                //Agency Five Minute
+                let redisResp = await global.redisSvc.getKeyList(REDIS_AGENCY_FIVE_MINUTE_PREFIX + applicationJSON.agencyId + "-*");
+                if(redisResp?.found){
+                    const numberOfApps = redisResp.value.length;
+                    // log.debug(`${REDIS_AGENCY_FIVE_MINUTE_PREFIX}-${applicationJSON.agencyId} ${numberOfApps} appCount ` + __location);
+                    // log.debug(` AgencyNewtworkId ${agencyNetworkJson.agencyNetworkId} Five minute rate Limit ${agencyNetworkJson.agencyFiveMinuteLimit}  ` + __location);
+                    if(numberOfApps >= agencyNetworkJson.agencyFiveMinuteLimit){
+                        log.info(`Blocking AgencyId ${applicationJSON.agencyId} for adding applications. Five Minute Rate: ${numberOfApps}`)
+                        blockResp.isBlocked = true;
+                        blockResp.message = `BlOCKED: Blocking AgencyId ${applicationJSON.agencyId} for adding applications. Five Minute Rate: ${numberOfApps}`
+                    }
+                }
+                if(!blockResp.isBlocked){
+                    //check Agency Network.
+                    redisResp = await global.redisSvc.getKeyList(REDIS_AGENCYNETWORK_FIVE_MINUTE_PREFIX + applicationJSON.agencyNetworkId + "-*");
+                    if(redisResp?.found){
+                        const numberOfApps = redisResp.value.length;
+                        if(numberOfApps >= agencyNetworkJson.agencyNetworkFiveMinuteLimit){
+                            log.info(`Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. Five Minute Rate: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message = `BlOCKED: Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. Five Minute Rate: ${numberOfApps}`;
+                        }
+                    }
+                }
+                //24 Hour
+                if(!blockResp.isBlocked){
+                    //check Agency.
+                    redisResp = await global.redisSvc.getKeyList(REDIS_AGENCY_24_HOUR_PREFIX + applicationJSON.agencyId + "-*");
+                    if(redisResp?.found){
+                        const numberOfApps = redisResp.value.length;
+                        if(numberOfApps >= agencyNetworkJson.agency24HourLimit){
+                            log.info(`Blocking AgencyId ${applicationJSON.agencyId} for adding applications. 24 Hour Rate: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message = `BlOCKED: Blocking AgencyId ${applicationJSON.agencyId} for adding applications.  24 Hour Rate: ${numberOfApps}`;
+                        }
+                    }
+                }
+                if(!blockResp.isBlocked){
+                    //check Agency Network.
+                    redisResp = await global.redisSvc.getKeyList(REDIS_AGENCYNETWORK_24_HOUR_PREFIX + applicationJSON.agencyNetworkId + "-*");
+                    if(redisResp?.found){
+                        const numberOfApps = redisResp.value.length;
+                        if(numberOfApps >= agencyNetworkJson.agencyNetwork24HourLimit){
+                            log.info(`Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications.  24 Hour Rate: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message = `BlOCKED: Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. 24 Hour Rate: ${numberOfApps}`;
+                        }
+                    }
+                }
+                //Month checks
+                if(!blockResp.isBlocked){
+                    //check Agency.
+                    redisResp = await global.redisSvc.getKeyValue(REDIS_AGENCY_MONTH_APPCOUNT_PREFIX + applicationJSON.agencyId);
+                    if(redisResp?.found){
+                        const numberOfApps = parseInt(redisResp.value,10);
+                        if(numberOfApps >= agencyNetworkJson.agencyMonthLimit){
+                            log.info(`Blocking AgencyId ${applicationJSON.agencyId} for adding applications. Month Total: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message(`BlOCKED: Blocking AgencyId ${applicationJSON.agencyId} for adding applications.  Month Total: ${numberOfApps}`)
+                        }
+                    }
+                }
+                if(!blockResp.isBlocked){
+                    //check Agency Network.
+                    redisResp = await global.redisSvc.getKeyValue(REDIS_AGENCYNETWORK_MONTH_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId);
+                    if(redisResp?.found){
+                        const numberOfApps = parseInt(redisResp.value,10);
+                        if(numberOfApps >= agencyNetworkJson.agencyNetworkMonthLimit){
+                            log.info(`Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications.  Month Total: ${numberOfApps}`)
+                            blockResp.isBlocked = true;
+                            blockResp.message(`BlOCKED: Blocking AgencyNetworkId ${applicationJSON.agencyNetworkId} for adding applications. Month Total: ${numberOfApps}`)
+                        }
+                    }
+                }
+
+
+            }
+            catch(err){
+                log.error(`appInsertRateCheck: appID ${applicationJSON.applicationId} ` + err + __location);
+            }
+
+        }
+        return blockResp;
+    }
+    async updateRedisForAppInsert(applicationJSON){
+        if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_APP_RATE_LIMIT === "YES"){
+            try{
+                const payloadJSON = {
+                    applicationId: applicationJSON.applicationId,
+                    createdAt: moment()
+                }
+                const payloadString = JSON.stringify(payloadJSON);
+                let ttlSeconds = 300;
+                await global.redisSvc.storeKeyValue(REDIS_AGENCY_FIVE_MINUTE_PREFIX + applicationJSON.agencyId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+                await global.redisSvc.storeKeyValue(REDIS_AGENCYNETWORK_FIVE_MINUTE_PREFIX + applicationJSON.agencyNetworkId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+                ttlSeconds = 86400;
+                await global.redisSvc.storeKeyValue(REDIS_AGENCY_24_HOUR_PREFIX + applicationJSON.agencyId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+                await global.redisSvc.storeKeyValue(REDIS_AGENCYNETWORK_24_HOUR_PREFIX + applicationJSON.agencyNetworkId + "-" + applicationJSON.applicationId, payloadString,ttlSeconds)
+
+
+            }
+            catch(err){
+                log.error(`updateRedisForAppInsert: appID ${applicationJSON.applicationId} ` + err + __location);
+            }
+        }
+    }
     async updateRedisForAppUpdate(applicationJSON){
 
         //Delete keys get next AP Applist request refresh it.
@@ -1777,7 +1203,7 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    async updateRedisForAppAddDelete(appId,applicationJSON){
+    async updateRedisForAppAddDelete(appId,applicationJSON, countChange = 1){
         if(!applicationJSON){
             const query = {"applicationId": appId};
             applicationJSON = await ApplicationMongooseModel.findOne(query);
@@ -1786,9 +1212,28 @@ module.exports = class ApplicationModel {
         if(applicationJSON && typeof applicationJSON === 'object' && global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             let redisKey = REDIS_AGENCYNETWORK_APPCOUNT_PREFIX + applicationJSON.agencyNetworkId;
             try{
-                const redisResponse = await global.redisSvc.deleteKey(redisKey)
-                if(redisResponse){
-                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        let appCount = parseInt(parsedJSON.value,10);
+                        appCount += countChange
+                        let ttlSeconds = 86400; //1 display
+                        if(appCount > 1000){
+                            //make permanent key.
+                            ttlSeconds = null;
+                        }
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, appCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
                 }
             }
             catch(err){
@@ -1796,9 +1241,28 @@ module.exports = class ApplicationModel {
             }
             redisKey = REDIS_AGENCY_APPCOUNT_PREFIX + applicationJSON.agencyId;
             try{
-                const redisResponse = await global.redisSvc.deleteKey(redisKey)
-                if(redisResponse){
-                    log.debug(`REDIS: Removed ${redisKey} in Redis ` + __location);
+                const resp = await global.redisSvc.getKeyValue(redisKey);
+                if(resp.found){
+                    try{
+                        const parsedJSON = new FastJsonParse(resp.value)
+                        if(parsedJSON.err){
+                            throw parsedJSON.err
+                        }
+                        let appCount = parseInt(parsedJSON.value,10);
+                        appCount += countChange
+                        let ttlSeconds = 86400; //1 display
+                        if(appCount > 1000){
+                            //make permanent key.
+                            ttlSeconds = null;
+                        }
+                        const redisResponse = await global.redisSvc.storeKeyValue(redisKey, appCount,ttlSeconds)
+                        if(redisResponse && redisResponse.saved){
+                            log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                    }
                 }
             }
             catch(err){
@@ -1815,11 +1279,15 @@ module.exports = class ApplicationModel {
         return false;
     }
 
-    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, forceRedisUpdate = false){
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCount = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
-            //log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
+            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
+            let pageSize = 10;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
+                useRedisCache = false;
+            }
+            if(noCacheUse){
                 useRedisCache = false;
             }
             if(!requestParms){
@@ -1865,9 +1333,11 @@ module.exports = class ApplicationModel {
                     var limitNum = parseInt(requestParms.limit, 10);
                     if (limitNum < queryLimit) {
                         queryOptions.limit = limitNum;
+                        pageSize = limitNum;
                     }
                     else {
                         queryOptions.limit = queryLimit;
+                        pageSize = queryLimit;
                     }
 
                     if(requestParms.page && requestParms.page > 0){
@@ -1887,6 +1357,21 @@ module.exports = class ApplicationModel {
                     findCount = true;
                 }
             }
+            if(queryJSON.policies && queryJSON.policies.policyType){
+                //query.policies = {};
+                useRedisCache = false;
+                query["policies.policyType"] = queryJSON.policies.policyType;
+                delete queryJSON.policies
+            }
+            if(queryJSON.applicationId){
+                //query.policies = {};
+                useRedisCache = false;
+                query.applicationId = queryJSON.applicationId;
+                delete queryJSON.applicationId
+            }
+
+
+            //
 
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
                 const fromDate = moment(queryJSON.searchbegindate);
@@ -1909,8 +1394,31 @@ module.exports = class ApplicationModel {
                 // eslint-disable-next-line no-redeclare
                 let fromDate = moment(queryJSON.searchbegindate);
                 if (fromDate.isValid()) {
-                    useRedisCache = false;
-                    query.createdAt = {$gte: fromDate};
+                    //we only have begin  if it is over a year and page = 1 use the cache
+                    // count might be wrong but we do not display the number
+                    // hit to any other page will fix the paging setup...
+                    let addDateFilter = false;
+                    if(forceRedisUpdate){
+                        addDateFilter = true
+                    }
+                    else if(useRedisCache){
+                        //useRedisCache at this point means there is not filter, only date range.
+                        const now = moment().utc();
+                        if(findCount && now.diff(fromDate, 'months') < 16 || requestParms.page > 0 || applicationsTotalCount < pageSize){
+                            addDateFilter = true
+                        }
+                        else if(requestParms.page > 0 || applicationsTotalCount < pageSize){
+                            addDateFilter = true
+                        }
+                    }
+                    else {
+                        addDateFilter = true
+                    }
+
+                    if(addDateFilter){
+                        useRedisCache = false;
+                        query.createdAt = {$gte: fromDate};
+                    }
                     delete queryJSON.searchbegindate;
                 }
                 else {
@@ -1932,33 +1440,161 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(queryJSON.policies && queryJSON.policies.policyType){
-                //query.policies = {};
-                useRedisCache = false;
-                query["policies.policyType"] = queryJSON.policies.policyType;
-                delete queryJSON.policies
+            //Modifed Date (updatedAt) Searching
+            if (queryJSON.beginmodifieddate && queryJSON.endmodifieddate) {
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.updatedAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginmodifieddate;
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
             }
-            if(queryJSON.applicationId){
-                //query.policies = {};
-                useRedisCache = false;
-                query.applicationId = queryJSON.applicationId;
-                delete queryJSON.applicationId
+            else if (queryJSON.beginmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginmodifieddate);
+                if (fromDate.isValid()) {
+                    query.updatedAt = {$gte: fromDate};
+                    delete queryJSON.beginmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endmodifieddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endmodifieddate);
+                if (toDate.isValid()) {
+                    query.updatedAt = {$lte: toDate};
+                    delete queryJSON.endmodifieddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+            //Policy EffectDate Date Searching
+            if (queryJSON.beginpolicydate && queryJSON.endpolicydate) {
+                let fromDate = moment(queryJSON.beginpolicydate);
+                let toDate = moment(queryJSON.endpolicydate);
+                // if(!query.policies){
+                //     query.policies = {}
+                // }
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.effectiveDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicydate;
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicydate);
+                delete queryJSON.beginpolicydate;
+                if (fromDate.isValid()) {
+                    query["policies.effectiveDate"] = {$gte: fromDate};
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+                log.debug(`getAppListForAgencyPortalSearch beginpolicydate ${JSON.stringify(queryJSON)} ` + __location)
+            }
+            else if (queryJSON.endpolicydate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicydate);
+                if (toDate.isValid()) {
+                    query["policies.effectiveDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicydate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            //Policy expirationDate Searching
+            if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query["policies.expirationDate"] = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.beginpolicyexprdate;
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.beginpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.beginpolicyexprdate);
+                if (fromDate.isValid()) {
+                    query["policies.expirationDate"] = {$gte: fromDate};
+                    delete queryJSON.beginpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.endpolicyexprdate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.endpolicyexprdate);
+                if (toDate.isValid()) {
+                    query["policies.expirationDate"] = {$lte: toDate};
+                    delete queryJSON.endpolicyexprdate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            if(queryJSON.handledByTalage){
+                query.handledByTalage = queryJSON.handledByTalage
+                delete queryJSON.handledByTalage
+            }
+            if(queryJSON.renewal){
+                query.renewal = queryJSON.renewal
+                delete queryJSON.renewal
             }
 
 
             if (queryJSON) {
                 for (var key in queryJSON) {
-                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                        let clearString = queryJSON[key].replace("%", "");
-                        clearString = clearString.replace("%", "");
-                        useRedisCache = false;
-                        query[key] = {
-                            "$regex": clearString,
-                            "$options": "i"
-                        };
-                    }
-                    else {
-                        query[key] = queryJSON[key];
+                    if(key !== 'searchbegindate' && key !== 'searchenddate'){
+                        if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                            let clearString = queryJSON[key].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            useRedisCache = false;
+                            query[key] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                        else {
+                            query[key] = queryJSON[key];
+                        }
                     }
                 }
             }
@@ -1988,6 +1624,7 @@ module.exports = class ApplicationModel {
                 }
                 query.$or = orParamList
             }
+
 
             if (findCount === false) {
                 let docList = null;
@@ -2055,9 +1692,9 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("ApplicationList query " + JSON.stringify(query))
-                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
-                    //log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
+                    //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
+                    //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
                     if(docList.length > 0){
                         //loop doclist adding agencyName
@@ -2101,13 +1738,18 @@ module.exports = class ApplicationModel {
                             //bring policyType to property on top level.
                             if(application.policies.length > 0){
                                 let policyTypesString = "";
+                                let effectiveDate = moment("2100-12-31")
                                 application.policies.forEach((policy) => {
                                     if(policyTypesString.length > 0){
                                         policyTypesString += ","
                                     }
                                     policyTypesString += policy.policyType;
+                                    if(policy.effectiveDate < effectiveDate){
+                                        effectiveDate = policy.effectiveDate
+                                    }
                                 });
                                 application.policyTypes = policyTypesString;
+                                application.policyEffectiveDate = effectiveDate;
                             }
                         }
                         //update redis
@@ -2153,7 +1795,7 @@ module.exports = class ApplicationModel {
                         let appCount = null;
                         const resp = await global.redisSvc.getKeyValue(redisKey);
                         if(resp.found){
-                            //log.debug(`REDIS: getAppListForAgencyPortalSearch got rediskey ${redisKey}`)
+                            log.debug(`REDIS: getAppListForAgencyPortalSearch Count got rediskey ${redisKey}`)
                             try{
                                 const parsedJSON = new FastJsonParse(resp.value)
                                 if(parsedJSON.err){
@@ -2173,7 +1815,7 @@ module.exports = class ApplicationModel {
 
                     }
                 }
-
+                log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error("Application.countDocuments error " + err + __location);
                     error = null;
@@ -2185,7 +1827,7 @@ module.exports = class ApplicationModel {
                 }
                 if(useRedisCache === true && redisKey && docCount){
                     try{
-                        const ttlSeconds = 900; //15 minutes
+                        const ttlSeconds = 86400; //1 day
                         const redisResponse = await global.redisSvc.storeKeyValue(redisKey, docCount,ttlSeconds)
                         if(redisResponse && redisResponse.saved){
                             log.debug(`REDIS: saved ${redisKey} to Redis ` + __location);
@@ -2225,7 +1867,7 @@ module.exports = class ApplicationModel {
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
                         await this.updateRedisForAppUpdatebyAppId(id);
-                        await this.updateRedisForAppAddDelete(id);
+                        await this.updateRedisForAppAddDelete(id,null , -1);
                     }
 
                 }
@@ -2387,13 +2029,17 @@ module.exports = class ApplicationModel {
         }
 
         //industrycode
-        let industryCodeString = '';
+        let industryCodeStringArray = [];
         if(applicationDocDB.industryCode){
-            industryCodeString = applicationDocDB.industryCode;
+            industryCodeStringArray.push(applicationDocDB.industryCode);
         }
         else {
             log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Application Industry Code")
+        }
+        const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
+        if(bopPolicy && bopPolicy.bopIndustryCodeId){
+            industryCodeStringArray.push(bopPolicy.bopIndustryCodeId.toString());
         }
 
         //policyType.
@@ -2548,8 +2194,12 @@ module.exports = class ApplicationModel {
                     if(!insurerObjList && insurerObjList.length === 0){
                         log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
                     }
-                    for(let i = 0; i < insurerObjList.length; i++){
-                        insurerArray.push(insurerObjList[i].insurerId)
+                    for (const policyType of policyTypeArray){
+                        for(let i = 0; i < insurerObjList.length; i++){
+                            if(insurerObjList[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(insurerObjList[i].insurerId) === -1){
+                                insurerArray.push(insurerObjList[i].insurerId)
+                            }
+                        }
                     }
                     log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
                 }
@@ -2559,8 +2209,12 @@ module.exports = class ApplicationModel {
                 }
             }
             else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
-                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
-                    insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                for (const policyType of policyTypeArray){
+                    for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                        if(agencylocationJSON.insurers[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
+                            insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                        }
+                    }
                 }
             }
             else {
@@ -2579,86 +2233,21 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeList, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
-
         questionsObject.questionList = getQuestionsResult
 
         return questionsObject;
 
 
-    }
-
-    // for Quote App
-    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, questionSubjectArea, return_hidden = false) {
-
-        let applicationDoc = null;
-        try {
-            applicationDoc = await this.loadById(appId);
-        }
-        catch (err) {
-            log.error("error calling loadById " + err + __location);
-        }
-
-        // Override the policyTypeArray from the application doc to get the policy type and effective dates (not passed in by the old quote app)
-        policyTypeArray = [];
-        if(applicationDoc.policies && applicationDoc.policies.length > 0){
-            for(let i = 0; i < applicationDoc.policies.length; i++){
-                policyTypeArray.push({
-                    type: applicationDoc.policies[i].policyType,
-                    effectiveDate: applicationDoc.policies[i].effectiveDate
-                });
-            }
-        }
-
-        const insurerArray = [];
-        if (applicationDoc && applicationDoc.agencyLocationId > 0) {
-            const agencyLocationBO = new AgencyLocationBO();
-            const agencyLocation = await agencyLocationBO.getById(applicationDoc.agencyLocationId);
-            if (agencyLocation && agencyLocation.insurers && agencyLocation.insurers.length > 0) {
-                for (const insurer of agencyLocation.insurers) {
-                    if (insurer && insurer.insurerId) {
-                        insurerArray.push(insurer.insurerId);
-                    }
-                    else {
-                        log.error(`Data problem prevented getting insurer ID for ${applicationDoc.uuid} agency ${applicationDoc.agencyId} Location ${applicationDoc.agencyLocationId}` + __location)
-                    }
-                }
-            }
-            else {
-                log.error(`Data problem prevented getting agency location for ${applicationDoc.uuid} agency ${applicationDoc.agencyId} Location ${applicationDoc.agencyLocationId}` + __location)
-            }
-        }
-        else {
-            log.error(`Received an invalid agency location ID for ${applicationDoc.uuid} Location '${applicationDoc.agencyLocationId}'` + __location);
-            throw new Error('An error occured while retrieving application questions' + __location);
-        }
-
-        log.debug("in AppBO.GetQuestionsForFrontend")
-        //Call questions.......
-        const questionSvc = global.requireShared('./services/questionsvc.js');
-        let getQuestionsResult = null;
-        try {
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden);
-        }
-        catch (err) {
-            log.error("Error call in question service " + err + __location);
-            throw new Error('An error occured while retrieving application questions. ' + err);
-        }
-        if (!getQuestionsResult || getQuestionsResult === false) {
-            log.error("No questions returned from question service " + __location);
-            throw new Error('An error occured while retrieving application questions.');
-        }
-
-        return getQuestionsResult;
     }
 
     // eslint-disable-next-line valid-jsdoc
@@ -2813,7 +2402,7 @@ module.exports = class ApplicationModel {
                                 appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
                                 appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                                 await appDoc.save();
-                                errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                                errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
                             }
                         }
                     }
@@ -2822,7 +2411,7 @@ module.exports = class ApplicationModel {
                         appDoc.appStatusId = status.applicationStatus.outOfMarket.appStatusId;
                         appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                         await appDoc.save();
-                        errorMessage = `Agency does not cover application territory ${missingTerritory}`;
+                        errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
                     }
                     else {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
@@ -2858,6 +2447,54 @@ module.exports = class ApplicationModel {
 
         return errorMessage ? errorMessage : true;
 
+    }
+
+    async getAppBopCodes(applicationId){
+        const IndustryCodeSvc = global.requireShared('services/industrycodesvc.js');
+        let applicationJsonDB = null;
+        try{
+            applicationJsonDB = await this.getById(applicationId);
+        }
+        catch(err){
+            log.error("getAppBopCodes: Error getting application doc " + err + __location)
+        }
+        if(!applicationJsonDB){
+            log.error("getAppBopCodes: application not found" + __location)
+            return [];
+        }
+        let insurerArray = [];
+        if(applicationJsonDB.agencyLocationId){
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = false;
+            const addAgencyPrimaryLocation = true;
+            let agencylocationJSON = await agencyLocationBO.getById(applicationJsonDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+                log.error(`Error getting Agency Location ${applicationJsonDB.uuid} ` + err + __location);
+            });
+            if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                    if(agencylocationJSON.insurers[i].policyTypeInfo["BOP"]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
+                        insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                    }
+                }
+            }
+            else {
+                log.debug(`getAppBopCodes no location insurers for appId ${applicationId} in \n ${JSON.stringify(agencylocationJSON)}` + __location);
+            }
+        }
+        if(insurerArray.length === 0){
+            log.debug(`getAppBopCodes no location insurers appId ${applicationId} appLocId ${applicationJsonDB.agencyLocationId}` + __location);
+            insurerArray = null;
+        }
+
+        let iicList = [];
+        try{
+            iicList = await IndustryCodeSvc.GetBopIndustryCodes(applicationJsonDB.industryCode, insurerArray)
+        }
+        catch(err){
+            log.error(`getAppBopCodes:  Error get BOP industrycodes ${applicationId} - ${err}. ` + __location);
+        }
+
+        return iicList;
     }
 
 }

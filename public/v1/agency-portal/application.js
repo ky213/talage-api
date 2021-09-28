@@ -7,12 +7,14 @@
 'use strict';
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth-agencyportal.js');
+const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
@@ -28,7 +30,10 @@ const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+const emailsvc = global.requireShared('./services/emailsvc.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
+const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -481,10 +486,15 @@ async function setupReturnedApplicationJSON(applicationJSON){
         try{
             const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
             const apUser = await agencyPortalUserBO.getById(userId);
-            applicationJSON.creatorEmail = apUser.email;
+            if(apUser){
+                applicationJSON.creatorEmail = apUser.email;
+            }
+            else {
+                log.error(`Did not find agencyPortalUser ${applicationJSON.agencyPortalCreatedUser} for appId: ${applicationJSON.applicationId} ` + __location);
+            }
         }
         catch(err){
-            log.error("Error getting agencyPortalUserBO " + err + __location);
+            log.error(`Error getting agencyPortalUserBO for appId: ${applicationJSON.applicationId} ` + err + __location);
         }
     }
 
@@ -773,7 +783,7 @@ async function applicationCopy(req, res, next) {
             userId = req.authentication.userID;
         }
         catch(err){
-            log.error("Error gettign userID " + err + __location);
+            log.error("Error getting userID " + err + __location);
         }
         newApplicationDoc.copiedFromAppId = req.body.applicationId;
         newApplicationDoc.agencyPortalCreatedUser = userId
@@ -788,7 +798,8 @@ async function applicationCopy(req, res, next) {
         await setupReturnedApplicationJSON(responseAppDoc)
     }
     catch(err){
-        log.error("Error checking application doc " + err + __location)
+        log.error("Error Copying application doc " + err + __location)
+        res.send(500, `No copied Application = ${err}`);
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
@@ -955,11 +966,13 @@ async function validate(req, res, next) {
     }
     // Validate
     try {
-        passValidation = await applicationQuoting.validate();
+        const doNotLogValidationErrors = false
+        passValidation = await applicationQuoting.validate(doNotLogValidationErrors);
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error(errMessage + __location);
+        // This is a user triggered validation check.  Do not log.
+        // log.error(errMessage + __location);
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -1087,6 +1100,7 @@ async function requote(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
+        //pre quote validation log any errors
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
         log.warn(errMessage + __location);
         res.send(400, errMessage);
@@ -1095,9 +1109,7 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.applicationId, "quoting");
-        const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.applicationId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateToQuoting(applicationDB.applicationId);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${applicationDB.applicationId} for quoting. ` + err + __location);
@@ -1110,7 +1122,7 @@ async function requote(req, res, next) {
     res.send(200, token);
 
     // Begin running the quotes
-    runQuotes(applicationQuoting);
+    runQuotes(applicationQuoting, req);
 
     return next();
 }
@@ -1119,12 +1131,13 @@ async function requote(req, res, next) {
  * Runs the quote process for a given application
  *
  * @param {object} application - Application object
+ * @param {object} req - Restify req object
  * @returns {void}
  */
-async function runQuotes(application) {
+async function runQuotes(application, req) {
     log.debug('running quotes' + __location)
 
-    await application.run_quotes();
+    await application.run_quotes(req);
 
     // try {
     //     await application.run_quotes();
@@ -1267,7 +1280,7 @@ async function bindQuote(req, res, next) {
             if(req.body.paymentPlanId){
                 paymentPlanId = req.body.paymentPlanId
             }
-            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID);
+            await quoteBind.load(quoteId, paymentPlanId, req.authentication.userID,req.body.insurerPaymentPlanId);
             const bindResp = await quoteBind.bindPolicy();
             if(bindResp === "success"){
                 log.info(`succesfully API bound AppId: ${applicationDB.applicationId} QuoteId: ${quoteId}` + __location)
@@ -1290,7 +1303,7 @@ async function bindQuote(req, res, next) {
                 res.send(200, {"bound": true, policyNumber: quoteBind.policyInfo.policyNumber});
             }
             else {
-                res.send(bindFailureMessage);
+                res.send({"message":bindFailureMessage});
             }
 
             return next();
@@ -1315,6 +1328,7 @@ async function bindQuote(req, res, next) {
                 quote: quoteDoc.quoteId,
                 quoteId: quoteDoc.quoteId,
                 paymentPlanId: paymentPlanId,
+                insurerPaymentPlanId: req.body.insurerPaymentPlanId,
                 noCustomerEmail: true
             }
             const requestBindResponse = await applicationBO.processRequestToBind(applicationId, quoteObj).catch(function(err){
@@ -1389,6 +1403,7 @@ async function bindQuote(req, res, next) {
  * @returns {Object} returns the policy limits object
  */
 async function GetPolicyLimits(agencyId){
+    log.debug(`policy limits for ${agencyId}` + __location)
     // eslint-disable-next-line prefer-const
     let limits = {
         "BOP": [
@@ -1438,49 +1453,6 @@ async function GetPolicyLimits(agencyId){
             }
         ]
     };
-    if(agencyId){
-        const arrowHeadInsurerId = 27;
-        // TODO: make this smart logic where we don't do hardcoded check
-        // given an agency grab all of its locations
-        const agencyLocationBO = new AgencyLocationBO();
-        let locationList = null;
-        const query = {"agencyId": agencyId}
-        const getAgencyName = true;
-        const getChildren = true;
-        const useAgencyPrimeInsurers = true;
-        let error = null;
-        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-            log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-            error = err;
-        });
-        if(!error){
-            if(locationList && locationList.length > 0){
-                // for each location go through the list of insurers
-                for(let i = 0; i < locationList.length; i++){
-                    if(locationList[i].hasOwnProperty('insurers')){
-                        // grab all the insurers
-                        const locationInsurers = locationList[i].insurers;
-                        if(locationInsurers && locationInsurers.length > 0){
-                            // grab all the insurer ids
-                            const insurerIdList = locationInsurers.map(insurerObj => insurerObj.insurerId);
-                            // are any of the insurer id equal 27 (arrowHead)
-                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
-                                limits['BOP'] = [{
-                                    "key": "1000000/1000000/1000000",
-                                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
-                                }];
-                                if(insurerIdList.length > 1){
-                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-    }
     return limits;
 }
 
@@ -1975,9 +1947,223 @@ async function markQuoteAsDead(req, res, next){
     return next();
 }
 
+
+async function GetBopCodes(req, res, next){
+    let bopIcList = null;
+    try{
+        const applicationBO = new ApplicationBO();
+        bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!bopIcList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, bopIcList);
+    return next();
+}
+
+async function PutApplicationLink(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure all elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'emailAddress')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agentEmail')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    const applicationId = req.body.applicationId;
+
+    // create hash
+    const hash = await crypt.hash(applicationId);
+
+    // store hash in redis with application id as value
+    // eslint-disable-next-line object-shorthand
+    await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId}), applicationLinkTimeout);
+
+    const link = await SendApplicationLinkEmail(req.body, hash);
+
+    // return link to frontend to show link (SHOULD WE STORE THE LINK ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
+    // eslint-disable-next-line object-shorthand
+    res.send(200, {link});
+    return next();
+}
+
+async function SendApplicationLinkEmail(reqBody, hash){
+    // reqBody: {
+    //     firstName,
+    //     lastName,
+    //     emailAddress,
+    //     pageSlug,
+    //     applicationId,
+    //     businessName,
+    //     agentEmail
+    //     agentName
+    // }
+
+    // get agency
+    const applicationBO = new ApplicationBO();
+    const application = await applicationBO.getById(reqBody.applicationId);
+
+    const agencyBO = new AgencyBO();
+    const agency = await agencyBO.getById(application.agencyId);
+
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agnencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+
+    let domain = "";
+    if(agnencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
+        // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
+        domain = agnencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].APPLICATION_URL;
+    }
+    else{
+        // if environmentSettings is not defined for any reason, fall back to defaults
+        switch(global.settings.ENV){
+            case "development":
+                domain = "http://localhost:8080";
+                break;
+            case "awsdev":
+                domain = "https://dev.wh-app.io";
+                break;
+            case "staging":
+                domain = "https://sta.wh-app.io";
+                break;
+            case "demo":
+                domain = "https://demo.wh-app.io";
+                break;
+            case "production":
+                domain = "https://wh-app.io";
+                break;
+            default:
+                // dont send the email
+                log.error(`Failed to send application link to ${emailData.to}, invalid environment. ${__location}`);
+                return;
+        }
+    }
+
+    let link = "";
+    if(reqBody.pageSlug){
+        link = `${domain}/${agency.slug}/${reqBody.pageSlug}/_load/${hash}`;
+    }
+    else{
+        link = `${domain}/${agency.slug}/_load/${hash}`;
+    }
+    // TODO: should we use agency.email or agency location email?
+    const emailData = {
+        html: `
+            <p>
+                Hello${reqBody.firstName ? ` ${reqBody.firstName}` : ""},
+            </p>
+            <p>
+                ${reqBody.agentName ? `${reqBody.agentName} at ` : ""}${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
+                <br/>
+                Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
+                <br/>
+                If you ever need help, ${reqBody.agentName ? `${reqBody.agentName} is ` : "we're"} still right here to help ensure you get the best policy at the best value. 
+                <br/>
+                If you have any questions, let us know at ${agency.email}${reqBody.agentName ? ` or reach out to ${reqBody.agentName} directly.` : "."}
+            </p>
+            <div align="center">
+                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
+                <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
+                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
+                </a>
+                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
+            </div>
+            <p align="center">
+                If the button does not work try pasting this link into your browser:
+                <br/>
+                <a href="${link}" target="_blank">
+                    ${link}
+                </a>
+            </p>
+        `,
+        subject: 'A portal to your application',
+        to: `${reqBody.emailAddress},${reqBody.agentEmail}`
+    };
+
+    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
+    if(!emailSent){
+        log.error(`Failed to send application link to ${emailData.to}.`);
+    }
+    else {
+        log.info(`Application link email was sent successfully to ${emailData.to}.`);
+    }
+
+    return link;
+}
+
+async function getOfficerEmployeeTypes(req, res, next){
+    if (!req.query || typeof req.query !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    if (!req.query.zipcode) {
+        log.error('Bad Request: Missing zipcode ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing zipcode'));
+    }
+
+    if (!req.query.industryCodeId){
+        log.error('Bad Request: Missing industryCodeId ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing industryCodeId'));
+    }
+
+    const zipcode = req.query.zipcode;
+    const industryCodeId = req.query.industryCodeId;
+
+    let activityCodes = [];
+    try{
+        // use the zipcode from the primary location
+        const zipCodeBO = new ZipCodeBO();
+        const zipCodeData = await zipCodeBO.loadByZipCode(zipcode);
+
+        // get the activity codes for the territory of the zipcode provided
+        activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, industryCodeId);
+
+        // filter it down to only suggested activity codes
+        activityCodes = activityCodes.filter(ac => ac.suggested);
+        const officeEmployeeActivityCodeId = 2869;
+        const hasOfficeEmployeeCode = activityCodes.some(code => code.activityCodeId === officeEmployeeActivityCodeId);
+        if(hasOfficeEmployeeCode !== true){
+            activityCodes.push({
+                description: "Office Employees",
+                activityCodeId: 2869
+            });
+        }
+    }
+    catch(err){
+        log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
+    }
+
+    res.send(200, activityCodes);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
+    server.addPutAuth('PUT Application Link', `${basePath}/application/link`, PutApplicationLink, 'applications', 'manage');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
@@ -1991,13 +2177,14 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
-    server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
-
-    server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
-    server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
-    server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
+    server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage');
+    server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
+    server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
+    server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
+    server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);
+    server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
-    server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits)
+    server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
     server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
     server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');

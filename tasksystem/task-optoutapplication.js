@@ -89,7 +89,7 @@ var optoutapplicationtask = async function() {
         appList = await applicationBO.getList(query);
     }
     catch(err){
-        log.error("abandonquotetask getting appid list error " + err + __location);
+        log.error("optoutapplicationtask getting appid list error " + err + __location);
         throw err;
     }
 

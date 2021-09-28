@@ -16,7 +16,7 @@ const IndustryCodeSchema = new Schema({
     talageIndustryCodeUuid: {type: String, required: [true, 'talageIndustryCodeUuid required'], unique: true},
     industryCodeId: {type: Number, required: [true, 'industryCodeId required']},
     industryCodeCategoryId: {type: Number},
-    featured:{type: Boolean, default: true},
+    featured:{type: Boolean, default: false},
     naics: {type: String, required: false},
     cgl: {type: String, required: false},
     sic: {type: String, required: false},

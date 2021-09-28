@@ -30,7 +30,9 @@ const featureSchema = new Schema({
     agencyPortalRequestToBind: {type: Boolean, required: true, default: false},
     abandonAppEmailsCustomer: {type: Boolean, required: true, default: true},
     abandonAppEmailsAgency: {type: Boolean, required: true, default: false},
-    quoteAppBinding: {type: Boolean, required: true, default: false}
+    quoteAppBinding: {type: Boolean, required: true, default: false},
+    appSingleQuotePath: {type: Boolean, required: true, default: false},
+    enableAgencyCodeField: {type: Boolean, required: true, default: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
@@ -49,9 +51,17 @@ const AgencyNetworkSchema = new Schema({
     landing_page_content: {type: Schema.Types.Mixed},
     custom_emails: {type: Schema.Types.Mixed},
     phone: {type: String, required: false},
+    quoteAppCustomRouting: {type: Object, required: false},
+    appRequirementOverrides: {type: Object, required: false},
     featureJson: {type: featureSchema},
     additionalInfo: {type: Schema.Types.Mixed},
     insurerIds: [Number],
+    agencyFiveMinuteLimit: {type: Number, default: 500},
+    agencyNetworkFiveMinuteLimit: {type: Number, default: 600},
+    agency24HourLimit: {type: Number, default: 1000},
+    agencyNetwork24HourLimit: {type: Number, default: 1200},
+    agencyMonthLimit: {type: Number, default: 15000},
+    agencyNetworkMonthLimit: {type: Number, default: 20000},
     active: {type: Boolean, default: true}
 },opts)
 

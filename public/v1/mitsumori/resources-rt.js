@@ -4,12 +4,10 @@
 
 "use strict";
 const serverHelper = require("../../../server.js");
-// const validator = global.requireShared("./helpers/validator.js");
-// const ApplicationBO = global.requireShared("models/Application-BO.js");
-// const AgencyBO = global.requireShared('models/Agency-BO.js');
-// const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
-// const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
-// const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+const ApplicationBO = global.requireShared("models/Application-BO.js");
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
+const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
 
 const policyHelper = require("./resource-building/policies");
 const requirementHelper = global.requireShared('./services/required-app-fields-svc.js');
@@ -24,7 +22,7 @@ async function getResources(req, res, next){
     if(req.userTokenData.applicationId !== req.query.appId){
         log.warn("Unauthorized attempt to access Application resources" + __location);
         res.send(403);
-        return;
+        return next(serverHelper.requestError('Unauthorized'));
     }
 
     // This endpoint recieves application Id, we should be able to utilize that to make this endpoint smart, i.e. agencyId for the application to determine policy limits
@@ -34,9 +32,13 @@ async function getResources(req, res, next){
         case "_basic":
         case "_basic-created":
             entityTypes(resources);
+            if(req.query.agencyNetworkId){
+                await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId);
+            }
             break;
         case "_policies":
             await policyHelper.populatePolicyResources(resources, req.query.appId);
+            
             break;
         case "_business-questions":
             membershipTypes(resources);
@@ -58,12 +60,69 @@ async function getResources(req, res, next){
             break;
         case "_officers":
             officerTitles(resources);
+            await officerEmployeeTypes(resources, req.query.appId);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
+            break;
+        case "_quotes":
+            await agencyNetworkFeatures(resources, req.query.appId);
             break;
     }
 
     res.send(200, resources);
+    return next();
 }
+
+const officerEmployeeTypes = async(resources, appId) => {
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getById(appId);
+
+    let activityCodes = [];
+    if(applicationDB){
+        try{
+            // use the zipcode from the primary location
+            const zipCodeBO = new ZipCodeBO();
+            const primaryLocation = applicationDB.locations?.find(loc => loc.primary);
+            const zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
+
+            // get the activity codes for the territory of the zipcode provided
+            activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, applicationDB.industryCodeId);
+
+            // filter it down to only suggested activity codes
+            activityCodes = activityCodes.filter(ac => ac.suggested);
+        }
+        catch(err){
+            log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
+        }
+    }
+
+    resources.officerEmployeeTypes = activityCodes;
+}
+
+const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
+    let agencyNetworkDB = null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    if(appId){
+        const applicationBO = new ApplicationBO();
+        const applicationDB = await applicationBO.getById(appId);
+        if(applicationDB){
+            agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+        }
+    }else {
+        agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
+    }
+
+    // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
+    const quoteAppBinding = agencyNetworkDB?.featureJson?.quoteAppBinding === true;
+    const appSingleQuotePath = agencyNetworkDB?.featureJson?.appSingleQuotePath === true;
+    const agencyCodeField = agencyNetworkDB?.featureJson.enableAgencyCodeField === true;
+    // get the agency network features we care about here.
+    resources.agencyNetworkFeatures = {
+        quoteAppBinding,
+        appSingleQuotePath,
+        agencyCodeField
+    };
+}
+
 const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];
 }
@@ -197,14 +256,14 @@ const territories = resources => {
 async function getRemoteAddress(req, res, next){
     const remoteAdd = req.connection.remoteAddress;
     if(!remoteAdd){
-        next(serverHelper.requestError(`Unable to detect the remote address.`));
-        return;
+        return next(serverHelper.requestError(`Unable to detect the remote address.`));
     }
     res.send(200, {remoteAddress: req.connection.remoteAddress});
+    return next();
 }
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthQuoteApp("Get Next Route", `${basePath}/resources`, getResources);
+    server.addGetAuthQuoteApp("Get Page Resources", `${basePath}/resources`, getResources);
     server.addGetAuthQuoteApp("Get IP Info", `${basePath}/remote-address`, getRemoteAddress);
 }

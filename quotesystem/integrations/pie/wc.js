@@ -29,7 +29,7 @@ module.exports = class PieWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        const appDoc = this.app.applicationDocData
+        const appDoc = this.applicationDocData
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         /*
 		This.possible_api_responses.Accept = 'quoted';
@@ -163,9 +163,9 @@ module.exports = class PieWC extends Integration {
 
         // Determine business age in months
         let businessAgeInMonths = 0;
-        if (this.app.applicationDocData.founded) {
+        if (this.applicationDocData.founded) {
             try {
-                const foundingDate = new moment(this.app.applicationDocData.founded);
+                const foundingDate = new moment(this.applicationDocData.founded);
                 const now = new moment();
                 businessAgeInMonths = now.diff(foundingDate, 'months', true);
             }
@@ -215,8 +215,8 @@ module.exports = class PieWC extends Integration {
                 // Experience Modifier
                 const experienceModification = {};
                 // Check if experience modifier exists and is a number
-                if (this.app.applicationDocData.experienceModifier && typeof this.app.applicationDocData.experienceModifier === 'number') {
-                    experienceModification.factor = this.app.applicationDocData.experienceModifier;
+                if (this.applicationDocData.experienceModifier && typeof this.applicationDocData.experienceModifier === 'number') {
+                    experienceModification.factor = this.applicationDocData.experienceModifier;
                 }
                 if (this.app.business.bureau_number) {
                     experienceModification.riskId = this.app.business.bureau_number;
@@ -249,7 +249,7 @@ module.exports = class PieWC extends Integration {
                                 location_object.address.line2 = loc.address2;
                             }
                             location_object.address.city = loc.city;
-                            location_object.address.zip = loc.zip;
+                            location_object.address.zip = loc.zip.slice(0,5);
 
                             // Exposures
                             location_object.exposure = [];
@@ -300,7 +300,7 @@ module.exports = class PieWC extends Integration {
                         country: 'US',
                         line1: this.app.business.mailing_address,
                         state: this.app.business.mailing_territory,
-                        zip: this.app.business.mailing_zip
+                        zip: this.app.business.mailing_zip.slice(0,5)
                     };
 
                     if (this.app.business.mailing_address2) {
@@ -319,7 +319,7 @@ module.exports = class PieWC extends Integration {
                 }
 
                 // Find Workers Comp policy
-                const workersCompPolicy = this.app.applicationDocData.policies.find(({policyType}) => policyType === 'WC');
+                const workersCompPolicy = this.applicationDocData.policies.find(({policyType}) => policyType === 'WC');
                 // Check if blanket waiver exists in the workers comp policy
                 if (workersCompPolicy && Object.prototype.hasOwnProperty.call(workersCompPolicy, 'blanketWaiver')) {
                     state_object.blanketWaiver = workersCompPolicy.blanketWaiver;

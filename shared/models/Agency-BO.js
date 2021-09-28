@@ -247,10 +247,10 @@ module.exports = class AgencyBO {
     }
 
 
-    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false, returnDeleted = false) {
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = true, getAgencyNetwork = false, returnDeleted = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
-                if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && returnMongooseModel === false){
                     let docDB = null;
                     try{
                         docDB = await this.getRedisById(mysqlId)
@@ -346,7 +346,7 @@ module.exports = class AgencyBO {
     async getbySlug(slug, returnMongooseModel = false, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
             if (slug) {
-                if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && returnMongooseModel === false){
                     let docDB = null;
                     try{
                         docDB = await this.getRedisBySlug(slug)
@@ -729,7 +729,7 @@ module.exports = class AgencyBO {
         });
         newObjectJSON.id = newSystemId;
         if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
-            await this.updateRedisCache(newObjectJSON);
+            await this.updateRedisCache(agency);
         }
         return mongoUtils.objCleanup(agency);
     }
