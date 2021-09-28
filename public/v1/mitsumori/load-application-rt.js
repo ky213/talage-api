@@ -18,7 +18,7 @@ const getApplicationFromHash = async(req, res, next) => {
     if(redisResp.found){
         const redisValueJSON = JSON.parse(redisResp.value);
         if(redisValueJSON && redisValueJSON?.applicationId){
-            // check to make sure the application is lower than referred, status 40
+            // if application appStatusId is greater than or equal to referred (40) then don't allow user to deep link
             const applicationBO = new ApplicationBO();
             const applicationDB = await applicationBO.getById(redisValueJSON.applicationId).catch(function (err) {
                 log.error(`Getting application appId# ${appId} resulted in error ${err}`  + __location);
