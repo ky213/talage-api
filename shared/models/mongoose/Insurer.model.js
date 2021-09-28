@@ -97,7 +97,7 @@ InsurerSchema.virtual('insurer').
 
 InsurerSchema.plugin(timestamps);
 InsurerSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
+    historyConnection: global.insurerMongodb
 });
 
 

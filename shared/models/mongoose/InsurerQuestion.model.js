@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -41,7 +41,7 @@ InsurerQuestionSchema.index({insurerId: 1, policyTypeList: 1}); // Insure Index
 
 InsurerQuestionSchema.plugin(timestamps);
 InsurerQuestionSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
+    historyConnection: global.insurerMongodb
 });
 
 
