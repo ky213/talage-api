@@ -4,6 +4,7 @@
 "use strict";
 const serverHelper = require("../../../server.js");
 const tokenSvc = global.requireShared('./services/tokensvc.js');
+const ApplicationBO = global.requireShared("models/Application-BO.js");
 
 const getApplicationFromHash = async(req, res, next) => {
     if (!req.body || !req.body.hash) {
@@ -17,6 +18,14 @@ const getApplicationFromHash = async(req, res, next) => {
     if(redisResp.found){
         const redisValueJSON = JSON.parse(redisResp.value);
         if(redisValueJSON && redisValueJSON?.applicationId){
+            // check to make sure the application is lower than referred, status 40
+            const applicationBO = new ApplicationBO();
+            const applicationDB = await applicationBO.getById(redisValueJSON.applicationId).catch(function (err) {
+                log.error(`Getting application appId# ${appId} resulted in error ${err}`  + __location);
+            });
+            if(applicationDB.appStatusId >= 40){
+                res.send(403, {error: "Application has already been processed please contact your agent."})
+            }
             const token = await createApplicationToken(req, redisValueJSON.applicationId);
             res.send(200, {
                 token,
