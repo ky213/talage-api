@@ -24,7 +24,9 @@ const QuestionGroupSchema = new Schema({
 })
 
 QuestionGroupSchema.plugin(timestamps);
-QuestionGroupSchema.plugin(mongooseHistory);
+QuestionGroupSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 QuestionGroupSchema.pre('validate', function(next) {

@@ -139,7 +139,9 @@ AgencyLocationSchema.virtual('zip').
     });
 
 AgencyLocationSchema.plugin(timestamps);
-AgencyLocationSchema.plugin(mongooseHistory);
+AgencyLocationSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyLocationSchema.pre('validate', function(next) {

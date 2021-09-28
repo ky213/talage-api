@@ -96,7 +96,9 @@ InsurerSchema.virtual('insurer').
     });
 
 InsurerSchema.plugin(timestamps);
-InsurerSchema.plugin(mongooseHistory);
+InsurerSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 InsurerSchema.pre('validate', function(next) {

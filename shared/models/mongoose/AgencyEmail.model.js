@@ -42,7 +42,9 @@ const AgencyEmailSchema = new Schema({
 })
 
 AgencyEmailSchema.plugin(timestamps);
-AgencyEmailSchema.plugin(mongooseHistory);
+AgencyEmailSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyEmailSchema.pre('validate', function(next) {

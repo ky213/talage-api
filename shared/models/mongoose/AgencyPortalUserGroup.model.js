@@ -51,7 +51,9 @@ const AgencyPortalUserGroupSchema = new Schema({
 })
 
 AgencyPortalUserGroupSchema.plugin(timestamps);
-AgencyPortalUserGroupSchema.plugin(mongooseHistory);
+AgencyPortalUserGroupSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyPortalUserGroupSchema.pre('validate', function(next) {

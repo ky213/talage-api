@@ -27,7 +27,9 @@ const ColorSchemeSchema = new Schema({
 
 
 ColorSchemeSchema.plugin(timestamps);
-ColorSchemeSchema.plugin(mongooseHistory);
+ColorSchemeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 ColorSchemeSchema.pre('validate', function(next) {

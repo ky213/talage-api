@@ -47,7 +47,9 @@ InsurerActivityCodeSchema.index({insurerId: 1, code: 1, sub: 1});
 // //***** Virtuals old field names ****************** */
 
 InsurerActivityCodeSchema.plugin(timestamps);
-InsurerActivityCodeSchema.plugin(mongooseHistory);
+InsurerActivityCodeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 InsurerActivityCodeSchema.pre('validate', function(next) {

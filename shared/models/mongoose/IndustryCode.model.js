@@ -40,7 +40,9 @@ IndustryCodeSchema.virtual('id').
 
 
 IndustryCodeSchema.plugin(timestamps);
-IndustryCodeSchema.plugin(mongooseHistory);
+IndustryCodeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 IndustryCodeSchema.pre('validate', function(next) {

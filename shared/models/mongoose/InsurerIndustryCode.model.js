@@ -43,7 +43,9 @@ const InsurerIndustryCodeSchema = new Schema({
 // //***** Virtuals old field names ****************** */
 
 InsurerIndustryCodeSchema.plugin(timestamps);
-InsurerIndustryCodeSchema.plugin(mongooseHistory);
+InsurerIndustryCodeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 InsurerIndustryCodeSchema.pre('validate', function(next) {

@@ -204,7 +204,9 @@ AgencyPortalUserSchema.virtual('termsOfServiceVersion').
 
 
 AgencyPortalUserSchema.plugin(timestamps);
-AgencyPortalUserSchema.plugin(mongooseHistory);
+AgencyPortalUserSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyPortalUserSchema.pre('validate', function(next) {

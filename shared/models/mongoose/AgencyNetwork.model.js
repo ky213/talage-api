@@ -133,7 +133,9 @@ AgencyNetworkSchema.virtual('feature_json').
 
 
 AgencyNetworkSchema.plugin(timestamps);
-AgencyNetworkSchema.plugin(mongooseHistory);
+AgencyNetworkSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyNetworkSchema.pre('validate', function(next) {

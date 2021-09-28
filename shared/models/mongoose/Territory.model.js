@@ -27,7 +27,9 @@ const TerritorySchema = new Schema({
 
 
 TerritorySchema.plugin(timestamps);
-TerritorySchema.plugin(mongooseHistory);
+TerritorySchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 TerritorySchema.pre('validate', function(next) {

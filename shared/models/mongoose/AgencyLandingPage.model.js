@@ -76,7 +76,9 @@ AgencyLandingPageSchema.virtual('agency').
 
 
 AgencyLandingPageSchema.plugin(timestamps);
-AgencyLandingPageSchema.plugin(mongooseHistory);
+AgencyLandingPageSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyLandingPageSchema.pre('validate', function(next) {

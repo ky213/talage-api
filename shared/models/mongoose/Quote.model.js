@@ -116,7 +116,9 @@ const QuoteSchema = new Schema({
 });
 
 QuoteSchema.plugin(timestamps);
-QuoteSchema.plugin(mongooseHistory);
+QuoteSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 QuoteSchema.pre('validate', function(next) {

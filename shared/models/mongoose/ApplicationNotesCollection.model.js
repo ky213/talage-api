@@ -23,7 +23,9 @@ const ApplicationNotesCollectionSchema = new Schema({
 });
 
 ApplicationNotesCollectionSchema.plugin(timestamps);
-ApplicationNotesCollectionSchema.plugin(mongooseHistory);
+ApplicationNotesCollectionSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('ApplicationNotesCollection', ApplicationNotesCollectionSchema);

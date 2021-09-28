@@ -356,7 +356,9 @@ ApplicationSchema.virtual('industryCodeId').
     });
 
 ApplicationSchema.plugin(timestamps);
-ApplicationSchema.plugin(mongooseHistory);
+ApplicationSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 ApplicationSchema.pre('validate', function(next) {

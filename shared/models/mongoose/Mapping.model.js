@@ -25,7 +25,9 @@ const MappingSchema = new Schema({
 })
 
 MappingSchema.plugin(timestamps);
-MappingSchema.plugin(mongooseHistory);
+MappingSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 MappingSchema.pre('validate', function(next) {

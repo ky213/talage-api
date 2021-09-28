@@ -24,7 +24,9 @@ const CodeGroupSchema = new Schema({
 })
 
 CodeGroupSchema.plugin(timestamps);
-CodeGroupSchema.plugin(mongooseHistory);
+CodeGroupSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 CodeGroupSchema.pre('validate', function(next) {

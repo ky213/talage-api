@@ -50,7 +50,9 @@ QuestionSchema.virtual('id').
     });
 
 QuestionSchema.plugin(timestamps);
-QuestionSchema.plugin(mongooseHistory);
+QuestionSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 QuestionSchema.pre('validate', function(next) {

@@ -44,7 +44,9 @@ const MessageSchema = new Schema({
 })
 
 MessageSchema.plugin(timestamps);
-MessageSchema.plugin(mongooseHistory);
+MessageSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 MessageSchema.pre('validate', function(next) {

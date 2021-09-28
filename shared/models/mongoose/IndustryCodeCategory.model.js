@@ -28,7 +28,9 @@ IndustryCodeCategorySchema.virtual('id').
     });
 
 IndustryCodeCategorySchema.plugin(timestamps);
-IndustryCodeCategorySchema.plugin(mongooseHistory);
+IndustryCodeCategorySchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 IndustryCodeCategorySchema.pre('validate', function(next) {

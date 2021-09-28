@@ -25,7 +25,9 @@ const PolicyTypeSchema = new Schema({
 
 
 PolicyTypeSchema.plugin(timestamps);
-PolicyTypeSchema.plugin(mongooseHistory);
+PolicyTypeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 PolicyTypeSchema.pre('validate', function(next) {

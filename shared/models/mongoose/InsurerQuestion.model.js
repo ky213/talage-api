@@ -40,7 +40,9 @@ InsurerQuestionSchema.index({insurerId: 1, policyTypeList: 1}); // Insure Index
 // //***** Virtuals old field names ****************** */
 
 InsurerQuestionSchema.plugin(timestamps);
-InsurerQuestionSchema.plugin(mongooseHistory);
+InsurerQuestionSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 InsurerQuestionSchema.pre('validate', function(next) {

@@ -31,8 +31,9 @@ ActivityCodeSchema.virtual('id').
     });
 
 ActivityCodeSchema.plugin(timestamps);
-ActivityCodeSchema.plugin(mongooseHistory);
-
+ActivityCodeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 ActivityCodeSchema.pre('validate', function(next) {
     if (this.isNew) {

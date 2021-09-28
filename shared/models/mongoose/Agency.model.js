@@ -164,8 +164,9 @@ AgencySchema.virtual('ca_license_number').
     });
 
 AgencySchema.plugin(timestamps);
-AgencySchema.plugin(mongooseHistory);
-
+AgencySchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 AgencySchema.pre('validate', function(next) {
     if (this.isNew) {

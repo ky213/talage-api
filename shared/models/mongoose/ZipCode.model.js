@@ -38,7 +38,9 @@ const ZipCodeSchema = new Schema({
 });
 
 ZipCodeSchema.plugin(timestamps);
-ZipCodeSchema.plugin(mongooseHistory);
+ZipCodeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 ZipCodeSchema.pre('validate', function(next) {
     if (this.isNew) {

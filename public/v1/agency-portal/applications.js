@@ -13,8 +13,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
-const mongoose = require('mongoose');
-const Quote = mongoose.model('Quote');
+const Quote = global.mongodb.model('Quote');
 
 /**
  * Validates the parameters for the applications call

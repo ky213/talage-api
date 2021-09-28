@@ -58,7 +58,9 @@ InsurerPolicyTypeSchema.virtual('insurer').
 
 
 InsurerPolicyTypeSchema.plugin(timestamps);
-InsurerPolicyTypeSchema.plugin(mongooseHistory);
+InsurerPolicyTypeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 InsurerPolicyTypeSchema.pre('validate', function(next) {
