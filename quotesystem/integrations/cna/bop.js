@@ -191,8 +191,21 @@ module.exports = class CnaBOP extends Integration {
             host = "apis.cna.com";
             branchProdCd = "540085091";
         }
-        //Basic Auth Calculation:
 
+        let industryCode = null;
+        // if the BOP code selected is CNA's, we can just use it
+        if (this.industry_code && !this.industry_code.talageIndustryCodeUuid) {
+            industryCode = this.industry_code;
+        }
+        else {
+            // otherwise, look it up and try to find the best match using ranking
+            industryCode = await this.getIndustryCode();
+        }
+
+        if (!industryCode) {
+            log.error(`${logPrefix}Unable to get Industry Code, applicantion Out of Market. ` + __location);
+            return this.client_autodeclined_out_of_appetite();
+        }
 
         const business = this.app.business;
         const BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === 'BOP');
@@ -460,7 +473,7 @@ module.exports = class CnaBOP extends Integration {
                                 },
                                 "LiabilityInfo": {
                                     "CommlCoverage": this.getCoverages(limits),
-                                    "GeneralLiabilityClassification": this.getGLClassifications()
+                                    "GeneralLiabilityClassification": this.getGLClassifications(industryCode)
                                 },
                                 // TODO: What is this? Is it a question? 
                                 // "com.cna_ProductInfo":[
@@ -768,6 +781,11 @@ module.exports = class CnaBOP extends Integration {
                         value: location.numStories
                     }
                 },
+                BldgOccupancy: [
+                    {
+                        "com.cna_LeasedSpaceDesc": [{}]
+                    }
+                ],
                 BldgImprovements: { 
                     HeatingImprovementCd: {
                         value: "C"
@@ -804,24 +822,68 @@ module.exports = class CnaBOP extends Integration {
                 "com.cna_CommonAreasMaintenanceCd": {},
                 LocationRef: `L${i}`,
                 SubLocationRef: `L${i}S1`
-            }
-        });
-        {
-            "Construction":{ // <--- Parent question to next 2 child basement questions
-                "NumBasements":{
-                    "value":1
-                },
-                "com.cna_UnFinishedBasementArea":{
-                    "NumUnits":{
-                        "value":0
+            };
+
+            const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
+            if (payrollType) {
+                buildingObj.FinancialInfo = {
+                    "com.cna_PayrollTypeCd": {
+                        value: payrollType.answerValue
                     }
-                },
-                "com.cna_FinishedBasementArea":{
-                    "NumUnits":{
-                        "value":0
+                };
+            }
+
+            // Construction question section
+            const hasBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.hasBasements");
+            if (hasBasements && hasBasements.answerValue.toLowerCase() === "yes") {
+                const numBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numBasements");
+                if (numBasements) {
+                    const basementsValue = parseInt(numBasements.answerValue, 10);
+                    if (!isNaN(basementsValue) && basementsValue !== 0) {
+                        buildingObj.Construction.NumBasements = {
+                            value: basementsValue
+                        }
+    
+                        const unfinishedBasementArea = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.unfinishedBasementArea");
+                        if (unfinishedBasementArea) {
+                            const unfinishedValue = parseInt(unfinishedBasementArea.answerValue, 10);
+                            if (!isNaN(unfinishedValue)) {
+                                buildingObj.Construction["com.cna_UnFinishedBasementArea"] = {
+                                    NumUnits: {
+                                        value: unfinishedValue
+                                    }
+                                }
+                            }
+                        }
+    
+                        const finishedBasementArea = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.finishedBasementArea");
+                        if (finishedBasementArea) {
+                            const finishedValue = parseInt(finishedBasementArea.answerValue, 10);
+                            if (!isNaN(finishedValue)) {
+                                buildingObj.Construction["com.cna_FinishedBasementArea"] = {
+                                    NumUnits: {
+                                        value: finishedValue
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        buildingObj.Construction.NumBasements = {
+                            value: 0
+                        }
                     }
                 }
-            },
+            }
+            else {
+                buildingObj.Construction.NumBasements = {
+                    value: 0
+                }
+            }
+            
+            // BldgOccupancy question section
+        });
+        {
             "BldgOccupancy":[
                 {
                     "OccupiedPct":{
@@ -853,28 +915,9 @@ module.exports = class CnaBOP extends Integration {
                             }
                         }
                     ],
-                    "com.cna_LeasedSpaceDesc":[
-                        {
-                            
-                        }
-                    ]
+
                 }
-            ],
-            "com.cna_QuestionAnswer":[
-                {
-                    "com.cna_QuestionCd":{
-                        "value":"com.cna_hasRackStorageAboveTwelveFeet"
-                    },
-                    "YesNoCd":{
-                        "value":"NO"
-                    }
-                }
-            ],
-            "FinancialInfo":{
-                "com.cna_PayrollTypeCd":{
-                    "value":"Limited"
-                }
-            }
+            ]
         }
     }
 
@@ -1375,9 +1418,7 @@ module.exports = class CnaBOP extends Integration {
     //     return limits;
     // }
 
-    getGLClassifications() {
-        const industryCode = this.industry_code;
-
+    getGLClassifications(industryCode) {
         return this.app.applicationDocData.locations.map((location, i) => {
             const grossSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'cna.location.grossSales');
             let grossSales = 0;
@@ -1410,4 +1451,75 @@ module.exports = class CnaBOP extends Integration {
             };
         });
     }
+
+    async getIndustryCode() {
+        const insurer = this.app.insurers.find(ins => ins.name === "CNA");
+
+        const industryCodeBO = new IndustryCodeBO();
+        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+
+        const bopCodeQuery = {
+            parentIndustryCodeId: this.applicationDocData.industryCode
+        };
+
+        // find all bop codes for this parent talage industry code
+        let bopCodeRecords = null;
+        try {
+            bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
+        }
+        catch (e) {
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}: ${e}. ` + __location);
+            return null;
+        }
+
+        if (!bopCodeRecords) {
+            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        if (bopCodeRecords.length === 0) {
+            log.warn(`There were no BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        // reduce array to code ids
+        const bopCodes = bopCodeRecords.map(code => code.industryCodeId);
+
+        const insurerIndustryCodeQuery = {
+            insurerId: insurer.id,
+            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopCodes}}}
+        };
+
+        // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
+        let insurerIndustryCodes = null;
+        try {
+            insurerIndustryCodes = await insurerIndustryCodeBO.getList(insurerIndustryCodeQuery);
+        }
+        catch (e) {
+            log.error(`There was an error grabbing Insurer Industry Codes for CNA: ${e}. ` + __location);
+            return null;
+        }
+
+        if (!insurerIndustryCodes) {
+            log.error(`There was an error grabbing Insurer Industry Codes for CNA. ` + __location);
+            return null;
+        }
+
+        if (insurerIndustryCodes.length === 0) {
+            log.warn(`There were no matching Insurer Industry Codes for the selected industry. ` + __location);
+            return null;
+        }
+
+        // Return the highest ranking code
+        let industryCode = null;
+        insurerIndustryCodes.forEach(ic => {
+            if (!industryCode || ic.ranking < industryCode.ranking) {
+                industryCode = ic;
+            }
+        });
+
+        return industryCode;
+    }
+};
 }
+
