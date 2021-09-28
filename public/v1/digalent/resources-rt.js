@@ -77,16 +77,17 @@ const officerEmployeeTypes = async(resources, appId) => {
     let activityCodes = [];
     if(applicationDB){
         try{
-            // use the zipcode from the primary location
+            // use the zipcode from the primary location, with digalent billing is set to true to determine primary or not
             const zipCodeBO = new ZipCodeBO();
             const primaryLocation = applicationDB.locations?.find(loc => loc.billing);
-            const zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
-
-            // get the activity codes for the territory of the zipcode provided
-            activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, applicationDB.industryCodeId);
-
-            // filter it down to only suggested activity codes
-            activityCodes = activityCodes.filter(ac => ac.suggested);
+            // if we have found a primary location then try to attempt to use zip to get activity codes else the default office employees activity code added
+            if(primaryLocation){
+                const zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
+                // get the activity codes for the territory of the zipcode provided
+                activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, applicationDB.industryCodeId);
+                // filter it down to only suggested activity codes
+                activityCodes = activityCodes.filter(ac => ac.suggested);
+            }
         }
         catch(err){
             log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
