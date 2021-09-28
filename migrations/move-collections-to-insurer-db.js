@@ -12,6 +12,22 @@ const globalSettings = global.requireRootPath('./settings.js');
 
 const mongoose = require('../mongoose');
 
+/**
+ * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
+ *
+ * @param {string} message - The message to be logged
+ * @returns {void}
+ */
+ function logError(message) {
+    if (global.log) {
+        log.error(message);
+    }
+    else{
+        // eslint-disable-next-line no-console
+        console.log(colors.red(message));
+    }
+}
+
 const collectionsToMigrate = [
     'insureractivitycodes',
     'insureractivitycodes_history',
@@ -28,6 +44,8 @@ const collectionsToMigrate = [
 ];
 
 /**
+ * Copies the contents of the collections in collectionsToMigrate from
+ * MONGODB_DATABASENAME to MONGODB_INSURER_DATABASENAME database.
  * 
  * @returns 
  */
@@ -50,7 +68,7 @@ async function main() {
         const rows = await global.mongodb.collection(curCollection).find({});
         const promises = [];
         const bar1 = new cliProgress.SingleBar({
-            format: `{bar} {percentage}% | {value}/{total} | ${curCollection} Importer`,
+            format: `{bar} {percentage}% | {value}/{total} | ${curCollection} Importer`
         }, cliProgress.Presets.legacy);
         bar1.start(await rows.count(), 0);
         if (await rows.count() <= 0) {
@@ -63,9 +81,9 @@ async function main() {
             throw new Error(`Row count in insurerDatabase.${curCollection} contains rows. So not sure if it's save to do import`);
         }
 
-        await rows.forEach(async (row) => {
-            promises.push(global.insurerMongodb.collection(curCollection).insertOne(row)
-                .then(() => bar1.increment()));
+        await rows.forEach(async(row) => {
+            promises.push(global.insurerMongodb.collection(curCollection).insertOne(row).
+                then(() => bar1.increment()));
         });
         await Promise.all(promises);
         bar1.stop();
@@ -74,7 +92,6 @@ async function main() {
         const checkRows2 = await global.insurerMongodb.collection(curCollection).find({});
         if (await checkRows1.count() !== await checkRows2.count()) {
             throw new Error(`Cannot continue. Insurer database rows in ${curCollection} does not equal old database rows.`);
-        } else {
         }
     }
 
