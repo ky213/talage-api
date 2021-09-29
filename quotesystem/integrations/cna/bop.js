@@ -882,6 +882,19 @@ module.exports = class CnaBOP extends Integration {
             }
             
             // BldgOccupancy question section
+            const buildingOccObj = buildingObj.BldgOccupancy[0];
+
+            const areaOccupied = location.questions.find(question => question.insurerQuestionIdentifier === "");
+            if (areaOccupied) {
+                const areaOccupiedValue = parseInt(areaOccupied.answerValue, 10);
+                if (!isNaN(areaOccupiedValue)) {
+                    buildingOccObj.AreaOccupied = {
+                        NumUnits: {
+                            value: areaOccupiedValue
+                        }
+                    }
+                }
+            }
         });
         {
             "BldgOccupancy":[
