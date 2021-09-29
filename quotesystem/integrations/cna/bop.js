@@ -781,11 +781,7 @@ module.exports = class CnaBOP extends Integration {
                         value: location.numStories
                     }
                 },
-                BldgOccupancy: [
-                    {
-                        "com.cna_LeasedSpaceDesc": [{}]
-                    }
-                ],
+                BldgOccupancy: [{}],
                 BldgImprovements: { 
                     HeatingImprovementCd: {
                         value: "C"
@@ -891,47 +887,65 @@ module.exports = class CnaBOP extends Integration {
                     buildingOccObj.AreaOccupied = {
                         NumUnits: {
                             value: areaOccupiedValue
+                        },
+                        UnitMeasurementCd: {
+                            value: "feet"
                         }
+                    }
+                }
+
+                const vacantValue = location.square_footage - areaOccupied;
+                buildingOccObj.VacancyInfo = {
+                    VacantArea: vacantValue >= 0 ? vacantValue : 0,
+                    ReasonVacantDesc: {} // For now, leaving this as blank, and not accepting this from applicant
+                }
+
+                if (location.square_footage > 0) {
+                    const percentOcc = Math.round((areaOccupiedValue / location.square_footage) * 100);
+
+                    buildingOccObj.OccupiedPct = {
+                        value: percentOcc
+                    };
+                }
+
+                const isSingleOccupancy = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.singleOcc");
+                if (isSingleOccupancy) {
+                    if (isSingleOccupancy.answerValue.toLowerCase() === "yes") {
+                        buildingOccObj["com.cna_OccupancyTypeCd"] = {
+                            value: "b"
+                        }
+                    }
+                    else {
+                        const hazard = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.multiOccHighHazard");
+                        if (hazard) {
+                            buildingOccObj["com.cna_OccupancyTypeCd"] = {
+                                value: hazard.answerValue.toLowerCase() === "yes" ? "c" : "a"
+                            }
+                        }
+                        else {
+                            buildingOccObj["com.cna_OccupancyTypeCd"] = {
+                                value: "a"
+                            }
+                        }
+                    }
+                }
+
+                const areaLeased = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.areaLeased");
+                if (areaLeased) {
+                    const areaLeasedValue = parseInt(areaLeased.answerValue, 10);
+                    if (!isNaN(areaLeasedValue)) {
+                        buildingOccObj["com.cna_AreaLeased"] = [
+                            {
+                                NumUnits: {
+                                    value: areaLeasedValue
+                                }
+                            }  
+                        ];
+                        buildingOccObj["com.cna_LeasedSpaceDesc"] = [{}]; // For now, leaving this as blank, and not accepting this from applicant
                     }
                 }
             }
         });
-        {
-            "BldgOccupancy":[
-                {
-                    "OccupiedPct":{
-                        "value":100
-                    },
-                    "AreaOccupied":{
-                        "NumUnits":{
-                            "value":2000
-                        },
-                        "UnitMeasurementCd":{
-                            "value":"Feet"
-                        }
-                    },
-                    "VacancyInfo":{
-                        "VacantArea":{
-                            "value":0
-                        },
-                        "ReasonVacantDesc":{
-                            
-                        }
-                    },
-                    "com.cna_OccupancyTypeCd":{
-                        "value":"b"
-                    },
-                    "com.cna_AreaLeased":[
-                        {
-                            "NumUnits":{
-                                "value":0
-                            }
-                        }
-                    ],
-
-                }
-            ]
-        }
     }
 
     // generates the Loss array based off values from claims
