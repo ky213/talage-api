@@ -308,7 +308,7 @@ class CompuwestBind extends Bind {
         try{
             if (appDoc.additionalInsuredList?.length > 0){
                 appDoc.additionalInsuredList.forEach((additionalInsured) => {
-                    if (additionalInsured.dba?.length > 0) {
+                    if (additionalInsured.dba && additionalInsured.namedInsured?.length > 0) {
                         cCount++;
                         const DBAAdditionalInterest = Location.ele('AdditionalInterest');
                         DBAAdditionalInterest.att('id', 'c' + cCount.toString());
@@ -317,7 +317,7 @@ class CompuwestBind extends Bind {
                         // <NameInfo>
                         const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
                         const CommlNameAddInfo = DBANameInfo.ele('CommlName')
-                        CommlNameAddInfo.ele('CommercialName', additionalInsured.dba.replace('’', "'").replace('+', '').replace('|', ''));
+                        CommlNameAddInfo.ele('CommercialName', additionalInsured.namedInsured.replace('’', "'").replace('+', '').replace('|', ''));
                         //TODO look at entity type assume it is the same.  As of 20210331 entity type of DBA not tracked.
                         CommlNameAddInfo.ele('Type',"Company");
                         const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
