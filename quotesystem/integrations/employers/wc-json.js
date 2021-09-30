@@ -568,6 +568,50 @@ module.exports = class EmployersWC extends Integration {
                 }
             }
 
+            const insurerPaymentPlans = quoteResponse.availablePaymentPlans;
+            try {
+                if (insurerPaymentPlans) {
+                    this.insurerPaymentPlans = insurerPaymentPlans;
+                    this.talageInsurerPaymentPlans = [];
+                    for (const insurerPaymentPlan of insurerPaymentPlans) {
+                        const talagePaymentPlan = {};
+                        const employerPaymentPlanTranslations = {
+                            "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
+                            "DB-D-9": 4
+                        };
+                        const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
+                        const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
+                        if (!talagePaymentPlanId) {
+                            continue;
+                        }
+                        talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
+                        talagePaymentPlan.insurerPaymentPlanId = insurerPaymentPlan.billingOptionId;
+                        talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
+                        talagePaymentPlan.NumberPayments = insurerPaymentPlan.numberOfInstallments;
+                        talagePaymentPlan.TotalPremium = quoteResponse.totalPremium;
+
+                        let totalInstallmentCost = 0;
+                        if (insurerPaymentPlan.amountDue) { // Amount due per installment if any
+                            talagePaymentPlan.installmentPayment = insurerPaymentPlan.amountDue
+                            totalInstallmentCost = insurerPaymentPlan.amountDue * insurerPaymentPlan.numberOfInstallments;
+                        }
+                        else {
+                            talagePaymentPlan.installmentPayment = 0;
+                        }
+                        talagePaymentPlan.TotalCost = insurerPaymentPlan.downPayment + totalInstallmentCost;
+
+                        talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
+                        talagePaymentPlan.DownPayment = insurerPaymentPlan.downPayment;
+                        talagePaymentPlan.invoices = [];
+                        this.talageInsurerPaymentPlans.push(talagePaymentPlan);
+                    }
+                }
+            }
+            catch (err) {
+                log.error(`${logPrefix}Problem getting payment plan from response object: ${err}` + __location);
+            }
+
+
             try {
                 const quoteLetter = quoteResponse.attachments.find(attachment => attachment.attachmentType === "QuoteLetter");
                 if (quoteLetter) {

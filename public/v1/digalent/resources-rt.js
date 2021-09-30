@@ -5,11 +5,13 @@
 "use strict";
 const serverHelper = require("../../../server.js");
 // const validator = global.requireShared("./helpers/validator.js");
-// const ApplicationBO = global.requireShared("models/Application-BO.js");
+const ApplicationBO = global.requireShared("models/Application-BO.js");
 // const AgencyBO = global.requireShared('models/Agency-BO.js');
 // const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 // const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
 // const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
+const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
 
 const policyHelper = require("./resource-building/policies");
 const requirementHelper = global.requireShared('./services/required-app-fields-svc.js');
@@ -58,6 +60,7 @@ async function getResources(req, res, next){
             break;
         case "_officers":
             officerTitles(resources);
+            await officerEmployeeTypes(resources, req.query.appId);
             resources.requiredAppFields = await requirementHelper.requiredFields(req.query.appId);
             break;
         case "_quotes":
@@ -66,6 +69,41 @@ async function getResources(req, res, next){
     }
 
     res.send(200, resources);
+}
+const officerEmployeeTypes = async(resources, appId) => {
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getById(appId);
+
+    let activityCodes = [];
+    if(applicationDB){
+        try{
+            // use the zipcode from the primary location, with digalent billing is set to true to determine primary or not
+            const zipCodeBO = new ZipCodeBO();
+            const primaryLocation = applicationDB.locations?.find(loc => loc.billing);
+            // if we have found a primary location then try to attempt to use zip to get activity codes else the default office employees activity code added
+            if(primaryLocation){
+                const zipCodeData = await zipCodeBO.loadByZipCode(primaryLocation?.zipcode);
+                // get the activity codes for the territory of the zipcode provided
+                activityCodes = await ActivityCodeSvc.GetActivityCodes(zipCodeData?.state, applicationDB.industryCodeId);
+                // filter it down to only suggested activity codes
+                activityCodes = activityCodes.filter(ac => ac.suggested);
+            }
+        }
+        catch(err){
+            log.warn(`Failed to fetch suggested activity codes. ${err} ` + __location);
+        }
+    }
+    // make sure that we have atleast clerical employee type
+    const officeEmployeeActivityCodeId = 2869;
+    const hasOfficeEmployeeCode = activityCodes.some(code => code.activityCodeId === officeEmployeeActivityCodeId);
+    if(hasOfficeEmployeeCode !== true){
+        log.debug(`No officer activity codes returned so pushing Office Employees to the list of codes. ${__location}`);
+        activityCodes.push({
+            description: "Office Employees",
+            activityCodeId: 2869
+        });
+    }
+    resources.officerEmployeeTypes = activityCodes;
 }
 const membershipTypes = resources => {
     resources.membershipTypes = ['Nevada Resturant Association'];

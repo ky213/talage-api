@@ -447,7 +447,6 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-        processJWT(),
         handlerWrapper(path, handler));
     }
 

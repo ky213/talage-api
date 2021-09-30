@@ -451,7 +451,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                     }
                     catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
+                        log.error(`AppId ${applicationJSON.applicationId} Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
                     }
                 }
             }
@@ -783,7 +783,7 @@ async function applicationCopy(req, res, next) {
             userId = req.authentication.userID;
         }
         catch(err){
-            log.error("Error gettign userID " + err + __location);
+            log.error("Error getting userID " + err + __location);
         }
         newApplicationDoc.copiedFromAppId = req.body.applicationId;
         newApplicationDoc.agencyPortalCreatedUser = userId
@@ -798,7 +798,8 @@ async function applicationCopy(req, res, next) {
         await setupReturnedApplicationJSON(responseAppDoc)
     }
     catch(err){
-        log.error("Error checking application doc " + err + __location)
+        log.error("Error Copying application doc " + err + __location)
+        res.send(500, `No copied Application = ${err}`);
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
