@@ -93,7 +93,10 @@ async function main() {
         if (await checkRows1.count() !== await checkRows2.count()) {
             throw new Error(`Cannot continue. Insurer database rows in ${curCollection} does not equal old database rows.`);
         } else {
-            await global.mongodb.collection(curCollection).drop();
+            // If everything looks OK, then keep the old dataset for now. It's
+            // safer that way. But if you want to uncomment this on your local,
+            // then go for it!
+            // await global.mongodb.collection(curCollection).drop();
         }
     }
 
