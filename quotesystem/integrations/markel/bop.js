@@ -530,21 +530,17 @@ module.exports = class MarkelWC extends Integration {
 
                 if (question.questionType === 'Yes/No') {
                     questionAnswer = question.answerValue.toUpperCase();
-
-                    // NOTE: This is a temporary fix. Currently, Markel's rating API cannot handle NON-Yes/No question answers.
-                    //       When this issue is resolved, remove this line and uncomment the code below...
-                    questionObj[questionCode] = questionAnswer;
                 }
-                // else if (questionCode === "com.markel.uw.questions.Question1399") {
-                //     // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
-                //     // If more occurrences are found, add them here for general questions
-                //     questionAnswer = question?.answerList[0]?.trim();
-                // }
-                // else {
-                //     questionAnswer = question.answerValue;
-                // }
+                else if (questionCode === "com.markel.uw.questions.Question1399") {
+                    // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
+                    // If more occurrences are found, add them here for general questions
+                    questionAnswer = question?.answerList[0]?.trim();
+                }
+                else {
+                    questionAnswer = question.answerValue;
+                }
 
-                // questionObj[questionCode] = questionAnswer;
+                questionObj[questionCode] = questionAnswer;
             }
         });
 
