@@ -19,6 +19,154 @@ global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat, removeDiacritics} = global.requireShared('./helpers/stringFunctions.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
+const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
+
+// this is a map of counters per state that require Mine Subsidence Optional Endorsement
+const mineSubsidenceOE = {
+    IL: [
+        "Bond",
+        "Bureau",
+        "Christian",
+        "Clinton",
+        "Douglas",
+        "Franklin",
+        "Fulton",
+        "Gallatin",
+        "Grundy",
+        "Jackson",
+        "Jefferson",
+        "Knox",
+        "LaSalle",
+        "Logan",
+        "Mcdonough",
+        "Macoupin",
+        "Madison",
+        "Marion",
+        "Marshall",
+        "Menard",
+        "Mercer",
+        "Montgomery",
+        "Peoria",
+        "Perry",
+        "Putnam",
+        "Randolph",
+        "Rock Island",
+        "Saint Clair",
+        "Saline",
+        "Sangamon",
+        "Tazewell",
+        "Vermilion",
+        "Washington",
+        "Williamson"
+    ],
+    IN: [
+        "Clay",
+        "Crawford",
+        "Daviess",
+        "Dubois",
+        "Fountain",
+        "Gibson",
+        "Greene",
+        "Knox",
+        "Lawrence",
+        "Martin",
+        "Monroe",
+        "Orange",
+        "Owen",
+        "Parke",
+        "Perry",
+        "Pike",
+        "Posey",
+        "Putnam",
+        "Spencer",
+        "Sullivan",
+        "Vanderburgh",
+        "Vermillion",
+        "Vigo",
+        "Warren",
+        "Warrick"
+    ],
+    KY: [
+        "Bell",
+        "Boyd",
+        "Breathitt",
+        "Butler",
+        "Carter",
+        "Christian",
+        "Clay",
+        "McLean",
+        "Edmonson",
+        "Elliott",
+        "Floyd",
+        "Greenup",
+        "Hancock",
+        "Harlan",
+        "Henderson",
+        "Hopkins",
+        "Jackson",
+        "Johnson",
+        "Knott",
+        "Knox",
+        "Laurel",
+        "Lawrence",
+        "Lee",
+        "Leslie",
+        "Letcher",
+        "Martin",
+        "Mccreary",
+        "McLean",
+        "Morgan",
+        "Muhlenberg",
+        "Ohio",
+        "Owsley",
+        "Perry",
+        "Union",
+        "Webser",
+        "Whitley",
+        "Wolfe"
+    ],
+    WV: [
+        "Barbour",
+        "Boone",
+        "Braxton",
+        "Brooke",
+        "Clay",
+        "Doddridge",
+        "Fayette",
+        "Gilmer",
+        "Greenbrier",
+        "Hancock",
+        "Harrison",
+        "Kanawha",
+        "Lewis",
+        "Marion",
+        "Marshall",
+        "Mason",
+        "Mcdowell",
+        "Mercer",
+        "Mineral",
+        "Monongalia",
+        "Nicholas",
+        "Ohio",
+        "Pocahontas",
+        "Putnam",
+        "Raleigh",
+        "Randolph",
+        "Taylor",
+        "Tucker",
+        "Tyler",
+        "Upshur",
+        "Wayne",
+        "Webster",
+        "Wetzel",
+        "Wyoming",
+        "Grant",
+        "Lincoln",
+        "Logan",
+        "Mingo",
+        "Summers"
+    ]
+};
 
 const entityTypeMatrix = {
     "Association": "AS",
@@ -382,21 +530,17 @@ module.exports = class MarkelWC extends Integration {
 
                 if (question.questionType === 'Yes/No') {
                     questionAnswer = question.answerValue.toUpperCase();
-
-                    // NOTE: This is a temporary fix. Currently, Markel's rating API cannot handle NON-Yes/No question answers.
-                    //       When this issue is resolved, remove this line and uncomment the code below...
-                    questionObj[questionCode] = questionAnswer;
                 }
-                // else if (questionCode === "com.markel.uw.questions.Question1399") {
-                //     // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
-                //     // If more occurrences are found, add them here for general questions
-                //     questionAnswer = question?.answerList[0]?.trim();
-                // }
-                // else {
-                //     questionAnswer = question.answerValue;
-                // }
+                else if (questionCode === "com.markel.uw.questions.Question1399") {
+                    // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
+                    // If more occurrences are found, add them here for general questions
+                    questionAnswer = question?.answerList[0]?.trim();
+                }
+                else {
+                    questionAnswer = question.answerValue;
+                }
 
-                // questionObj[questionCode] = questionAnswer;
+                questionObj[questionCode] = questionAnswer;
             }
         });
 
@@ -415,7 +559,8 @@ module.exports = class MarkelWC extends Integration {
         // Populate the location list
         const locationList = [];
         // for each location, push a location object into the locationList
-        applicationDocData.locations.forEach(location => {
+        // applicationDocData.locations.forEach(location => {
+        for (const location of applicationDocData.locations) {
             const locationObj = {
                 "Location Address1": removeDiacritics(location.address),
                 "Location Zip": location.zipcode,
@@ -431,7 +576,7 @@ module.exports = class MarkelWC extends Integration {
 
             // We currently do not support adding buildings, therefor we default to 1 building per location
             const buildingObj = {
-                // BuildingOptionalendorsements: [], // optional coverages - we are not handling these phase 1
+                // optionalEndorsements: {}, // optional coverages - we are not handling these phase 1
                 classCode: industryCode.code,
                 classCodeDescription: industryCode.description, 
                 // naicsReferenceId: industryCode.attributes.NAICSReferenceId, // currently not supported. Can replace class code/description once it is
@@ -455,6 +600,21 @@ module.exports = class MarkelWC extends Integration {
                 //     }
                 // }
             };
+
+            // if one of these specific states and building limit (building replacement cost) is greater than 0
+            // we need to check for specific counties to determine if we should include mine subsidence optional endorsement
+            if (Object.keys(mineSubsidenceOE).includes(location.state) && location.buildingLimit > 0) {
+                const addressInfoResponse = await smartystreetSvc.checkAddress(location.address, location.city, location.state, location.zipcode);
+
+                if (addressInfoResponse?.county && mineSubsidenceOE[location.state].includes(addressInfoResponse.county)) {
+                    buildingObj.optionalEndorsements = {
+                        mineSubsidenceLimit: 68000
+                    };
+                }
+                else {
+                    log.warn(`${logPrefix}Unable to get county information from Smarty Streets. Not including Mine Subsidence Optional Endorsment with submission.`);
+                }
+            }
             
             location.questions.forEach(question => {
                 switch (question.insurerQuestionIdentifier) {
@@ -506,7 +666,7 @@ module.exports = class MarkelWC extends Integration {
 
             locationObj.buildings.push(buildingObj);
             locationList.push(locationObj);
-        });
+        }
 
         const policyObj = {
             perOccGeneralAggregate: this.getSupportedLimits(BOPPolicy.limits),

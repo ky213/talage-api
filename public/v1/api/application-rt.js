@@ -961,7 +961,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                     }
                     catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
+                        log.error(`appId ${applicationJSON.applicationId} Error getting activity code  ${location.activityPayrollList[j].activityCodeId} ` + err + __location);
                     }
                 }
             }

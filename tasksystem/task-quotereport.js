@@ -73,11 +73,11 @@ exports.taskProcessorExternal = async function(){
 }
 
 var quoteReportTask = async function(){
-    // const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    // const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
-
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
+    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+
+    // const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
+    // const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     const quoteBO = new QuoteBO()
     let quoteList = null;

@@ -249,7 +249,7 @@ module.exports = class PieWC extends Integration {
                                 location_object.address.line2 = loc.address2;
                             }
                             location_object.address.city = loc.city;
-                            location_object.address.zip = loc.zip;
+                            location_object.address.zip = loc.zip.slice(0,5);
 
                             // Exposures
                             location_object.exposure = [];
@@ -300,7 +300,7 @@ module.exports = class PieWC extends Integration {
                         country: 'US',
                         line1: this.app.business.mailing_address,
                         state: this.app.business.mailing_territory,
-                        zip: this.app.business.mailing_zip
+                        zip: this.app.business.mailing_zip.slice(0,5)
                     };
 
                     if (this.app.business.mailing_address2) {
