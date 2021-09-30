@@ -18,14 +18,17 @@ const allConnections = {
 allConnections.init = async function init() {
     mongoose.Promise = Promise;
 
-    const connectionUrl = global.settings.MONGODB_CONNECTIONURL;
     let connectionUrlQuery = '';
     if(global.settings.MONGODB_CONNECTIONURLQUERY){
         connectionUrlQuery = global.settings.MONGODB_CONNECTIONURLQUERY;
     }
 
-    const mongoConnStr = connectionUrl + global.settings.MONGODB_DATABASENAME + connectionUrlQuery
-    const mongoInsurerConnStr = connectionUrl + global.settings.MONGODB_INSURER_DATABASENAME + connectionUrlQuery
+    const mongoConnStr = global.settings.MONGODB_CONNECTIONURL +
+        global.settings.MONGODB_DATABASENAME +
+        connectionUrlQuery;
+    const mongoInsurerConnStr = global.settings.MONGODB_INSURER_CONNECTIONURL +
+        global.settings.MONGODB_INSURER_DATABASENAME +
+        connectionUrlQuery;
 
     const connectionOption = {
         useNewUrlParser: true,

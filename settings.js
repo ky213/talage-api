@@ -49,7 +49,9 @@ const requiredVariables = [
     'SQS_TASK_QUEUE',
     //MONGO
     'MONGODB_CONNECTIONURL',
-    'MONGODB_DATABASENAME'
+    'MONGODB_DATABASENAME',
+    'MONGODB_INSURER_CONNECTIONURL',
+    'MONGODB_INSURER_DATABASENAME'
 ];
 
 // Optional variables with their defaults if they are not provided
