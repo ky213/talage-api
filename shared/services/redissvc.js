@@ -233,6 +233,63 @@ async function deleteKey(key) {
 
 }
 
+async function getKeyList(preFix) {
+
+    if(preFix) {
+        let reply = null;
+        const numOftries = 3;
+        for(let i = 0; i < numOftries; i++){
+            try{
+                if(redisClientReadyOnly){
+                    reply = await redisClientReadyOnly.keys(preFix);
+                    break;
+                }
+            }
+            catch(err){
+                log.error(`Redis getKeyList redisClientReadyOnly error: ` + err + __location);
+                if(i > numOftries - 2){
+                    throw err;
+                }
+            }
+            //no reply (failure) try read/write connection.
+            //may be in middle of node switch (patch or failover)
+            // one of the connections should alway be up.
+            if(usingOneConnect === false){
+                try{
+                    reply = await redisClient.keys(preFix);
+                    break;
+                }
+                catch(err){
+                    log.error(`Redis getKeyList redisClient error: ` + err + __location);
+                }
+            }
+            //pause 50 milliseconds and reconnect
+            //might be need a new readonly node url.
+            log.debug(`Waiting to reconnect to Redis getKeyList`);
+            await utility.Sleep(50);
+            if(usingOneConnect === false){
+                await connectReadOnly();
+            }
+            else {
+                await connect();
+            }
+        }
+        var response = {found: false};
+        if(reply){
+            response = {
+                found: true,
+                value: reply
+            };
+        }
+        return response;
+    }
+    else {
+        throw new Error('missing key');
+    }
+
+
+}
+
 
 module.exports = {
     connect: connect,
@@ -240,5 +297,6 @@ module.exports = {
     test: test,
     getKeyValue: getKeyValue,
     storeKeyValue: storeKeyValue,
-    deleteKey: deleteKey
+    deleteKey: deleteKey,
+    getKeyList: getKeyList
 }

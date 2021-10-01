@@ -954,6 +954,32 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns the total number of employees associated with this location
+     * @param {object} appLocation - Application location
+     *
+     * @returns {int} - The total number of employees as an integer
+     */
+    get_total_lociation_employees(appLocation) {
+        let total = 0;
+        //New more detailed info in AppDoc.
+        appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                total += employeeType.employeeTypeCount;
+            });
+
+        });
+      
+        //Old simpler storage.
+        if(total === 0){
+            this.app.business.locations.forEach(function(loc) {
+                total += loc.full_time_employees;
+                total += loc.part_time_employees;
+            });
+        }
+        return total;
+    }
+
+    /**
      * Returns the total number of full-time employees associated with this application
      *
      * @returns {int} - The total number of full-time employees as an integer
@@ -1536,14 +1562,19 @@ module.exports = class Integration {
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
 
-
         //build mongo Document
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
+            agencyNetworkId: this.applicationDocData.agencyNetworkId,
+            agencyId: this.applicationDocData.agencyId,
+            agencyLocationId: this.applicationDocData.agencyLocationId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
-            quoteTimeSeconds: this.seconds
+            quoteTimeSeconds: this.seconds,
+            effectiveDate: this.policy.effective_date,
+            expirationDate: this.policy.expiration_date 
+
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {

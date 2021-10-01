@@ -11,9 +11,10 @@
 'use strict';
 
 const Integration = require('../Integration.js');
-const moment_timezone = require('moment-timezone');
+//const moment_timezone = require('moment-timezone');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+//const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -143,7 +144,8 @@ module.exports = class EmployersWC extends Integration {
 
             const requestJSON = {
             // Employers has us define our own Request ID
-                "id": this.app.id,
+                //"id": this.app.id,
+                "id": this.quoteId,
                 "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
                 "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
                 "primaryRiskState": appDoc.primaryState,
@@ -272,9 +274,9 @@ module.exports = class EmployersWC extends Integration {
                 else if (location.unemployment_num) {
                     locationJSON.unemploymentId = location.unemployment_num
                 }
-
-                locationJSON.numberOfEmployees = location.full_time_employees + location.part_time_employees;
-                locationJSON.shift1EmployeesCount = location.full_time_employees + location.part_time_employees;
+                const locationTotalEmployees = this.get_total_lociation_employees(location)
+                locationJSON.numberOfEmployees = locationTotalEmployees;
+                locationJSON.shift1EmployeesCount = locationTotalEmployees;
                 locationJSON.shift2EmployeesCount = 0;
                 locationJSON.shift3EmployeesCount = 0;
 
@@ -370,6 +372,8 @@ module.exports = class EmployersWC extends Integration {
             }
             else {
                log.error(`${logPrefix}Could not get EIN` + __location);
+               this.reasons.push("No FEIN - Stopped before submission to insurer");
+               fulfill(this.return_result('autodeclined'));
             }
 
             const entityCode = entityMatrix[appDoc.entityType];
@@ -489,13 +493,6 @@ module.exports = class EmployersWC extends Integration {
                     appToken: this.password
                 };
 
-            // This logging is being done by this.send_json_request()
-            // this.log += `--------======= Sending to Employers =======--------<br><br>`;
-            // this.log += `<b>Request started at ${moment_timezone().utc().toISOString()}</b><br><br>`;
-            // this.log += `URL: ${host}${path}<br><br>`;
-            // this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
-            // this.log += `--------======= End =======--------<br><br>`;
-
             let quoteResponse = null;
             log.debug(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
             try {
@@ -517,7 +514,8 @@ module.exports = class EmployersWC extends Integration {
                     const failingQuoteErrors = quoteResponse.errors.filter(error => {
                         const failingQuoteErrorCodes = ['required',
                                                         'invalid',
-                                                        'error'];
+                                                        'error',
+                                                        'nominal'];
                         const errorCode = error.code.split('.')[1];
                         return failingQuoteErrorCodes.includes(errorCode);
                     });
@@ -569,6 +567,50 @@ module.exports = class EmployersWC extends Integration {
                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
                 }
             }
+
+            const insurerPaymentPlans = quoteResponse.availablePaymentPlans;
+            try {
+                if (insurerPaymentPlans) {
+                    this.insurerPaymentPlans = insurerPaymentPlans;
+                    this.talageInsurerPaymentPlans = [];
+                    for (const insurerPaymentPlan of insurerPaymentPlans) {
+                        const talagePaymentPlan = {};
+                        const employerPaymentPlanTranslations = {
+                            "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
+                            "DB-D-9": 4
+                        };
+                        const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
+                        const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
+                        if (!talagePaymentPlanId) {
+                            continue;
+                        }
+                        talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
+                        talagePaymentPlan.insurerPaymentPlanId = insurerPaymentPlan.billingOptionId;
+                        talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
+                        talagePaymentPlan.NumberPayments = insurerPaymentPlan.numberOfInstallments;
+                        talagePaymentPlan.TotalPremium = quoteResponse.totalPremium;
+
+                        let totalInstallmentCost = 0;
+                        if (insurerPaymentPlan.amountDue) { // Amount due per installment if any
+                            talagePaymentPlan.installmentPayment = insurerPaymentPlan.amountDue
+                            totalInstallmentCost = insurerPaymentPlan.amountDue * insurerPaymentPlan.numberOfInstallments;
+                        }
+                        else {
+                            talagePaymentPlan.installmentPayment = 0;
+                        }
+                        talagePaymentPlan.TotalCost = insurerPaymentPlan.downPayment + totalInstallmentCost;
+
+                        talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
+                        talagePaymentPlan.DownPayment = insurerPaymentPlan.downPayment;
+                        talagePaymentPlan.invoices = [];
+                        this.talageInsurerPaymentPlans.push(talagePaymentPlan);
+                    }
+                }
+            }
+            catch (err) {
+                log.error(`${logPrefix}Problem getting payment plan from response object: ${err}` + __location);
+            }
+
 
             try {
                 const quoteLetter = quoteResponse.attachments.find(attachment => attachment.attachmentType === "QuoteLetter");
