@@ -105,9 +105,9 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'question', 'questions');
 
     // Quote
-    registerEndpoint(server, 'quote', 'quote-agency');
-    registerEndpoint(server, 'quote', 'application');
-    registerEndpoint(server, 'quote', 'quotes');
+    // registerEndpoint(server, 'quote', 'quote-agency');
+    // registerEndpoint(server, 'quote', 'application');
+    // registerEndpoint(server, 'quote', 'quotes');
 
     // Site
     registerEndpoint(server, 'site', 'brand');
