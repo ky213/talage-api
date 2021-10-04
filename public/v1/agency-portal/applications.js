@@ -731,7 +731,7 @@ async function getApplications(req, res, next){
 
     }
     catch(err){
-        log.error(`Error Getting application doc JSON.stringify(requestParms) JSON.stringify(query)` + err + __location)
+        log.error(`Error Getting application doc JSON.stringify(requestParms) JSON.stringify(query) error:` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
