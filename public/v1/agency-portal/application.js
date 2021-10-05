@@ -2068,6 +2068,13 @@ async function SendApplicationLinkEmail(reqBody, hash){
     else{
         link = `${domain}/${agency.slug}/_load/${hash}`;
     }
+    // if the contact and agent emails are the same then only send to contact, else send to both agent and contact
+    let recipients = ``;
+    if(reqBody.emailAddress === reqBody.agentEmail){
+        recipients = `${reqBody.emailAddress}`
+    }else {
+        recipients = `${reqBody.emailAddress},${reqBody.agentEmail}`
+    }
     // TODO: should we use agency.email or agency location email?
     const emailData = {
         html: `
@@ -2099,7 +2106,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
             </p>
         `,
         subject: 'A portal to your application',
-        to: `${reqBody.emailAddress},${reqBody.agentEmail}`
+        to: recipients
     };
 
     const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
