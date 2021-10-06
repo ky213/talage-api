@@ -725,7 +725,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
                 case "moldIncl":
                     bbopSet.coverages.mold = {
-                        IncludeInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "moldIncl.stateException":
