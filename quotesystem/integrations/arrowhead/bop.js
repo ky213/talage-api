@@ -10,11 +10,6 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
-/**
- * 
- * NOTE: This integration treats Arrowhead Wendy's as a unique insurer
- */
-
 'use strict';
 
 const Integration = require('../Integration.js');
@@ -48,13 +43,16 @@ module.exports = class ArrowheadBOP extends Integration {
         // Determine which URL to use
         let host = null; 
         let path = null; 
+        let subscriptionKey = null;
         if (this.insurer.useSandbox) {
             host = 'https://stag-api.nationalprograms.io';
             path = '/Quote/v0.2-beta/CreateQuote';
+            subscriptionKey = this.insurer.test_username;
         }
         else {
             host = 'bad';
             path = 'bad';
+            subscriptionKey = this.insurer.username;
         }
 
         // "Other" is not included, as anything not below is defaulted to it
@@ -217,7 +215,7 @@ module.exports = class ArrowheadBOP extends Integration {
             "Cache-Control": "no-cache",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
+            "Ocp-Apim-Subscription-Key": subscriptionKey
         }
 
         let calloutFailure = true;
