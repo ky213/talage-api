@@ -1768,7 +1768,7 @@ module.exports = class ApplicationModel {
                     }
                 }
                 catch (err) {
-                    log.error(err + __location);
+                    log.error("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + " " + err + __location);
                     error = null;
                     rejected = true;
                 }
