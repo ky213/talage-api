@@ -760,7 +760,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     nonOwnedAutoLiab.push({id: "exposure", answer});
                     break;
                 case "liquorLiab":
-                    bbopSet.coverages.liqLia = {
+                    bbopSet.coverages.liqlia = {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
@@ -1011,8 +1011,8 @@ module.exports = class ArrowheadBOP extends Integration {
 
         // hydrate Liquor Liability coverage with child question data, if any exist
         if (liquorLiab.length > 0) {
-            if (!bbopSet.coverages.hasOwnProperty("liqLia")) {
-                bbopSet.coverages.liqLia = {
+            if (!bbopSet.coverages.hasOwnProperty("liqlia")) {
+                bbopSet.coverages.liqlia = {
                     includeInd: true
                 }
             }
@@ -1023,7 +1023,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "salesTotal":
                     case "salesLiquor":
                     case "premOp":
-                        bbopSet.coverages.liqLia[id] = answer;
+                        bbopSet.coverages.liqlia[id] = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Liquor Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
