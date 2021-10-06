@@ -1262,7 +1262,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         }; 
                         break;
                     case "spoil.limit":
-                        spoil.push({id: "limit", answer});
+                        spoil.push({id: "spoilageLimit", answer: this.convertToInteger(answer)});
                         break;
                     case "spoil.breakCont.refrigMaint":
                         spoil.push({id: "refrigerationInd", answer: this.convertToBoolean(answer)});
@@ -1271,7 +1271,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         spoil.push({id: "breakContInd", answer: this.convertToBoolean(answer)});
                         break;
                     case "spoil.stockDesc":
-                        spoil.push({id: "description", answer});
+                        spoil.push({id: "spoilageDescription", answer});
                         break;
                     case "spoil.powerOut":
                         spoil.push({id: "powerOutInd", answer: this.convertToBoolean(answer)});
@@ -1753,10 +1753,10 @@ module.exports = class ArrowheadBOP extends Integration {
                 spoil.forEach(({id, answer}) => {
                     switch (id) {
                         case "breakContInd":
-                        case "description":
+                        case "spoilageDescription":
                         case "powerOutInd":
                         case "refrigerationInd":
-                        case "limit":
+                        case "spoilageLimit":
                             building.coverages.spoil[id] = answer;
                             break;
                         default:
