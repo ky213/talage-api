@@ -748,7 +748,10 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "schedBookFloater.limit":
-                    schedBookFloater.push({id: "limit", answer});
+                    schedBookFloater.push({id: "limit", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.description":
+                    schedBookFloater.push({id: "description", answer});
                     break;
                 case "nonOwnedAutoLiab":
                     // This question populates both nonown and hired auto in arrowhead request
@@ -1083,10 +1086,16 @@ module.exports = class ArrowheadBOP extends Integration {
                     includeInd: true
                 }
             }
+            if (!bbopSet.coverages.schdbk.hasOwnProperty("equips")) {
+                bbopSet.coverages.schdbk.equips = [{}];
+            }
             schedBookFloater.forEach(({id, answer}) => {
                 switch (id) {
                     case "limit":
-                        bbopSet.coverages.schdbk[id] = answer;
+                        bbopSet.coverages.schdbk.equips[0].val = answer;
+                        break;
+                    case "description":
+                        bbopSet.coverages.schdbk.equips[0].desc = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Scheduled Book and Manuscript Floater coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
@@ -1094,6 +1103,8 @@ module.exports = class ArrowheadBOP extends Integration {
                 }
             });
         }
+
+        bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => sum + elem.val, 0));
 
         // hydrate dentist/physician equipment coverage with child question data, if any exist
         if (dentistEquip.length > 0) {
