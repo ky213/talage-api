@@ -604,6 +604,7 @@ module.exports = class ArrowheadBOP extends Integration {
         
         // parent questions
         const contractorCoverage = [];
+        const contractorScheduled = [];
         const datcom = [];
         const cyber = [];
         const edol = [];
@@ -632,7 +633,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "conToolsCovType":
                 case "blanketLimitNoMin":
                 case "itemSubLimitText":
-                case "conscd.equips.desc":
                 case "nonownTools.limit":
                 case "empTools.limit":
                     contractorCoverage.push({id, answer});
@@ -643,11 +643,14 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "empTools.includeInd":
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
                     break;
-                case "conscd.equips.val":
-                    contractorCoverage.push({id, answer: this.convertToInteger(answer)});
-                    break;
                 case "actualCashValueInd":
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    break;
+                case "conscd.equips.desc":
+                    contractorScheduled.push({id, answer});
+                    break;
+                case "conscd.equips.val":
+                    contractorScheduled.push({id, answer: this.convertToInteger(answer)});
                     break;
                 case "eqpbrk":
                     bbopSet.coverages.eqpbrk = {
@@ -851,6 +854,28 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
             }
         }
+        // hydrate Contractors' Scheduled coverage with child question data, if any exist
+        if (contractorScheduled.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("conscd")) {
+                bbopSet.coverages.conscd = {
+                    equips: [{}]
+                };
+            }
+            contractorScheduled.forEach(({id, answer}) => {
+                switch (id) {
+                    case "conscd.equips.desc":
+                        bbopSet.coverages.conscd.equips[0].desc = answer;
+                        break;
+                    case "conscd.equips.val":
+                        bbopSet.coverages.conscd.equips[0].val = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Contractors' Installation Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
         // hydrate Contractors' Installation coverage with child question data, if any exist
         if (contractorCoverage.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("conins")) {
