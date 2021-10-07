@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 'use strict';
 
 const Integration = require('../Integration.js');
@@ -85,51 +86,6 @@ module.exports = class AcuityWC extends Integration {
         return child;
     }
 
-    /**
-     * Gets a list of classifications for a given location
-     * @param {object} location - Location
-     * @returns {object} Array of classifications with code, payroll, and full/part time employees for each
-     */
-    async getLocationClassificationList(location) {
-        const locationClassificationList = [];
-        // Aggregate activity codes for this location, summing payroll and full/part time employees
-        for (const locationActivityCode of location.activityPayrollList) {
-            // Find the existing entry for this activity code
-            const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, locationActivityCode.activityCodeId);
-            if(ncciCode){
-                let locationClassification = locationClassificationList.find((lc) => lc.classCode === ncciCode.toString());
-                if (!locationClassification) {
-                    // Add it if it doesn't exist
-                    locationClassification = {
-                        classCode: ncciCode.toString(),
-                        totalAnnualPayroll: 0,
-                        numberFullTimeEmployees: 0,
-                        numberPartTimeEmployees: 0
-                    };
-                    locationClassificationList.push(locationClassification);
-
-                    // Sum the employee types
-                    for (const employeeType of locationActivityCode.employeeTypeList) {
-                        locationClassification.totalAnnualPayroll += employeeType.employeeTypePayroll;
-                        switch (employeeType.employeeType) {
-                            case "Full Time":
-                            case "Owners":
-                                locationClassification.numberFullTimeEmployees += employeeType.employeeTypeCount;
-                                break;
-                            case "Part Time":
-                                locationClassification.numberPartTimeEmployees += employeeType.employeeTypeCount;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-            }
-        }
-        return locationClassificationList;
-    }
-
-
     async getLocationList(sicCode, naicsCode) {
 
 
@@ -178,6 +134,12 @@ module.exports = class AcuityWC extends Integration {
                     }
                 ]
             };
+            // if(naicsCode){
+            //     locationJSON.NAICSCode = naicsCode
+            // }
+            // else if(sicCode){
+            //     locationJSON.SICCode = sicCode
+            // }
             locationList.push(locationJSON);
         }
         return locationList;
@@ -249,19 +211,49 @@ module.exports = class AcuityWC extends Integration {
                 "2000000/2000000/2000000"
             ]
         }
+        const supportedGenAggLimits = [1000000, 2000000, 4000000];
+        const supportedPerOccLimits = [500000, 1000000, 2000000];
 
+        // The supported property deductables
+        const supportedDeductables = [
+            500,
+            1000,
+            2500,
+            5000
+        ];
 
-        // Default limits (supported by all states)
-        let applicationLimits = "1000000/1000000/1000000";
-        // Find best limits
-        let carrierLimitOptions = defaultLimits;
-        if (stateLimits.hasOwnProperty(this.app.business.locations[0].state_abbr)) {
-            carrierLimitOptions = stateLimits[this.app.business.locations[0].state_abbr];
+        //default to 1 mill
+        let policyAggLimit = 1000000
+        let policyOccurrenceLimit = 1000000
+        log.debug(`policy limits ${JSON.stringify(this.policy.limits)}` + __location)
+
+        const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
+        let limitsStr =  BOPPolicy.limits;
+        // skip first character, look for first occurance of non-zero number
+        const indexes = [];
+        for (let i = 1; i < limitsStr.length; i++) {
+            if (limitsStr[i] !== "0") {
+                indexes.push(i);
+            }
         }
-        const carrierLimits = this.getBestLimits(carrierLimitOptions);
-        if (carrierLimits) {
-            applicationLimits = carrierLimits.join("/");
-        }
+
+        //get limite parts from 
+        const limits = [];
+        policyOccurrenceLimit = this.policy.limits[0];
+        policyAggLimit = this.policy.limits[1];
+
+        //best fit
+
+        // limits.push(limitsStr.substring(0, indexes[0])); // per occ
+        // limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
+        limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
+
+        
+        
+        // const carrierLimits = this.getBestLimits(carrierLimitOptions);
+        // if (carrierLimits) {
+        //     applicationLimits = carrierLimits.join("/");
+        // }
 
         // =========================================================================================================
         // Validation
@@ -295,36 +287,12 @@ module.exports = class AcuityWC extends Integration {
             if(industryCodeJson){
                 sicCode = industryCodeJson.sic
                 naicsCode = industryCodeJson.naics
+                if(naicsCode){
+                    //if have naics use it only do not send both naics and sic. ok to send with out either
+                    sicCode = null;
+                }
             }
         }
-
-
-        // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
-        // to "0000" to continue trying to quote since Travelers allows the agent to correct the application in the DeepLink.
-        if (this.industry_code.sic) {
-            sicCode = this.industry_code.sic.toString().padStart(4, '0');
-        }
-        else {
-            this.log_warn(`Appid: ${this.app.id} Travelers WC: Industry Code ${this.industry_code.id} ("${this.industry_code.description}") does not have an associated SIC code`);
-            sicCode = "0000";
-        }
-
-        // Ensure we have a valid SIC code -- see sic process below
-        // if (!this.industry_code.sic) {
-        //     return this.client_error(`Appid: ${this.app.id} Travelers WC: Could not determine the SIC code for industry code ${this.industry_code.id}: '${this.industry_code_description}'`, __location);
-        // }
-
-        // // Ensure we have valid NCCI code mappings
-        // for (const location of this.app.business.locations) {
-        //     for (const activityCode of location.activity_codes) {
-        //         const ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
-        //         if (!ncciCode) {
-        //             this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
-        //             return this.client_autodeclined(`Insurer activity class codes were not found for all activities in the application.`);
-        //         }
-        //         activityCode.ncciCode = ncciCode;
-        //     }
-        // }
 
         let numberEmployeesPerShift = 1;
         let shiftEmployeeQuestionHit = false
@@ -460,7 +428,7 @@ module.exports = class AcuityWC extends Integration {
         // "saleRepairBulkStorageTiresInd": false,
         // "sellServiceMotorcyclesRvsBoatsEmergencyOffRoadVehiclesInd": false,
         // "seniorLivingFacilitiesAssistedLivingIndependentLivingInd": false
-        
+
         // if(haveQuestion){
         //      //get talageAnser
         //      quoteRequestData.basisOfQuotation.eligibility[identifer] = this.convertToBoolean(answer))
