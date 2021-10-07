@@ -52,6 +52,7 @@ async function getResources(req, res, next){
             policyHelper.policyTypes(resources);
             break;
         case "_locations":
+        case "_am-locations":
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
