@@ -21,6 +21,14 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
+// mine subsidence maximum limits by state
+const mineSubsidenceLimits = {
+    IL: 750000,
+    IN: 200000,
+    KY: 9999999999, // no maximum
+    WV: 200000
+};
+
 // this is a map of counters per state that require Mine Subsidence Optional Endorsement
 const mineSubsidenceOE = {
     IL: [
@@ -607,8 +615,10 @@ module.exports = class MarkelWC extends Integration {
                 const addressInfoResponse = await smartystreetSvc.checkAddress(location.address, location.city, location.state, location.zipcode);
 
                 if (addressInfoResponse?.county && mineSubsidenceOE[location.state].includes(addressInfoResponse.county)) {
+                    // set to building limit or state maximum if building limit exceeds state maximum
+                    const limit = location.buildingLimit > mineSubsidenceLimits[location.state] ? mineSubsidenceLimits[location.state] : location.buildingLimit;
                     buildingObj.optionalEndorsements = {
-                        mineSubsidenceLimit: 68000
+                        mineSubsidenceLimit: limit
                     };
                 }
                 else {
@@ -1002,7 +1012,6 @@ module.exports = class MarkelWC extends Integration {
 
     getSupportedDeductible = (deductible) => {
         const supportedDeductibles = [
-            250, 
             500, 
             1000, 
             2500, 
@@ -1014,7 +1023,7 @@ module.exports = class MarkelWC extends Integration {
         for (let i = 0; i < supportedDeductibles.length; i++) {
             if (deductible < supportedDeductibles[i]) {
                 if (i === 0) {
-                    return 250;
+                    return 500;
                 }
                 return supportedDeductibles[i - 1];
             }
