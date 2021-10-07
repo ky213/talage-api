@@ -14,7 +14,8 @@ const requirementHelper = global.requireShared('./services/required-app-fields-s
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appId && req.query.page !== "_basic") {
+    const listOfInitialLandingPages = ["_basic", "_am-basic"]
+    if (!req.query.page || !req.query.appId && listOfInitialLandingPages.indexOf(req.query.page) === -1) {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -31,6 +32,7 @@ async function getResources(req, res, next){
     switch(req.query.page) {
         case "_basic":
         case "_basic-created":
+        case "_am-basic":
             entityTypes(resources);
             if(req.query.agencyNetworkId){
                 await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId);

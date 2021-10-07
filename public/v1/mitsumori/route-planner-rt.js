@@ -9,7 +9,8 @@ const AmTrustAgencyNetworkId = 10;
 async function getNextRoute(req, res, next){
     // Check that at least some post parameters were received
     // Let basic through with no app id
-    if (!req.query.currentRoute || !req.query.appId && req.query.currentRoute !== "_basic") {
+    const listOfInitialLandingPages = ["_basic", "_am-basic"]
+    if (!req.query.currentRoute || !req.query.appId && listOfInitialLandingPages.indexOf(req.query.currentRoute) === -1) {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -20,7 +21,9 @@ async function getNextRoute(req, res, next){
         return;
     }
     let nextRouteName = null;
-    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_basic-created"){
+
+    // TODO: find a more graceful approach to this, if we have a bunch of basic pages things will get out of hand really fast
+    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_am-basic" || req.query.currentRoute === "_basic-created"){
         nextRouteName = "_policies";
     }
     else {
