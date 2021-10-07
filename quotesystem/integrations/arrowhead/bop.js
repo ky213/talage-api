@@ -714,16 +714,16 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "stopGapLimit":
                     // Limit applies to up to four separate states if those states are present on the application
                     if (applicationDocData.locations.find(loc => loc.state === 'WA')) {
-                        bbopSet.coverages.stopGapWA = {limit: answer};
+                        bbopSet.coverages.stopwa = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'WY')) {
-                        bbopSet.coverages.stopGapWY = {limit: answer};
+                        bbopSet.coverages.stopwy = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'ND')) {
-                        bbopSet.coverages.stopGapND = {limit: answer};
+                        bbopSet.coverages.stopnd = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'OH')) {
-                        bbopSet.coverages.stopGapOH = {limit: answer};
+                        bbopSet.coverages.stopoh = {limit: answer};
                     }
                     break;
                 case "moldIncl":
