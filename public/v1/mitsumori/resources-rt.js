@@ -16,7 +16,7 @@ async function getResources(req, res, next){
     // Let basic through with no app id
     const listOfInitialLandingPages = ["_basic", "_am-basic"]
     if (!req.query.page || !req.query.appId && listOfInitialLandingPages.indexOf(req.query.page) === -1) {
-        log.info('Bad Request: Parameters missing' + __location);
+        log.debug('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
 
