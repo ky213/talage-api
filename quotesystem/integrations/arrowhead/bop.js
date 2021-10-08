@@ -209,7 +209,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE REQUEST ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
         // log.info("=================== QUOTE REQUEST ===================");
-        this.log += `=================== QUOTE REQUEST ===================<br><br>`;
+        this.log += `--------======= QUOTE REQUEST =======--------<br><br>`;
         this.log += `--------======= Sending to Arrowhead =======--------<br><br>`;
         this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
         this.log += `URL: ${host}${path}<br><br>`;
@@ -298,7 +298,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE RESULT ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         // log.info("=================== QUOTE RESULT ===================");
-        this.log += `=================== Insurer Response ===================<br><br>`;
+        this.log += `--------======= Insurer Response =======--------<br><br>`;
         this.log += `<pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
 
