@@ -309,7 +309,7 @@ module.exports = class Application {
                 }
                 catch (e) {
                     log.error(`Translation Error: DB getById ${activityCode.id} activity codes for appId ${this.id} error: ${e}. ` + __location);
-                    throw e;
+                    //throw e;
                 }
             }
         }
@@ -1078,6 +1078,11 @@ module.exports = class Application {
 	 */
     validate(logValidationErrors = true) {
         return new Promise(async(fulfill, reject) => {
+
+            if(this.quickQuoteOnly){
+                return fulfill(true);
+            }
+
             // Agent
             try {
                 //Check Agencylocation Choice.
