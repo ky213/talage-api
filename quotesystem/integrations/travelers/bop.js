@@ -55,6 +55,7 @@ const lossCauseCodeMatrix = {
     "Other": "OTHR"
 }
 
+const quoteCoverages = [];
 
 module.exports = class AcuityWC extends Integration {
 
@@ -86,64 +87,6 @@ module.exports = class AcuityWC extends Integration {
         return child;
     }
 
-    async getLocationList(sicCode, naicsCode) {
-
-
-        const locationList = [];
-        for (let i = 0; i < this.applicationDocData.locations.length; i++) {
-            const location = this.applicationDocData.locations[i];
-
-            let sprinkleredPercent = 0;
-            if (location?.bop?.sprinklerEquipped) {
-                sprinkleredPercent = 100;
-            }
-            ////"sprinklerSystemTypeCode": "Valid values are 'LS', 'AF', 'NONE' - LS (Life Safety Only) - AF (Automatic Fire Protection/Extinguishing) - NONE (None)",
-            //Need question
-
-            const locationJSON = {
-                "SICCode": sicCode,
-                "NAICSCode": naicsCode,
-                address: {
-                    "address": location.address,
-                    "addressLine2": location.address2 || "",
-                    "city": location.city,
-                    "state": location.state,
-                    "zipcode": location.zipcode
-                    // "phone": "1" + location.phone ?Required?
-                },
-                "buildings": [
-                    {
-                        "SICCode": sicCode,
-                        "NAICSCode": naicsCode,
-                        "annualRevenueAmount": this.applicationDocData.grossSalesAmt,
-                        "limits": {
-                            "building": location.buildingLimit,
-                            "BPP": location.businessPersonalPropertyLimit,
-                            "TIB": 10000
-                        },
-                        "details": {
-                            "numberOfStories": location.numStories,
-                            "squareFootage": location.square_footage,
-                            "squareFootageOccupied": location.square_footage,
-                            "constructionTypeCode":   constructionMatrix[location.constructionType], //constructionMatrix
-                            "constructionYear": location.yearBuilt,
-                            "sprinkleredPercent": sprinkleredPercent,
-                            //"sprinklerSystemTypeCode": "Valid values are 'LS', 'AF', 'NONE' - LS (Life Safety Only) - AF (Automatic Fire Protection/Extinguishing) - NONE (None)",
-                            "roofReplacedYear": location.bop.roofingImprovementYear
-                        }
-                    }
-                ]
-            };
-            // if(naicsCode){
-            //     locationJSON.NAICSCode = naicsCode
-            // }
-            // else if(sicCode){
-            //     locationJSON.SICCode = sicCode
-            // }
-            locationList.push(locationJSON);
-        }
-        return locationList;
-    }
 
     getClaims = (claims) => {
         claims = claims.filter(c => c.policyType === "BOP");
@@ -173,6 +116,68 @@ module.exports = class AcuityWC extends Integration {
         return requestClaims;
     }
 
+
+    async getLocationList(naicsCode) {
+
+
+        const locationList = [];
+        for (let i = 0; i < this.applicationDocData.locations.length; i++) {
+            const location = this.applicationDocData.locations[i];
+
+            let sprinkleredPercent = 0;
+            let  sprinklerSystemTypeCode = "NONE"
+            if (location?.bop?.sprinklerEquipped) {
+                sprinkleredPercent = 100;
+                sprinklerSystemTypeCode = "AF"
+            }
+            ////"sprinklerSystemTypeCode": "Valid values are 'LS', 'AF', 'NONE' - LS (Life Safety Only) - AF (Automatic Fire Protection/Extinguishing) - NONE (None)",
+            //Need question
+
+            const locationJSON = {
+                "NAICSCode": naicsCode,
+                address: {
+                    "address": location.address,
+                    "addressLine2": location.address2 || "",
+                    "city": location.city,
+                    "state": location.state,
+                    "zipcode": location.zipcode
+                    // "phone": "1" + location.phone ?Required?
+                },
+                "buildings": [
+                    {
+                        "NAICSCode": naicsCode,
+                        "annualRevenueAmount": this.applicationDocData.grossSalesAmt,
+                        "limits": {
+                            "building": location.buildingLimit,
+                            "BPP": location.businessPersonalPropertyLimit//,
+                            //"TIB": 10000
+                        },
+                        "details": {
+                            "numberOfStories": location.numStories,
+                            "squareFootage": location.square_footage,
+                            "squareFootageOccupied": location.square_footage,
+                            "constructionTypeCode":   constructionMatrix[location.constructionType], //constructionMatrix
+                            "constructionYear": location.yearBuilt,
+                            "sprinkleredPercent": sprinkleredPercent,
+                            sprinklerSystemTypeCode: sprinklerSystemTypeCode,
+                            //"sprinklerSystemTypeCode": "Valid values are 'LS', 'AF', 'NONE' - LS (Life Safety Only) - AF (Automatic Fire Protection/Extinguishing) - NONE (None)",
+                            "roofReplacedYear": location.bop.roofingImprovementYear
+                        }
+                    }
+                ]
+            };
+            // if(naicsCode){
+            //     locationJSON.NAICSCode = naicsCode
+            // }
+            // else if(sicCode){
+            //     locationJSON.SICCode = sicCode
+            // }
+            locationList.push(locationJSON);
+        }
+        return locationList;
+    }
+
+
     /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
 	 *
@@ -180,80 +185,95 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
         const appDoc = this.applicationDocData
-        //const applicationDocData = this.applicationDocData;
+        const applicationDocData = this.applicationDocData;
 
-        const defaultLimits = [
-            "100000/500000/100000",
-            "500000/500000/500000",
-            "1000000/1000000/1000000",
-            "2000000/2000000/2000000"
-        ];
-        const stateLimits = {
-            "CA": [
-                "1000000/1000000/1000000", "2000000/2000000/2000000"
-            ],
-            "NY": [
-                "100000/500000/100000",
-                "500000/500000/500000",
-                "1000000/1000000/1000000",
-                "2000000/2000000/2000000"
-            ],
-            "MI": [
-                "100000/100000/100000",
-                "100000/500000/100000",
-                "500000/500000/500000",
-                "1000000/1000000/1000000",
-                "2000000/2000000/2000000"
-            ],
-            "OR": [
-                "500000/500000/500000",
-                "1000000/1000000/1000000",
-                "2000000/2000000/2000000"
-            ]
-        }
+        const logPrefix = `Appid: ${this.app.id} Travelers BOP `
+
         const supportedGenAggLimits = [1000000, 2000000, 4000000];
         const supportedPerOccLimits = [500000, 1000000, 2000000];
 
         // The supported property deductables
         const supportedDeductables = [
-            500,
-            1000,
-            2500,
-            5000
+            0, 250, 500, 1000
+        ];
+
+        const supportedPropertyDeductables = [
+            250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 75000
         ];
 
         //default to 1 mill
         let policyAggLimit = 1000000
         let policyOccurrenceLimit = 1000000
-        log.debug(`policy limits ${JSON.stringify(this.policy.limits)}` + __location)
 
+        log.debug(`policy limits ${JSON.stringify(this.policy.limits)} array ${JSON.stringify(this.policy.limitArray)}` + __location)
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
-        let limitsStr =  BOPPolicy.limits;
-        // skip first character, look for first occurance of non-zero number
-        const indexes = [];
-        for (let i = 1; i < limitsStr.length; i++) {
-            if (limitsStr[i] !== "0") {
-                indexes.push(i);
-            }
+        //let limitsStr =  BOPPolicy.limits;
+
+        //get limite parts from
+        const limits = [];
+        if(this.policy.limitArray[0]){
+            policyOccurrenceLimit = parseInt(this.policy.limitArray[0],10);
+        }
+        if(this.policy.limitArray[1]){
+            policyAggLimit = parseInt(this.policy.limitArray[1],10);
         }
 
-        //get limite parts from 
-        const limits = [];
-        policyOccurrenceLimit = this.policy.limits[0];
-        policyAggLimit = this.policy.limits[1];
-
         //best fit
+        if(supportedGenAggLimits.indexOf(policyAggLimit) === -1){
+            for(let i = 0; i < supportedGenAggLimits.length; i++){
+                if(policyAggLimit <= supportedGenAggLimits[i]){
+                    policyAggLimit = supportedGenAggLimits[i];
+                    break;
+                }
+            }
+            if(policyAggLimit > supportedGenAggLimits[supportedGenAggLimits.length - 1]){
+                policyAggLimit = supportedGenAggLimits[supportedGenAggLimits.length - 1]
+            }
 
-        // limits.push(limitsStr.substring(0, indexes[0])); // per occ
-        // limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
-        limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
+        }
+        this.limits[8] = policyAggLimit;
+        if(supportedPerOccLimits.indexOf(policyOccurrenceLimit) === -1){
+            for(let i = 0; i < supportedPerOccLimits.length; i++){
+                if(policyOccurrenceLimit <= supportedPerOccLimits[i]){
+                    policyOccurrenceLimit = supportedPerOccLimits[i];
+                    break;
+                }
+            }
+            if(policyOccurrenceLimit > supportedPerOccLimits[supportedPerOccLimits.length - 1]){
+                policyOccurrenceLimit = supportedPerOccLimits[supportedPerOccLimits.length - 1]
+            }
 
-        
-        
-        // const carrierLimits = this.getBestLimits(carrierLimitOptions);
-        // if (carrierLimits) {
-        //     applicationLimits = carrierLimits.join("/");
-        // }
+        }
+        this.limits[4] = policyOccurrenceLimit
+        //TODO reverse logic to get next lowest.
+        let bopDeductbile = BOPPolicy.deductible ? BOPPolicy.deductible : 0;
+        if(supportedDeductables.indexOf(bopDeductbile) === -1){
+            for(let i = supportedDeductables.length - 1; i > -1; i--){
+                if(bopDeductbile >= supportedDeductables[i]){
+                    bopDeductbile = supportedDeductables[i];
+                    break;
+                }
+            }
+            if(bopDeductbile > supportedDeductables[supportedDeductables.length - 1]){
+                bopDeductbile = supportedDeductables[0]
+            }
+
+        }
+
+        let bopPropertyDeductbile = BOPPolicy.deductible ? BOPPolicy.deductible : 0;
+        if(supportedPropertyDeductables.indexOf(bopPropertyDeductbile) === -1){
+            for(let i = supportedDeductables.length - 1; i > -1; i--){
+                if(bopPropertyDeductbile >= supportedPropertyDeductables[i]){
+                    bopPropertyDeductbile = supportedPropertyDeductables[i];
+                    break;
+                }
+            }
+            if(bopPropertyDeductbile > supportedPropertyDeductables[supportedPropertyDeductables.length - 1]){
+                bopPropertyDeductbile = supportedPropertyDeductables[supportedPropertyDeductables.length - 1]
+            }
+
+        }
+
 
         // =========================================================================================================
         // Validation
@@ -278,19 +298,14 @@ module.exports = class AcuityWC extends Integration {
         //Travelers does not have Insurer Industry Code records with us .  WC only.  using this.industry_code (insurer's)  lead to sic errors
         // in the submissions.
         //Look up Talage industry Code to get Sic
-        let sicCode = null;
+
         let naicsCode = null;
         if(appDoc.industryCode){
             const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
             const industryCodeBO = new IndustryCodeBO();
             const industryCodeJson = await industryCodeBO.getById(appDoc.industryCode);
             if(industryCodeJson){
-                sicCode = industryCodeJson.sic
                 naicsCode = industryCodeJson.naics
-                if(naicsCode){
-                    //if have naics use it only do not send both naics and sic. ok to send with out either
-                    sicCode = null;
-                }
             }
         }
 
@@ -320,7 +335,7 @@ module.exports = class AcuityWC extends Integration {
 
         const claims = this.claims_to_policy_years();
         const claimCountCurrentPolicy = claims[1].count;
-        const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
+        //const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
         const claimObjects = this.getClaims(appDoc.claims);
 
         let primaryContact = appDoc.contacts.find(c => c.primary);
@@ -335,21 +350,22 @@ module.exports = class AcuityWC extends Integration {
             contactPhone = primaryContact.phone.toString()
         }
         catch(err){
-            log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
+            log.error(`${logPrefix} Unable to get contact phone. error: ${err} ` + __location);
         }
         //Get businessPrincipal
         let businessPrincipal = {};
         if(appDoc.owners && appDoc.owners.length === 1){
             businessPrincipal = appDoc.owners[0]
         }
-        else if(!appDoc.owners && appDoc.owners.length === 0){
-            businessPrincipal.fname = primaryContact.firstName
-            businessPrincipal.lname = primaryContact.lasstName
-        }
-        else {
+        else if(appDoc.owners && appDoc.owners.length > 1){
             //Take 1st owner. TODO look for highest percent ownership
             businessPrincipal = appDoc.owners[0]
         }
+        else if(!appDoc.owners || appDoc.owners.length === 0){
+            businessPrincipal.fname = primaryContact.firstName
+            businessPrincipal.lname = primaryContact.lastName
+        }
+        const totalNumberOfEmployees = this.get_total_employees();
 
         // =========================================================================================================
         // Create the quote request
@@ -359,7 +375,6 @@ module.exports = class AcuityWC extends Integration {
             "policyEffectiveDate": this.policy.effective_date.format("YYYY-MM-DD"),
             "policyExpirationDate": this.policy.expiration_date.format("YYYY-MM-DD"),
             "lineOfBusinessCode": "BOP",
-            "SICCode": sicCode,
             "NAICSCode": naicsCode,
             "producer": {
                 "producerCode": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
@@ -368,8 +383,8 @@ module.exports = class AcuityWC extends Integration {
             "customer": {
                 // "externalCustomerId": "string",
                 "primaryNameInsured": appDoc.businessName,
-                "tradeDBALine1": appDoc.dba ? appDoc.dba : "",
-                "tradeDBALine2": "",
+                //"tradeDBALine1": appDoc.dba ? appDoc.dba : "",
+                //"tradeDBALine2": "",
                 "FEIN": appDoc.ein,
                 "legalEntity": legalEntityMap[appDoc.entityType],
                 "address": {
@@ -386,35 +401,43 @@ module.exports = class AcuityWC extends Integration {
                     "middleInitial": ""
                 },
                 "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : "",
-                "insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
+                //"insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
-            "businessInfo": {"locations": await this.getLocationList(sicCode, naicsCode)},
+            "businessInfo": {"locations": await this.getLocationList(naicsCode)},
             "basisOfQuotation": {
-                // "pricing": {
-                //     "experienceMod": "string",
-                //     "modStatus": "string",
-                //     "riskId": "string",
-                //     "experienceModEffectiveDate": "string"
-                // },
                 "yearBusinessEstablished": parseInt(this.app.business.founded.format("YYYY"),10),
-                "claimCountCurrentPolicy": claimCountCurrentPolicy,
+                totalNumberOfEmployees: totalNumberOfEmployees,
+                priorYearsLossCount: claimCountCurrentPolicy,
                 //"priorPolicyExpirationDate": ,
-                "totalAnnualWCPayroll": this.get_total_payroll(),
-                "employersLiabilityLimit": applicationLimits,
                 // "threeYearsManagementExperienceInd": true,
                 // "operateAsGeneralContractorInd": true
-                "priorPolicyExpirationDate": "2020-01-01",
-                "medicalPaymentsLimitAmount": "Valid values are 0, 500, 1000, 5000, 10000 - 0 - 500 - 1000 - 5000 - 10000",
-                "propertyDeductibleAmount": "Valid values are 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 75000 - 250 - 500 - 1000 - 2500 - 5000 - 10000 - 25000 - 50000 - 75000",
-                "GLPropertyDamageDeductibleAmount": "Valid values are 0, 250, 500, 1000 - 0 - 250 - 500 - 1000",
-                "GLPerOccurrenceLimitAmount": "Valid values are 500000, 1000000, 2000000 - 500000 - 1000000 - 2000000",
-                "GLAggregateLimitAmount": "Valid values are 1000000, 2000000, 4000000 - 1000000 - 2000000 - 4000000",
-                "GLProductsCompletedOperationsLimitAmount": "Valid values are 1000000, 2000000, 4000000 - 1000000 - 2000000 - 4000000",
+                //"priorPolicyExpirationDate": "2020-01-01",
+                // "medicalPaymentsLimitAmount": "Valid values are 0, 500, 1000, 5000, 10000 - 0 - 500 - 1000 - 5000 - 10000",
+                "propertyDeductibleAmount": bopPropertyDeductbile, // "Valid values are 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 75000 - 250 - 500 - 1000 - 2500 - 5000 - 10000 - 25000 - 50000 - 75000",
+                "GLPropertyDamageDeductibleAmount": bopDeductbile, // "Valid values are 0, 250, 500, 1000 - 0 - 250 - 500 - 1000",
+                "GLPerOccurrenceLimitAmount": policyOccurrenceLimit,
+                "GLAggregateLimitAmount": policyAggLimit,
+                //"GLProductsCompletedOperationsLimitAmount": "Valid values are 1000000, 2000000, 4000000 - 1000000 - 2000000 - 4000000",
                 "eligibility": {}
             }
         };
+        //  "eligibility": {
+        //                 "buffetOrAllYouCanEatRestaurantInd": true,
+        //                 "danceFloorOrDjOrLiveEntertainmentInd": false,
+        //                 "homeBasedBusinessOrHabitationalOccupanciesInd": false,
+        //                 "industrialMachineryOrEquipmentInd": false,
+        //                 "occupancyRateIsBelow70PctInd": false,
+        //                 "occupancyRateIsBelow80PctInd": false,
+        //                 "openFlameFryingGrillingNoAutomaticExtinguishingSystemInd": false,
+        //                 "openPast2AmInd": false,
+        //                 "openPastMidnightInd": false,
+        //                 "propertyManagementInd": false,
+        //                 "saleRepairBulkStorageTiresInd": false,
+        //                 "sellServiceMotorcyclesRvsBoatsEmergencyOffRoadVehiclesInd": false,
+        //                 "seniorLivingFacilitiesAssistedLivingIndependentLivingInd": false
+
         //question checks
-            //loop insurerQuestion add what is present
+        //loop insurerQuestion add what is present
         // "buffetOrAllYouCanEatRestaurantInd": true,
         // "danceFloorOrDjOrLiveEntertainmentInd": false,
         // "homeBasedBusinessOrHabitationalOccupanciesInd": false,
@@ -488,20 +511,45 @@ module.exports = class AcuityWC extends Integration {
         const quoteId = this.getChildProperty(response, "eQuoteId");
         const premium = this.getChildProperty(response, "totalAnnualPremiumSurchargeTaxAmount");
         const validationDeepLink = this.getChildProperty(response, "validationDeeplink");
-        const employersLiabilityLimit = this.getChildProperty(response, "employersLiabilityLimit");
+        // const employersLiabilityLimit = this.getChildProperty(response, "employersLiabilityLimit");
 
-        // Process the limits
-        const limits = [];
-        if (employersLiabilityLimit) {
-            const individualLimitList = employersLiabilityLimit.split("/");
-            if (individualLimitList.length !== 3) {
-                // Continue without the limits but log it
-                this.log_error(`Returned unrecognized limits of '${employersLiabilityLimit}'. Continuing.`);
-            }
-            else {
-                limits[1] = individualLimitList[0];
-                limits[2] = individualLimitList[1];
-                limits[3] = individualLimitList[2];
+        // // Process the limits
+        // if (employersLiabilityLimit) {
+        //     const individualLimitList = employersLiabilityLimit.split("/");
+        //     if (individualLimitList.length !== 3) {
+        //         // Continue without the limits but log it
+        //         this.log_error(`Returned unrecognized limits of '${employersLiabilityLimit}'. Continuing.`);
+        //     }
+        //     else {
+        //         limits[1] = individualLimitList[0];
+        //         limits[2] = individualLimitList[1];
+        //         limits[3] = individualLimitList[2];
+        //     }
+        // }
+
+        if(response.businessMessages && response.businessMessages.length > 0){
+            for(const businessMessage of response.businessMessages){
+                //quoteCoverages
+                if(businessMessage.type === "BUILDING_LIMIT_ADJUSTMENT"){
+                    log.debug(`${logPrefix} adjusted ${businessMessage.property}  `)
+                } 
+                else if(businessMessage.type === "DEFAULT_VALUE_ADJUSTMENT"){
+                    switch(businessMessage.property){
+                        case "basisOfQuotation.GLAggregateLimitAmount":
+                            limits[8] = businessMessage.appliedValue
+                            break;
+                        case "basisOfQuotation.GLProductsCompletedOperationsLimitAmount":
+                            log.debug(`${logPrefix} adjusted basisOfQuotation.GLProductsCompletedOperationsLimitAmount  `)
+                            limits[9] = businessMessage.appliedValue
+                            break;
+                        case "basisOfQuotation.medicalPaymentsLimitAmount":
+                            limits[6] = businessMessage.appliedValue
+                            break;
+                        default:
+                            break;
+                    }
+
+                }
             }
         }
 
@@ -528,7 +576,7 @@ module.exports = class AcuityWC extends Integration {
                 else {
                     this.log_error("Could not locate validationDeepLink property in response.", __location);
                 }
-                return this.client_quoted(quoteId, limits, premium);
+                return this.client_quoted(quoteId, limits, premium, null, null, quoteCoverages);
             default:
                 break;
         }

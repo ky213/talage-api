@@ -1563,6 +1563,8 @@ module.exports = class Integration {
         //build mongo Document
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
+            agencyId: this.applicationDocData.agencyId,
+            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
