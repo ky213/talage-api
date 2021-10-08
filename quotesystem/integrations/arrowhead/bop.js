@@ -186,7 +186,9 @@ module.exports = class ArrowheadBOP extends Integration {
         try {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
-            return this.client_error(`There was an issue adding general questions to the application`, __location, e);
+            const errorMessage = `There was an issue adding general questions to the application`;
+            log.error(errorMessage + `: ${e}`);
+            return this.client_error(errorMessage, __location, e);
         }
 
         // TODO: Update question sheet, make this building-level question, not general question...
@@ -1105,9 +1107,15 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                 }
             });
+            bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
+                let addVal = 0;
+                if (elem.val){
+                    addVal = elem.val;
+                }
+                return sum + addVal;
+            }, 0));
         }
 
-        bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => sum + elem.val, 0));
 
         // hydrate dentist/physician equipment coverage with child question data, if any exist
         if (dentistEquip.length > 0) {
