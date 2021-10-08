@@ -316,6 +316,9 @@ module.exports = class ArrowheadBOP extends Integration {
             this.log += `--------======= ${logPrefix} =======--------<br><br>`;
             this.log += `<pre>${decisionMessage}</pre><br><br>`;
             this.log += `--------======= End =======--------<br><br>`;
+            if (decision.toLowerCase().trim() === 'decline') {
+                return this.client_declined(decisionMessage);
+            }
         }
 
         let quoteNumber = null;
