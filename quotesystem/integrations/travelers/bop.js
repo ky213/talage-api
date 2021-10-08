@@ -125,7 +125,7 @@ module.exports = class AcuityWC extends Integration {
             const location = this.applicationDocData.locations[i];
 
             let sprinkleredPercent = 0;
-            let  sprinklerSystemTypeCode = "NONE"
+            let sprinklerSystemTypeCode = "NONE"
             if (location?.bop?.sprinklerEquipped) {
                 sprinkleredPercent = 100;
                 sprinklerSystemTypeCode = "AF"
@@ -166,12 +166,6 @@ module.exports = class AcuityWC extends Integration {
                     }
                 ]
             };
-            // if(naicsCode){
-            //     locationJSON.NAICSCode = naicsCode
-            // }
-            // else if(sicCode){
-            //     locationJSON.SICCode = sicCode
-            // }
             locationList.push(locationJSON);
         }
         return locationList;
@@ -231,7 +225,7 @@ module.exports = class AcuityWC extends Integration {
             }
 
         }
-        this.limits[8] = policyAggLimit;
+        limits[8] = policyAggLimit;
         if(supportedPerOccLimits.indexOf(policyOccurrenceLimit) === -1){
             for(let i = 0; i < supportedPerOccLimits.length; i++){
                 if(policyOccurrenceLimit <= supportedPerOccLimits[i]){
@@ -244,7 +238,7 @@ module.exports = class AcuityWC extends Integration {
             }
 
         }
-        this.limits[4] = policyOccurrenceLimit
+        limits[4] = policyOccurrenceLimit
         //TODO reverse logic to get next lowest.
         let bopDeductbile = BOPPolicy.deductible ? BOPPolicy.deductible : 0;
         if(supportedDeductables.indexOf(bopDeductbile) === -1){
@@ -259,6 +253,9 @@ module.exports = class AcuityWC extends Integration {
             }
 
         }
+        limits[12] = bopDeductbile;
+
+        //quoteLimits[11] = policyaggregateLimit;
 
         let bopPropertyDeductbile = BOPPolicy.deductible ? BOPPolicy.deductible : 0;
         if(supportedPropertyDeductables.indexOf(bopPropertyDeductbile) === -1){
@@ -400,7 +397,7 @@ module.exports = class AcuityWC extends Integration {
                     "lastName": businessPrincipal.lname,
                     "middleInitial": ""
                 },
-                "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : "",
+                "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : ""
                 //"insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
             "businessInfo": {"locations": await this.getLocationList(naicsCode)},
@@ -436,26 +433,34 @@ module.exports = class AcuityWC extends Integration {
         //                 "sellServiceMotorcyclesRvsBoatsEmergencyOffRoadVehiclesInd": false,
         //                 "seniorLivingFacilitiesAssistedLivingIndependentLivingInd": false
 
-        //question checks
-        //loop insurerQuestion add what is present
-        // "buffetOrAllYouCanEatRestaurantInd": true,
-        // "danceFloorOrDjOrLiveEntertainmentInd": false,
-        // "homeBasedBusinessOrHabitationalOccupanciesInd": false,
-        // "industrialMachineryOrEquipmentInd": false,
-        // "occupancyRateIsBelow70PctInd": false,
-        // "occupancyRateIsBelow80PctInd": false,
-        // "openFlameFryingGrillingNoAutomaticExtinguishingSystemInd": false,
-        // "openPast2AmInd": false,
-        // "openPastMidnightInd": false,
-        // "propertyManagementInd": false,
-        // "saleRepairBulkStorageTiresInd": false,
-        // "sellServiceMotorcyclesRvsBoatsEmergencyOffRoadVehiclesInd": false,
-        // "seniorLivingFacilitiesAssistedLivingIndependentLivingInd": false
+        const eligibilityPropList = [
+            "buffetOrAllYouCanEatRestaurantInd",
+            "danceFloorOrDjOrLiveEntertainmentInd",
+            "homeBasedBusinessOrHabitationalOccupanciesInd",
+            "industrialMachineryOrEquipmentInd",
+            "occupancyRateIsBelow70PctInd",
+            "occupancyRateIsBelow80PctInd",
+            "openFlameFryingGrillingNoAutomaticExtinguishingSystemInd",
+            "openPast2AmInd",
+            "openPastMidnightInd",
+            "propertyManagementInd",
+            "saleRepairBulkStorageTiresInd",
+            "sellServiceMotorcyclesRvsBoatsEmergencyOffRoadVehiclesInd",
+            "seniorLivingFacilitiesAssistedLivingIndependentLivingInd"
+        ]
+        for(const insurerQuestion of this.insurerQuestionList){
+            if(Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    continue;
+                }
+                // limits and other things will go in a questions.
+                if(eligibilityPropList.indexOf(insurerQuestion.identifier) > -1){
+                    quoteRequestData.basisOfQuotation.eligibility[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                }
+            }
+        }
 
-        // if(haveQuestion){
-        //      //get talageAnser
-        //      quoteRequestData.basisOfQuotation.eligibility[identifer] = this.convertToBoolean(answer))
-        // }
 
         if (claimObjects) {
             quoteRequestData.losses = claimObjects;
@@ -513,26 +518,12 @@ module.exports = class AcuityWC extends Integration {
         const validationDeepLink = this.getChildProperty(response, "validationDeeplink");
         // const employersLiabilityLimit = this.getChildProperty(response, "employersLiabilityLimit");
 
-        // // Process the limits
-        // if (employersLiabilityLimit) {
-        //     const individualLimitList = employersLiabilityLimit.split("/");
-        //     if (individualLimitList.length !== 3) {
-        //         // Continue without the limits but log it
-        //         this.log_error(`Returned unrecognized limits of '${employersLiabilityLimit}'. Continuing.`);
-        //     }
-        //     else {
-        //         limits[1] = individualLimitList[0];
-        //         limits[2] = individualLimitList[1];
-        //         limits[3] = individualLimitList[2];
-        //     }
-        // }
-
         if(response.businessMessages && response.businessMessages.length > 0){
             for(const businessMessage of response.businessMessages){
                 //quoteCoverages
                 if(businessMessage.type === "BUILDING_LIMIT_ADJUSTMENT"){
                     log.debug(`${logPrefix} adjusted ${businessMessage.property}  `)
-                } 
+                }
                 else if(businessMessage.type === "DEFAULT_VALUE_ADJUSTMENT"){
                     switch(businessMessage.property){
                         case "basisOfQuotation.GLAggregateLimitAmount":
