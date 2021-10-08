@@ -298,8 +298,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE RESULT ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         // log.info("=================== QUOTE RESULT ===================");
-        this.log += `=================== QUOTE RESULT ===================<br><br>`;
-        this.log += `--------======= ${logPrefix} =======--------<br><br>`;
+        this.log += `=================== Insurer Response ===================<br><br>`;
         this.log += `<pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
 
@@ -313,7 +312,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 });
             }
 
-            this.log += `--------======= ${logPrefix} =======--------<br><br>`;
+            this.log += `--------======= Insurer Decision Notes =======--------<br><br>`;
             this.log += `<pre>${decisionMessage}</pre><br><br>`;
             this.log += `--------======= End =======--------<br><br>`;
             if (decision.toLowerCase().trim() === 'decline') {
