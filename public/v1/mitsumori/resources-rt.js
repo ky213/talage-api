@@ -33,6 +33,7 @@ async function getResources(req, res, next){
         case "_basic":
         case "_basic-created":
         case "_am-basic":
+        case "_am-basic-created":
             entityTypes(resources);
             if(req.query.agencyNetworkId){
                 await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId);

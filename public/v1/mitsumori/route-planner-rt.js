@@ -23,7 +23,7 @@ async function getNextRoute(req, res, next){
     let nextRouteName = null;
 
     // TODO: find a more graceful approach to this, if we have a bunch of basic pages things will get out of hand really fast
-    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_am-basic" || req.query.currentRoute === "_basic-created"){
+    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_am-basic" || req.query.currentRoute === "_am-basic-created" || req.query.currentRoute === "_basic-created"){
         nextRouteName = "_policies";
     }
     else {
