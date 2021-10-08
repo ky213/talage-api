@@ -32,7 +32,8 @@ const featureSchema = new Schema({
     abandonAppEmailsAgency: {type: Boolean, required: true, default: false},
     quoteAppBinding: {type: Boolean, required: true, default: false},
     appSingleQuotePath: {type: Boolean, required: true, default: false},
-    enableAgencyCodeField: {type: Boolean, required: true, default: false}
+    enableAgencyCodeField: {type: Boolean, required: true, default: false},
+    quickQuoteOnly: {type: Boolean, required: true, default: false}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
