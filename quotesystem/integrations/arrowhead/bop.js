@@ -187,7 +187,7 @@ module.exports = class ArrowheadBOP extends Integration {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
             const errorMessage = `There was an issue adding general questions to the application`;
-            log.error(errorMessage + `: ${e}`);
+            log.error(errorMessage + `: ${e}` + __location);
             return this.client_error(errorMessage, __location, e);
         }
 
@@ -209,6 +209,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE REQUEST ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
         // log.info("=================== QUOTE REQUEST ===================");
+        this.log += `=================== QUOTE REQUEST ===================<br><br>`;
         this.log += `--------======= Sending to Arrowhead =======--------<br><br>`;
         this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
         this.log += `URL: ${host}${path}<br><br>`;
@@ -259,6 +260,7 @@ module.exports = class ArrowheadBOP extends Integration {
             const error = result.data.error;
 
             this.reasons.push(`Arrowhead API Error: ${result.data}`);
+            this.log += `=================== QUOTE ERROR ===================<br><br>`;
             this.log += `--------======= Arrowhead Request Error =======--------<br><br>`;
             this.log += JSON.stringify(error, null, 2);
 
@@ -296,6 +298,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE RESULT ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         // log.info("=================== QUOTE RESULT ===================");
+        this.log += `=================== QUOTE RESULT ===================<br><br>`;
         this.log += `--------======= ${logPrefix} =======--------<br><br>`;
         this.log += `<pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
@@ -313,6 +316,9 @@ module.exports = class ArrowheadBOP extends Integration {
             this.log += `--------======= ${logPrefix} =======--------<br><br>`;
             this.log += `<pre>${decisionMessage}</pre><br><br>`;
             this.log += `--------======= End =======--------<br><br>`;
+            if (decision.toLowerCase().trim() === 'decline') {
+                return this.client_declined(decisionMessage);
+            }
         }
 
         let quoteNumber = null;
