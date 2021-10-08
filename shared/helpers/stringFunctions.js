@@ -413,17 +413,17 @@ exports.convertToDollarFormat = (str, trimDecimal = false) => {
     }
     
     if (typeof str !== "string") {
-        log.error(`convertToDollarFormat: Parameter str is not type string.`);
+        log.error(`convertToDollarFormat: Parameter str is not type string.` + __location);
         return str;
     }
 
     if (!str || !str.length > 0) {
-        log.error(`convertToDollarFormat: No string provided, cannot convert.`);
+        log.error(`convertToDollarFormat: No string provided, cannot convert.` + __location);
         return str;
     }
     
     if (isNaN(parseFloat(str, 10))) {
-        log.error(`convertToDollarFormat: Provided string cannot be converted to a number.`);
+        log.error(`convertToDollarFormat: Provided string cannot be converted to a number. string ${str}` + __location);
         return str;
     }
 
