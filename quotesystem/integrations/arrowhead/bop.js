@@ -40,19 +40,22 @@ module.exports = class ArrowheadBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote() {
+        // Get Subscription Key
+        let subscriptionKey = null;
+        if (this.username) {
+            subscriptionKey = this.username;
+        }
+
         // Determine which URL to use
         let host = null; 
         let path = null; 
-        let subscriptionKey = null;
         if (this.insurer.useSandbox) {
             host = 'https://stag-api.nationalprograms.io';
             path = '/Quote/v0.2-beta/CreateQuote';
-            subscriptionKey = this.insurer.test_username;
         }
         else {
             host = 'bad';
             path = 'bad';
-            subscriptionKey = this.insurer.username;
         }
 
         // "Other" is not included, as anything not below is defaulted to it
