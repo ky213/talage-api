@@ -10,11 +10,6 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
-/**
- * 
- * NOTE: This integration treats Arrowhead Wendy's as a unique insurer
- */
-
 'use strict';
 
 const Integration = require('../Integration.js');
@@ -45,6 +40,12 @@ module.exports = class ArrowheadBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote() {
+        // Get Subscription Key
+        let subscriptionKey = null;
+        if (this.username) {
+            subscriptionKey = this.username;
+        }
+
         // Determine which URL to use
         let host = null; 
         let path = null; 
@@ -185,7 +186,9 @@ module.exports = class ArrowheadBOP extends Integration {
         try {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
-            return this.client_error(`There was an issue adding general questions to the application`, __location, e);
+            const errorMessage = `There was an issue adding general questions to the application`;
+            log.error(errorMessage + `: ${e}`);
+            return this.client_error(errorMessage, __location, e);
         }
 
         // TODO: Update question sheet, make this building-level question, not general question...
@@ -217,7 +220,7 @@ module.exports = class ArrowheadBOP extends Integration {
             "Cache-Control": "no-cache",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
+            "Ocp-Apim-Subscription-Key": subscriptionKey
         }
 
         let calloutFailure = true;
@@ -606,6 +609,7 @@ module.exports = class ArrowheadBOP extends Integration {
         
         // parent questions
         const contractorCoverage = [];
+        const contractorScheduled = [];
         const datcom = [];
         const cyber = [];
         const edol = [];
@@ -634,7 +638,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "conToolsCovType":
                 case "blanketLimitNoMin":
                 case "itemSubLimitText":
-                case "conscd.equips.desc":
                 case "nonownTools.limit":
                 case "empTools.limit":
                     contractorCoverage.push({id, answer});
@@ -645,11 +648,14 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "empTools.includeInd":
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
                     break;
-                case "conscd.equips.val":
-                    contractorCoverage.push({id, answer: this.convertToInteger(answer)});
-                    break;
                 case "actualCashValueInd":
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    break;
+                case "conscd.equips.desc":
+                    contractorScheduled.push({id, answer});
+                    break;
+                case "conscd.equips.val":
+                    contractorScheduled.push({id, answer: this.convertToInteger(answer)});
                     break;
                 case "eqpbrk":
                     bbopSet.coverages.eqpbrk = {
@@ -713,21 +719,21 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "stopGapLimit":
                     // Limit applies to up to four separate states if those states are present on the application
                     if (applicationDocData.locations.find(loc => loc.state === 'WA')) {
-                        bbopSet.coverages.stopGapWA = {limit: answer};
+                        bbopSet.coverages.stopwa = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'WY')) {
-                        bbopSet.coverages.stopGapWY = {limit: answer};
+                        bbopSet.coverages.stopwy = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'ND')) {
-                        bbopSet.coverages.stopGapND = {limit: answer};
+                        bbopSet.coverages.stopnd = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'OH')) {
-                        bbopSet.coverages.stopGapOH = {limit: answer};
+                        bbopSet.coverages.stopoh = {limit: answer};
                     }
                     break;
                 case "moldIncl":
                     bbopSet.coverages.mold = {
-                        IncludeInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "moldIncl.stateException":
@@ -747,7 +753,10 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "schedBookFloater.limit":
-                    schedBookFloater.push({id: "limit", answer});
+                    schedBookFloater.push({id: "limit", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.description":
+                    schedBookFloater.push({id: "description", answer});
                     break;
                 case "nonOwnedAutoLiab":
                     // This question populates both nonown and hired auto in arrowhead request
@@ -762,7 +771,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     nonOwnedAutoLiab.push({id: "exposure", answer});
                     break;
                 case "liquorLiab":
-                    bbopSet.coverages.liqLia = {
+                    bbopSet.coverages.liqlia = {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
@@ -853,6 +862,28 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
             }
         }
+        // hydrate Contractors' Scheduled coverage with child question data, if any exist
+        if (contractorScheduled.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("conscd")) {
+                bbopSet.coverages.conscd = {
+                    equips: [{}]
+                };
+            }
+            contractorScheduled.forEach(({id, answer}) => {
+                switch (id) {
+                    case "conscd.equips.desc":
+                        bbopSet.coverages.conscd.equips[0].desc = answer;
+                        break;
+                    case "conscd.equips.val":
+                        bbopSet.coverages.conscd.equips[0].val = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Contractors' Installation Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
         // hydrate Contractors' Installation coverage with child question data, if any exist
         if (contractorCoverage.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("conins")) {
@@ -1013,8 +1044,8 @@ module.exports = class ArrowheadBOP extends Integration {
 
         // hydrate Liquor Liability coverage with child question data, if any exist
         if (liquorLiab.length > 0) {
-            if (!bbopSet.coverages.hasOwnProperty("liqLia")) {
-                bbopSet.coverages.liqLia = {
+            if (!bbopSet.coverages.hasOwnProperty("liqlia")) {
+                bbopSet.coverages.liqlia = {
                     includeInd: true
                 }
             }
@@ -1025,7 +1056,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "salesTotal":
                     case "salesLiquor":
                     case "premOp":
-                        bbopSet.coverages.liqLia[id] = answer;
+                        bbopSet.coverages.liqlia[id] = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Liquor Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
@@ -1060,17 +1091,31 @@ module.exports = class ArrowheadBOP extends Integration {
                     includeInd: true
                 }
             }
+            if (!bbopSet.coverages.schdbk.hasOwnProperty("equips")) {
+                bbopSet.coverages.schdbk.equips = [{}];
+            }
             schedBookFloater.forEach(({id, answer}) => {
                 switch (id) {
                     case "limit":
-                        bbopSet.coverages.schdbk[id] = answer;
+                        bbopSet.coverages.schdbk.equips[0].val = answer;
+                        break;
+                    case "description":
+                        bbopSet.coverages.schdbk.equips[0].desc = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Scheduled Book and Manuscript Floater coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             });
+            bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
+                let addVal = 0;
+                if (elem.val){
+                    addVal = elem.val;
+                }
+                return sum + addVal;
+            }, 0));
         }
+
 
         // hydrate dentist/physician equipment coverage with child question data, if any exist
         if (dentistEquip.length > 0) {
@@ -1264,7 +1309,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         }; 
                         break;
                     case "spoil.limit":
-                        spoil.push({id: "limit", answer});
+                        spoil.push({id: "spoilageLimit", answer: this.convertToInteger(answer)});
                         break;
                     case "spoil.breakCont.refrigMaint":
                         spoil.push({id: "refrigerationInd", answer: this.convertToBoolean(answer)});
@@ -1273,7 +1318,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         spoil.push({id: "breakContInd", answer: this.convertToBoolean(answer)});
                         break;
                     case "spoil.stockDesc":
-                        spoil.push({id: "description", answer});
+                        spoil.push({id: "spoilageDescription", answer});
                         break;
                     case "spoil.powerOut":
                         spoil.push({id: "powerOutInd", answer: this.convertToBoolean(answer)});
@@ -1755,10 +1800,10 @@ module.exports = class ArrowheadBOP extends Integration {
                 spoil.forEach(({id, answer}) => {
                     switch (id) {
                         case "breakContInd":
-                        case "description":
+                        case "spoilageDescription":
                         case "powerOutInd":
                         case "refrigerationInd":
-                        case "limit":
+                        case "spoilageLimit":
                             building.coverages.spoil[id] = answer;
                             break;
                         default:
