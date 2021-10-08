@@ -17,16 +17,16 @@ async function putChangePassword(req, res, next){
     // Security Note: The validateJWT function was not called here because in the password reset function a modified JWT is issued that only contains a userId
 
     // Make sure this user is authenticated
-    if(!Object.prototype.hasOwnProperty.call(req, 'authentication')){
-        log.info('Forbidden: User is not authenticated');
-        return next(serverHelper.forbiddenError('User is not authenticated'));
-    }
+    // if(!Object.prototype.hasOwnProperty.call(req, 'authentication')){
+    //     log.info('Forbidden: User is not authenticated' + __location);
+    //     return next(serverHelper.forbiddenError('User is not authenticated'));
+    // }
 
-    // Make sure the authentication payload has everything we are expecting
-    if(!Object.prototype.hasOwnProperty.call(req.authentication, 'userID')){
-        log.info('Forbidden: JWT payload is missing parameters');
-        return next(serverHelper.forbiddenError('User is not properly authenticated'));
-    }
+    // // Make sure the authentication payload has everything we are expecting
+    // if(!Object.prototype.hasOwnProperty.call(req.authentication, 'userID')){
+    //     log.info('Forbidden: JWT payload is missing parameters' + __location);
+    //     return next(serverHelper.forbiddenError('User is not properly authenticated'));
+    // }
 
     // Check for data
     if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
@@ -71,6 +71,6 @@ async function putChangePassword(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addPut('Change Password', `${basePath}/change-password`, putChangePassword);
-    server.addPut('Change Password (depr)', `${basePath}/changePassword`, putChangePassword);
+    server.addPutAuthNotAP('Change Password', `${basePath}/change-password`, putChangePassword);
+    server.addPutAuthNotAP('Change Password (depr)', `${basePath}/changePassword`, putChangePassword);
 };
