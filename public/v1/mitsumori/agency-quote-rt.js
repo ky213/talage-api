@@ -76,6 +76,7 @@ function parseQuoteURL(url) {
     }
 
     const reservedPageSlugs = [
+        "_am-congrats",
         "_congrats",
         "_reach-out",
         "_basic",
@@ -84,7 +85,6 @@ function parseQuoteURL(url) {
         "_business-questions",
         "_am-pricing",
         "_pricing",
-        "_coverage-requested",
         "_locations",
         "_am-locations",
         "_mailing-address",
