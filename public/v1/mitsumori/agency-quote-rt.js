@@ -82,6 +82,7 @@ function parseQuoteURL(url) {
         "_am-basic",
         "_policies",
         "_business-questions",
+        "_am-pricing",
         "_pricing",
         "_coverage-requested",
         "_locations",
