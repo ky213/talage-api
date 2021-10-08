@@ -598,6 +598,8 @@ async function getApplications(req, res, next){
         if(req.params.searchText.length > 2){
             const uuid = {uuid: `%${req.params.searchText}%`}
             orClauseArray.push(uuid);
+            const agencyCode = {agencyCode: `%${req.params.searchText}%`}
+            orClauseArray.push(agencyCode);
         }
 
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
@@ -729,7 +731,7 @@ async function getApplications(req, res, next){
 
     }
     catch(err){
-        log.error(`Error Getting application doc JSON.stringify(requestParms) JSON.stringify(query)` + err + __location)
+        log.error(`Error Getting application doc JSON.stringify(requestParms) JSON.stringify(query) error:` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 

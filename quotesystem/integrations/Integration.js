@@ -1169,10 +1169,6 @@ module.exports = class Integration {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
-            // if (!this.quoteId) {
-            //     this.quoteId = await this.run_pricing(null, quoteStatus.initiated.description);
-            // }
-
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();

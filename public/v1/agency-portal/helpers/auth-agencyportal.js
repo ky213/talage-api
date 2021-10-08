@@ -83,12 +83,12 @@ exports.validateJWT = async function(req, permission, permissionType) {
 
         // Make sure this user is authenticated
         if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
-            log.info('Forbidden: User is not authenticated');
+            log.info('Forbidden: User is not authenticated' + __location);
             return 'User is not authenticated';
         }
         // Make sure the authentication payload has everything we are expecting
         if (!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID') || !Object.prototype.hasOwnProperty.call(req.authentication, 'permissions')) {
-            log.info('Forbidden: JWT payload is missing parameters');
+            log.info('Forbidden: JWT payload is missing parameters' + __location);
             return 'User is not properly authenticated';
         }
 
@@ -139,7 +139,7 @@ exports.validateJWT = async function(req, permission, permissionType) {
         if (req.authentication.isAgencyNetworkUser === true && req.authentication.agencyNetworkId) {
             // Validate the agency network ID
             if (!await validator.is_valid_id(req.authentication.agencyNetworkId)) {
-                log.info('Forbidden: User is not authenticated (agencyNetwork)');
+                log.info('Forbidden: User is not authenticated (agencyNetwork)' + __location);
                 return 'User is not properly authenticated';
             }
         }
