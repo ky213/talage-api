@@ -1017,7 +1017,7 @@ async function createQuoteSummary(quote, returnAllQuotes = false) {
         return quoteSummary;
 
     }
-    else if(quote.quoteStatusId === quoteStatus.quoted_referred.id){
+    else if(quote.quoteStatusId === quoteStatus.declined.id){
         // Return a declined quote summary
         //TODO full quote object for the carrier response json is available.
         return {
