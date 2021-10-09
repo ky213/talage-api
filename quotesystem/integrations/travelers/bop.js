@@ -127,8 +127,19 @@ module.exports = class AcuityWC extends Integration {
             let sprinkleredPercent = 0;
             let sprinklerSystemTypeCode = "NONE"
             if (location?.bop?.sprinklerEquipped) {
-                sprinkleredPercent = 100;
-                sprinklerSystemTypeCode = "AF"
+                const sprinkleredPercentQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "sprinkleredPercent");
+                const sprinklerSystemTypeCodeQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "sprinklerSystemTypeCode");
+                if(sprinkleredPercentQuestion){
+                    sprinkleredPercent = parseInt(sprinkleredPercentQuestion.answerValue,10);
+                    if(!sprinkleredPercent){
+                        sprinkleredPercent = 0;
+                    }
+                }
+
+                if(sprinklerSystemTypeCodeQuestion){
+                    const answerParts = sprinklerSystemTypeCodeQuestion.answerValue.split("-")
+                    sprinklerSystemTypeCode = answerParts[0].trim();
+                }
             }
             ////"sprinklerSystemTypeCode": "Valid values are 'LS', 'AF', 'NONE' - LS (Life Safety Only) - AF (Automatic Fire Protection/Extinguishing) - NONE (None)",
             //Need question
@@ -418,20 +429,6 @@ module.exports = class AcuityWC extends Integration {
                 "eligibility": {}
             }
         };
-        //  "eligibility": {
-        //                 "buffetOrAllYouCanEatRestaurantInd": true,
-        //                 "danceFloorOrDjOrLiveEntertainmentInd": false,
-        //                 "homeBasedBusinessOrHabitationalOccupanciesInd": false,
-        //                 "industrialMachineryOrEquipmentInd": false,
-        //                 "occupancyRateIsBelow70PctInd": false,
-        //                 "occupancyRateIsBelow80PctInd": false,
-        //                 "openFlameFryingGrillingNoAutomaticExtinguishingSystemInd": false,
-        //                 "openPast2AmInd": false,
-        //                 "openPastMidnightInd": false,
-        //                 "propertyManagementInd": false,
-        //                 "saleRepairBulkStorageTiresInd": false,
-        //                 "sellServiceMotorcyclesRvsBoatsEmergencyOffRoadVehiclesInd": false,
-        //                 "seniorLivingFacilitiesAssistedLivingIndependentLivingInd": false
 
         const eligibilityPropList = [
             "buffetOrAllYouCanEatRestaurantInd",
