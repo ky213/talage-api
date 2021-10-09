@@ -65,6 +65,7 @@ const QuestionSchema = new Schema({
 const locationBOPPolicySchema = new Schema({
     fireAlarmType: {type: String, required: false},
     sprinklerEquipped: {type: Boolean, required: false},
+    sprinklerPercentCoverage: {type: Number, required: false},
     roofingImprovementYear: {type: Number, required: false},
     wiringImprovementYear: {type: Number, required: false},
     heatingImprovementYear: {type: Number, required: false},

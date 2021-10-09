@@ -190,8 +190,12 @@ module.exports = class AcuityWC extends Integration {
         const legalEntityMap = {
             'Association': 'AS',
             'Corporation': 'CP',
+            "Corporation (C-Corp)": 'CP',
+            "Corporation (S-Corp)": 'CP',
             'Limited Liability Company': 'LL',
             'Limited Partnership': 'LP',
+            "Limited Liability Company (Member Managed)": 'LL',
+            "Limited Liability Company (Manager Managed)": 'LL',
             'Partnership': 'GP',
             'Sole Proprietorship': 'SolePrp',
             'Other': 'OT'
@@ -268,9 +272,17 @@ module.exports = class AcuityWC extends Integration {
         const claimCountCurrentPolicy = claims[1].count;
         const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
         const claimObjects = this.getClaims(applicationDocData.claims);
+
+        let primaryContact = appDoc.contacts.find(c => c.primary);
+        if(!primaryContact && appDoc.contacts.length > 0){
+            primaryContact = appDoc.contacts[0]
+        }
+        else if (!primaryContact){
+            primaryContact = {};
+        }
         let contactPhone = '';
         try{
-            contactPhone = this.app.business.contacts[0].phone.toString()
+            contactPhone = primaryContact.phone.toString()
         }
         catch(err){
             log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
@@ -279,7 +291,7 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Create the quote request
         const quoteRequestData = {
-            "requestId": this.generate_uuid(),
+            "requestId": this.quoteId,
             "sessionId": this.generate_uuid(),
             "policyEffectiveDate": this.policy.effective_date.format("YYYY-MM-DD"),
             "policyExpirationDate": this.policy.expiration_date.format("YYYY-MM-DD"),
@@ -296,21 +308,21 @@ module.exports = class AcuityWC extends Integration {
                 "tradeDBALine1": this.app.business.dba ? this.app.business.dba : "",
                 "tradeDBALine2": "",
                 "FEIN": appDoc.ein,
-                "legalEntity": legalEntityMap[this.app.business.locations[0].business_entity_type],
+                "legalEntity": legalEntityMap[appDoc.entityType],
                 "address": {
-                    "mailingAddress": this.app.business.mailing_address,
-                    "mailingAddressLine2": this.app.business.mailing_address2 ? this.app.business.mailing_address2 : "",
-                    "mailingCity": this.app.business.mailing_city,
-                    "mailingState": this.app.business.mailing_state_abbr,
-                    "mailingZipcode": this.app.business.mailing_zipcode,
+                    "mailingAddress": appDoc.mailingAddress,
+                    "mailingAddressLine2": appDoc.mailingAddress ? appDoc.mailingAddress : "",
+                    "mailingCity": appDoc.mailingCity,
+                    "mailingState": appDoc.mailingState,
+                    "mailingZipcode": appDoc.mailingZipcode.slice(0,5),
                     "insuredPhoneNumber": "1" + contactPhone
                 },
                 "contact": {
-                    "firstName": this.app.business.contacts[0].first_name,
-                    "lastName": this.app.business.contacts[0].last_name,
+                    "firstName": primaryContact.firstName,
+                    "lastName": primaryContact.lastName,
                     "middleInitial": ""
                 },
-                "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : "",
+                "insuredEmailAddress": primaryContact.email ? primaryContact.email : "",
                 "insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
             "businessInfo": {"locations": await this.getLocationList()},
