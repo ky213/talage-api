@@ -88,7 +88,7 @@ module.exports = class AcuityWC extends Integration {
     }
 
 
-    getClaims = (claims) => {
+    async getClaims(claims, appId) {
         claims = claims.filter(c => c.policyType === "BOP");
 
         if (claims.length === 0) {
@@ -97,21 +97,26 @@ module.exports = class AcuityWC extends Integration {
 
         const requestClaims = [];
         //Claim question for cause/type (see liberty )
-        claims.forEach(claim => {
+        for(const claim of claims){
             let causeCode = "OTHR"
-            const claimTypeQuestion = claim.questions.find(question => question.insurerQuestionIdentifier === 'claim_lossType');
-            if (claimTypeQuestion) {
-                causeCode = lossCauseCodeMatrix[claimTypeQuestion.answerValue.trim()];
-                if (!causeCode) {
-                    causeCode = 'OTHR';
+            const claimQuestionIds = claim.questions.map(question => question.questionId);
+            const insurerClaimQuestions = await this.getInsurerQuestionsByTalageQuestionId('claim', claimQuestionIds, ['BOP']);
+            for (const question of claim.questions) {
+                const insurerClaimQuestion = insurerClaimQuestions.find(icq => icq.talageQuestionId === question.questionId);
+                if (insurerClaimQuestion.identifier === 'claim_lossType') {
+                    causeCode = lossCauseCodeMatrix[question.answerValue.trim()];
+                    if (!causeCode) {
+                        causeCode = 'OTHR';
+                    }
                 }
             }
+
             requestClaims.push({
                 "date": claim.eventDate,
                 "totalPaidAmount": claim.amountPaid,
                 "cause": causeCode
             });
-        });
+        };
 
         return requestClaims;
     }
@@ -344,7 +349,7 @@ module.exports = class AcuityWC extends Integration {
         const claims = this.claims_to_policy_years();
         const claimCountCurrentPolicy = claims[1].count;
         //const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
-        const claimObjects = this.getClaims(appDoc.claims);
+        const claimObjects = await this.getClaims(appDoc.claims, appDoc.applicationId);
 
         let primaryContact = appDoc.contacts.find(c => c.primary);
         if(!primaryContact && appDoc.contacts.length > 0){
@@ -416,16 +421,13 @@ module.exports = class AcuityWC extends Integration {
                 "yearBusinessEstablished": parseInt(this.app.business.founded.format("YYYY"),10),
                 totalNumberOfEmployees: totalNumberOfEmployees,
                 priorYearsLossCount: claimCountCurrentPolicy,
-                //"priorPolicyExpirationDate": ,
-                // "threeYearsManagementExperienceInd": true,
-                // "operateAsGeneralContractorInd": true
-                //"priorPolicyExpirationDate": "2020-01-01",
                 // "medicalPaymentsLimitAmount": "Valid values are 0, 500, 1000, 5000, 10000 - 0 - 500 - 1000 - 5000 - 10000",
                 "propertyDeductibleAmount": bopPropertyDeductbile, // "Valid values are 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 75000 - 250 - 500 - 1000 - 2500 - 5000 - 10000 - 25000 - 50000 - 75000",
                 "GLPropertyDamageDeductibleAmount": bopDeductbile, // "Valid values are 0, 250, 500, 1000 - 0 - 250 - 500 - 1000",
                 "GLPerOccurrenceLimitAmount": policyOccurrenceLimit,
                 "GLAggregateLimitAmount": policyAggLimit,
-                //"GLProductsCompletedOperationsLimitAmount": "Valid values are 1000000, 2000000, 4000000 - 1000000 - 2000000 - 4000000",
+                "GLProductsCompletedOperationsLimitAmount": policyAggLimit,
+                //"GLProductsCompletedOperationsLimitAmount": "Valid values are 1000000, 2000000, 4000000 - 1000000 - 2000000 - 4000000",  Same as agg limits
                 "eligibility": {}
             }
         };
