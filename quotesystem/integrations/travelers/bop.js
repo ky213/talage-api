@@ -116,7 +116,7 @@ module.exports = class AcuityWC extends Integration {
                 "totalPaidAmount": claim.amountPaid,
                 "cause": causeCode
             });
-        };
+        }
 
         return requestClaims;
     }

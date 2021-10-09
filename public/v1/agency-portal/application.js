@@ -2072,7 +2072,8 @@ async function SendApplicationLinkEmail(reqBody, hash){
     let recipients = ``;
     if(reqBody.emailAddress === reqBody.agentEmail){
         recipients = `${reqBody.emailAddress}`
-    }else {
+    }
+    else {
         recipients = `${reqBody.emailAddress},${reqBody.agentEmail}`
     }
     // TODO: should we use agency.email or agency location email?
