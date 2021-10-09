@@ -88,7 +88,7 @@ module.exports = class AcuityWC extends Integration {
     }
 
 
-    async getClaims(claims, appId) {
+    async getClaims(claims) {
         claims = claims.filter(c => c.policyType === "BOP");
 
         if (claims.length === 0) {
