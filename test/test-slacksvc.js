@@ -10,7 +10,7 @@ var assert = require('chai').assert;
 var should = require('chai').should();
 var simple = require('simple-mock');
 //var rewire = require('rewire');
-var sinon = require('sinon');
+//var sinon = require('sinon');
 //const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 var testGlobal = require('./test.js');
