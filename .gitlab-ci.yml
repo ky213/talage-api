@@ -10,8 +10,6 @@ eslint:
         when: never
       - if: '$CI_COMMIT_BRANCH == "develop"'
       - when: never
-   # allow this job to be interrupted by a newer job
-   interruptible: true
    script:
       - npm install eslint
       - node_modules/eslint/bin/eslint.js .
