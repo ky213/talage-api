@@ -1261,7 +1261,7 @@ module.exports = class Application {
                 for (const question of this.applicationDocData.questions) {
                     if (question.questionId && !question.hidden) {
                         try {
-                            validateQuestion(question, logValidationErrors);
+                            validateQuestion(this.applicationDocData, question, logValidationErrors);
                         }
                         catch (e) {
                             // This issue should not result in a stoppage of quoting with all insurers

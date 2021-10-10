@@ -24,7 +24,7 @@ const buff = Buffer.from(fileContent);
 const fileContent64 = buff.toString('base64');
 const successJSON = {'code': 'Success'};
 
-        // const fileBuffer = Buffer.from(fileContent64, 'base64');
+// const fileBuffer = Buffer.from(fileContent64, 'base64');
 
 describe("Filesvc - Get ", function (){
     //let sandbox = null;
@@ -45,8 +45,8 @@ describe("Filesvc - Get ", function (){
 
     afterEach(function(done) {
         //simple.restore();
-      simple.restore()
-       done();
+        simple.restore()
+        done();
     });
 
     it('Filesvc.get - good', function(done){
@@ -133,8 +133,8 @@ describe("Filesvc - GetFileList ", function (){
     });
 
     afterEach(function(done) {
-       simple.restore()
-       done();
+        simple.restore()
+        done();
     });
 
     it('Filesvc.get - good', function(done){
@@ -142,20 +142,20 @@ describe("Filesvc - GetFileList ", function (){
         s3RespObj = {
             "IsTruncated": false,
             "Contents": [
-              {
-                "Key": "public/agency-banners/",
-                "LastModified": "2020-01-01T02:28:42.000Z",
-                "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
-                "Size": 0,
-                "StorageClass": "STANDARD"
-              },
-              {
-                "Key": "public/agency-banners/barber.jpg",
-                "LastModified": "2020-01-03T00:34:24.000Z",
-                "ETag": "\"a480c8448a1446e588e1ebfb8dc3692d\"",
-                "Size": 102232,
-                "StorageClass": "STANDARD"
-              }
+                {
+                    "Key": "public/agency-banners/",
+                    "LastModified": "2020-01-01T02:28:42.000Z",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                },
+                {
+                    "Key": "public/agency-banners/barber.jpg",
+                    "LastModified": "2020-01-03T00:34:24.000Z",
+                    "ETag": "\"a480c8448a1446e588e1ebfb8dc3692d\"",
+                    "Size": 102232,
+                    "StorageClass": "STANDARD"
+                }
             ]
         };
         simple.mock(global.s3, 'listObjectsV2').callbackWith(null, s3RespObj);
@@ -204,7 +204,6 @@ describe("Filesvc - Putfile ", function (){
     //let sandbox = null;
 
 
-
     beforeEach(function(done) {
         simple.mock(log, 'error').callFn(function () {});
         simple.mock(log, 'warn').callFn(function () {});
@@ -220,8 +219,8 @@ describe("Filesvc - Putfile ", function (){
     });
 
     afterEach(function(done) {
-       simple.restore()
-       done();
+        simple.restore()
+        done();
     });
 
     it('Filesvc.PutFile - good', function(done){
@@ -347,8 +346,8 @@ describe("Filesvc - DELETE ", function (){
 
     afterEach(function(done) {
         //simple.restore();
-      simple.restore()
-       done();
+        simple.restore()
+        done();
     });
 
     it('Filesvc.deleteFile - good', function(done){

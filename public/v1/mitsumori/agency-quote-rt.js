@@ -318,8 +318,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         }
         // grab the first page for agency network if custom flow exists
         let customFlowObj = null;
-        customFlowObj =  agencyNetworkJSON.quoteAppCustomRouting;
-            // set the first page so landing page knows where to send user
+        customFlowObj = agencyNetworkJSON.quoteAppCustomRouting;
+        // set the first page so landing page knows where to send user
         const listOfPossibleFirstPages = ['_basic', '_am-basic']
         let firstPage = null;
         if(customFlowObj && typeof customFlowObj === 'object'){
@@ -333,12 +333,12 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 log.debug(firstRoute);
                 log.debug(listOfPossibleFirstPages);
                 if(listOfPossibleFirstPages.indexOf(firstRoute) !== -1){
-                        firstPage = firstRoute;
+                    firstPage = firstRoute;
                 }
             }
         }
         agencyWebInfo.landingPageFirstRoute = firstPage;
-        log.debug(JSON.stringify(agencyWebInfo)); 
+        log.debug(JSON.stringify(agencyWebInfo));
     }
     catch (err) {
         log.error(`Could not parse landingPageContent/meta in agency ${agencySlug}: ${err} ${__location}`);
