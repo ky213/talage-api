@@ -11,6 +11,7 @@ workflow:
       - if: '$CI_COMMIT_BRANCH == "develop"'
       - when: never
 
+
 # run linter
 eslint:
    # allow this job to be interrupted by a newer job
