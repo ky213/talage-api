@@ -76,7 +76,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
         log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
     }
 
-    if(agencyNetworkId == null){
+    if(agencyNetworkId === null){
         if(!application){
             application = await getApplication(appId);
         }

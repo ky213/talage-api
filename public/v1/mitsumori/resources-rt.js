@@ -41,7 +41,6 @@ async function getResources(req, res, next){
             break;
         case "_policies":
             await policyHelper.populatePolicyResources(resources, req.query.appId);
-            
             break;
         case "_business-questions":
             membershipTypes(resources);
@@ -111,7 +110,8 @@ const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
         if(applicationDB){
             agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
         }
-    }else {
+    }
+    else {
         agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
     }
 
@@ -121,9 +121,9 @@ const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
     const agencyCodeField = agencyNetworkDB?.featureJson.enableAgencyCodeField === true;
     // get the agency network features we care about here.
     resources.agencyNetworkFeatures = {
-        quoteAppBinding,
-        appSingleQuotePath,
-        agencyCodeField
+        quoteAppBinding: quoteAppBinding,
+        appSingleQuotePath: appSingleQuotePath,
+        agencyCodeField: agencyCodeField
     };
 }
 
