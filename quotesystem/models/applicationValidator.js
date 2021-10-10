@@ -600,11 +600,12 @@ const validatePolicies = (applicationDocData) => {
 
 /**
  * Checks that the data supplied is valid
+ * @param {object} applicationDocData - The question
  * @param {string} question - The question
  * @param {boolean} logValidationErrors - true = log.error is written
  * @returns {void}
  */
-const validateQuestion = async(question, logValidationErrors = true) => {
+const validateQuestion = async(applicationDocData, question, logValidationErrors = true) => {
     // If this question is not required, just return true
     if (!question.required) {
         return;
