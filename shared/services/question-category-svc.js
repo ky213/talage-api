@@ -9,7 +9,7 @@ const questionCategories = [
     },
     {
         "categorySortNumber": 3,
-        "categoryName":"WorkCondidtions"
+        "categoryName":"WorkConditions"
     },
     {
         "categorySortNumber": 10,
