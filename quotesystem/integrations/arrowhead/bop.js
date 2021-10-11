@@ -312,7 +312,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 });
             }
 
-            this.log += `--------======= Insurer Decision Notes =======--------<br><br>`;
+            this.log += `--------======= Insurer Decision Message =======--------<br><br>`;
             this.log += `<pre>${decisionMessage}</pre><br><br>`;
             this.log += `--------======= End =======--------<br><br>`;
             if (decision.toLowerCase().trim() === 'decline') {
