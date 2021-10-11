@@ -192,7 +192,8 @@ const socialEngLimitList = [
 const bopAndGlLimits = [
     "1000000/1000000/1000000",
     "1000000/2000000/1000000",
-    "1000000/2000000/2000000"
+    "1000000/2000000/2000000",
+    "2000000/4000000/4000000"
 ];
 
 // hard coded limits, user not able to change, if they select endorsement these values are set
