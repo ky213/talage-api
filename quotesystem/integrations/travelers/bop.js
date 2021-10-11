@@ -347,9 +347,8 @@ module.exports = class AcuityWC extends Integration {
             numberEmployeesPerShift = this.get_total_employees();
         }
 
-        const claims = this.claims_to_policy_years();
-        const claimCountCurrentPolicy = claims[1].count;
-        //const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
+        //Already filtered for policyType
+        const claimCountCurrentPolicy = this.policy.claims.length;
         const claimObjects = await this.getClaims(appDoc.claims, appDoc.applicationId);
 
         let primaryContact = appDoc.contacts.find(c => c.primary);
