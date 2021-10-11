@@ -3,6 +3,7 @@
 
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const travelersStagingHost = "swi-qa.travelers.com";
 const travelersStagingBasePath = "/biswi/api/qa/qi/bop/1-0-0";
@@ -361,6 +362,7 @@ module.exports = class AcuityWC extends Integration {
         let contactPhone = '';
         try{
             contactPhone = primaryContact.phone.toString()
+            contactPhone = stringFunctions.santizeNumber(contactPhone, false);
         }
         catch(err){
             log.error(`${logPrefix} Unable to get contact phone. error: ${err} ` + __location);
@@ -402,7 +404,7 @@ module.exports = class AcuityWC extends Integration {
                 "legalEntity": legalEntityMap[appDoc.entityType],
                 "address": {
                     "mailingAddress": appDoc.mailingAddress,
-                    "mailingAddressLine2": appDoc.mailingAddress ? appDoc.mailingAddress : "",
+                    "mailingAddressLine2": appDoc.mailingAddress2 ? appDoc.mailingAddress2 : "",
                     "mailingCity": appDoc.mailingCity,
                     "mailingState": appDoc.mailingState,
                     "mailingZipcode": appDoc.mailingZipcode.slice(0,5),
