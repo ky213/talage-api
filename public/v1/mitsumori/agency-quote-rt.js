@@ -76,13 +76,17 @@ function parseQuoteURL(url) {
     }
 
     const reservedPageSlugs = [
+        "_am-congrats",
         "_congrats",
         "_reach-out",
         "_basic",
+        "_am-basic",
         "_policies",
         "_business-questions",
+        "_am-pricing",
         "_pricing",
         "_locations",
+        "_am-locations",
         "_mailing-address",
         "_claims",
         "_officers",
@@ -312,6 +316,29 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 agencyWebInfo.footer_logo = agencyNetworkJSONDefault.footer_logo;
             }
         }
+        // grab the first page for agency network if custom flow exists
+        let customFlowObj = null;
+        customFlowObj = agencyNetworkJSON.quoteAppCustomRouting;
+        // set the first page so landing page knows where to send user
+        const listOfPossibleFirstPages = ['_basic', '_am-basic']
+        let firstPage = null;
+        if(customFlowObj && typeof customFlowObj === 'object'){
+            // const keys = Object.keys(customFlowObj);
+            const keys = Object.keys(customFlowObj);
+            log.debug(`keys: ${keys}`);
+            // const keys = [];
+            if(keys.length > 0){
+                // const firstRoute = customFlowObj[keys[0]];
+                const firstRoute = keys[0];
+                log.debug(firstRoute);
+                log.debug(listOfPossibleFirstPages);
+                if(listOfPossibleFirstPages.indexOf(firstRoute) !== -1){
+                    firstPage = firstRoute;
+                }
+            }
+        }
+        agencyWebInfo.landingPageFirstRoute = firstPage;
+        log.debug(JSON.stringify(agencyWebInfo));
     }
     catch (err) {
         log.error(`Could not parse landingPageContent/meta in agency ${agencySlug}: ${err} ${__location}`);
@@ -449,7 +476,8 @@ async function getAgencyLandingPage(req, res, next) {
         phone: landingPageLocation ? landingPageLocation.phone : null,
         address: agencyAddress,
         addressCityState: landingPageLocation ? `${landingPageLocation.city}, ${landingPageLocation.territory} ${landingPageLocation.zip}` : null,
-        ...agency.landingPageContent
+        ...agency.landingPageContent,
+        landingPageFirstRoute: agency.landingPageFirstRoute
     };
     if(agency.agencyLocationId){
         landingPage.agencyLocationId = agency.agencyLocationId;

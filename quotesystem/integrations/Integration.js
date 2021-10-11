@@ -345,6 +345,7 @@ module.exports = class Integration {
      * @returns {object} - Claims information lumped together by policy year
      */
     claims_to_policy_years() {
+        //Note:  this.policy.claims already filter to policyType
         const claims = {};
 
         // Get the effective date of the policy
@@ -1558,19 +1559,16 @@ module.exports = class Integration {
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
 
+
         //build mongo Document
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
-            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             agencyId: this.applicationDocData.agencyId,
-            agencyLocationId: this.applicationDocData.agencyLocationId,
+            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
-            quoteTimeSeconds: this.seconds,
-            effectiveDate: this.policy.effective_date,
-            expirationDate: this.policy.expiration_date 
-
+            quoteTimeSeconds: this.seconds
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {

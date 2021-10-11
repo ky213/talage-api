@@ -92,9 +92,7 @@ async function callback(req, res, next) {
         if (userGroupName === 'SuperAdministrator') {
             userGroupName = 'Super Administrator';
         }
-        const userGroup = _.get(await agencyPortalUserGroup.getList({
-            name: userGroupName
-        }), '[0]');
+        const userGroup = _.get(await agencyPortalUserGroup.getList({name: userGroupName}), '[0]');
         log.info(`found role (agency portal user group) for user: ${userGroupName}`);
         const user = await getUser(claims.preferred_username)
         if (!user) {
