@@ -163,10 +163,10 @@ module.exports = class AcuityWC extends Integration {
                 "buildings": [
                     {
                         "NAICSCode": naicsCode,
-                        "annualRevenueAmount": this.applicationDocData.grossSalesAmt,
+                        "annualRevenueAmount": this.applicationDocData.grossSalesAmt ? this.applicationDocData.grossSalesAmt : 0,
                         "limits": {
-                            "building": location.buildingLimit,
-                            "BPP": location.businessPersonalPropertyLimit//,
+                            "building": location.buildingLimit ? location.buildingLimit : 0 ,
+                            "BPP": location.businessPersonalPropertyLimit ? location.businessPersonalPropertyLimit : 0//,
                             //"TIB": 10000
                         },
                         "details": {
@@ -407,13 +407,13 @@ module.exports = class AcuityWC extends Integration {
                     "mailingCity": appDoc.mailingCity,
                     "mailingState": appDoc.mailingState,
                     "mailingZipcode": appDoc.mailingZipcode.slice(0,5),
-                    "insuredPhoneNumber": "1" + contactPhone
                 },
                 "businessPrincipal": {
                     "firstName": businessPrincipal.fname,
                     "lastName": businessPrincipal.lname,
                     "middleInitial": ""
                 },
+                "insuredPhoneNumber": "1" + contactPhone,
                 "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : ""
                 //"insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
