@@ -754,7 +754,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "moldIncl.stateException":
-                    mold.push({id: "GeorgiaStateException", answer: this.convertToBoolean(answer)});
+                    mold.push({id: "georgiaStateException", answer: this.convertToBoolean(answer)});
                     break;
                 case "dentistEuipFloater":
                     bbopSet.coverages.dentistEquip = {
@@ -1162,7 +1162,7 @@ module.exports = class ArrowheadBOP extends Integration {
             }
             mold.forEach(({id, answer}) => {
                 switch (id) {
-                    case "GeorgiaStateException":
+                    case "georgiaStateException":
                         bbopSet.coverages.mold[id] = answer;
                         break;
                     default:
