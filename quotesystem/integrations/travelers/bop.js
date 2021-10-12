@@ -163,10 +163,10 @@ module.exports = class AcuityWC extends Integration {
                 "buildings": [
                     {
                         "NAICSCode": naicsCode,
-                        "annualRevenueAmount": this.applicationDocData.grossSalesAmt,
+                        "annualRevenueAmount": this.applicationDocData.grossSalesAmt ? this.applicationDocData.grossSalesAmt : 0,
                         "limits": {
-                            "building": location.buildingLimit,
-                            "BPP": location.businessPersonalPropertyLimit//,
+                            "building": location.buildingLimit ? location.buildingLimit : 0 ,
+                            "BPP": location.businessPersonalPropertyLimit ? location.businessPersonalPropertyLimit : 0//,
                             //"TIB": 10000
                         },
                         "details": {
