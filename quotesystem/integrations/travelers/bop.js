@@ -362,6 +362,9 @@ module.exports = class AcuityWC extends Integration {
         try{
             contactPhone = primaryContact.phone.toString()
             contactPhone = stringFunctions.santizeNumber(contactPhone, false);
+            if(contactPhone.startsWith("1")){
+                contactPhone = contactPhone.substring(1);
+            }
         }
         catch(err){
             log.error(`${logPrefix} Unable to get contact phone. error: ${err} ` + __location);
@@ -413,7 +416,7 @@ module.exports = class AcuityWC extends Integration {
                     "lastName": businessPrincipal.lname,
                     "middleInitial": ""
                 },
-                "insuredPhoneNumber": "1" + contactPhone,
+                "insuredPhoneNumber": contactPhone,
                 "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : ""
                 //"insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
