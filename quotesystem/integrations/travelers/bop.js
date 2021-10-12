@@ -406,7 +406,7 @@ module.exports = class AcuityWC extends Integration {
                     "mailingAddressLine2": appDoc.mailingAddress2 ? appDoc.mailingAddress2 : "",
                     "mailingCity": appDoc.mailingCity,
                     "mailingState": appDoc.mailingState,
-                    "mailingZipcode": appDoc.mailingZipcode.slice(0,5),
+                    "mailingZipcode": appDoc.mailingZipcode.slice(0,5)
                 },
                 "businessPrincipal": {
                     "firstName": businessPrincipal.fname,
