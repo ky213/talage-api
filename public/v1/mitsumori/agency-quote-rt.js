@@ -642,7 +642,6 @@ async function getAgencyMetadata(req, res, next) {
     const metaObject = {
         wholesale: agencyJson.wholesale,
         metaAgencyId: agencyJson.agencyId,
-        // metaName: agencyJson.name,
         metaName: agencyName,
         metaPhone: landingPageLocation.phone,
         metaEmail: landingPageLocation.email,
