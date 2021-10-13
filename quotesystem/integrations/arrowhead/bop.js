@@ -579,8 +579,6 @@ module.exports = class ArrowheadBOP extends Integration {
                             plumbingUpdates: location.bop.plumbingImprovementYear,
                             electricalUpdates: location.bop.wiringImprovementYear
                         },
-                        sprinklered: location.bop.sprinklerEquipped,
-                        numStories: location.numStories, 
                         coverages: {
                             // this is required because classTag is set to "SALES"
                             liab: {
@@ -592,6 +590,20 @@ module.exports = class ArrowheadBOP extends Integration {
                     }
                 ]
             };
+
+            if (location.hasOwnProperty('numStories')){
+                locationObj.buildingList[0].numStories = location.numStories > 0 ? location.numStories : 1;
+            }
+            else {
+                locationObj.buildingList[0].numStories = 1;
+            }
+
+            if (location.hasOwnProperty('bop')) {
+                locationObj.buildingList[0].sprinklered = location.bop.hasOwnProperty('sprinklerEquipped') ? location.bop.sprinklerEquipped : false;
+            }
+            else {
+                locationObj.buildingList[0].sprinklered = false;
+            }
 
             if (location.state === 'NC') {
                 locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
@@ -742,7 +754,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "moldIncl.stateException":
-                    mold.push({id: "GeorgiaStateException", answer: this.convertToBoolean(answer)});
+                    mold.push({id: "georgiaStateException", answer: this.convertToBoolean(answer)});
                     break;
                 case "dentistEuipFloater":
                     bbopSet.coverages.dentistEquip = {
@@ -1150,7 +1162,7 @@ module.exports = class ArrowheadBOP extends Integration {
             }
             mold.forEach(({id, answer}) => {
                 switch (id) {
-                    case "GeorgiaStateException":
+                    case "georgiaStateException":
                         bbopSet.coverages.mold[id] = answer;
                         break;
                     default:
