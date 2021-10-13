@@ -863,7 +863,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     pharmLiab.push({id: "option", answer});
                     break;
                 case "pharmacistLiab.grossSales":
-                    pharmLiab.push({id: "grossSales", answer: this.convertToInteger(answer)});
+                    pharmLiab.push({id: "grossSales", answer: answer});
                     break;
                 case "pharmacistLiab.limit":
                     pharmLiab.push({id: "ilLimit", answer});
