@@ -262,10 +262,11 @@ module.exports = class QuestionBO{
                 const query = {"talageQuestionUuid": docId};
                 let newAgencyJSON = null;
                 try {
-                    const changeNotUpdateList = ["active",
+                    const changeNotUpdateList = [
                         "id",
                         "talageQuestionId",
-                        "talageQuestionUuid"]
+                        "talageQuestionUuid"
+                    ]
                     for (let i = 0; i < changeNotUpdateList.length; i++) {
                         if (newObjectJSON[changeNotUpdateList[i]]) {
                             delete newObjectJSON[changeNotUpdateList[i]];
