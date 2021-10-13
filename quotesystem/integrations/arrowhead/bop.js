@@ -917,22 +917,6 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "actualCashValueInd":
                         bbopSet.coverages.conins[id] = answer;
                         break;
-                    case "conscd.equips.desc":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.desc = answer;
-                        break;
-                    case "conscd.equips.val":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.val = answer;
-                        break;
                     case "nonownTools.includeInd":
                         if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
                             bbopSet.coverages.conins.nonownTools = {};
@@ -962,6 +946,10 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                 }
             });
+
+            if (!bbopSet.coverages.conins.hasOwnProperty('conToolsCovType') && (bbopSet.coverages.conins.hasOwnProperty('blanketLimitNoMin') || bbopSet.coverages.conins.hasOwnProperty('actualCashValueInd') || bbopSet.coverages.conins.hasOwnProperty('itemSubLimitText'))) {
+                bbopSet.coverages.conins.conToolsCovType = "Blanket Limit";
+            }
         }
 
         // hydrate Computer Fraud coverage with child question data, if any exist
