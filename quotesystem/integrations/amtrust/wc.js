@@ -441,6 +441,8 @@ module.exports = class AMTrustWC extends Integration {
     }
 
 
+    //***************** QUOTING *******************************************************************************
+
     /**
 	 * Requests a quote from AMTrust and returns. This request is not intended to be called directly.
 	 *
@@ -562,18 +564,20 @@ module.exports = class AMTrustWC extends Integration {
 
         let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
-        const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
-        if (einCheckResponse) {
-            // Don't stop quoting if the EIN check fails.
-            const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
-            if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
-                return this.client_declined("The EIN is blocked");
-            }
+        if(fein){
+            const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
+            if (einCheckResponse) {
+                // Don't stop quoting if the EIN check fails.
+                const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
+                if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
+                    return this.client_declined("The EIN is blocked");
+                }
 
-            log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
-            if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
-                && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
-                useQuotePut_OldQuoteId = true;
+                log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
+                if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
+                    && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
+                    useQuotePut_OldQuoteId = true;
+                }
             }
         }
         //find old quoteID
@@ -660,7 +664,10 @@ module.exports = class AMTrustWC extends Integration {
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
         }};
-
+        //it will error if fein is "".  It will price indicate without FEIN
+        if(!fein){
+            delete quoteRequestDataV2.Quote.Fein;
+        }
         // Add the unemployment number if required
         const requiredUnemploymentNumberStates = ["MN",
             "HI",
