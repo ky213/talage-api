@@ -937,6 +937,45 @@ module.exports = class MarkelWC extends Integration {
                     }
                 }
                 else {
+                    // collect payment information
+                    if (response[rquIdKey]?.paymentOptions) {
+                        this.insurerPaymentPlans = response[rquIdKey].paymentOptions;
+                        const paymentPlanIdMatrix = {
+                            30: 1,
+                            31: 2,
+                            32: 3,
+                            33: 4
+                        };
+
+                        const talagePaymentPlans = [];
+                        for (const paymentPlan of response[rquIdKey].paymentOptions) {
+                            if (!paymentPlanIdMatrix[paymentPlan.id]) {
+                                // we do not have a payment plan mapping for this insurer payment plan
+                                continue;
+                            }
+
+                            try {
+                                const talagePaymentPlan = {
+                                    paymentPlanId: paymentPlanIdMatrix[paymentPlan.id],
+                                    insurerPaymentPlanId: paymentPlan.id,
+                                    insurerPaymentPlanDescription: paymentPlan.description,
+                                    NumberPayments: paymentPlan.numberOfInstallments,
+                                    DepositPercent: paymentPlan.downPaymentPercent,
+                                    DownPayment: paymentPlan.deposit
+                                };
+    
+                                talagePaymentPlans.push(talagePaymentPlan);
+                            }
+                            catch (e) {
+                                log.warn(`${logPrefix}Unable to parse payment plan: ${e}. Skipping...`);
+                            }
+                        }
+
+                        if (talagePaymentPlans.length > 0) {
+                            this.talageInsurerPaymentPlans = talagePaymentPlans;
+                        }
+                    }
+
                     return this.return_result('quoted');
                 }
             }
