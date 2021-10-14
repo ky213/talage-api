@@ -579,8 +579,6 @@ module.exports = class ArrowheadBOP extends Integration {
                             plumbingUpdates: location.bop.plumbingImprovementYear,
                             electricalUpdates: location.bop.wiringImprovementYear
                         },
-                        sprinklered: location.bop.sprinklerEquipped,
-                        numStories: location.numStories, 
                         coverages: {
                             // this is required because classTag is set to "SALES"
                             liab: {
@@ -592,6 +590,20 @@ module.exports = class ArrowheadBOP extends Integration {
                     }
                 ]
             };
+
+            if (location.hasOwnProperty('numStories')){
+                locationObj.buildingList[0].numStories = location.numStories > 0 ? location.numStories : 1;
+            }
+            else {
+                locationObj.buildingList[0].numStories = 1;
+            }
+
+            if (location.hasOwnProperty('bop')) {
+                locationObj.buildingList[0].sprinklered = location.bop.hasOwnProperty('sprinklerEquipped') ? location.bop.sprinklerEquipped : false;
+            }
+            else {
+                locationObj.buildingList[0].sprinklered = false;
+            }
 
             if (location.state === 'NC') {
                 locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
@@ -742,7 +754,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     };
                     break;
                 case "moldIncl.stateException":
-                    mold.push({id: "GeorgiaStateException", answer: this.convertToBoolean(answer)});
+                    mold.push({id: "georgiaStateException", answer: this.convertToBoolean(answer)});
                     break;
                 case "dentistEuipFloater":
                     bbopSet.coverages.dentistEquip = {
@@ -839,7 +851,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         suppPropDmg.push({id: "limit", answer})
                     break;
                 case "contractorsAdditionalInsured":
-                        bbopSet.coverages.conadd = {IncludeInd: this.convertToBoolean(answer)};
+                        bbopSet.coverages.conadd = {includeInd: this.convertToBoolean(answer)};
                     break;
                 case "waiverTOR":
                         bbopSet.coverages.waiver = {includeInd: this.convertToBoolean(answer)};
@@ -851,7 +863,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     pharmLiab.push({id: "option", answer});
                     break;
                 case "pharmacistLiab.grossSales":
-                    pharmLiab.push({id: "grossSales", answer: this.convertToInteger(answer)});
+                    pharmLiab.push({id: "grossSales", answer: answer});
                     break;
                 case "pharmacistLiab.limit":
                     pharmLiab.push({id: "ilLimit", answer});
@@ -905,22 +917,6 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "actualCashValueInd":
                         bbopSet.coverages.conins[id] = answer;
                         break;
-                    case "conscd.equips.desc":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.desc = answer;
-                        break;
-                    case "conscd.equips.val":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.val = answer;
-                        break;
                     case "nonownTools.includeInd":
                         if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
                             bbopSet.coverages.conins.nonownTools = {};
@@ -950,6 +946,10 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                 }
             });
+
+            if (!bbopSet.coverages.conins.hasOwnProperty('conToolsCovType') && (bbopSet.coverages.conins.hasOwnProperty('blanketLimitNoMin') || bbopSet.coverages.conins.hasOwnProperty('actualCashValueInd') || bbopSet.coverages.conins.hasOwnProperty('itemSubLimitText'))) {
+                bbopSet.coverages.conins.conToolsCovType = "Blanket Limit";
+            }
         }
 
         // hydrate Computer Fraud coverage with child question data, if any exist
@@ -1126,7 +1126,7 @@ module.exports = class ArrowheadBOP extends Integration {
         if (dentistEquip.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("dentistEquip")) {
                 bbopSet.coverages.dentistEquip = {
-                    IncludeInd: true
+                    includeInd: true
                 }
             }
             dentistEquip.forEach(({id, answer}) => {
@@ -1145,12 +1145,12 @@ module.exports = class ArrowheadBOP extends Integration {
         if (mold.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("mold")) {
                 bbopSet.coverages.mold = {
-                    IncludeInd: true
+                    includeInd: true
                 }
             }
             mold.forEach(({id, answer}) => {
                 switch (id) {
-                    case "GeorgiaStateException":
+                    case "georgiaStateException":
                         bbopSet.coverages.mold[id] = answer;
                         break;
                     default:
