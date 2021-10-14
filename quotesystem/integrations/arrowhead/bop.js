@@ -851,7 +851,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         suppPropDmg.push({id: "limit", answer})
                     break;
                 case "contractorsAdditionalInsured":
-                        bbopSet.coverages.conadd = {IncludeInd: this.convertToBoolean(answer)};
+                        bbopSet.coverages.conadd = {includeInd: this.convertToBoolean(answer)};
                     break;
                 case "waiverTOR":
                         bbopSet.coverages.waiver = {includeInd: this.convertToBoolean(answer)};
@@ -863,7 +863,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     pharmLiab.push({id: "option", answer});
                     break;
                 case "pharmacistLiab.grossSales":
-                    pharmLiab.push({id: "grossSales", answer: this.convertToInteger(answer)});
+                    pharmLiab.push({id: "grossSales", answer: answer});
                     break;
                 case "pharmacistLiab.limit":
                     pharmLiab.push({id: "ilLimit", answer});
@@ -917,22 +917,6 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "actualCashValueInd":
                         bbopSet.coverages.conins[id] = answer;
                         break;
-                    case "conscd.equips.desc":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.desc = answer;
-                        break;
-                    case "conscd.equips.val":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.val = answer;
-                        break;
                     case "nonownTools.includeInd":
                         if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
                             bbopSet.coverages.conins.nonownTools = {};
@@ -962,6 +946,10 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                 }
             });
+
+            if (!bbopSet.coverages.conins.hasOwnProperty('conToolsCovType') && (bbopSet.coverages.conins.hasOwnProperty('blanketLimitNoMin') || bbopSet.coverages.conins.hasOwnProperty('actualCashValueInd') || bbopSet.coverages.conins.hasOwnProperty('itemSubLimitText'))) {
+                bbopSet.coverages.conins.conToolsCovType = "Blanket Limit";
+            }
         }
 
         // hydrate Computer Fraud coverage with child question data, if any exist
@@ -1138,7 +1126,7 @@ module.exports = class ArrowheadBOP extends Integration {
         if (dentistEquip.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("dentistEquip")) {
                 bbopSet.coverages.dentistEquip = {
-                    IncludeInd: true
+                    includeInd: true
                 }
             }
             dentistEquip.forEach(({id, answer}) => {
@@ -1157,7 +1145,7 @@ module.exports = class ArrowheadBOP extends Integration {
         if (mold.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("mold")) {
                 bbopSet.coverages.mold = {
-                    IncludeInd: true
+                    includeInd: true
                 }
             }
             mold.forEach(({id, answer}) => {
