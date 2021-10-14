@@ -47,7 +47,7 @@ async function findAll(req, res, next) {
     }
     else {
         res.send(404);
-        return next(serverHelper.notFoundError('Agency Location not found'));
+        return next(serverHelper.notFoundError('Agency Users not found'));
     }
 }
 
@@ -70,7 +70,7 @@ async function findGroupAll(req, res, next) {
     }
     else {
         res.send(404);
-        return next(serverHelper.notFoundError('Agency Location not found'));
+        return next(serverHelper.notFoundError('Agency Users not found'));
     }
 }
 
@@ -97,7 +97,7 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
         })
         const agencyPortalUserBO = new AgencyPortalUserBO();
         for(let i = 0; i < agencyIdList.length; i++){
-            const agencyUserList = await agencyPortalUserBO.getList({agencyid: parseInt(agencyIdList[i], 10)}).catch(function(err) {
+            const agencyUserList = await agencyPortalUserBO.getList({agencyId: parseInt(agencyIdList[i], 10)}).catch(function(err) {
                 error = err;
             })
             if (error) {
