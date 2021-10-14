@@ -787,7 +787,51 @@ async function getApplications(req, res, next){
     }
 }
 
+/**
+ * Responds to get requests for the applications endpoint
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getApplicationsResources(req, res, next){
+    const resources = {};
+    // return product type filters, for now return full list, but in future we might want to pull info based on Agency Network Id, or Agency Id
+    const defaultProductTypeFilters = ["WC", "GL", "BOP", "CYBER", "PL"];
+    // get the insurers for agency network
+    // grab the agency network // case agency network, then grab insurerids off of agency network, for each insurerId grab the insurer
+    // for each insurer id in the insure list grab the policies using the insurer-policy object, if the list already doesn't have policy type and wheelhouse support is enabled then add it
+    
+    resources.productTypesSelections = defaultProductTypeFilters;
+    const dateFilters = [
+        {
+            label: 'Created Date',
+            value: 'created'
+        },
+        {
+            label: 'Modified Date',
+            value: 'modified'
+        },
+        {
+            label: 'Policy Effective Date',
+            value: 'policyEffective'
+        },
+        {
+            label: 'Policy Expiration Date',
+            value: 'policyExpiration'
+        }
+    ]
+    resources.dateFilters = dateFilters;
+
+    res.send(200, resources);
+    return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
     server.addGetAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
+    server.addGetAuth('Get applications list view resources', `${basePath}/applications/resources`, getApplicationsResources, 'applications', 'view');
 };
