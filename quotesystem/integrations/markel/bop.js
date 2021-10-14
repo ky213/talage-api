@@ -538,6 +538,14 @@ module.exports = class MarkelWC extends Integration {
 
                 if (question.questionType === 'Yes/No') {
                     questionAnswer = question.answerValue.toUpperCase();
+
+                    // some answers may be coming in as boolean or string representations of booleans, handling those cases explicitly here
+                    if (questionAnswer.toLowerCase() === "true" || questionAnswer === true) {
+                        questionAnswer = "YES";
+                    }
+                    else if (questionAnswer.toLowerCase() === "false" || questionAnswer === false) {
+                        questionAnswer = "NO";
+                    }
                 }
                 else if (questionCode === "com.markel.uw.questions.Question1399") {
                     // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
@@ -956,7 +964,7 @@ module.exports = class MarkelWC extends Integration {
                 if(typeof error === 'string'){
                     this.reasons.push(`${error}`);
                     if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){
-                        return this.client_autodeclined_out_of_appetite();
+                        return this.client_declined(`${error}`);
                     }
                 }
                 else {
