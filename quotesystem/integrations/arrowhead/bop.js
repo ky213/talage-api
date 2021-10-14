@@ -605,6 +605,17 @@ module.exports = class ArrowheadBOP extends Integration {
                 locationObj.buildingList[0].sprinklered = false;
             }
 
+            const constructionTypes = {
+                "Frame": "Frame",
+                "Fire Resistive": "Fire Resistive",
+                "Joisted Masonry": "Joisted Masonry",
+                "Masonry Non Combustible": "Masonry Non-Combustible",
+                "Non Combustible": "Non-Combustible"
+            };
+            if (location.constructionType && constructionTypes[location.constructionType]) {
+                locationObj.buildingList[0].construction = constructionTypes[location.constructionType];
+            }
+
             if (location.state === 'NC') {
                 locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
             }
@@ -1280,9 +1291,6 @@ module.exports = class ArrowheadBOP extends Integration {
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
-                    case "construction":
-                        building[id] = answer;
-                        break;
                     case "description":
                         building[id] = answer;
                         break;
