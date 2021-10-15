@@ -105,7 +105,7 @@ module.exports = class QuoteBO {
                     await Quote.updateOne(query, quoteJSON);
                 }
                 catch (e) {
-                    log.error(`Error updating quote: ${e}.`);
+                    log.error(`Error updating quoteId ${quoteId}: ${e}.` + __location);
                     throw e;
                 }
             }
