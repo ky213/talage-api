@@ -33,7 +33,7 @@ const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
-const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
+const applicationLinkTimeout = 24 * 60 * 60; // 4 hours
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
