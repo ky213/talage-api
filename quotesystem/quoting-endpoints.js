@@ -2,7 +2,33 @@ const runQuoting = require('./run-quoting');
 const Application = require('./models/Application');
 const serverHelper = global.requireRootPath('server.js');
 
-const route = async(req, res, next) => {
+
+const pricing = async(req, res, next) => {
+    const app = new Application();
+    try {
+        // NOTE: forceQuoting should always be set to 'true' when using this
+        // endpoint.
+        await app.load(req.body, true);
+    }
+    catch (ex) {
+        log.error(`Pricing: Application load error ${ex} ` + __location);
+        return next(serverHelper.requestError('An error occured while retrieving quotes.'));
+    }
+    // NOTE: Do not use 'await'! Quoting is executed in the background! We do
+    // not block before returning.
+    let pricingResponse = null;
+    try {
+        pricingResponse = await runQuoting.runPricing(app);
+    }
+    catch (ex) {
+        log.error(`Quoting error ${ex} ` + __location);
+    }
+    res.send(200, pricingResponse);
+    next();
+}
+
+
+const quoting = async(req, res, next) => {
     const app = new Application();
     try {
         // NOTE: forceQuoting should always be set to 'true' when using this
@@ -28,7 +54,7 @@ const route = async(req, res, next) => {
  */
 async function doQuoting(app) {
     try {
-        await runQuoting(app);
+        await runQuoting.runQuoting(app);
     }
     catch (ex) {
         log.error(`Quoting error ${ex} ` + __location);
@@ -61,6 +87,7 @@ async function getUptime(req, res, next) {
 }
 
 exports.registerEndpoints = (server) => {
-    server.addPost('Run quote retrieval ', `/v1/run-quoting`, route);
+    server.addPost('Run quoting ', `/v1/run-quoting`, quoting);
+    server.addPost('Run pricing ', `/v1/run-pricing`, pricing);
     server.addGet('Run quote retrieval ', `/quote/uptime`, getUptime);
 };

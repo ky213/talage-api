@@ -104,35 +104,35 @@ const policiesEnabled = async(resources, applicationDB) => {
         const useAgencyPrimeInsurers = true;
         let error = null;
         if(!error){
-                if(applicationDB && applicationDB.lockAgencyLocationId === true && applicationDB.hasOwnProperty('agencyLocationId')){
-                    let locationObj = await agencyLocationBO.getById(applicationDB.agencyLocationId).catch(function(err){
-                        log.error(`Could not get agency location for agencyLocationId ${applicationDB.agencyLocationId} ` + err.message + __location);
-                        error = err;
-                    });
-                    if(locationObj && locationObj.insurers && locationObj.insurers.length > 0){
-                        // grab all the insurers
-                        const locationInsurers = locationObj.insurers;
-                        // for each insurer go through the list of policy type object
-                        getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
-                    }
+            if(applicationDB && applicationDB.lockAgencyLocationId === true && applicationDB.hasOwnProperty('agencyLocationId')){
+                const locationObj = await agencyLocationBO.getById(applicationDB.agencyLocationId).catch(function(err){
+                    log.error(`Could not get agency location for agencyLocationId ${applicationDB.agencyLocationId} ` + err.message + __location);
+                    error = err;
+                });
+                if(locationObj && locationObj.insurers && locationObj.insurers.length > 0){
+                    // grab all the insurers
+                    const locationInsurers = locationObj.insurers;
+                    // for each insurer go through the list of policy type object
+                    getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
                 }
-                else {
-                    locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-                        log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-                        error = err;
-                    });
-                    if(locationList && locationList.length > 0){
-                        // for each location go through the list of insurers
-                        for(let i = 0; i < locationList.length; i++){
-                            if(locationList[i].hasOwnProperty('insurers')){
-                                // grab all the insurers
-                                const locationInsurers = locationList[i].insurers;
-                                // for each insurer go through the list of policy type object
-                                getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
-                            }
+            }
+            else {
+                locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+                    log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
+                    error = err;
+                });
+                if(locationList && locationList.length > 0){
+                    // for each location go through the list of insurers
+                    for(let i = 0; i < locationList.length; i++){
+                        if(locationList[i].hasOwnProperty('insurers')){
+                            // grab all the insurers
+                            const locationInsurers = locationList[i].insurers;
+                            // for each insurer go through the list of policy type object
+                            getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
                         }
                     }
                 }
+            }
         }
     }
     let enabledPoliciesArray = null;
@@ -245,6 +245,9 @@ const getWCLimits = (agencyNetworkId, territory) => {
         // TODO: this will come from DB eventually, agency network level.
         const limitsToRemove = ["500000/1000000/500000"];
         limits = limits.filter(lim => !limitsToRemove.includes(lim));
+        if(territory === "OR"){
+            limits = ["100000/100000/500000"]
+        }
     }
 
     return limits;

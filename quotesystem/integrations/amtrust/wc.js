@@ -441,6 +441,8 @@ module.exports = class AMTrustWC extends Integration {
     }
 
 
+    //***************** QUOTING *******************************************************************************
+
     /**
 	 * Requests a quote from AMTrust and returns. This request is not intended to be called directly.
 	 *
@@ -449,6 +451,9 @@ module.exports = class AMTrustWC extends Integration {
     async _insurer_quote() {
 
         const appDoc = this.applicationDocData
+        //User Amtrust quick quote?
+        const quickQuote = this.app.quickQuoteOnly
+        const logPrefix = `Appid: ${this.app.id} AmTrust WC `
 
         // These are the limits supported AMTrust
         const carrierLimits = ['100000/500000/100000',
@@ -498,7 +503,7 @@ module.exports = class AMTrustWC extends Integration {
             agentId = parseInt(agentId, 10);
         }
         catch (error) {
-            log.error(`AMTrust WC error parsing AgentId ${error}` + __location)
+            log.error(`${logPrefix} error parsing AgentId ${error}` + __location)
             //return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
         }
         if (!agentId || agentId === 0) {
@@ -526,7 +531,7 @@ module.exports = class AMTrustWC extends Integration {
         let primaryLocation = appDoc.locations.find(location => location.primary);
         if(!primaryLocation && appDoc.locations.length === 1){
             primaryLocation = appDoc.locations[0]
-            log.debug(`AmTrust Setting Primary location to the ONLY location \n ${JSON.stringify(primaryLocation)}` + __location)
+            log.debug(`${logPrefix}  Setting Primary location to the ONLY location \n ${JSON.stringify(primaryLocation)}` + __location)
         }
         else if(!primaryLocation) {
             return this.client_error("Missing a location being marked as the primary location");
@@ -559,25 +564,27 @@ module.exports = class AMTrustWC extends Integration {
 
         let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
-        const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
-        if (einCheckResponse) {
-            // Don't stop quoting if the EIN check fails.
-            const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
-            if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
-                return this.client_declined("The EIN is blocked");
-            }
+        if(fein){
+            const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
+            if (einCheckResponse) {
+                // Don't stop quoting if the EIN check fails.
+                const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
+                if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
+                    return this.client_declined("The EIN is blocked");
+                }
 
-            log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
-            if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
-                && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
-                useQuotePut_OldQuoteId = true;
+                log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
+                if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
+                    && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
+                    useQuotePut_OldQuoteId = true;
+                }
             }
         }
         //find old quoteID
         let quoteId = '';
         if(useQuotePut_OldQuoteId){
             try{
-                log.debug('AMTrust WC getting old quoteId' + __location)
+                log.debug(`${logPrefix}  getting old quoteId` + __location)
                 const QuoteBO = global.requireShared('models/Quote-BO.js');
                 const quoteBO = new QuoteBO();
 
@@ -608,7 +615,7 @@ module.exports = class AMTrustWC extends Integration {
                 }
             }
             catch(err){
-                log.error(`AMtrust WC (application ${this.app.id}): Error get old quote ID: ${err} ${__location}`);
+                log.error(`${logPrefix} Error get old quote ID: ${err} ${__location}`);
                 return this.client_declined("The EIN is blocked By earlier application");
             }
 
@@ -657,7 +664,10 @@ module.exports = class AMTrustWC extends Integration {
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
         }};
-
+        //it will error if fein is "".  It will price indicate without FEIN
+        if(!fein){
+            delete quoteRequestDataV2.Quote.Fein;
+        }
         // Add the unemployment number if required
         const requiredUnemploymentNumberStates = ["MN",
             "HI",
@@ -784,9 +794,10 @@ module.exports = class AMTrustWC extends Integration {
         // Send the quote request
         const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestJSON);
         if (!quoteResponse) {
-            log.error(`Amtrust WC Application ${this.app.id} returned no response on Quote Post` + __location)
+            log.error(`${logPrefix}  returned no response on Quote Post` + __location)
             return this.client_error("The Amtrust server returned an unexpected empty response when submitting the quote information.", __location);
         }
+
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
         if(useQuotePut_OldQuoteId){
@@ -828,6 +839,27 @@ module.exports = class AMTrustWC extends Integration {
         else {
             quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
         }
+        let priceIndicated = false;
+        let priceIndication = null
+        if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
+            priceIndicated = true;
+            priceIndication = quoteResponse.Data.PremiumDetails.PriceIndication
+        }
+        else if(quoteResponse.EstimatedAnnualPremium){
+            priceIndicated = true;
+            priceIndication = quoteResponse.EstimatedAnnualPremium
+        }
+        //If quickQuote were are done.
+        if(quickQuote){
+            //get price_indication
+            if(quoteEligibility === "Refer") {
+                return this.client_referred(quoteId, {}, priceIndication);
+            }
+            else {
+                return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`);
+            }
+
+        }
 
         // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
         //   Anything not in the update PUT will be deleted.  per AMtrust docs
@@ -840,6 +872,11 @@ module.exports = class AMTrustWC extends Integration {
 
         const quoteAvailableLlimitesResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/available-liability-limits`);
         if (!quoteAvailableLlimitesResponse) {
+            if(priceIndication && priceIndicated){
+                log.error(`${logPrefix} Unexpected GET limits response - no response` + __location);
+                this.reasons.push(`The insurer's server returned an unspecified error when get the quote available limits information`);
+                return this.client_referred(quoteId, {}, priceIndicated);
+            }
             return this.client_error("The insurer's server returned an unspecified error when get the quote available limits information.", __location);
         }
         const availableLimitsArray = quoteAvailableLlimitesResponse.Data;
@@ -857,6 +894,11 @@ module.exports = class AMTrustWC extends Integration {
 
         const quoteUpdateResponse = await this.amtrustCallAPI('PUT', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}`, amTrustApplicationJSON);
         if (!quoteUpdateResponse) {
+            if(priceIndication && priceIndicated){
+                log.error(`${logPrefix} Unexpected Quote limits update response - no response` + __location);
+                this.reasons.push(`The insurer's server returned an unspecified error when submitting the quote update information.`);
+                return this.client_referred(quoteId, {}, priceIndicated);
+            }
             return this.client_error("The insurer's server returned an unspecified error when submitting the quote update information.", __location);
         }
 
@@ -898,7 +940,6 @@ module.exports = class AMTrustWC extends Integration {
                 // console.log("questionRequest", questionRequestData);
                 await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
                 // We can still quote if this fails. Continue...
-                // console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
             }
         }
 
@@ -914,6 +955,11 @@ module.exports = class AMTrustWC extends Integration {
         }
         catch (e) {
             log.error(`AMtrust WC (application ${this.app.id}): Unable to check quote eligibility after submitting question answers: ${e}.`);
+            if(priceIndication && priceIndicated){
+                this.reasons.push("The insurer's server returned an unspecified error after submitting question answers.");
+                //we got a price indication above probably errored in questions.
+                return this.client_referred(quoteId, {}, priceIndicated);
+            }
         }
 
         // Get the available officer information
@@ -926,8 +972,8 @@ module.exports = class AMTrustWC extends Integration {
                 additionalInformationRequestData.Officers = officersResult;
             }
             else {
-                log.error(officersResult);
-                return this.client_error(officersResult, __location);
+                log.error(`Unexpected Officer response ${officersResult}` + __location);
+                return this.client_error(`Unexpected Officer response ${officersResult}`, __location);
             }
         }
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
@@ -948,6 +994,12 @@ module.exports = class AMTrustWC extends Integration {
                     return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
                 }
                 else {
+                    if(priceIndication && priceIndicated){
+                        log.error(`${logPrefix} Unexpected Additional information response ${statusCode}` + __location);
+                        this.reasons.push("The insurer's server returned an unspecified error when updating additional-information.");
+                        //we got a price indication above probably errored in questions.
+                        return this.client_referred(quoteId, {}, priceIndicated);
+                    }
                     return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
                 }
             }
@@ -956,6 +1008,12 @@ module.exports = class AMTrustWC extends Integration {
         // Get the quote information
         const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
         if (!quoteInformationResponse) {
+            log.error(`Appid: ${this.app.id} AmTrust WC insurer's server returned an unspecified error when retrieving the final quote information. `, __location, {statusCode: statusCode})
+            if(priceIndication && priceIndicated){
+                this.reasons.push("The insurer's server returned an unspecified error when retrieving the final quote information.");
+                //we got a price indication above probably errored in questions.
+                return this.client_referred(quoteId, {}, priceIndicated);
+            }
             return this.client_error("The insurer's server returned an unspecified error when retrieving the final quote information.", __location, {statusCode: statusCode});
         }
         // console.log("quoteInformationResponse", JSON.stringify(quoteInformationResponse, null, 4));
@@ -985,6 +1043,12 @@ module.exports = class AMTrustWC extends Integration {
         // Return the quote
         quoteEligibility = this.getChildProperty(quoteInformationResponse, "Eligibility.Eligibility");
         if (!quoteEligibility) {
+            if(priceIndication && priceIndicated){
+                log.error(`${logPrefix} The quote elibility could not be found for quote` + __location);
+                this.reasons.push("The quote elibility could not be found for quote after final update.");
+                //we got a price indication above probably errored in questions.
+                return this.client_referred(quoteId, quoteLimits, priceIndicated);
+            }
             return this.client_error(`The quote elibility could not be found for quote ${quoteId}.`);
         }
         // need to check if Refer has paymentPlans.
@@ -1072,6 +1136,10 @@ module.exports = class AMTrustWC extends Integration {
                 // There is no decline reason in their response
                 return this.client_declined("The insurer has declined to offer you coverage at this time");
             default:
+                if(priceIndication && priceIndicated){
+                    //we got a price indication above probably errored in questions.
+                    return this.client_referred(quoteId, quoteLimits, priceIndicated);
+                }
                 break;
         }
 

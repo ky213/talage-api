@@ -485,10 +485,16 @@ module.exports = class cowbellCyber extends Integration {
         const socialEngLimit = limitSet?.SocialEngineeringSublimit;
         const socialEngDeductible = limitSet?.SocialEngineeringDeductible;
         const ransomPaymentLimit = limitSet?.RansomPaymentsSublimit;
-        const WebsiteMediaLimit = limitSet?.WebsiteMedia;
+        //const WebsiteMediaLimit = limitSet?.WebsiteMedia;
         const postBreachRemediationLimit = 50000;
         const hardwareReplCostLimit = 50000;
         const telecomsFraudEndorsementLimit = 50000;
+
+
+        //  let socialEngLimit = 1000000;
+        // if(policyaggregateLimit < 1000000){
+        //     socialEngLimit = policyaggregateLimit;
+        // }
 
         //waiting period check
         // eslint-disable-next-line array-element-newline
@@ -542,13 +548,13 @@ module.exports = class cowbellCyber extends Integration {
         const primaryLocation = appDoc.locations.find(l => l.primary)
 
         //Main Domai - 1st in list.
-        let mainDomain = "";
-        if(cyberPolicy.domains.length > 0){
-            const domainList = cyberPolicy.domains.split(',');
-            if(domainList.length > 0){
-                mainDomain = domainList[0];
-            }
-        }
+        //let mainDomain = "";
+        // if(cyberPolicy.domains.length > 0){
+        //     const domainList = cyberPolicy.domains.split(',');
+        //     if(domainList.length > 0){
+        //         mainDomain = domainList[0];
+        //     }
+        // }
         //claims
         let claimHistory = 0 //no claims
         if(appDoc.claims.length > 0){
@@ -581,6 +587,7 @@ module.exports = class cowbellCyber extends Integration {
             agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.phone
         }
 
+
         // Create the quote request
         const quoteRequestData = {
 
@@ -604,27 +611,13 @@ module.exports = class cowbellCyber extends Integration {
             "ownershipType": legalEntityMap[appDoc.entityType],
             "claimHistory": claimHistory,
             //"daAgencyId": "string",
-            "dbaOrTradestyle": appDoc.dba,
+            // "dbaOrTradestyle": appDoc.dba,
             "deductible": deductible,
-            "domainName": mainDomain,
-            "domains": cyberPolicy.domains,
+            //"domainName": mainDomain,
+            //"domains": cyberPolicy.domains,
             //"dunsNumber": "string",
             "effectiveDate": moment(policy.effectiveDate).toISOString(),
             "entityType": "Independent",
-            //Questions....
-            // "questionTraining":  true,
-            // "questionLeadership": true,
-            // "questionEncryption": true,
-            // "questionCloud": true,
-            // "isAuthenticatingFundTransferRequests": true,
-            // "isFranchise": false,
-            // "isPreventingUnauthorizedWireTransfers": true,
-            // "isSecurityOfficer": true,
-            // "isSecurityTraining": true,
-            // "isVerifyingBankAccounts": true,
-            // "useCloudStorage": true,
-            // "useEncryption": true,
-            // end questions
             "limit": policyaggregateLimit,
             "aggregateLimit": policyaggregateLimit,
             "naicsCode": naicsNumber,
@@ -635,27 +628,34 @@ module.exports = class cowbellCyber extends Integration {
             "policyContactFirstName": primaryContact.firstName,
             "policyContactLastName": primaryContact.lastName,
             "policyContactPhone": stringFunctions.santizeNumber(contactPhone),
-            "hardwareReplCostEndorsement": cyberPolicy.hardwareReplCostEndorsement ? true : false,
+            //"hardwareReplCostEndorsement": cyberPolicy.hardwareReplCostEndorsement ? true : false,
+            "hardwareReplCostEndorsement": true,
             "hardwareReplCostSubLimit": cyberPolicy.hardwareReplCostEndorsement ? hardwareReplCostLimit : null,
-            "computerFraudEndorsement": cyberPolicy.computerFraudEndorsement ? true : false,
-            "postBreachRemediationEndorsement": cyberPolicy.postBreachRemediationEndorsement ? true : false,
-            "postBreachRemediationSubLimit": cyberPolicy.postBreachRemediationEndorsement ? postBreachRemediationLimit : null,
-            "ransomPaymentEndorsement": cyberPolicy.ransomPaymentEndorsement ? true : false,
-            "ransomPaymentLimit": cyberPolicy.ransomPaymentEndorsement ? ransomPaymentLimit : null,
+            //"computerFraudEndorsement": cyberPolicy.computerFraudEndorsement ? true : false,
+            "computerFraudEndorsement": true,
+            //"postBreachRemediationEndorsement": cyberPolicy.postBreachRemediationEndorsement ? true : false,
+            "postBreachRemediationEndorsement":  true,
+            "postBreachRemediationSubLimit": postBreachRemediationLimit,
+            //"ransomPaymentEndorsement": cyberPolicy.ransomPaymentEndorsement ? true : false,
+            "ransomPaymentEndorsement": true,
+            "ransomPaymentLimit": ransomPaymentLimit,
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
-            "retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
+            //"retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
             //"revenue": appDoc.grossSalesAmt,
-            "socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
-            "socialEngLimit": cyberPolicy.socialEngEndorsement ? socialEngLimit : null,
-            "socialEngDeductible": cyberPolicy.socialEngEndorsement ? socialEngDeductible : null,
-            "telecomsFraudEndorsement":  cyberPolicy.telecomsFraudEndorsement ? true : false,
-            "telecomsFraudSubLimit": cyberPolicy.telecomsFraudEndorsement ? telecomsFraudEndorsementLimit : null,
-            websiteMediaContentLiabilityEndorsement: cyberPolicy.websiteMediaContentLiabilityEndorsement,
-            "websiteMediaContentLiabilityLimit": cyberPolicy.websiteMediaContentLiabilityEndorsement ? WebsiteMediaLimit : null,
-            "url": appDoc.website,
-            "yearEstablished": moment(appDoc.founded).year(),
-            "yearsInBusiness": this.get_years_in_business()
+            //"socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
+            "socialEngEndorsement": true,
+            "socialEngLimit": socialEngLimit,
+            "socialEngDeductible": socialEngDeductible,
+            //"telecomsFraudEndorsement":  cyberPolicy.telecomsFraudEndorsement ? true : false,
+            "telecomsFraudEndorsement": true,
+            "telecomsFraudSubLimit": telecomsFraudEndorsementLimit,
+            //websiteMediaContentLiabilityEndorsement: cyberPolicy.websiteMediaContentLiabilityEndorsement,
+            websiteMediaContentLiabilityEndorsement: false,
+            // "websiteMediaContentLiabilityLimit": WebsiteMediaLimit,
+            // "url": appDoc.website,
+            "yearEstablished": moment(appDoc.founded).year()
+            //"yearsInBusiness": this.get_years_in_business()
             // "additionalInsureds": [
             //     {
             //         "address1": "string",
@@ -788,7 +788,12 @@ module.exports = class cowbellCyber extends Integration {
             catch (err) {
                 try {
                     response = err.response.data;
-                    return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response}`, __location, {error: err});
+                    if(typeof response === "object"){
+                        return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${JSON.stringify(response)}`, __location, {error: err});
+                    }
+                    else {
+                        return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode} response: ${response}`, __location, {error: err});
+                    }
                 }
                 catch (error2) {
                     return this.client_error(`The Cowbell returned an error code of ${err.httpStatusCode}`, __location, {error: err});
@@ -811,78 +816,78 @@ module.exports = class cowbellCyber extends Integration {
                     sort: coverageSort++,
                     category: "Liability Coverages"
                 });
-                if(deductible){
-                    quoteCoverages.push({
-                        description: `Deductible`,
-                        value: convertToDollarFormat(deductible, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
-                if(businessIncomeCoverage){
-                    quoteCoverages.push({
-                        description: `Business Income Coverage`,
-                        value: convertToDollarFormat(businessIncomeCoverage, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
-                if(cyberPolicy.hardwareReplCostEndorsement && hardwareReplCostLimit){
-                    quoteCoverages.push({
-                        description: `Hardware Replacement Cost Limit`,
-                        value: convertToDollarFormat(hardwareReplCostLimit, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
+                //  if(deductible){
+                quoteCoverages.push({
+                    description: `Deductible`,
+                    value: convertToDollarFormat(deductible, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                // }
+                //if(businessIncomeCoverage){
+                quoteCoverages.push({
+                    description: `Business Income Coverage`,
+                    value: convertToDollarFormat(businessIncomeCoverage, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                // }
+                // if(cyberPolicy.hardwareReplCostEndorsement && hardwareReplCostLimit){
+                quoteCoverages.push({
+                    description: `Hardware Replacement Cost Limit`,
+                    value: convertToDollarFormat(hardwareReplCostLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                //}
 
-                if(cyberPolicy.postBreachRemediationEndorsement && postBreachRemediationLimit){
-                    quoteCoverages.push({
-                        description: `Post Breach Remediation Limit`,
-                        value: convertToDollarFormat(postBreachRemediationLimit, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
-                if(cyberPolicy.ransomPaymentEndorsement && ransomPaymentLimit){
-                    quoteCoverages.push({
-                        description: `Ransom Payment Limit`,
-                        value: convertToDollarFormat(ransomPaymentLimit, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
-                if(cyberPolicy.socialEngEndorsement && socialEngLimit){
-                    quoteCoverages.push({
-                        description: `Social Engineering Limit`,
-                        value: convertToDollarFormat(socialEngLimit, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                    quoteCoverages.push({
-                        description: `Social Engineering Deductible`,
-                        value: convertToDollarFormat(socialEngDeductible, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
-                if(cyberPolicy.telecomsFraudEndorsement && telecomsFraudEndorsementLimit){
-                    quoteCoverages.push({
-                        description: `Ransom Payment Limit`,
-                        value: convertToDollarFormat(telecomsFraudEndorsementLimit, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
+                //if(cyberPolicy.postBreachRemediationEndorsement && postBreachRemediationLimit){
+                quoteCoverages.push({
+                    description: `Post Breach Remediation Limit`,
+                    value: convertToDollarFormat(postBreachRemediationLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                //}
+                //if(cyberPolicy.ransomPaymentEndorsement && ransomPaymentLimit){
+                quoteCoverages.push({
+                    description: `Ransom Payment Limit`,
+                    value: convertToDollarFormat(ransomPaymentLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                //}
+                //if(cyberPolicy.socialEngEndorsement && socialEngLimit){
+                quoteCoverages.push({
+                    description: `Social Engineering Limit`,
+                    value: convertToDollarFormat(socialEngLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                quoteCoverages.push({
+                    description: `Social Engineering Deductible`,
+                    value: convertToDollarFormat(socialEngDeductible, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                // }
+                // if(cyberPolicy.telecomsFraudEndorsement && telecomsFraudEndorsementLimit){
+                quoteCoverages.push({
+                    description: `Ransom Payment Limit`,
+                    value: convertToDollarFormat(telecomsFraudEndorsementLimit, true),
+                    sort: coverageSort++,
+                    category: "Liability Coverages"
+                });
+                // }
 
-                if(cyberPolicy.websiteMediaContentLiabilityEndorsement && WebsiteMediaLimit){
-                    quoteCoverages.push({
-                        description: `Website Media Content Liability Limit`,
-                        value: convertToDollarFormat(WebsiteMediaLimit, true),
-                        sort: coverageSort++,
-                        category: "Liability Coverages"
-                    });
-                }
+                // if(cyberPolicy.websiteMediaContentLiabilityEndorsement && WebsiteMediaLimit){
+                // quoteCoverages.push({
+                //     description: `Website Media Content Liability Limit`,
+                //     value: convertToDollarFormat(WebsiteMediaLimit, true),
+                //     sort: coverageSort++,
+                //     category: "Liability Coverages"
+                // });
+                //  }
 
 
                 // Give Cowbell 5 seconds to run there process.

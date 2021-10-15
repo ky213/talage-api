@@ -76,13 +76,17 @@ function parseQuoteURL(url) {
     }
 
     const reservedPageSlugs = [
+        "_am-congrats",
         "_congrats",
         "_reach-out",
         "_basic",
+        "_am-basic",
         "_policies",
         "_business-questions",
+        "_am-pricing",
         "_pricing",
         "_locations",
+        "_am-locations",
         "_mailing-address",
         "_claims",
         "_officers",
@@ -312,6 +316,29 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 agencyWebInfo.footer_logo = agencyNetworkJSONDefault.footer_logo;
             }
         }
+        // grab the first page for agency network if custom flow exists
+        let customFlowObj = null;
+        customFlowObj = agencyNetworkJSON.quoteAppCustomRouting;
+        // set the first page so landing page knows where to send user
+        const listOfPossibleFirstPages = ['_basic', '_am-basic']
+        let firstPage = null;
+        if(customFlowObj && typeof customFlowObj === 'object'){
+            // const keys = Object.keys(customFlowObj);
+            const keys = Object.keys(customFlowObj);
+            log.debug(`keys: ${keys}`);
+            // const keys = [];
+            if(keys.length > 0){
+                // const firstRoute = customFlowObj[keys[0]];
+                const firstRoute = keys[0];
+                log.debug(firstRoute);
+                log.debug(listOfPossibleFirstPages);
+                if(listOfPossibleFirstPages.indexOf(firstRoute) !== -1){
+                    firstPage = firstRoute;
+                }
+            }
+        }
+        agencyWebInfo.landingPageFirstRoute = firstPage;
+        // log.debug(JSON.stringify(agencyWebInfo));
     }
     catch (err) {
         log.error(`Could not parse landingPageContent/meta in agency ${agencySlug}: ${err} ${__location}`);
@@ -430,10 +457,14 @@ async function getAgencyLandingPage(req, res, next) {
     if(agencyAddress2){
         agencyAddress += `, ${agencyAddress2}`
     }
+    let agencyName = agency.name;
+    if(agency.displayName){
+        agencyName = agency.displayName;
+    }
     const landingPage = {
         agencyId: agency.agencyId,
         banner: agency.banner,
-        name: agency.name,
+        name: agencyName,
         heading: agency.heading,
         showIndustrySection: agency.showIndustrySection,
         showIntroText: agency.showIntroText,
@@ -449,7 +480,8 @@ async function getAgencyLandingPage(req, res, next) {
         phone: landingPageLocation ? landingPageLocation.phone : null,
         address: agencyAddress,
         addressCityState: landingPageLocation ? `${landingPageLocation.city}, ${landingPageLocation.territory} ${landingPageLocation.zip}` : null,
-        ...agency.landingPageContent
+        ...agency.landingPageContent,
+        landingPageFirstRoute: agency.landingPageFirstRoute
     };
     if(agency.agencyLocationId){
         landingPage.agencyLocationId = agency.agencyLocationId;
@@ -473,8 +505,13 @@ function replaceAgencyValues(toReplace, agency) {
         return;
     }
     // TODO: fill in other required replacements
+    // if the agency has a displayName then utilize that else the name
+    let agencyName = agency.name;
+    if(agency.displayName){
+        agencyName = agency.displayName;
+    }
     if (typeof toReplace === "string") {
-        return toReplace.replace(/{{Agency}}/g, agency.name).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
+        return toReplace.replace(/{{Agency}}/g, agencyName).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
     }
     else {
         for (const [key, value] of Object.entries(toReplace)) {
@@ -598,11 +635,14 @@ async function getAgencyMetadata(req, res, next) {
         log.error(`Agency operation hours not set: ${__location}`);
     }
 
-
+    let agencyName = agencyJson.name;
+    if(agencyJson.displayName){
+        agencyName = agencyJson.displayName;
+    }
     const metaObject = {
         wholesale: agencyJson.wholesale,
         metaAgencyId: agencyJson.agencyId,
-        metaName: agencyJson.name,
+        metaName: agencyName,
         metaPhone: landingPageLocation.phone,
         metaEmail: landingPageLocation.email,
         metaCALicence: agencyJson.caLicenseNumber,

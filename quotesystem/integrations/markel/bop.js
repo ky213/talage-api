@@ -21,6 +21,14 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
+// mine subsidence maximum limits by state
+const mineSubsidenceLimits = {
+    IL: 750000,
+    IN: 200000,
+    KY: 9999999999, // no maximum
+    WV: 200000
+};
+
 // this is a map of counters per state that require Mine Subsidence Optional Endorsement
 const mineSubsidenceOE = {
     IL: [
@@ -530,6 +538,14 @@ module.exports = class MarkelWC extends Integration {
 
                 if (question.questionType === 'Yes/No') {
                     questionAnswer = question.answerValue.toUpperCase();
+
+                    // some answers may be coming in as boolean or string representations of booleans, handling those cases explicitly here
+                    if (questionAnswer.toLowerCase() === "true" || questionAnswer === true) {
+                        questionAnswer = "YES";
+                    }
+                    else if (questionAnswer.toLowerCase() === "false" || questionAnswer === false) {
+                        questionAnswer = "NO";
+                    }
                 }
                 else if (questionCode === "com.markel.uw.questions.Question1399") {
                     // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
@@ -607,8 +623,10 @@ module.exports = class MarkelWC extends Integration {
                 const addressInfoResponse = await smartystreetSvc.checkAddress(location.address, location.city, location.state, location.zipcode);
 
                 if (addressInfoResponse?.county && mineSubsidenceOE[location.state].includes(addressInfoResponse.county)) {
+                    // set to building limit or state maximum if building limit exceeds state maximum
+                    const limit = location.buildingLimit > mineSubsidenceLimits[location.state] ? mineSubsidenceLimits[location.state] : location.buildingLimit;
                     buildingObj.optionalEndorsements = {
-                        mineSubsidenceLimit: 68000
+                        mineSubsidenceLimit: limit
                     };
                 }
                 else {
@@ -919,6 +937,45 @@ module.exports = class MarkelWC extends Integration {
                     }
                 }
                 else {
+                    // collect payment information
+                    if (response[rquIdKey]?.paymentOptions) {
+                        this.insurerPaymentPlans = response[rquIdKey].paymentOptions;
+                        const paymentPlanIdMatrix = {
+                            30: 1,
+                            31: 2,
+                            32: 3,
+                            33: 4
+                        };
+
+                        const talagePaymentPlans = [];
+                        for (const paymentPlan of response[rquIdKey].paymentOptions) {
+                            if (!paymentPlanIdMatrix[paymentPlan.id]) {
+                                // we do not have a payment plan mapping for this insurer payment plan
+                                continue;
+                            }
+
+                            try {
+                                const talagePaymentPlan = {
+                                    paymentPlanId: paymentPlanIdMatrix[paymentPlan.id],
+                                    insurerPaymentPlanId: paymentPlan.id,
+                                    insurerPaymentPlanDescription: paymentPlan.description,
+                                    NumberPayments: paymentPlan.numberOfInstallments,
+                                    DepositPercent: paymentPlan.downPaymentPercent,
+                                    DownPayment: paymentPlan.deposit
+                                };
+    
+                                talagePaymentPlans.push(talagePaymentPlan);
+                            }
+                            catch (e) {
+                                log.warn(`${logPrefix}Unable to parse payment plan: ${e}. Skipping...`);
+                            }
+                        }
+
+                        if (talagePaymentPlans.length > 0) {
+                            this.talageInsurerPaymentPlans = talagePaymentPlans;
+                        }
+                    }
+
                     return this.return_result('quoted');
                 }
             }
@@ -946,7 +1003,7 @@ module.exports = class MarkelWC extends Integration {
                 if(typeof error === 'string'){
                     this.reasons.push(`${error}`);
                     if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){
-                        return this.client_autodeclined_out_of_appetite();
+                        return this.client_declined(`${error}`);
                     }
                 }
                 else {
@@ -1002,7 +1059,6 @@ module.exports = class MarkelWC extends Integration {
 
     getSupportedDeductible = (deductible) => {
         const supportedDeductibles = [
-            250, 
             500, 
             1000, 
             2500, 
@@ -1014,7 +1070,7 @@ module.exports = class MarkelWC extends Integration {
         for (let i = 0; i < supportedDeductibles.length; i++) {
             if (deductible < supportedDeductibles[i]) {
                 if (i === 0) {
-                    return 250;
+                    return 500;
                 }
                 return supportedDeductibles[i - 1];
             }

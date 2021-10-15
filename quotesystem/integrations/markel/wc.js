@@ -1479,15 +1479,19 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('declined');
         }
         else if (response[rquIdKey].errors) {
+            let isDeclined = false;
             response[rquIdKey].errors.forEach((error) => {
                 if(typeof error === 'string'){
                     if(error.indexOf("One or more class codes are Declined") > -1){
                         this.reasons.push(`Markel Declined ${error}`);
-                        return this.return_result('declined');
+                        isDeclined = true;
+                    }
+                    else if (error.toLowerCase().indexOf("declined") > -1){
+                        this.reasons.push(`Markel ${error}`);
+                        isDeclined = true;
                     }
                     else {
                         this.reasons.push(`Markel: ${error}`);
-
                     }
                 }
                 else {
@@ -1495,6 +1499,10 @@ module.exports = class MarkelWC extends Integration {
                 }
 
             });
+            if(isDeclined){
+                return this.return_result('declined');
+            }
+
         }
         else {
             this.reasons.push(`Markel Error unknown for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);

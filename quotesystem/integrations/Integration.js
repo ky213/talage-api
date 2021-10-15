@@ -345,6 +345,7 @@ module.exports = class Integration {
      * @returns {object} - Claims information lumped together by policy year
      */
     claims_to_policy_years() {
+        //Note:  this.policy.claims already filter to policyType
         const claims = {};
 
         // Get the effective date of the policy
@@ -1168,10 +1169,6 @@ module.exports = class Integration {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
-            // if (!this.quoteId) {
-            //     this.quoteId = await this.run_pricing(null, quoteStatus.initiated.description);
-            // }
-
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
@@ -1562,19 +1559,16 @@ module.exports = class Integration {
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
 
+
         //build mongo Document
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
-            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             agencyId: this.applicationDocData.agencyId,
-            agencyLocationId: this.applicationDocData.agencyLocationId,
+            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
-            quoteTimeSeconds: this.seconds,
-            effectiveDate: this.policy.effective_date,
-            expirationDate: this.policy.expiration_date 
-
+            quoteTimeSeconds: this.seconds
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
@@ -1718,9 +1712,7 @@ module.exports = class Integration {
         //QuoteBO
         try{
             const quoteBO = new QuoteBO();
-            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON).catch(function(err){
-                log.error("Error quoteBO.saveIntegrationQuote " + err + __location);
-            });
+            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON);
         }
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving quote. Error: ${err} ` + __location)
