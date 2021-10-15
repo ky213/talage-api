@@ -245,6 +245,9 @@ const getWCLimits = (agencyNetworkId, territory) => {
         // TODO: this will come from DB eventually, agency network level.
         const limitsToRemove = ["500000/1000000/500000"];
         limits = limits.filter(lim => !limitsToRemove.includes(lim));
+        if(territory === "OR"){
+            limits = ["100000/100000/500000"]
+        }
     }
 
     return limits;
