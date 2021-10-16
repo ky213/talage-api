@@ -463,61 +463,45 @@ class CompuwestBind extends Bind {
                     //Can only tie ActivityCodeand payroll to Named Insured if there is one owner.
                     // && appDoc.owners.length === 1
                     if(owner.include){
-                        if(appDoc.locations && appDoc.locations.length > 0){
-                            for (const location of appDoc.locations) {
-                                for (const ActivtyCodeEmployeeType of location.activityPayrollList) {
-                                    const activityCodeId = ActivtyCodeEmployeeType.activityCodeId;
-                                    let ownerPayroll = null;
-                                    if(ActivtyCodeEmployeeType.ownerPayRoll && ActivtyCodeEmployeeType.ownerPayRoll > 0){
-                                        ownerPayroll = ActivtyCodeEmployeeType.ownerPayRoll;
-                                        if(appDoc.owners.length > 1){
-                                            ownerPayroll /= appDoc.owners.length;
-                                        }
-                                    }
-                                    else {
-                                        const ActivityCodeEmployeeTypeEntry = ActivtyCodeEmployeeType.employeeTypeList.find((acs) => acs.employeeType === "Owners" && acs.employeeTypeCount === 1);
-                                        if(ActivityCodeEmployeeTypeEntry){
-                                            ownerPayroll = ActivityCodeEmployeeTypeEntry.employeeTypePayroll;
-                                            if(ActivityCodeEmployeeTypeEntry.employeeTypeCount > 0){
-                                                ownerPayroll /= ActivityCodeEmployeeTypeEntry.employeeTypeCount;
-                                            }
-                                        }
-                                    }
-                                    if(ownerPayroll){
-                                        // Find the entry for this activity code
-                                        const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
-                                        const insurerActivityCodeBO = new InsurerActivityCodeBO();
-                                        try{
-                                            const iAC_Query = {
-                                                insurerId: this.quote.insurerId,
-                                                talageActivityCodeIdList: activityCodeId,
-                                                territoryList: appDoc.mailingState
-                                            }
-                                            const iacDocList = await insurerActivityCodeBO.getList(iAC_Query);
-                                            if(iacDocList && iacDocList.length === 1){
-                                                AdditionalInterestInfo.ele('ClassCD',iacDocList[0].code)
-                                            }
-                                            else if(iacDocList && iacDocList.length > 1){
-                                                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC multiple hits ${iAC_Query} ` + __location);
-                                            }
-                                            else {
-                                                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC no hits ${iAC_Query} ` + __location);
-                                            }
-                                        }
-                                        catch(err){
-                                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC ${err} ` + __location);
-                                        }
-                                        if(ownerPayroll > 0){
-                                            const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
-                                            ActualRemunerationAmt.ele('Amt', ownerPayroll);
-                                        }
-                                        else {
-                                            AdditionalInterestInfo.ele('ActualRemunerationAmt');
-                                        }
-                                    }
-                                }
+                        let ownerPayroll = 0;
+                        if(owner.payroll){
+                            ownerPayroll = owner.payroll;
+                        }
+                        if(ownerPayroll > 0){
+                            const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                            ActualRemunerationAmt.ele('Amt', ownerPayroll);
+                        }
+                        else {
+                            AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error included owner missing payroll` + __location);
+                        }
+
+                        // Find the entry for this activity code
+                        const InsurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode-BO.js');
+                        const insurerActivityCodeBO = new InsurerActivityCodeBO();
+                        try{
+                            const iAC_Query = {
+                                insurerId: this.quote.insurerId,
+                                talageActivityCodeIdList: owner.activityCodeId,
+                                territoryList: appDoc.mailingState
+                            }
+                            const iacDocList = await insurerActivityCodeBO.getList(iAC_Query);
+                            if(iacDocList && iacDocList.length === 1){
+                                AdditionalInterestInfo.ele('ClassCD',iacDocList[0].code)
+                            }
+                            else if(iacDocList && iacDocList.length > 1){
+                                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC multiple hits ${iAC_Query} ` + __location);
+                            }
+                            else {
+                                log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC no hits ${iAC_Query} ` + __location);
                             }
                         }
+                        catch(err){
+                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC ${err} ` + __location);
+                        }
+                    }
+                    else if(owner.include && !owner.activityCodeId){
+                        log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error included owner missing activityCodeId` + __location);
                     }
                 }
             }
