@@ -462,10 +462,18 @@ class CompuwestBind extends Bind {
 
                     //Can only tie ActivityCodeand payroll to Named Insured if there is one owner.
                     // && appDoc.owners.length === 1
-                    if(owner.include && owner.activityCodeId){
+                    if(owner.include){
                         let ownerPayroll = 0;
                         if(owner.payroll){
                             ownerPayroll = owner.payroll;
+                        }
+                        if(ownerPayroll > 0){
+                            const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                            ActualRemunerationAmt.ele('Amt', ownerPayroll);
+                        }
+                        else {
+                            AdditionalInterestInfo.ele('ActualRemunerationAmt');
+                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error included owner missing payroll` + __location);
                         }
 
                         // Find the entry for this activity code
@@ -490,14 +498,6 @@ class CompuwestBind extends Bind {
                         }
                         catch(err){
                             log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error getting IAC ${err} ` + __location);
-                        }
-                        if(ownerPayroll > 0){
-                            const ActualRemunerationAmt = AdditionalInterestInfo.ele('ActualRemunerationAmt');
-                            ActualRemunerationAmt.ele('Amt', ownerPayroll);
-                        }
-                        else {
-                            AdditionalInterestInfo.ele('ActualRemunerationAmt');
-                            log.error(`CompWest Bind quote: ${this.quote.quoteId} application: ${this.quote.applicationId} error included owner missing payroll` + __location);
                         }
                     }
                     else if(owner.include && !owner.activityCodeId){
