@@ -141,7 +141,7 @@ async function getQuestions(req, res, next) {
             if (executionCount === prevQuestionCount) {
                 // if the count of appQuestions didn't change, we're just spinning in the while loop, exit out
                 if (appQuestions.length === prevQuestionCount) {
-                    log.error(`Remaining questions could not be properly processed. Skipping ${appQuestions.length} question${appQuestions.length > 1 ? "s" : ""}...`);
+                    log.error(`Remaining questions could not be properly processed. Skipping ${appQuestions.length} question${appQuestions.length > 1 ? "s" : ""}` + __location);
                     break;
                 }
 
@@ -158,7 +158,7 @@ async function getQuestions(req, res, next) {
                 dbQuestion = await questionBO.getById(question.questionId)
             }
             catch (e) {
-                log.error(`An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.`);
+                log.error(`An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.` + __location);
 
                 // question no longer in the db, add it as parent
                 questions[question.questionId] = {
@@ -174,7 +174,7 @@ async function getQuestions(req, res, next) {
             }
 
             if(!dbQuestion){
-                log.error(`Could not find question ${question.questionId} in the database.`);
+                log.error(`Could not find question ${question.questionId} in the database.` + __location);
 
                 // question no longer in the db, add it as parent
                 questions[question.questionId] = {
