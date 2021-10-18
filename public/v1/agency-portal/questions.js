@@ -88,13 +88,13 @@ async function getQuestions(req, res, next) {
     //     log.info('Bad Request: Invalid application id');
     //     return next(serverHelper.requestError('Invalid application id'));
     // }
-    const id = req.query.application_id;
+    const appId = req.query.application_id;
 
     let passedAgencyCheck = false;
     let applicationJSON = null;
     try{
         const applicationBO = new ApplicationBO();
-        const applicationDBDoc = await applicationBO.getById(id);
+        const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
             if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
                 passedAgencyCheck = true;
@@ -117,12 +117,12 @@ async function getQuestions(req, res, next) {
         }
     }
     catch(err){
-        log.error("Error Getting application doc " + err + __location)
+        log.error(`Error Getting application do appId ${appId} ` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
     if(applicationJSON && applicationJSON.applicationId && passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this application' + __location);
+        log.info(`Forbidden: User is not authorized for this application ${appId}` + __location);
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }
@@ -141,7 +141,7 @@ async function getQuestions(req, res, next) {
             if (executionCount === prevQuestionCount) {
                 // if the count of appQuestions didn't change, we're just spinning in the while loop, exit out
                 if (appQuestions.length === prevQuestionCount) {
-                    log.error(`Remaining questions could not be properly processed. Skipping ${appQuestions.length} question${appQuestions.length > 1 ? "s" : ""}...`);
+                    log.error(`Application ${appId} Remaining questions could not be properly processed. Skipping ${appQuestions.length} question${appQuestions.length > 1 ? "s" : ""}` + __location);
                     break;
                 }
 
@@ -158,7 +158,7 @@ async function getQuestions(req, res, next) {
                 dbQuestion = await questionBO.getById(question.questionId)
             }
             catch (e) {
-                log.error(`An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.`);
+                log.error(`Application ${appId} - An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.` + __location);
 
                 // question no longer in the db, add it as parent
                 questions[question.questionId] = {
@@ -174,7 +174,7 @@ async function getQuestions(req, res, next) {
             }
 
             if(!dbQuestion){
-                log.error(`Could not find question ${question.questionId} in the database.`);
+                log.error(`Application ${appId} - Could not find question ${question.questionId} in the database.` + __location);
 
                 // question no longer in the db, add it as parent
                 questions[question.questionId] = {
