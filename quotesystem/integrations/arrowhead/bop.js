@@ -1192,6 +1192,10 @@ module.exports = class ArrowheadBOP extends Integration {
             }
         }
 
+        if (bbopSet.coverages.schdbk && (!bbopSet.coverages.schdbk.equips || bbopSet.coverages.schdbk.equips.length === 0)) {
+            bbopSet.coverages.schdbk.includeInd = false;
+        }
+
 
         // hydrate dentist/physician equipment coverage with child question data, if any exist
         if (dentistEquip.length > 0) {
