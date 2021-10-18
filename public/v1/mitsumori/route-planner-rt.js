@@ -137,6 +137,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
 
     return nextRoute;
 }
+
 /**
  * Takes in the next computed route and determines if it is a route we skip, if we skip it then grab the next route after skipping the route else return the next route being checked
  * Recurses until we find a route we are not skipping
@@ -147,7 +148,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
  *
  * @returns {string}  Returns the route after skipping current route if one exists else just returns the current route
  */
-const cyberSkip =  (route, customRouteFlowObj, application, agencyNetworkId) => {
+const cyberSkip = (route, customRouteFlowObj, application, agencyNetworkId) => {
     log.debug(`Current route ${route} being checked for skip ${__location}`);
     const skippedRoutes = ["_officers", "_claims"];
     // if route equals officers or claims get the next route and call yourself to see if the next route is a skipped route
@@ -156,24 +157,27 @@ const cyberSkip =  (route, customRouteFlowObj, application, agencyNetworkId) => 
         // if the custom route exists grab the custom route
         let routeAfterSkip = null;
         if(customRouteFlowObj){
-             routeAfterSkip = getNextRouteCustom(customRouteFlowObj, route, application.applicationId, agencyNetworkId);
+            routeAfterSkip = getNextRouteCustom(customRouteFlowObj, route, application.applicationId, agencyNetworkId);
             log.debug(`skipping from ${route} to ${routeAfterSkip} on app ${application.applicationId} ${__location}`);
         }
         else{
             // otherwise just get the generic route
-             routeAfterSkip = getNextRouteDefault(route, application.applicationId)
+            routeAfterSkip = getNextRouteDefault(route, application.applicationId)
             log.debug(`skipping from ${route} to ${routeAfterSkip} on app ${application.applicationId} ${__location}`);
         }
         // only recurse if we found a route after skipping the current route
-        if(routeAfterSkip == null){
+        if(routeAfterSkip === null || routeAfterSkip === '_unknown'){
             log.error(`Could not find the next route after trying to skip route ${route} for ${application.applicationId} ${__location}`);
-        }else {
-            // we only recurse if we found a route after skipping the route being passed in, otherwise we will just return the nextRoute being sent in to 
+        }
+        else{
+            // we only recurse if we found a route after skipping the route being passed in,
+            // otherwise we will just return the nextRoute being sent in to
             // check if it was
             return cyberSkip(routeAfterSkip, customRouteFlowObj, application, agencyNetworkId);
         }
-    }else {
-        log.debug(`Current route ${route} is not part of the skipped list so returning route.`)
+    }
+    else {
+        log.debug(`Current route ${route} is not part of the skipped list so returning route.`);
     }
     // otherwise we will just return the current route
     return route;
