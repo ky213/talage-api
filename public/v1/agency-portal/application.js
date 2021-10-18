@@ -1985,15 +1985,15 @@ async function PutApplicationLink(req, res, next){
     // Make sure all elements are present
     if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
         log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+        return next(serverHelper.requestError('Some required data is missing - applicationId. Please check the documentation.'));
     }
     if (!Object.prototype.hasOwnProperty.call(req.body, 'emailAddress')) {
         log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+        return next(serverHelper.requestError('Some required data is missing - emailAddress. Please check the documentation.'));
     }
     if (!Object.prototype.hasOwnProperty.call(req.body, 'agentEmail')) {
         log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+        return next(serverHelper.requestError('Some required data is missing - agentEmail. Please check the documentation.'));
     }
 
     const applicationId = req.body.applicationId;
@@ -2080,20 +2080,32 @@ async function SendApplicationLinkEmail(reqBody, hash){
     else {
         recipients = `${reqBody.emailAddress},${reqBody.agentEmail}`
     }
-    // TODO: should we use agency.email or agency location email?
+    
+    const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
+    const agentFullname = `${agency.firstName} ${agency.lastName}`;
+
+    const agentName = reqBody.agentName ? reqBody.agentName : agentFullname;
+
+    const emailAgencyName = reqBody.agencyName ? reqBody.agencyName : agencyDisplayName;
+
+    const emailSubjectDefault = 'A portal to your application';
+
+    const emailSubject = reqBody.subject ? reqBody.subject : emailSubjectDefault
+
+
     const emailData = {
         html: `
             <p>
                 Hello${reqBody.firstName ? ` ${reqBody.firstName}` : ""},
             </p>
             <p>
-                ${reqBody.agentName ? `${reqBody.agentName} at ` : ""}${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
+                ${agentName} at ${emailAgencyName} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
                 <br/>
                 Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
                 <br/>
-                If you ever need help, ${reqBody.agentName ? `${reqBody.agentName} is ` : "we're"} still right here to help ensure you get the best policy at the best value. 
+                If you ever need help, ${agentName} is still right here to help ensure you get the best policy at the best value. 
                 <br/>
-                If you have any questions, let us know at ${agency.email}${reqBody.agentName ? ` or reach out to ${reqBody.agentName} directly.` : "."}
+                If you have any questions, let us know at ${agency.email} or reach out to ${agentName} directly.
             </p>
             <div align="center">
                 <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
@@ -2110,7 +2122,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
                 </a>
             </p>
         `,
-        subject: 'A portal to your application',
+        subject: emailSubject,
         to: recipients
     };
 
