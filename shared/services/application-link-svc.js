@@ -4,7 +4,7 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 
-const applicationLinkTimeout = 24 * 60 * 60; // 4 hours
+const applicationLinkTimeout = 24 * 60 * 60; // 24 hours
 
 // eslint-disable-next-line multiline-comment-style
 /*
@@ -25,6 +25,13 @@ options: {
 }
 */
 
+/**
+ * Creates a link into an application
+ * @param {uuid} appId - The application to create a link for
+ * @param {Object} options - Options for creating the link, see above comment for uses
+ * @return {URL} The application link
+ * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
+ */
 exports.createApplicationLink = async(appId, options) => {
     if(!appId){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
@@ -38,27 +45,26 @@ exports.createApplicationLink = async(appId, options) => {
     const agency = await agencyBO.getById(application.agencyId);
 
     const agencyNetworkBO = new AgencyNetworkBO();
-    const agnencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+    const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
 
     // create hash
     const hash = await crypt.hash(appId);
 
     // store hash in redis with application id as value
-    // eslint-disable-next-line object-shorthand
     await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
-    const link = await createLink(agency, agnencyNetwork, options?.pageSlug, hash);
+    const link = await buildLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
     await sendEmail(agency, link, options);
     return link;
 }
 
-const createLink = async(agency, agnencyNetwork, pageSlug, hash) => {
+const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
     let domain = "";
-    if(agnencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
+    if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
-        domain = agnencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].APPLICATION_URL;
+        domain = agencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].APPLICATION_URL;
     }
     else{
         // if environmentSettings is not defined for any reason, fall back to defaults
@@ -106,7 +112,7 @@ const sendEmail = async(agency, link, options) => {
 
     // if there is an agentEmail, add it as long as it's not the same as emailAddress
     if(options.agentEmail && options.emailAddress !== options.agentEmail){
-        recipients += `,${options.agentEmail}`
+        recipients += `,${options.agentEmail}`;
     }
 
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
@@ -114,12 +120,12 @@ const sendEmail = async(agency, link, options) => {
     const agentFullname = `${agency.firstName} ${agency.lastName}`;
     const agentName = options.agentName ? options.agentName : agentFullname;
 
-    const agentEmail = options.agentEmail ? options.agentEmail : agency.email
+    const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
     const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
 
     const emailSubjectDefault = 'A portal to your application';
-    const emailSubject = options.subject ? options.subject : emailSubjectDefault
+    const emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
     const emailData = {
         html: `
