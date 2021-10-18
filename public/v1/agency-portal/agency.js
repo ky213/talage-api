@@ -489,6 +489,14 @@ async function postAgency(req, res, next) {
         wholesale: wholesale
 
     }
+    if(req.body.displayName){
+        newAgencyJSON.displayName = req.body.displayName
+    }
+
+    if(req.body.agencyCode){
+        newAgencyJSON.agencyCode = req.body.agencyCode
+    }
+
     error = null;
     // Load the request data into it
     await agencyBO.saveModel(newAgencyJSON).catch(function(err) {
@@ -598,6 +606,7 @@ async function postAgency(req, res, next) {
     const newAgencyLocationJSON = {
         agencyId: agencyId,
         email: email,
+        name: "Main",
         agencyNetworkId: req.authentication.agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
@@ -605,6 +614,14 @@ async function postAgency(req, res, next) {
         insurers: insurerArray,
         territories: territories,
         additionalInfo: {territories: territories}
+    }
+    if(req.body.address){
+        newAgencyLocationJSON.address = req.body.address
+        newAgencyLocationJSON.address2 = req.body.address2
+        newAgencyLocationJSON.city = req.body.city
+        newAgencyLocationJSON.state = req.body.state
+        newAgencyLocationJSON.zipcode = req.body.zipcode
+        newAgencyLocationJSON.phone = req.body.phone
     }
     log.verbose(JSON.stringify(newAgencyLocationJSON))
     const agencyLocationBO = new AgencyLocationBO();
@@ -646,13 +663,20 @@ async function postAgency(req, res, next) {
         return next(serverHelper.internalError('Error querying database. Check logs.'));
     });
 
-    // Get the ID of the new agency user
-    const userID = agencyPortalUserBO.id;
 
-    const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetworkId, userID, firstName, lastName, name, slug, email);
+    let sendEmail = true;
+    if(req.body.donotSendEmail){
+        sendEmail = false;
+    }
+    if(sendEmail){
+        // Get the ID of the new agency user
+        const userID = agencyPortalUserBO.id;
 
-    if (onboardingEmailResponse) {
-        return next(serverHelper.internalError(onboardingEmailResponse));
+        const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetworkId, userID, firstName, lastName, name, slug, email);
+
+        if (onboardingEmailResponse) {
+            return next(serverHelper.internalError(onboardingEmailResponse));
+        }
     }
 
     // Return the response
