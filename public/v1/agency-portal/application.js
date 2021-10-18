@@ -2094,7 +2094,6 @@ async function SendApplicationLinkEmail(reqBody, hash){
     const emailSubject = reqBody.subject ? reqBody.subject : emailSubjectDefault
 
 
-
     const emailData = {
         html: `
             <p>
