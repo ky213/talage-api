@@ -2082,15 +2082,17 @@ async function SendApplicationLinkEmail(reqBody, hash){
     }
     
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
-    const agentFullname = `${agency.firstName} ${agency.lastName}`;
 
+    const agentFullname = `${agency.firstName} ${agency.lastName}`;
     const agentName = reqBody.agentName ? reqBody.agentName : agentFullname;
+    
+    const agentEmail = reqBody.agentEmail ? reqBody.agentEmail : agency.email
 
     const emailAgencyName = reqBody.agencyName ? reqBody.agencyName : agencyDisplayName;
 
     const emailSubjectDefault = 'A portal to your application';
-
     const emailSubject = reqBody.subject ? reqBody.subject : emailSubjectDefault
+
 
 
     const emailData = {
@@ -2105,7 +2107,7 @@ async function SendApplicationLinkEmail(reqBody, hash){
                 <br/>
                 If you ever need help, ${agentName} is still right here to help ensure you get the best policy at the best value. 
                 <br/>
-                If you have any questions, let us know at ${agency.email} or reach out to ${agentName} directly.
+                If you have any questions, let us know at ${agentEmail} or reach out to ${agentName} directly.
             </p>
             <div align="center">
                 <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
