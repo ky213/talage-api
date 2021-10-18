@@ -166,7 +166,7 @@ const cyberSkip = (route, customRouteFlowObj, application, agencyNetworkId) => {
             log.debug(`skipping from ${route} to ${routeAfterSkip} on app ${application.applicationId} ${__location}`);
         }
         // only recurse if we found a route after skipping the current route
-        if(routeAfterSkip == null || routeAfterSkip === "_unknown"){
+        if(routeAfterSkip === null || typeof routeAfterSkip === "undefined" || routeAfterSkip === "_unknown"){
             log.error(`Could not find the next route after trying to skip route ${route} for ${application.applicationId} ${__location}`);
         }
         else{
