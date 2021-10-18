@@ -583,6 +583,7 @@ module.exports = class EmployersWC extends Integration {
                         const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
                         const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
                         if (!talagePaymentPlanId) {
+                            log.debug(`Could not determine Talage payment plan ID. Skipping payment plan with lookup key "${lookupKey}"`);
                             continue; // Can't determine Payment Plan type so skip this payment plan
                         }
                         talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
@@ -595,6 +596,7 @@ module.exports = class EmployersWC extends Integration {
                             talagePaymentPlan.NumberPayments = Number(insurerPaymentPlan.numberOfInstallments);
                         }
                         else {
+                            log.debug(`Could not determine number of installments. Skipping payment plan with lookup key "${lookupKey}"`);
                             continue;
                         }
 
@@ -602,6 +604,7 @@ module.exports = class EmployersWC extends Integration {
                             talagePaymentPlan.TotalPremium = Number(quoteResponse.totalPremium);
                         }
                         else {
+                            log.debug(`Could not determine total premium. Skipping payment plan with lookup key "${lookupKey}"`);
                             continue;
                         }
 
@@ -611,6 +614,7 @@ module.exports = class EmployersWC extends Integration {
                             totalInstallmentCost = Number(insurerPaymentPlan.amountDue) * Number(insurerPaymentPlan.numberOfInstallments);
                         }
                         else {
+                            log.debug(`Could not determine installment payment. Skipping payment plan with lookup key "${lookupKey}"`);
                             continue; // If we can't find amountDue then skip this payment plan. We don't want to make a down payment seem like the total cost of the payment plan
                         }
 
@@ -618,6 +622,7 @@ module.exports = class EmployersWC extends Integration {
                             talagePaymentPlan.DownPayment = Number(insurerPaymentPlan.downPayment);
                         }
                         else {
+                            log.debug(`Could not determine down payment. Skipping payment plan with lookup key "${lookupKey}"`);
                             continue;
                         }
 
