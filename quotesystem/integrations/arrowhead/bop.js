@@ -780,11 +780,35 @@ module.exports = class ArrowheadBOP extends Integration {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
-                case "schedBookFloater.limit":
-                    schedBookFloater.push({id: "limit", answer: this.convertToInteger(answer)});
+                case "schedBookFloater.limit1":
+                    schedBookFloater.push({id: "limit1", answer: this.convertToInteger(answer)});
                     break;
-                case "schedBookFloater.description":
-                    schedBookFloater.push({id: "description", answer});
+                case "schedBookFloater.limit2":
+                    schedBookFloater.push({id: "limit2", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit3":
+                    schedBookFloater.push({id: "limit3", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit4":
+                    schedBookFloater.push({id: "limit4", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit5":
+                    schedBookFloater.push({id: "limit5", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.description1":
+                    schedBookFloater.push({id: "description1", answer});
+                    break;
+                case "schedBookFloater.description2":
+                    schedBookFloater.push({id: "description2", answer});
+                    break;
+                case "schedBookFloater.description3":
+                    schedBookFloater.push({id: "description3", answer});
+                    break;
+                case "schedBookFloater.description4":
+                    schedBookFloater.push({id: "description4", answer});
+                    break;
+                case "schedBookFloater.description5":
+                    schedBookFloater.push({id: "description5", answer});
                     break;
                 case "nonOwnedAutoLiab":
                     // This question populates both nonown and hired auto in arrowhead request
@@ -1110,26 +1134,66 @@ module.exports = class ArrowheadBOP extends Integration {
             if (!bbopSet.coverages.schdbk.hasOwnProperty("equips")) {
                 bbopSet.coverages.schdbk.equips = [{}];
             }
+            const equips = [];
+            for (let i = 0; i < 5; i++) {
+                equips.push({});
+            }
             schedBookFloater.forEach(({id, answer}) => {
                 switch (id) {
-                    case "limit":
-                        bbopSet.coverages.schdbk.equips[0].val = answer;
+                    case "limit1":
+                        equips[0].val = answer;
                         break;
-                    case "description":
-                        bbopSet.coverages.schdbk.equips[0].desc = answer;
+                    case "description1":
+                        equips[0].desc = answer;
+                        break;
+                    case "limit2":
+                        equips[1].val = answer;
+                        break;
+                    case "description2":
+                        equips[1].desc = answer;
+                        break;
+                    case "limit3":
+                        equips[2].val = answer;
+                        break;
+                    case "description3":
+                        equips[2].desc = answer;
+                        break;
+                    case "limit4":
+                        equips[3].val = answer;
+                        break;
+                    case "description4":
+                        equips[3].desc = answer;
+                        break;
+                    case "limit5":
+                        equips[4].val = answer;
+                        break;
+                    case "description5":
+                        equips[4].desc = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Scheduled Book and Manuscript Floater coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             });
-            bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
-                let addVal = 0;
-                if (elem.val){
-                    addVal = elem.val;
-                }
-                return sum + addVal;
-            }, 0));
+
+            const filteredEquips = equips.filter(equip => equip && equip.val && !isNaN(equip.val) && equip.desc); // Submit only those with both non-empty description and non-zero limit value
+            if (filteredEquips && filteredEquips.length > 0) {
+                bbopSet.coverages.schdbk.equips = filteredEquips;
+                bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
+                    let addVal = 0;
+                    if (elem.val){
+                        addVal = elem.val;
+                    }
+                    return sum + addVal;
+                }, 0));
+            }
+            else {
+                bbopSet.coverages.schdbk.includeInd = false;
+            }
+        }
+
+        if (bbopSet.coverages.schdbk && (!bbopSet.coverages.schdbk.equips || bbopSet.coverages.schdbk.equips.length === 0)) {
+            bbopSet.coverages.schdbk.includeInd = false;
         }
 
 
