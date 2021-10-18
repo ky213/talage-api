@@ -33,7 +33,8 @@ const featureSchema = new Schema({
     quoteAppBinding: {type: Boolean, required: true, default: false},
     appSingleQuotePath: {type: Boolean, required: true, default: false},
     enableAgencyCodeField: {type: Boolean, required: true, default: false},
-    quickQuoteOnly: {type: Boolean, required: true, default: false}
+    quickQuoteOnly: {type: Boolean, required: true, default: false},
+    quoteAppPolicyEffectiveDayStart: {type: Number, required: true, default: 1}
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
