@@ -166,13 +166,12 @@ const cyberSkip = (route, customRouteFlowObj, application, agencyNetworkId) => {
             log.debug(`skipping from ${route} to ${routeAfterSkip} on app ${application.applicationId} ${__location}`);
         }
         // only recurse if we found a route after skipping the current route
-        if(routeAfterSkip === null || routeAfterSkip === '_unknown'){
+        if(routeAfterSkip == null || routeAfterSkip === "_unknown"){
             log.error(`Could not find the next route after trying to skip route ${route} for ${application.applicationId} ${__location}`);
         }
         else{
-            // we only recurse if we found a route after skipping the route being passed in,
-            // otherwise we will just return the nextRoute being sent in to
-            // check if it was
+            // we only recurse if we found a routeAfterSkip after skipping the route being passed in,
+            // otherwise we will just return the route being sent in from params
             return cyberSkip(routeAfterSkip, customRouteFlowObj, application, agencyNetworkId);
         }
     }
