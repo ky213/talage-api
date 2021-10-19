@@ -16,6 +16,18 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
 const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
+const startAndEndThresholdsSchema = new Schema({
+    start: {type: Number, required: true, min: [-10, 'Start value can not less than -10'], default: 1},
+    end: {type: Number, required: true, max: [90,'End value can not be greater than 90'], default: 90}
+}, optsNoId);
+
+const policyEffectiveDateThresholdsSchema = new Schema({
+    WC: startAndEndThresholdsSchema,
+    GL: startAndEndThresholdsSchema,
+    BOP: startAndEndThresholdsSchema,
+    CYBER: startAndEndThresholdsSchema,
+    PL: startAndEndThresholdsSchema
+}, optsNoId);
 
 const featureSchema = new Schema({
     applicationOptOut: {type: Boolean, required: true, default: false},
@@ -34,7 +46,13 @@ const featureSchema = new Schema({
     appSingleQuotePath: {type: Boolean, required: true, default: false},
     enableAgencyCodeField: {type: Boolean, required: true, default: false},
     quickQuoteOnly: {type: Boolean, required: true, default: false},
-    quoteAppPolicyEffectiveDayStart: {type: Number, required: true, default: 1}
+    policyEffectiveDateThresholds: {
+        type: policyEffectiveDateThresholdsSchema, 
+        required: true, 
+        default: {
+            WC: {}, GL: {}, BOP: {}, CYBER: {}, PL: {}
+        }
+    }
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({

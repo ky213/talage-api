@@ -4,6 +4,7 @@
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
 const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
 const AMTrustAgencyNetworkId = 10;
 
 exports.populatePolicyResources = async(resources, appId) => {
@@ -33,6 +34,7 @@ exports.populatePolicyResources = async(resources, appId) => {
 
     await policiesEnabled(resources, applicationDB);
     await limitsSelectionAmounts(resources, applicationDB, zipCodeData);
+    await policyEffectiveDateThresholds(resources, applicationDB);
 };
 
 // Policy related, used for claims
@@ -252,3 +254,14 @@ const getWCLimits = (agencyNetworkId, territory) => {
 
     return limits;
 };
+
+const policyEffectiveDateThresholds = async (resources, applicationDB) => {
+    let agencyNetworkDB = null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    if(applicationDB){
+        agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+    }
+    if(agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds){
+        resources.policyEffectiveDateThresholds = agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds;
+    }
+}
