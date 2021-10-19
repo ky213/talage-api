@@ -17,8 +17,8 @@ const opts = {toJSON: {virtuals: true}};
 const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 const startAndEndThresholdsSchema = new Schema({
-    start: {type: Number, required: true, min: [-10, 'Start value can not less than -10'], default: 1},
-    end: {type: Number, required: true, max: [90,'End value can not be greater than 90'], default: 90}
+    start: {type: Number, required: false},
+    end: {type: Number, required: false}
 }, optsNoId);
 
 const policyEffectiveDateThresholdsSchema = new Schema({
@@ -29,6 +29,13 @@ const policyEffectiveDateThresholdsSchema = new Schema({
     PL: startAndEndThresholdsSchema
 }, optsNoId);
 
+const defaultPolicyEffDateThresholds = {
+    WC: {start: 1, end: 90}, 
+    GL: {start: 1, end: 90},
+    BOP: {start: 1, end: 90},
+    CYBER: {start: 1, end: 90},
+    PL: {start: 1, end: 90}
+}
 const featureSchema = new Schema({
     applicationOptOut: {type: Boolean, required: true, default: false},
     enablePrimeAgency: {type: Boolean, required: true, default: false},
@@ -46,12 +53,11 @@ const featureSchema = new Schema({
     appSingleQuotePath: {type: Boolean, required: true, default: false},
     enableAgencyCodeField: {type: Boolean, required: true, default: false},
     quickQuoteOnly: {type: Boolean, required: true, default: false},
-    policyEffectiveDateThresholds: {
+    policyEffectiveDateThresholds:
+    {
         type: policyEffectiveDateThresholdsSchema, 
         required: true, 
-        default: {
-            WC: {}, GL: {}, BOP: {}, CYBER: {}, PL: {}
-        }
+        default: defaultPolicyEffDateThresholds
     }
 }, optsNoId);
 
