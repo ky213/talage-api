@@ -61,14 +61,14 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     let error = null;
 
     const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
-        log.error(`Error loading AgencyNetworkBO AgencyNetworkId {agencyNetworkId} ` + err + __location);
+        log.error(`Email Svc: Error loading AgencyNetworkBO AgencyNetworkId {agencyNetworkId} ` + err + __location);
         error = err;
     })
     if(error || !agencyNetworkJSON){
         return false;
     }
     if(!agencyNetworkJSON.additionalInfo || !agencyNetworkJSON.additionalInfo.fromEmailAddress){
-        log.error(`Error loading AgencyNetworkBO Missing additionalInfo AgencyNetworkId {agencyNetworkId} ` + __location);
+        log.error(`Email Svc: Error loading AgencyNetworkBO Missing additionalInfo AgencyNetworkId {agencyNetworkId} ` + __location);
         return false;
     }
 
