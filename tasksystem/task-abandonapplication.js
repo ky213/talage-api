@@ -123,8 +123,11 @@ var abandonAppTask = async function(){
                     error = err;
                 });
             }
-            if(error === null){
+            if(error === null && succesfulProcess === true){
                 log.info(`Processed abandon app for appId: ${appDoc.applicationId}`);
+            }
+            else {
+                log.error(`Abandon app did NOT sucessfully process for appId: ${appDoc.applicationId}`);
             }
 
         }
@@ -184,7 +187,7 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
 
         //Use AgencyNetwork feature agencyAbandonAppEmails to determine who get the email.
 
-        if(agencyNetworkJSON.featureJson.abandonAppEmailsCustomer === true && applicationDoc.agencyPortalCreated === false){
+        if(agencyNetworkJSON.featureJson.abandonAppEmailsCustomer === true && applicationDoc.agencyPortalCreated !== true){
             emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "abandoned_applications_agency", "abandoned_applications_customer").catch(function(err){
                 log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
                 error = true;

@@ -61,6 +61,31 @@ function _findQuestion(questions, parentId) {
 }
 
 /**
+ * A function to determine whether the answer is an empty checkbox answer or not. Empty checkbox answers are just a series of verticle brackets (i.e. |||)
+ *
+ * @param {String} answer - A question answer
+ *
+ * @returns {Boolean} - Whether or not the answer is an empty checkbox answer or not
+ */
+function isBlankCheckboxAnswer(answer) {
+    if (answer.length === 0) {
+        return false;
+    }
+
+    if (typeof answer !== "string") {
+        return false;
+    }
+
+    for (const character of answer.trim()) {
+        if (character !== "|") {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Responds to get requests for the Questions endpoint
  *
  * @param {object} req - HTTP request object
@@ -141,7 +166,7 @@ async function getQuestions(req, res, next) {
             if (executionCount === prevQuestionCount) {
                 // if the count of appQuestions didn't change, we're just spinning in the while loop, exit out
                 if (appQuestions.length === prevQuestionCount) {
-                    log.error(`Application ${appId} Remaining questions could not be properly processed. Skipping ${appQuestions.length} question${appQuestions.length > 1 ? "s" : ""}` + __location);
+                    log.warn(`Application ${appId} ${appQuestions.length} remaining child questions could not be properly processed. These questions are likely unanswered children questions. Skipping... ` + __location);
                     break;
                 }
 
@@ -158,7 +183,7 @@ async function getQuestions(req, res, next) {
                 dbQuestion = await questionBO.getById(question.questionId)
             }
             catch (e) {
-                log.error(`Application ${appId} - An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.` + __location);
+                log.warn(`Application ${appId} - An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.` + __location);
 
                 // question no longer in the db, add it as parent
                 questions[question.questionId] = {
@@ -174,7 +199,7 @@ async function getQuestions(req, res, next) {
             }
 
             if(!dbQuestion){
-                log.error(`Application ${appId} - Could not find question ${question.questionId} in the database.` + __location);
+                log.warn(`Application ${appId} - Could not find question ${question.questionId} in the database.` + __location);
 
                 // question no longer in the db, add it as parent
                 questions[question.questionId] = {
@@ -211,15 +236,17 @@ async function getQuestions(req, res, next) {
                     continue;
                 }
 
-                // if the child question was answered...
-                if (dbQuestion.parent_answer === parent.answerId) {
+                // if the child question was answered, or its a text question that was answered and it's not checkbox question that was unanswered
+                const questionAnswer = getAnswer(question);
+                if (dbQuestion.parent_answer === parent.answerId ||
+                    !question.answerId && typeof questionAnswer === "string" && questionAnswer.trim().length > 0 && !isBlankCheckboxAnswer(questionAnswer)) {
                     // add the child question to the parent's children map
                     parent.children[question.questionId] = {
                         answer: getAnswer(question),
                         answerId: question.answerId,
                         children: {},
                         question: question.questionText,
-                        questionId: question.questionid
+                        questionId: question.questionId
                     };
                 }
             }

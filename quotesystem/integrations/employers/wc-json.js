@@ -508,7 +508,13 @@ module.exports = class EmployersWC extends Integration {
             }
 
             if (!quoteResponse || !quoteResponse.success) {
-                this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
+                if (quoteResponse.status) {
+                    this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
+                }
+                else {
+                    this.reasons.push(`Insurer returned unknown status.`);
+                }
+
                 if (quoteResponse.errors) {
                     // quoteResponse.errors array also contains info and warnings. Get the actual errors which can make a quote fail
                     const failingQuoteErrors = quoteResponse.errors.filter(error => {

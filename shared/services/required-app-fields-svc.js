@@ -131,7 +131,7 @@ const plRequirements = {
 
 const cyberRequirements = {
     location: {
-        activityPayrollList: {requirement: optional},
+        activityPayrollList: {requirement: required},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
