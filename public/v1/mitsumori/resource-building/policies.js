@@ -291,6 +291,5 @@ const policyEffectiveDateThresholds = async(resources, applicationDB) => {
     else {
         // These are the default values if we don't find any thresholds in the agency network feature json
         resources.policyEffectiveDateThresholds = defaultEffectiveDateThresholds;
-
     }
 }
