@@ -1214,6 +1214,11 @@ module.exports = class CnaBOP extends Integration {
 
         this.app.applicationDocData.locations.forEach((location, i) => {
             const coveragesObj = {
+                ItemValueAmt: {
+                    Amt: {
+                        value: applicationDocData.grossSales
+                    }
+                },
                 CommlCoverage: [],
                 LocationRef: `L${i}`,
                 SubLocationRef: `L${i}S${i}`
@@ -1223,9 +1228,41 @@ module.exports = class CnaBOP extends Integration {
             // If desired, set BillableLostPeriod here
             // coverageObj.BusinessIncomeInfo.BillableLostPeriod.Description.value
 
+            // buildingLimit
+            if (location.buildingLimit) {
+                const bldgCoverage = {
+                    CoverageCd: {
+                        value: 'BLDG'
+                    },
+                    Limit: [{
+                        FormatInteger: {
+                            value: location.buildingLimit
+                        }
+                    }]
+                }
+
+                coveragesObj.CommlCoverage.push(bldgCoverage);
+            }
+
+            // businessPersonalPropertyLimit
+            if (location.businessPersonalPropertyLimit) {
+                const bppCoverage = {
+                    CoverageCd: {
+                        value: 'BPP'
+                    },
+                    Limit: [{
+                        FormatInteger: {
+                            value: location.businessPersonalPropertyLimit
+                        }
+                    }]
+                }
+
+                coveragesObj.CommlCoverage.push(bppCoverage);
+            }
+
             const glassCoverage = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.glassCoverage");
             if (glassCoverage && glassCoverage.answerValue.toLowerCase() === "yes") {
-                // get child question
+                // TODO: get child question
 
                 const coverageObj = {
                     CoverageCd: {
@@ -1240,18 +1277,15 @@ module.exports = class CnaBOP extends Integration {
                         }
                     }]
                 }
+
+                coveragesObj.CommlCoverage.push(coverageObj);
             }
 
-            coverages.push(coveragesObj);
         });
 
         return coverages;
         {
-            "ItemValueAmt": {
-                "Amt": {
-                    "value": applicationDocData.grossSales
-                }
-            },
+
             // Optional, not providing
             // "BusinessIncomeInfo": {
             //     "BillableLostPeriod": {
