@@ -13,7 +13,8 @@ const insurerActivityCodeBO = global.requireShared('./models/InsurerActivityCode
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const phoneHelper = global.requireShared('./helpers/formatPhone.js');
 
-const { removeDiacritics } = global.requireShared('./helpers/stringFunctions.js');
+// eslint-disable-next-line no-unused-vars
+const {removeDiacritics} = global.requireShared('./helpers/stringFunctions.js');
 
 module.exports = class ACORD{
 
@@ -470,7 +471,7 @@ module.exports = class ACORD{
             }
 
             return pdf;
-        } 
+        }
 
         const page1Obj = {
             "Form_CompletionDate_A": moment().format('L'),
@@ -632,7 +633,6 @@ module.exports = class ACORD{
                         pdfKey += 1;
                     }
                 }
-                
             }
             stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
             pageCounter += 1;

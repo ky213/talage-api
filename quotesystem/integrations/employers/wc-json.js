@@ -11,10 +11,10 @@
 'use strict';
 
 const Integration = require('../Integration.js');
-const moment_timezone = require('moment-timezone');
+//const moment_timezone = require('moment-timezone');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
+//const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -144,7 +144,8 @@ module.exports = class EmployersWC extends Integration {
 
             const requestJSON = {
             // Employers has us define our own Request ID
-                "id": this.app.id,
+                //"id": this.app.id,
+                "id": this.quoteId,
                 "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
                 "expirationDate": this.policy.expiration_date.format('YYYY-MM-DD'),
                 "primaryRiskState": appDoc.primaryState,
@@ -492,13 +493,6 @@ module.exports = class EmployersWC extends Integration {
                     appToken: this.password
                 };
 
-            // This logging is being done by this.send_json_request()
-            // this.log += `--------======= Sending to Employers =======--------<br><br>`;
-            // this.log += `<b>Request started at ${moment_timezone().utc().toISOString()}</b><br><br>`;
-            // this.log += `URL: ${host}${path}<br><br>`;
-            // this.log += `<pre>${JSON.stringify(requestJSON, null, 2)}</pre><br><br>`;
-            // this.log += `--------======= End =======--------<br><br>`;
-
             let quoteResponse = null;
             log.debug(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
             try {
@@ -520,7 +514,8 @@ module.exports = class EmployersWC extends Integration {
                     const failingQuoteErrors = quoteResponse.errors.filter(error => {
                         const failingQuoteErrorCodes = ['required',
                                                         'invalid',
-                                                        'error'];
+                                                        'error',
+                                                        'nominal'];
                         const errorCode = error.code.split('.')[1];
                         return failingQuoteErrorCodes.includes(errorCode);
                     });
@@ -576,38 +571,69 @@ module.exports = class EmployersWC extends Integration {
             const insurerPaymentPlans = quoteResponse.availablePaymentPlans;
             try {
                 if (insurerPaymentPlans) {
+                    const employerPaymentPlanTranslations = {
+                        "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
+                        "DB-D-9": 4
+                    };
+
                     this.insurerPaymentPlans = insurerPaymentPlans;
                     this.talageInsurerPaymentPlans = [];
                     for (const insurerPaymentPlan of insurerPaymentPlans) {
                         const talagePaymentPlan = {};
-                        const employerPaymentPlanTranslations = {
-                            "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
-                            "DB-D-9": 4
-                        };
                         const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
                         const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
                         if (!talagePaymentPlanId) {
-                            continue;
+                            log.debug(`Could not determine Talage payment plan ID. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue; // Can't determine Payment Plan type so skip this payment plan
                         }
                         talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
                         talagePaymentPlan.insurerPaymentPlanId = insurerPaymentPlan.billingOptionId;
-                        talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
-                        talagePaymentPlan.NumberPayments = insurerPaymentPlan.numberOfInstallments;
-                        talagePaymentPlan.TotalPremium = quoteResponse.totalPremium;
+                        if (insurerPaymentPlan.description) {
+                            talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
+                        }
 
-                        let totalInstallmentCost = 0;
-                        if (insurerPaymentPlan.amountDue) { // Amount due per installment if any
-                            talagePaymentPlan.installmentPayment = insurerPaymentPlan.amountDue
-                            totalInstallmentCost = insurerPaymentPlan.amountDue * insurerPaymentPlan.numberOfInstallments;
+                        if (insurerPaymentPlan.hasOwnProperty('numberOfInstallments') && !isNaN(insurerPaymentPlan.numberOfInstallments)) {
+                            talagePaymentPlan.NumberPayments = Number(insurerPaymentPlan.numberOfInstallments);
                         }
                         else {
-                            talagePaymentPlan.installmentPayment = 0;
+                            log.debug(`Could not determine number of installments. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue;
                         }
-                        talagePaymentPlan.TotalCost = insurerPaymentPlan.downPayment + totalInstallmentCost;
 
-                        talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
-                        talagePaymentPlan.DownPayment = insurerPaymentPlan.downPayment;
+                        if (quoteResponse.hasOwnProperty('totalPremium') && !isNaN(quoteResponse.totalPremium)) {
+                            talagePaymentPlan.TotalPremium = Number(quoteResponse.totalPremium);
+                        }
+                        else {
+                            log.debug(`Could not determine total premium. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue;
+                        }
+
+                        let totalInstallmentCost = 0;
+                        if (insurerPaymentPlan.hasOwnProperty('amountDue') && !isNaN(insurerPaymentPlan.amountDue)) { // Amount due per installment if any
+                            talagePaymentPlan.installmentPayment = Number(insurerPaymentPlan.amountDue);
+                            totalInstallmentCost = Number(insurerPaymentPlan.amountDue) * Number(insurerPaymentPlan.numberOfInstallments);
+                        }
+                        else {
+                            log.debug(`Could not determine installment payment. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue; // If we can't find amountDue then skip this payment plan. We don't want to make a down payment seem like the total cost of the payment plan
+                        }
+
+                        if (insurerPaymentPlan.hasOwnProperty('downPayment') && !isNaN(insurerPaymentPlan.downPayment)){
+                            talagePaymentPlan.DownPayment = Number(insurerPaymentPlan.downPayment);
+                        }
+                        else {
+                            log.debug(`Could not determine down payment. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue;
+                        }
+
+                        talagePaymentPlan.TotalCost = Number(insurerPaymentPlan.downPayment) + totalInstallmentCost;
+
+                        if (insurerPaymentPlan.hasOwnProperty('downPaymentPercent') && !isNaN(insurerPaymentPlan.downPaymentPercent)) {
+                            talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
+                        }
+
                         talagePaymentPlan.invoices = [];
+
                         this.talageInsurerPaymentPlans.push(talagePaymentPlan);
                     }
                 }
@@ -615,7 +641,6 @@ module.exports = class EmployersWC extends Integration {
             catch (err) {
                 log.error(`${logPrefix}Problem getting payment plan from response object: ${err}` + __location);
             }
-
 
             try {
                 const quoteLetter = quoteResponse.attachments.find(attachment => attachment.attachmentType === "QuoteLetter");

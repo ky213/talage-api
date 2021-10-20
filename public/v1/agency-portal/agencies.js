@@ -56,6 +56,7 @@ async function getAgencies(req, res, next){
                 let agencyInfo = {};
                 agencyInfo.id = retAgencies[i].systemId;
                 agencyInfo.name = retAgencies[i].name;
+                agencyInfo.email = retAgencies[i].email;
                 agencyInfo.state = retAgencies[i].active ? "Active" : "Inactive";
                 if(retAgencies[i].primaryAgency === null || typeof retAgencies[i].primaryAgency === 'undefined'){
                     agencyInfo.primaryAgency = false;

@@ -269,8 +269,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
             }
         }
     }
-    //save any overrides for DB Save
-    recipients = emailJSON.to
+
+    //save any overrides for DB Save and remove duplicate .to emails
+    recipients = [...new Set(emailJSON.to.split(','))].join(',');
     if (attachments) {
         emailJSON.attachments = attachments;
     }

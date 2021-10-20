@@ -49,6 +49,7 @@ module.exports = class Application {
         this.questions = {};
         this.applicationDocData = {};
         this.quoteInsurerId = null;
+        this.quickQuoteOnly = false;
     }
 
     /**
@@ -97,6 +98,20 @@ module.exports = class Application {
             throw new Error(`Failed to load application ${data.id} `)
         }
         this.id = this.applicationDocData.applicationId;
+
+
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let agencyNetworkDB = {}
+        try{
+            agencyNetworkDB = await agencyNetworkBO.getById(this.applicationDocData.agencyNetworkId)
+        }
+        catch(err){
+            log.error("Error getting agencyNetworkBO " + err + __location);
+
+        }
+        if(agencyNetworkDB){
+            this.quickQuoteOnly = agencyNetworkDB.featureJson.quickQuoteOnly;
+        }
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
@@ -294,7 +309,7 @@ module.exports = class Application {
                 }
                 catch (e) {
                     log.error(`Translation Error: DB getById ${activityCode.id} activity codes for appId ${this.id} error: ${e}. ` + __location);
-                    throw e;
+                    //throw e;
                 }
             }
         }
@@ -777,7 +792,8 @@ module.exports = class Application {
 
             try {
                 log.debug(`calling ${requestUrl} for quoting` + __location)
-                return await axios.post(requestUrl, postParams, axiosOptions);
+                const respJSON = await axios.post(requestUrl, postParams, axiosOptions);
+                return respJSON?.data;
             }
             catch (ex) {
                 // If a timeout occurred.
@@ -790,11 +806,11 @@ module.exports = class Application {
                 }
 
                 // Run quoting manually if we are unable to run quoting via the quote server.
-                return runQuoting(this);
+                return runQuoting.runQuoting(this);
             }
         }
         else {
-            return runQuoting(this);
+            return runQuoting.runQuoting(this);
         }
     }
 
@@ -822,7 +838,8 @@ module.exports = class Application {
             agencyNetworkDB = {featureJson : {
                 quoteEmailsCustomer : true,
                 quoteEmailsAgency: true,
-                agencyNetworkQuoteEmails: false
+                agencyNetworkQuoteEmails: false,
+                quickQuoteOnly: false
             }}
         }
         quoteList.forEach((quoteDoc) => {
@@ -1061,6 +1078,11 @@ module.exports = class Application {
 	 */
     validate(logValidationErrors = true) {
         return new Promise(async(fulfill, reject) => {
+
+            if(this.quickQuoteOnly){
+                return fulfill(true);
+            }
+
             // Agent
             try {
                 //Check Agencylocation Choice.
@@ -1239,7 +1261,7 @@ module.exports = class Application {
                 for (const question of this.applicationDocData.questions) {
                     if (question.questionId && !question.hidden) {
                         try {
-                            validateQuestion(question, logValidationErrors);
+                            validateQuestion(this.applicationDocData, question, logValidationErrors);
                         }
                         catch (e) {
                             // This issue should not result in a stoppage of quoting with all insurers
@@ -1270,141 +1292,51 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
     async run_pricing() {
-
-        // appStatusId > 70 is finished.(request to bind)
-        if(this.applicationDocData.appStatusId >= 70){
-            log.warn("An attempt to priced application that is finished.")
-            throw new Error("Finished Application cannot be priced")
-        }
-
-        // Generate quotes for each policy type
-        const fs = require('fs');
-        const price_promises = [];
-
-        if(this.policies && this.policies.length === 0){
-            log.error(`No policies for Application ${this.id} ` + __location)
-        }
-
-        // set the quoting started date right before we start looking for quotes
-        this.policies.forEach((policy) => {
-            // Generate quotes for each insurer for the given policy type
-            this.insurers.forEach((insurer) => {
-                let quoteInsurer = true;
-                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId !== insurer.id){
-                    quoteInsurer = false;
-                }
-                // Only run quotes against requested insurers (if present)
-                // Check that the given policy type is enabled for this insurer
-                if (insurer.policy_types.indexOf(policy.type) >= 0 && quoteInsurer) {
-
-                    // Get the agency_location_insurer data for this insurer from the agency location
-                    //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
-                    if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
-
-                        //Retrieve the data for this policy type
-                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
-                        if (agency_location_insurer_data) {
-
-                            if (agency_location_insurer_data.enabled) {
-                                let policyTypeAbbr = '';
-                                let slug = '';
-                                try{
-                                    // If agency wants to send acord, send acord
-                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === true) {
-                                        slug = 'acord';
-                                    }
-                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
-                                        // Otherwise use the api
-                                        slug = insurer.slug;
-                                    }
-                                    if(policy && policy.type){
-                                        policyTypeAbbr = policy.type.toLowerCase()
-                                    }
-                                    else {
-                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
-                                    }
-                                }
-                                catch(err){
-                                    log.error('SLUG ERROR ' + err + __location);
-                                }
-
-                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
-                                log.debug(`normalizedPathnormalizedPath}`)
-                                try{
-                                    if (slug.length > 0 && fs.existsSync(normalizedPath)) {
-                                        // Require the integration file and add the response to our promises
-                                        const IntegrationClass = require(normalizedPath);
-                                        const integration = new IntegrationClass(this, insurer, policy);
-                                        price_promises.push(integration.price());
-                                    }
-                                    else {
-                                        log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
-                                    }
-                                }
-                                catch(err){
-                                    log.error(`Error getting Insurer integration file ${normalizedPath} ${err} ` + __location)
-                                }
-                            }
-                            else {
-                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
-                            }
-                        }
-                        else {
-                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
-                        }
-                    }
-                    else {
-                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
-                    }
-                }
-            });
-        });
-
-        // Wait for all quotes to finish
-        let pricingResults = null;
-        //pricingResult JSON
-        // const pricingResult =  {
-        //     gotPricing: true,
-        //     price: 1200,
-        //     lowPrice: 800,
-        //     highPrice: 1500,
-        //     outOfAppetite: false,
-        //     pricingError: false
-        // }
-        try {
-            pricingResults = await Promise.all(price_promises);
-        }
-        catch (error) {
-            log.error(`Pricing did not complete successfully for application ${this.id}: ${error} ${__location}`);
-            const appPricingResultJSON = {
-                gotPricing: false,
-                outOfAppetite: false,
-                pricingError: true
+        if (global.settings.ENABLE_QUOTE_API_SERVER === 'YES') {
+            const axiosOptions = {
+                timeout: 55000, // Timeout after 55 seconds - Sync
+                headers: {Accept: "application/json"}
+            };
+            const postParams = {
+                id: this.id,
+                insurerId: this.quoteInsurerId,
+                agencyPortalQuote: this.agencyPortalQuote
             }
-            return appPricingResultJSON;
-        }
-
-        //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
-        let appPricingResultJSON = {}
-        // Check for no quotes
-        if (pricingResults.length === 1 && typeof pricingResults[0] === 'object') {
-            appPricingResultJSON = pricingResults[0]
-        }
-        else if (pricingResults.length < 1) {
-            appPricingResultJSON = {
-                gotPricing: false,
-                outOfAppetite: false,
-                pricingError: true
+            let requestUrl = `http://localhost:4000/v1/run-pricing`;
+            if (global.settings.ENV !== 'development') {
+                //use ${ENV}quote.internal.talageins.com
+                requestUrl = `https://${global.settings.ENV}quote.internal.talageins.com/v1/run-pricing`;
+            }
+            //if global.settings.QUOTE_SERVER_URL is set it wins....
+            if(global.settings.QUOTE_SERVER_URL && global.settings.QUOTE_PUBLIC_API_PORT){
+                requestUrl = `${global.settings.QUOTE_SERVER_URL}:${global.settings.QUOTE_PUBLIC_API_PORT}/v1/run-pricing`;
+            }
+            else if(global.settings.QUOTE_SERVER_URL){
+                requestUrl = `${global.settings.QUOTE_SERVER_URL}/v1/run-pricing`;
             }
 
-        }
-        // else {
-        //     //LOOP result for creating range.
-        // }
-        const appUpdateJSON = {pricingInfo: appPricingResultJSON}
-        const applicationBO = new ApplicationBO();
-        await applicationBO.updateMongo(this.applicationDocData.applicationId, appUpdateJSON);
+            try {
+                log.debug(`calling ${requestUrl} for quoting` + __location)
+                const respJSON = await axios.post(requestUrl, postParams, axiosOptions);
+                return respJSON?.data;
+            }
+            catch (ex) {
+                // If a timeout occurred.
+                if (ex.code === 'ECONNABORTED') {
+                    log.error(`Timeout to quoting server: ${requestUrl}: ${ex} ${__location}`);
+                }
+                // or if a 500 or other REST error was returned.
+                else {
+                    log.error(`Error when calling quoting server: ${requestUrl}: ${ex} ${__location}`);
+                }
 
-        return appPricingResultJSON
+                // Run quoting manually if we are unable to run quoting via the quote server.
+                return runQuoting.runPricing(this);
+            }
+        }
+        else {
+            return runQuoting.runPricing(this);
+        }
+
     }
 };

@@ -14,8 +14,9 @@ const requirementHelper = global.requireShared('./services/required-app-fields-s
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appId && req.query.page !== "_basic") {
-        log.info('Bad Request: Parameters missing' + __location);
+    const listOfInitialLandingPages = ["_basic", "_am-basic"]
+    if (!req.query.page || !req.query.appId && listOfInitialLandingPages.indexOf(req.query.page) === -1) {
+        log.debug('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
 
@@ -31,6 +32,8 @@ async function getResources(req, res, next){
     switch(req.query.page) {
         case "_basic":
         case "_basic-created":
+        case "_am-basic":
+        case "_am-basic-created":
             entityTypes(resources);
             if(req.query.agencyNetworkId){
                 await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId);
@@ -38,7 +41,6 @@ async function getResources(req, res, next){
             break;
         case "_policies":
             await policyHelper.populatePolicyResources(resources, req.query.appId);
-            
             break;
         case "_business-questions":
             membershipTypes(resources);
@@ -50,6 +52,7 @@ async function getResources(req, res, next){
             policyHelper.policyTypes(resources);
             break;
         case "_locations":
+        case "_am-locations":
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
@@ -107,7 +110,8 @@ const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
         if(applicationDB){
             agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
         }
-    }else {
+    }
+    else {
         agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
     }
 
@@ -117,9 +121,9 @@ const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
     const agencyCodeField = agencyNetworkDB?.featureJson.enableAgencyCodeField === true;
     // get the agency network features we care about here.
     resources.agencyNetworkFeatures = {
-        quoteAppBinding,
-        appSingleQuotePath,
-        agencyCodeField
+        quoteAppBinding: quoteAppBinding,
+        appSingleQuotePath: appSingleQuotePath,
+        agencyCodeField: agencyCodeField
     };
 }
 
