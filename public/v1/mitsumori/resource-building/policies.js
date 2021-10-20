@@ -264,4 +264,30 @@ const policyEffectiveDateThresholds = async(resources, applicationDB) => {
     if(agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds){
         resources.policyEffectiveDateThresholds = agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds;
     }
+    else {
+        // These are the default values if we don't find any thresholds in the featureJson
+        resources.policyEffectiveDateThresholds =
+        {
+            "WC": {
+                "start": 1,
+                "end": 90
+            },
+            "GL": {
+                "start": 1,
+                "end": 90
+            },
+            "BOP": {
+                "start": 1,
+                "end": 90
+            },
+            "CYBER": {
+                "start": 1,
+                "end": 90
+            },
+            "PL": {
+                "start": 1,
+                "end": 90
+            }
+        }
+    }
 }
