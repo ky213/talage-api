@@ -239,7 +239,7 @@ async function getQuestions(req, res, next) {
                 // if the child question was answered, or its a text question that was answered and it's not checkbox question that was unanswered
                 const questionAnswer = getAnswer(question);
                 if (dbQuestion.parent_answer === parent.answerId ||
-                    !question.answerId && questionAnswer && questionAnswer.trim().length > 0 && !isBlankCheckboxAnswer(questionAnswer)) {
+                    !question.answerId && typeof questionAnswer === "string" && questionAnswer.trim().length > 0 && !isBlankCheckboxAnswer(questionAnswer)) {
                     // add the child question to the parent's children map
                     parent.children[question.questionId] = {
                         answer: getAnswer(question),
