@@ -639,6 +639,7 @@ async function getAgencyMetadata(req, res, next) {
     if(agencyJson.displayName){
         agencyName = agencyJson.displayName;
     }
+
     const metaObject = {
         wholesale: agencyJson.wholesale,
         metaAgencyId: agencyJson.agencyId,
@@ -663,8 +664,14 @@ async function getAgencyMetadata(req, res, next) {
 
     // use wheelhouse defaults if its not present
     let metaDescription = null;
-    if(agencyJson.landingPageContent && agencyJson.landingPageContent.bannerHeadingDefault){
-        metaDescription = agencyJson.landingPageContent.bannerHeadingDefault;
+    metaObject.metaHideHowItWorks = false;
+    if(agencyJson.landingPageContent){
+        if(agencyJson.landingPageContent.bannerHeadingDefault){
+            metaDescription = agencyJson.landingPageContent.bannerHeadingDefault;
+        }
+        if(agencyJson.landingPageContent.workflow){
+            metaObject.metaHideHowItWorks = Boolean(agencyJson.landingPageContent.workflow.hide);
+        }
     }
     else if(agencyJson.defaultLandingPageContent) {
         metaDescription = agencyJson.defaultLandingPageContent.bannerHeadingDefault;
