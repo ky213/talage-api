@@ -255,7 +255,7 @@ const getWCLimits = (agencyNetworkId, territory) => {
     return limits;
 };
 
-const policyEffectiveDateThresholds = async (resources, applicationDB) => {
+const policyEffectiveDateThresholds = async(resources, applicationDB) => {
     let agencyNetworkDB = null;
     const agencyNetworkBO = new AgencyNetworkBO();
     if(applicationDB){

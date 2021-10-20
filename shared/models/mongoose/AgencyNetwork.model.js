@@ -30,7 +30,7 @@ const policyEffectiveDateThresholdsSchema = new Schema({
 }, optsNoId);
 
 const defaultPolicyEffDateThresholds = {
-    WC: {start: 1, end: 90}, 
+    WC: {start: 1, end: 90},
     GL: {start: 1, end: 90},
     BOP: {start: 1, end: 90},
     CYBER: {start: 1, end: 90},
@@ -55,8 +55,8 @@ const featureSchema = new Schema({
     quickQuoteOnly: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
-        type: policyEffectiveDateThresholdsSchema, 
-        required: true, 
+        type: policyEffectiveDateThresholdsSchema,
+        required: true,
         default: defaultPolicyEffDateThresholds
     }
 }, optsNoId);
