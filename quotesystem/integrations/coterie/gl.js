@@ -240,7 +240,7 @@ module.exports = class CompwestWC extends Integration {
                     const quote = quoteResponse.quote
                     this.amount = quote.premium;
                     this.request_id = quote.externalId;
-                    this.quoteLink = quote.applicationUrl;
+                    this.quoteLink = quote.agentUrl;
                     if(this.policy.type.toUpperCase() === 'BOP'){
                         this.deductible = coterieDeductible;
                     }
