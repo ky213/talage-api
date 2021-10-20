@@ -258,6 +258,30 @@ const getWCLimits = (agencyNetworkId, territory) => {
 const policyEffectiveDateThresholds = async(resources, applicationDB) => {
     let agencyNetworkDB = null;
     const agencyNetworkBO = new AgencyNetworkBO();
+    // will be used if we can't find these settings on the network features
+    const defaultEffectiveDateThresholds =
+    {
+        "WC": {
+            "start": 1,
+            "end": 90
+        },
+        "GL": {
+            "start": 1,
+            "end": 90
+        },
+        "BOP": {
+            "start": 1,
+            "end": 90
+        },
+        "CYBER": {
+            "start": 1,
+            "end": 90
+        },
+        "PL": {
+            "start": 1,
+            "end": 90
+        }
+    }
     if(applicationDB){
         agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
     }
@@ -265,29 +289,8 @@ const policyEffectiveDateThresholds = async(resources, applicationDB) => {
         resources.policyEffectiveDateThresholds = agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds;
     }
     else {
-        // These are the default values if we don't find any thresholds in the featureJson
-        resources.policyEffectiveDateThresholds =
-        {
-            "WC": {
-                "start": 1,
-                "end": 90
-            },
-            "GL": {
-                "start": 1,
-                "end": 90
-            },
-            "BOP": {
-                "start": 1,
-                "end": 90
-            },
-            "CYBER": {
-                "start": 1,
-                "end": 90
-            },
-            "PL": {
-                "start": 1,
-                "end": 90
-            }
-        }
+        // These are the default values if we don't find any thresholds in the agency network feature json
+        resources.policyEffectiveDateThresholds = defaultEffectiveDateThresholds;
+
     }
 }
