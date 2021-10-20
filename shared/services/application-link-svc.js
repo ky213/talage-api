@@ -127,6 +127,8 @@ const sendEmail = async(agency, link, options) => {
     const emailSubjectDefault = 'A portal to your application';
     const emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
+    const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
+
     const emailData = {
         html: `
             <p>
@@ -159,8 +161,9 @@ const sendEmail = async(agency, link, options) => {
         subject: emailSubject,
         to: recipients
     };
+    const branding = agencyNetworkBranding ? '' : 'agency'
 
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agency.agencyNetworkId, 'agency', agency.systemId);
+    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agency.agencyNetworkId, branding, agency.systemId);
     if(!emailSent){
         log.error(`Failed to send email for application link to ${emailData.to}.`);
     }
