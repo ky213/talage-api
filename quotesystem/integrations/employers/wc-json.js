@@ -512,7 +512,7 @@ module.exports = class EmployersWC extends Integration {
                     this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
                 }
                 else {
-                    this.reasons.push(`Insurer returned uknown status.`);
+                    this.reasons.push(`Insurer returned unknown status.`);
                 }
 
                 if (quoteResponse.errors) {
