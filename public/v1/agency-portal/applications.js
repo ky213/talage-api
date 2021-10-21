@@ -15,7 +15,8 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 const mongoose = require('mongoose');
 const Quote = mongoose.model('Quote');
-
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 /**
  * Validates the parameters for the applications call
  * @param {Array} parent - The list of parameters to validate
@@ -786,7 +787,46 @@ async function getApplications(req, res, next){
         return next();
     }
 }
-
+/**
+ * Given an array of insurerIds it returns an array of insurer objects
+ *
+ * @param {array} insurerIdArray - Array of insurer Ids
+ * @returns {array} array of insurer objects
+ */
+async function getInsurers(insurerIdArray){
+    const insurersList = [];
+    try {
+        if(insurerIdArray.length > 0){
+            const insurerBO = new InsurerBO();
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerIdArray}
+            let insurerDBJSONList = await insurerBO.getList(query);
+            if(insurerDBJSONList && insurerDBJSONList.length > 0){
+                for(let insureDB of insurerDBJSONList){
+                    //check if any insurerPolicyType is wheelhouse enabled.
+                    const queryPT = 
+                    {
+                        "wheelhouse_support": true,
+                        insurerId: insureDB.insurerId
+                    };
+                    insureDB.policyTypes = [];
+                    const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
+                    if(insurerPtDBList && insurerPtDBList.length > 0){
+                        insureDB.policyTypes = insurerPtDBList;
+                    }
+                    else {
+                        log.info(`No wheelhouse enabled products for insurer ${insureDB.insurerId}` + __location);
+                    }
+                    //outside wheelhouse support logic. in case we are toggling an insurer on/off at system level.
+                    insurersList.push(insureDB)
+                }
+            }
+        } 
+    } catch (error) {
+        log.debug(`Error occured when trying to retrieve insurers list for applications resources. ${error} ${__location}`);
+    }
+    return insurersList;
+}
 /**
  * Responds to get requests for the applications endpoint
  *
@@ -798,13 +838,92 @@ async function getApplications(req, res, next){
  */
 async function getApplicationsResources(req, res, next){
     const resources = {};
-    // return product type filters, for now return full list, but in future we might want to pull info based on Agency Network Id, or Agency Id
+    // determine if signed in is an agencyNetwork User or agency user
+    const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+    // grab the list of agencies from the req.authentication
+    const listOfAgencyIds = req.authentication.agents;
+    // our default list, if or when we add a new product, add it to this const list
     const defaultProductTypeFilters = ["WC", "GL", "BOP", "CYBER", "PL"];
-    // get the insurers for agency network
-    // grab the agency network // case agency network, then grab insurerids off of agency network, for each insurerId grab the insurer
-    // for each insurer id in the insure list grab the policies using the insurer-policy object, if the list already doesn't have policy type and wheelhouse support is enabled then add it
-    
     resources.productTypesSelections = defaultProductTypeFilters;
+    // if login is agency network grab the id
+    if(isAgencyNetworkUser === true){
+        const agencyNetworkId = req.authentication.agencyNetworkId;
+        let insurerList = [];
+    let error = null;
+        try{
+            // grab the agencyNetworkDB
+            let agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+                log.error(`agencyNetworkBO load error for agencyNetworkId ${agencyNetworkId} ${err} ${ __location}`);
+                error = err;
+            });
+            if (error) {
+                return next(error);
+            }
+            // grab all the insurers for this agency network
+            const insurerIdArray = agencyNetworkJSON.insurerIds;
+            // call the getInsures, this will return the insurers for the agency network and the associated policies for the insurer
+            insurerList = await getInsurers(insurerIdArray);
+
+            if(insurerList.length > 0){
+                resources.insurers = insurerList;
+                // iterate through the iterationList and search insurer policy list untill all policy types are searched for
+                let iterationList = defaultProductTypeFilters;
+                    // list we will add to if policy type found
+                const productTypeSelections = [];
+                try {
+                    while(iterationList.length > 0){
+                        // each time we take a policy from the front
+                        const policySearchingFor = iterationList.shift();
+                        // this should iterate at most length of the array
+                        for(let i = 0; i < insurerList.length; i++){
+                            const insurer = insurerList[i];
+                            if(insurer?.policyTypes.length > 0){
+                                // this should iterate at most at lenght of the array
+                                for(let j = 0; j < insurer.policyTypes.length; j++){
+                                    // grab the policy type object
+                                    const policyTypeObj = insurer.policyTypes[j];
+                                    // if the policy type object matches what we are looking for break out of the two for loops
+                                    if(policyTypeObj?.policy_type && policyTypeObj?.policy_type === policySearchingFor){
+                                        // we found an insurer that has the policy type we are searching for so add to the porductTypeSelections
+                                        productTypeSelections.push(policySearchingFor);
+                                        // terminate the nested (inside) for loop
+                                        j = insurer.policyTypes.length;
+                                        // terminate the outside for loop
+                                        i = insurerList.length;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                } catch (error) {
+                    log.debug(`Error trying to build product type selections list. ${error} ${__location}`);
+                }
+                resources.productTypesSelections = productTypeSelections;
+            }else{
+                log.error(`Error when retrieving insurers for agencyNetworkId ${agencyNetworkId}. Returning default productTypesSelections filters.  ${__location}`);
+            }
+        }
+        catch(err){
+            log.error(`Error get Agency Network Insurer List ` + err + __location);
+        }
+    }else {
+        // if we know this is not an agency network signed in req then we know the req is coming from an agency user
+        if(listOfAgencyIds?.length === 1){
+            // we should only have a single agency id if the req is not agencyNetwork
+            const agencyId = listOfAgencyIds[0];
+            // grab the agency
+            // grab all the locations for an agency
+            // grab all the insurers for this agency's list of locations
+            // grab all the policies for this agency's list of locations
+        }else {
+            log.error(`Error found multiple agencyIds in the req.authentication ${JSON.stringify(req.authentication)} ${__location}`);
+        }
+    }
+
+
+
     const dateFilters = [
         {
             label: 'Created Date',
