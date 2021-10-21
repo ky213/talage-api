@@ -8,6 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const colorConverter = require('color-converter').default;
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
 const ColorSchemeBO = global.requireShared('./models/ColorScheme-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -133,7 +134,6 @@ async function retrieveCustomColorScheme(data, next) {
  * @return {int}  -- The agency id
  */
 async function retrieveAuthenticatedAgency(req, data, next){
-    let error = false;
     let agency = null;
     const jwtErrorMessage = await auth.validateJWT(req, req.authentication.isAgencyNetworkUser ? 'agencies' : 'pages', 'manage');
     if (jwtErrorMessage) {
@@ -142,21 +142,12 @@ async function retrieveAuthenticatedAgency(req, data, next){
     if (req.authentication.isAgencyNetworkUser) {
         // This is an agency network user, they can only modify agencies in their network
         // Get the agencies that we are permitted to manage
-        const agencies = await auth.getAgents(req).catch(function(e) {
-            error = e;
-        });
-        if (error) {
-            return next(error);
-        }
-        // Validate the Agency ID
-        if (!Object.prototype.hasOwnProperty.call(data, 'agency')) {
-            return next(serverHelper.requestError('Agency missing'));
-        }
-        if (!await validator.integer(data.agency)) {
-            return next(serverHelper.requestError('Agency is invalid'));
-        }
-        if (!agencies.includes(parseInt(data.agency, 10))) {
-            return next(serverHelper.requestError('Agency is invalid'));
+        const agencyId = parseInt(data.agency, 10);
+        const agencyBO = new AgencyBO();
+        const agencydb = await agencyBO.getById(agencyId);
+        if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+            log.info('Forbidden: User is not authorized to manage th is agency');
+            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
         }
         agency = data.agency;
     }
