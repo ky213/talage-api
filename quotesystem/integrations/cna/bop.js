@@ -249,17 +249,17 @@ module.exports = class CnaBOP extends Integration {
         // =================================================================
 
         const requestJSON = {
-            "SignonRq": {
-                "SignonPswd": {
-                    "CustId": {
-                        "CustLoginId": "TALAGEAPI"
+            SignonRq: {
+                SignonPswd: {
+                    CustId: {
+                        CustLoginId: "TALAGEAPI"
                     }
                 },
-                "CustLangPref": "en-US",
-                "ClientApp": {
-                    "Org": "TALAGE",
-                    "Name": "API",
-                    "Version": "1"
+                CustLangPref: "en-US",
+                ClientApp: {
+                    Org: "TALAGE",
+                    Name: "API",
+                    Version: "1"
                 }
                 // "ProxyClient":{
                 //     "Org":"BCFTech",
@@ -267,77 +267,77 @@ module.exports = class CnaBOP extends Integration {
                 //     "Version":"V1.00"
                 // }
             },
-            "InsuranceSvcRq": [
+            InsuranceSvcRq: [
                 {
-                    "RqUID": requestUUID,
-                    "BOPPolicyQuoteInqRq": [
+                    RqUID: requestUUID,
+                    BOPPolicyQuoteInqRq: [
                         {
-                            "RqUID": requestUUID,
-                            "TransactionRequestDt":{
-                                "value": moment().format("YYYY-MM-DD")
+                            RqUID: requestUUID,
+                            TransactionRequestDt:{
+                                value: moment().format("YYYY-MM-DD")
                             },
-                            "Producer": [
+                            Producer: [
                                 {
-                                    "GeneralPartyInfo": {
-                                        "NameInfo": [
+                                    GeneralPartyInfo: {
+                                        NameInfo: [
                                             {
-                                                "CommlName": {
-                                                    "CommercialName": {
-                                                        "value": applicationDocData.businessName
+                                                CommlName: {
+                                                    CommercialName: {
+                                                        value: applicationDocData.businessName
                                                     }
                                                 }
                                             }
                                         ],
-                                        "Addr": [
+                                        Addr: [
                                             {
-                                                "AddrTypeCd": [
+                                                AddrTypeCd: [
                                                     {
-                                                        "value":"StreetAddress"
+                                                        value: "StreetAddress"
                                                     }
                                                 ],
-                                                "Addr1": {
-                                                    "value": applicationDocData.mailingAddress
+                                                Addr1: {
+                                                    value: applicationDocData.mailingAddress
                                                 },
-                                                "City": {
-                                                    "value": applicationDocData.mailingState
+                                                City: {
+                                                    value: applicationDocData.mailingState
                                                 },
-                                                "StateProvCd":{
-                                                    "value": applicationDocData.mailingCity
+                                                StateProvCd:{
+                                                    value: applicationDocData.mailingCity
                                                 },
-                                                "PostalCode":{
-                                                    "value": applicationDocData.mailingZipcode
+                                                PostalCode:{
+                                                    value: applicationDocData.mailingZipcode
                                                 }
                                             }
                                         ],
-                                        "Communications": {
-                                            "PhoneInfo": [
+                                        Communications: {
+                                            PhoneInfo: [
                                                 {
-                                                    "PhoneTypeCd": {
-                                                        "value": "Phone"
+                                                    PhoneTypeCd: {
+                                                        value: "Phone"
                                                     },
-                                                    "CommunicationUseCd": [
+                                                    CommunicationUseCd: [
                                                         {
-                                                            "value": "Business"
+                                                            value: "Business"
                                                         }
                                                     ],
-                                                    "PhoneNumber":{
-                                                        "value": formattedPhone
+                                                    PhoneNumber:{
+                                                        value: formattedPhone
                                                     }
                                                 }
                                             ]
                                         }
                                     },
-                                    "ProducerInfo": {
-                                        "ContractNumber": {
-                                            "value": contractNumber
+                                    ProducerInfo: {
+                                        ContractNumber: {
+                                            value: contractNumber
                                         },
-                                        "ProducerRoleCd": [
+                                        ProducerRoleCd: [
                                             {
-                                                "value": "Agency"
+                                                value: "Agency"
                                             }
                                         ],
-                                        "FieldOfficeCd": {
-                                            "value": "S" // What is this?
+                                        FieldOfficeCd: {
+                                            value: "S" // What is this?
                                         },
                                         "com.cna_branchCode": [
                                             {
@@ -352,128 +352,128 @@ module.exports = class CnaBOP extends Integration {
                                     }
                                 }
                             ],
-                            "InsuredOrPrincipal": [
+                            InsuredOrPrincipal: [
                                 {
-                                    "ItemIdInfo": {
-                                        "AgencyId": {
-                                            "value": agencyId
+                                    ItemIdInfo: {
+                                        AgencyId: {
+                                            value: agencyId
                                         }
                                     },
-                                    "GeneralPartyInfo": {
-                                        "NameInfo": [
+                                    GeneralPartyInfo: {
+                                        NameInfo: [
                                             {
-                                                "CommlName": {
-                                                    "CommercialName": {
-                                                        "value": applicationDocData.businessName
+                                                CommlName: {
+                                                    CommercialName: {
+                                                        value: applicationDocData.businessName
                                                     }
                                                 },
-                                                "LegalEntityCd": {
-                                                    "value": legalEntityCodes[applicationDocData.entityType] ? legalEntityCodes[applicationDocData.entityType] : "OT" 
+                                                LegalEntityCd: {
+                                                    value: legalEntityCodes[applicationDocData.entityType] ? legalEntityCodes[applicationDocData.entityType] : "OT" 
                                                 }
                                             }
                                         ],
-                                        "Addr": this.getLocations(false),
-                                        "Communications": {
-                                            "PhoneInfo": [
+                                        Addr: this.getLocations(false),
+                                        Communications: {
+                                            PhoneInfo: [
                                                 {
-                                                    "PhoneTypeCd": {
-                                                        "value": "Phone"
+                                                    PhoneTypeCd: {
+                                                        value: "Phone"
                                                     },
-                                                    "CommunicationUseCd": [
+                                                    CommunicationUseCd: [
                                                         {
-                                                            "value": "Day" // defaulted
+                                                            value: "Day" // defaulted
                                                         }
                                                     ],
-                                                    "PhoneNumber": {
-                                                        "value": formattedPhone
+                                                    PhoneNumber: {
+                                                        value: formattedPhone
                                                     }
                                                 }
                                             ],
-                                            "WebsiteInfo":[
+                                            WebsiteInfo:[
                                                 {
-                                                    "WebsiteURL": {
-                                                        "value": applicationDocData.website
+                                                    WebsiteURL: {
+                                                        value: applicationDocData.website
                                                     }
                                                 }
                                             ]
                                         }
                                     },
-                                    "InsuredOrPrincipalInfo": {
-                                        "InsuredOrPrincipalRoleCd": [
+                                    InsuredOrPrincipalInfo: {
+                                        InsuredOrPrincipalRoleCd: [
                                             {
-                                                "value": "Insured"
+                                                value: "Insured"
                                             }
                                         ],
-                                        "BusinessInfo": {
-                                            "SICCd": {
-                                                "value": this.industry_code.code // may need to be sic specific on attr?
+                                        BusinessInfo: {
+                                            SICCd: {
+                                                value: this.industry_code.code // may need to be sic specific on attr?
                                             },
-                                            "NumEmployeesFullTime": {
-                                                "value": this.get_total_full_time_employees()
+                                            NumEmployeesFullTime: {
+                                                value: this.get_total_full_time_employees()
                                             },
-                                            "NumEmployeesPartTime": {
-                                                "value": this.get_total_part_time_employees()
+                                            NumEmployeesPartTime: {
+                                                value: this.get_total_part_time_employees()
                                             }
                                         }
                                     }
                                 }
                             ],
-                            "CommlPolicy": {
-                                "PolicyNumber": {
+                            CommlPolicy: {
+                                PolicyNumber: {
                                     // Not needed?
                                 },
-                                "LOBCd": {
-                                    "value": "BOP"
+                                LOBCd: {
+                                    value: "BOP"
                                 },
-                                "ControllingStateProvCd": {
-                                    "value": applicationDocData.mailingState
+                                ControllingStateProvCd: {
+                                    value: applicationDocData.mailingState
                                 },
-                                "ContractTerm": {
-                                    "EffectiveDt": {
-                                        "value": moment(BOPPolicy.effectiveDate).format("YYYY-MM-DD")
+                                ContractTerm: {
+                                    EffectiveDt: {
+                                        value: moment(BOPPolicy.effectiveDate).format("YYYY-MM-DD")
                                     },
-                                    "ExpirationDt": {
-                                        "value": moment(BOPPolicy.expirationDate).format("YYYY-MM-DD")
+                                    ExpirationDt: {
+                                        value: moment(BOPPolicy.expirationDate).format("YYYY-MM-DD")
                                     },
-                                    "DurationPeriod": {
-                                        "NumUnits": {
-                                            "value": moment(BOPPolicy.expirationDate).diff(moment(BOPPolicy.effectiveDate), 'months', false)
+                                    DurationPeriod: {
+                                        NumUnits: {
+                                            value: moment(BOPPolicy.expirationDate).diff(moment(BOPPolicy.effectiveDate), 'months', false)
                                         },
-                                        "UnitMeasurementCd": {
-                                            "value": "MON"
+                                        UnitMeasurementCd: {
+                                            value: "MON"
                                         }
                                     }
                                 },
-                                "Loss": this.getLosses(),
-                                "NumLosses": {
-                                    "value": applicationDocData.claims.filter(claim => claim.policyType === 'BOP').length
+                                Loss: this.getLosses(),
+                                NumLosses: {
+                                    value: applicationDocData.claims.filter(claim => claim.policyType === 'BOP').length
                                 },
-                                "OtherOrPriorPolicy": [
+                                OtherOrPriorPolicy: [
                                     this.getOtherOrPriorPolicy()
                                 ],
-                                "id": "PolicyLevel",
-                                "CommlPolicySupplement": {
-                                    "LengthTimeInBusiness": {
-                                        "NumUnits": {
-                                            "value": this.get_years_in_business()
+                                id: "PolicyLevel",
+                                CommlPolicySupplement: {
+                                    LengthTimeInBusiness: {
+                                        NumUnits: {
+                                            value: this.get_years_in_business()
                                         },
-                                        "UnitMeasurementCd": {
-                                            "value": "ANN"
+                                        UnitMeasurementCd: {
+                                            value: "ANN"
                                         }
                                     }
                                 }
                             },
-                            "Location": this.getLocations(true),
-                            "BOPLineBusiness": {
-                                "LOBCd": {
-                                    "value":"BOP"
+                            Location: this.getLocations(true),
+                            BOPLineBusiness: {
+                                LOBCd: {
+                                    value: "BOP"
                                 },
-                                "PropertyInfo": {
-                                    "CommlPropertyInfo": this.getPropertyCoverages()
+                                PropertyInfo: {
+                                    CommlPropertyInfo: this.getPropertyCoverages()
                                 },
-                                "LiabilityInfo": {
-                                    "CommlCoverage": this.getCoverages(limits),
-                                    "GeneralLiabilityClassification": this.getGLClassifications(industryCode)
+                                LiabilityInfo: {
+                                    CommlCoverage: this.getCoverages(limits),
+                                    GeneralLiabilityClassification: this.getGLClassifications(industryCode)
                                 },
                                 // TODO: What is this? Is it a question? 
                                 // "com.cna_ProductInfo":[
@@ -512,7 +512,7 @@ module.exports = class CnaBOP extends Integration {
                                 // TODO: Find out what questions should be in here, this might just be all general questions
                                 "com.cna_QuestionAnswer": this.getQuestions(applicationDocData.questions)
                             },
-                            "CommlSubLocation": this.getBuildings()
+                            CommlSubLocation: this.getBuildings()
                         }
                     ]
                 }
