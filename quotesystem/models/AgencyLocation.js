@@ -155,6 +155,7 @@ module.exports = class AgencyLocation {
                         if(talageInsurer.agencyId){
                             insurer.agency_id = talageInsurer.agencyId;
                             insurer.agencyId = talageInsurer.agencyId;
+                            insurer.agencyCred3 = talageInsurer.agencyCred3;
                         }
                         if(talageInsurer.insurerId){
                             insurer.id = talageInsurer.insurerId;
@@ -162,6 +163,7 @@ module.exports = class AgencyLocation {
                         if(talageInsurer.agentId){
                             insurer.agent_id = talageInsurer.agentId;
                             insurer.agentId = talageInsurer.agentId;
+                            insurer.agencyCred3 = talageInsurer.agencyCred3;
                         }
                         log.info(`Agency ${agencyLocation.agencyId} using Talage Wholesale for insurerId ${insurer.insurerId}`);
                     }
@@ -190,6 +192,13 @@ module.exports = class AgencyLocation {
                     if (insurer.enable_agent_id) {
                         if (!insurer.agent_id) {
                             log.error(`Agency ${agencyLocation.agencyId} missing Agent ID in configuration.  ${JSON.stringify(insurer)}` + __location);
+                            //Do not stop quote because one insurer is miss configured.
+                        }
+                    }
+
+                    if (insurer.enable_cred3) {
+                        if (!insurer.agencyCred3) {
+                            log.error(`Agency ${agencyLocation.agencyId} missing agencyCred3 in configuration.  ${JSON.stringify(insurer)}` + __location);
                             //Do not stop quote because one insurer is miss configured.
                         }
                     }

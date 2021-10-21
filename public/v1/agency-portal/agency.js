@@ -415,6 +415,7 @@ async function postAgency(req, res, next) {
     const territories = req.body.territories;
     const agencyIds = req.body.agencyIds;
     const agentIds = req.body.agentIds;
+    const cred3s = req.body.cred3s;
     const talageWholesaleJson = req.body.talageWholesale;
 
     // Make sure we don't already have an user tied to this email address
@@ -527,6 +528,13 @@ async function postAgency(req, res, next) {
                             "notifyTalage": false
                         }
                     };
+                    if (agentIds[insurerID]) {
+                        insurerAL.agentId = agentIds[insurerID];
+                    }
+
+                    if (cred3s[insurerID]) {
+                        insurerAL.cred3 = cred3s[insurerID];
+                    }
                     if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
                         for(const insurerPolicyType of insurerJSON.policyTypes){
                             insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
@@ -534,9 +542,6 @@ async function postAgency(req, res, next) {
                                 "useAcord": false,
                                 "acordInfo": {"sendToEmail": ""}
                             }
-                        }
-                        if (agentIds[insurerID]) {
-                            insurerAL.agentId = agentIds[insurerID];
                         }
                     }
                     else {
