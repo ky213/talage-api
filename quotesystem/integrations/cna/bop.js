@@ -118,42 +118,6 @@ const ssnLegalEntities = [
     "IN"
 ];
 
-// TODO: Should we use these?
-// Deductible by state
-// eslint-disable-next-line no-unused-vars
-const stateDeductables = {
-    "AL": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500],     
-    "AR": [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000],     
-    "CO": [500, 1000, 1500, 2000, 2500, 5000, 10000, 13500],  
-    "CT": [1000, 5000, 10000],
-    "DE": [500],
-    "FL": [500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000, 21000],  
-    "GA": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000, 20000],
-    "HI": [100, 150, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000],  
-    "IA": [100, 150, 200, 250, 300, 400, 500, 1000, 1500, 2000, 2500],
-    "IL": [1000],
-    "IN": [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 21000],
-    "KS": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000],
-    "KY": [100, 200, 300, 400, 500, 1000, 1500, 2500, 5000, 7500, 10000],
-    "MA": [500, 1000, 2000, 2500, 5000],
-    "MD": [500, 1500, 2500],
-    "ME": [250, 500, 1000, 5000],
-    "MN": [100, 150, 200, 250, 500, 1000, 1500, 2000, 2500, 5000, 10000, 25000, 50000],
-    "MO": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000],
-    "MT": [500, 1000, 1500, 2000, 2500, 5000, 10000],
-    "NC": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000],
-    "NE": [500, 1000, 1500, 2000, 2500],
-    "NH": [500, 1000, 1500, 2000, 2500, 5000],
-    "NM": [500, 1000, 1500, 2000, 2500, 5000, 10000],
-    "NV": [100, 250, 500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000],
-    "SC": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500],
-    "SD": [500, 1000, 1500, 2000, 2500],
-    "TX": [500, 1000, 1500, 2000, 2500, 5000, 10000, 25000],
-    "UT": [500, 1000, 1500, 2000, 2500, 5000],
-    "VA": [100, 250, 500, 1000, 2500, 5000, 7500, 10000],
-    "WV": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 7500, 10000]
-};
-
 module.exports = class CnaBOP extends Integration {
 
     /**
@@ -1096,7 +1060,6 @@ module.exports = class CnaBOP extends Integration {
     // Basic Auth shoud be calculated basic on Insurer's
     // Admin Settings.  All assoicated logic (Sandbox vs production should be here)
     async auth() {
-
         //Basic Auth should be calculated with username and password set 
         // in the admin for the insurer
         // Basic Auth setup moved to Auth function
@@ -1227,22 +1190,28 @@ module.exports = class CnaBOP extends Integration {
             // TODO: 
             // If desired, set BillableLostPeriod here
             // coverageObj.BusinessIncomeInfo.BillableLostPeriod.Description.value
+            
+            const bldgCoverage = {
+                CoverageCd: {
+                    value: 'BLDG'
+                },
+                Deductible: [{
+                    FormatInteger: {
+                        value: this.getDeductible()
+                    }
+                }]
+            }
 
             // buildingLimit
             if (location.buildingLimit) {
-                const bldgCoverage = {
-                    CoverageCd: {
-                        value: 'BLDG'
-                    },
-                    Limit: [{
-                        FormatInteger: {
-                            value: location.buildingLimit
-                        }
-                    }]
-                }
-
-                coveragesObj.CommlCoverage.push(bldgCoverage);
+                bldgCoverage.Limit = [{
+                    FormatInteger: {
+                        value: location.buildingLimit
+                    }
+                }];
             }
+
+            coveragesObj.CommlCoverage.push(bldgCoverage);
 
             // businessPersonalPropertyLimit
             if (location.businessPersonalPropertyLimit) {
@@ -1375,6 +1344,77 @@ module.exports = class CnaBOP extends Integration {
             "LocationRef":"L1",
             "SubLocationRef":"L1S1"
         }
+    }
+
+    getDeductible() {
+        const supportedDeductibles = [
+            250, 
+            500, 
+            1000, 
+            2500, 
+            5000, 
+            10000, 
+            25000, 
+            50000, 
+            75000, 
+            100000
+        ];
+
+        const ineligibleNY = [
+            50000,
+            75000,
+            100000
+        ];
+
+        const ineligible250 = [
+            "56111_51",     
+            "56210_50",
+            "56211_51",  
+            "56211_52",
+            "56321_50",
+            "56411_50",
+            "56990_50",
+            "56990_51",
+            "56990_52",
+            "56990_53"
+        ];
+
+        const ineligible500 = [
+            "51112_53"
+        ];
+
+        const BOPPolicy = this.app.applicationDocData.policies.find(policy => policy.policyType === "BOP");
+        const appDeductible = BOPPolicy.deductible;
+
+        // find closest avialable option
+        let closestDeductible = null;
+        for (const deductible of supportedDeductibles) {
+            if (appDeductible >= deductible) {
+                closestDeductible = deductible;
+                break;
+            }
+        }
+
+        if (!closestDeductible) {
+            closestDeductible = supportedDeductibles[supportedDeductibles.length - 1];
+        }
+
+        // apply restrictions
+        if (this.app.applicationDocData.mailingState.toLowerCase() === "ny") {
+            if (ineligibleNY.includes(closestDeductible)) {
+                return 25000;
+            }
+        }
+
+        if (ineligible250.includes(this.industry_code.code) && closestDeductible === 250) {
+            closestDeductible = 500;
+        }
+
+        if (ineligible500.includes(this.industry_code.code) && closestDeductible === 500) {
+            closestDeductible = 1000;
+        }
+
+        return closestDeductible;
     }
 
     getCoverages(limits) {
