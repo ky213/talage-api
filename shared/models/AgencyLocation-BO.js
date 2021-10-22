@@ -537,6 +537,8 @@ module.exports = class AgencyLocationBO{
                         locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
                         locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
                         locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+                        locationInsurerInfoArray[i].cred3_label = insurer.agent_cred3_label;
+                        locationInsurerInfoArray[i].enable_cred3 = insurer.enable_cred3;
                     }
                     else {
                         log.error(`addInsureInfoTolocationInsurers Error insurerId = ${JSON.stringify(locationInsurerInfoArray[i])} `)
@@ -571,6 +573,8 @@ module.exports = class AgencyLocationBO{
                         locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
                         locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
                         locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+                        locationInsurerInfoArray[i].cred3_label = insurer.agent_cred3_label;
+                        locationInsurerInfoArray[i].enable_cred3 = insurer.enable_cred3;
                     }
                     else {
                         log.error(`addInsureInfoTolocationInsurers Error insurerId = ${JSON.stringify(locationInsurerInfoArray[i])} `)

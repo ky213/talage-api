@@ -16,6 +16,18 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
 const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
+const startAndEndThresholdsSchema = new Schema({
+    start: {type: Number, required: true, default: 1},
+    end: {type: Number, required: true, default: 90}
+}, optsNoId);
+
+const policyEffectiveDateThresholdsSchema = new Schema({
+    WC: {type: startAndEndThresholdsSchema, required: true},
+    GL: {type: startAndEndThresholdsSchema, required: true},
+    BOP: {type: startAndEndThresholdsSchema, required: true},
+    CYBER: {type: startAndEndThresholdsSchema, required: true},
+    PL: {type: startAndEndThresholdsSchema, required: true}
+}, optsNoId);
 
 const featureSchema = new Schema({
     applicationOptOut: {type: Boolean, required: true, default: false},
@@ -33,7 +45,19 @@ const featureSchema = new Schema({
     quoteAppBinding: {type: Boolean, required: true, default: false},
     appSingleQuotePath: {type: Boolean, required: true, default: false},
     enableAgencyCodeField: {type: Boolean, required: true, default: false},
-    quickQuoteOnly: {type: Boolean, required: true, default: false}
+    quickQuoteOnly: {type: Boolean, required: true, default: false},
+    policyEffectiveDateThresholds:
+    {
+        type: policyEffectiveDateThresholdsSchema,
+        required: true,
+        default: {
+            WC: {},
+            GL: {},
+            BOP: {},
+            CYBER: {},
+            PL: {}
+        }
+    }
 }, optsNoId);
 
 const AgencyNetworkSchema = new Schema({
