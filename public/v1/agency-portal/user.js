@@ -138,6 +138,21 @@ async function createUser(req, res, next) {
         newUserJSON.active = true;
         newUserJSON.id = oldDoc.agencyPortalUserId;
     }
+    else {
+        let existingDoc = null;
+        try {
+            existingDoc = await agencyPortalUserBO.getByEmail(userObj.email);
+        }
+        catch (e) {
+            log.error('agencyPortalUser error ' + e + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        }
+
+        if (existingDoc) {
+            log.warn(`agencyPortalUser: User with this email already exists.` + __location);
+            return next(new Error('A user with this email already exists.'));
+        }
+    }
 
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
