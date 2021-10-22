@@ -1460,10 +1460,9 @@ module.exports = class MarkelWC extends Integration {
                     if (response[rquIdKey]?.paymentOptions) {
                         this.insurerPaymentPlans = response[rquIdKey].paymentOptions;
                         const paymentPlanIdMatrix = {
-                            30: 1,
-                            31: 2,
-                            32: 3,
-                            33: 4
+                            1: 1,
+                            11: 2,
+                            3: 3
                         };
 
                         const talagePaymentPlans = [];
