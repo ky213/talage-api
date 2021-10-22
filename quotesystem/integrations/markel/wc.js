@@ -1456,6 +1456,45 @@ module.exports = class MarkelWC extends Integration {
                     return this.return_result('referred_with_price');
                 }
                 else {
+                    // collect payment information
+                    if (response[rquIdKey]?.paymentOptions) {
+                        this.insurerPaymentPlans = response[rquIdKey].paymentOptions;
+                        const paymentPlanIdMatrix = {
+                            30: 1,
+                            31: 2,
+                            32: 3,
+                            33: 4
+                        };
+
+                        const talagePaymentPlans = [];
+                        for (const paymentPlan of response[rquIdKey].paymentOptions) {
+                            let paymentPlanId = paymentPlanIdMatrix[paymentPlan.id];
+                            if (!paymentPlanId) {
+                                // we do not have a payment plan mapping for this insurer payment plan, default to 1 (UI shouldn't be using per Brian's comments)
+                                paymentPlanId = 1;
+                            }
+
+                            try {
+                                const talagePaymentPlan = {
+                                    paymentPlanId: paymentPlanId,
+                                    insurerPaymentPlanId: paymentPlan.id,
+                                    insurerPaymentPlanDescription: paymentPlan.description,
+                                    NumberPayments: paymentPlan.numberOfInstallments,
+                                    DepositPercent: paymentPlan.downPaymentPercent,
+                                    DownPayment: paymentPlan.deposit
+                                };
+    
+                                talagePaymentPlans.push(talagePaymentPlan);
+                            }
+                            catch (e) {
+                                log.warn(`Appid: ${this.app.id} Markel WC: Unable to parse payment plan: ${e}. Skipping...`);
+                            }
+                        }
+
+                        if (talagePaymentPlans.length > 0) {
+                            this.talageInsurerPaymentPlans = talagePaymentPlans;
+                        }
+                    }
                     return this.return_result('quoted');
                 }
             }
