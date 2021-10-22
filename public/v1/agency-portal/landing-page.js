@@ -688,7 +688,7 @@ async function updateLandingPage(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Create Landing Page', `${basePath}/landing-page`, createLandingPage, 'pages', 'manage');
-    server.addGetAuth('Get Landing Page', `${basePath}/landing-page`, getLandingPage, 'pages', 'manage');
+    server.addGetAuth('Get Landing Page', `${basePath}/landing-page`, getLandingPage, 'pages', 'view');
     server.addPutAuth('Update Landing Page', `${basePath}/landing-page`, updateLandingPage, 'pages', 'manage');
     server.addDeleteAuth('Delete Landing Page', `${basePath}/landing-page`, deleteLandingPage /* permissions handled in deleteLandingPage */);
 };
