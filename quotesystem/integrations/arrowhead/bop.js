@@ -1341,7 +1341,6 @@ module.exports = class ArrowheadBOP extends Integration {
             const spoil = [];
             const compf = [];
             const windstormFeatures = [];
-            const mine = [];
             const addLivingExpense = [];
             const actReceivable = [];
             const condoOwner = [];
