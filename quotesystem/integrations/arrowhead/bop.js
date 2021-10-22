@@ -677,7 +677,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
                     break;
                 case "actualCashValueInd":
-                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    contractorCoverage.push({id: "ACVInd", answer: this.convertToBoolean(answer)});
                     break;
                 case "conscd.equips.desc":
                     contractorScheduled.push({id, answer});
@@ -949,7 +949,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "conToolsCovType":
                     case "blanketLimitNoMin":
                     case "itemSubLimitText":
-                    case "actualCashValueInd":
+                    case "ACVInd":
                         bbopSet.coverages.conins[id] = answer;
                         break;
                     case "nonownTools.includeInd":
