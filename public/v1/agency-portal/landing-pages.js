@@ -28,6 +28,7 @@ async function getLandingPages(req, res, next){
             log.info('Forbidden: User is not authorized to manage th is agency');
             return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
         }
+        agent = req.query.agency
     }
     else {
         const agents = await auth.getAgents(req).catch(function(e) {
@@ -40,13 +41,13 @@ async function getLandingPages(req, res, next){
         }
         // Get the first value in agents
         agent = agents[0];
-        // Make sure this user has access to the requested agent
-        if (!agents.includes(parseInt(agent, 10))) {
-            log.info('Forbidden: User is not authorized to access the requested agent');
+
+        //if (!agents.includes(parseInt(agent, 10))) {
+        if(!agent){
+            log.info(`Forbidden: User is not authorized to access the requested agent - ${req.query.agency}`);
             return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
         }
     }
-    agent = req.query.agency
     let landingPages = [];
     try{
         const agencyId = parseInt(agent, 10);
