@@ -1,6 +1,6 @@
 'use strict';
 
-const auth = require('./helpers/auth-agencyportal.js');
+///const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const validator = global.requireShared('./helpers/validator.js');
 // eslint-disable-next-line no-unused-vars
@@ -135,14 +135,21 @@ async function retrieveCustomColorScheme(data, next) {
  */
 async function retrieveAuthenticatedAgency(req, data, next){
     let agency = null;
-    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.isAgencyNetworkUser ? 'agencies' : 'pages', 'manage');
-    if (jwtErrorMessage) {
-        return next(serverHelper.forbiddenError(jwtErrorMessage));
+    let reqAgency = null;
+    if(data.agency){
+        reqAgency = data.agency
     }
+    else if(data.landingPage.agency){
+        reqAgency = data.landingPage.agency
+    }
+
     if (req.authentication.isAgencyNetworkUser) {
+        if(!reqAgency){
+            return null;
+        }
         // This is an agency network user, they can only modify agencies in their network
         // Get the agencies that we are permitted to manage
-        const agencyId = parseInt(data.agency, 10);
+        const agencyId = parseInt(reqAgency, 10);
         const agencyBO = new AgencyBO();
         const agencydb = await agencyBO.getById(agencyId);
         if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
@@ -350,6 +357,11 @@ async function createLandingPage(req, res, next) {
     let error = false;
     // Determine the agency ID
     const agency = await retrieveAuthenticatedAgency(req, req.body, next);
+    if(!agency){
+        log.info('Forbidden: User is not authorized to manage th is agency');
+        return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+    }
+
     // HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
     const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
     // Check that at least some post parameters were received
@@ -438,7 +450,24 @@ async function deleteLandingPage(req, res, next) {
         log.info('Bad Request: Query parameters missing');
         return next(serverHelper.requestError('Query parameters missing'));
     }
-    const agency = await retrieveAuthenticatedAgency(req, req.query, next);
+
+    const id = req.query.id;
+    const systemId = parseInt(id, 10);
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    const agencyLocationJSON = await agencyLandingPageBO.getById(systemId).catch(function(err) {
+        log.error("agencyLandingPageBO deleteSoft load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    const data = {agency: agencyLocationJSON.agencyId}
+
+    const agency = await retrieveAuthenticatedAgency(req, data, next);
+    if(!agency){
+        log.info('Forbidden: User is not authorized to manage th is agency');
+        return next(serverHelper.forbiddenError('You are not authorized to manage this agency'))
+    }
     // Validate the Landing Page ID
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
@@ -446,7 +475,7 @@ async function deleteLandingPage(req, res, next) {
     // if (!await validator.landingPageId(req.query.id, agency)) {
     //     return next(serverHelper.requestError('ID is invalid'));
     // }
-    const id = req.query.id;
+
 
     // Make sure there is a primary page for this agency (we are not removing the primary page)
     if (!await hasOtherPrimary(agency, id)) {
@@ -455,8 +484,6 @@ async function deleteLandingPage(req, res, next) {
         return next(serverHelper.requestError('This landing page is the primary page. You must make another page primary before deleting this one.'));
     }
 
-    const systemId = parseInt(id, 10);
-    const agencyLandingPageBO = new AgencyLandingPageBO();
     await agencyLandingPageBO.deleteSoftById(systemId).catch(function(err) {
         log.error("agencyLandingPageBO deleteSoft load error " + err + __location);
         error = err;
@@ -489,13 +516,10 @@ async function getLandingPage(req, res, next) {
         res.send(400, {});
         return next(serverHelper.requestError('You must specify a page'));
     }
-
-
-    const agency = await retrieveAuthenticatedAgency(req, req.query,next);
-
+    const landingPageId = parseInt(req.query.id, 10)
     const agencyLandingPageBO = new AgencyLandingPageBO();
     let error = null
-    const landingPageId = parseInt(req.query.id, 10)
+    // const landingPageId = parseInt(req.query.id, 10)
     // eslint-disable-next-line prefer-const
     let landingPageJSON = await agencyLandingPageBO.getById(landingPageId).catch(function(err) {
         log.error(err.message + __location);
@@ -508,14 +532,22 @@ async function getLandingPage(req, res, next) {
     // Make sure a page was found
     if (!landingPageJSON) {
         log.warn('Page not found' + __location);
-        res.send(500, {});
+        res.send(404, {});
         return next(serverHelper.requestError('Page not found'));
     }
+    const data = {agency: landingPageJSON.agencyId}
+
+    const agency = await retrieveAuthenticatedAgency(req, data,next);
+    if(!agency){
+        log.info('Forbidden: User is not authorized to manage th is agency');
+        return next(serverHelper.forbiddenError('You are not authorized to manage this agency'))
+    }
+
     //check Agency for rights.
     const agencyId = parseInt(agency, 10);
     if(landingPageJSON.agencyId !== agencyId){
-        res.send(400, {});
-        return next(serverHelper.requestError('Page not found'));
+        log.info('Forbidden: User is not authorized to manage th is agency');
+        return next(serverHelper.forbiddenError('You are not authorized to manage this agency'))
     }
     //lagecy name
     landingPageJSON.id = landingPageJSON.systemId;
@@ -568,6 +600,10 @@ async function updateLandingPage(req, res, next) {
     let error = false;
     // Determine the agency ID
     const agency = await retrieveAuthenticatedAgency(req, req.body, next);
+    if(!agency){
+        log.info('Forbidden: User is not authorized to manage th is agency');
+        return next(serverHelper.forbiddenError('You are not authorized to manage this agency'))
+    }
     // HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
     const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
     // Check that at least some post parameters were received
