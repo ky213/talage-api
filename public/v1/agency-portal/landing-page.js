@@ -187,6 +187,7 @@ async function validate(request, next, agency, isUpdate = false) {
         introText: null,
         name: '',
         showIndustrySection: true,
+        showHowItWorks: true,
         slug: '',
         customColorScheme: null
     };
@@ -294,6 +295,13 @@ async function validate(request, next, agency, isUpdate = false) {
     if (Object.prototype.hasOwnProperty.call(landingPage, 'showIndustrySection')) {
         if (typeof landingPage.showIndustrySection === 'boolean' && !landingPage.showIndustrySection) {
             data.showIndustrySection = false;
+        }
+    }
+
+    // Show How it Works Section (optional)
+    if (Object.prototype.hasOwnProperty.call(landingPage, 'showHowItWorks')) {
+        if (typeof landingPage.showHowItWorks === 'boolean' && !landingPage.showHowItWorks) {
+            data.showHowItWorks = false;
         }
     }
 
@@ -411,6 +419,7 @@ async function createLandingPage(req, res, next) {
         introText: data.introText,
         name: data.name,
         showIndustrySection: data.showIndustrySection,
+        showHowItWorks: data.showHowItWorks,
         slug: data.slug,
         additionalInfo: data.additionalInfo
     };
@@ -558,6 +567,7 @@ async function getLandingPage(req, res, next) {
 
     // Convert the showIndustrySection value to a boolean
     landingPageJSON.showIndustrySection = Boolean(landingPageJSON.showIndustrySection);
+    landingPageJSON.showHowItWorks = Boolean(landingPageJSON.showHowItWorks);
 
     // if the page was found continue and query for the page color scheme
 
@@ -666,6 +676,7 @@ async function updateLandingPage(req, res, next) {
         introText: data.introText,
         name: data.name,
         showIndustrySection: data.showIndustrySection,
+        showHowItWorks: data.showHowItWorks,
         slug: data.slug,
         additionalInfo: data.additionalInfo
     };
