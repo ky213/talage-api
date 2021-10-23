@@ -677,7 +677,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
                     break;
                 case "actualCashValueInd":
-                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    contractorCoverage.push({id: "ACVInd", answer: this.convertToBoolean(answer)});
                     break;
                 case "conscd.equips.desc":
                     contractorScheduled.push({id, answer});
@@ -949,7 +949,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "conToolsCovType":
                     case "blanketLimitNoMin":
                     case "itemSubLimitText":
-                    case "actualCashValueInd":
+                    case "ACVInd":
                         bbopSet.coverages.conins[id] = answer;
                         break;
                     case "nonownTools.includeInd":
@@ -1341,7 +1341,6 @@ module.exports = class ArrowheadBOP extends Integration {
             const spoil = [];
             const compf = [];
             const windstormFeatures = [];
-            const mine = [];
             const addLivingExpense = [];
             const actReceivable = [];
             const condoOwner = [];
@@ -1399,23 +1398,6 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                     case "spoil.powerOut":
                         spoil.push({id: "powerOutInd", answer: this.convertToBoolean(answer)});
-                        break;
-                    case "mineSubsidenceCoverage":
-                        if (location.state === "IL") {
-                            building.coverages.bld.mine = {il: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "IN") {
-                            building.coverages.bld.mine = {in: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "KY") {
-                            building.coverages.bld.mine = {ky: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "WV") {
-                            building.coverages.bld.mine = {wv: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        break;
-                    case "mineSubsidenceCoverage.limit":
-                        mine.push({id: "limit", answer: this.convertToInteger(answer)});
                         break;
                     case "addLivingExpense":
                         building.coverages.bld.addexp = {in: {includeInd: this.convertToBoolean(answer)}};
@@ -1778,46 +1760,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 });
             }    
 
-            // injection of Mine Subsidence Coverage child question data
-            if (mine.length > 0) {
-                if (!building.coverages.hasOwnProperty("mine")){
-                    building.coverages.mine = {};
-                    if (location.state === "IL") {
-                        building.mine.il = {includeInd: true};
-                    }
-                    if (location.state === "IN") {
-                        building.mine.in = {includeInd: true};
-                    }
-                    if (location.state === "KY") {
-                        building.mine.ky = {includeInd: true};
-                    }
-                    if (location.state === "WV") {
-                        building.mine.wv = {includeInd: true};
-                    }
-                }
-                mine.forEach(({id, answer}) => {
-                    switch (id) {
-                        case "limit":
-                            if (location.state === "IL") {
-                                building.coverages.mine.il = {limit: answer};
-                            }
-                            if (location.state === "IN") {
-                                building.coverages.mine.in = {limit: answer};
-                            }
-                            if (location.state === "KY") {
-                                building.coverages.mine.ky = {limit: answer};
-                            }
-                            if (location.state === "WV") {
-                                building.coverages.mine.wv = {limit: answer};
-                            }
-                            break;
-                        default:
-                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Mine Subsidence coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
-                            break;
-                    }
-                });
-            }    
-
             // injection of Windstorm Construction Feature child question data
             if (windstormFeatures.length > 0) {
                 building.windstormFeatures = {};
@@ -1936,6 +1878,62 @@ module.exports = class ArrowheadBOP extends Integration {
                 valuation: "Replacement Cost",
                 limit: building.occupancy === "Tenant" ? 0 : location.buildingLimit
             };
+
+            // Mine subsidence coverage required for certain territories
+            const mineSubStates = [
+                'IL',
+                'IN',
+                'KY',
+                'WV'
+                ];
+            const mineMaxLimits = {
+                IL: 500000,
+                IN: 500000,
+                KY: 300000,
+                WV: 200000
+            }
+            if (mineSubStates.includes(location.state) && building.coverages.bld.includeInd) {
+                switch (location.state) {
+                    case 'IL':
+                        building.coverages.bld.mine = {il: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.il.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.il.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'IN': 
+                        building.coverages.bld.mine = {in: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.in.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.in.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'KY':
+                        building.coverages.bld.mine = {ky: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.ky.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.ky.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'WV':
+                        building.coverages.bld.mine = {wv: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.wv.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.wv.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    default:
+                        log.error(`Location territory is ${location.state} but it needs to be either IL, IN, KY, WV`);
+                }
+            }
 
         }
     }
