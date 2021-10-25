@@ -43,6 +43,7 @@ async function validate(user) {
     if (!validator.email(user.email)) {
         throw new Error('Email address is invalid');
     }
+
     data.email = user.email;
 
     data.group = user.group;
@@ -331,13 +332,36 @@ async function getUser(req, res, next) {
     }
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const userInfo = await agencyPortalUserBO.getList(userQuery).catch(function(err){
+    const userInfoList = await agencyPortalUserBO.getList(userQuery).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 
     });
+    const userInfo = JSON.parse(JSON.stringify(userInfoList[0]));
+    //convert notificationPolicyTypeList to JSON object with enabled.
+    // eslint-disable-next-line array-element-newline
+    const policyTypeList = ["WC","GL", "BOP", "PL", "CYBER"];
+    const notificationPolicyTypeJSONList = [];
+    for(const pt of policyTypeList) {
+        let enabled = false;
+        if(!userInfo.notificationPolicyTypeList || userInfo.notificationPolicyTypeList?.length === 0){
+            enabled = true
+        }
+        else if(userInfo.notificationPolicyTypeList.indexOf(pt) > -1){
+            enabled = true
+        }
 
-    res.send(200, userInfo[0]);
+        const ptJSON = {
+            policyType: pt,
+            "enabled": enabled
+        }
+        notificationPolicyTypeJSONList.push(ptJSON);
+    }
+
+    userInfo.notificationPolicyTypeJSONList = notificationPolicyTypeJSONList;
+
+    log.debug(JSON.stringify(userInfo))
+    res.send(200, userInfo);
 }
 
 /**
@@ -407,6 +431,18 @@ async function updateUser(req, res, next) {
         email: data.email,
         agencyPortalUserGroupId: data.group,
         agencyNotificationList: data.agencyNotificationList
+    }
+    // if(data.notificationPolicyTypeList){
+    //     newUserJSON.notificationPolicyTypeList = data.notificationPolicyTypeList
+    // }
+    if(req.body.user.notificationPolicyTypeJSONList?.length > 0){
+        newUserJSON.notificationPolicyTypeList = [];
+        for(const pt of req.body.user.notificationPolicyTypeJSONList){
+            if(pt.enabled){
+                newUserJSON.notificationPolicyTypeList.push(pt.policyType);
+            }
+        }
+        log.debug(`newUserJSON.notificationPolicyTypeList  ${JSON.stringify(newUserJSON.notificationPolicyTypeList)}`)
     }
     const agencyPortalUserBO = new AgencyPortalUserBO();
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err) {
