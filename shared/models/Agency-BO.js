@@ -959,6 +959,9 @@ module.exports = class AgencyBO {
             return emailTemplateJSON;
 
         }
+        else {
+            log.error(`getEmailContentAgencyAndCustomer Agency ID ${agencyId} did not find agnecy record` + __location)
+        }
     }
 
     /**
