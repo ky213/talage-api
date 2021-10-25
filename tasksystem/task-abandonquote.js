@@ -188,6 +188,7 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
     const quoteBO = new QuoteBO()
     let quoteList = null;
+    const quotePolicyTypeList = [];
     try {
         //sort by policyType
         const quoteQuery = {
@@ -306,10 +307,14 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 if(quoteList.length > 1){
                     // Show the policy type heading
                     if(quoteDoc.policyType !== lastPolicyType){
+                        quotePolicyTypeList.push(quoteDoc.policyType)
                         lastPolicyType = quoteDoc.policyType;
                         const policyTypeJSON = policyTypeList.find(policyTypeTest => policyTypeTest.abbr === quoteDoc.policyType)
                         quotesHTML += `<tr><td colspan=\"5\" style=\"text-align: center; font-weight: bold\">${policyTypeJSON.name}</td></tr>`;
                     }
+                }
+                else {
+                    quotePolicyTypeList.push(quoteDoc.policyType)
                 }
                 // Determine the Quote Result
                 const quoteResult = quoteDoc.apiResult.indexOf('_') ? quoteDoc.apiResult.substr(stringFunctions.ucwords(quoteDoc.apiResult), 0, quoteDoc.apiResult.indexOf('_')) : stringFunctions.ucwords(quoteDoc.apiResult);
@@ -451,19 +456,16 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.
                         if(applicationDoc.agencyId){
                             // look up agencyportal users by agencyNotificationList
-                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
-                            const agencyPortalUserBO = new AgencyPortalUserBO();
-                            const query = {agencyNotificationList: applicationDoc.agencyId}
                             try{
-                                const anUserList = await agencyPortalUserBO.getList(query)
-                                if(anUserList && anUserList.length > 0){
-                                    for(const anUser of anUserList){
-                                        recipientsString += `,${anUser.email}`
-                                    }
+                                const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                                const anRecipents = await agencynotificationsvc.getUsersByAgency(applicationDoc.agencyId,quotePolicyTypeList)
+
+                                if(anRecipents.length > 2){
+                                    recipientsString += `,${anRecipents}`
                                 }
                             }
                             catch(err){
-                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                                log.error(`AppId: ${applicationDoc.applicationId} agencyId ${applicationDoc.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
                         }
 

@@ -50,6 +50,7 @@ module.exports = class Application {
         this.applicationDocData = {};
         this.quoteInsurerId = null;
         this.quickQuoteOnly = false;
+        this.appPolicyTypeList = [];
     }
 
     /**
@@ -138,8 +139,6 @@ module.exports = class Application {
         }
 
 
-        // eslint-disable-next-line prefer-const
-        let appPolicyTypeList = [];
         // Load the policy information
         try {
             for (let i = 0; i < this.applicationDocData.policies.length; i++) {
@@ -147,7 +146,7 @@ module.exports = class Application {
                 const p = new Policy();
                 await p.load(policyJSON, this.business, this.applicationDocData);
                 this.policies.push(p);
-                appPolicyTypeList.push(policyJSON.policyType);
+                this.appPolicyTypeList.push(policyJSON.policyType);
             }
         }
         catch(err){
@@ -155,7 +154,7 @@ module.exports = class Application {
             throw err;
         }
         //update business with policy type list.
-        this.business.setPolicyTypeList(appPolicyTypeList);
+        this.business.setPolicyTypeList(this.appPolicyTypeList);
         // Agent
         this.agencyLocation = new AgencyLocation(this.business, this.policies);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
@@ -867,7 +866,7 @@ module.exports = class Application {
                 return false;
             }
 
-            if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject && emailContentJSON.emailBrand) {
+            if (emailContentJSON && emailContentJSON.emailBrand) {
                 // Determine the branding to use for this email
                 let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
 
@@ -879,7 +878,7 @@ module.exports = class Application {
                 let subject = '';
 
                 /* ---=== Email to Insured === --- */
-                if(agencyNetworkDB.featureJson.quoteEmailsCustomer === true && this.agencyPortalQuote === false){
+                if(agencyNetworkDB.featureJson.quoteEmailsCustomer === true && this.agencyPortalQuote === false && emailContentJSON.customerMessage && emailContentJSON.customerSubject){
                     message = emailContentJSON.customerMessage;
                     subject = emailContentJSON.customerSubject;
 
@@ -906,7 +905,7 @@ module.exports = class Application {
                 }
 
                 /* ---=== Email to Agency === --- */
-                if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && this.agencyPortalQuote === false){
+                if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && this.agencyPortalQuote === false && emailContentJSON.agencyMessage){
                     // Do not send if this is Talage
                     if (this.agencyLocation.agencyId > 2) {
                         // Determine the portal login link
@@ -984,19 +983,16 @@ module.exports = class Application {
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.
                         if(this.applicationDocData.agencyId){
                             // look up agencyportal users by agencyNotificationList
-                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
-                            const agencyPortalUserBO = new AgencyPortalUserBO();
-                            const query = {agencyNotificationList: this.applicationDocData.agencyId}
                             try{
-                                const anUserList = await agencyPortalUserBO.getList(query)
-                                if(anUserList && anUserList.length > 0){
-                                    for(const anUser of anUserList){
-                                        recipientsString += `,${anUser.email}`
-                                    }
+                                const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                                const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
+
+                                if(anRecipents.length > 2){
+                                    recipientsString += `,${anRecipents}`
                                 }
                             }
                             catch(err){
-                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                                log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
                         }
 
@@ -1015,11 +1011,79 @@ module.exports = class Application {
                     }
                 }
             }
+            else if(!emailContentJSON.emailBrand){
+                log.error(`Missing Email Brand for Appid ${this.id} Agency NetworkId ${this.applicationDocData.agencyNetworkId} Agency ${this.agencyLocation.agencyId} for no quotes.` + __location);
+            }
             else {
-                log.warn(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
+                log.error(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
             }
         }
+        else if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
+            // immediately notify agency network of quote
+            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
+            if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
+                log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
+            }
+            else {
+                let portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
 
+                let message = emailContentAgencyNetworkJSON.message;
+                let subject = emailContentAgencyNetworkJSON.subject;
+
+                // Perform content replacements
+                const capitalizedBrand = emailContentAgencyNetworkJSON.emailBrand.charAt(0).toUpperCase() + emailContentAgencyNetworkJSON.emailBrand.substring(1);
+                message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
+
+                message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+                message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+
+                message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
+
+                message = message.replace(/{{Brand}}/g, capitalizedBrand);
+                message = message.replace(/{{Business Name}}/g, this.business.name);
+                message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
+                message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
+                message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
+                message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+
+                subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                if (quoteList[0].status) {
+                    message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
+                }
+                log.info(`AppId ${this.id} sending agency network QUOTE email`);
+                // Send the email message - development should email. change local config to get the email.
+                let recipientsString = agencyNetworkDB.email
+                //Check for AgencyNetwork users are suppose to get notifications for this agency.
+                if(this.applicationDocData.agencyId){
+                    // look up agencyportal users by agencyNotificationList
+                    try{
+                        const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                        const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
+
+                        if(anRecipents.length > 2){
+                            recipientsString += `,${anRecipents}`
+                        }
+                    }
+                    catch(err){
+                        log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
+                    }
+                }
+
+                await emailSvc.send(recipientsString,
+                    subject,
+                    message,
+                    {
+                        agencyLocationId: this.agencyLocation.id,
+                        applicationId: this.applicationDocData.applicationId,
+                        applicationDoc: this.applicationDocData
+
+                    },
+                    this.applicationDocData.agencyNetworkId,
+                    "Networkdefault",
+                    this.applicationDocData.agencyId);
+            }
+        }
 
         // Only send Slack messages on Talage applications  this.agencyLocation.agency
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {

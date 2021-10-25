@@ -104,7 +104,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
             catch(err){
                 log.error("Error getting quote for emailbindagency " + err + __location);
             }
-
+            const quotePolicyTypeList = [quoteDoc.policyType]
 
             //get email content.
             const agencyNetworkId = applicationDoc.agencyNetworkId;
@@ -272,14 +272,12 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
 
 
                 //Determine if Agency Network Email is required.
-                if(agencyNetworkDB
-                    && agencyNetworkDB.featureJson
-                    && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
-                    && agencyNetworkDB.email){
+                if(agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmails
+                    && agencyNetworkDB?.email){
                     try{
                         const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"policy_purchase_agency_network");
                         if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
-                            log.error(`AgencyNetwork ${agencyNetworkDB.name} missing policy_purchase_agency_network email template` + __location)
+                            log.error(`appId: ${applicationId} AgencyNetwork ${agencyNetworkDB.name} missing policy_purchase_agency_network email template` + __location)
                             return true;
                         }
 
@@ -310,25 +308,23 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.
                         if(applicationDoc.agencyId){
                             // look up agencyportal users by agencyNotificationList
-                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
-                            const agencyPortalUserBO = new AgencyPortalUserBO();
-                            const query = {agencyNotificationList: applicationDoc.agencyId}
                             try{
-                                const anUserList = await agencyPortalUserBO.getList(query)
-                                if(anUserList && anUserList.length > 0){
-                                    for(const anUser of anUserList){
-                                        recipientsString += `,${anUser.email}`
-                                    }
+                                log.debug(`appId: ${applicationId} emailbindagency checking agencynotificationsvc` + __location)
+                                const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                                const anRecipents = await agencynotificationsvc.getUsersByAgency(applicationDoc.agencyId,quotePolicyTypeList)
+                                log.debug(`appId: ${applicationId} emailbindagency agencynotificationsvc returned ${anRecipents}` + __location)
+                                if(anRecipents.length > 2){
+                                    recipientsString += `,${anRecipents}`
                                 }
                             }
                             catch(err){
-                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                                log.error(`AppId: ${applicationDoc.applicationId} agencyId ${applicationDoc.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
                         }
 
                         // Send the email
                         const keyData3 = {'applicationDoc': applicationDoc};
-                        if (agencyNetworkDB.email) {
+                        if (recipientsString) {
                             const emailResp = await emailSvc.send(recipientsString, subject, message, keyData3, agencyNetworkId, "Networkdefault");
                             if (emailResp === false) {
                                 slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
@@ -342,6 +338,9 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                     catch(err){
                         log.error(`Sending Agency Network bind email ${err}` + __location);
                     }
+                }
+                else {
+                    log.debug(`Agency Network not setup for agencyNetworkQuoteEmails ${agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmails}  in emailbindagency appId: ${applicationId} `)
                 }
                 return true;
             }
