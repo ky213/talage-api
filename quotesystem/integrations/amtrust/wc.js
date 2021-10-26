@@ -18,7 +18,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
-const {sleep} = global.requireShared('./helpers/utility.js');
+const {Sleep} = global.requireShared('./helpers/utility.js');
 
 const amtrustTestHost = "utgateway.amtrustgroup.com";
 const amtrustTestBasePath = "/DigitalAPI_Usertest";
@@ -972,9 +972,9 @@ module.exports = class AMTrustWC extends Integration {
         do {
             retry = false;
             // wait before making officer call (first attempt is instant)
-            await sleep(attempts === 0 ? 0 : OFFICER_RETRY_TIME);
+            await Sleep(attempts === 0 ? 0 : OFFICER_RETRY_TIME);
 
-            const officerInformation = await this.amtrustCallAPI('GET', attempts === 3 ? accessToken : {}, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
+            const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
             // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
             if (officerInformation && officerInformation.Data) {
                 // Populate the officers
