@@ -18,12 +18,16 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
+const {Sleep} = global.requireShared('./helpers/utility.js');
 
 const amtrustTestHost = "utgateway.amtrustgroup.com";
 const amtrustTestBasePath = "/DigitalAPI_Usertest";
 
 const amtrustProductionHost = "gateway.amtrustgroup.com";
 const amtrustProductionBasePath = "/DigitalAPI";
+
+const OFFICER_MAX_RETRIES = 3; // 3 retries
+const OFFICER_RETRY_TIME = 5 * 1000; // 5 seconds
 
 module.exports = class AMTrustWC extends Integration {
 
@@ -963,20 +967,44 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // Get the available officer information
-        const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
-        // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
-        if (officerInformation && officerInformation.Data) {
-            // Populate the officers
-            const officersResult = this.getOfficers(officerInformation.Data, primaryLocation)
-            if (Array.isArray(officersResult)) {
-                additionalInformationRequestData.Officers = officersResult;
+        let attempts = 0;
+        let retry = false;
+        do {
+            retry = false;
+            // wait before making officer call (first attempt is instant)
+            await Sleep(attempts === 0 ? 0 : OFFICER_RETRY_TIME);
+
+            const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
+            // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
+            if (officerInformation && officerInformation.Data) {
+                // Populate the officers
+                const officersResult = this.getOfficers(officerInformation.Data, primaryLocation);
+                if (Array.isArray(officersResult)) {
+                    additionalInformationRequestData.Officers = officersResult;
+                    break;
+                }
+                else {
+                    retry = true;
+                }
             }
             else {
-                log.error(`Unexpected Officer response ${officersResult}` + __location);
-                return this.client_error(`Unexpected Officer response ${officersResult}`, __location);
+                retry = true;
+            }
+
+            if (retry) {
+                attempts++;
+
+                // handling exit case here so I don't have to pull scoped variables out of do while for logging
+                if (attempts > OFFICER_MAX_RETRIES) {
+                    log.error(`Unexpected Officer response ${officerInformation}` + __location);
+                    return this.client_error(`Unexpected Officer response ${officerInformation}`, __location);
+                }
+                else {
+                    log.warn(`${logPrefix}Failed to get Officer information (retry attempts: ${attempts}/${OFFICER_MAX_RETRIES}), retrying...` + __location);
+                }
             }
         }
-        // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
+        while (attempts <= OFFICER_MAX_RETRIES);
 
         // Send the additional information request
         if(additionalInformationRequestData.Officers || additionalInformationRequestData.AdditionalInsureds){
