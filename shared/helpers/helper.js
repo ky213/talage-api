@@ -64,8 +64,4 @@ exports.splitArray = function(array, chunkSize) {
     return Array(Math.ceil(array.length / chunkSize)).fill().map(function(_,i) {
         return array.slice(i * chunkSize, i * chunkSize + chunkSize);
     });
-}
-
-exports.sleep = async function(time) {
-    return new Promise(resolve => setTimeout(resolve, time));
-}
+};

@@ -18,7 +18,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
-const {sleep} = global.requireShared('./helpers/helper.js');
+const {sleep} = global.requireShared('./helpers/utility.js');
 
 const amtrustTestHost = "utgateway.amtrustgroup.com";
 const amtrustTestBasePath = "/DigitalAPI_Usertest";
