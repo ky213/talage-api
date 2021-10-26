@@ -65,3 +65,7 @@ exports.splitArray = function(array, chunkSize) {
         return array.slice(i * chunkSize, i * chunkSize + chunkSize);
     });
 }
+
+exports.sleep = async function(time) {
+    return new Promise(resolve => setTimeout(resolve, time));
+}
