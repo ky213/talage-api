@@ -409,7 +409,6 @@ exports.trimString = function(str, toTrim, trimOptions = {
  */
 exports.convertToDollarFormat = (str, trimDecimal = false) => {
     str = str.replace('$', '').replace(',', '');
-    
     if (typeof str === "number") {
         str = str.toString();
     }
