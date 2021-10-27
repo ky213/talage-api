@@ -30,7 +30,7 @@ module.exports = class AcuityWC extends Integration {
      * @returns {object} The child object or null if it could not be found
      */
     getChildProperty(object, childPath) {
-        const childPathList = childPath.split('.');
+        const childPathList = childPath?.split('.');
         let child = object;
         for (const childName of childPathList) {
             if (!child.hasOwnProperty(childName)) {
@@ -139,6 +139,7 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
         const appDoc = this.applicationDocData
+        const logPrefix = `Appid: ${this.app.id} Travelers WC `
 
         const defaultLimits = [
             "100000/500000/100000",
@@ -382,7 +383,9 @@ module.exports = class AcuityWC extends Integration {
             response = await this.send_json_request(host, basePath + "/quote",
                 JSON.stringify(quoteRequestData),
                 {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
-                "POST");
+                "POST",
+                true,
+                true);
         }
         catch (error) {
             try {
@@ -394,7 +397,7 @@ module.exports = class AcuityWC extends Integration {
                 }
             }
             catch (error2) {
-                return this.client_error(`The Requeset to insurer had an error of ${error}`, __location, {error: error});
+                return this.client_error(`The Request to insurer had an error of ${error}`, __location, {error: error});
             }
         }
 
@@ -402,7 +405,13 @@ module.exports = class AcuityWC extends Integration {
 
         // Check for internal errors where the request format is incorrect
         if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
-            return this.client_error(`The insurer returned an internal error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].code === 'INVALID_PRODUCER_INFORMATION'){
+                log.error(`${logPrefix} Travelers returned a INVALID_PRODUCER_INFORMATION  AgencyId ${appDoc.agencyId}`)
+                return this.client_error(` returned a INVALID_PRODUCER_INFORMATION check Agency configuration`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            }
+            else {
+                return this.client_error(`The insurer returned an request error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            }
         }
 
         // =========================================================================================================
@@ -410,6 +419,7 @@ module.exports = class AcuityWC extends Integration {
 
         const quoteStatus = this.getChildProperty(response, "quoteStatus");
         if (!quoteStatus) {
+            log.error(`${logPrefix}Could not locate the quote status in the response.` + __location)
             return this.client_error(`Could not locate the quote status in the response.`, __location);
         }
         // Extract all optional and required information
@@ -423,10 +433,10 @@ module.exports = class AcuityWC extends Integration {
         // Process the limits
         const limits = [];
         if (employersLiabilityLimit) {
-            const individualLimitList = employersLiabilityLimit.split("/");
-            if (individualLimitList.length !== 3) {
+            const individualLimitList = employersLiabilityLimit?.split("/");
+            if (individualLimitList?.length !== 3) {
                 // Continue without the limits but log it
-                this.log_error(`Returned unrecognized limits of '${employersLiabilityLimit}'. Continuing.`);
+                log.error(`${logPrefix}Returned unrecognized limits of '${employersLiabilityLimit}'. Continuing.` + __location)
             }
             else {
                 limits[1] = individualLimitList[0];
@@ -449,14 +459,27 @@ module.exports = class AcuityWC extends Integration {
             case "DECLINE":
                 return this.client_declined(quoteStatusReasonMessage);
             case "UNQUOTED":
-                return this.client_error(quoteStatusReasonMessage, __location);
+                //check of error/decline reason in response
+                const declineReasonCodes = ["UNSUPPORTED_STATE","UNABLE_TO_CLASSIFY"];
+                let declined = false;
+                for (const quoteStatusReason of quoteStatusReasonList) {
+                    if(declineReasonCodes.indexOf(quoteStatusReason.code) > -1){
+                        declined = true;
+                    }
+                }
+                if(declined){
+                    return this.client_declined(quoteStatusReasonMessage);
+                }
+                else {
+                    return this.client_error(quoteStatusReasonMessage, __location);
+                }
             case "AVAILABLE":
                 if (validationDeepLink) {
                     // Add the deeplink to the quote
                     this.quoteLink = validationDeepLink;
                 }
                 else {
-                    this.log_error("Could not locate validationDeepLink property in response.", __location);
+                    this.log_error(`Could not locate validationDeepLink property in response.`, __location);
                 }
                 return this.client_quoted(quoteId, limits, premium);
             default:
@@ -464,6 +487,7 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Unrecognized quote status
+        log.error(`${logPrefix}Received an unknown quote status of '${quoteStatus}.` + __location);
         return this.client_error(`Received an unknown quote status of '${quoteStatus}`);
     }
 };
