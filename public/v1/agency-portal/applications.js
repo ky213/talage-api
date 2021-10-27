@@ -788,6 +788,39 @@ async function getApplications(req, res, next){
         return next();
     }
 }
+async function populateInsurersAndPolicies(resources, insurerIdArray){
+    const insurerBO = new InsurerBO();
+    const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+    const query = {"insurerId": insurerIdArray};
+    let insurerDBJSONList = await insurerBO.getList(query);
+    if(insurerDBJSONList.length > 0){
+        resources.insurers = insurerDBJSONList;
+        const queryPT = 
+        {
+            "wheelhouse_support": true,
+            insurerId: insurerIdArray
+        };
+        const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT);
+        let listOfPolicies = [];
+        if(insurerPtDBList?.length > 0){
+            // just map them to a policy type list, so WC, CYBER, GL ...
+            listOfPolicies = insurerPtDBList.map(insurerPolicyType => insurerPolicyType.policy_type);
+        }
+        // lets go ahead and grab the unique values for policy types and store in the policy type selections list
+        if(listOfPolicies.length > 0){
+            const policyTypeSelections = [];
+            for(let i = 0; i < listOfPolicies.length; i++){
+                const policyType = listOfPolicies[i];
+                if(policyTypeSelections.indexOf(policyType) === -1){
+                    policyTypeSelections.push(policyType);
+                }
+            }
+            if(policyTypeSelections.length > 0){
+                resources.policyTypeSelections = policyTypeSelections;
+            }
+        }
+    }
+}
 /**
  * Responds to get requests for the applications endpoint
  *
@@ -799,17 +832,15 @@ async function getApplications(req, res, next){
  */
 async function getApplicationsResources(req, res, next){
     const resources = {};
+    let error = null;
     // determine if signed in is an agencyNetwork User or agency user
     const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
-    // grab the list of agencies from the req.authentication
-    const listOfAgencyIds = req.authentication.agents;
     // our default list, if or when we add a new product, add it to this const list
     const defaultProductTypeFilters = ["WC", "GL", "BOP", "CYBER", "PL"];
     resources.policyTypeSelections = defaultProductTypeFilters;
     // if login is agency network grab the id
     if(isAgencyNetworkUser === true){
         const agencyNetworkId = req.authentication.agencyNetworkId;
-    let error = null;
         try{
             // grab the agencyNetworkDB
             let agencyNetworkBO = new AgencyNetworkBO();
@@ -822,55 +853,24 @@ async function getApplicationsResources(req, res, next){
             }
             // grab all the insurers for this agency network
             const insurerIdArray = agencyNetworkJSON.insurerIds;
-            // call the getInsures, this will return the insurers for the agency network and the associated policies for the insurer
-            const insurerBO = new InsurerBO();
-            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-            const query = {"insurerId": insurerIdArray}
-            // get list of insurers for agency network
-            let insurerDBJSONList = await insurerBO.getList(query);
-            if(insurerDBJSONList && insurerDBJSONList.length > 0){
-                // if we have a list of insurers then save them
-                resources.insurers = insurerDBJSONList;
-                // query to grab all policy types for insurer where wheelhouse_support is true
-                const queryPT = 
-                {
-                    "wheelhouse_support": true,
-                    insurerId: insurerDBJSONList.map(insurer => insurer.insurerId)
-                };
-                // we have list of policy type objects, can be dupes
-                const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT);
-                let listOfPolicies = [];
-                if(insurerPtDBList?.length > 0){
-                    // just map them to a policy type list, so WC, CYBER, GL ...
-                    listOfPolicies = insurerPtDBList.map(insurerPolicyType => insurerPolicyType.policy_type);
-                }
-                // lets go ahead and grab the unique values for policy types and store in the policy type selections list
-                if(listOfPolicies.length > 0){
-                    const policyTypeSelections = [];
-                    for(let i = 0; i < listOfPolicies.length; i++){
-                        const policyType = listOfPolicies[i];
-                        if(policyTypeSelections.indexOf(policyType) === -1){
-                            policyTypeSelections.push(policyType);
-                        }
-                    }
-                    if(policyTypeSelections.length > 0){
-                        resources.policyTypeSelections = policyTypeSelections;
-                    }
-                }else{
-                    log.error(`Error when retrieving policyTypes for agencyNetworkId ${agencyNetworkId}. Returning default policyTypeSelections filters.  ${__location}`);
-                }
+            // add insurers and policies to the resources
+            if(insurerIdArray.length > 0){
+                await populateInsurersAndPolicies(resources, insurerIdArray);
             }
+
         }
         catch(err){
-            log.error(`Error get Agency Network Insurer and Policies List ` + err + __location);
+            log.error(`Error retrieving Agency Network Insurer and Policies List for agency network id: ${agencyNetworkId}` + err + __location);
         }
     }
     else 
     {
+        // grab the list of agencies from the req.authentication
+        const listOfAgencyIds = req.authentication.agents;
         // if we know this is not an agency network signed in req then we know the req is coming from an agency user
         if(listOfAgencyIds?.length === 1){
             const agencyLocationBO = new AgencyLocationBO();
-            let locationList = null;
+            let locationList = [];
             // we should only have a single agency id if the req is not agencyNetwork
             // grab the agency
             const agencyId = listOfAgencyIds[0];
@@ -879,76 +879,43 @@ async function getApplicationsResources(req, res, next){
             const getAgencyName = false;
             const useAgencyPrimeInsurers = true;
             const insurerIdArray = [];
-            let error = null;
-            // grab all the locations for an agency
-            locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
-                log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
-                error = err;
-            });
-            log.debug(`locationList ${JSON.stringify(locationList, null, 2)}`);
-            // iterate through each location and grab the insurerId
-            for(let i = 0; i < locationList.length; i++){
-                const locationObj = locationList[i];
-                if(locationObj?.insurers && locationObj?.insurers?.length > 0){
-                    // grab all the insurers
-                    const locationInsurers = locationObj.insurers;
-                    log.debug(`locationInsurer: ${JSON.stringify(locationInsurers, null, 2)}`);
-                    // for each insurer go through the list of policy type object
-                    for(let j = 0; j < locationInsurers.length; j++){
-                        const insurer = locationInsurers[j];
-                        if(insurerIdArray.indexOf(insurer.insurerId) === -1){
-                            insurerIdArray.push(insurer.insurerId);
+            try {
+                // grab all the locations for an agency
+                locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+                    log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
+                    error = err;
+                });
+                if (error) {
+                    return next(error);
+                }
+                // iterate through each location and grab the insurerId
+                for(let i = 0; i < locationList.length; i++){
+                    const locationObj = locationList[i];
+                    if(locationObj?.insurers && locationObj?.insurers?.length > 0){
+                        // grab all the insurers
+                        const locationInsurers = locationObj.insurers;
+                        // for each insurer grab their id and push into insurerId Array
+                        for(let j = 0; j < locationInsurers.length; j++){
+                            const insurer = locationInsurers[j];
+                            if(insurerIdArray.indexOf(insurer.insurerId) === -1){
+                                insurerIdArray.push(insurer.insurerId);
+                            }
                         }
                     }
                 }
-            }
-            let insurerList = [];
-            if(insurerIdArray.length > 0){
-                log.debug(`insurerIdArray: ${JSON.stringify(insurerIdArray, null, 2)}`)
-                // call the getInsures, this will return the insurers for the agency network and the associated policies for the insurer
-                const insurerBO = new InsurerBO();
-                const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-                const query = {"insurerId": insurerIdArray}
-                // get list of insurers for agency network
-                let insurerDBJSONList = await insurerBO.getList(query);
-                log.debug(`insurerDBJsonLIST: ${JSON.stringify(insurerDBJSONList, null, 2)}`)
-                if(insurerDBJSONList.length > 0){
-                    // if we have a list of insurers then save them
-                    resources.insurers = insurerDBJSONList;
-                    log.debug(`resources: ${JSON.stringify(resources, null, 2)}`)
-                    // query to grab all policy types for insurer where wheelhouse_support is true
-                    const queryPT = 
-                    {
-                        "wheelhouse_support": true,
-                        insurerId: insurerDBJSONList.map(insurer => insurer.insurerId)
-                    };
-                    // we have list of policy type objects, can be dupes
-                    const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT);
-                    let listOfPolicies = [];
-                    if(insurerPtDBList?.length > 0){
-                        // just map them to a policy type list, so WC, CYBER, GL ...
-                        listOfPolicies = insurerPtDBList.map(insurerPolicyType => insurerPolicyType.policy_type);
-                    }
-                    // lets go ahead and grab the unique values for policy types and store in the policy type selections list
-                    if(listOfPolicies.length > 0){
-                        const policyTypeSelections = [];
-                        for(let i = 0; i < listOfPolicies.length; i++){
-                            const policyType = listOfPolicies[i];
-                            if(policyTypeSelections.indexOf(policyType) === -1){
-                                policyTypeSelections.push(policyType);
-                            }
-                        }
-                        if(policyTypeSelections.length > 0){
-                            resources.policyTypeSelections = policyTypeSelections;
-                        }
-                    }else{
-                        log.error(`Error when retrieving policyTypes for agencyNetworkId ${agencyNetworkId}. Returning default policyTypeSelections filters.  ${__location}`);
-                    }
+                if(insurerIdArray.length > 0){
+                    await populateInsurersAndPolicies(resources, insurerIdArray);
+                }
+                
+            } catch (error) {
+                log.error(`Error retrieving Agency Insurer and Policies List for agency id: ${agencyId}` + err + __location);
             }
         }
-        }else {
-            log.error(`Error found multiple agencyIds in the req.authentication ${JSON.stringify(req.authentication)} ${__location}`);
-        }
+        else {
+            log.error(`Error found multiple agencyIds in the req.authentication ${JSON.stringify(req.authentication.agents)} ${__location}`);
+        }            
+
+
     }
     const dateFilters = [
         {
