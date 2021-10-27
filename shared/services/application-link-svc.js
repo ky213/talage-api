@@ -56,7 +56,7 @@ exports.createApplicationLink = async(appId, options) => {
     const link = await buildLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
-    await sendEmail(agency, link, options);
+    await sendEmail(agency, link, options, application);
     return link;
 }
 
@@ -102,7 +102,7 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
     return link;
 }
 
-const sendEmail = async(agency, link, options) => {
+const sendEmail = async(agency, link, options, applicationJSON) => {
     if(!link || !options?.emailAddress){
         log.warn(`Not sending email for application link ${link} ${__location}`);
         return;
@@ -126,6 +126,8 @@ const sendEmail = async(agency, link, options) => {
 
     const emailSubjectDefault = 'A portal to your application';
     const emailSubject = options.subject ? options.subject : emailSubjectDefault;
+
+    const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
     const emailData = {
         html: `
@@ -159,8 +161,18 @@ const sendEmail = async(agency, link, options) => {
         subject: emailSubject,
         to: recipients
     };
+    const branding = agencyNetworkBranding ? '' : 'agency'
 
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agency.agencyNetworkId, 'agency', agency.systemId);
+    const keys = {
+
+        agencyLocationId: applicationJSON.agencyLocationId,
+        applicationId: applicationJSON.agencyLocationId,
+        applicationDoc: applicationJSON
+
+    }
+
+
+    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
     if(!emailSent){
         log.error(`Failed to send email for application link to ${emailData.to}.`);
     }

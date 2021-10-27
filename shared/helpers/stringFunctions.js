@@ -412,6 +412,8 @@ exports.convertToDollarFormat = (str, trimDecimal = false) => {
         str = str.toString();
     }
     
+    str = str.replace('$', '').replace(',', '');
+
     if (typeof str !== "string") {
         log.error(`convertToDollarFormat: Parameter str is not type string.` + __location);
         return str;

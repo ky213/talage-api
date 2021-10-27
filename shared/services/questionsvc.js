@@ -766,6 +766,7 @@ function find_missing_questions(questions) {
         if (question.parent) {
             if (!question_ids.includes(question.parent)) {
                 missing_questions.push(question.parent);
+                log.error(`QuestionSvc.find_missing_questions Potential Bad Insurer Question Mapping questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
             }
         }
     });

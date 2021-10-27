@@ -17,24 +17,30 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 async function getAgencies(req, res, next){
     let error = false;
 
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if (error){
-        return next(error);
-    }
-
-    // Make sure we got agents
-    if (!agents.length){
-        log.info('Bad Request: No agencies permitted');
-        return next(serverHelper.requestError('Bad Request: No agencies permitted'));
-    }
-
     let retAgencies = null;
     try{
         error = null;
-        const query = {systemId: agents}
+        const query = {}
+        if(req.authentication.isAgencyNetworkUser){
+            query.agencyNetworkId = req.authentication.agencyNetworkId
+        }
+        else {
+            // Get the agents that we are permitted to view
+            const agents = await auth.getAgents(req).catch(function(e){
+                error = e;
+            });
+            if (error){
+                return next(error);
+            }
+            // Make sure we got agents
+            if (!agents.length){
+                log.info('Bad Request: No agencies permitted');
+                return next(serverHelper.requestError('Bad Request: No agencies permitted'));
+            }
+
+            query.systemId = agents
+        }
+
         const agencyBO = new AgencyBO();
         // Load the request data into it
         retAgencies = await agencyBO.getList(query);

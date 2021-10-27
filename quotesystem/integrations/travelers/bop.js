@@ -483,7 +483,9 @@ module.exports = class AcuityWC extends Integration {
             response = await this.send_json_request(host, basePath + "/quote",
                 JSON.stringify(quoteRequestData),
                 {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
-                "POST");
+                "POST",
+                true,
+                true);
         }
         catch (error) {
             try {
@@ -503,7 +505,13 @@ module.exports = class AcuityWC extends Integration {
 
         // Check for internal errors where the request format is incorrect
         if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
-            return this.client_error(`The insurer returned an internal error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].code === 'INVALID_PRODUCER_INFORMATION'){
+                log.error(`${logPrefix} Travelers returned a INVALID_PRODUCER_INFORMATION  AgencyId ${appDoc.agencyId}`)
+                return this.client_error(` returned a INVALID_PRODUCER_INFORMATION check Agency configuration`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            }
+            else {
+                return this.client_error(`The insurer returned an request error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            }
         }
 
         // =========================================================================================================
@@ -561,7 +569,19 @@ module.exports = class AcuityWC extends Integration {
             case "DECLINE":
                 return this.client_declined(quoteStatusReasonMessage);
             case "UNQUOTED":
-                return this.client_error(quoteStatusReasonMessage, __location);
+                const declineReasonCodes = ["UNSUPPORTED_STATE","UNABLE_TO_CLASSIFY"];
+                let declined = false;
+                for (const quoteStatusReason of quoteStatusReasonList) {
+                    if(declineReasonCodes.indexOf(quoteStatusReason.code) > -1){
+                        declined = true;
+                    }
+                }
+                if(declined){
+                    return this.client_declined(quoteStatusReasonMessage);
+                }
+                else {
+                    return this.client_error(quoteStatusReasonMessage, __location);
+                }
             case "AVAILABLE":
                 if (validationDeepLink) {
                     // Add the deeplink to the quote

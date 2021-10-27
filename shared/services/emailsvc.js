@@ -65,6 +65,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
         error = err;
     })
     if(error || !agencyNetworkJSON){
+        if(!agencyNetworkJSON){
+            log.error(`Email Svc: No Agency Network for AgencyNetworkId {agencyNetworkId} ` + __location);
+        }
         return false;
     }
     if(!agencyNetworkJSON.additionalInfo || !agencyNetworkJSON.additionalInfo.fromEmailAddress){

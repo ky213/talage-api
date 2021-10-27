@@ -95,7 +95,7 @@ async function getApplication(req, res, next) {
     try{
         const applicationDBDoc = await applicationBO.getById(id);
         if(applicationDBDoc){
-            if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
+            if(req.authentication.isAgencyNetworkUser && applicationDBDoc?.agencyNetworkId === req.authentication.agencyNetworkId){
                 passedAgencyCheck = true;
             }
             else {
@@ -106,7 +106,7 @@ async function getApplication(req, res, next) {
                     log.error('Error get application getAgents ' + error + __location);
                     return next(error);
                 }   
-                if(agents.includes(applicationDBDoc.agencyId)){
+                if(agents.includes(applicationDBDoc?.agencyId)){
                     passedAgencyCheck = true;
                 }
             }
@@ -313,13 +313,38 @@ async function getApplicationDoc(req, res ,next){
     const applicationBO = new ApplicationBO();
     try{
         applicationDB = await applicationBO.getById(appId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+        if(applicationDB && agencies.includes(applicationDB?.agencyId)){
             passedAgencyCheck = true;
         }
         await setupReturnedApplicationJSON(applicationDB);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    try{
+        applicationDB = await applicationBO.getById(appId);
+        if(applicationDB){
+            if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
+                passedAgencyCheck = true;
+            }
+            else {
+                const agents = await auth.getAgents(req).catch(function(e) {
+                    error = e;
+                });
+                if (error) {
+                    log.error('Error get application getAgents ' + error + __location);
+                    return next(error);
+                }   
+                if(agents.includes(applicationDB?.agencyId)){
+                    passedAgencyCheck = true;
+                }
+            }
+        }
+    }
+    catch(err){
+        log.error("Error Getting application doc " + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
@@ -539,15 +564,6 @@ async function applicationSave(req, res, next) {
     }
 
 
-    //get user's agency List
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     const applicationBO = new ApplicationBO();
 
     //Insert checks
@@ -561,11 +577,7 @@ async function applicationSave(req, res, next) {
                 return next(serverHelper.requestError(`Bad Request: Missing ${requiredPropertyList[i]}`));
             }
         }
-        //Insert agency check.
-        if (!agencies.includes(req.body.agencyId)) {
-            log.info('Forbidden: User is not authorized for this agency' + __location);
-            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
-        }
+       
 
         //Get AgencyNetworkID
         try{
@@ -583,6 +595,30 @@ async function applicationSave(req, res, next) {
             log.error(`Application Save get agencyNetworkId  agencyID: ${req.body.agencyId} ` + err + __location)
             return next(serverHelper.internalError("error checking agency"));
         }
+        let passedAgencyCheck = false;
+        if(req.authentication.isAgencyNetworkUser && req.body?.agencyNetworkId === req.authentication.agencyNetworkId){
+            passedAgencyCheck = true;
+        }
+        else {
+            let error = null;
+            const agents = await auth.getAgents(req).catch(function(e) {
+                error = e;
+            });
+            if (error) {
+                log.error('Error get application getAgents ' + error + __location);
+                return next(error);
+            }   
+            if(agents.includes(req.body?.agencyId)){
+                passedAgencyCheck = true;
+            }
+        }
+
+
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!passedAgencyCheck) {
+            log.info('Forbidden: User is not authorized for this agency' + __location);
+            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+        }
 
 
         //if agencyLocationId is not sent for insert get primary
@@ -597,19 +633,31 @@ async function applicationSave(req, res, next) {
         }
     }
     else {
-        //get application and valid agency
         let passedAgencyCheck = false;
         try{
-            const applicationDB = await applicationBO.getById(req.body.applicationId);
-            if(applicationDB && agencies.includes(applicationDB.agencyId)){
-                passedAgencyCheck = true;
-            }
-            if(!applicationDB){
-                return next(serverHelper.requestError('Not Found'));
+            const appId = req.body.applicationId
+            const applicationDB = await applicationBO.getById(appId);
+            if(applicationDB){
+                if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
+                    passedAgencyCheck = true;
+                }
+                else {
+                    let error = null;
+                    const agents = await auth.getAgents(req).catch(function(e) {
+                        error = e;
+                    });
+                    if (error) {
+                        log.error('Error get application getAgents ' + error + __location);
+                        return next(error);
+                    }   
+                    if(agents.includes(applicationDB?.agencyId)){
+                        passedAgencyCheck = true;
+                    }
+                }
             }
         }
         catch(err){
-            log.error("Error checking application doc " + err + __location)
+            log.error("Error Getting application doc " + err + __location)
             return next(serverHelper.requestError(`Bad Request: check error ${err}`));
         }
 
@@ -703,26 +751,30 @@ async function applicationCopy(req, res, next) {
     }
 
 
-    //get user's agency List
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     const applicationBO = new ApplicationBO();
 
-
+    let error = null;
     //get application and valid agency
     let passedAgencyCheck = false;
     let responseAppDoc = null;
     try{
         const applicationDocDB = await applicationBO.getById(req.body.applicationId);
-        if(applicationDocDB && agencies.includes(applicationDocDB.agencyId)){
+        if(req.authentication.isAgencyNetworkUser && applicationDocDB?.agencyNetworkId === req.authentication.agencyNetworkId){
             passedAgencyCheck = true;
         }
+        else {
+            const agents = await auth.getAgents(req).catch(function(e) {
+                error = e;
+            });
+            if (error) {
+                log.error('Error get application getAgents ' + error + __location);
+                return next(error);
+            }   
+            if(agents.includes(applicationDocDB?.agencyId)){
+                passedAgencyCheck = true;
+            }
+        }
+
         if(!applicationDocDB){
             return next(serverHelper.requestError('Not Found'));
         }
@@ -913,18 +965,25 @@ async function validate(req, res, next) {
     if (!applicationDocDB) {
         return next(serverHelper.requestError('Not Found'));
     }
-    //TODO Check agency Network or Agency rights....
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
+   
+    let passedAgencyCheck = false;
+    if(req.authentication.isAgencyNetworkUser && applicationDocDB?.agencyNetworkId === req.authentication.agencyNetworkId){
+        passedAgencyCheck = true;
     }
-
+    else {
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            log.error('Error get application getAgents ' + error + __location);
+            return next(error);
+        }   
+        if(agents.includes(applicationDocDB?.agencyId)){
+            passedAgencyCheck = true;
+        }
+    }
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDocDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -1043,18 +1102,25 @@ async function requote(req, res, next) {
     if (!applicationDB) {
         return next(serverHelper.requestError('Not Found'));
     }
-    // Check agency Network or Agency rights....
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
+    let passedAgencyCheck = false;
+    if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
+        passedAgencyCheck = true;
+    }
+    else {
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            log.error('Error get application getAgents ' + error + __location);
+            return next(error);
+        }   
+        if(agents.includes(applicationDB?.agencyId)){
+            passedAgencyCheck = true;
+        }
     }
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -1249,21 +1315,30 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.requestError('Invalid id'));
     }
 
-    //TODO Check agency Network or Agency rights....
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
+    let passedAgencyCheck = false;
+    if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
+        passedAgencyCheck = true;
+    }
+    else {
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            log.error('Error get application getAgents ' + error + __location);
+            return next(error);
+        }   
+        if(agents.includes(applicationDB?.agencyId)){
+            passedAgencyCheck = true;
+        }
     }
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
+
+
     let bindSuccess = false;
     let bindFailureMessage = '';
     try {
@@ -1740,22 +1815,35 @@ async function getApplicationNotes(req, res, next){
 
     // Get the agents that we are permitted to view
     let error = false;
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error);
-    }
+   
 
     const applicationBO = new ApplicationBO();
     //get application and valid agency
     let passedAgencyCheck = false;
-    try{
+    try{   
         const applicationDB = await applicationBO.getById(req.query.applicationId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+        if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
             passedAgencyCheck = true;
         }
+        else {
+            const agents = await auth.getAgents(req).catch(function(e) {
+                error = e;
+            });
+            if (error) {
+                log.error('Error get application getAgents ' + error + __location);
+                return next(error);
+            }   
+            if(agents.includes(applicationDB?.agencyId)){
+                passedAgencyCheck = true;
+            }
+        }
+
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!passedAgencyCheck) {
+            log.info('Forbidden: User is not authorized to access the requested application');
+            return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+        }
+
         if(!applicationDB){
             return next(serverHelper.requestError('Not Found'));
         }
@@ -1765,10 +1853,7 @@ async function getApplicationNotes(req, res, next){
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
-    if(passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this agency' + __location);
-        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
-    }
+
     const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
     let applicationNotesJSON = null;
     try{
@@ -1802,20 +1887,26 @@ async function saveApplicationNotes(req, res, next){
 
     //get user's agency List
     let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
 
     const applicationBO = new ApplicationBO();
     //get application and valid agency
     let passedAgencyCheck = false;
     try{
         const applicationDB = await applicationBO.getById(req.body.applicationId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+        if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
             passedAgencyCheck = true;
+        }
+        else {
+            const agents = await auth.getAgents(req).catch(function(e) {
+                error = e;
+            });
+            if (error) {
+                log.error('Error get application getAgents ' + error + __location);
+                return next(error);
+            }   
+            if(agents.includes(applicationDB?.agencyId)){
+                passedAgencyCheck = true;
+            }
         }
         if(!applicationDB){
             return next(serverHelper.requestError('Not Found'));
@@ -1900,16 +1991,25 @@ async function markQuoteAsDead(req, res, next){
         return next(serverHelper.requestError('Invalid id'));
     }
 
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
+    let passedAgencyCheck = false;
+    if(req.authentication.isAgencyNetworkUser && applicationDB?.agencyNetworkId === req.authentication.agencyNetworkId){
+        passedAgencyCheck = true;
     }
+    else {
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            log.error('Error get application getAgents ' + error + __location);
+            return next(error);
+        }   
+        if(agents.includes(applicationDB?.agencyId)){
+            passedAgencyCheck = true;
+        }
+    }
+
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }

@@ -4,6 +4,7 @@
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
 const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
 const AMTrustAgencyNetworkId = 10;
 
 exports.populatePolicyResources = async(resources, appId) => {
@@ -33,6 +34,7 @@ exports.populatePolicyResources = async(resources, appId) => {
 
     await policiesEnabled(resources, applicationDB);
     await limitsSelectionAmounts(resources, applicationDB, zipCodeData);
+    await policyEffectiveDateThresholds(resources, applicationDB);
 };
 
 // Policy related, used for claims
@@ -252,3 +254,42 @@ const getWCLimits = (agencyNetworkId, territory) => {
 
     return limits;
 };
+
+const policyEffectiveDateThresholds = async(resources, applicationDB) => {
+    let agencyNetworkDB = null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    // will be used if we can't find these settings on the network features
+    const defaultEffectiveDateThresholds =
+    {
+        "WC": {
+            "start": 1,
+            "end": 90
+        },
+        "GL": {
+            "start": 1,
+            "end": 90
+        },
+        "BOP": {
+            "start": 1,
+            "end": 90
+        },
+        "CYBER": {
+            "start": 1,
+            "end": 90
+        },
+        "PL": {
+            "start": 1,
+            "end": 90
+        }
+    }
+    if(applicationDB){
+        agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+    }
+    if(agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds){
+        resources.policyEffectiveDateThresholds = agencyNetworkDB?.featureJson?.policyEffectiveDateThresholds;
+    }
+    else {
+        // These are the default values if we don't find any thresholds in the agency network feature json
+        resources.policyEffectiveDateThresholds = defaultEffectiveDateThresholds;
+    }
+}

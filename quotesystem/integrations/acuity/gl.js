@@ -621,6 +621,7 @@ module.exports = class AcuityGL extends Integration {
                 return this.client_declined("incomplete information to quote");
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
+            case 'com.acuity_BindableReferredQuote':
             case "com.acuity_NonBindableQuote":
                 let policyAmount = 0;
                 const policyAmountNode = this.get_xml_child(policySummaryInfo, 'FullTermAmt.Amt');
