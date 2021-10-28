@@ -809,6 +809,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
         // lets go ahead and grab the unique values for policy types and store in the policy type selections list
         if(listOfPolicies.length > 0){
             const productTypeSelections = [];
+            // push policy type to the productTypeSelections if it isn't in the list, ensures no duplicat values
             for(let i = 0; i < listOfPolicies.length; i++){
                 const policyType = listOfPolicies[i];
                 if(productTypeSelections.indexOf(policyType) === -1){
@@ -867,7 +868,7 @@ async function getApplicationsResources(req, res, next){
     {
         // grab the list of agencies from the req.authentication
         const listOfAgencyIds = req.authentication.agents;
-        // if we know this is not an agency network signed in req then we know the req is coming from an agency user
+        // just a safety check, should always be 1
         if(listOfAgencyIds?.length === 1){
             const agencyLocationBO = new AgencyLocationBO();
             let locationList = [];
@@ -897,6 +898,7 @@ async function getApplicationsResources(req, res, next){
                         // for each insurer grab their id and push into insurerId Array
                         for(let j = 0; j < locationInsurers.length; j++){
                             const insurer = locationInsurers[j];
+                            // if the id doesn't exist in the isnurerIdArray then add it to the list
                             if(insurerIdArray.indexOf(insurer.insurerId) === -1){
                                 insurerIdArray.push(insurer.insurerId);
                             }
@@ -912,11 +914,12 @@ async function getApplicationsResources(req, res, next){
             }
         }
         else {
-            log.error(`Error found multiple agencyIds in the req.authentication ${JSON.stringify(req.authentication.agents)} ${__location}`);
+            log.error(`Error req.authentication.agents, length of list is not one, length: ${listOfAgencyIds.length} list of agencies: ${JSON.stringify(req.authentication.agents)} ${__location}`);
         }            
 
 
     }
+    // Add date filters
     const dateFilters = [
         {
             label: 'Created Date',
@@ -936,12 +939,15 @@ async function getApplicationsResources(req, res, next){
         }
     ]
     resources.dateFilters = dateFilters;
+    // Add Skip Filters
     const skipFilters =
     [
         {label: 'Renewals', value: 'skiprenewals'},
         {label: 'System Generated', value: 'system'}
     ]
     resources.skipFilters = skipFilters;
+
+    // Add quoteStatusSelections
     const quoteStatusSelections =
     [
         {label: "Errored", value:"iq:10"},
@@ -956,6 +962,7 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
+    // return the resources
     res.send(200, resources);
     return next();
 
