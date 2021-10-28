@@ -939,7 +939,7 @@ async function getApplicationsResources(req, res, next){
     const skipFilters =
     [
         {label: 'Renewals', value: 'skiprenewals'},
-        {label: 'System Generated', value: 'systemgenerated'}
+        {label: 'System Generated', value: 'system'}
     ]
     resources.skipFilters = skipFilters;
     const quoteStatusSelections =
