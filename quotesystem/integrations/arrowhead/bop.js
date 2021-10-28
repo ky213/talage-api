@@ -55,7 +55,7 @@ module.exports = class ArrowheadBOP extends Integration {
         }
         else {
             host = 'https://api.nationalprograms.io';
-            path = '/Quote/v0.2-beta/CreateQuote';
+            path = '/Quote/v1.0.0/CreateQuote';
         }
 
         // "Other" is not included, as anything not below is defaulted to it
@@ -143,7 +143,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 effectiveProduct: "BBOP",
                 state: applicationDocData.mailingState,
                 company: applicationDocData.businessName,
-                agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
+                agentid: this.app.agencyLocation.insurers[this.insurer.id].agent_id, //Check if this is different than sub producer. 
                 effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
