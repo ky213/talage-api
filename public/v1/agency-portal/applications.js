@@ -808,15 +808,15 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
         }
         // lets go ahead and grab the unique values for policy types and store in the policy type selections list
         if(listOfPolicies.length > 0){
-            const policyTypeSelections = [];
+            const productTypeSelections = [];
             for(let i = 0; i < listOfPolicies.length; i++){
                 const policyType = listOfPolicies[i];
-                if(policyTypeSelections.indexOf(policyType) === -1){
-                    policyTypeSelections.push(policyType);
+                if(productTypeSelections.indexOf(policyType) === -1){
+                    productTypeSelections.push(policyType);
                 }
             }
-            if(policyTypeSelections.length > 0){
-                resources.policyTypeSelections = policyTypeSelections;
+            if(productTypeSelections.length > 0){
+                resources.productTypeSelections = productTypeSelections;
             }
         }
     }
@@ -837,7 +837,7 @@ async function getApplicationsResources(req, res, next){
     const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
     // our default list, if or when we add a new product, add it to this const list
     const defaultProductTypeFilters = ["WC", "GL", "BOP", "CYBER", "PL"];
-    resources.policyTypeSelections = defaultProductTypeFilters;
+    resources.productTypeSelections = defaultProductTypeFilters;
     // if login is agency network grab the id
     if(isAgencyNetworkUser === true){
         const agencyNetworkId = req.authentication.agencyNetworkId;
@@ -920,23 +920,42 @@ async function getApplicationsResources(req, res, next){
     const dateFilters = [
         {
             label: 'Created Date',
-            value: 'created'
+            value: ''
         },
         {
             label: 'Modified Date',
-            value: 'modified'
+            value: 'md:'
         },
         {
             label: 'Policy Effective Date',
-            value: 'policyEffective'
+            value: 'pd:'
         },
         {
             label: 'Policy Expiration Date',
-            value: 'policyExpiration'
+            value: 'pde:'
         }
     ]
     resources.dateFilters = dateFilters;
-
+    const skipFilters =
+    [
+        {label: 'Renewals', value: 'skiprenewals'},
+        {label: 'System Generated', value: 'systemgenerated'}
+    ]
+    resources.skipFilters = skipFilters;
+    const quoteStatusSelections =
+    [
+        {label: "Errored", value:"iq:10"},
+        {label: "Auto Declined", value:"iq:15"},
+        {label: "Declined", value:"iq:20"},
+        {label: "Acord Emailed", value:"iq:30"},
+        {label: "Referred", value:"iq:40"},
+        {label: "Quoted", value:"iq:50"},
+        {label: "Referred Quoted", value:"iq:55"},
+        {label: "Bind Requested", value:"iq:60"},
+        {label: "Bind Requested For Referral", value:"iq:65"},
+        {label: "Bound", value:"iq:100"}
+    ]
+    resources.quoteStatusSelections = quoteStatusSelections;
     res.send(200, resources);
     return next();
 
