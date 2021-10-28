@@ -55,7 +55,7 @@ module.exports = class ArrowheadBOP extends Integration {
         }
         else {
             host = 'https://api.nationalprograms.io';
-            path = '/Quote/v0.2-beta/CreateQuote';
+            path = '/Quote/v1.0.0/CreateQuote';
         }
 
         // "Other" is not included, as anything not below is defaulted to it
