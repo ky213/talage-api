@@ -143,7 +143,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 effectiveProduct: "BBOP",
                 state: applicationDocData.mailingState,
                 company: applicationDocData.businessName,
-                agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
+                agentid: this.app.agencyLocation.insurers[this.insurer.id].agent_id, //Check if this is different than sub producer. 
                 effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
