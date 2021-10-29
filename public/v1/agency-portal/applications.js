@@ -794,7 +794,20 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
     const query = {"insurerId": insurerIdArray};
     let insurerDBJSONList = await insurerBO.getList(query);
     if(insurerDBJSONList.length > 0){
-        resources.insurers = insurerDBJSONList;
+        const insurerList = insurerDBJSONList.map(insurerObj => {return {name: insurerObj.name, insurerId: insurerObj.insurerId}});
+        // sort list by name
+        const sortFunction = function(firstInsurerObj, secondInsurerObj){
+            // sort alphabetically
+            if(firstInsurerObj.name > secondInsurerObj.name){
+                return 1;
+            }
+            if(firstInsurerObj.name < secondInsurerObj.name){
+                return -1;
+            }
+            return 0;
+        }
+        const sortedInsurerList = insurerList.sort(sortFunction);
+        resources.insurers = sortedInsurerList;
         const queryPT = 
         {
             "wheelhouse_support": true,
