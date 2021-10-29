@@ -83,6 +83,8 @@ const QuoteSchema = new Schema({
     packageTypeId: {type: Number},
     requestId: {type: String},
     amount: {type: Number},
+    quotedPremium: {type: Number},
+    boundPremium: {type: Number},
     deductible: {type: Number},
     status: {type: String},
     quoteStatusId: {type: Number},
