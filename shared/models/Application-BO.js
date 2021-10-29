@@ -178,17 +178,19 @@ module.exports = class ApplicationModel {
             }
 
             let updateAppJSON = {};
-            //updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
-            if (applicationMongoDoc.appStatusId < 80) {
-                updateAppJSON.status = 'request_to_bind_referred';
-                updateAppJSON.appStatusId = 80;
+            //90 === bound so no update and request to bind referred is 80
+            if(applicationMongoDoc.appStatusId < 80){
+                //updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
+                if (applicationMongoDoc.appStatusId === 60) {
+                    updateAppJSON.status = 'request_to_bind';
+                    updateAppJSON.appStatusId = 70;
+                }
+                else {
+                    updateAppJSON.status = 'request_to_bind_referred';
+                    updateAppJSON.appStatusId = 80;
+                }
+                await this.updateMongo(applicationId, updateAppJSON);
             }
-            else if (applicationMongoDoc.appStatusId < 70) {
-                updateAppJSON.status = 'request_to_bind';
-                updateAppJSON.appStatusId = 70;
-            }
-            await this.updateMongo(applicationId, updateAppJSON);
-
             //updatemetrics
             await this.recalculateQuoteMetrics(applicationId);
 
