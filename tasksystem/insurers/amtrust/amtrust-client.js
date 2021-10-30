@@ -6,7 +6,7 @@ const axios = require("axios")
 let accessToken = "";
 let credentials = null;
 
-async function authorize() {
+async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
     //get Amtrust insurer.
     var InsurerModel = require('mongoose').model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
@@ -14,9 +14,45 @@ async function authorize() {
         log.error(`No Amtrust record ` + __location)
         return false;
     }
-    //get Talage's AgencyLocation
+
+    credentials = JSON.parse(insurer.password);
+    if(global.settings.ENV !== 'production'){
+        credentials = JSON.parse(insurer.test_password);
+    }
     const AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
-    const agencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: 1}, '-__v');
+    let agencyLocationId = 1; //talage
+    if(agencyId){
+        const appAgencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: appAgencyLocationId}, '-__v');
+        //user prime agency ??
+        if(appAgencyLocDoc.useAgencyPrime === true){
+            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+            const agencyLocationBO = new AgencyLocationBO();
+            const AgencyBO = global.requireShared('./models/Agency-BO.js');
+            const agencyBO = new AgencyBO();
+            const queryAgency = {
+                "agencyNetworkId": agencyNetworkId,
+                "primaryAgency": true
+            }
+            const agencyList = await agencyBO.getList(queryAgency);
+            if(agencyList && agencyList.length > 0){
+                const agencyPrime = agencyList[0];
+                //get agency's prime location
+                // return prime location's insurers.
+                const returnChildren = false;
+                const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                if(agencyLocationPrime){
+                    agencyLocationId = agencyLocationPrime.systemId;
+                }
+            }
+        }
+        else {
+            agencyLocationId = appAgencyLocDoc.systemId;
+        }
+    }
+
+    //get AgencyLocation
+
+    const agencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: agencyLocationId}, '-__v');
     if(!agencyLocDoc){
         log.error(`Amtrust WC Importing Could not load Talage Agency Location` + __location);
         throw new Error(`Amtrust WC Importing Could not load Talage Agency Location`)
@@ -42,6 +78,8 @@ async function authorize() {
         response_type: "token id_token",
         undefined: ""
     };
+    //const requestDataString = JSON.stringify(requestData);
+
     const requestDataString = queryString.stringify(requestData);
 
     const requestOptions = {headers: {"Content-type": "application/x-www-form-urlencoded"}}

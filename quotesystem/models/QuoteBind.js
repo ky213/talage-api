@@ -168,13 +168,13 @@ module.exports = class QuoteBind{
     /**
 	 * Populates this object with data from the database
 	 *
-	 * @param {int} id - The ID of the quote
+	 * @param {int} quoteId - The ID of the quote
 	 * @param {int} paymentPlanId - The ID of the payment plan selected by the user
      * @param {int} requestUserId - The Agency Portal user ID that requested the bind.
      * @param {int} insurerPaymentPlanId - The ID of the Insurer payment plan selected by the user
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
-    async load(id, paymentPlanId, requestUserId, insurerPaymentPlanId){
+    async load(quoteId, paymentPlanId, requestUserId, insurerPaymentPlanId){
         if(requestUserId){
             this.requestUserId = requestUserId;
         }
@@ -187,17 +187,17 @@ module.exports = class QuoteBind{
         const quoteModel = new QuoteBO();
         try {
             const returnModel = true
-            this.quoteDoc = await quoteModel.getById(id,returnModel)
+            this.quoteDoc = await quoteModel.getById(quoteId,returnModel)
         }
         catch (err) {
-            log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
+            log.error(`Loading quote for bind request quote ${quoteId} error:` + err + __location);
             //throw err;
             return;
         }
 
         if(!this.quoteDoc){
-            log.error(`No quoteDoc quoteId ${id} ` + __location);
-            throw new Error(`No quoteDoc quoteId ${id}`);
+            log.error(`No quoteDoc quoteId ${quoteId} ` + __location);
+            throw new Error(`No quoteDoc quoteId ${quoteId}`);
         }
         //If there is an insurer payment plan it overrided the talage paymentplan
         if(insurerPaymentPlanId || this.quoteDoc.insurerPaymentPlanId){
@@ -233,7 +233,7 @@ module.exports = class QuoteBind{
             log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
-            log.error("Unable to get applicationData for binding appId: " + id + __location);
+            log.error("Unable to get applicationData for binding appId: " + quoteId + __location);
             return;
         }
 
@@ -272,12 +272,12 @@ module.exports = class QuoteBind{
         if (!this.insurerPaymentPlanId && paymentPlanId) {
             const insurerPaymentPlan = this.insurer.insurerDoc.paymentPlans;
             if(!insurerPaymentPlan || !insurerPaymentPlan.length > 0){
-                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${id} payment_plan: ${paymentPlanId} insurer ${this.quoteDoc.insurerId}`);
+                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${quoteId} payment_plan: ${paymentPlanId} insurer ${this.quoteDoc.insurerId}`);
             }
             this.payment_plan = paymentPlanId;
         }
         else if(!this.insurerPaymentPlanId){
-            log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${paymentPlanId}:` + __location);
+            log.error(`Could not get insurer payment plan for quoteId ${quoteId} payment_plan: ${paymentPlanId}:` + __location);
         }
     }
 
@@ -294,7 +294,7 @@ module.exports = class QuoteBind{
         const agencyLocationBO = new AgencyLocationBO()
         let notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
         //Temporarily send talage all bound activity.
-        if(type === 'bound'){
+        if(type === 'bound' || type === 'boundApiCheck'){
             notifiyTalage = true;
         }
         //temporarily notify Talage of all Bound
@@ -347,6 +347,16 @@ module.exports = class QuoteBind{
             };
 
             switch(type){
+                //bound app found check insurer API.
+                case 'boundApiCheck':
+                    const appIdField = {
+                        'short': true,
+                        'title': 'Application Id',
+                        'value': this.quoteDoc.applicationId
+                    }
+                    attachment.fields.push(appIdField)
+                    slack.send('customer_success', 'celebrate', `*Bound Application found on ${this.insurer.name}'s system!*`, attachment);
+                    return;
                 case 'bound':
                     slack.send('customer_success', 'celebrate', '*Application Bound!*', attachment);
                     return;
