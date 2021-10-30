@@ -133,6 +133,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
 
                         //update app metrics
                         const applicationBO = new ApplicationBO();
+                        await applicationBO.updateStatus(quoteDoc.applicationId,ApplicationStatus.applicationStatus.bound.appStatusDesc, ApplicationStatus.applicationStatus.bound.appStatusId)
                         await applicationBO.recalculateQuoteMetrics(quoteDoc.applicationId);
 
                         //slack........
