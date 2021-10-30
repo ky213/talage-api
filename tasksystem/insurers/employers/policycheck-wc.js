@@ -51,7 +51,7 @@ async function processQuoteList(quoteJSONList,sendSlackMessage){
 async function getQuotePolicy(quoteId, sendSlackMessage){
     try{
 
-        log.debug(`Employers Policycheck checking quoteId ${quoteId} ` + __location)
+        log.info(`Employers Policycheck checking quoteId ${quoteId} ` + __location)
         //get quote doc
         var Quote = require('mongoose').model('Quote');
         const query = {quoteId: quoteId}
@@ -72,6 +72,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
             }
             const employersQuoteDetailJson = await getEmployersQuoteDetail(employerQuoteId, quoteDoc);
             if(employersQuoteDetailJson && employersQuoteDetailJson.status === "BOUND"){
+                log.info(`Employers Policycheck Found Bound submission applicationId: ${quoteDoc.applicationId} quoteId: ${quoteId} ` + __location)
                 quoteDoc.bound = true;
                 quoteDoc.quoteStatusId = quoteStatus.bound.id
                 quoteDoc.boundPremium = employersQuoteDetailJson.totalPremium;
