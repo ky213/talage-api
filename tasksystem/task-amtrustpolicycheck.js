@@ -97,11 +97,7 @@ async function amtrustPolicyCheck(taskBodyJSON){
             talageWholesale: 1
         }
         var queryOptions = {};
-        queryOptions.sort = {
-            agencyNetworkId: 1,
-            agencyId: 1,
-            createdAt: -1
-        };
+        queryOptions.sort = {createdAt: -1};
         queryOptions.limit = 3000;
         //queryOptions.sort.createdAt = -1;
         log.debug("amtrustPolicyCheck quote query " + JSON.stringify(query))
