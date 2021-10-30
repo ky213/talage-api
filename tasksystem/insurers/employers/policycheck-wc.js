@@ -50,8 +50,7 @@ async function processQuoteList(quoteJSONList,sendSlackMessage){
 
 async function getQuotePolicy(quoteId, sendSlackMessage){
     try{
-
-        log.info(`Employers Policycheck checking quoteId ${quoteId} ` + __location)
+        //log.info(`Employers Policycheck checking quoteId ${quoteId} ` + __location)
         //get quote doc
         var Quote = require('mongoose').model('Quote');
         const query = {quoteId: quoteId}
@@ -185,6 +184,10 @@ async function getEmployersQuoteDetail(employerQuoteId, quoteDoc){
     }
     else if (response.data && !response.data.success) {
         log.info(`Employers Policy Check AppId: ${quoteDoc.applicationId} QuoteId: ${quoteDoc.quoteId} not success: ${JSON.stringify(response.data)} ${__location}`);
+        return null;
+    }
+    else if(!response.data) {
+        log.info(`Employers Policy Check AppId: ${quoteDoc.applicationId} QuoteId: ${quoteDoc.quoteId} no reponse data ${__location}`);
         return null;
     }
     return null;

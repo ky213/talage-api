@@ -349,12 +349,17 @@ module.exports = class QuoteBind{
             switch(type){
                 //bound app found check insurer API.
                 case 'boundApiCheck':
-                    const appIdField = {
-                        'short': true,
-                        'title': 'Application Id',
-                        'value': this.quoteDoc.applicationId
+                    try{
+                        const appIdField = {
+                            'short': true,
+                            'title': 'Application Id',
+                            'value': this.quoteDoc.applicationId
+                        }
+                        attachment.fields.push(appIdField)
                     }
-                    attachment.fields.push(appIdField)
+                    catch(err){
+                        log.error(`QuoteBind send_slack_notification process error ${err} ` + __location);
+                    }
                     slack.send('customer_success', 'celebrate', `*Bound Application found on ${this.insurer.name}'s system!*`, attachment);
                     return;
                 case 'bound':
