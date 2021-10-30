@@ -229,8 +229,8 @@ const getPremium = async(where) => {
     ])).map(t => t.count));
 
     return {
-        quoted: roundCurrency(await quoted('WC') + await quoted('GL') + await quoted('BOP')),
-        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP'))
+        quoted: roundCurrency(await quoted('WC') + await quoted('GL') + await quoted('BOP') + await quoted('CYBER') + await quoted('PL')),
+        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP') + await bound('CYBER') + await bound('PL'))
     };
 }
 
