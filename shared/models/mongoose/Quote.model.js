@@ -37,7 +37,8 @@ const PolicySchema = new Schema({
     policyUrl: {type: String, required: false},
     policyNumber: {type: String, required: false},
     policyEffectiveDate: {type: String, required: false},
-    policyPremium: {type: String, required: false}
+    policyPremium: {type: Number, required: false},
+    commissionPercent: {type: Number, required: false}
 }, {_id: false});
 
 

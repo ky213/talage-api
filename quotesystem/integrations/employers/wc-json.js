@@ -508,6 +508,10 @@ module.exports = class EmployersWC extends Integration {
             }
 
             if (!quoteResponse || !quoteResponse.success) {
+
+                this.request_id = this.quoteId;
+                this.quoteResponseJSON = quoteResponse;
+
                 if (quoteResponse.status) {
                     this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
                 }

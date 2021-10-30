@@ -6,7 +6,7 @@ const moment = require('moment');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 /**
- * AmtrustImport Task processor
+ * EmployersImport Task processor
  *
  * @param {string} queueMessage - message from queue
  * @returns {void}
@@ -24,7 +24,7 @@ async function processtask(queueMessage){
         if(typeof queueMessage.Body === 'string'){
             messageBody = JSON.parse(queueMessage.Body)
         }
-        amtrustPolicyCheck(messageBody).catch(err => error = err);
+        policyCheck(messageBody).catch(err => error = err);
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
@@ -37,23 +37,23 @@ async function processtask(queueMessage){
         return;
     }
     else {
-        log.info('removing old amtrust policycheck Message from queue');
+        log.info('removing old Employers policycheck Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error amtrust policycheck deleteTaskQueueItem old " + error + __location);
+            log.error("Error Employers policycheck deleteTaskQueueItem old " + error + __location);
         }
         return;
     }
 }
 
 
-async function amtrustPolicyCheck(taskBodyJSON){
+async function policyCheck(taskBodyJSON){
     try {
         if(!taskBodyJSON.maxDaysInPast && !taskBodyJSON.quoteId){
-            log.error(`Amtrust policycheck missing maxDaysInPast ` + __location);
+            log.error(`Employers policycheck missing maxDaysInPast ` + __location);
             return;
         }
-        const insurerId = 19; //Amtrust
+        const insurerId = 1; //Employers
         let query = {insurerId: -1}// return nothing
 
         if(taskBodyJSON.quoteId){
@@ -100,19 +100,14 @@ async function amtrustPolicyCheck(taskBodyJSON){
         queryOptions.sort = {createdAt: -1};
         queryOptions.limit = 3000;
         //queryOptions.sort.createdAt = -1;
-        log.debug("amtrustPolicyCheck quote query " + JSON.stringify(query))
+        log.debug("Employers PolicyCheck quote query " + JSON.stringify(query))
         const quoteJSONList = await Quote.find(query, queryProjection, queryOptions).lean()
         if(quoteJSONList?.length > 0){
-            const policycheckWC = require('./insurers/amtrust/policycheck-wc.js');
-            if(global.settings.ENV === 'development'){
-                await policycheckWC.processQuoteList(quoteJSONList, sendSlackMessage)
-            }
-            else {
-                policycheckWC.processQuoteList(quoteJSONList, sendSlackMessage)
-            }
+            const policycheckWC = require('./insurers/employers/policycheck-wc.js');
+            policycheckWC.processQuoteList(quoteJSONList, sendSlackMessage)
         }
         else {
-            log.debug("amtrustPolicyCheck no quotes to check " + __location)
+            log.debug("Employers PolicyCheck no quotes to check " + __location)
         }
 
     }
@@ -125,5 +120,5 @@ async function amtrustPolicyCheck(taskBodyJSON){
 
 module.exports = {
     processtask: processtask,
-    amtrustPolicyCheck: amtrustPolicyCheck
+    policyCheck: policyCheck
 };
