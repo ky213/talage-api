@@ -100,14 +100,14 @@ async function policyCheck(taskBodyJSON){
         queryOptions.sort = {createdAt: -1};
         queryOptions.limit = 3000;
         //queryOptions.sort.createdAt = -1;
-        log.debug("Employers PolicyCheck quote query " + JSON.stringify(query))
+        log.info("Employers PolicyCheck quote query " + JSON.stringify(query))
         const quoteJSONList = await Quote.find(query, queryProjection, queryOptions).lean()
         if(quoteJSONList?.length > 0){
             const policycheckWC = require('./insurers/employers/policycheck-wc.js');
             policycheckWC.processQuoteList(quoteJSONList, sendSlackMessage)
         }
         else {
-            log.debug("Employers PolicyCheck no quotes to check " + __location)
+            log.info("Employers PolicyCheck no quotes to check " + __location)
         }
 
     }
