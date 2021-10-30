@@ -134,7 +134,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
             }
         }
         else if(quoteDoc){
-            log.error(`Employers Policycheck QuoteId ${quoteId} could not find quoteNumber ${JSON.stringify(quoteDoc)}` + __location)
+            log.invo(`Employers Policycheck QuoteId ${quoteId} could not find quoteNumber ${JSON.stringify(quoteDoc)}` + __location)
         }
         else {
             log.error(`Employers Policycheck QuoteId ${quoteId} could not find quoteDoc` + __location)
@@ -184,7 +184,7 @@ async function getEmployersQuoteDetail(employerQuoteId, quoteDoc){
         return response.data
     }
     else if (response.data && !response.data.success) {
-        log.error(`Employers Policy Check AppId: ${quoteDoc.applicationId} QuoteId: ${quoteDoc.quoteId} Bind Rejected: ${JSON.stringify(response.data)} ${__location}`);
+        log.info(`Employers Policy Check AppId: ${quoteDoc.applicationId} QuoteId: ${quoteDoc.quoteId} not success: ${JSON.stringify(response.data)} ${__location}`);
         return null;
     }
     return null;
