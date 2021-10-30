@@ -2266,28 +2266,29 @@ module.exports = class ApplicationModel {
             if(quoteList && quoteList.length > 0){
                 let lowestBoundQuote = (product) => _.min(quoteList.
                     filter(t => t.policyType === product && (
-                        t.bound ||
-                        t.status === 'bind_requested')).
+                        t.bound || t.quoteStatusId >= quoteStatus.bind_requested.id)).
                     map(t => t.amount));
 
                 let lowestQuote = (product) => _.min(quoteList.
                     filter(t => t.policyType === product && (
-                        t.bound ||
-                        t.status === 'bind_requested' ||
-                        t.apiResult === 'quoted' ||
-                        t.apiResult === 'referred_with_price')).
+                        t.bound || t.quoteStatusId >= quoteStatus.quoted.id)).
                     map(t => t.amount));
 
                 const metrics = {
                     lowestBoundQuoteAmount: {
                         GL: lowestBoundQuote('GL'),
                         WC: lowestBoundQuote('WC'),
-                        BOP: lowestBoundQuote('BOP')
+                        BOP: lowestBoundQuote('BOP'),
+                        CYBER: lowestBoundQuote('CYBER'),
+                        PL: lowestBoundQuote('PL')
+
                     },
                     lowestQuoteAmount: {
                         GL: lowestQuote('GL'),
                         WC: lowestQuote('WC'),
-                        BOP: lowestQuote('BOP')
+                        BOP: lowestQuote('BOP'),
+                        CYBER: lowestQuote('CYBER'),
+                        PL: lowestQuote('PL')
                     }
                 };
 
