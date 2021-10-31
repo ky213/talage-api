@@ -791,8 +791,10 @@ module.exports = class cowbellCyber extends Integration {
             }
             let cowbellQuoteId = null
             if(response && response.id){
+
                 this.number = response.id
                 cowbellQuoteId = response.id
+                this.request_id = cowbellQuoteId;
                 let quotePremium = null
                 const quoteLimits = {};
                 quoteLimits[11] = policyaggregateLimit;
@@ -902,10 +904,13 @@ module.exports = class cowbellCyber extends Integration {
                         if(responseQD.agencyStatus === 'INVALID'){
                             declined = true;
                             declientReason = responseQD.agencyDescription
+                            this.quoteResponseJSON = responseQD
                             break;
                         }
                         if(responseQD.totalPremium){
+                            this.quoteResponseJSON = responseQD
                             this.number = responseQD.quoteNumber;
+                            this.request_id = cowbellQuoteId;
                             quotePremium = responseQD.totalPremium;
                             this.quoteLink = responseQD.agencyDeepLinkURL
                             this.purchaseLink = responseQD.policyHolderDeepLinkURL
