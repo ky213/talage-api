@@ -18,6 +18,7 @@ const Quote = mongoose.model('Quote');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
+
 /**
  * Validates the parameters for the applications call
  * @param {Array} parent - The list of parameters to validate
@@ -788,13 +789,22 @@ async function getApplications(req, res, next){
         return next();
     }
 }
+
+/**
+ * Populates the resources object with insurers and policies
+ *
+ * @param {object} resources - Resources Object to be decorated
+ * @param {array} insurerIdArray - Array of insurer ids
+ *
+ * @returns {void}
+ */
 async function populateInsurersAndPolicies(resources, insurerIdArray){
     const insurerBO = new InsurerBO();
     const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
     const query = {"insurerId": insurerIdArray};
-    let insurerDBJSONList = await insurerBO.getList(query);
+    const insurerDBJSONList = await insurerBO.getList(query);
     if(insurerDBJSONList.length > 0){
-        const insurerList = insurerDBJSONList.map(insurerObj => {return {name: insurerObj.name, insurerId: insurerObj.insurerId, slug: insurerObj.slug}});
+        const insurerList = insurerDBJSONList.map(insurerObj => ({name: insurerObj.name, insurerId: insurerObj.insurerId, slug: insurerObj.slug}));
         // sort list by name
         const sortFunction = function(firstInsurerObj, secondInsurerObj){
             // sort alphabetically
@@ -808,7 +818,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
         }
         const sortedInsurerList = insurerList.sort(sortFunction);
         resources.insurers = sortedInsurerList;
-        const queryPT = 
+        const queryPT =
         {
             "wheelhouse_support": true,
             insurerId: insurerIdArray
@@ -835,6 +845,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
         }
     }
 }
+
 /**
  * Responds to get requests for the get resources endpoint
  *
@@ -849,17 +860,27 @@ async function getApplicationsResources(req, res, next){
     let error = null;
     // determine if signed in is an agencyNetwork User or agency user
     const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+
     // our default list, if or when we add a new product, add it to this const list
-    const defaultProductTypeFilters = ["WC", "GL", "BOP", "CYBER", "PL"];
+    const defaultProductTypeFilters =
+        [
+            "WC",
+            "GL",
+            "BOP",
+            "CYBER",
+            "PL"
+        ];
+
     resources.productTypeSelections = defaultProductTypeFilters;
+
     // if login is agency network grab the id
     if(isAgencyNetworkUser === true){
         const agencyNetworkId = req.authentication.agencyNetworkId;
         try{
             // grab the agencyNetworkDB
-            let agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
-                log.error(`agencyNetworkBO load error for agencyNetworkId ${agencyNetworkId} ${err} ${ __location}`);
+                log.error(`agencyNetworkBO load error for agencyNetworkId ${agencyNetworkId} ${err} ${__location}`);
                 error = err;
             });
             if (error) {
@@ -871,14 +892,12 @@ async function getApplicationsResources(req, res, next){
             if(insurerIdArray.length > 0){
                 await populateInsurersAndPolicies(resources, insurerIdArray);
             }
-
         }
         catch(err){
             log.error(`Error retrieving Agency Network Insurer and Policies List for agency network id: ${agencyNetworkId}` + err + __location);
         }
     }
-    else 
-    {
+    else {
         // grab the list of agencies from the req.authentication
         const listOfAgencyIds = req.authentication.agents;
         // make sure we got agencyIds back, safety check, in this flow should always be 1 but even if more we just grab the first one
@@ -921,13 +940,14 @@ async function getApplicationsResources(req, res, next){
                 if(insurerIdArray.length > 0){
                     await populateInsurersAndPolicies(resources, insurerIdArray);
                 }
-                
-            } catch (error) {
+            }
+            catch(err){
                 log.error(`Error retrieving Agency Insurer and Policies List for agency id: ${agencyId}` + err + __location);
             }
-        }else {
-            log.error(`Error,  req.authentication.agents is returning empty agency list: ${JSON.stringify( req.authentication.agents)} ${__location}`)
-        }          
+        }
+        else{
+            log.error(`Error,  req.authentication.agents is returning empty agency list: ${JSON.stringify(req.authentication.agents)} ${__location}`)
+        }
     }
     // Add date filters
     const dateFilters = [
@@ -950,11 +970,7 @@ async function getApplicationsResources(req, res, next){
     ]
     resources.dateFilters = dateFilters;
     // Add Skip Filters
-    const skipFilters =
-    [
-        {label: 'Renewals', value: 'skiprenewals'},
-        {label: 'System Generated', value: 'system'}
-    ]
+    const skipFilters = [{label: 'Renewals', value: 'skiprenewals'}, {label: 'System Generated', value: 'system'}]
     resources.skipFilters = skipFilters;
 
     // Add quoteStatusSelections
