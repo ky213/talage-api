@@ -176,7 +176,12 @@ async function startQueueProcessing() {
     if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
-        const taskJson = {"taskname": "amtrustimport"};
+        const taskJson = {
+            "taskname": "employerspolicycheck",
+            "quoteId" : "a9a7eae0-ca1e-41c5-a62e-0098ebdde153"
+            //"minDaysInPast": 0,
+            //"maxDaysInPast": 5
+        };
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
         const testMessage = {

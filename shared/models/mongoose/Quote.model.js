@@ -37,7 +37,8 @@ const PolicySchema = new Schema({
     policyUrl: {type: String, required: false},
     policyNumber: {type: String, required: false},
     policyEffectiveDate: {type: String, required: false},
-    policyPremium: {type: String, required: false}
+    policyPremium: {type: Number, required: false},
+    commissionPercent: {type: Number, required: false}
 }, {_id: false});
 
 
@@ -83,6 +84,8 @@ const QuoteSchema = new Schema({
     packageTypeId: {type: Number},
     requestId: {type: String},
     amount: {type: Number},
+    quotedPremium: {type: Number},
+    boundPremium: {type: Number},
     deductible: {type: Number},
     status: {type: String},
     quoteStatusId: {type: Number},
