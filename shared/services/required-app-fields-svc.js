@@ -30,6 +30,8 @@ const bopRequirements = {
         constructionType: {requirement: required},
         yearBuilt: {requirement: required},
         unemployment_num: {requirement: hidden},
+        full_time_employees: {requirement: hidden},
+        part_time_employees: {requirement: hidden},
         square_footage: {requirement: required},
         bop: {
             requirement: required,
@@ -57,6 +59,8 @@ const glRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: hidden},
+        full_time_employees: {requirement: hidden},
+        part_time_employees: {requirement: hidden},
         square_footage: {requirement: required},
         bop: {
             requirement: hidden,
@@ -88,6 +92,8 @@ const wcRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: required},
+        full_time_employees: {requirement: hidden},
+        part_time_employees: {requirement: hidden},
         square_footage: {requirement: hidden},
         bop: {
             requirement: hidden,
@@ -114,6 +120,8 @@ const plRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: hidden},
+        full_time_employees: {requirement: hidden},
+        part_time_employees: {requirement: hidden},
         bop: {
             sprinklerEquipped: {requirement: hidden},
             requirement: hidden,
@@ -131,7 +139,7 @@ const plRequirements = {
 
 const cyberRequirements = {
     location: {
-        activityPayrollList: {requirement: optional},
+        activityPayrollList: {requirement: required},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -139,6 +147,8 @@ const cyberRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: hidden},
+        full_time_employees: {requirement: hidden},
+        part_time_employees: {requirement: hidden},
         square_footage: {requirement: hidden},
         bop: {
             requirement: hidden,

@@ -471,7 +471,7 @@ module.exports = class PieWC extends Integration {
         }
         address.city = appDoc.mailingCity;
         address.state = appDoc.mailingState;
-        address.zip = appDoc.mailingZipcode;
+        address.zip = appDoc.mailingZipcode.slice(0,5);
 
         data.mailingAddress = address;
 

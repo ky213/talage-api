@@ -86,16 +86,12 @@ async function createToken(email) {
     const agencyBO = new AgencyBO();
     // For agency networks get the agencies they are allowed to access
     if (payload.isAgencyNetworkUser) {
-        let agencyJSONList = null;
-
-        // Load the request data into it
-        agencyJSONList = await agencyBO.getByAgencyNetwork(payload.agencyNetworkId);
-
         // Store the agencies in the payload
-        payload.agents = [];
-        agencyJSONList.forEach((agencyJSON) => {
-            payload.agents.push(agencyJSON.systemId);
-        });
+        //no longer used.
+        payload.agents = [-1];
+        // agencyJSONList.forEach((agencyJSON) => {
+        //     payload.agents.push(agencyJSON.systemId);
+        // });
     }
     else {
         // Just allow access to the current agency

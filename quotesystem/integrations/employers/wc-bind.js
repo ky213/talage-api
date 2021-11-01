@@ -11,8 +11,12 @@ class EmployersBind extends Bind {
             "Accept": "application/json"
         }};
         const host = this.insurer.useSandbox ? 'api-qa.employers.com' : 'api.employers.com';
+        let employerQuoteId = this.quote.quoteId;
+        if(this.quote.requestId){
+            employerQuoteId = this.quote.requestId;
+        }
 
-        const requestUrl = `https://${host}/DigitalAgencyServices/quote/${this.quote.requestId}/bind`;
+        const requestUrl = `https://${host}/DigitalAgencyServices/quote/${employerQuoteId}/bind`;
         this.quote.log += `--------======= Bind Request to ${requestUrl} =======--------<br><br>`;
         this.quote.log += `Request: NO BODY <br><br>`;
         this.quote.log += `--------======= End =======--------<br><br>`;

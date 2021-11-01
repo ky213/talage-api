@@ -54,8 +54,8 @@ module.exports = class ArrowheadBOP extends Integration {
             path = '/Quote/v0.2-beta/CreateQuote';
         }
         else {
-            host = 'bad';
-            path = 'bad';
+            host = 'https://api.nationalprograms.io';
+            path = '/Quote/v1.0.0/CreateQuote';
         }
 
         // "Other" is not included, as anything not below is defaulted to it
@@ -143,7 +143,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 effectiveProduct: "BBOP",
                 state: applicationDocData.mailingState,
                 company: applicationDocData.businessName,
-                agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
+                agentid: this.app.agencyLocation.insurers[this.insurer.id].agent_id, //Check if this is different than sub producer. 
                 effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
@@ -605,6 +605,17 @@ module.exports = class ArrowheadBOP extends Integration {
                 locationObj.buildingList[0].sprinklered = false;
             }
 
+            const constructionTypes = {
+                "Frame": "Frame",
+                "Fire Resistive": "Fire Resistive",
+                "Joisted Masonry": "Joisted Masonry",
+                "Masonry Non Combustible": "Masonry Non-Combustible",
+                "Non Combustible": "Non-Combustible"
+            };
+            if (location.constructionType && constructionTypes[location.constructionType]) {
+                locationObj.buildingList[0].construction = constructionTypes[location.constructionType];
+            }
+
             if (location.state === 'NC') {
                 locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
             }
@@ -666,7 +677,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
                     break;
                 case "actualCashValueInd":
-                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    contractorCoverage.push({id: "ACVInd", answer: this.convertToBoolean(answer)});
                     break;
                 case "conscd.equips.desc":
                     contractorScheduled.push({id, answer});
@@ -769,11 +780,35 @@ module.exports = class ArrowheadBOP extends Integration {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
-                case "schedBookFloater.limit":
-                    schedBookFloater.push({id: "limit", answer: this.convertToInteger(answer)});
+                case "schedBookFloater.limit1":
+                    schedBookFloater.push({id: "limit1", answer: this.convertToInteger(answer)});
                     break;
-                case "schedBookFloater.description":
-                    schedBookFloater.push({id: "description", answer});
+                case "schedBookFloater.limit2":
+                    schedBookFloater.push({id: "limit2", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit3":
+                    schedBookFloater.push({id: "limit3", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit4":
+                    schedBookFloater.push({id: "limit4", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit5":
+                    schedBookFloater.push({id: "limit5", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.description1":
+                    schedBookFloater.push({id: "description1", answer});
+                    break;
+                case "schedBookFloater.description2":
+                    schedBookFloater.push({id: "description2", answer});
+                    break;
+                case "schedBookFloater.description3":
+                    schedBookFloater.push({id: "description3", answer});
+                    break;
+                case "schedBookFloater.description4":
+                    schedBookFloater.push({id: "description4", answer});
+                    break;
+                case "schedBookFloater.description5":
+                    schedBookFloater.push({id: "description5", answer});
                     break;
                 case "nonOwnedAutoLiab":
                     // This question populates both nonown and hired auto in arrowhead request
@@ -914,24 +949,8 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "conToolsCovType":
                     case "blanketLimitNoMin":
                     case "itemSubLimitText":
-                    case "actualCashValueInd":
+                    case "ACVInd":
                         bbopSet.coverages.conins[id] = answer;
-                        break;
-                    case "conscd.equips.desc":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.desc = answer;
-                        break;
-                    case "conscd.equips.val":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.val = answer;
                         break;
                     case "nonownTools.includeInd":
                         if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
@@ -962,6 +981,10 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                 }
             });
+
+            if (!bbopSet.coverages.conins.hasOwnProperty('conToolsCovType') && (bbopSet.coverages.conins.hasOwnProperty('blanketLimitNoMin') || bbopSet.coverages.conins.hasOwnProperty('actualCashValueInd') || bbopSet.coverages.conins.hasOwnProperty('itemSubLimitText'))) {
+                bbopSet.coverages.conins.conToolsCovType = "Blanket Limit";
+            }
         }
 
         // hydrate Computer Fraud coverage with child question data, if any exist
@@ -1111,26 +1134,66 @@ module.exports = class ArrowheadBOP extends Integration {
             if (!bbopSet.coverages.schdbk.hasOwnProperty("equips")) {
                 bbopSet.coverages.schdbk.equips = [{}];
             }
+            const equips = [];
+            for (let i = 0; i < 5; i++) {
+                equips.push({});
+            }
             schedBookFloater.forEach(({id, answer}) => {
                 switch (id) {
-                    case "limit":
-                        bbopSet.coverages.schdbk.equips[0].val = answer;
+                    case "limit1":
+                        equips[0].val = answer;
                         break;
-                    case "description":
-                        bbopSet.coverages.schdbk.equips[0].desc = answer;
+                    case "description1":
+                        equips[0].desc = answer;
+                        break;
+                    case "limit2":
+                        equips[1].val = answer;
+                        break;
+                    case "description2":
+                        equips[1].desc = answer;
+                        break;
+                    case "limit3":
+                        equips[2].val = answer;
+                        break;
+                    case "description3":
+                        equips[2].desc = answer;
+                        break;
+                    case "limit4":
+                        equips[3].val = answer;
+                        break;
+                    case "description4":
+                        equips[3].desc = answer;
+                        break;
+                    case "limit5":
+                        equips[4].val = answer;
+                        break;
+                    case "description5":
+                        equips[4].desc = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Scheduled Book and Manuscript Floater coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             });
-            bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
-                let addVal = 0;
-                if (elem.val){
-                    addVal = elem.val;
-                }
-                return sum + addVal;
-            }, 0));
+
+            const filteredEquips = equips.filter(equip => equip && equip.val && !isNaN(equip.val) && equip.desc); // Submit only those with both non-empty description and non-zero limit value
+            if (filteredEquips && filteredEquips.length > 0) {
+                bbopSet.coverages.schdbk.equips = filteredEquips;
+                bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
+                    let addVal = 0;
+                    if (elem.val){
+                        addVal = elem.val;
+                    }
+                    return sum + addVal;
+                }, 0));
+            }
+            else {
+                bbopSet.coverages.schdbk.includeInd = false;
+            }
+        }
+
+        if (bbopSet.coverages.schdbk && (!bbopSet.coverages.schdbk.equips || bbopSet.coverages.schdbk.equips.length === 0)) {
+            bbopSet.coverages.schdbk.includeInd = false;
         }
 
 
@@ -1278,7 +1341,6 @@ module.exports = class ArrowheadBOP extends Integration {
             const spoil = [];
             const compf = [];
             const windstormFeatures = [];
-            const mine = [];
             const addLivingExpense = [];
             const actReceivable = [];
             const condoOwner = [];
@@ -1292,9 +1354,6 @@ module.exports = class ArrowheadBOP extends Integration {
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
-                    case "construction":
-                        building[id] = answer;
-                        break;
                     case "description":
                         building[id] = answer;
                         break;
@@ -1339,23 +1398,6 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                     case "spoil.powerOut":
                         spoil.push({id: "powerOutInd", answer: this.convertToBoolean(answer)});
-                        break;
-                    case "mineSubsidenceCoverage":
-                        if (location.state === "IL") {
-                            building.coverages.bld.mine = {il: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "IN") {
-                            building.coverages.bld.mine = {in: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "KY") {
-                            building.coverages.bld.mine = {ky: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "WV") {
-                            building.coverages.bld.mine = {wv: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        break;
-                    case "mineSubsidenceCoverage.limit":
-                        mine.push({id: "limit", answer: this.convertToInteger(answer)});
                         break;
                     case "addLivingExpense":
                         building.coverages.bld.addexp = {in: {includeInd: this.convertToBoolean(answer)}};
@@ -1718,46 +1760,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 });
             }    
 
-            // injection of Mine Subsidence Coverage child question data
-            if (mine.length > 0) {
-                if (!building.coverages.hasOwnProperty("mine")){
-                    building.coverages.mine = {};
-                    if (location.state === "IL") {
-                        building.mine.il = {includeInd: true};
-                    }
-                    if (location.state === "IN") {
-                        building.mine.in = {includeInd: true};
-                    }
-                    if (location.state === "KY") {
-                        building.mine.ky = {includeInd: true};
-                    }
-                    if (location.state === "WV") {
-                        building.mine.wv = {includeInd: true};
-                    }
-                }
-                mine.forEach(({id, answer}) => {
-                    switch (id) {
-                        case "limit":
-                            if (location.state === "IL") {
-                                building.coverages.mine.il = {limit: answer};
-                            }
-                            if (location.state === "IN") {
-                                building.coverages.mine.in = {limit: answer};
-                            }
-                            if (location.state === "KY") {
-                                building.coverages.mine.ky = {limit: answer};
-                            }
-                            if (location.state === "WV") {
-                                building.coverages.mine.wv = {limit: answer};
-                            }
-                            break;
-                        default:
-                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Mine Subsidence coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
-                            break;
-                    }
-                });
-            }    
-
             // injection of Windstorm Construction Feature child question data
             if (windstormFeatures.length > 0) {
                 building.windstormFeatures = {};
@@ -1876,6 +1878,62 @@ module.exports = class ArrowheadBOP extends Integration {
                 valuation: "Replacement Cost",
                 limit: building.occupancy === "Tenant" ? 0 : location.buildingLimit
             };
+
+            // Mine subsidence coverage required for certain territories
+            const mineSubStates = [
+                'IL',
+                'IN',
+                'KY',
+                'WV'
+                ];
+            const mineMaxLimits = {
+                IL: 500000,
+                IN: 500000,
+                KY: 300000,
+                WV: 200000
+            }
+            if (mineSubStates.includes(location.state) && building.coverages.bld.includeInd) {
+                switch (location.state) {
+                    case 'IL':
+                        building.coverages.bld.mine = {il: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.il.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.il.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'IN': 
+                        building.coverages.bld.mine = {in: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.in.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.in.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'KY':
+                        building.coverages.bld.mine = {ky: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.ky.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.ky.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'WV':
+                        building.coverages.bld.mine = {wv: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.wv.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.wv.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    default:
+                        log.error(`Location territory is ${location.state} but it needs to be either IL, IN, KY, WV`);
+                }
+            }
 
         }
     }

@@ -388,6 +388,7 @@ module.exports = class AcuityWC extends Integration {
                 // eslint-disable-line no-fallthrough
             case 'com.acuity_BindableQuote':
             case "com.acuity_BindableModifiedQuote":
+            case 'com.acuity_BindableReferredQuote':
             case 'com.acuity_NonBindableQuote':
                 // Retrieve and populate the quote amount
                 const amt = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.FullTermAmt.Amt");

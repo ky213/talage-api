@@ -292,11 +292,12 @@ async function applicationSave(req, res, next) {
             log.debug("App Doc INSERT.....");
             if(!req.body.agencyPortalCreatedUser){
                 req.body.agencyPortalCreatedUser = "applicant";
-                req.body.agencyPortalCreated = true;
+                req.body.agencyPortalCreated = false;
             }
             if(!req.body.agencyPortalCreated){
                 req.body.agencyPortalCreated = false;
             }
+
             responseAppDoc = await applicationBO.insertMongo(req.body);
 
             // update JWT

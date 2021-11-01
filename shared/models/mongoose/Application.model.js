@@ -38,7 +38,7 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 const ActivtyCodeEmployeeTypeSchema = new Schema({
     activityCodeId: {type: Number, required: true},
     ncciCode: {type: Number, required: false},
-    payroll: {type: Number, required: true},
+    payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
 })
@@ -46,7 +46,7 @@ const ActivtyCodeEmployeeTypeSchema = new Schema({
 const ActivtyCodePayrollSchema = new Schema({
     activityCodeId: {type: Number, required: true},
     ncciCode: {type: Number, required: false},
-    payroll: {type: Number, required: true},
+    payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false}
 });
 

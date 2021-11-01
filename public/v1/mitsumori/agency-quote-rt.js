@@ -233,6 +233,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             introText: "introText",
             showIndustrySection: "showIndustrySection",
             showIntroText: "showIntroText",
+            showHowItWorks: "showHowItWorks",
             additionalInfo: "landingPageAdditionalInfo",
             meta: "meta",
             banner: "banner",
@@ -461,12 +462,14 @@ async function getAgencyLandingPage(req, res, next) {
     if(agency.displayName){
         agencyName = agency.displayName;
     }
+
     const landingPage = {
         agencyId: agency.agencyId,
         banner: agency.banner,
         name: agencyName,
         heading: agency.heading,
-        showIndustrySection: agency.showIndustrySection,
+        showIndustrySection: agency.hasOwnProperty('showIndustrySection') ? agency.showIndustrySection : false,
+        showHowItWorks: agency.hasOwnProperty('showHowItWorks') ? agency.showHowItWorks : true,
         showIntroText: agency.showIntroText,
         introHeading: agency.showIntroText ? agency.introHeading : null,
         introText: agency.showIntroText ? agency.introText : null,
@@ -639,6 +642,7 @@ async function getAgencyMetadata(req, res, next) {
     if(agencyJson.displayName){
         agencyName = agencyJson.displayName;
     }
+
     const metaObject = {
         wholesale: agencyJson.wholesale,
         metaAgencyId: agencyJson.agencyId,
@@ -657,14 +661,18 @@ async function getAgencyMetadata(req, res, next) {
     metaObject.metaWebsite = agencyJson.website ? agencyJson.website : null;
     metaObject.metaSocialMedia = agencyJson.hasOwnProperty('socialMediaTags') ? agencyJson.socialMediaTags : null;
     metaObject.metaOptOut = agencyJson.hasOwnProperty('enableOptOut') ? agencyJson.enabelOptOut : null;
+    metaObject.metaShowHowItWorks = agencyJson.hasOwnProperty('showHowItWorks') ? agencyJson.showHowItWorks : true;
+    metaObject.metaShowIndustrySection = agencyJson.hasOwnProperty('showIndustrySection') ? agencyJson.showIndustrySection : false;
     // only pass back operation hours if both open and close time are present
     metaObject.metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
     metaObject.metaCss = metaCss;
 
     // use wheelhouse defaults if its not present
     let metaDescription = null;
-    if(agencyJson.landingPageContent && agencyJson.landingPageContent.bannerHeadingDefault){
-        metaDescription = agencyJson.landingPageContent.bannerHeadingDefault;
+    if(agencyJson.landingPageContent){
+        if(agencyJson.landingPageContent.bannerHeadingDefault){
+            metaDescription = agencyJson.landingPageContent.bannerHeadingDefault;
+        }
     }
     else if(agencyJson.defaultLandingPageContent) {
         metaDescription = agencyJson.defaultLandingPageContent.bannerHeadingDefault;

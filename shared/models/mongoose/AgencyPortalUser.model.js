@@ -50,6 +50,7 @@ const AgencyPortalUserSchema = new Schema({
     requiredLegalAcceptance: {type: Boolean, default: false},
     legalAcceptance: [legalAcceptanceSchema],
     agencyNotificationList: [Number],
+    notificationPolicyTypeList: {type: [String], required: false, default: []},
     additionalInfo: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)

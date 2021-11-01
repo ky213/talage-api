@@ -538,6 +538,14 @@ module.exports = class MarkelWC extends Integration {
 
                 if (question.questionType === 'Yes/No') {
                     questionAnswer = question.answerValue.toUpperCase();
+
+                    // some answers may be coming in as boolean or string representations of booleans, handling those cases explicitly here
+                    if (questionAnswer.toLowerCase() === "true" || questionAnswer === true) {
+                        questionAnswer = "YES";
+                    }
+                    else if (questionAnswer.toLowerCase() === "false" || questionAnswer === false) {
+                        questionAnswer = "NO";
+                    }
                 }
                 else if (questionCode === "com.markel.uw.questions.Question1399") {
                     // THIS IS A TEMPORARY FIX UNTIL MARKEL ALLOWS FOR MULTI-OPTION QUESTION ANSWERS
@@ -929,6 +937,45 @@ module.exports = class MarkelWC extends Integration {
                     }
                 }
                 else {
+                    // collect payment information
+                    if (response[rquIdKey]?.paymentOptions) {
+                        this.insurerPaymentPlans = response[rquIdKey].paymentOptions;
+                        const paymentPlanIdMatrix = {
+                            30: 1,
+                            31: 2,
+                            32: 3,
+                            33: 4
+                        };
+
+                        const talagePaymentPlans = [];
+                        for (const paymentPlan of response[rquIdKey].paymentOptions) {
+                            if (!paymentPlanIdMatrix[paymentPlan.id]) {
+                                // we do not have a payment plan mapping for this insurer payment plan
+                                continue;
+                            }
+
+                            try {
+                                const talagePaymentPlan = {
+                                    paymentPlanId: paymentPlanIdMatrix[paymentPlan.id],
+                                    insurerPaymentPlanId: paymentPlan.id,
+                                    insurerPaymentPlanDescription: paymentPlan.description,
+                                    NumberPayments: paymentPlan.numberOfInstallments,
+                                    DepositPercent: paymentPlan.downPaymentPercent,
+                                    DownPayment: paymentPlan.deposit
+                                };
+    
+                                talagePaymentPlans.push(talagePaymentPlan);
+                            }
+                            catch (e) {
+                                log.warn(`${logPrefix}Unable to parse payment plan: ${e}. Skipping...`);
+                            }
+                        }
+
+                        if (talagePaymentPlans.length > 0) {
+                            this.talageInsurerPaymentPlans = talagePaymentPlans;
+                        }
+                    }
+
                     return this.return_result('quoted');
                 }
             }
@@ -956,7 +1003,7 @@ module.exports = class MarkelWC extends Integration {
                 if(typeof error === 'string'){
                     this.reasons.push(`${error}`);
                     if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){
-                        return this.client_autodeclined_out_of_appetite();
+                        return this.client_declined(`${error}`);
                     }
                 }
                 else {

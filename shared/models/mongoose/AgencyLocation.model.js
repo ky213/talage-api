@@ -38,6 +38,7 @@ const AgencyLocationInsurersSchema = new Schema({
     insurerId: {type: Number, required: true},
     agencyId: {type: String, required: false},
     agentId: {type: String, required: false},
+    agencyCred3: {type: String, required: false},
     policyTypeInfo: PolicyTypeInfoSchema,
     talageWholesale: {type: Boolean, required: true, default: false}
 },{_id : false})

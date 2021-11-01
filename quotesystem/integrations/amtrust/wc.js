@@ -18,12 +18,16 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
+const {Sleep} = global.requireShared('./helpers/utility.js');
 
 const amtrustTestHost = "utgateway.amtrustgroup.com";
 const amtrustTestBasePath = "/DigitalAPI_Usertest";
 
 const amtrustProductionHost = "gateway.amtrustgroup.com";
 const amtrustProductionBasePath = "/DigitalAPI";
+
+const OFFICER_MAX_RETRIES = 3; // 3 retries
+const OFFICER_RETRY_TIME = 5 * 1000; // 5 seconds
 
 module.exports = class AMTrustWC extends Integration {
 
@@ -441,6 +445,8 @@ module.exports = class AMTrustWC extends Integration {
     }
 
 
+    //***************** QUOTING *******************************************************************************
+
     /**
 	 * Requests a quote from AMTrust and returns. This request is not intended to be called directly.
 	 *
@@ -562,18 +568,20 @@ module.exports = class AMTrustWC extends Integration {
 
         let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.
-        const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
-        if (einCheckResponse) {
-            // Don't stop quoting if the EIN check fails.
-            const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
-            if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
-                return this.client_declined("The EIN is blocked");
-            }
+        if(fein){
+            const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
+            if (einCheckResponse) {
+                // Don't stop quoting if the EIN check fails.
+                const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
+                if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
+                    return this.client_declined("The EIN is blocked");
+                }
 
-            log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
-            if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
-                && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
-                useQuotePut_OldQuoteId = true;
+                log.debug(`einCheckResponse ${JSON.stringify(einCheckResponse)}`)
+                if (einCheckResponse.AdditionalMessages && einCheckResponse.AdditionalMessages[0]
+                    && einCheckResponse.AdditionalMessages[0].includes("Please use PUT Quote Information to make any changes to the existing quote.")) {
+                    useQuotePut_OldQuoteId = true;
+                }
             }
         }
         //find old quoteID
@@ -660,7 +668,10 @@ module.exports = class AMTrustWC extends Integration {
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
         }};
-
+        //it will error if fein is "".  It will price indicate without FEIN
+        if(!fein){
+            delete quoteRequestDataV2.Quote.Fein;
+        }
         // Add the unemployment number if required
         const requiredUnemploymentNumberStates = ["MN",
             "HI",
@@ -956,20 +967,44 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // Get the available officer information
-        const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
-        // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
-        if (officerInformation && officerInformation.Data) {
-            // Populate the officers
-            const officersResult = this.getOfficers(officerInformation.Data, primaryLocation)
-            if (Array.isArray(officersResult)) {
-                additionalInformationRequestData.Officers = officersResult;
+        let attempts = 0;
+        let retry = false;
+        do {
+            retry = false;
+            // wait before making officer call (first attempt is instant)
+            await Sleep(attempts === 0 ? 0 : OFFICER_RETRY_TIME);
+
+            const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
+            // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
+            if (officerInformation && officerInformation.Data) {
+                // Populate the officers
+                const officersResult = this.getOfficers(officerInformation.Data, primaryLocation);
+                if (Array.isArray(officersResult)) {
+                    additionalInformationRequestData.Officers = officersResult;
+                    break;
+                }
+                else {
+                    retry = true;
+                }
             }
             else {
-                log.error(`Unexpected Officer response ${officersResult}` + __location);
-                return this.client_error(`Unexpected Officer response ${officersResult}`, __location);
+                retry = true;
+            }
+
+            if (retry) {
+                attempts++;
+
+                // handling exit case here so I don't have to pull scoped variables out of do while for logging
+                if (attempts > OFFICER_MAX_RETRIES) {
+                    log.error(`Unexpected Officer response ${officerInformation}` + __location);
+                    return this.client_error(`Unexpected Officer response ${officerInformation}`, __location);
+                }
+                else {
+                    log.warn(`${logPrefix}Failed to get Officer information (retry attempts: ${attempts}/${OFFICER_MAX_RETRIES}), retrying...` + __location);
+                }
             }
         }
-        // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
+        while (attempts <= OFFICER_MAX_RETRIES);
 
         // Send the additional information request
         if(additionalInformationRequestData.Officers || additionalInformationRequestData.AdditionalInsureds){
