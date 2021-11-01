@@ -641,7 +641,7 @@ async function getApplications(req, res, next){
                     query.agencyId = {$nin: donotReportAgencyIdArray};
                 }
             }
-            if(req.params.searchText){
+            if(req.params.searchText.length > 2){
                 agencyQuery.name = req.params.searchText + "%"
                 agencyQuery.doNotReport = false;
                 const noActiveCheck = true;
@@ -655,6 +655,10 @@ async function getApplications(req, res, next){
                     let agencyIdArray = [];
                     for (const agency of agencyList) {
                         agencyIdArray.push(agency.systemId);
+                        //prevent in from being too big.
+                        if(agencyIdArray.length > 100){
+                            break;
+                        }
                     }
                     agencyIdArray = agencyIdArray.filter(function(value){
                         return donotReportAgencyIdArray.indexOf(value) === -1;
