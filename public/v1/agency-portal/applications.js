@@ -794,7 +794,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
     const query = {"insurerId": insurerIdArray};
     let insurerDBJSONList = await insurerBO.getList(query);
     if(insurerDBJSONList.length > 0){
-        const insurerList = insurerDBJSONList.map(insurerObj => {return {name: insurerObj.name, insurerId: insurerObj.insurerId}});
+        const insurerList = insurerDBJSONList.map(insurerObj => {return {name: insurerObj.name, insurerId: insurerObj.insurerId, slug: insurerObj.slug}});
         // sort list by name
         const sortFunction = function(firstInsurerObj, secondInsurerObj){
             // sort alphabetically
