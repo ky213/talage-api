@@ -881,7 +881,7 @@ async function getApplicationsResources(req, res, next){
     {
         // grab the list of agencies from the req.authentication
         const listOfAgencyIds = req.authentication.agents;
-        // just a safety check, should always be 1
+        // make sure we got agencyIds back, safety check, in this flow should always be 1 but even if more we just grab the first one
         if(listOfAgencyIds?.length > 0){
             const agencyLocationBO = new AgencyLocationBO();
             let locationList = [];
