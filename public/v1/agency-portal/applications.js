@@ -882,7 +882,7 @@ async function getApplicationsResources(req, res, next){
         // grab the list of agencies from the req.authentication
         const listOfAgencyIds = req.authentication.agents;
         // just a safety check, should always be 1
-        if(listOfAgencyIds?.length === 1){
+        if(listOfAgencyIds?.length > 0){
             const agencyLocationBO = new AgencyLocationBO();
             let locationList = [];
             // we should only have a single agency id if the req is not agencyNetwork
@@ -925,12 +925,9 @@ async function getApplicationsResources(req, res, next){
             } catch (error) {
                 log.error(`Error retrieving Agency Insurer and Policies List for agency id: ${agencyId}` + err + __location);
             }
-        }
-        else {
-            log.error(`Error req.authentication.agents, length of list is not one, length: ${listOfAgencyIds.length} list of agencies: ${JSON.stringify(req.authentication.agents)} ${__location}`);
-        }            
-
-
+        }else {
+            log.error(`Error,  req.authentication.agents is returning empty agency list: ${JSON.stringify( req.authentication.agents)} ${__location}`)
+        }          
     }
     // Add date filters
     const dateFilters = [
