@@ -6,6 +6,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Deletes a single agency user (by an agency network)
@@ -46,19 +47,29 @@ async function deleteAgencyUser(req, res, next){
 
     // Isolate the user's agency
     const userAgency = userResult.agencyId;
-
-    // Get the agencies that we are permitted to manage
-    const agencies = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if (error){
-        return next(error);
-    }
-
     // Check that this Agency Network can manage this user
-    if (!agencies.includes(userAgency)){
-        log.warn('You do not have permission to manage users from this agency');
-        return next(serverHelper.forbiddenError('You do not have permission to manage users from this agency'));
+    if(req.authentication.isAgencyNetworkUser && userAgency){
+        const agencyId = parseInt(userAgency, 10);
+        const agencyBO = new AgencyBO();
+        const agency = await agencyBO.getById(agencyId);
+        if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
+            log.info('Forbidden: User is not authorized to manage th is agency');
+            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+        }
+    }
+    else {
+        // Get the agencies that we are permitted to manage
+        const agencies = await auth.getAgents(req).catch(function(e){
+            error = e;
+        });
+        if (error){
+            return next(error);
+        }
+
+        if (!agencies.includes(userAgency)){
+            log.warn('You do not have permission to manage users from this agency');
+            return next(serverHelper.forbiddenError('You do not have permission to manage users from this agency'));
+        }
     }
 
     await agencyPortalUserBO.deleteSoftById(parseInt(id, 10)).catch(function(err){

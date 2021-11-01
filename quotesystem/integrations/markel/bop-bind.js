@@ -32,11 +32,11 @@ class MarkelBind extends Bind {
             "content-type": "application/json",
             "apikey": key.apikey
         }};
-
         const bindRequestJson = {
             "applicationId": parseInt(this.quote.requestId,10),
-            "billingPlan": `${billingPlan}`
-        }
+            "billingPlan": `${billingPlan}` // enforcing string, as expected by markel JSON API
+        };
+
         const requestUrl = `https://${host}${path}`;
         this.quote.log += `--------======= Bind Request to ${requestUrl} =======--------<br><br>`;
         this.quote.log += `Request: <pre>${JSON.stringify(bindRequestJson,null,2)} </pre> <br><br>`;

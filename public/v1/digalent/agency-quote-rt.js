@@ -183,6 +183,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             introText: "introText",
             showIndustrySection: "showIndustrySection",
             showIntroText: "showIntroText",
+            showHowItWorks: "showHowItWorks",
             additionalInfo: "landingPageAdditionalInfo",
             meta: "meta",
             banner: "banner",

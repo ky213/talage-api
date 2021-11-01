@@ -229,8 +229,8 @@ const getPremium = async(where) => {
     ])).map(t => t.count));
 
     return {
-        quoted: roundCurrency(await quoted('WC') + await quoted('GL') + await quoted('BOP')),
-        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP'))
+        quoted: roundCurrency(await quoted('WC') + await quoted('GL') + await quoted('BOP') + await quoted('CYBER') + await quoted('PL')),
+        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP') + await bound('CYBER') + await bound('PL'))
     };
 }
 
@@ -366,9 +366,6 @@ const getReferredList = async(where) => {
  */
 async function getReports(req) {
     log.debug(`req.query ${JSON.stringify(req.query)}` + __location)
-    // Get the agents that we are permitted to view
-    let agents = await auth.getAgents(req);
-
     // Get the filter parameters
     let startDate = null;
     let endDate = null;
@@ -473,10 +470,6 @@ async function getReports(req) {
                         donotReportAgencyIdArray.push(agencyJSON.systemId);
                     }
                     if (donotReportAgencyIdArray.length > 0) {
-                        log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
-                        agents = agents.filter(function(value){
-                            return donotReportAgencyIdArray.indexOf(value) === -1;
-                        });
                         where.agencyId = {$nin: donotReportAgencyIdArray};
                     }
                     //check for all
@@ -523,6 +516,9 @@ async function getReports(req) {
     else {
         // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
         // eslint-disable-next-line no-lonely-if
+        // Get the agents that we are permitted to view
+        let agents = await auth.getAgents(req);
+
         if (!agencyNetworkId && agents[0] === 12) {
             where.solepro = 1;
         }

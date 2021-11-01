@@ -24,14 +24,6 @@ async function getQuoteLetter(req, res, next){
         return next(serverHelper.requestError('Bad Request: No data received'));
     }
 
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if (error){
-        return next(error);
-    }
-
     // Make sure basic elements are present
     if (!req.query.file){
         log.info('Bad Request: Missing File' + __location);
@@ -50,8 +42,23 @@ async function getQuoteLetter(req, res, next){
             const appId = quoteDoc.applicationId
             const applicationBO = new ApplicationBO();
             const applicationDBDoc = await applicationBO.getfromMongoByAppId(appId);
-            if(applicationDBDoc && agents.includes(applicationDBDoc.agencyId)){
-                passedSecurityCheck = true;
+            if(applicationDBDoc){
+                if (req.authentication.isAgencyNetworkUser) {
+                    if(applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
+                        passedSecurityCheck = true;
+                    }
+                }
+                else {
+                    const agents = await auth.getAgents(req).catch(function(e){
+                        error = e;
+                    });
+                    if (error){
+                        return next(error);
+                    }
+                    if(agents.includes(applicationDBDoc.agencyId)){
+                        passedSecurityCheck = true;
+                    }
+                }
             }
         }
     }

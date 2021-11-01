@@ -1583,6 +1583,7 @@ module.exports = class Integration {
             // Amount
             if (amount) {
                 quoteJSON.amount = amount;
+                quoteJSON.quotedPremium = amount;
             }
 
             // Deductible
@@ -1712,9 +1713,7 @@ module.exports = class Integration {
         //QuoteBO
         try{
             const quoteBO = new QuoteBO();
-            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON).catch(function(err){
-                log.error("Error quoteBO.saveIntegrationQuote " + err + __location);
-            });
+            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON);
         }
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving quote. Error: ${err} ` + __location)

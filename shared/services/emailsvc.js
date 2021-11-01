@@ -61,14 +61,17 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     let error = null;
 
     const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
-        log.error(`Error loading AgencyNetworkBO AgencyNetworkId {agencyNetworkId} ` + err + __location);
+        log.error(`Email Svc: Error loading AgencyNetworkBO AgencyNetworkId {agencyNetworkId} ` + err + __location);
         error = err;
     })
     if(error || !agencyNetworkJSON){
+        if(!agencyNetworkJSON){
+            log.error(`Email Svc: No Agency Network for AgencyNetworkId {agencyNetworkId} ` + __location);
+        }
         return false;
     }
     if(!agencyNetworkJSON.additionalInfo || !agencyNetworkJSON.additionalInfo.fromEmailAddress){
-        log.error(`Error loading AgencyNetworkBO Missing additionalInfo AgencyNetworkId {agencyNetworkId} ` + __location);
+        log.error(`Email Svc: Error loading AgencyNetworkBO Missing additionalInfo AgencyNetworkId {agencyNetworkId} ` + __location);
         return false;
     }
 
@@ -269,8 +272,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
             }
         }
     }
-    //save any overrides for DB Save
-    recipients = emailJSON.to
+
+    //save any overrides for DB Save and remove duplicate .to emails
+    recipients = [...new Set(emailJSON.to.split(','))].join(',');
     if (attachments) {
         emailJSON.attachments = attachments;
     }
