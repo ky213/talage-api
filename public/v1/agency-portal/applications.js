@@ -822,7 +822,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
         // lets go ahead and grab the unique values for policy types and store in the policy type selections list
         if(listOfPolicies.length > 0){
             const productTypeSelections = [];
-            // push policy type to the productTypeSelections if it isn't in the list, ensures no duplicat values
+            // push policy type to the productTypeSelections if it isn't in the list, ensures no duplicate values
             for(let i = 0; i < listOfPolicies.length; i++){
                 const policyType = listOfPolicies[i];
                 if(productTypeSelections.indexOf(policyType) === -1){
@@ -836,7 +836,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
     }
 }
 /**
- * Responds to get requests for the applications endpoint
+ * Responds to get requests for the get resources endpoint
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
