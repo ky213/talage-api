@@ -1425,9 +1425,11 @@ async function bindQuote(req, res, next) {
             let markAsBoundResponse = false;
             try {
                 markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
+                //a different prolicy type might already be the reason for app.status being bound.
+                await applicationBO.recalculateQuoteMetrics(applicationDB.applicationId);
                 if(applicationDB.appStatusId !== 90){
                     // Update application status
-                    await applicationBO.updateStatus(applicationId,"bound", 90);
+                    await applicationBO.updateStatus(applicationId,"bound", 90)
                    
                 }
                 else {
