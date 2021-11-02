@@ -55,10 +55,6 @@ module.exports = class QuoteBind{
 
         // Make sure that this quote was quoted by the API
         if(!statusWithinBindingRange){
-            // If this was a price indication, let's send a Slack message
-            // if(this.quoteDoc.apiResult === 'referred_with_price'){
-            //     await this.send_slack_notification('indication');
-            // }
 
             // Return an error
             log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);

@@ -1443,6 +1443,8 @@ async function markQuoteAsBound(req, res, next) {
     const markAsBoundFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
     try {
         markAsBoundSuccess = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
+        //a different prolicy type might already be the reason for app.status being bound.
+        await applicationBO.recalculateQuoteMetrics(applicationDB.applicationId);
         if(applicationDB.appStatusId !== 90){
             // Update application status
             await applicationBO.updateStatus(applicationId, "bound", 90);
