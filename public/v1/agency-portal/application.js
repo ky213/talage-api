@@ -175,21 +175,26 @@ async function getApplication(req, res, next) {
             if(quoteJSON.quoteLetter){
                 quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
-            if (!quoteJSON.status && quoteJSON.apiResult) {
-                // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
-                if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
-                    quoteJSON.status = quoteStatus.error.description;
-                }
-                else {
-                    quoteJSON.status = quoteJSON.apiResult;
-                }
+            //apiResult is obsolete 
+            // if (!quoteJSON.status && quoteJSON.apiResult) {
+            //     // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
+            //     if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
+            //         quoteJSON.status = quoteStatus.error.description;
+            //     }
+            //     else {
+            //         quoteJSON.status = quoteJSON.apiResult;
+            //     }
+            // }
+            if(quoteJSON.quoteStatusDescription){
+                quoteJSON.status = quoteJSON.quoteStatusDescription
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            if (quoteJSON.status === 'bind_requested' || quoteJSON.bound || quoteJSON.status === 'quoted') {
+            //filter out referred with price that is 55.
+            if (quoteJSON.quoteStatusId === quoteStatus.quoted.id || quoteJSON.quoteStatusId > quoteStatus.quoted_referred.id || quoteJSON.bound){
                 quoteJSON.reasons = '';
             }
             // Change the name of autodeclined
-            if (quoteJSON.status === 'autodeclined') {
+            if (quoteJSON.quoteStatusId === quoteStatus.autodeclined.id) {
                 quoteJSON.status = 'Out of Market';
                 quoteJSON.displayStatus = 'Out of Market';
             }
