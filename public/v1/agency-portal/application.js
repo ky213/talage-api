@@ -192,6 +192,9 @@ async function getApplication(req, res, next) {
             //filter out referred with price that is 55.
             if (quoteJSON.quoteStatusId === quoteStatus.quoted.id || quoteJSON.quoteStatusId > quoteStatus.quoted_referred.id || quoteJSON.bound){
                 quoteJSON.reasons = '';
+                if(quoteJSON.quoteStatusId === quoteStatus.bound.id || quoteJSON.bound){
+                    quoteJSON.status = quoteStatus.bound.description;
+                }
             }
             // Change the name of autodeclined
             if (quoteJSON.quoteStatusId === quoteStatus.autodeclined.id) {
