@@ -118,6 +118,8 @@ const ssnLegalEntities = [
     "IN"
 ];
 
+let logPrefix = null;
+
 module.exports = class CnaBOP extends Integration {
 
     /**
@@ -135,12 +137,11 @@ module.exports = class CnaBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an error if rejected
 	 */
     async _insurer_quote() {
-
         // swap host and creds based off whether this is sandbox or prod
         let agentId = null;
         let branchProdCd = null;
         const applicationDocData = this.app.applicationDocData;
-        const logPrefix = `CNA BOP (App ID: ${this.app.id}): `;
+        logPrefix = `CNA BOP (App ID: ${this.app.id}): `;
 
         //Basic Auth should be calculated with username and password set 
         // in the admin for the insurer
@@ -772,11 +773,14 @@ module.exports = class CnaBOP extends Integration {
                         value: location.bop.wiringImprovementYear
                     }
                 },
-                // BldgProtection: { // No explanation of value, but is optional field, so leaving out for now
-                //     FireProtectionClassCd: {
-                //         value: 
-                //     }
-                // }
+                BldgProtection: { 
+                    SprinkleredPct: {
+                        value: location.bop.sprinkler ? `100` : `0`
+                    }
+                    // FireProtectionClassCd: { // No explanation of value, but is optional field, so leaving out for now
+                    //     value: 
+                    // }
+                },
                 BldgFeatures: {},
                 "com.cna_QuestionAnswer": this.getQuestions(location.questions),
                 "com.cna_CommonAreasMaintenanceCd": {},
@@ -784,6 +788,47 @@ module.exports = class CnaBOP extends Integration {
                 SubLocationRef: `L${i}S1`
             };
 
+            // -------- BldgFeature questions --------
+            // NOTE: Daycare children is currently not handled 
+
+            // lawyers
+            const numLawyers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numLawyers");
+            if (numLawyers) {
+                buildingObj.BldgFeatures["com.cna_NumOfLawyers"] = {
+                    Amt: {
+                        value: numLawyers.answerValue
+                    }
+                }
+            }
+
+            // kennels
+            const numKennels = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numKennels");
+            if (numKennels) {
+                buildingObj.BldgFeatures["com.cna_NumOfKennels"] = {
+                    Amt: {
+                        value: numKennels.answerValue
+                    }
+                }
+            }
+
+            // members
+            const numMembers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numMembers");
+            if (numMembers) {
+                buildingObj.BldgFeatures["com.cna_NumChurchMembersOrStudents"] = {
+                    value: numMembers.answerValue
+                }
+            }
+
+            // pupils
+            const numPupils = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numPupils");
+            if (numPupils) {
+                buildingObj.BldgFeatures["com.cna_NumOfPupils"] = {
+                    value: numPupils.answerValue
+                }
+            }
+
+
+            // payroll type
             const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
             if (payrollType) {
                 buildingObj.FinancialInfo = {
@@ -1034,6 +1079,7 @@ module.exports = class CnaBOP extends Integration {
     // }
 
     // transform our questions into question objects array to be inserted into the BOP Request Object
+    // TODO: Handle Choice Endorsements
     getQuestions(questions) {
         return questions.map(question => {
             // TODO: Check question.insurerQuestionAttributes to see what the QuestionCd should be
@@ -1250,6 +1296,23 @@ module.exports = class CnaBOP extends Integration {
                 coveragesObj.CommlCoverage.push(coverageObj);
             }
 
+            // Windstorm / Hail Deductible (defaulted for non-FL state, left out for FL (defaulted on their end))
+            if (location.territory.toUpperCase() !== "FL") {
+                const coverageObj = {
+                    CoverageCd: {
+                        value: "WH"
+                    },
+                    Deductible: [{
+                        FormatInteger: {
+                            value: 0 // 0 = policy level deductible
+                        }
+                    }]
+                }
+
+                coveragesObj.CommlCoverage.push(coverageObj);
+            }
+
+
         });
 
         return coverages;
@@ -1423,40 +1486,74 @@ module.exports = class CnaBOP extends Integration {
 
         const coverages = [
             {
-                "CoverageCd": {
-                    "value": "EAOCC"
+                CoverageCd: {
+                    value: "EAOCC"
                 },
-                "Limit": [
+                Limit: [
                     {
-                        "FormatInteger": {
-                            "value": parseInt(limits[0], 10)
+                        FormatInteger: {
+                            value: parseInt(limits[0], 10)
                         },
-                        "LimitAppliesToCd": [
+                        LimitAppliesToCd: [
                             {
-                                "value": "PerOcc"
+                                value: "PerOcc"
                             }
                         ]
                     }
                 ]
             },
             {
-                "CoverageCd": {
-                    "value": "GENAG"
+                CoverageCd: {
+                    value: "GENAG"
                 },
-                "Limit": [
+                Limit: [
                     {
-                        "FormatInteger": {
-                            "value": parseInt(limits[1], 10)
+                        FormatInteger: {
+                            value: parseInt(limits[1], 10)
                         },
-                        "LimitAppliesToCd": [
+                        LimitAppliesToCd: [
                             {
-                                "value": "Aggregate"
+                                value: "Aggregate"
                             }
                         ]
                     }
                 ]
             }
         ];
+
+        // AEPLB coverage is required with 65312_51 SIC code and two questions are answered YES. Required to include number of surveyors...
+        if (this.industry_code.code === "65312_51") {
+            const BOP21433 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21433");
+            const BOP21434 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21434");
+
+            if (BOP21433 && BOP21434) {
+                if (BOP21433.answerValue === true || BOP21433.answerValue.toLowerCase() === "yes" && BOP21434.answerValue === true || BOP21434.answerValue.toLowerCase() === "yes") {
+                    const numSurveyors = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.numSurveyors");
+
+                    if (numSurveyors) {
+                        const coverageObj = {
+                            CoverageCd: {
+                                value: "AEPLB"
+                            },
+                            OptionTypeCd: {
+                                value: "Num1"
+                            },
+                            OptionValue: {
+                                value: numSurveyors.answerValue
+                            }
+                        };
+    
+                        coverages.push(coverageObj);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Unable to add required AEPLB coverage: Unable to find question cna.general.numSurveyors. ` + __location);
+                    }
+                }
+            }
+            else {
+                log.warn(`${logPrefix}Unable to add required AEPLB coverage: Unable to find question BOP21433 and/or question BOP21434. ` + __location);
+            }
+        }
 
         if (medex) {
             const value = parseInt(medex.answerValue, 10);
@@ -1539,6 +1636,12 @@ module.exports = class CnaBOP extends Integration {
                 },
                 ClassCdDesc: {
                     value: industryCode.description
+                },
+                AlternativePremiumBasisCd: {
+                    value: "PAYRL"
+                },
+                AlternativeExposure: {
+                    value: this.get_location_payroll(location)
                 },
                 Exposure: {
                     value: grossSales

@@ -1035,6 +1035,24 @@ module.exports = class Integration {
     /**
      * Returns the total payroll associated with this application
      *
+     * @param {Object} location - A location object from applicationDocData.locations
+     * @returns {int} - The total payroll as an integer
+     */
+    get_location_payroll(location) {
+        let total = 0;
+
+        location.activityPayrollList.forEach((activtyCodePayroll) => {
+            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                total += employeeType.employeeTypePayroll;
+            });
+        });
+
+        return total;
+    }
+
+    /**
+     * Returns the total payroll associated with this application
+     *
      * @returns {int} - The total payroll as an integer
      */
     get_total_payroll() {
