@@ -564,7 +564,7 @@ module.exports = class QuoteBO {
             let quoteDoc = null;
             try{
                 quoteDoc = await Quote.findOne(query, '-__v');
-                if(!quoteDoc.bound){
+                if(quoteDoc && !quoteDoc.bound){
                     const bindDate = moment();
                     // eslint-disable-next-line prefer-const
                     let updateJSON = {
@@ -577,9 +577,21 @@ module.exports = class QuoteBO {
                     };
                     if(policyInfo){
                         updateJSON.policyInfo = policyInfo;
+                        if(policyInfo.policyPremium){
+                            if(!quoteDoc.quotedPremium && quoteDoc.amount){
+                                updateJSON.quotedPremium = quoteDoc.amount;
+                            }
+                            updateJSON.amount = policyInfo.policyPremium
+                            updateJSON.boundPremium = policyInfo.policyPremium
+                        }
                     }
                     await Quote.updateOne(query, updateJSON);
                     log.info(`Update Mongo QuoteDoc bound status on quoteId: ${quoteId}` + __location);
+                    const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
+                    const quoteBind = new QuoteBind();
+                    await quoteBind.loadFromQuoteDoc(quoteDoc,bindUser);
+                    await quoteBind.send_slack_notification("bound");
+
                 }
             }
             catch(err){

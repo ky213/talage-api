@@ -1432,7 +1432,15 @@ async function bindQuote(req, res, next) {
             // }
             let markAsBoundResponse = false;
             try {
-                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
+                const policyInfo = {};
+                if (Object.prototype.hasOwnProperty.call(req.body, 'premiumAmount')) {
+                    policyInfo.policyPremium = parseInt(req.body.premiumAmount,10);
+                }
+                if (Object.prototype.hasOwnProperty.call(req.body, 'policyNumber')) {
+                    policyInfo.policyNumber = req.body.policyNumber;
+                }
+
+                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID, policyInfo)
                 //a different prolicy type might already be the reason for app.status being bound.
                 await applicationBO.recalculateQuoteMetrics(applicationDB.applicationId);
                 if(applicationDB.appStatusId !== 90){

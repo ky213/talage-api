@@ -4,8 +4,8 @@
  */
 
 'use strict';
-
-const QuoteBO = global.requireShared('./models/Quote-BO.js');
+//remove potential reference conflict
+//const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
@@ -118,6 +118,7 @@ module.exports = class QuoteBind{
                     //in case upstrign need to get access to it.
                     this.policyInfo = policyInfo;
                     log.debug("policyInfo " + JSON.stringify(policyInfo));
+                    const QuoteBO = global.requireShared('./models/Quote-BO.js');
                     const quoteBO = new QuoteBO()
                     await quoteBO.markQuoteAsBound(this.quoteDoc.quoteId, this.applicationDoc.applicationId, this.requestUserId, policyInfo);
                     //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
@@ -180,6 +181,7 @@ module.exports = class QuoteBind{
 
         // Attempt to get the details of this quote from the database
         //USE BO's
+        const QuoteBO = global.requireShared('./models/Quote-BO.js');
         const quoteModel = new QuoteBO();
         try {
             const returnModel = true
@@ -274,6 +276,78 @@ module.exports = class QuoteBind{
         }
         else if(!this.insurerPaymentPlanId){
             log.error(`Could not get insurer payment plan for quoteId ${quoteId} payment_plan: ${paymentPlanId}:` + __location);
+        }
+    }
+
+    /**
+	 * Populates this object with an already loaded quoteDoc - use for notifications
+	 *
+	 * @param {object} quoteDoc - The quoteDoc - a complete QuoteDoc (post binding)
+     * @param {int} requestUserId - The Agency Portal user ID that requested the bind.
+	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
+	 */
+    async loadFromQuoteDoc(quoteDoc, requestUserId){
+        if(requestUserId){
+            this.requestUserId = requestUserId;
+        }
+        else {
+            this.requestUserId = "applicant";
+        }
+
+        if(!quoteDoc){
+            log.error(`No quoteDoc for loadFromQuoteDoc ` + __location);
+            return;
+        }
+        this.quoteDoc = quoteDoc;
+
+        this.insurerPaymentPlanId = quoteDoc.insurerPaymentPlanId
+        let paymentPlanId = quoteDoc.paymentPlanId
+        //If there is an insurer payment plan it overrided the talage paymentplan
+
+        if(!paymentPlanId){
+            paymentPlanId = 1;
+        }
+        this.payment_plan = paymentPlanId;
+        //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
+        const ApplicationBO = global.requireShared('./models/Application-BO.js');
+        const applicationBO = new ApplicationBO();
+        try{
+            this.applicationDoc = await applicationBO.getById(this.quoteDoc.applicationId);
+            log.debug("Quote Application added applicationData" + __location)
+        }
+        catch(err){
+            log.error("Unable to get applicationData for binding appId: " + quoteDoc.quoteId + __location);
+            return;
+        }
+
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        try {
+            this.agencyJSON = await agencyBO.getById(this.applicationDoc.agencyId)
+        }
+        catch (err) {
+            log.error("Agency load for bind error " + err + __location);
+            return;
+        }
+        //for API credentials.
+        //load agencyLocation
+        try {
+            const agencyLocationBO = new AgencyLocationBO()
+            this.agencyLocation = await agencyLocationBO.getById(this.applicationDoc.agencyLocationId)
+        }
+        catch (err) {
+            log.error("Agency Location load for bind error " + err + __location);
+            return;
+        }
+
+        // Load up an insurer based on the ID found
+        const insurer = new Insurer();
+        try{
+            this.insurer = await insurer.init(this.quoteDoc.insurerId);
+        }
+        catch(err){
+            log.error("Insurer load for bind error " + err + __location);
+            throw err;
         }
     }
 
