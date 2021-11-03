@@ -16,6 +16,8 @@ const moment = require('moment');
 
 
 const Integration = require('../Integration.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
+const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 
 /**
  * BOP Integration for CNA
@@ -42,6 +44,7 @@ const constructionCodes = {
     // "Modified Fire Resistive": "MFR"
 };
 
+// eslint-disable-next-line no-unused-vars
 const LIMIT_CODES = [
     'BIEachOcc',
     'DisPol',
@@ -113,6 +116,7 @@ const carrierList = [
 ];
 
 // legal entities that require SSN
+// eslint-disable-next-line no-unused-vars
 const ssnLegalEntities = [
     "SP",
     "IN"
@@ -174,9 +178,6 @@ module.exports = class CnaBOP extends Integration {
 
         const business = this.app.business;
         const BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === 'BOP');
-
-        // NOTE: Right now this is hard-coded to the first reference
-        const nameInfoRefId = "N000";
 
         let agencyId = null;
         try {
@@ -711,10 +712,10 @@ module.exports = class CnaBOP extends Integration {
 
                 if (fullLocation) {
                     // agency information
-                    locationObj.ItemIdInfo = {AgencyId: {value: `${this.app.agencyLocation.agencyId}`}},
+                    locationObj.ItemIdInfo = {AgencyId: {value: `${this.app.agencyLocation.agencyId}`}};
 
                     // sub location information
-                    locationObj.SubLocation[{...locationObj}];
+                    locationObj.SubLocation = [{...locationObj}];
                     locationObj.SubLocation[0].id += `S${i}`;
 
                     // location name - left blank for now
@@ -910,7 +911,7 @@ module.exports = class CnaBOP extends Integration {
                 }
 
                 if (location.square_footage > 0) {
-                    const percentOcc = Math.round((areaOccupiedValue / location.square_footage) * 100);
+                    const percentOcc = Math.round(areaOccupiedValue / location.square_footage * 100);
 
                     buildingOccObj.OccupiedPct = {
                         value: percentOcc
@@ -1093,10 +1094,11 @@ module.exports = class CnaBOP extends Integration {
                 questionObj.YesNoCd = {value: "N/A"};
                 questionObj.Explanation = {value: question.answerValue};
             }
+            else if (question.questionType === "Yes/No") {
+                questionObj.YesNoCd = {value: question.answerValue.toUpperCase()};
+            }
             else {
-                question.questionType === "Yes/No" ? 
-                    questionObj.YesNoCd = {value: question.answerValue.toUpperCase()} :
-                    questionObj["com.cna_QuestionCd.cna_OptionCd"] = {value: question.answerValue};
+                questionObj["com.cna_QuestionCd.cna_OptionCd"] = {value: question.answerValue}
             }
 
             return questionObj;
@@ -1225,7 +1227,7 @@ module.exports = class CnaBOP extends Integration {
             const coveragesObj = {
                 ItemValueAmt: {
                     Amt: {
-                        value: applicationDocData.grossSales
+                        value: this.app.applicationDocData.grossSales
                     }
                 },
                 CommlCoverage: [],
@@ -1316,97 +1318,28 @@ module.exports = class CnaBOP extends Integration {
         });
 
         return coverages;
-        {
 
-            // Optional, not providing
-            // "BusinessIncomeInfo": {
-            //     "BillableLostPeriod": {
-            //         "Description": {
-            //             "value":"12"
-            //         }
-            //     }
-            // },
-            "CommlCoverage": [
-                // Optional coverage, not providing at this time
-                // {
-                //     "CoverageCd": {
-                //         "value":"GLASS"
-                //     },
-                //     "Deductible":[
-                //         {
-                //             "FormatText":{
-                //                 "value":"Policy Level"
-                //             }
-                //         }
-                //     ]
-                // },
-                {
-                    "CoverageCd":{
-                        "value":"BPP"
-                    },
-                    "Limit":[
-                        {
-                            "FormatInteger":{
-                                "value":50000
-                            }
-                        }
-                    ]
-                },
-                // Optional coverage, not providing at this time
-                // {
-                //     "CoverageCd":{
-                //         "value":"INFL"
-                //     },
-                //     "Limit":[
-                //         {
-                //             "FormatPct":{
-                //                 "value":0.03
-                //             }
-                //         }
-                //     ]
-                // },
-                // Optional coverage, not providing at this time
-                // {
-                //     "CoverageCd":{
-                //         "value":"WH"
-                //     },
-                //     "Deductible":[
-                //         {
-                //             "FormatInteger":{
-                //                 "value":0
-                //             }
-                //         }
-                //     ]
-                // },
-                // Optional coverage, not providing at this time
-                // {
-                //     "CoverageCd":{
-                //         "value":"SDB"
-                //     },
-                //     "Limit":[
-                //         {
-                //             "FormatInteger":{
-                //                 "value":25000
-                //             }
-                //         }
-                //     ]
-                // },
-                {
-                    "CoverageCd":{
-                        "value":"BLDG"
-                    },
-                    "Deductible":[
-                        {
-                            "FormatInteger":{
-                                "value":500
-                            }
-                        }
-                    ]
-                }
-            ],
-            "LocationRef":"L1",
-            "SubLocationRef":"L1S1"
-        }
+        // Optional, not providing
+        // "BusinessIncomeInfo": {
+        //     "BillableLostPeriod": {
+        //         "Description": {
+        //             "value":"12"
+        //         }
+        //     }
+        // },
+        // Optional coverage, not providing at this time
+        // {
+        //     "CoverageCd": {
+        //         "value":"GLASS"
+        //     },
+        //     "Deductible":[
+        //         {
+        //             "FormatText":{
+        //                 "value":"Policy Level"
+        //             }
+        //         }
+        //     ]
+        // },
     }
 
     getDeductible() {
@@ -1725,5 +1658,5 @@ module.exports = class CnaBOP extends Integration {
         return industryCode;
     }
 };
-}
+
 
