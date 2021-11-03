@@ -2262,33 +2262,51 @@ module.exports = class ApplicationModel {
         try{
 
             const quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
+            //log.debug(`quoteList ${JSON.stringify(quoteList)}`)
+
             //not all applications have quotes.
             if(quoteList && quoteList.length > 0){
-                let lowestBoundQuote = (product) => _.min(quoteList.
-                    filter(t => t.policyType === product && (
-                        t.bound || t.quoteStatusId >= quoteStatus.bind_requested.id)).
-                    map(t => t.amount));
+                let lowestBoundQuote = {};
+                let lowestQuote = {};
 
-                let lowestQuote = (product) => _.min(quoteList.
-                    filter(t => t.policyType === product && (
-                        t.bound || t.quoteStatusId >= quoteStatus.quoted.id)).
-                    map(t => t.amount));
+                for(const quote of quoteList){
+                    if(quote.quoteStatusId >= quoteStatus.quoted.id){
+                        log.debug(`Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType)} `)
+                        if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
+                            lowestQuote[quote.policyType] = quote.amount;
+                        }
+                    }
+                    log.debug(`Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType)}`)
+                    if(quote.quoteStatusId >= quoteStatus.bind_requested.id){
+                        if(Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) === false || lowestBoundQuote[quote.policyType] > quote.amount){
+                            lowestBoundQuote[quote.policyType] = quote.amount;
+                        }
+                    }
+                }
+                //Bound quote value is used for bound and quoted values.
+                for(const quote of quoteList){
+                    if(quote.bound || quote.quoteStatusId === quoteStatus.bound.id){
+                        lowestBoundQuote[quote.policyType] = quote.amount;
+                        lowestQuote[quote.policyType] = quote.amount;
+                    }
+                }
+                log.debug(`lowestBoundQuote ${JSON.stringify(lowestBoundQuote)}` + __location)
 
                 const metrics = {
                     lowestBoundQuoteAmount: {
-                        GL: lowestBoundQuote('GL'),
-                        WC: lowestBoundQuote('WC'),
-                        BOP: lowestBoundQuote('BOP'),
-                        CYBER: lowestBoundQuote('CYBER'),
-                        PL: lowestBoundQuote('PL')
+                        GL: lowestBoundQuote['GL'],
+                        WC: lowestBoundQuote['WC'],
+                        BOP: lowestBoundQuote['BOP'],
+                        CYBER: lowestBoundQuote['CYBER'],
+                        PL: lowestBoundQuote['PL']
 
                     },
                     lowestQuoteAmount: {
-                        GL: lowestQuote('GL'),
-                        WC: lowestQuote('WC'),
-                        BOP: lowestQuote('BOP'),
-                        CYBER: lowestQuote('CYBER'),
-                        PL: lowestQuote('PL')
+                        GL: lowestQuote['GL'],
+                        WC: lowestQuote['WC'],
+                        BOP: lowestQuote['BOP'],
+                        CYBER: lowestQuote['CYBER'],
+                        PL: lowestQuote['PL']
                     }
                 };
 

@@ -465,9 +465,9 @@ module.exports = class ArrowheadBOP extends Integration {
             const resultLocationsList = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].bopReporting.locationList;
             for (let i = 0; i < resultLocationsList.length; i++) {
                 const building = resultLocationsList[i].buildingList[0];
-                log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
-                log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
-                log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
+                //log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
+                //log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
+                //log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
                 for (const coverage of Object.keys(building.coverages)) {
                     log.debug(`Coverage: ${JSON.stringify(coverage, null, 4)}`);
                     if (building.coverages[coverage].limit && building.coverages[coverage].desc) {
