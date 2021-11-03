@@ -88,7 +88,7 @@ async function GetUserInfo(req, res, next){
         log.error("Get AgencyNetwork Error " + err + __location);
     })
     if(agencyNetworkJSON){
-        userInfo.feature_json = agencyNetworkJSON.feature_json;
+        userInfo.feature_json = agencyNetworkJSON.featureJson;
         if(!agencyNetworkJSON.additionalInfo){
             log.error("additionalInfo was not present on agencyNetwork: " + agencyNetworkJSON.id);
         }
