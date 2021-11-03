@@ -74,6 +74,12 @@ module.exports = class PieWC extends Integration {
             host = 'api.pieinsurance.com';
         }
 
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {

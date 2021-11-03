@@ -51,6 +51,7 @@ module.exports = class Application {
         this.quoteInsurerId = null;
         this.quickQuoteOnly = false;
         this.appPolicyTypeList = [];
+        this.agencyNetworkJson = {};
     }
 
     /**
@@ -111,6 +112,7 @@ module.exports = class Application {
 
         }
         if(agencyNetworkDB){
+            this.agencyNetworkJson = agencyNetworkDB
             this.quickQuoteOnly = agencyNetworkDB.featureJson.quickQuoteOnly;
         }
 
@@ -1314,7 +1316,7 @@ module.exports = class Application {
 
             // Validate all policies
             try {
-                validatePolicies(this.applicationDocData, logValidationErrors);
+                validatePolicies(this.applicationDocData, this.agencyNetworkJson, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating policy: ${e}`));
