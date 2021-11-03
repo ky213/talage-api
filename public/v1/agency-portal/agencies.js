@@ -20,6 +20,12 @@ async function getAgencies(req, res, next){
 
     try{
         error = null;
+
+        // eslint-disable-next-line no-unneeded-ternary
+        const getCount = req.query.getcount ? true : false;
+        if(req.query.getcount){
+            delete req.query.getcount
+        }
         const query = req.query;
         if(req.authentication.isAgencyNetworkUser){
             query.agencyNetworkId = req.authentication.agencyNetworkId
@@ -43,17 +49,6 @@ async function getAgencies(req, res, next){
 
         const agencyBO = new AgencyBO();
         retAgencies = await agencyBO.getList(query).catch(function(err) {
-            error = err;
-        });
-        if (error) {
-            return next(error);
-        }
-
-        const countQuery = {
-            ...query,
-            count: true
-        };
-        const count = await agencyBO.getList(countQuery).catch(function(err) {
             error = err;
         });
         if (error) {
@@ -102,10 +97,27 @@ async function getAgencies(req, res, next){
         }
 
         if (returnAgencyList) {
-            res.send(200, {
-                rows: returnAgencyList,
-                ...count
-            });
+            if(getCount){
+                const countQuery = {
+                    ...query,
+                    count: true
+                };
+                const count = await agencyBO.getList(countQuery).catch(function(err) {
+                    error = err;
+                });
+                if (error) {
+                    return next(error);
+                }
+
+                res.send(200, {
+                    rows: returnAgencyList,
+                    ...count
+                });
+            }
+            else {
+                // Old pattern keep in Jan 1st, 2022
+                res.send(200, returnAgencyList);
+            }
             return next();
         }
         else {
