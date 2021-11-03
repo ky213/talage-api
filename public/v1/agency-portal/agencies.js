@@ -26,6 +26,22 @@ async function getAgencies(req, res, next){
         if(req.query.getcount){
             delete req.query.getcount
         }
+
+        let getTopAgencies = req.query.hasOwnProperty("numTopAgencies");
+        let numTopAgencies = 0;
+        if(getTopAgencies) {
+            try{
+                numTopAgencies = parseInt(req.query.numTopAgencies, 10);
+                if(isNaN(numTopAgencies)){
+                    getTopAgencies = false;
+                }
+            }
+            catch{
+                getTopAgencies = false;
+            }
+            delete req.query.numTopAgencies;
+        }
+
         const query = req.query;
         if(req.authentication.isAgencyNetworkUser){
             query.agencyNetworkId = req.authentication.agencyNetworkId
@@ -101,6 +117,12 @@ async function getAgencies(req, res, next){
         }
 
         if (returnAgencyList) {
+            // if we're getting only the top x agencies, sort the list to top agencies and splice it accordingly
+            if(getTopAgencies){
+                // sort by number of applications, descending
+                returnAgencyList.sort((a1, a2) => a2.applications - a1.applications);
+                returnAgencyList.splice(numTopAgencies);
+            }
             if(getCount){
                 const countQuery = {
                     ...query,
