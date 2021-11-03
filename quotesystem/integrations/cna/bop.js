@@ -35,6 +35,107 @@ let host = "";
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
 
+const dynamicExposures = {
+    "07420_50": "PAYRL",
+    "07522_50": "Kennel",
+    "07522_51": "Kennel",
+    "07821_50": "PAYRL",
+    "07821_51": "PAYRL",
+    "17112_52": "PAYRL",
+    "17113_50": "PAYRL",
+    "17114_50": "PAYRL",
+    "17115_50": "PAYRL",
+    "17214_50": "PAYRL",
+    "17216_50": "PAYRL",
+    "17311_50": "PAYRL",
+    "17312_50": "PAYRL",
+    "17430_50": "PAYRL",
+    "17512_50": "PAYRL",
+    "17520_50": "PAYRL",
+    "17712_50": "PAYRL",
+    "17990_50": "PAYRL",
+    "17990_51": "PAYRL",
+    "17991_50": "PAYRL",
+    "17994_50": "PAYRL",
+    "17995_50": "PAYRL",
+    "47241_50": "PAYRL",
+    "51910_50": "PAYRL",
+    "62111_50": "PAYRL",
+    "62111_51": "PAYRL",
+    "62111_52": "PAYRL",
+    "64111_50": "PAYRL",
+    "64111_51": "PAYRL",
+    "64111_52": "PAYRL",
+    "64111_53": "PAYRL",
+    "64111_54": "PAYRL",
+    "65310_50": "PAYRL",
+    "65312_50": "PAYRL",
+    "65312_51": "PAYRL",
+    "65312_52": "PAYRL",
+    "67990_50": "PAYRL",
+    "72170_50": "PAYRL",
+    "72170_51": "PAYRL",
+    "72910_50": "PAYRL",
+    "73110_50": "PAYRL",
+    "73110_51": "PAYRL",
+    "73110_52": "PAYRL",
+    "73110_53": "PAYRL",
+    "73110_54": "PAYRL",
+    "73121_50": "PAYRL",
+    "73300_50": "PAYRL",
+    "73360_50": "PAYRL",
+    "73493_50": "PAYRL",
+    "73780_50": "PAYRL",
+    "73890_50": "PAYRL",
+    "73890_51": "PAYRL",
+    "73890_52": "PAYRL",
+    "73890_53": "PAYRL",
+    "73890_54": "PAYRL",
+    "73890_55": "PAYRL",
+    "73890_56": "PAYRL",
+    "73890_57": "PAYRL",
+    "73890_58": "PAYRL",
+    "73892_50": "PAYRL",
+    "73894_50": "PAYRL",
+    "73898_50": "PAYRL",
+    "73899_50": "PAYRL",
+    "76290_50": "PAYRL",
+    "76290_52": "PAYRL",
+    "76290_53": "PAYRL",
+    "76291_50": "PAYRL",
+    "76292_51": "PAYRL",
+    "76992_50": "PAYRL",
+    "76993_50": "PAYRL",
+    "78922_50": "PAYRL",
+    "79220_50": "PAYRL",
+    "81111_50": "Court",
+    "82431_50": "NumStudents",
+    "82491_50": "NumStudents",
+    "82491_51": "NumStudents",
+    "82491_53": "NumStudents",
+    "82491_54": "NumStudents",
+    "86110_50": "Member",
+    "86110_51": "Member",
+    "86110_52": "Member",
+    "86110_53": "Member",
+    "86110_54": "Member",
+    "86110_55": "Member",
+    "86110_56": "PAYRL",
+    "86415_50": "Member",
+    "87110_51": "PAYRL",
+    "87110_52": "PAYRL",
+    "87120_50": "PAYRL",
+    "87130_50": "PAYRL",
+    "87210_50": "PAYRL",
+    "87210_52": "PAYRL",
+    "87210_53": "PAYRL",
+    "87210_54": "PAYRL",
+    "87210_55": "PAYRL",
+    "87310_50": "PAYRL",
+    "87340_50": "PAYRL",
+    "89990_50": "PAYRL"
+};
+
 const constructionCodes = {
     Frame: "F",
     "Joisted Masonry": "JM",
@@ -1563,15 +1664,12 @@ module.exports = class CnaBOP extends Integration {
                 }
             }
 
-            return {
+            const glClassificationObj = {
                 ClassCd: {
                     value: industryCode.code
                 },
                 ClassCdDesc: {
                     value: industryCode.description
-                },
-                AlternativePremiumBasisCd: {
-                    value: "PAYRL"
                 },
                 AlternativeExposure: {
                     value: this.get_location_payroll(location)
@@ -1586,6 +1684,15 @@ module.exports = class CnaBOP extends Integration {
                 LocationRef: `L${i}`,
                 SubLocationRef: `L${i}S${i}`
             };
+
+            // add dynamic exposure if applicable (only applicable for certain SIC)
+            if (Object.keys(dynamicExposures).includes(this.industry_code.code)) {
+                glClassificationObj.AlternativePremiumBasisCd = {
+                    value: dynamicExposures[this.industry_code.code]
+                };
+            }
+
+            return glClassificationObj;
         });
     }
 
