@@ -3,6 +3,7 @@
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const moment = require('moment');
 
 const travelersStagingHost = "swi-qa.travelers.com";
 const travelersStagingBasePath = "/biswi/api/qa/qi/wc/1-0-0";
@@ -140,6 +141,13 @@ module.exports = class AcuityWC extends Integration {
     async _insurer_quote() {
         const appDoc = this.applicationDocData
         const logPrefix = `Appid: ${this.app.id} Travelers WC `
+
+
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
 
         const defaultLimits = [
             "100000/500000/100000",

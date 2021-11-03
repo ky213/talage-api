@@ -500,10 +500,24 @@ const validateActivityCodes = (applicationDocData) => {
 /**
  * Checks that the data supplied is valid
  * @param {string} applicationDocData - The applicationDocData
+ * @param {string} agencyNetworkJSON - The agencyNetworkJSON
  * @returns {void}
  */
-const validatePolicies = (applicationDocData) => {
+const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
     for (const policy of applicationDocData.policies) {
+
+        let minDate = moment().startOf('day');
+        let maxDate = moment().startOf('day').add(90, 'days')
+        if(agencyNetworkJSON?.featureJson?.policyEffectiveDateThresholds && agencyNetworkJSON?.featureJson?.policyEffectiveDateThresholds[policy.policyType]){
+            try{
+                minDate = moment().startOf('day').add(agencyNetworkJSON?.featureJson?.policyEffectiveDateThresholds[policy.policyType].start, 'days')
+                maxDate = moment().startOf('day').add(agencyNetworkJSON?.featureJson?.policyEffectiveDateThresholds[policy.policyType].end + 1 , 'days')
+                log.debug(`new min/max dates ${minDate}  and ${maxDate} for ${policy.policyType}`)
+            }
+            catch(err){
+                log.error(`App Validate ${applicationDocData.applicationId} calculating min/max policy dates for AgencyNetworkId ${agencyNetworkJSON.agencyNetworkId} polcy ${policy.policy} error: ${err}` + __location);
+            }
+        }
 
 
         // Validate effective_date
@@ -515,12 +529,12 @@ const validatePolicies = (applicationDocData) => {
             }
 
             // Check if this date is in the past
-            if (effectiveMoment.isBefore(moment().startOf('day'))) {
+            if (effectiveMoment.isBefore(minDate)) {
                 throw new Error('Invalid property: effectiveDate. The effective date cannot be in the past');
             }
 
             // Check if this date is too far in the future
-            if (effectiveMoment.isAfter(moment().startOf('day').add(90, 'days'))) {
+            if (effectiveMoment.isAfter(maxDate)) {
                 throw new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future');
             }
         }
