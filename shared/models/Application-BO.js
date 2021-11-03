@@ -1729,9 +1729,9 @@ module.exports = class ApplicationModel {
                             //industry desc
                             const industryCodeBO = new IndustryCodeBO();
                             // Load the request data into it
-                            if(application.industryCode){
+                            if(application.industryCode > 0){
                                 const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
-                                    log.error(`Industry code load error appId ${application.applicationId} ` + err + __location);
+                                    log.error(`Industry code load error appId ${application.applicationId} industryCode ${application.industryCode} ` + err + __location);
                                 });
                                 if(industryCodeJson){
                                     application.industry = industryCodeJson.description;
@@ -1819,7 +1819,7 @@ module.exports = class ApplicationModel {
                 }
                 log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
-                    log.error("Application.countDocuments error " + err + __location);
+                    log.error(`Application.countDocuments error query ${JSON.stringify(query)}` + err + __location);
                     error = null;
                     rejected = true;
                 })
