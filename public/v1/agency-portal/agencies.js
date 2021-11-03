@@ -47,6 +47,10 @@ async function getAgencies(req, res, next){
             query.systemId = agents
         }
 
+        if(query.systemId && query.systemId.includes(",")){
+            query.systemId = query.systemId.split(',');
+        }
+
         const agencyBO = new AgencyBO();
         retAgencies = await agencyBO.getList(query).catch(function(err) {
             error = err;
