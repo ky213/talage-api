@@ -15,7 +15,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const opts = {toJSON: {virtuals: true}};
 
-
 // const contactSchema = new Schema({
 //     email: {type: String, required: true},
 //     name: {type: String, required: false},
@@ -30,6 +29,15 @@ const legalAcceptanceSchema = new Schema({
     acceptanceDate: {type: Date, required: true}
 });
 
+const tableOpts = new Schema({
+    compactMode: {type: Boolean, default: false},
+    rowsPerPage: {type: Number, default: 10}
+});
+
+const tableOptionsSchema = new Schema({
+    applicationsTable: tableOpts,
+    agenciesTable: tableOpts
+});
 
 const AgencyPortalUserSchema = new Schema({
     agencyPortalUserUuidId: {type: String, required: [true, 'agencyPortalUserUuidId required'], unique: true},
@@ -42,6 +50,7 @@ const AgencyPortalUserSchema = new Schema({
     openidAuthConfigId: {type: String, required: false},
     agencyPortalUserGroupId: {type: Number, required: true, default: 0},
     logo: {type: String, required: false},
+    tableOptions: {type: tableOptionsSchema},
     canSign: {type: Boolean, default: false},
     resetRequired: {type: Boolean, default: false},
     lastLogin: {type: Date},
