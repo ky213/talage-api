@@ -15,7 +15,7 @@ const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const {getLibertyQuoteProposal, getLibertyOAuthToken} = require('./api');
-
+const moment = require('moment');
 module.exports = class LibertyWC extends Integration {
 
     /**
@@ -36,6 +36,13 @@ module.exports = class LibertyWC extends Integration {
         const appDoc = this.applicationDocData
 
         const logPrefix = `Liberty Mutual WC (Appid: ${this.app.id}): `;
+
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.Accept = 'quoted';

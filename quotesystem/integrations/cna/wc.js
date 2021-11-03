@@ -134,6 +134,12 @@ module.exports = class CnaWC extends Integration {
         // swap host and creds based off whether this is sandbox or prod
         let agentId = null;
         let branchProdCd = null;
+
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
         
 
         //Basic Auth should be calculated with username and password set 
