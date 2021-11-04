@@ -612,6 +612,105 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
     }
 }
 
+
+/**
+ * Checks that BOP policy data
+ * @param {string} applicationDocData - The applicationDocData
+ * @param {string} insurerList - The list of possible insurers
+ * @returns {void}
+ */
+const validateBOPPolicies = (applicationDocData,insurerList) => {
+    //Travelers, Markel, Liberty, Arrowhead    (not chubb, coterie)
+    // eslint-disable-next-line array-element-newline
+    const fullBOPInsurers = [2,3,12,27];
+    const coteireInsurerId = 29;
+    let errorMessage = "";
+    let fullBOP = false;
+    let hasCoterie = false;
+    log.debug(` insurerList ${JSON.stringify(insurerList)}`)
+    for(const insurer of insurerList){
+        // TODO take into acount what policyTypes the agencylocation as activate for insurer.
+        // Might only have Travelers or Markel WC activated not WC.
+        if(fullBOPInsurers.indexOf(insurer.insurerId) > -1){
+            fullBOP = true;
+        }
+        if(insurer.insurerId === coteireInsurerId){
+            hasCoterie = true;
+        }
+    }
+
+    //Coterie needs payroll
+    //businessPersonalPropertyLimit,buildingLimit
+    if(fullBOP){
+        //Make sure all BOP field where added.
+        // eslint-disable-next-line array-element-newline
+        const locationFields = ["square_footage","constructionType","numStories","yearBuilt","own"]
+        // eslint-disable-next-line array-element-newline
+        const bopLocFields = ["fireAlarmType", "sprinklerEquipped","roofingImprovementYear","wiringImprovementYear","heatingImprovementYear","plumbingImprovementYear"]
+        for (const location of applicationDocData.locations){
+            //mongo doc//model has problem with Object.hasOwnProperty and Object.prototype.hasOwnProperty
+            //make pure JSON object.
+            const testLocationJSON = JSON.parse(JSON.stringify(location))
+            for(let i = 0; i < locationFields.length; i++) {
+                const locField = locationFields[i];
+                if (!Object.hasOwnProperty.call(testLocationJSON, locField) || testLocationJSON[locField] === null) {
+                    errorMessage += `;${location.address} is missing ${locField}`;
+                }
+            }
+            let hasLimit = false;
+            if(location.businessPersonalPropertyLimit > 0 || location.buildingLimit > 0){
+                hasLimit = true;
+            }
+            if(hasLimit === false){
+                errorMessage += `;${location.address} needs Bulding Limit or BPP`;
+            }
+
+
+            if(location.bop){
+                const bopLoc = testLocationJSON.bop;
+                for(const bopLocField of bopLocFields) {
+                    if (!Object.hasOwnProperty.call(bopLoc, bopLocField) || bopLoc[bopLocField] === null){
+                        errorMessage += `;${location.address} is missing ${bopLocField}`;
+                    }
+                }
+            }
+            else {
+                errorMessage += `;${location.address} is missing BOP data`;
+            }
+        }
+        //TODO check questions.
+    }
+
+    if(hasCoterie){
+        //check for payroll
+        let hasPayroll = false
+        for (const location of applicationDocData.locations){
+            if(location.activityPayrollList){
+                for(const activityPayroll of location.activityPayrollList){
+                    if(activityPayroll.payroll > 0){
+                        hasPayroll = true;
+                        break;
+                    }
+                }
+            }
+            if(hasPayroll){
+                break;
+            }
+        }
+        if(hasPayroll === false){
+            errorMessage += `;One of the BOP insurers required payroll`;
+        }
+    }
+
+    if(errorMessage.length > 1){
+        if(errorMessage.startsWith(";")){
+            errorMessage = errorMessage.replace(";","");
+        }
+        throw new Error(errorMessage);
+    }
+
+}
+
 /**
  * Checks that the data supplied is valid
  * @param {object} applicationDocData - The question
@@ -783,5 +882,6 @@ module.exports = {
     validateContacts: validateContacts,
     validateLocations: validateLocations,
     validatePolicies: validatePolicies,
-    validateQuestion: validateQuestion
+    validateQuestion: validateQuestion,
+    validateBOPPolicies: validateBOPPolicies
 }
