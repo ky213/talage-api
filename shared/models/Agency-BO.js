@@ -490,7 +490,13 @@ module.exports = class AgencyBO {
             }
 
             if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
-                query.systemId = {$in: queryJSON.systemId};
+                if(queryJSON.notInSystemId === true || queryJSON.notInSystemId === 'true'){
+                    query.systemId = {$nin: queryJSON.systemId};
+                    delete queryJSON.notInSystemId;
+                }
+                else{
+                    query.systemId = {$in: queryJSON.systemId};
+                }
                 delete queryJSON.systemId;
             }
             else if(queryJSON.systemId){
