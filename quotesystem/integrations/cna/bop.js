@@ -35,6 +35,8 @@ let host = "";
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
 
+let industryCode = null;
+
 const dynamicExposures = {
     "07420_50": "PAYRL",
     "07522_50": "Kennel",
@@ -262,7 +264,6 @@ module.exports = class CnaBOP extends Integration {
             branchProdCd = "540085091";
         }
 
-        let industryCode = null;
         // if the BOP code selected is CNA's, we can just use it
         if (this.industry_code && !this.industry_code.talageIndustryCodeUuid) {
             industryCode = this.industry_code;
@@ -473,7 +474,7 @@ module.exports = class CnaBOP extends Integration {
                                         ],
                                         BusinessInfo: {
                                             SICCd: {
-                                                value: this.industry_code.code // may need to be sic specific on attr?
+                                                value: industry_code.attributes.SICCd // may need to be sic specific on attr?
                                             },
                                             NumEmployeesFullTime: {
                                                 value: this.get_total_full_time_employees()
@@ -540,7 +541,7 @@ module.exports = class CnaBOP extends Integration {
                                 },
                                 LiabilityInfo: {
                                     CommlCoverage: this.getCoverages(limits),
-                                    GeneralLiabilityClassification: this.getGLClassifications(industryCode)
+                                    GeneralLiabilityClassification: this.getGLClassifications()
                                 },
                                 // TODO: What is this? Is it a question? 
                                 // "com.cna_ProductInfo":[
@@ -1503,11 +1504,11 @@ module.exports = class CnaBOP extends Integration {
             }
         }
 
-        if (ineligible250.includes(this.industry_code.code) && closestDeductible === 250) {
+        if (ineligible250.includes(industry_code.attributes.SICCd) && closestDeductible === 250) {
             closestDeductible = 500;
         }
 
-        if (ineligible500.includes(this.industry_code.code) && closestDeductible === 500) {
+        if (ineligible500.includes(industry_code.attributes.SICCd) && closestDeductible === 500) {
             closestDeductible = 1000;
         }
 
@@ -1556,7 +1557,7 @@ module.exports = class CnaBOP extends Integration {
         ];
 
         // AEPLB coverage is required with 65312_51 SIC code and two questions are answered YES. Required to include number of surveyors...
-        if (this.industry_code.code === "65312_51") {
+        if (industry_code.attributes.SICCd === "65312_51") {
             const BOP21433 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21433");
             const BOP21434 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21434");
 
@@ -1650,7 +1651,7 @@ module.exports = class CnaBOP extends Integration {
     //     return limits;
     // }
 
-    getGLClassifications(industryCode) {
+    getGLClassifications() {
         return this.app.applicationDocData.locations.map((location, i) => {
             const grossSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'cna.location.grossSales');
             let grossSales = 0;
@@ -1686,9 +1687,9 @@ module.exports = class CnaBOP extends Integration {
             };
 
             // add dynamic exposure if applicable (only applicable for certain SIC)
-            if (Object.keys(dynamicExposures).includes(this.industry_code.code)) {
+            if (Object.keys(dynamicExposures).includes(industry_code.attributes.SICCd)) {
                 glClassificationObj.AlternativePremiumBasisCd = {
-                    value: dynamicExposures[this.industry_code.code]
+                    value: dynamicExposures[industry_code.attributes.SICCd]
                 };
             }
 
