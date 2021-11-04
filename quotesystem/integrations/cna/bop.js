@@ -474,7 +474,7 @@ module.exports = class CnaBOP extends Integration {
                                         ],
                                         BusinessInfo: {
                                             SICCd: {
-                                                value: industry_code.attributes.SICCd // may need to be sic specific on attr?
+                                                value: industryCode.attributes.SICCd // may need to be sic specific on attr?
                                             },
                                             NumEmployeesFullTime: {
                                                 value: this.get_total_full_time_employees()
@@ -1504,11 +1504,11 @@ module.exports = class CnaBOP extends Integration {
             }
         }
 
-        if (ineligible250.includes(industry_code.attributes.SICCd) && closestDeductible === 250) {
+        if (ineligible250.includes(industryCode.attributes.SICCd) && closestDeductible === 250) {
             closestDeductible = 500;
         }
 
-        if (ineligible500.includes(industry_code.attributes.SICCd) && closestDeductible === 500) {
+        if (ineligible500.includes(industryCode.attributes.SICCd) && closestDeductible === 500) {
             closestDeductible = 1000;
         }
 
@@ -1557,7 +1557,7 @@ module.exports = class CnaBOP extends Integration {
         ];
 
         // AEPLB coverage is required with 65312_51 SIC code and two questions are answered YES. Required to include number of surveyors...
-        if (industry_code.attributes.SICCd === "65312_51") {
+        if (industryCode.attributes.SICCd === "65312_51") {
             const BOP21433 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21433");
             const BOP21434 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21434");
 
@@ -1687,9 +1687,9 @@ module.exports = class CnaBOP extends Integration {
             };
 
             // add dynamic exposure if applicable (only applicable for certain SIC)
-            if (Object.keys(dynamicExposures).includes(industry_code.attributes.SICCd)) {
+            if (Object.keys(dynamicExposures).includes(industryCode.attributes.SICCd)) {
                 glClassificationObj.AlternativePremiumBasisCd = {
-                    value: dynamicExposures[industry_code.attributes.SICCd]
+                    value: dynamicExposures[industryCode.attributes.SICCd]
                 };
             }
 
