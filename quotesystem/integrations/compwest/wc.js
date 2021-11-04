@@ -44,6 +44,12 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
 
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
         // eslint-disable-next-line prefer-const
         let guideWireAPI = true; //2021-07-01T00:00:00
         let apiSwitchOverDateString = '2021-07-01T00:00:00-08'

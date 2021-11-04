@@ -7,7 +7,7 @@
 
 const moment = require('moment');
 
-const _ = require('lodash');
+
 var FastJsonParse = require('fast-json-parse')
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
@@ -178,17 +178,19 @@ module.exports = class ApplicationModel {
             }
 
             let updateAppJSON = {};
-            //updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
-            if (applicationMongoDoc.appStatusId < 80) {
-                updateAppJSON.status = 'request_to_bind_referred';
-                updateAppJSON.appStatusId = 80;
+            //90 === bound so no update and request to bind referred is 80
+            if(applicationMongoDoc.appStatusId < 80){
+                //updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
+                if (applicationMongoDoc.appStatusId === 60) {
+                    updateAppJSON.status = 'request_to_bind';
+                    updateAppJSON.appStatusId = 70;
+                }
+                else {
+                    updateAppJSON.status = 'request_to_bind_referred';
+                    updateAppJSON.appStatusId = 80;
+                }
+                await this.updateMongo(applicationId, updateAppJSON);
             }
-            else if (applicationMongoDoc.appStatusId < 70) {
-                updateAppJSON.status = 'request_to_bind';
-                updateAppJSON.appStatusId = 70;
-            }
-            await this.updateMongo(applicationId, updateAppJSON);
-
             //updatemetrics
             await this.recalculateQuoteMetrics(applicationId);
 
@@ -1727,9 +1729,9 @@ module.exports = class ApplicationModel {
                             //industry desc
                             const industryCodeBO = new IndustryCodeBO();
                             // Load the request data into it
-                            if(application.industryCode){
+                            if(application.industryCode > 0){
                                 const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
-                                    log.error(`Industry code load error appId ${application.applicationId} ` + err + __location);
+                                    log.error(`Industry code load error appId ${application.applicationId} industryCode ${application.industryCode} ` + err + __location);
                                 });
                                 if(industryCodeJson){
                                     application.industry = industryCodeJson.description;
@@ -1817,7 +1819,7 @@ module.exports = class ApplicationModel {
                 }
                 log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
-                    log.error("Application.countDocuments error " + err + __location);
+                    log.error(`Application.countDocuments error query ${JSON.stringify(query)}` + err + __location);
                     error = null;
                     rejected = true;
                 })
@@ -2260,32 +2262,51 @@ module.exports = class ApplicationModel {
         try{
 
             const quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
+            //log.debug(`quoteList ${JSON.stringify(quoteList)}`)
+
             //not all applications have quotes.
             if(quoteList && quoteList.length > 0){
-                let lowestBoundQuote = (product) => _.min(quoteList.
-                    filter(t => t.policyType === product && (
-                        t.bound ||
-                        t.status === 'bind_requested')).
-                    map(t => t.amount));
+                let lowestBoundQuote = {};
+                let lowestQuote = {};
 
-                let lowestQuote = (product) => _.min(quoteList.
-                    filter(t => t.policyType === product && (
-                        t.bound ||
-                        t.status === 'bind_requested' ||
-                        t.apiResult === 'quoted' ||
-                        t.apiResult === 'referred_with_price')).
-                    map(t => t.amount));
+                for(const quote of quoteList){
+                    if(quote.quoteStatusId >= quoteStatus.quoted.id){
+                        log.debug(`Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType)} `)
+                        if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
+                            lowestQuote[quote.policyType] = quote.amount;
+                        }
+                    }
+                    log.debug(`Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType)}`)
+                    if(quote.quoteStatusId >= quoteStatus.bind_requested.id){
+                        if(Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) === false || lowestBoundQuote[quote.policyType] > quote.amount){
+                            lowestBoundQuote[quote.policyType] = quote.amount;
+                        }
+                    }
+                }
+                //Bound quote value is used for bound and quoted values.
+                for(const quote of quoteList){
+                    if(quote.bound || quote.quoteStatusId === quoteStatus.bound.id){
+                        lowestBoundQuote[quote.policyType] = quote.amount;
+                        lowestQuote[quote.policyType] = quote.amount;
+                    }
+                }
+                log.debug(`lowestBoundQuote ${JSON.stringify(lowestBoundQuote)}` + __location)
 
                 const metrics = {
                     lowestBoundQuoteAmount: {
-                        GL: lowestBoundQuote('GL'),
-                        WC: lowestBoundQuote('WC'),
-                        BOP: lowestBoundQuote('BOP')
+                        GL: lowestBoundQuote['GL'],
+                        WC: lowestBoundQuote['WC'],
+                        BOP: lowestBoundQuote['BOP'],
+                        CYBER: lowestBoundQuote['CYBER'],
+                        PL: lowestBoundQuote['PL']
+
                     },
                     lowestQuoteAmount: {
-                        GL: lowestQuote('GL'),
-                        WC: lowestQuote('WC'),
-                        BOP: lowestQuote('BOP')
+                        GL: lowestQuote['GL'],
+                        WC: lowestQuote['WC'],
+                        BOP: lowestQuote['BOP'],
+                        CYBER: lowestQuote['CYBER'],
+                        PL: lowestQuote['PL']
                     }
                 };
 

@@ -51,6 +51,12 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
         const insurer = await insurerBO.getBySlug(insurerSlug);

@@ -1601,6 +1601,7 @@ module.exports = class Integration {
             // Amount
             if (amount) {
                 quoteJSON.amount = amount;
+                quoteJSON.quotedPremium = amount;
             }
 
             // Deductible

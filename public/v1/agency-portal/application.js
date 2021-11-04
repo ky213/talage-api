@@ -175,21 +175,29 @@ async function getApplication(req, res, next) {
             if(quoteJSON.quoteLetter){
                 quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
-            if (!quoteJSON.status && quoteJSON.apiResult) {
-                // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
-                if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
-                    quoteJSON.status = quoteStatus.error.description;
-                }
-                else {
-                    quoteJSON.status = quoteJSON.apiResult;
-                }
+            //apiResult is obsolete 
+            // if (!quoteJSON.status && quoteJSON.apiResult) {
+            //     // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
+            //     if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
+            //         quoteJSON.status = quoteStatus.error.description;
+            //     }
+            //     else {
+            //         quoteJSON.status = quoteJSON.apiResult;
+            //     }
+            // }
+            if(quoteJSON.quoteStatusDescription){
+                quoteJSON.status = quoteJSON.quoteStatusDescription
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            if (quoteJSON.status === 'bind_requested' || quoteJSON.bound || quoteJSON.status === 'quoted') {
+            //filter out referred with price that is 55.
+            if (quoteJSON.quoteStatusId === quoteStatus.quoted.id || quoteJSON.quoteStatusId > quoteStatus.quoted_referred.id || quoteJSON.bound){
                 quoteJSON.reasons = '';
+                if(quoteJSON.quoteStatusId === quoteStatus.bound.id || quoteJSON.bound){
+                    quoteJSON.status = quoteStatus.bound.description;
+                }
             }
             // Change the name of autodeclined
-            if (quoteJSON.status === 'autodeclined') {
+            if (quoteJSON.quoteStatusId === quoteStatus.autodeclined.id) {
                 quoteJSON.status = 'Out of Market';
                 quoteJSON.displayStatus = 'Out of Market';
             }
@@ -1424,10 +1432,18 @@ async function bindQuote(req, res, next) {
             // }
             let markAsBoundResponse = false;
             try {
-                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
+                const policyInfo = {};
+                if (Object.prototype.hasOwnProperty.call(req.body, 'premiumAmount')) {
+                    policyInfo.policyPremium = parseInt(req.body.premiumAmount,10);
+                }
+                if (Object.prototype.hasOwnProperty.call(req.body, 'policyNumber')) {
+                    policyInfo.policyNumber = req.body.policyNumber;
+                }
+
+                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID, policyInfo)
                 if(applicationDB.appStatusId !== 90){
                     // Update application status
-                    await applicationBO.updateStatus(applicationId,"bound", 90);
+                    await applicationBO.updateStatus(applicationId,"bound", 90)
                    
                 }
                 else {

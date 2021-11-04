@@ -61,31 +61,6 @@ const quoteStatus = {
 };
 
 /**
- * Ensures that a quote has a value for aggregated_status
- *
- * @param {Object} quoteDocJson - the quote to update
- * @param {boolean} timeout - optional (defaulted to false), whether or not the quote timed out
- * @return {void}
- */
-async function updateQuoteStatus(quoteDocJson, timeout = false) {
-    const QuoteBO = global.requireShared('./models/Quote-BO.js');
-    const status = getQuoteStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult, timeout);
-
-    // have both checks just for backwards compatibility, in case there is misalignment, to force an update
-    if (status.id !== quoteDocJson.quoteStatusId || status.description !== quoteDocJson.quoteStatusDescription || timeout === true) {
-        const quoteBO = new QuoteBO();
-        try {
-            await quoteBO.updateQuoteStatus(quoteDocJson, status);
-        }
-        catch (error) {
-            log.error(`Could not update quote ${quoteDocJson.id} status: ${error} ${__location}`);
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
  * Retrieves a quote status
  *
  * @param {Boolean} bound - whether or not the quote is bound
@@ -147,6 +122,5 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
 
 module.exports = {
     getQuoteStatus,
-    updateQuoteStatus,
     quoteStatus
 };

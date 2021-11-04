@@ -15,6 +15,9 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 const mongoose = require('mongoose');
 const Quote = mongoose.model('Quote');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
 
 /**
  * Validates the parameters for the applications call
@@ -638,7 +641,7 @@ async function getApplications(req, res, next){
                     query.agencyId = {$nin: donotReportAgencyIdArray};
                 }
             }
-            if(req.params.searchText){
+            if(req.params.searchText.length > 2){
                 agencyQuery.name = req.params.searchText + "%"
                 agencyQuery.doNotReport = false;
                 const noActiveCheck = true;
@@ -652,6 +655,10 @@ async function getApplications(req, res, next){
                     let agencyIdArray = [];
                     for (const agency of agencyList) {
                         agencyIdArray.push(agency.systemId);
+                        //prevent in from being too big.
+                        if(agencyIdArray.length > 100){
+                            break;
+                        }
                     }
                     agencyIdArray = agencyIdArray.filter(function(value){
                         return donotReportAgencyIdArray.indexOf(value) === -1;
@@ -787,7 +794,212 @@ async function getApplications(req, res, next){
     }
 }
 
+/**
+ * Populates the resources object with insurers and policies
+ *
+ * @param {object} resources - Resources Object to be decorated
+ * @param {array} insurerIdArray - Array of insurer ids
+ *
+ * @returns {void}
+ */
+async function populateInsurersAndPolicies(resources, insurerIdArray){
+    const insurerBO = new InsurerBO();
+    const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+    const query = {"insurerId": insurerIdArray};
+    const insurerDBJSONList = await insurerBO.getList(query);
+    if(insurerDBJSONList.length > 0){
+        const insurerList = insurerDBJSONList.map(insurerObj => ({name: insurerObj.name, insurerId: insurerObj.insurerId, slug: insurerObj.slug}));
+        // sort list by name
+        const sortFunction = function(firstInsurerObj, secondInsurerObj){
+            // sort alphabetically
+            if(firstInsurerObj.name > secondInsurerObj.name){
+                return 1;
+            }
+            if(firstInsurerObj.name < secondInsurerObj.name){
+                return -1;
+            }
+            return 0;
+        }
+        const sortedInsurerList = insurerList.sort(sortFunction);
+        resources.insurers = sortedInsurerList;
+        const queryPT =
+        {
+            "wheelhouse_support": true,
+            insurerId: insurerIdArray
+        };
+        const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT);
+        let listOfPolicies = [];
+        if(insurerPtDBList?.length > 0){
+            // just map them to a policy type list, so WC, CYBER, GL ...
+            listOfPolicies = insurerPtDBList.map(insurerPolicyType => insurerPolicyType.policy_type);
+        }
+        // lets go ahead and grab the unique values for policy types and store in the policy type selections list
+        if(listOfPolicies.length > 0){
+            const productTypeSelections = [];
+            // push policy type to the productTypeSelections if it isn't in the list, ensures no duplicate values
+            for(let i = 0; i < listOfPolicies.length; i++){
+                const policyType = listOfPolicies[i];
+                if(productTypeSelections.indexOf(policyType) === -1){
+                    productTypeSelections.push(policyType);
+                }
+            }
+            if(productTypeSelections.length > 0){
+                resources.productTypeSelections = productTypeSelections;
+            }
+        }
+    }
+}
+
+/**
+ * Responds to get requests for the get resources endpoint
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getApplicationsResources(req, res, next){
+    const resources = {};
+    let error = null;
+    // determine if signed in is an agencyNetwork User or agency user
+    const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+
+    // our default list, if or when we add a new product, add it to this const list
+    const defaultProductTypeFilters =
+        [
+            "WC",
+            "GL",
+            "BOP",
+            "CYBER",
+            "PL"
+        ];
+
+    resources.productTypeSelections = defaultProductTypeFilters;
+
+    // if login is agency network grab the id
+    if(isAgencyNetworkUser === true){
+        const agencyNetworkId = req.authentication.agencyNetworkId;
+        try{
+            // grab the agencyNetworkDB
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+                log.error(`agencyNetworkBO load error for agencyNetworkId ${agencyNetworkId} ${err} ${__location}`);
+                error = err;
+            });
+            if (error) {
+                return next(error);
+            }
+            // grab all the insurers for this agency network
+            const insurerIdArray = agencyNetworkJSON.insurerIds;
+            // add insurers and policies to the resources
+            if(insurerIdArray.length > 0){
+                await populateInsurersAndPolicies(resources, insurerIdArray);
+            }
+        }
+        catch(err){
+            log.error(`Error retrieving Agency Network Insurer and Policies List for agency network id: ${agencyNetworkId}` + err + __location);
+        }
+    }
+    else {
+        // grab the list of agencies from the req.authentication
+        const listOfAgencyIds = req.authentication.agents;
+        // make sure we got agencyIds back, safety check, in this flow should always be 1 but even if more we just grab the first one
+        if(listOfAgencyIds?.length > 0){
+            const agencyLocationBO = new AgencyLocationBO();
+            let locationList = [];
+            // we should only have a single agency id if the req is not agencyNetwork
+            // grab the agency
+            const agencyId = listOfAgencyIds[0];
+            const query = {"agencyId": agencyId}
+            const getChildren = true;
+            const getAgencyName = false;
+            const useAgencyPrimeInsurers = true;
+            const insurerIdArray = [];
+            try {
+                // grab all the locations for an agency
+                locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+                    log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
+                    error = err;
+                });
+                if (error) {
+                    return next(error);
+                }
+                // iterate through each location and grab the insurerId
+                for(let i = 0; i < locationList.length; i++){
+                    const locationObj = locationList[i];
+                    if(locationObj?.insurers && locationObj?.insurers?.length > 0){
+                        // grab all the insurers
+                        const locationInsurers = locationObj.insurers;
+                        // for each insurer grab their id and push into insurerId Array
+                        for(let j = 0; j < locationInsurers.length; j++){
+                            const insurer = locationInsurers[j];
+                            // if the id doesn't exist in the isnurerIdArray then add it to the list
+                            if(insurerIdArray.indexOf(insurer.insurerId) === -1){
+                                insurerIdArray.push(insurer.insurerId);
+                            }
+                        }
+                    }
+                }
+                if(insurerIdArray.length > 0){
+                    await populateInsurersAndPolicies(resources, insurerIdArray);
+                }
+            }
+            catch(err){
+                log.error(`Error retrieving Agency Insurer and Policies List for agency id: ${agencyId}` + err + __location);
+            }
+        }
+        else{
+            log.error(`Error,  req.authentication.agents is returning empty agency list: ${JSON.stringify(req.authentication.agents)} ${__location}`)
+        }
+    }
+    // Add date filters
+    const dateFilters = [
+        {
+            label: 'Created Date',
+            value: ''
+        },
+        {
+            label: 'Modified Date',
+            value: 'md:'
+        },
+        {
+            label: 'Policy Effective Date',
+            value: 'pd:'
+        },
+        {
+            label: 'Policy Expiration Date',
+            value: 'pde:'
+        }
+    ]
+    resources.dateFilters = dateFilters;
+    // Add Skip Filters
+    const skipFilters = [{label: 'Renewals', value: 'skiprenewals'}, {label: 'System Generated', value: 'system'}]
+    resources.skipFilters = skipFilters;
+
+    // Add quoteStatusSelections
+    const quoteStatusSelections =
+    [
+        {label: "Errored", value:"iq:10"},
+        {label: "Auto Declined", value:"iq:15"},
+        {label: "Declined", value:"iq:20"},
+        {label: "Acord Emailed", value:"iq:30"},
+        {label: "Referred", value:"iq:40"},
+        {label: "Quoted", value:"iq:50"},
+        {label: "Referred Quoted", value:"iq:55"},
+        {label: "Bind Requested", value:"iq:60"},
+        {label: "Bind Requested For Referral", value:"iq:65"},
+        {label: "Bound", value:"iq:100"}
+    ]
+    resources.quoteStatusSelections = quoteStatusSelections;
+    // return the resources
+    res.send(200, resources);
+    return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
     server.addGetAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
+    server.addGetAuth('Get applications list view resources', `${basePath}/applications/resources`, getApplicationsResources, 'applications', 'view');
 };

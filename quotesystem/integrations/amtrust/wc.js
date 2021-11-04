@@ -807,6 +807,7 @@ module.exports = class AMTrustWC extends Integration {
         if(useQuotePut_OldQuoteId){
             statusCode = this.getChildProperty(quoteResponse, "HttpStatusCode");
         }
+
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             if (quoteResponse.error) {
                 return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
@@ -816,6 +817,13 @@ module.exports = class AMTrustWC extends Integration {
                 return this.client_error(`The AmTrust's server returned: ${quoteResponse}.`, __location, {statusCode: statusCode});
             }
             else {
+                //check declinereasons
+                const respString = JSON.stringify(quoteResponse);
+                if(respString.indexOf("Quote has been declined, and cannot be edited") > -1){
+                    log.info(`Amtrust WC Application ${this.app.id} quote already delcined ${quoteResponse} on Quote Post` + __location)
+                    return this.client_declined("Amtrust: Quote has been declined, and cannot be edited");
+                }
+
                 log.error(`Amtrust WC Application ${this.app.id} returned unexpected response of ${JSON.stringify(quoteResponse)} on Quote Post` + __location)
                 return this.client_error(`The AmTrust's server returned an unspecified error when submitting the quote information.  ${JSON.stringify(quoteResponse)}`, __location, {statusCode: statusCode});
             }

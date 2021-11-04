@@ -15,6 +15,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
+const moment = require('moment');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -83,6 +84,13 @@ module.exports = class EmployersWC extends Integration {
             const appDoc = this.app.applicationDocData;
 
             const logPrefix = `Employers WC (Appid: ${this.app.id}): `;
+
+             const tomorrow = moment().add(1,'d').startOf('d');
+            if(this.policy.effective_date < tomorrow){
+                this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+                fulfill(this.return_result('autodeclined'));
+                return;
+            }
 
             // These are the statuses returned by the insurer and how they map to our Talage statuses
             this.possible_api_responses.DECLINED = 'declined';
@@ -374,6 +382,7 @@ module.exports = class EmployersWC extends Integration {
                log.error(`${logPrefix}Could not get EIN` + __location);
                this.reasons.push("No FEIN - Stopped before submission to insurer");
                fulfill(this.return_result('autodeclined'));
+               return;
             }
 
             const entityCode = entityMatrix[appDoc.entityType];
@@ -505,9 +514,14 @@ module.exports = class EmployersWC extends Integration {
                 this.log += err;
                 this.log += `--------======= End =======--------<br><br>`;
                 fulfill(this.return_result('error'));
+                return;
             }
 
             if (!quoteResponse || !quoteResponse.success) {
+
+                this.request_id = this.quoteId;
+                this.quoteResponseJSON = quoteResponse;
+
                 if (quoteResponse.status) {
                     this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
                 }
@@ -537,6 +551,7 @@ module.exports = class EmployersWC extends Integration {
                     });
                 }
                 fulfill(this.return_result('declined'));
+                return;
             }
 
             // Attempt to get the policy number

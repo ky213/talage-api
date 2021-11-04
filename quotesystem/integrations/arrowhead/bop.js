@@ -55,7 +55,7 @@ module.exports = class ArrowheadBOP extends Integration {
         }
         else {
             host = 'https://api.nationalprograms.io';
-            path = '/Quote/v0.2-beta/CreateQuote';
+            path = '/Quote/v1.0.0/CreateQuote';
         }
 
         // "Other" is not included, as anything not below is defaulted to it
@@ -143,7 +143,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 effectiveProduct: "BBOP",
                 state: applicationDocData.mailingState,
                 company: applicationDocData.businessName,
-                agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
+                agentid: this.app.agencyLocation.insurers[this.insurer.id].agent_id, //Check if this is different than sub producer. 
                 effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
@@ -465,9 +465,9 @@ module.exports = class ArrowheadBOP extends Integration {
             const resultLocationsList = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].bopReporting.locationList;
             for (let i = 0; i < resultLocationsList.length; i++) {
                 const building = resultLocationsList[i].buildingList[0];
-                log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
-                log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
-                log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
+                //log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
+                //log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
+                //log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
                 for (const coverage of Object.keys(building.coverages)) {
                     log.debug(`Coverage: ${JSON.stringify(coverage, null, 4)}`);
                     if (building.coverages[coverage].limit && building.coverages[coverage].desc) {
