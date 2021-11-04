@@ -37,6 +37,17 @@ const AUTH_URL = '/security/external-token/small-business';
 
 let industryCode = null;
 
+const lossTypes = [
+    "Fire",
+    "Lightening",
+    "Vandalism",
+    "Theft",
+    "Wind",
+    "WindHail",
+    "Water",
+    "Other"
+];
+
 const dynamicExposures = {
     "07420_50": "PAYRL",
     "07522_50": "Kennel",
@@ -1069,7 +1080,7 @@ module.exports = class CnaBOP extends Integration {
         this.app.applicationDocData.claims.forEach(claim => {
             // only add BOP claims
             if (claim.policyType === 'BOP') {
-                const lossType = claim.questions.find(question => question.insurerQuestionIdentifier === 'cna.claim.lossType');
+                const lossTypeQuestion = claim.questions.find(question => question.insurerQuestionIdentifier === 'cna.claim.lossType');
 
                 const loss = {
                     LOBCd: [{
@@ -1091,7 +1102,8 @@ module.exports = class CnaBOP extends Integration {
                     }
                 }
 
-                loss["com.cna_LossTypeCd"] = lossType ? lossType.answerValue : "Other";
+                let lossType = lossTypeQuestion ? lossTypeQuestion.answerValue : "Other";
+                loss["com.cna_LossTypeCd"] = lossTypes[lossType] ? lossTypes[lossType] : "Other"; 
 
                 losses.push(loss);
             }
