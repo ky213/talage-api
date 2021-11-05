@@ -256,7 +256,8 @@ const getAgencyList = async(where,isAgencyNetworkUser, nameAndIdOnly = false) =>
             agencyList = await agencyBO.getNameAndIdList(agencyQuery).catch(err => {
                 log.error(`Report agencyList getNameAndIdList error ${err} ${__location}`);
             });
-        }else {
+        }
+        else {
             agencyList = await agencyBO.getList(agencyQuery).catch(err => {
                 log.error(`Report agencyList error ${err}`)
             });
@@ -563,7 +564,8 @@ async function getReports(req) {
                 hasApplications: await hasApplications(where) ? 1 : 0,
                 agencyList: await getAgencyList(where, req.authentication.isAgencyNetworkUser, nameAndIdOnly)
             };
-        }else {
+        }
+        else {
             return {
                 minDate: await getMinDate(where),
                 hasApplications: await hasApplications(where) ? 1 : 0,
@@ -614,6 +616,15 @@ async function wrapAroundExpress(req, res, next) {
     }
 }
 
+/**
+ * Responds to get requests for the agency location and referrer list
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
 async function getAgencyLocationAndReferrList(req, res, next){
     log.debug(`authentication: ${JSON.stringify(req.authentication, null, 2)}`)
     if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
@@ -629,11 +640,13 @@ async function getAgencyLocationAndReferrList(req, res, next){
     let agencyID = null;
     if(req.authentication.isAgencyNetworkUser && req.query.agencyId){
         agencyID = parseInt(req.query.agencyId, 10);
-    }else {
+    }
+    else {
         const agencyIdList = req.authentication.agents;
         if(agencyIdList.length > 0){
             agencyID = agencyIdList[0];
-        }else {
+        }
+        else {
             log.error(`Error while trying to retrieve agency info from req.authentication.agents ${req.authentication.agents} ${__location}`);
         }
     }
@@ -646,14 +659,15 @@ async function getAgencyLocationAndReferrList(req, res, next){
     try {
         agencyLocationList = await getAgencyLocationList(where);
         referrerList = await getReferredList(where);
-    } catch (error) {
-        
+    }
+    catch (err) {
+        log.error(`Error while trying to retrieve agency locations and referrerList Error: ${err} ${__location}`);
     }
     const data = {
-        agencyLocationList,
-        referrerList
+        'agencyLocationList': agencyLocationList,
+        'referrerList': referrerList
     }
-   res.send(200, data);
+    res.send(200, data);
 }
 
 exports.registerEndpoint = (server, basePath) => {

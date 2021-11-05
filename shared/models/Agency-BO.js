@@ -603,7 +603,7 @@ module.exports = class AgencyBO {
     //    For stripped down agency list name and id only
     //
     // *************************
-    getNameAndIdList(requestQueryJSON, getAgencyNetwork = false, noActiveCheck = false) {
+    getNameAndIdList(requestQueryJSON, noActiveCheck = false) {
         return new Promise(async(resolve, reject) => {
             if(!requestQueryJSON){
                 requestQueryJSON = {};
@@ -611,7 +611,11 @@ module.exports = class AgencyBO {
             // eslint-disable-next-line prefer-const
             let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
 
-            const queryProjection = {"name":1, "systemId":1};
+            const queryProjection =
+                {
+                    "name":1,
+                    "systemId":1
+                };
 
             let findCount = false;
 
@@ -723,23 +727,8 @@ module.exports = class AgencyBO {
                 // eslint-disable-next-line prefer-const
                 try {
                     log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    log.debug("AgencyModel GetList project " + JSON.stringify(queryProjection)+ __location);
+                    log.debug("AgencyModel GetList project " + JSON.stringify(queryProjection) + __location);
                     docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
-                    if(getAgencyNetwork === true){
-                        // eslint-disable-next-line prefer-const
-                        for(let agencyDoc of docList){
-                        // eslint-disable-next-line prefer-const
-                            if (agencyDoc.agencyNetworkId && agencyNetworkList && agencyNetworkList.length > 0) {
-                                try {
-                                    const agencyNetwork = agencyNetworkList.find(agencyNetwork => agencyNetwork.id === agencyDoc.agencyNetworkId);
-                                    agencyDoc.agencyNetworkName = agencyNetwork.name;
-                                }
-                                catch (err) {
-                                    log.error("Error getting agency network name " + err + __location);
-                                }
-                            }
-                        }
-                    }
                 }
                 catch (err) {
                     log.error(err + __location);
@@ -766,10 +755,9 @@ module.exports = class AgencyBO {
                 resolve({count: docCount});
                 return;
             }
-
-
         });
     }
+
     getById(id, getAgencyNetwork = false, returnDeleted = false) {
         const returnDoc = false;
         return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork, returnDeleted)
