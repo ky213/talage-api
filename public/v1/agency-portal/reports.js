@@ -237,7 +237,6 @@ const getPremium = async(where) => {
 const getAgencyList = async(where,isAgencyNetworkUser, nameAndIdOnly = false) => {
     const agencyBO = new AgencyBO()
     let agencyQuery = {active: true};
-
     //This should be manditory to have either agencyNetworkId or agencyID
     // otherwise we could leak an agency list between agencyNetworks.
     let goodQuery = false;
@@ -549,15 +548,16 @@ async function getReports(req) {
     log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     // backward compatibility, make sure behavior doesn't break cached UI
-    let reportsInfo = false;
-    if(req.query.simpleInfo === 'true' || req.query.simpleInfo === true){
-        reportsInfo = true;
+    let reportsInfoAndAgency = false;
+    if(req.query.agencyNameAndIdOnly === 'true' || req.query.agencyNameAndIdOnly === true){
+        reportsInfoAndAgency = true;
     }
     if (initialRequest) {
         //get list of agencyIds for agencyNetwork.
         //get list of agencyLocations
         //get list of agencyLandingpages.
-        if(reportsInfo){
+        if(reportsInfoAndAgency === true){
+            const nameAndIdOnly = true;
             return {
                 minDate: await getMinDate(where),
                 hasApplications: await hasApplications(where) ? 1 : 0,
