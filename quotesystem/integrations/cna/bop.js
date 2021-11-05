@@ -37,6 +37,12 @@ const AUTH_URL = '/security/external-token/small-business';
 
 let industryCode = null;
 
+const specialCaseQuestions = [
+    "cna.general.prevCarrier",
+    "cna.general.yearsWithCarrier",
+    "cna.general.havePrevCarrier"
+];
+
 const lossTypes = [
     "Fire",
     "Lightening",
@@ -294,7 +300,7 @@ module.exports = class CnaBOP extends Integration {
 
         let agencyId = null;
         try {
-            agencyId = this.app.agencyLocation.insurers[this.insurer.id].agency_id.split("-");
+            agencyId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.split("-");
         }
         catch (e) {
             log.error(`${logPrefix}There was an error splitting the agency_id for insurer ${this.insurer.id}. ${e}.` + __location);
@@ -435,7 +441,7 @@ module.exports = class CnaBOP extends Integration {
                                 {
                                     ItemIdInfo: {
                                         AgencyId: {
-                                            value: agencyId
+                                            value: `${branchCode}-${contractNumber}`
                                         }
                                     },
                                     GeneralPartyInfo: {
@@ -825,7 +831,7 @@ module.exports = class CnaBOP extends Integration {
 
                 if (fullLocation) {
                     // agency information
-                    locationObj.ItemIdInfo = {AgencyId: {value: `${this.app.agencyLocation.agencyId}`}};
+                    locationObj.ItemIdInfo = {AgencyId: {value: `${this.app.agencyLocation.insurers[this.insurer.id].agencyId}`}};
 
                     // sub location information
                     locationObj.SubLocation = [{...locationObj}];
@@ -840,9 +846,15 @@ module.exports = class CnaBOP extends Integration {
     }
 
     getBuildings() {
+        const buildings = [];
         this.app.applicationDocData.locations.forEach((location, i) => {
             const buildingObj = {
                 Construction: {
+                    BldgArea: {
+                        NumUnits: {
+                            value: location.square_footage
+                        }
+                    },
                     ConstructionCd: [
                         {
                             value: constructionCodes[location.constructionType]
@@ -850,11 +862,6 @@ module.exports = class CnaBOP extends Integration {
                     ],
                     YearBuilt: {
                         value: location.yearBuilt
-                    },
-                    BldgArea: {
-                        NumUnits: {
-                            value: location.square_footage
-                        }
                     },
                     NumStories: {
                         value: location.numStories
@@ -954,17 +961,22 @@ module.exports = class CnaBOP extends Integration {
 
             // Construction question section
             const hasBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.hasBasements");
-            if (hasBasements && hasBasements.answerValue.toLowerCase() === "yes") {
+            if (hasBasements && hasBasements.answerValue === true || hasBasements.answerValue.toLowerCase() === "yes") {
+                console.log("got here 1");
                 const numBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numBasements");
                 if (numBasements) {
+                    console.log("got here 2");
+                    console.log(numBasements.answerValue);
                     const basementsValue = parseInt(numBasements.answerValue, 10);
                     if (!isNaN(basementsValue) && basementsValue !== 0) {
+                        console.log("got here 3");
                         buildingObj.Construction.NumBasements = {
                             value: basementsValue
                         }
     
                         const unfinishedBasementArea = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.unfinishedBasementArea");
                         if (unfinishedBasementArea) {
+                            console.log("got here 4");
                             const unfinishedValue = parseInt(unfinishedBasementArea.answerValue, 10);
                             if (!isNaN(unfinishedValue)) {
                                 buildingObj.Construction["com.cna_UnFinishedBasementArea"] = {
@@ -977,6 +989,7 @@ module.exports = class CnaBOP extends Integration {
     
                         const finishedBasementArea = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.finishedBasementArea");
                         if (finishedBasementArea) {
+                            console.log("got here 5");
                             const finishedValue = parseInt(finishedBasementArea.answerValue, 10);
                             if (!isNaN(finishedValue)) {
                                 buildingObj.Construction["com.cna_FinishedBasementArea"] = {
@@ -992,6 +1005,9 @@ module.exports = class CnaBOP extends Integration {
                             value: 0
                         }
                     }
+                }
+                else {
+                    log.warn(`${logPrefix}Applicant denoted they have basements, but could not find subsequent child questions. Defaulting to 0 on submission.` + __location);
                 }
             }
             else {
@@ -1068,7 +1084,11 @@ module.exports = class CnaBOP extends Integration {
                     }
                 }
             }
+
+            buildings.push(buildingObj);
         });
+
+        return buildings;
     }
 
     // generates the Loss array based off values from claims
@@ -1195,24 +1215,39 @@ module.exports = class CnaBOP extends Integration {
 
     // transform our questions into question objects array to be inserted into the BOP Request Object
     // TODO: Handle Choice Endorsements
-    getQuestions(questions) {
-        return questions.map(question => {
+    getQuestions() {
+        // filter insurer questions down to those matching answered talage questions
+        const answeredQuestionList = [];
+        this.insurerQuestionList.forEach(insurerQuestionDoc => {
+            const talageQuestion = this.app.applicationDocData.questions.find(tq => insurerQuestionDoc._doc.talageQuestionId === tq.questionId);
+
+            if (talageQuestion) {
+                answeredQuestionList.push({
+                    ...talageQuestion,
+                    attributes: insurerQuestionDoc._doc.attributes,
+                    identifier: insurerQuestionDoc.identifier
+                });
+            }
+        });
+
+        return answeredQuestionList.filter(question => !specialCaseQuestions.includes(question.identifier)).map(question => {
+            console.log(question);
             // TODO: Check question.insurerQuestionAttributes to see what the QuestionCd should be
             const questionObj = {
                 "com.cna_QuestionCd": {
-                    value: "dummy_id"
+                    value: question.identifier
                 }
             };
 
             if (explanationQuestions.includes(question.insurerQuestionIdentifier)) {
-                questionObj.YesNoCd = {value: "N/A"};
-                questionObj.Explanation = {value: question.answerValue};
+                questionObj["com.cna_QuestionCd"].YesNoCd = {value: "N/A"};
+                questionObj["com.cna_QuestionCd"].Explanation = {value: question.answerValue};
             }
             else if (question.questionType === "Yes/No") {
-                questionObj.YesNoCd = {value: question.answerValue.toUpperCase()};
+                questionObj["com.cna_QuestionCd"].YesNoCd = {value: question.answerValue.toUpperCase()};
             }
             else {
-                questionObj["com.cna_QuestionCd.cna_OptionCd"] = {value: question.answerValue}
+                questionObj["com.cna_QuestionCd"]["com.cna_OptionCd"] = {value: question.answerValue}
             }
 
             return questionObj;
@@ -1292,7 +1327,7 @@ module.exports = class CnaBOP extends Integration {
         const previousCarrier = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.prevCarrier');
         let yearsWithCarrier = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.yearsWithCarrier');
 
-        if (hadPreviousCarrier && hadPreviousCarrier.answerValue.toLowerCase() === 'no') {
+        if (!hadPreviousCarrier || hadPreviousCarrier.answerValue === false || hadPreviousCarrier.answerValue.toLowerCase() === 'no') {
             return {
                 InsurerName: {
                     value: "None"
@@ -1341,7 +1376,7 @@ module.exports = class CnaBOP extends Integration {
             const coveragesObj = {
                 ItemValueAmt: {
                     Amt: {
-                        value: this.app.applicationDocData.grossSales
+                        value: this.app.applicationDocData.grossSalesAmt
                     }
                 },
                 CommlCoverage: [],
@@ -1428,7 +1463,7 @@ module.exports = class CnaBOP extends Integration {
                 coveragesObj.CommlCoverage.push(coverageObj);
             }
 
-
+            coverages.push(coveragesObj);
         });
 
         return coverages;
@@ -1665,18 +1700,9 @@ module.exports = class CnaBOP extends Integration {
 
     getGLClassifications() {
         return this.app.applicationDocData.locations.map((location, i) => {
-            const grossSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'cna.location.grossSales');
-            let grossSales = 0;
-
-            if (grossSalesQuestion) {
-                grossSales = parseInt(grossSalesQuestion.answerValue, 10);
-
-                if (isNaN(grossSales)) {
-                    log.error(`CNA: Gross Sales amount for location: L${i} is not numeric, failed to parse.` + __location);
-                    grossSales = 0;
-                }
-            }
-
+            console.log("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+            console.log(industryCode);
+            console.log("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
             const glClassificationObj = {
                 ClassCd: {
                     value: industryCode.code
@@ -1688,7 +1714,7 @@ module.exports = class CnaBOP extends Integration {
                     value: this.get_location_payroll(location)
                 },
                 Exposure: {
-                    value: grossSales
+                    value: this.app.applicationDocData.grossSalesAmt
                 },
                 PremiumBasisCd: {
                     value: "GrSales"
