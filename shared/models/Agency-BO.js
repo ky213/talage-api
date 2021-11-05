@@ -599,6 +599,177 @@ module.exports = class AgencyBO {
     }
 
 
+    // ***************************
+    //    For stripped down agency list name and id only
+    //
+    // *************************
+    getNameAndIdList(requestQueryJSON, getAgencyNetwork = false, noActiveCheck = false) {
+        return new Promise(async(resolve, reject) => {
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
+            const queryProjection = {"name":1, "systemId":1};
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = noActiveCheck ? {} : {active:true};
+            let error = null;
+
+            var queryOptions = {};
+            queryOptions.sort = {"createdAt": 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc;
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort;
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 5000;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+            if (queryJSON.count) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+            if(queryJSON.agency_network){
+                query.agencyNetworkId = queryJSON.agency_network;
+                delete queryJSON.systemId;
+            }
+
+            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
+                query.systemId = {$in: queryJSON.systemId};
+                delete queryJSON.systemId;
+            }
+            else if(queryJSON.systemId){
+                query.systemId = queryJSON.systemId;
+                delete queryJSON.systemId;
+            }
+
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId;
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId;
+            }
+            //doNotReport false - So we can search on false
+            if(queryJSON.doNotReport === false){
+                query.doNotReport = false;
+                delete queryJSON.doNotReport;
+            }
+
+            // Old Mysql reference
+            if(queryJSON.agency && Array.isArray(queryJSON.agency)){
+                query.systemId = {$in: queryJSON.agency};
+                delete queryJSON.agency;
+            }
+            else if(queryJSON.agency){
+                query.systemId = queryJSON.agency;
+                delete queryJSON.agency;
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
+                    log.debug("AgencyModel GetList project " + JSON.stringify(queryProjection)+ __location);
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
+                    if(getAgencyNetwork === true){
+                        // eslint-disable-next-line prefer-const
+                        for(let agencyDoc of docList){
+                        // eslint-disable-next-line prefer-const
+                            if (agencyDoc.agencyNetworkId && agencyNetworkList && agencyNetworkList.length > 0) {
+                                try {
+                                    const agencyNetwork = agencyNetworkList.find(agencyNetwork => agencyNetwork.id === agencyDoc.agencyNetworkId);
+                                    agencyDoc.agencyNetworkName = agencyNetwork.name;
+                                }
+                                catch (err) {
+                                    log.error("Error getting agency network name " + err + __location);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(mongoUtils.objListCleanup(docList));
+                return;
+            }
+            else {
+                const docCount = await AgencyModel.countDocuments(query).catch(err => {
+                    log.error("AgencyModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
+        });
+    }
     getById(id, getAgencyNetwork = false, returnDeleted = false) {
         const returnDoc = false;
         return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork, returnDeleted)
