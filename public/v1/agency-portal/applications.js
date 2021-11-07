@@ -1005,6 +1005,68 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
+
+    log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
+    if(req.authentication.agencyNetworkId === 4){
+        resources.appStatusSearchOptions = [
+            {
+                value: '',
+                text: 'All Application Statuses'
+            },
+            {
+                value: 'bound',
+                text: 'Bound'
+            },
+            {
+                value: 'request_to_bind_referred',
+                text: 'Referred Submitted To UW'
+            },
+            {
+                value: 'request_to_bind',
+                text: 'Submitted To UW'
+            },
+            {
+                value: 'quoted',
+                text: 'Quoted'
+            },
+            {
+                value: 'quoted_referred',
+                text: 'Quoted*'
+            },
+            {
+                value: 'acord_emailed',
+                text: 'Acord Emailed'
+            },
+            {
+                value: 'referred',
+                text: 'Referred'
+            },
+            {
+                value: 'declined',
+                text: 'Declined'
+            },
+            {
+                value: 'error',
+                text: 'Error'
+            },
+            {
+                value: 'quoting',
+                text: 'Quoting'
+            },
+            {
+                value: 'questions_done',
+                text: 'Questions Done'
+            },
+            {
+                value: 'incomplete',
+                text: 'Incomplete'
+            },
+            {
+                value: 'dead',
+                text: 'Dead'
+            }
+        ]
+    }
     // return the resources
     res.send(200, resources);
     return next();
