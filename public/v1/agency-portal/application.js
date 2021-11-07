@@ -27,6 +27,7 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 const appLinkCreator = global.requireShared('./services/application-link-svc.js');
@@ -116,6 +117,7 @@ async function getApplication(req, res, next) {
         if(applicationDBDoc){
             applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
         }
+       
     }
     catch(err){
         log.error("Error Getting application doc " + err + __location)
@@ -205,6 +207,10 @@ async function getApplication(req, res, next) {
                 //ucase word
                 const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
                 quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
+            }
+            if(applicationJSON.agencyNetworkId && (quoteJSON.quoteStatusId === quoteStatus.bind_requested.id || quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id)){
+                quoteJSON.status = "Submitted To UW";
+                quoteJSON.displayStatus = 'Submitted To UW';
             }
 
             // can see log?
@@ -404,6 +410,15 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
 
+    //TODO update for customizeable status descriptions
+    try{
+        if(applicationJSON.agencyNetworkId && (applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId || applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+            applicationJSON.status = "submitted_to_uw";
+        }
+    }
+    catch(err){
+        log.error("Application Status processing error " + err + __location)
+    }
     // // owners birthday formatting
     try{
         if(applicationJSON.owners && applicationJSON.owners.length > 0){
