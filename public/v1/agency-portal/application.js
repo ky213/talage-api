@@ -2154,6 +2154,166 @@ async function getOfficerEmployeeTypes(req, res, next){
     return next();
 }
 
+async function manualQuote(req, res, next) {
+    //Double check it is TalageStaff user
+    log.debug("manualQuote request: " + JSON.stringify(req.body))
+   
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'insurerId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'policyType')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'amount')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+
+    //assume uuid input
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDoc = await applicationBO.loadDocfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+    if(applicationDoc){
+        applicationId = applicationDoc.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for bound ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    let passedAgencyCheck = false;
+    if(req.authentication.isAgencyNetworkUser && applicationDoc?.agencyNetworkId === req.authentication.agencyNetworkId){
+        passedAgencyCheck = true;
+    }
+    else {
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            log.error('Error get application getAgents ' + error + __location);
+            return next(error);
+        }   
+        if(agents.includes(applicationDoc?.agencyId)){
+            passedAgencyCheck = true;
+        }
+    }
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+
+    let addQuoteSuccess = false;
+   
+    try {
+
+        //check if application has policyType.
+        let hasPolicyType = false;
+        const policy = applicationDoc.policies.find((pt) => pt.policyType === req.body.policyType)
+    
+        //if not check if valid policyType.
+        if(policy){
+            hasPolicyType = true
+        }
+        else {
+            const policyTypeBO = new PolicyTypeBO();
+            const policyTypeJSON = await policyTypeBO.getByPolicyTypeCd(req.body.policyType)
+            if (policyTypeJSON) {
+                //add policy to application.
+                const policyJSON = {
+                    policyType: req.body.policyType
+                }
+                if(req.body.effectiveDate){
+                    policyJSON.effectiveDate = moment(req.body.effectiveDate)
+                }
+                if(req.body.effectiveDate){
+                    policyJSON.expirationDate = moment(req.body.expirationDate)
+                }
+                if(req.body.limits){
+                    policyJSON.limits = req.body.limits
+                }
+                applicationDoc.policies.push(policyJSON)
+                await applicationDoc.save()
+                hasPolicyType = true;
+            }
+        }
+        if(!hasPolicyType){
+            log.warn(`Manual Quote bad policy type ${req.body.policyType} appId ${req.body.policyType} ` + __location);
+            return next(serverHelper.requestError('Invalid data - policy type. Please check the documentation.'));
+        }
+
+        const quoteJSON = JSON.parse(JSON.stringify(req.body))
+        quoteJSON.isManualQuote = true;
+        quoteJSON.log = "Manual Quote";
+        quoteJSON.agencyId = applicationDoc.agencyId
+        quoteJSON.agencyNetworkId = applicationDoc.agencyNetworkId;
+        quoteJSON.quotedPremium = quoteJSON.amount;
+        quoteJSON.quoteStatusId = quoteStatus.quoted.id
+        quoteJSON.quoteStatusDescription = quoteStatus.quoted.description
+        if(quoteJSON.bound){
+            quoteJSON.quoteStatusId = quoteStatus.bound.id
+            quoteJSON.quoteStatusDescription = quoteStatus.bound.description
+        }
+        //direct to mongose model
+        var QuoteModel = require('mongoose').model('Quote');
+        const quoteDoc = new QuoteModel(quoteJSON);
+        await quoteDoc.save()
+        //update application metrics
+        applicationBO.recalculateQuoteMetrics(applicationId)
+        addQuoteSuccess = true
+    }
+
+    catch (err) {
+        // We Do not pass error object directly to Client - May cause info leak.
+        log.error(`Error Manual Quote for application ${applicationId ? applicationId : ''}: ${err}` + __location);
+        res.send({'message': "Failed To Saved failed"});
+        return next();
+    }
+
+    // Send back bound for both request, mark and API binds.
+    if(addQuoteSuccess){
+        res.send(200, {"saved": true});
+    }
+    else {
+        res.send({'message': "Saved failed"});
+    }
+
+    return next();
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -2162,6 +2322,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
+    server.addPostAuth('POST Add Manual Quote for Application', `${basePath}/application/:id/quote`, manualQuote, 'applications', 'manage');
 
     server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
 
