@@ -672,5 +672,5 @@ async function getAgencyLocationAndReferrList(req, res, next){
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get reports', `${basePath}/reports`, wrapAroundExpress, 'dashboard', 'view');
-    server.addGetAuth('Get reports', `${basePath}/reports/agencyLocationsAndReferrersSelection`, getAgencyLocationAndReferrList, 'dashboard', 'view');
+    server.addGetAuth('Get reports', `${basePath}/reports/agency-locations-referrers`, getAgencyLocationAndReferrList, 'dashboard', 'view');
 };

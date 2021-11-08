@@ -600,7 +600,7 @@ module.exports = class AgencyBO {
 
 
     // ***************************
-    //    For stripped down agency list name and id only
+    //    Copied same as getList, except removed network list and hardcoded query projection
     //
     // *************************
     getNameAndIdList(requestQueryJSON, noActiveCheck = false) {
@@ -613,8 +613,8 @@ module.exports = class AgencyBO {
 
             const queryProjection =
                 {
-                    "name":1,
-                    "systemId":1
+                    "name": 1,
+                    "systemId": 1
                 };
 
             let findCount = false;
