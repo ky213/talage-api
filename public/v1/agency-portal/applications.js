@@ -18,6 +18,7 @@ const Quote = mongoose.model('Quote');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 /**
  * Validates the parameters for the applications call
@@ -247,6 +248,10 @@ async function getApplications(req, res, next){
             "name": 'searchText',
             "type": 'string'
         },
+        // {
+        //     "name": 'searchApplicationStatusId',
+        //     "type": 'number'
+        // },
         {
             "name": 'searchApplicationStatus',
             "type": 'string',
@@ -699,6 +704,10 @@ async function getApplications(req, res, next){
         orClauseArray.push(status);
     }
 
+    if (req.params.searchApplicationStatusId){
+        query.appStatusId = req.params.searchApplicationStatusId;
+    }
+
     // eslint-disable-next-line prefer-const
     let requestParms = JSON.parse(JSON.stringify(req.params));
 
@@ -733,6 +742,10 @@ async function getApplications(req, res, next){
             }
             else {
                 application.location = "";
+            }
+            //TODO update when customizeable status description are done.
+            if(application.agencyNetworkId && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+                application.status = "submitted_to_uw";
             }
         }
 
@@ -992,6 +1005,68 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
+
+    log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
+    if(req.authentication.agencyNetworkId === 4){
+        resources.appStatusSearchOptions = [
+            {
+                value: '',
+                text: 'All Application Statuses'
+            },
+            {
+                value: 'bound',
+                text: 'Bound'
+            },
+            {
+                value: 'request_to_bind_referred',
+                text: 'Referred Submitted To UW'
+            },
+            {
+                value: 'request_to_bind',
+                text: 'Submitted To UW'
+            },
+            {
+                value: 'quoted',
+                text: 'Quoted'
+            },
+            {
+                value: 'quoted_referred',
+                text: 'Quoted*'
+            },
+            {
+                value: 'acord_emailed',
+                text: 'Acord Emailed'
+            },
+            {
+                value: 'referred',
+                text: 'Referred'
+            },
+            {
+                value: 'declined',
+                text: 'Declined'
+            },
+            {
+                value: 'error',
+                text: 'Error'
+            },
+            {
+                value: 'quoting',
+                text: 'Quoting'
+            },
+            {
+                value: 'questions_done',
+                text: 'Questions Done'
+            },
+            {
+                value: 'incomplete',
+                text: 'Incomplete'
+            },
+            {
+                value: 'dead',
+                text: 'Dead'
+            }
+        ]
+    }
     // return the resources
     res.send(200, resources);
     return next();
