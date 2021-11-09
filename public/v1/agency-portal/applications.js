@@ -706,9 +706,9 @@ async function getApplications(req, res, next){
         const status = {status: req.params.searchApplicationStatus}
         orClauseArray.push(status);
     }
-
-    if (req.params.searchApplicationStatusId != null){
-        query.appStatusId = req.params.searchApplicationStatusId;
+    
+    if (req.params && Object.prototype.hasOwnProperty.call(req.params, 'searchApplicationStatusId') && req.params.searchApplicationStatusId !== null){
+        query.appStatusId = parseInt(req.params.searchApplicationStatusId, 10);
     }
 
     // eslint-disable-next-line prefer-const
