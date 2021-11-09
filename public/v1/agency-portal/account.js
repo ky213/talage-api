@@ -126,7 +126,7 @@ async function put_account(req, res, next){
     }
     try{
         //req.userTokenData.userId
-        const newJson = {id:  parseInt(req.authentication.userID,10)};
+        const newJson = {id: parseInt(req.authentication.userID, 10)};
         if(req.body.email){
             newJson.email = req.body.email
         }
@@ -139,7 +139,6 @@ async function put_account(req, res, next){
 
         const agencyPortalUserBO = new AgencyPortalUserBO();
         await agencyPortalUserBO.saveModel(newJson);
-
     }
     catch(err){
         log.error(err.message + __location);
@@ -148,13 +147,81 @@ async function put_account(req, res, next){
 
     // Create and run the UPDATE query
 
-
     // Everything went okay, send a success response
     res.send(200, 'Account Updated');
+    return next();
+}
+
+/**
+ * Responds to PUT requests updating account preferences
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function putAccountPreferences(req, res, next){
+    // Check for data
+    if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
+        log.warn('No data was received');
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    if(!req.body.tableOptions || !req.body.tableOptions.applicationsTable || !req.body.tableOptions.agenciesTable){
+        log.warn('No valid data was received');
+        return next(serverHelper.requestError('No valid data was received'));
+    }
+
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const agencyPortalUserJSON = await agencyPortalUserBO.getById(parseInt(req.authentication.userID, 10)).catch(function(err){
+        log.error(err.message);
+        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+    });
+
+    const newPreferences = {
+        id: parseInt(req.authentication.userID, 10),
+        tableOptions: agencyPortalUserJSON.tableOptions ? agencyPortalUserJSON.tableOptions : {}
+    };
+
+    try{
+        // applicationsTable
+        if(!newPreferences.tableOptions.applicationsTable){
+            newPreferences.tableOptions.applicationsTable = {};
+        }
+        if(req.body.tableOptions.applicationsTable?.hasOwnProperty("compactMode")){
+            newPreferences.tableOptions.applicationsTable.compactMode = req.body.tableOptions.applicationsTable.compactMode;
+        }
+        if(req.body.tableOptions.applicationsTable?.hasOwnProperty("rowsPerPage")){
+            newPreferences.tableOptions.applicationsTable.rowsPerPage = req.body.tableOptions.applicationsTable.rowsPerPage;
+        }
+
+        // agenciesTable
+        if(!newPreferences.tableOptions.agenciesTable){
+            newPreferences.tableOptions.agenciesTable = {};
+        }
+        if(req.body.tableOptions.agenciesTable?.hasOwnProperty("compactMode")){
+            newPreferences.tableOptions.agenciesTable.compactMode = req.body.tableOptions.agenciesTable.compactMode;
+        }
+        if(req.body.tableOptions.agenciesTable?.hasOwnProperty("rowsPerPage")){
+            newPreferences.tableOptions.agenciesTable.rowsPerPage = req.body.tableOptions.agenciesTable.rowsPerPage;
+        }
+
+    }
+    catch(err){
+        log.error(err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+    }
+
+    await agencyPortalUserBO.saveModel(newPreferences);
+
+    // Everything went okay, send a success response
+    res.send(200, 'Account Preferences Updated');
     return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get account', `${basePath}/account`, get_account);
     server.addPutAuth('Update account', `${basePath}/account`, put_account);
+    server.addPutAuth('Update account preferences', `${basePath}/account-preferences`, putAccountPreferences);
 };
