@@ -344,7 +344,7 @@ module.exports = class AcuityWC extends Integration {
                 //     "riskId": "string",
                 //     "experienceModEffectiveDate": "string"
                 // },
-                "eligibility": {},
+                "eligibility": {"numberEmployeesPerShift": numberEmployeesPerShift},
                 //     "hoursOfOperation": [
                 //         "OP10PM  No later than 10 pm",
                 //         "OP24HRS 24 Hours",

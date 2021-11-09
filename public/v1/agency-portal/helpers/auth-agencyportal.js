@@ -118,16 +118,16 @@ exports.validateJWT = async function(req, permission, permissionType) {
 
 
         // Check if older JWT with old properties
-        if (req.authentication.isAgencyNetworkUser && typeof req.authentication.agencyNetwork !== 'number') {
-            req.authentication.isAgencyNetworkUser = req.authentication.agencyNetwork
-        }
-        else if(req.authentication.isAgencyNetworkUser && typeof req.authentication.agencyNetwork === 'number'){
-            req.authentication.isAgencyNetworkUser = true;
-        }
+        // if (req.authentication.isAgencyNetworkUser && typeof req.authentication.agencyNetwork !== 'number') {
+        //     req.authentication.isAgencyNetworkUser = req.authentication.agencyNetwork
+        // }
+        // else if(req.authentication.isAgencyNetworkUser && typeof req.authentication.agencyNetwork === 'number'){
+        //     req.authentication.isAgencyNetworkUser = true;
+        // }
 
-        if(req.authentication.agencyNetworkId && typeof req.authentication.agencyNetwork === 'number'){
-            req.authentication.agencyNetworkId = req.authentication.agencyNetwork;
-        }
+        // if(req.authentication.agencyNetworkId && typeof req.authentication.agencyNetwork === 'number'){
+        //     req.authentication.agencyNetworkId = req.authentication.agencyNetwork;
+        // }
 
         // Make sure the agencyNetwork is what we are expecting
         if (req.authentication.isAgencyNetworkUser === true && typeof req.authentication.agencyNetworkId !== 'number') {

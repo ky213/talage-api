@@ -115,6 +115,8 @@ const QuoteSchema = new Schema({
     policyInfo: PolicySchema,
     quotingStartedDate: {type: Date},
     productDesc: {type: String},
+    isManualQuote: {type: Boolean, default: false},
+    addUser: {type: String},
     active: {type: Boolean, default: true}
 });
 

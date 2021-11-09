@@ -9,7 +9,7 @@ const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
-
+var AgencyModel = require('mongoose').model('Agency');
 
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
@@ -243,10 +243,27 @@ async function getAgency(req, res, next) {
         }
     }
 
+    // decorate with info if can be set to prime agency, if we find an agency that is part of this network and is set we
+    // know that we can not set any other agency to prime
+    // otherwise we can set this agency to prime if we choose to do so, assuming other conditions met (handled by UI, i.e. feature turned on)
+    const query = {
+        agencyNetworkId: req.authentication.agencyNetworkId,
+        primaryAgency: true
+    }
+    try {
+        const agencyObj = await AgencyModel.findOne(query, '-__v');
+        if(agencyObj === null){
+            agency.canBeSetToPrimaryAgency = true;
+        }
+        else {
+            agency.canBeSetToPrimaryAgency = false;
+        }
+    }
+    catch (err) {
+        log.error(`Agency Model findOne resulted in error for query ${query} error "  ${err}  ${__location}`);
+    }
     // Build the response
     const response = {...agency};
-    //log.debug('Get Agency ' + JSON.stringify(response))
-
     // Return the response
     res.send(200, response);
     return next();

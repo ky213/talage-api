@@ -25,6 +25,7 @@ const {
     validateAgencyLocation,
     validateBusiness,
     validatePolicies,
+    validateBOPPolicies,
     validateQuestion,
     validateContacts,
     validateLocations,
@@ -1321,6 +1322,16 @@ module.exports = class Application {
             catch (e) {
                 return reject(new Error(`Failed validating policy: ${e}`));
             }
+            //validateBOPPolicies
+            if(this.has_policy_type('BOP')){
+                try {
+                    validateBOPPolicies(this.applicationDocData, this.insurers, logValidationErrors);
+                }
+                catch (e) {
+                    return reject(new Error(`Failed validating BOP policy: ${e}`));
+                }
+            }
+
 
             // Validate all of the questions
             if (this.applicationDocData.questions) {
