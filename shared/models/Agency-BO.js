@@ -599,6 +599,133 @@ module.exports = class AgencyBO {
     }
 
 
+    // ***************************
+    //    Copied same as getList, except removed network list and hardcoded query projection
+    //
+    // *************************
+    getNameAndIdList(requestQueryJSON, noActiveCheck = false) {
+        return new Promise(async(resolve, reject) => {
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
+            const queryProjection =
+                {
+                    "name": 1,
+                    "systemId": 1
+                };
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = noActiveCheck ? {} : {active:true};
+            let error = null;
+
+            var queryOptions = {};
+            queryOptions.sort = {"name": 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc;
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort;
+            }
+            const queryLimit = 10000;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+            if (queryJSON.count) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId;
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId;
+            }
+            //doNotReport false - So we can search on false
+            if(queryJSON.doNotReport === false){
+                query.doNotReport = false;
+                delete queryJSON.doNotReport;
+            }
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(mongoUtils.objListCleanup(docList));
+                return;
+            }
+            else {
+                const docCount = await AgencyModel.countDocuments(query).catch(err => {
+                    log.error("AgencyModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+        });
+    }
+
     getById(id, getAgencyNetwork = false, returnDeleted = false) {
         const returnDoc = false;
         return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork, returnDeleted)
