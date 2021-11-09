@@ -811,9 +811,21 @@ async function applicationCopy(req, res, next) {
         const propsToRemove = ["_id", "id", "applicationId", "uuid", "mysqlId", "createdAt"];
         for(let i = 0; i < propsToRemove.length; i++){
             if(newApplicationDoc[propsToRemove[i]]){
-                delete newApplicationDoc[propsToRemove[i]]
+                delete newApplicationDoc[propsToRemove[i]];
             }
         }
+
+        // for cross sell, change the policy and effective date to the ones passed through
+        if(req.body.crossSellCopy === true || req.body.crossSellCopy === "true"){
+            if(req.body.policyType && req.body.effectiveDate){
+                newApplicationDoc.policies = [{
+                    policyType: req.body.policyType,
+                    effectiveDate: req.body.effectiveDate
+                }];
+            }
+            newApplicationDoc.claims = [];
+        }
+
         //default back not pre quoting for mysql State.
         newApplicationDoc.processStateOld = 1;
 
