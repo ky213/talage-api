@@ -546,7 +546,7 @@ async function getReports(req) {
         }
     }
 
-    log.debug("Where " + JSON.stringify(where))
+    // log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     // backward compatibility, make sure behavior doesn't break cached UI
     let reportsInfoAndAgency = false;
