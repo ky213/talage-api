@@ -77,7 +77,9 @@ function generateCSV(applicationList){
             'referred': 'Referred',
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
-            'wholesale': 'Wholesale'
+            'wholesale': 'Wholesale',
+            'out_of_market': 'Out Of Market',
+            'dead': 'Dead'
         };
 
         // If no data was returned, stop and alert the user
@@ -248,10 +250,11 @@ async function getApplications(req, res, next){
             "name": 'searchText',
             "type": 'string'
         },
-        // {
-        //     "name": 'searchApplicationStatusId',
-        //     "type": 'number'
-        // },
+        {
+            "name": 'searchApplicationStatusId',
+            "type": 'number',
+            "optional": true
+        },
         {
             "name": 'searchApplicationStatus',
             "type": 'string',
@@ -704,7 +707,7 @@ async function getApplications(req, res, next){
         orClauseArray.push(status);
     }
 
-    if (req.params.searchApplicationStatusId){
+    if (req.params.searchApplicationStatusId != null){
         query.appStatusId = req.params.searchApplicationStatusId;
     }
 
@@ -733,6 +736,7 @@ async function getApplications(req, res, next){
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
+        log.debug(`QUERY: ${JSON.stringify(requestParms, null, 2)}`);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
@@ -1005,68 +1009,202 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
+    let appStatusSearchOptions = [
+        {
+            text: "All Application Statuses",
+            value: null
+        },
+        {
+            text: "Incomplete",
+            value: 0
+        },
+        {
+            text: "Out Of Market",
+            value: 4
+        },
+        {
+            text: "Wholesale",
+            value: 5
+        },
+        {
+            text: "Questions Done",
+            value: 10
+        },
+        {
+            text: "Quoting",
+            value: 15
+        },
+        {
+            text: "Error",
+            value: 20
+        },
+        {
+            text: "Declined",
+            value: 30
+        },
+        {
+            text: "Referred",
+            value: 40
+        },
+        {
+            text: "Acord Emailed",
+            value: 45
+        },
+        {
+            text: "Quoted*",
+            value: 50
+        },
+        {
+            text: "Quoted",
+            value: 60
+        },
+        {
+            text: "Dead",
+            value: 65
+        },
+        {
+            text: "Request To Bind",
+            value: 70
+        },
+        {
+            text: "Request To Bind*",
+            value: 80
+        },
+        {
+            text: "Bound",
+            value: 90
+        }
+    ];
 
     log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
     if(req.authentication.agencyNetworkId === 4){
-        resources.appStatusSearchOptions = [
+        // resources.appStatusSearchOptions = [
+        //     {
+        //         value: '',
+        //         text: 'All Application Statuses'
+        //     },
+        //     {
+        //         value: 'bound',
+        //         text: 'Bound'
+        //     },
+        //     {
+        //         value: 'request_to_bind_referred',
+        //         text: 'Referred Submitted To UW'
+        //     },
+        //     {
+        //         value: 'request_to_bind',
+        //         text: 'Submitted To UW'
+        //     },
+        //     {
+        //         value: 'quoted',
+        //         text: 'Quoted'
+        //     },
+        //     {
+        //         value: 'quoted_referred',
+        //         text: 'Quoted*'
+        //     },
+        //     {
+        //         value: 'acord_emailed',
+        //         text: 'Acord Emailed'
+        //     },
+        //     {
+        //         value: 'referred',
+        //         text: 'Referred'
+        //     },
+        //     {
+        //         value: 'declined',
+        //         text: 'Declined'
+        //     },
+        //     {
+        //         value: 'error',
+        //         text: 'Error'
+        //     },
+        //     {
+        //         value: 'quoting',
+        //         text: 'Quoting'
+        //     },
+        //     {
+        //         value: 'questions_done',
+        //         text: 'Questions Done'
+        //     },
+        //     {
+        //         value: 'incomplete',
+        //         text: 'Incomplete'
+        //     },
+        //     {
+        //         value: 'dead',
+        //         text: 'Dead'
+        //     }
+        // ]
+        appStatusSearchOptions = [
             {
-                value: '',
-                text: 'All Application Statuses'
+                text: "All Application Statuses",
+                value: null
             },
             {
-                value: 'bound',
-                text: 'Bound'
+                text: "Incomplete",
+                value: 0
             },
             {
-                value: 'request_to_bind_referred',
-                text: 'Referred Submitted To UW'
+                text: "Out Of Market",
+                value: 4
+            },
+            // {
+            //     text: "Wholesale", // commenting out for networkId 4, can we need this in the future?
+            //     value: 5
+            // },
+            {
+                text: "Questions Done",
+                value: 10
             },
             {
-                value: 'request_to_bind',
-                text: 'Submitted To UW'
+                text: "Quoting",
+                value: 15
             },
             {
-                value: 'quoted',
-                text: 'Quoted'
+                text: "Error",
+                value: 20
             },
             {
-                value: 'quoted_referred',
-                text: 'Quoted*'
+                text: "Declined",
+                value: 30
             },
             {
-                value: 'acord_emailed',
-                text: 'Acord Emailed'
+                text: "Referred",
+                value: 40
             },
             {
-                value: 'referred',
-                text: 'Referred'
+                text: "Acord Emailed",
+                value: 45
             },
             {
-                value: 'declined',
-                text: 'Declined'
+                text: "Quoted*",
+                value: 50
             },
             {
-                value: 'error',
-                text: 'Error'
+                text: "Quoted",
+                value: 60
             },
             {
-                value: 'quoting',
-                text: 'Quoting'
+                text: "Dead",
+                value: 65
             },
             {
-                value: 'questions_done',
-                text: 'Questions Done'
+                text: 'Submitted To UW', // different than the default list
+                value: 70
             },
             {
-                value: 'incomplete',
-                text: 'Incomplete'
+                text: "Referred Submitted To UW", // different than the default list
+                value: 80
             },
             {
-                value: 'dead',
-                text: 'Dead'
+                text: "Bound",
+                value: 90
             }
         ]
     }
+    resources.appStatusSearchOptions = appStatusSearchOptions;
+
     // return the resources
     res.send(200, resources);
     return next();
