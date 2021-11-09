@@ -12,6 +12,13 @@
  */
 const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
+
+// Add global helpers to load shared modules
+global.sharedPath = require('path').join(__dirname, 'shared');
+global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
+global.rootPath = require('path').join(__dirname, '/');
+global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
+
 const emailSvc = global.requireShared('./services/emailsvc.js');
 
 
