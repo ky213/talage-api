@@ -823,6 +823,7 @@ async function applicationCopy(req, res, next) {
                     effectiveDate: req.body.effectiveDate
                 }];
             }
+            newApplicationDoc.claims = [];
         }
 
         //default back not pre quoting for mysql State.
