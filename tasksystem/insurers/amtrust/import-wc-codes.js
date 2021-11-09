@@ -12,6 +12,7 @@
  */
 const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 
 
 //
@@ -360,6 +361,30 @@ async function CodeImport() {
     log.info(logPrefix + `- ${updateIacCount} updates to AmTrust codes `);
     log.info(logPrefix + `- Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC `);
     log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
+
+    //send email with the above stats to integrations@talageins.com
+    if(amtrustAddCodes.length > 0){
+        //trigger to send email since codes were addeded
+        const sendResult = false;
+        const sendMessage = `
+            <div>
+            ${amtrustAddCodes.length} new IAC records to AmTrust codes
+            ${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes
+            ${updateIacCount} updates to AmTrust codes
+            Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC 
+            IAC Straight Expired Processed ${iacExpiredCount}
+            </div>
+        `
+        try{
+            sendResult = await emailSvc.send('carlo+esend@talageins.com','New Codes were Added to AmTrust',sendMessage);
+            if(!sendResult){
+                console.log('An error occured when sending notification. Please contact us for details');
+            }
+        }
+        catch(err) {
+            console.log('error-sending email :', err);
+        }
+    }
 
     return amtrustClassCodeMap;
 }
