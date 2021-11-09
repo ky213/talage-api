@@ -736,7 +736,6 @@ async function getApplications(req, res, next){
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
-        log.debug(`QUERY: ${JSON.stringify(requestParms, null, 2)}`);
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
