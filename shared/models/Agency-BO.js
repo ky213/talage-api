@@ -625,7 +625,7 @@ module.exports = class AgencyBO {
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {"createdAt": 1};
+            queryOptions.sort = {"name": 1};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
@@ -635,12 +635,7 @@ module.exports = class AgencyBO {
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
             }
-            else {
-                // default to DESC on sent
-                queryOptions.sort.createdAt = -1;
-
-            }
-            const queryLimit = 5000;
+            const queryLimit = 10000;
             if (queryJSON.limit) {
                 var limitNum = parseInt(queryJSON.limit, 10);
                 delete queryJSON.limit
@@ -666,19 +661,6 @@ module.exports = class AgencyBO {
                 }
                 delete queryJSON.count;
             }
-            if(queryJSON.agency_network){
-                query.agencyNetworkId = queryJSON.agency_network;
-                delete queryJSON.systemId;
-            }
-
-            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
-                query.systemId = {$in: queryJSON.systemId};
-                delete queryJSON.systemId;
-            }
-            else if(queryJSON.systemId){
-                query.systemId = queryJSON.systemId;
-                delete queryJSON.systemId;
-            }
 
             if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
                 query.agencyId = {$in: queryJSON.agencyId};
@@ -693,17 +675,6 @@ module.exports = class AgencyBO {
                 query.doNotReport = false;
                 delete queryJSON.doNotReport;
             }
-
-            // Old Mysql reference
-            if(queryJSON.agency && Array.isArray(queryJSON.agency)){
-                query.systemId = {$in: queryJSON.agency};
-                delete queryJSON.agency;
-            }
-            else if(queryJSON.agency){
-                query.systemId = queryJSON.agency;
-                delete queryJSON.agency;
-            }
-
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -721,13 +692,10 @@ module.exports = class AgencyBO {
                 }
             }
 
-
             if (findCount === false) {
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    log.debug("AgencyModel GetList project " + JSON.stringify(queryProjection) + __location);
                     docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
                 }
                 catch (err) {

@@ -250,7 +250,7 @@ const getAgencyList = async(where,isAgencyNetworkUser, nameAndIdOnly = false) =>
     }
     if(goodQuery){
         //log.debug(`agencyQuery: ${JSON.stringify(agencyQuery)} `)
-        // backward compatibility
+        // backward compatibility if nameAndIdOnly then grab using new functionality else the whole doc
         let agencyList = null;
         if(nameAndIdOnly){
             agencyList = await agencyBO.getNameAndIdList(agencyQuery).catch(err => {
@@ -637,14 +637,17 @@ async function getAgencyLocationAndReferrList(req, res, next){
         log.info('Bad Request: You must specify an agencyId');
         return next(serverHelper.requestError('You must specify a agencyId'));
     }
-    let agencyID = null;
+    const where = {
+        active: true
+    }
     if(req.authentication.isAgencyNetworkUser && req.query.agencyId){
-        agencyID = parseInt(req.query.agencyId, 10);
+        where.agencyId = parseInt(req.query.agencyId, 10);
+        where.agencyNetworkId = req.authentication.agencyNetworkId;
     }
     else {
         const agencyIdList = req.authentication.agents;
         if(agencyIdList.length > 0){
-            agencyID = agencyIdList[0];
+            where.agencyId = agencyIdList[0];
         }
         else {
             log.error(`Error while trying to retrieve agency info from req.authentication.agents ${req.authentication.agents} ${__location}`);
@@ -652,10 +655,6 @@ async function getAgencyLocationAndReferrList(req, res, next){
     }
     let agencyLocationList = [];
     let referrerList = [];
-    const where = {
-        active: true,
-        agencyId: agencyID
-    }
     try {
         agencyLocationList = await getAgencyLocationList(where);
         referrerList = await getReferredList(where);
