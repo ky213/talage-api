@@ -26,8 +26,12 @@ exports.processtask = async function(queueMessage){
     var now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 1800){
+        let messageBody = queueMessage.Body;
+        if(typeof queueMessage.Body === 'string'){
+            messageBody = JSON.parse(queueMessage.Body)
+        }
 
-        await agencyReportTask().catch(err => error = err);
+        await agencyReportTask(messageBody).catch(err => error = err);
         if(error){
             log.error("Error agencyReportTask " + error + __location);
         }
@@ -66,12 +70,24 @@ exports.taskProcessorExternal = async function(){
     return;
 }
 
-var agencyReportTask = async function(){
+var agencyReportTask = async function(taskBodyJSON){
 
     const fortyFiveDaysAgo = moment().tz("America/Los_Angeles").subtract(45,"d").startOf('d').toDate();
     const forteenDaysAgo = moment().tz("America/Los_Angeles").subtract(14,"d").startOf('d').toDate();
-    log.debug(`fortyFiveDaysAgo ${fortyFiveDaysAgo}`)
-    log.debug(`forteenDaysAgo ${forteenDaysAgo}`)
+    let deadbeatReport = false;
+    if(taskBodyJSON.deadBeat){
+        deadbeatReport = true
+    }
+    const deadBeatCuttOff = moment('2010-01-01').tz("America/Los_Angeles").subtract(1,"months").startOf('month').toDate();
+    const deadBeatAppCuttOff = moment().tz("America/Los_Angeles").subtract(1,"months").startOf('month').toDate();
+    const deadBeatAppCuttOffEnd = moment().tz("America/Los_Angeles").subtract(1,"months").endOf('month').toDate();
+
+    // log.debug(`fortyFiveDaysAgo ${fortyFiveDaysAgo}`)
+    // log.debug(`forteenDaysAgo ${forteenDaysAgo}`)
+
+    // log.debug(`deadBeatCuttOff ${deadBeatCuttOff}`)
+    // log.debug(`deadBeatAppCuttOff ${deadBeatAppCuttOff}`)
+
 
     const Application = require('mongoose').model('Application');
     const Agency = require('mongoose').model('Agency');
@@ -79,67 +95,108 @@ var agencyReportTask = async function(){
 
     let agencyList = [];
     try{
-        const pipline = [
-            {$match: {
-                agencyNetworkId: 1,
-                active: true,
-                agencyId: {$nin: [42,44]},
-                createdAt: {$gte: fortyFiveDaysAgo}
-            }},
-            {$group: {
-                _id: {agencyId: '$agencyId'},
-                maxAppDate: {$max: "$createdAt"}
-            }},
-            {"$replaceRoot": {"newRoot": {"$mergeObjects": ["$_id", {"maxAppDate": "$maxAppDate"}]}}},
-            {$match: {maxAppDate: {$lte: forteenDaysAgo}}},
-            {$sort: {'maxAppDate': -1}}
-        ];
+        if(!deadbeatReport){
+            const pipline = [
+                {$match: {
+                    agencyNetworkId: 1,
+                    active: true,
+                    agencyId: {$nin: [42,44]},
+                    createdAt: {$gte: fortyFiveDaysAgo}
+                }},
+                {$group: {
+                    _id: {agencyId: '$agencyId'},
+                    maxAppDate: {$max: "$createdAt"}
+                }},
+                {"$replaceRoot": {"newRoot": {"$mergeObjects": ["$_id", {"maxAppDate": "$maxAppDate"}]}}},
+                {$match: {maxAppDate: {$lte: forteenDaysAgo}}},
+                {$sort: {'maxAppDate': -1}}
+            ];
 
-        const agencyFellOffList = await Application.aggregate(pipline);
-        for (const aggJSON of agencyFellOffList){
-            //get Agency records
-            // eslint-disable-next-line prefer-const
-            let agencyJSON = await agencyBO.getById(aggJSON.agencyId);
-            if(agencyJSON){
-                agencyJSON.lastAppDt = moment_timezone(aggJSON.maxAppDate).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            const agencyFellOffList = await Application.aggregate(pipline);
+            for (const aggJSON of agencyFellOffList){
+                //get Agency records
+                // eslint-disable-next-line prefer-const
+                let agencyJSON = await agencyBO.getById(aggJSON.agencyId);
+                if(agencyJSON){
+                    agencyJSON.lastAppDt = moment_timezone(aggJSON.maxAppDate).tz('America/Los_Angeles').format('YYYY-MM-DD');
+                    agencyJSON.created = moment_timezone(agencyJSON.createdAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
+                    agencyList.push(agencyJSON);
+                }
+            }
+
+            const pipline2 = [
+                {$match: {
+                    agencyNetworkId: 1,
+                    active: true,
+                    createdAt: {$gte: fortyFiveDaysAgo},
+                    systemId: {$nin: [42,44]}
+                }},
+                {$lookup:
+                    {
+                        from: "applications",
+                        let: {agencyId: "$systemId"},
+                        pipeline: [
+                            {$match:
+                            {$expr:
+                            {$and:
+                                [
+                                    {$eq: ["$agencyId", "$$agencyId"]}, {$gte: ["$createdAt", forteenDaysAgo]}
+                                ]}}}, {$project: {
+                                createdAt: 1,
+                                applicationId: 1
+                            }}
+                        ],
+                        as: "apps"
+                    }},
+                {$match: {apps: {$size: 0}}},
+                {$sort: {'createdAt': -1}}
+            ];
+            const agencyNoAppsList = await Agency.aggregate(pipline2);
+            for (let agencyJSON of agencyNoAppsList){
+                //get Agency records
+                agencyJSON.lastAppDt = "No Apps";
                 agencyJSON.created = moment_timezone(agencyJSON.createdAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
                 agencyList.push(agencyJSON);
             }
         }
-
-        const pipline2 = [
-            {$match: {
-                agencyNetworkId: 1,
-                active: true,
-                createdAt: {"$gte": fortyFiveDaysAgo},
-                systemId: {"$nin": [42,44]}
-            }},
-            {$lookup:
-                {
-                    from: "applications",
-                    let: {agencyId: "$systemId"},
-                    pipeline: [
-                        {$match:
-                        {$expr:
-                        {$and:
-                            [
-                                {$eq: ["$agencyId", "$$agencyId"]}, {$gte: ["$createdAt", fortyFiveDaysAgo]}
-                            ]}}}, {$project: {
-                            createdAt: 1,
-                            applicationId: 1
-                        }}
-                    ],
-                    as: "apps"
+        else {
+            const pipline2 = [
+                {$match: {
+                    agencyNetworkId: 1,
+                    active: true,
+                    createdAt: {$gte: deadBeatCuttOff},
+                    systemId: {$nin: [42,44]}
                 }},
-            {$match: {apps: {$size: 0}}},
-            {$sort: {'createdAt': -1}}
-        ];
-        const agencyNoAppsList = await Agency.aggregate(pipline2);
-        for (let agencyJSON of agencyNoAppsList){
-            //get Agency records
-            agencyJSON.lastAppDt = "No Apps";
-            agencyJSON.created = moment_timezone(agencyJSON.createdAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
-            agencyList.push(agencyJSON);
+                {$lookup:
+                    {
+                        from: "applications",
+                        let: {agencyId: "$systemId"},
+                        pipeline: [
+                            {$match:
+                            {$expr:
+                            {$and:
+                                [
+                                    {$eq: ["$agencyId", "$$agencyId"]},
+                                    {$gte: ["$createdAt", deadBeatAppCuttOff]},
+                                    {$lte: ["$createdAt", deadBeatAppCuttOffEnd]}
+                                ]}}}, {$project: {
+                                createdAt: 1,
+                                applicationId: 1
+                            }}
+                        ],
+                        as: "apps"
+                    }},
+                {$match: {apps: {$size: 0}}},
+                {$sort: {'createdAt': -1}}
+            ];
+            log.debug(`pipline2 ${JSON.stringify(pipline2)}`)
+            const agencyNoAppsList = await Agency.aggregate(pipline2);
+            for (let agencyJSON of agencyNoAppsList){
+                //get Agency records
+                agencyJSON.lastAppDt = "No Apps";
+                agencyJSON.created = moment_timezone(agencyJSON.createdAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
+                agencyList.push(agencyJSON);
+            }
         }
     }
     catch(err){
@@ -182,16 +239,26 @@ var agencyReportTask = async function(){
             // send email
             // Production email goes to Adam.
             // non production Brian so we can test it.
+            let fileName = 'AgencyInactvityReport-14Day.csv'
+            if(deadbeatReport){
+                fileName = `AgencyInactvityReport-${moment_timezone(deadBeatAppCuttOff).tz('America/Los_Angeles').format('MMM YYYY')}.csv`;
+            }
 
             const attachmentJson = {
                 'content': csvContent,
-                'filename': 'AgencyInactvityReport.csv',
+                'filename': fileName,
                 'type': 'text/csv',
                 'disposition': 'attachment'
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Agency Inactivity Report', 'Agencies with no applications in last 14 days.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
+            let subject = 'Agency 45 Day Inactivity Report';
+            let emailBody = 'Agencies with no applications in last 14 days.'
+            if(deadbeatReport){
+                subject = `Agency Inactivity in ${moment_timezone(deadBeatAppCuttOff).tz('America/Los_Angeles').format('MMM, YYYY')} Report`
+                emailBody = `Agencies with no applications in  ${moment_timezone(deadBeatAppCuttOff).tz('America/Los_Angeles').format('MMM, YYYY')}.`
+            }
+            const emailResp = await emailSvc.send(toEmail, subject, emailBody, {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
             if(emailResp === false){
                 slack.send('#alerts', 'warning',`The system failed to send Agency Inactivity Report email.`);
             }
