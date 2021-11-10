@@ -39,7 +39,7 @@ function validateParameters(parent, expectedParameters){
             return false;
         }
         const parameterValue = parent[expectedParameter.name];
-        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
+        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue) && expectedParameter.optional !== true){
             log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
@@ -248,8 +248,7 @@ async function getApplications(req, res, next){
         },
         {
             "name": 'searchText',
-            "type": 'string',
-            "optional": true
+            "type": 'string'
         },
         {
             "name": 'searchApplicationStatusId',
@@ -272,7 +271,8 @@ async function getApplications(req, res, next){
                 "questions_done",
                 "incomplete",
                 'error',
-                'dead']
+                'dead'],
+            "optional": true
         },
         {
             "name": 'startDate',
@@ -701,14 +701,13 @@ async function getApplications(req, res, next){
         log.error("AP get App list error " + err + __location);
     }
 
-
     // Add a application status search clause if requested
     if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
         const status = {status: req.params.searchApplicationStatus}
         orClauseArray.push(status);
     }
-    
-    if (req.params && Object.prototype.hasOwnProperty.call(req.params, 'searchApplicationStatusId') && req.params.searchApplicationStatusId !== null){
+
+    if (req.params && Object.prototype.hasOwnProperty.call(req.params,'searchApplicationStatusId') && req.params.searchApplicationStatusId >= 0){
         query.appStatusId = parseInt(req.params.searchApplicationStatusId, 10);
     }
 
@@ -1012,7 +1011,7 @@ async function getApplicationsResources(req, res, next){
     let appStatusSearchOptions = [
         {
             text: "All Application Statuses",
-            value: null
+            value: -1
         },
         {
             text: "Incomplete",
@@ -1139,7 +1138,7 @@ async function getApplicationsResources(req, res, next){
         appStatusSearchOptions = [
             {
                 text: "All Application Statuses",
-                value: null
+                value: -1
             },
             {
                 text: "Incomplete",
