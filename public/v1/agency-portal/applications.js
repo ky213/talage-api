@@ -248,7 +248,8 @@ async function getApplications(req, res, next){
         },
         {
             "name": 'searchText',
-            "type": 'string'
+            "type": 'string',
+            "optional": true
         },
         {
             "name": 'searchApplicationStatusId',
