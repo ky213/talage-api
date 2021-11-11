@@ -139,7 +139,7 @@ const ownerSchema = new Schema({
 // issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
     ip: { type: String, required: true, default: "0.0.0.0" },
-    version: { type: Number, required: true, default: "-1" }
+    version: { type: Number, required: true, default: -1 }
 });
 
 const claimSchema = new Schema({
