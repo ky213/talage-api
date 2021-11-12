@@ -1009,7 +1009,7 @@ async function getApplicationsResources(req, res, next){
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
 
-    let appStatusSearchByIdOptions = [
+    let appStatusIdSearchOptions = [
         {
             text: "All Application Statuses",
             value: -1
@@ -1137,7 +1137,7 @@ async function getApplicationsResources(req, res, next){
                 text: 'Dead'
             }
         ]
-        appStatusSearchByIdOptions = [
+        appStatusIdSearchOptions = [
             {
                 text: "All Application Statuses",
                 value: -1
@@ -1204,7 +1204,7 @@ async function getApplicationsResources(req, res, next){
             }
         ]
     }
-    resources.appStatusSearchByIdOptions = appStatusSearchByIdOptions;
+    resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources
     res.send(200, resources);
     return next();
