@@ -2,8 +2,6 @@
 /* eslint-disable object-property-newline */
 const Bind = require('../bind');
 const axios = require('axios');
-const moment = require('moment');
-const {FSx} = require('aws-sdk');
 
 
 class GreatAmericanBind extends Bind {
@@ -99,6 +97,17 @@ class GreatAmericanBind extends Bind {
 
         if (submitResponse) {
             if (submitResponse.newBusiness?.workflowControl.toLowerCase().trim() === 'submitted') {
+                this.policyId = this.quote.requestId;
+                if (submitResponse.submission.quotes[0].policyNumber) {
+                    this.policyNumber = submitResponse.submission.quotes[0].policyNumber;
+                }
+                if (submitResponse.submission.quotes[0].policyEffectiveDate) {
+                    this.policyEffectiveDate = submitResponse.submission.quotes[0].policyEffectiveDate;
+                }
+                if (this.quote.quotedPremium) {
+                    this.policyPremium = this.quote.quotedPremium;
+                }
+
                 this.quote.log += `--------======= Bind Response =======--------<br><br>`;
                 this.quote.log += `<pre>${JSON.stringify(submitResponse, null, 2)}</pre>`;
                 this.quote.log += `--------======= Bind request ACCEPTED =======--------<br><br>`;
