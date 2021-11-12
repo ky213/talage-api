@@ -39,7 +39,7 @@ function validateParameters(parent, expectedParameters){
             return false;
         }
         const parameterValue = parent[expectedParameter.name];
-        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
+        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue) && expectedParameter.optional !== true){
             log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
@@ -77,7 +77,9 @@ function generateCSV(applicationList){
             'referred': 'Referred',
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
-            'wholesale': 'Wholesale'
+            'wholesale': 'Wholesale',
+            'out_of_market': 'Out Of Market',
+            'dead': 'Dead'
         };
 
         // If no data was returned, stop and alert the user
@@ -248,10 +250,11 @@ async function getApplications(req, res, next){
             "name": 'searchText',
             "type": 'string'
         },
-        // {
-        //     "name": 'searchApplicationStatusId',
-        //     "type": 'number'
-        // },
+        {
+            "name": 'searchApplicationStatusId',
+            "type": 'number',
+            "optional": true
+        },
         {
             "name": 'searchApplicationStatus',
             "type": 'string',
@@ -268,7 +271,8 @@ async function getApplications(req, res, next){
                 "questions_done",
                 "incomplete",
                 'error',
-                'dead']
+                'dead'],
+            "optional": true
         },
         {
             "name": 'startDate',
@@ -697,15 +701,14 @@ async function getApplications(req, res, next){
         log.error("AP get App list error " + err + __location);
     }
 
-
     // Add a application status search clause if requested
     if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
         const status = {status: req.params.searchApplicationStatus}
         orClauseArray.push(status);
     }
 
-    if (req.params.searchApplicationStatusId){
-        query.appStatusId = req.params.searchApplicationStatusId;
+    if (req.params && Object.prototype.hasOwnProperty.call(req.params,'searchApplicationStatusId') && req.params.searchApplicationStatusId >= 0){
+        query.appStatusId = parseInt(req.params.searchApplicationStatusId, 10);
     }
 
     // eslint-disable-next-line prefer-const
@@ -1005,9 +1008,24 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
+    const appStatusIdSearchOptions = [
+        {
+            text: "All Application Statuses",
+            value: -1
+        }
+    ];
 
+    for(const property in applicationStatus){
+        if(property){
+            const applicationStatusObj = applicationStatus[property];
+            if(applicationStatusObj.hasOwnProperty("appStatusId") && applicationStatusObj.hasOwnProperty("appStatusText")){
+                appStatusIdSearchOptions.push({text: applicationStatusObj.appStatusText, value: applicationStatusObj.appStatusId});
+            }
+        }
+    }
     log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
     if(req.authentication.agencyNetworkId === 4){
+        // backward compatibility, can remove next sprint
         resources.appStatusSearchOptions = [
             {
                 value: '',
@@ -1066,7 +1084,23 @@ async function getApplicationsResources(req, res, next){
                 text: 'Dead'
             }
         ]
+        // change request to bind and request to bind* to custom text
+        const changeList = [{text: 'Submitted To UW', value: 70}, {text: "Referred Submitted To UW", value: 80}];
+        for(let i = 0; i < changeList.length; i++){
+            const appStatusId = changeList[i].value;
+            const index = appStatusIdSearchOptions.findIndex(option => option.value === appStatusId);
+            if(index > -1){
+                appStatusIdSearchOptions[index].text = changeList[i].text;
+            }
+        }
+        // remove wholesale
+        const wholesaleStatusId = 5;
+        const wholesaleIndex = appStatusIdSearchOptions.findIndex(option => option.value === wholesaleStatusId);
+        if(wholesaleIndex > -1){
+            appStatusIdSearchOptions.splice(wholesaleIndex, 1);
+        }
     }
+    resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources
     res.send(200, resources);
     return next();
