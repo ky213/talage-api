@@ -747,7 +747,7 @@ async function getApplications(req, res, next){
                 application.location = "";
             }
             //TODO update when customizeable status description are done.
-            if(application.agencyNetworkId && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+            if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
                 application.status = "submitted_to_uw";
             }
         }

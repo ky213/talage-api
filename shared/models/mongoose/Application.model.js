@@ -36,7 +36,7 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
-    activityCodeId: {type: Number, required: true},
+    activityCodeId: {type: Number, required: false},
     ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false},
@@ -44,7 +44,7 @@ const ActivtyCodeEmployeeTypeSchema = new Schema({
 })
 
 const ActivtyCodePayrollSchema = new Schema({
-    activityCodeId: {type: Number, required: true},
+    activityCodeId: {type: Number, required: false},
     ncciCode: {type: Number, required: false},
     payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false}
@@ -138,8 +138,8 @@ const ownerSchema = new Schema({
 //IP required false in case we do not get it or maybe copying an old app.
 // issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: false},
-    version: {type: Number, required: true}
+    ip: { type: String, required: true, default: "0.0.0.0" },
+    version: { type: Number, required: true, default: -1 }
 });
 
 const claimSchema = new Schema({

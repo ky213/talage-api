@@ -111,11 +111,17 @@ const policiesEnabled = async(resources, applicationDB) => {
                     log.error(`Could not get agency location for agencyLocationId ${applicationDB.agencyLocationId} ` + err.message + __location);
                     error = err;
                 });
-                if(locationObj && locationObj.insurers && locationObj.insurers.length > 0){
+                // Still need to check if a primary agency if being used.
+                // If so swap out the locationobj.insurers for the primary agency's location.insurers
+                if (locationObj.useAgencyPrime === true){
+                    const primaryInsurerList = await agencyLocationBO.getAgencyPrimeInsurers(locationObj.agencyId,locationObj.agencyNetworkId)
+                    locationObj.insurers = primaryInsurerList;
+                }
+                if (locationObj && locationObj.insurers && locationObj.insurers.length > 0) {
                     // grab all the insurers
                     const locationInsurers = locationObj.insurers;
                     // for each insurer go through the list of policy type object
-                    getPoliciesPerInsurer(locationInsurers, defaultEnabledPolicies, enabledPoliciesSet);
+                    getPoliciesPerInsurer(locationInsurers,defaultEnabledPolicies,enabledPoliciesSet);
                 }
             }
             else {
