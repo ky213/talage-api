@@ -1008,74 +1008,21 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
-
-    let appStatusIdSearchOptions = [
+    const appStatusIdSearchOptions = [
         {
             text: "All Application Statuses",
             value: -1
-        },
-        {
-            text: "Incomplete",
-            value: 0
-        },
-        {
-            text: "Out Of Market",
-            value: 4
-        },
-        {
-            text: "Wholesale",
-            value: 5
-        },
-        {
-            text: "Questions Done",
-            value: 10
-        },
-        {
-            text: "Quoting",
-            value: 15
-        },
-        {
-            text: "Error",
-            value: 20
-        },
-        {
-            text: "Declined",
-            value: 30
-        },
-        {
-            text: "Referred",
-            value: 40
-        },
-        {
-            text: "Acord Emailed",
-            value: 45
-        },
-        {
-            text: "Quoted*",
-            value: 50
-        },
-        {
-            text: "Quoted",
-            value: 60
-        },
-        {
-            text: "Dead",
-            value: 65
-        },
-        {
-            text: "Request To Bind",
-            value: 70
-        },
-        {
-            text: "Request To Bind*",
-            value: 80
-        },
-        {
-            text: "Bound",
-            value: 90
         }
     ];
 
+    for(const property in applicationStatus){
+        if(property){
+            const applicationStatusObj = applicationStatus[property];
+            if(applicationStatusObj.hasOwnProperty("appStatusId") && applicationStatusObj.hasOwnProperty("appStatusText")){
+                appStatusIdSearchOptions.push({text: applicationStatusObj.appStatusText, value: applicationStatusObj.appStatusId});
+            }
+        }
+    }
     log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
     if(req.authentication.agencyNetworkId === 4){
         // backward compatibility, can remove next sprint
@@ -1137,72 +1084,21 @@ async function getApplicationsResources(req, res, next){
                 text: 'Dead'
             }
         ]
-        appStatusIdSearchOptions = [
-            {
-                text: "All Application Statuses",
-                value: -1
-            },
-            {
-                text: "Incomplete",
-                value: 0
-            },
-            {
-                text: "Out Of Market",
-                value: 4
-            },
-            // {
-            //     text: "Wholesale", // commenting out for networkId 4, can we need this in the future?
-            //     value: 5
-            // },
-            {
-                text: "Questions Done",
-                value: 10
-            },
-            {
-                text: "Quoting",
-                value: 15
-            },
-            {
-                text: "Error",
-                value: 20
-            },
-            {
-                text: "Declined",
-                value: 30
-            },
-            {
-                text: "Referred",
-                value: 40
-            },
-            {
-                text: "Acord Emailed",
-                value: 45
-            },
-            {
-                text: "Quoted*",
-                value: 50
-            },
-            {
-                text: "Quoted",
-                value: 60
-            },
-            {
-                text: "Dead",
-                value: 65
-            },
-            {
-                text: 'Submitted To UW', // different than the default list
-                value: 70
-            },
-            {
-                text: "Referred Submitted To UW", // different than the default list
-                value: 80
-            },
-            {
-                text: "Bound",
-                value: 90
+        // change request to bind and request to bind* to custom text
+        const changeList = [{text: 'Submitted To UW', value: 70}, {text: "Referred Submitted To UW", value: 80}];
+        for(let i = 0; i < changeList.length; i++){
+            const appStatusId = changeList[i].value;
+            const index = appStatusIdSearchOptions.findIndex(option => option.value === appStatusId);
+            if(index > -1){
+                appStatusIdSearchOptions[index].text = changeList[i].text;
             }
-        ]
+        }
+        // remove wholesale
+        const wholesaleStatusId = 5;
+        const wholesaleIndex = appStatusIdSearchOptions.findIndex(option => option.value === wholesaleStatusId);
+        if(wholesaleIndex > -1){
+            appStatusIdSearchOptions.splice(wholesaleIndex, 1);
+        }
     }
     resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources
