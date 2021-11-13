@@ -47,6 +47,7 @@ const featureSchema = new Schema({
     appSingleQuotePath: {type: Boolean, required: true, default: false},
     enableAgencyCodeField: {type: Boolean, required: true, default: false},
     quickQuoteOnly: {type: Boolean, required: true, default: false},
+    enableAgencyLevelFaqEdit: {type: Boolean, required: true, default: true},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
