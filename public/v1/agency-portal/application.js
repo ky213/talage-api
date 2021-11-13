@@ -225,11 +225,17 @@ async function getApplication(req, res, next) {
             //Insurer
             if(insurerList){
                 const insurer = insurerList.find(insurertest => insurertest.id === quoteJSON.insurerId);
-                // i.logo,
-                //i.name as insurerName,
-                quoteJSON.logo = insurer.logo
-                quoteJSON.insurerName = insurer.name
-                quoteJSON.website = insurer.website
+                if(insurer){
+                    // i.logo,
+                    //i.name as insurerName,
+                    quoteJSON.logo = insurer.logo
+                    quoteJSON.insurerName = insurer.name
+                    quoteJSON.website = insurer.website
+                }
+                else {
+                    log.error(`Error Quote insurer ${quoteJSON.insurerId} not found in database for Application GET  appId ${applicationJSON.applicationId}` + __location);
+                    quoteJSON.insurerName = "unknown";
+                }
             }
             //policyType
             if(policyTypeList){
@@ -543,20 +549,26 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 
     //add industry description
-    const industryCodeBO = new IndustryCodeBO();
-    try{
-        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
-        if(industryCodeJson){
-            applicationJSON.industryCodeName = industryCodeJson.description;
-            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
-            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.industryCodeCategoryId);
-            if(industryCodeCategoryJson){
-                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
+    if(applicationJSON.industryCode){
+        const industryCodeBO = new IndustryCodeBO();
+        try{
+            const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+            if(industryCodeJson){
+                applicationJSON.industryCodeName = industryCodeJson.description;
+                const industryCodeCategoryBO = new IndustryCodeCategoryBO()
+                const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.industryCodeCategoryId);
+                if(industryCodeCategoryJson){
+                    applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
+                }
             }
         }
+        catch(err){
+            log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
+        }
     }
-    catch(err){
-        log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
+    else {
+        applicationJSON.industryCodeName = "";
+        applicationJSON.industryCodeCategory = "";
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
@@ -811,9 +823,21 @@ async function applicationCopy(req, res, next) {
         const propsToRemove = ["_id", "id", "applicationId", "uuid", "mysqlId", "createdAt"];
         for(let i = 0; i < propsToRemove.length; i++){
             if(newApplicationDoc[propsToRemove[i]]){
-                delete newApplicationDoc[propsToRemove[i]]
+                delete newApplicationDoc[propsToRemove[i]];
             }
         }
+
+        // for cross sell, change the policy and effective date to the ones passed through
+        if(req.body.crossSellCopy === true || req.body.crossSellCopy === "true"){
+            if(req.body.policyType && req.body.effectiveDate){
+                newApplicationDoc.policies = [{
+                    policyType: req.body.policyType,
+                    effectiveDate: req.body.effectiveDate
+                }];
+            }
+            newApplicationDoc.claims = [];
+        }
+
         //default back not pre quoting for mysql State.
         newApplicationDoc.processStateOld = 1;
 

@@ -234,10 +234,9 @@ const getPremium = async(where) => {
     };
 }
 
-const getAgencyList = async(where,isAgencyNetworkUser) => {
+const getAgencyList = async(where,isAgencyNetworkUser, nameAndIdOnly = false) => {
     const agencyBO = new AgencyBO()
     let agencyQuery = {active: true};
-
     //This should be manditory to have either agencyNetworkId or agencyID
     // otherwise we could leak an agency list between agencyNetworks.
     let goodQuery = false;
@@ -251,9 +250,18 @@ const getAgencyList = async(where,isAgencyNetworkUser) => {
     }
     if(goodQuery){
         //log.debug(`agencyQuery: ${JSON.stringify(agencyQuery)} `)
-        const agencyList = await agencyBO.getList(agencyQuery).catch(err => {
-            log.error(`Report agencyList error ${err}`)
-        });
+        // backward compatibility if nameAndIdOnly then grab using new functionality else the whole doc
+        let agencyList = null;
+        if(nameAndIdOnly){
+            agencyList = await agencyBO.getNameAndIdList(agencyQuery).catch(err => {
+                log.error(`Report agencyList getNameAndIdList error ${err} ${__location}`);
+            });
+        }
+        else {
+            agencyList = await agencyBO.getList(agencyQuery).catch(err => {
+                log.error(`Report agencyList error ${err}`)
+            });
+        }
         if(agencyList && agencyList.length > 0){
             let agencyDisplayList = [];
             if(isAgencyNetworkUser && where.agencyNetworkId === 1){
@@ -538,20 +546,34 @@ async function getReports(req) {
         }
     }
 
-    //log.debug("Where " + JSON.stringify(where))
+    // log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
+    // backward compatibility, make sure behavior doesn't break cached UI
+    let reportsInfoAndAgency = false;
+    if(req.query.agencyNameAndIdOnly === 'true' || req.query.agencyNameAndIdOnly === true){
+        reportsInfoAndAgency = true;
+    }
     if (initialRequest) {
         //get list of agencyIds for agencyNetwork.
         //get list of agencyLocations
         //get list of agencyLandingpages.
-
-        return {
-            minDate: await getMinDate(where),
-            hasApplications: await hasApplications(where) ? 1 : 0,
-            "agencyList": await getAgencyList(where, req.authentication.isAgencyNetworkUser),
-            "agencyLocationList": await getAgencyLocationList(where),
-            "referrerList": await getReferredList(where)
-        };
+        if(reportsInfoAndAgency === true){
+            const nameAndIdOnly = true;
+            return {
+                minDate: await getMinDate(where),
+                hasApplications: await hasApplications(where) ? 1 : 0,
+                agencyList: await getAgencyList(where, req.authentication.isAgencyNetworkUser, nameAndIdOnly)
+            };
+        }
+        else {
+            return {
+                minDate: await getMinDate(where),
+                hasApplications: await hasApplications(where) ? 1 : 0,
+                "agencyList": await getAgencyList(where, req.authentication.isAgencyNetworkUser),
+                "agencyLocationList": await getAgencyLocationList(where),
+                "referrerList": await getReferredList(where)
+            };
+        }
     }
     else {
         log.debug(`Report where ${JSON.stringify(where)}` + __location);
@@ -594,6 +616,60 @@ async function wrapAroundExpress(req, res, next) {
     }
 }
 
+/**
+ * Responds to get requests for the agency location and referrer list
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyLocationAndReferrList(req, res, next){
+    log.debug(`authentication: ${JSON.stringify(req.authentication, null, 2)}`)
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+        log.info('Bad Request: Query parameters missing for getAgencyLocationAndReferrerList' + __location);
+        return next(serverHelper.requestError('Query parameters missing'));
+    }
+
+    // Check for required parameters
+    if (!Object.prototype.hasOwnProperty.call(req.query, 'agencyId') || !req.query.agencyId) {
+        log.info('Bad Request: You must specify an agencyId');
+        return next(serverHelper.requestError('You must specify a agencyId'));
+    }
+    const where = {
+        active: true
+    }
+    if(req.authentication.isAgencyNetworkUser && req.query.agencyId){
+        where.agencyId = parseInt(req.query.agencyId, 10);
+        where.agencyNetworkId = req.authentication.agencyNetworkId;
+    }
+    else {
+        const agencyIdList = req.authentication.agents;
+        if(agencyIdList.length > 0){
+            where.agencyId = agencyIdList[0];
+        }
+        else {
+            log.error(`Error while trying to retrieve agency info from req.authentication.agents ${req.authentication.agents} ${__location}`);
+        }
+    }
+    let agencyLocationList = [];
+    let referrerList = [];
+    try {
+        agencyLocationList = await getAgencyLocationList(where);
+        referrerList = await getReferredList(where);
+    }
+    catch (err) {
+        log.error(`Error while trying to retrieve agency locations and referrerList Error: ${err} ${__location}`);
+    }
+    const data = {
+        'agencyLocationList': agencyLocationList,
+        'referrerList': referrerList
+    }
+    res.send(200, data);
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get reports', `${basePath}/reports`, wrapAroundExpress, 'dashboard', 'view');
+    server.addGetAuth('Get reports', `${basePath}/reports/agency-locations-referrers`, getAgencyLocationAndReferrList, 'dashboard', 'view');
 };

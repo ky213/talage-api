@@ -30,7 +30,8 @@ async function getbyId(req, res, next) {
     let error = false;
     //santize id.
     const id = stringFunctions.santizeNumber(req.params.id, true);
-    if (!id) {
+    log.debug(`id ${id}`)
+    if (!id || id < 1) {
         return next(new Error("bad parameter"));
     }
 
@@ -49,24 +50,28 @@ async function getbyId(req, res, next) {
     if (error) {
         return next(error);
     }
+    const query = {"systemId": id};
+    log.debug(`query ${JSON.stringify(query)}`)
+    const agencyLocationBO = new AgencyLocationBO();
+    const locationJSON = await agencyLocationBO.getById(id, false);
 
-
-    // Determine the agency ID
-    //const agencyList = req.authentication.agents;
     const agencyList = await auth.getAgents(req).catch(function(e){
         error = e;
     });
     if (error){
         return next(error);
     }
-
+    if(agencyList.indexOf(locationJSON.agencyId) === -1){
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency Location not found'));
+    }
+    query.agencyId = locationJSON.agencyId;
     // Initialize an agency object
-    const agencyLocationBO = new AgencyLocationBO();
 
     // Load the request data into it
     //const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
     // eslint-disable-next-line object-curly-newline
-    const query = {"systemId": id, agencyId: agencyList};
+
     log.debug("AL GET query: " + JSON.stringify(query));
     const getAgencyName = true;
     const loadChildren = true;

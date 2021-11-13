@@ -6,21 +6,21 @@
 const { quoteStatus } = require('./quoteStatus.js');
 
 const applicationStatus = {
-    incomplete: { appStatusId: 0, appStatusDesc: 'incomplete' },
-    outOfMarket: { appStatusId: 4, appStatusDesc: "out_of_market" },
-    wholesale: { appStatusId: 5, appStatusDesc: 'wholesale'},
-    questionsDone: { appStatusId: 10, appStatusDesc: 'questions_done' },
-    quoting: { appStatusId: 15, appStatusDesc: 'quoting' },
-    error: { appStatusId: 20, appStatusDesc: 'error' },
-    declined: { appStatusId: 30, appStatusDesc: 'declined' },
-    referred: { appStatusId: 40, appStatusDesc: 'referred' },
-    acordEmailed: { appStatusId: 45, appStatusDesc: 'acord_emailed' },
-    quotedReferred: { appStatusId: 50, appStatusDesc: 'quoted_referred' },
-    quoted: { appStatusId: 60, appStatusDesc: 'quoted' },
-    dead: { appStatusId: 65, appStatusDesc: 'dead' },
-    requestToBind: { appStatusId: 70, appStatusDesc: 'request_to_bind' },
-    requestToBindReferred: { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' },
-    bound: { appStatusId: 90, appStatusDesc: 'bound' }
+    incomplete: { appStatusId: 0, appStatusDesc: 'incomplete', appStatusText: 'Incomplete'},
+    outOfMarket: { appStatusId: 4, appStatusDesc: "out_of_market", appStatusText: 'Out Of Market'},
+    wholesale: { appStatusId: 5, appStatusDesc: 'wholesale', appStatusText: 'Wholesale'},
+    questionsDone: { appStatusId: 10, appStatusDesc: 'questions_done', appStatusText: 'Questions Done'},
+    quoting: { appStatusId: 15, appStatusDesc: 'quoting', appStatusText: 'Quoting'},
+    error: { appStatusId: 20, appStatusDesc: 'error', appStatusText: 'Error'},
+    declined: { appStatusId: 30, appStatusDesc: 'declined', appStatusText: 'Declined'},
+    referred: { appStatusId: 40, appStatusDesc: 'referred',appStatusText: 'Referred'},
+    acordEmailed: { appStatusId: 45, appStatusDesc: 'acord_emailed', appStatusText: 'Acord Emailed'},
+    quotedReferred: { appStatusId: 50, appStatusDesc: 'quoted_referred', appStatusText: 'Quoted*'},
+    quoted: { appStatusId: 60, appStatusDesc: 'quoted', appStatusText: 'Quoted'},
+    dead: { appStatusId: 65, appStatusDesc: 'dead', appStatusText: 'Dead'},
+    requestToBind: { appStatusId: 70, appStatusDesc: 'request_to_bind', appStatusText: 'Request To Bind'},
+    requestToBindReferred: { appStatusId: 80, appStatusDesc: 'request_to_bind_referred', appStatusText: 'Request To Bind*'},
+    bound: { appStatusId: 90, appStatusDesc: 'bound', appStatusText: 'Bound'}
 }
 
 /**
