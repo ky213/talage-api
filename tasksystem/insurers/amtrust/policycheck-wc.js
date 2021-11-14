@@ -47,15 +47,19 @@ async function processQuoteList(quoteJSONList,sendSlackMessage){
         else if(quoteJSONList.agencyId === currentAgencyId){
             updateAuth = false;
         }
+        try{
+            if(updateAuth){
+                currentAgencyId = applicationJSON.agencyId
+                currentAgencyNetworkId = applicationJSON.agencyNetworkId;
+                log.info(`Amtrust Policycheck Getting new auth Token ` + __location)
+                await amtrust.authorize(applicationJSON.agencyNetworkId, applicationJSON.agencyId, applicationJSON.agencyLocationId);
+            }
 
-        if(updateAuth){
-            currentAgencyId = applicationJSON.agencyId
-            currentAgencyNetworkId = applicationJSON.agencyNetworkId;
-            log.info(`Amtrust Policycheck Getting new auth Token ` + __location)
-            await amtrust.authorize(applicationJSON.agencyNetworkId, applicationJSON.agencyId, applicationJSON.agencyLocationId);
+            await getQuotePolicy(quoteJSON.quoteId, sendSlackMessage)
         }
-
-        await getQuotePolicy(quoteJSON.quoteId, sendSlackMessage)
+        catch(err){
+            log.error(`AmTrust policycheck error ${err} ` + __location);
+        }
 
 
     }
