@@ -182,10 +182,10 @@ function generateCSV(applicationList){
             else{
                 applicationDoc.status = 'Unknown';
             }
-            if(applicationDoc.renewal === true){
-                applicationDoc.renewal = "Yes";
-            }
-            applicationDoc.appValue = getAppValueString(applicationDoc);
+            // if(applicationDoc.renewal === true){
+            //     applicationDoc.renewal = "Yes";
+            // }
+            // applicationDoc.appValue = getAppValueString(applicationDoc);
 
             const createdAtMoment = moment(applicationDoc.createdAt)
             applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
@@ -798,10 +798,8 @@ async function getApplications(req, res, next){
             if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
                 application.status = "submitted_to_uw";
             }
-            if(application.renewal === true){
-                application.renewal = "Yes"
-            }
 
+            application.renewal = application.renewal === true ? "Yes" : "";
             application.appValue = getAppValueString(application);
 
         }
