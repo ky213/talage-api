@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
@@ -51,6 +52,42 @@ function validateParameters(parent, expectedParameters){
     return true;
 }
 
+/**
+ * calculates application value from metrics
+ * @param {object} applicationDoc - The list of parameters to validate
+ * @return {string} empty string or formated application value
+ */
+function getAppValueString(applicationDoc){
+    if(applicationDoc.metrics){
+        var formatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+            // These options are needed to round to whole numbers if that's what you want.
+            //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+            //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+        });
+        let appValueDollars = 0;
+        // eslint-disable-next-line no-unused-vars
+        const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
+        for(let i = 0; i < productTypeList.length; i++){
+            if(applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]){
+                appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
+            }
+            else if (applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]){
+                appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
+            }
+        }
+        if(appValueDollars > 0){
+            return formatter.format(appValueDollars);
+        }
+        else {
+            return "";
+        }
+    }
+    else {
+        return "";
+    }
+}
 
 /**
  * Generate a CSV file of exported application data
@@ -107,6 +144,7 @@ function generateCSV(applicationList){
             applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
             applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
 
+
             //Get Primary Location
             const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
             if(primaryLocation){
@@ -144,6 +182,11 @@ function generateCSV(applicationList){
             else{
                 applicationDoc.status = 'Unknown';
             }
+            if(applicationDoc.renewal === true){
+                applicationDoc.renewal = "Yes";
+            }
+            applicationDoc.appValue = getAppValueString(applicationDoc);
+
             const createdAtMoment = moment(applicationDoc.createdAt)
             applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
 
@@ -158,6 +201,7 @@ function generateCSV(applicationList){
             'businessName': 'Business Name',
             'dba': 'DBA',
             'status': 'Application Status',
+            'appValue': 'Application Value',
             'agencyName': 'Agency',
             'referrer': 'Source',
             'mailingAddress': 'Mailing Address',
@@ -174,6 +218,8 @@ function generateCSV(applicationList){
             'entityType': 'Entity Type',
             'einClear': 'EIN',
             'website': 'Website',
+            'renewal': 'renewal',
+            'tag': "tag",
             'createdString' : 'Created (UTC)'
         };
 
@@ -595,9 +641,11 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.toLowerCase();
 
         const businessName = {businessName: `%${req.params.searchText}%`}
+        const tag = {tag: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
+        orClauseArray.push(tag);
 
         const mailingCity = {mailingCity: `%${req.params.searchText}%`}
         orClauseArray.push(mailingCity);
@@ -750,6 +798,12 @@ async function getApplications(req, res, next){
             if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
                 application.status = "submitted_to_uw";
             }
+            if(application.renewal === true){
+                application.renewal = "Yes"
+            }
+
+            application.appValue = getAppValueString(application);
+
         }
 
     }

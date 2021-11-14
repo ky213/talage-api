@@ -1687,8 +1687,9 @@ module.exports = class ApplicationModel {
                         mailingZipcode: 1,
                         handledByTalage: 1,
                         policies: 1,
-                        quotingStartedDate: 1
-
+                        quotingStartedDate: 1,
+                        renewal: 1,
+                        metrics: 1
                     };
                     if(requestParms.format === 'csv'){
                         //get full document
