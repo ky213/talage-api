@@ -175,7 +175,7 @@ async function makeRequest(method, url, params = null, data = null, options = nu
     }
     catch (error) {
         if(error.response){
-            log.error(`AmTrust Error: ${error.response.status} ${error.response.statusText}` + __location);
+            log.error(`AmTrust Error: ${error.response.status} ${error.response.statusText} ${method} url ${url} params ${params} data ${data}` + __location);
         }
         return {
             error: error,
