@@ -7,6 +7,7 @@ let accessToken = "";
 let credentials = null;
 
 async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
+    accessToken = "";
     //get Amtrust insurer.
     var InsurerModel = require('mongoose').model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
@@ -62,8 +63,16 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
         credentials = JSON.parse(insurer.test_password);
     }
     const amtrustAL = agencyLocDoc.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+    if(!amtrustAL?.agentId){
+        log.error(`agencyLocationId ${agencyLocationId} missing Amtrust credentials` + __location)
+        return null;
+    }
     const agentUserNamePassword = amtrustAL.agentId.trim();
     const commaIndex = agentUserNamePassword.indexOf(',');
+    if(commaIndex === -1){
+        log.error(`agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
+        return null;
+    }
     const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
     const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
 
@@ -95,15 +104,21 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
     if (response.data.error) {
         log.error(`${response.data.error} : ${response.data.error_message}` + __location);
     }
-    if (!response.data.access_token) {
+    if (!response.data?.access_token) {
         log.error(`Unable to find the access_token property` + __location);
+        return null;
     }
-    accessToken = response.data.access_token;
-
-    return accessToken;
+    else {
+        accessToken = response.data.access_token;
+        return accessToken;
+    }
 }
 
 async function callAPI(method, endpoint, queryParameters = null, data = null) {
+    if(!accessToken){
+        return null;
+    }
+
     const requestOptions = {headers: {
         "Content-type": "application/json",
         "Authorization": `Bearer ${accessToken}`,

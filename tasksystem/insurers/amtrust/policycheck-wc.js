@@ -52,7 +52,11 @@ async function processQuoteList(quoteJSONList,sendSlackMessage){
                 currentAgencyId = applicationJSON.agencyId
                 currentAgencyNetworkId = applicationJSON.agencyNetworkId;
                 log.info(`Amtrust Policycheck Getting new auth Token ` + __location)
-                await amtrust.authorize(applicationJSON.agencyNetworkId, applicationJSON.agencyId, applicationJSON.agencyLocationId);
+                const checkToken = await amtrust.authorize(applicationJSON.agencyNetworkId, applicationJSON.agencyId, applicationJSON.agencyLocationId);
+                if(!checkToken){
+                    log.info(`Amtrust Policycheck Could not retrieving Auth token for applicationId: ${applicationJSON.applicationId} agency ${applicationJSON.agencyId}` + __location);
+                    continue;
+                }
             }
 
             await getQuotePolicy(quoteJSON.quoteId, sendSlackMessage)
@@ -81,7 +85,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
             const requestPath = `/api/v1/policies?quote=${quoteDoc.quoteNumber}`
             const policyData = await amtrust.callAPI("GET", requestPath, null);
             if (!policyData || policyData.StatusCode !== 200) {
-                log.info(`Amtrust Policycheck Could not retrieving quote policy for quoteId ${quoteId}` + __location);
+                log.info(`Amtrust Policycheck Could not retrieving quote policy for applicationId: ${quoteDoc.applicationId}  quoteId ${quoteId}` + __location);
                 return null;
             }
             if(policyData.Data && policyData.Data.length > 0){
