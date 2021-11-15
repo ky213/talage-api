@@ -43,6 +43,11 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
                 const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
                 if(agencyLocationPrime){
                     agencyLocationId = agencyLocationPrime.systemId;
+                    //is Amtrust talageWholeSale
+                    const amtrustAL = agencyLocationPrime.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+                    if(amtrustAL?.talageWholesale){
+                        agencyLocationId = 1;
+                    }
                 }
             }
         }
@@ -132,7 +137,7 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
 }
 
 async function callAPI(method, endpoint, queryParameters = null, data = null) {
-    if(!accessToken){
+    if(!accessToken || accessToken === ""){
         return null;
     }
 
