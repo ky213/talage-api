@@ -40,7 +40,8 @@ let industryCode = null;
 const specialCaseQuestions = [
     "cna.general.prevCarrier",
     "cna.general.yearsWithCarrier",
-    "cna.general.havePrevCarrier"
+    "cna.general.havePrevCarrier",
+    "cna.general.yearsManagementExp"
 ];
 
 const lossTypes = [
@@ -53,6 +54,47 @@ const lossTypes = [
     "Water",
     "Other"
 ];
+
+const limitIneligibility = [
+    "89990_50",
+    "80939_51",
+    "80936_50",
+    "80920_50",
+    "80713_50",
+    "73130_50",
+    "59996_50",
+    "59995_51",
+    "59995_50",
+    "59611_50",
+    "59418_56",
+    "59411_50",
+    "58128_50",
+    "56411_50",
+    "55311_50",
+    "54991_50",
+    "54990_55",
+    "54613_50",
+    "54612_53",
+    "54612_51",
+    "54612_50",
+    "54610_50",
+    "54514_50",
+    "54512_50",
+    "54411_50",
+    "53311_51",
+    "53111_50",
+    "52512_51",
+    "52512_50",
+    "52511_50",
+    "50471_50",
+    "48993_50",
+    "48412_50",
+    "48139_50",
+    "48130_50",
+    "27541_50",
+    "27410_50",
+    "27112_50"
+]
 
 const dynamicExposures = {
     "07420_50": "PAYRL",
@@ -264,7 +306,7 @@ module.exports = class CnaBOP extends Integration {
         // swap host and creds based off whether this is sandbox or prod
         let agentId = null;
         let branchProdCd = null;
-        const applicationDocData = this.app.applicationDocData;
+        const applicationDocData = this.applicationDocData;
         logPrefix = `CNA BOP (App ID: ${this.app.id}): `;
 
         //Basic Auth should be calculated with username and password set 
@@ -281,14 +323,7 @@ module.exports = class CnaBOP extends Integration {
             branchProdCd = "540085091";
         }
 
-        // if the BOP code selected is CNA's, we can just use it
-        if (this.industry_code && !this.industry_code.talageIndustryCodeUuid) {
-            industryCode = this.industry_code;
-        }
-        else {
-            // otherwise, look it up and try to find the best match using ranking
-            industryCode = await this.getIndustryCode();
-        }
+        industryCode = await this.getIndustryCode();
 
         if (!industryCode) {
             log.error(`${logPrefix}Unable to get Industry Code, applicantion Out of Market. ` + __location);
@@ -316,9 +351,11 @@ module.exports = class CnaBOP extends Integration {
         const requestUUID = this.generate_uuid();
 
         // Prepare limits (if CA, only accept 1,000,000/1,000,000/1,000,000)
-        const limits = business.mailing_territory === "CA" ? 
+        let limits = business.mailing_territory === "CA" ? 
             carrierLimits[carrierLimits.length - 1] : 
             this.getBestLimits(carrierLimits);
+
+        limits = this.getCNALimits(limits);
 
         if (!limits) {
             return this.client_autodeclined('Requested liability limits not supported.', {industryCode: this.industry_code.id});
@@ -604,12 +641,12 @@ module.exports = class CnaBOP extends Integration {
             ]
         };
 
-        if (applicationDocData.mailingState === 'CA' || applicationDocData.mailingState === 'FL') {
-            const yearsManExp = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.yearsManExp');
+        // if (applicationDocData.mailingState === 'CA' || applicationDocData.mailingState === 'FL') {
+            const yearsManExp = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.yearsManagementExp');
             if (yearsManExp) {
                 const value = parseInt(yearsManExp.answerValue, 10);
 
-                if (!isNaN) {
+                if (!isNaN(value)) {
                     requestJSON.InsuranceSvcRq[0].BOPPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement["com.cna_LengthTimeIndustyManagement"] = {
                         NumUnits: {
                             value
@@ -622,9 +659,8 @@ module.exports = class CnaBOP extends Integration {
                 else {
                     log.warn(`${logPrefix}CNA expects years of management and industry experience for this state, but none or invalid value was provided.` + __location);
                 }
-            }
-            
-        }
+            } 
+        // }
 
         // =================================================================
         //                        START QUOTE PROCESS
@@ -663,7 +699,7 @@ module.exports = class CnaBOP extends Integration {
 
             let errorMessage = "";
             try {
-                errorMessage = `${logPrefix}status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
+                errorMessage = `${logPrefix}status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
             } 
             catch (e1) {
                 try {
@@ -685,7 +721,7 @@ module.exports = class CnaBOP extends Integration {
         let quoteMIMEType = null;
         let policyStatus = null;
 
-        const response = result.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0];
+        const response = result.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0];
         switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {
             case "dataerror":
             case "datainvalid":
@@ -821,7 +857,7 @@ module.exports = class CnaBOP extends Integration {
                         StateProvCd: {value: location.territory},
                         PostalCode: {value: location.zipcode}
                     },
-                    id: `L${i}` 
+                    id: `L${i + 1}` 
                 };
 
                 // only provided in GeneralPartyInfo addr field
@@ -847,7 +883,7 @@ module.exports = class CnaBOP extends Integration {
 
     getBuildings() {
         const buildings = [];
-        this.app.applicationDocData.locations.forEach((location, i) => {
+        this.applicationDocData.locations.forEach((location, i) => {
             const buildingObj = {
                 Construction: {
                     BldgArea: {
@@ -905,8 +941,8 @@ module.exports = class CnaBOP extends Integration {
                 BldgFeatures: {},
                 "com.cna_QuestionAnswer": this.getQuestions(location.questions),
                 "com.cna_CommonAreasMaintenanceCd": {},
-                LocationRef: `L${i}`,
-                SubLocationRef: `L${i}S1`
+                LocationRef: `L${i + 1}`,
+                SubLocationRef: `L${i + 1}S1`
             };
 
             // -------- BldgFeature questions --------
@@ -961,22 +997,17 @@ module.exports = class CnaBOP extends Integration {
 
             // Construction question section
             const hasBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.hasBasements");
-            if (hasBasements && hasBasements.answerValue === true || hasBasements.answerValue.toLowerCase() === "yes") {
-                console.log("got here 1");
+            if (hasBasements && (hasBasements.answerValue === true || hasBasements.answerValue.toLowerCase() === "yes")) {
                 const numBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numBasements");
                 if (numBasements) {
-                    console.log("got here 2");
-                    console.log(numBasements.answerValue);
                     const basementsValue = parseInt(numBasements.answerValue, 10);
                     if (!isNaN(basementsValue) && basementsValue !== 0) {
-                        console.log("got here 3");
                         buildingObj.Construction.NumBasements = {
                             value: basementsValue
                         }
     
                         const unfinishedBasementArea = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.unfinishedBasementArea");
                         if (unfinishedBasementArea) {
-                            console.log("got here 4");
                             const unfinishedValue = parseInt(unfinishedBasementArea.answerValue, 10);
                             if (!isNaN(unfinishedValue)) {
                                 buildingObj.Construction["com.cna_UnFinishedBasementArea"] = {
@@ -989,7 +1020,6 @@ module.exports = class CnaBOP extends Integration {
     
                         const finishedBasementArea = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.finishedBasementArea");
                         if (finishedBasementArea) {
-                            console.log("got here 5");
                             const finishedValue = parseInt(finishedBasementArea.answerValue, 10);
                             if (!isNaN(finishedValue)) {
                                 buildingObj.Construction["com.cna_FinishedBasementArea"] = {
@@ -1019,13 +1049,13 @@ module.exports = class CnaBOP extends Integration {
             // BldgOccupancy question section
             const buildingOccObj = buildingObj.BldgOccupancy[0];
 
-            const areaOccupied = location.questions.find(question => question.insurerQuestionIdentifier === "");
+            const areaOccupied = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.areaOccupied");
             if (areaOccupied) {
                 const areaOccupiedValue = parseInt(areaOccupied.answerValue, 10);
                 if (!isNaN(areaOccupiedValue)) {
                     buildingOccObj.AreaOccupied = {
                         NumUnits: {
-                            value: areaOccupiedValue
+                            value: areaOccupiedValue > location.square_footage ? location.square_footage : areaOccupiedValue
                         },
                         UnitMeasurementCd: {
                             value: "feet"
@@ -1033,10 +1063,12 @@ module.exports = class CnaBOP extends Integration {
                     }
                 }
 
-                const vacantValue = location.square_footage - areaOccupied;
-                buildingOccObj.VacancyInfo = {
-                    VacantArea: vacantValue >= 0 ? vacantValue : 0,
-                    ReasonVacantDesc: {} // For now, leaving this as blank, and not accepting this from applicant
+                const vacantValue = location.square_footage - areaOccupiedValue;
+                if (vacantValue > 0) {
+                    buildingOccObj.VacancyInfo = {
+                        VacantArea: {value: vacantValue},
+                        ReasonVacantDesc: {value: "N/A"} // For now, leaving this as blank, and not accepting this from applicant
+                    }
                 }
 
                 if (location.square_footage > 0) {
@@ -1049,7 +1081,7 @@ module.exports = class CnaBOP extends Integration {
 
                 const isSingleOccupancy = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.singleOcc");
                 if (isSingleOccupancy) {
-                    if (isSingleOccupancy.answerValue.toLowerCase() === "yes") {
+                    if (isSingleOccupancy.answerValue === true || isSingleOccupancy.answerValue.toLowerCase() === "yes") {
                         buildingOccObj["com.cna_OccupancyTypeCd"] = {
                             value: "b"
                         }
@@ -1058,7 +1090,7 @@ module.exports = class CnaBOP extends Integration {
                         const hazard = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.multiOccHighHazard");
                         if (hazard) {
                             buildingOccObj["com.cna_OccupancyTypeCd"] = {
-                                value: hazard.answerValue.toLowerCase() === "yes" ? "c" : "a"
+                                value: hazard.answerValue === true || hazard.answerValue.toLowerCase() === "yes" ? "c" : "a"
                             }
                         }
                         else {
@@ -1097,7 +1129,7 @@ module.exports = class CnaBOP extends Integration {
         // We only have Open (O), and Closed (C)
         const losses = [];
 
-        this.app.applicationDocData.claims.forEach(claim => {
+        this.applicationDocData.claims.forEach(claim => {
             // only add BOP claims
             if (claim.policyType === 'BOP') {
                 const lossTypeQuestion = claim.questions.find(question => question.insurerQuestionIdentifier === 'cna.claim.lossType');
@@ -1137,7 +1169,7 @@ module.exports = class CnaBOP extends Integration {
         // even if hasEin is FALSE (we're provided an SSN), CNA still expects us to have the TaxTypeCd as FEIN
         const taxIdentity = {
             TaxIdTypeCd: {value: "FEIN"},
-            TaxId: {value: this.app.applicationDocData.ein}
+            TaxId: {value: this.applicationDocData.ein}
         }
     
         return [taxIdentity];
@@ -1219,7 +1251,7 @@ module.exports = class CnaBOP extends Integration {
         // filter insurer questions down to those matching answered talage questions
         const answeredQuestionList = [];
         this.insurerQuestionList.forEach(insurerQuestionDoc => {
-            const talageQuestion = this.app.applicationDocData.questions.find(tq => insurerQuestionDoc._doc.talageQuestionId === tq.questionId);
+            const talageQuestion = this.applicationDocData.questions.find(tq => insurerQuestionDoc._doc.talageQuestionId === tq.questionId);
 
             if (talageQuestion) {
                 answeredQuestionList.push({
@@ -1231,7 +1263,6 @@ module.exports = class CnaBOP extends Integration {
         });
 
         return answeredQuestionList.filter(question => !specialCaseQuestions.includes(question.identifier)).map(question => {
-            console.log(question);
             // TODO: Check question.insurerQuestionAttributes to see what the QuestionCd should be
             const questionObj = {
                 "com.cna_QuestionCd": {
@@ -1322,10 +1353,50 @@ module.exports = class CnaBOP extends Integration {
         return [host, path];
     }
 
+    getCNALimits(limits) {
+        console.log("In getCNALimits: " + limits);
+        if (!limits) {
+            return limits;
+        }
+
+        // 2/4 ineligible for certain SIC -> limitIneligibility
+        // accepted limits (eaocc/genag):
+        // 500,000/1,000,000
+        // 1,000,000/2,000,000
+        // 2,000,000/4,000,000*
+
+        let eaocc = null;
+        try {
+            eaocc = parseInt(limits[0], 10);
+        }
+        catch (e) {
+            log.error(`${logPrefix}There was an error converting application genag limit to integer: ${e}. ` + __location);
+            return limits;
+        }
+
+        if (eaocc <= 500000) {
+            // 500,000 / 1,000,000
+            return [500000, 1000000];
+        }
+        else if (eaocc > 500000 && eaocc < 2000000) {
+            // 1,000,000 / 2,000,000
+            return [1000000, 2000000];
+        }
+        else if (eaocc >= 2000000 && !limitIneligibility.includes(industryCode.attributes.SICCd)) {
+            // 2,000,000 / 4,000,000
+            return [2000000, 4000000];
+        }
+        else {
+            // default back to 1,000,000 / 2,000,000
+            log.warn(`${logPrefix}Couldn't find CNA eligible limits for GENAC and EAOCC, provided limits are: ${limits}. Defaulting to CNA supported 1,000,000/2,000,000. ` + __location);
+            return [1000000, 2000000];
+        }
+    }
+
     getOtherOrPriorPolicy() {
-        const hadPreviousCarrier = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.hadPrevCarrier');
-        const previousCarrier = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.prevCarrier');
-        let yearsWithCarrier = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.yearsWithCarrier');
+        const hadPreviousCarrier = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.hadPrevCarrier');
+        const previousCarrier = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.prevCarrier');
+        let yearsWithCarrier = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.yearsWithCarrier');
 
         if (!hadPreviousCarrier || hadPreviousCarrier.answerValue === false || hadPreviousCarrier.answerValue.toLowerCase() === 'no') {
             return {
@@ -1372,16 +1443,16 @@ module.exports = class CnaBOP extends Integration {
     getPropertyCoverages() {
         const coverages = [];
 
-        this.app.applicationDocData.locations.forEach((location, i) => {
+        this.applicationDocData.locations.forEach((location, i) => {
             const coveragesObj = {
                 ItemValueAmt: {
                     Amt: {
-                        value: this.app.applicationDocData.grossSalesAmt
+                        value: this.applicationDocData.grossSalesAmt
                     }
                 },
                 CommlCoverage: [],
-                LocationRef: `L${i}`,
-                SubLocationRef: `L${i}S${i}`
+                LocationRef: `L${i + 1}`,
+                SubLocationRef: `L${i + 1}S1`
             };
 
             // TODO: 
@@ -1528,7 +1599,7 @@ module.exports = class CnaBOP extends Integration {
             "51112_53"
         ];
 
-        const BOPPolicy = this.app.applicationDocData.policies.find(policy => policy.policyType === "BOP");
+        const BOPPolicy = this.applicationDocData.policies.find(policy => policy.policyType === "BOP");
         const appDeductible = BOPPolicy.deductible;
 
         // find closest avialable option
@@ -1545,7 +1616,7 @@ module.exports = class CnaBOP extends Integration {
         }
 
         // apply restrictions
-        if (this.app.applicationDocData.mailingState.toLowerCase() === "ny") {
+        if (this.applicationDocData.mailingState.toLowerCase() === "ny") {
             if (ineligibleNY.includes(closestDeductible)) {
                 return 25000;
             }
@@ -1564,26 +1635,9 @@ module.exports = class CnaBOP extends Integration {
 
     getCoverages(limits) {
         // grab general coverage questions
-        const medex = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.medex");
+        const medex = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.medex");
 
         const coverages = [
-            {
-                CoverageCd: {
-                    value: "EAOCC"
-                },
-                Limit: [
-                    {
-                        FormatInteger: {
-                            value: parseInt(limits[0], 10)
-                        },
-                        LimitAppliesToCd: [
-                            {
-                                value: "PerOcc"
-                            }
-                        ]
-                    }
-                ]
-            },
             {
                 CoverageCd: {
                     value: "GENAG"
@@ -1591,11 +1645,28 @@ module.exports = class CnaBOP extends Integration {
                 Limit: [
                     {
                         FormatInteger: {
-                            value: parseInt(limits[1], 10)
+                            value: limits[1]
                         },
                         LimitAppliesToCd: [
                             {
                                 value: "Aggregate"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                CoverageCd: {
+                    value: "EAOCC"
+                },
+                Limit: [
+                    {
+                        FormatInteger: {
+                            value: limits[0]
+                        },
+                        LimitAppliesToCd: [
+                            {
+                                value: "PerOcc"
                             }
                         ]
                     }
@@ -1605,12 +1676,12 @@ module.exports = class CnaBOP extends Integration {
 
         // AEPLB coverage is required with 65312_51 SIC code and two questions are answered YES. Required to include number of surveyors...
         if (industryCode.attributes.SICCd === "65312_51") {
-            const BOP21433 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21433");
-            const BOP21434 = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21434");
+            const BOP21433 = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21433");
+            const BOP21434 = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "BOP21434");
 
             if (BOP21433 && BOP21434) {
                 if (BOP21433.answerValue === true || BOP21433.answerValue.toLowerCase() === "yes" && BOP21434.answerValue === true || BOP21434.answerValue.toLowerCase() === "yes") {
-                    const numSurveyors = this.app.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.numSurveyors");
+                    const numSurveyors = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.numSurveyors");
 
                     if (numSurveyors) {
                         const coverageObj = {
@@ -1699,10 +1770,7 @@ module.exports = class CnaBOP extends Integration {
     // }
 
     getGLClassifications() {
-        return this.app.applicationDocData.locations.map((location, i) => {
-            console.log("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
-            console.log(industryCode);
-            console.log("||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||");
+        return this.applicationDocData.locations.map((location, i) => {
             const glClassificationObj = {
                 ClassCd: {
                     value: industryCode.code
@@ -1714,14 +1782,14 @@ module.exports = class CnaBOP extends Integration {
                     value: this.get_location_payroll(location)
                 },
                 Exposure: {
-                    value: this.app.applicationDocData.grossSalesAmt
+                    value: this.applicationDocData.grossSalesAmt
                 },
                 PremiumBasisCd: {
                     value: "GrSales"
                 },
                 id: `C${i}`,
-                LocationRef: `L${i}`,
-                SubLocationRef: `L${i}S${i}`
+                LocationRef: `L${i + 1}`,
+                SubLocationRef: `L${i + 1}S1`
             };
 
             // add dynamic exposure if applicable (only applicable for certain SIC)
