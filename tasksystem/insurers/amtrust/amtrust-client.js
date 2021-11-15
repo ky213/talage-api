@@ -72,15 +72,27 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
         log.error(`agencyLocationId ${agencyLocationId} missing Amtrust credentials` + __location)
         return null;
     }
-    const agentUserNamePassword = amtrustAL.agentId.trim();
-    const commaIndex = agentUserNamePassword.indexOf(',');
-    if(commaIndex === -1){
-        log.error(`agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
+    let agentUsername = '';
+    let agentPassword = '';
+
+    try{
+        const agentUserNamePassword = amtrustAL.agentId.trim();
+        const commaIndex = agentUserNamePassword.indexOf(',');
+        if(commaIndex === -1){
+            log.error(`agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
+        }
+        else {
+            agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
+            agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
+        }
+    }
+    catch(err){
+        log.error(`Task amtrust-client error gettign agentUsername & agentPassword ${amtrustAL.agentId} for agencyLocationId ${agencyLocationId} error: ${err}` + __location)
         return null;
     }
-    const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
-    const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
-
+    if(!agentUsername || !agentPassword){
+        return null;
+    }
 
     const requestData = {
         grant_type: "password",
