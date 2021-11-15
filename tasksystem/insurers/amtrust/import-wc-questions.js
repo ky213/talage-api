@@ -14,7 +14,7 @@
 const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
 const sha1 = require("sha1");
-
+const emailSvc = global.requireShared('./services/emailsvc.js');
 
 const ncciStates = ["RI",
     "IA",
