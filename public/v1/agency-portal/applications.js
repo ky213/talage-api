@@ -641,7 +641,7 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.toLowerCase();
 
         const businessName = {businessName: `%${req.params.searchText}%`}
-        const tag = {tag: `%${req.params.searchText}%`}
+        const tag = {tagString: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
