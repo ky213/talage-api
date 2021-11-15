@@ -48,6 +48,11 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
         }
         else {
             agencyLocationId = appAgencyLocDoc.systemId;
+            //is Amtrust talageWholeSale
+            const amtrustAL = appAgencyLocDoc.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+            if(amtrustAL?.talageWholesale){
+                agencyLocationId = 1;
+            }
         }
     }
 
