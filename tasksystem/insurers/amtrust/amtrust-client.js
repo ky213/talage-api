@@ -7,6 +7,7 @@ let accessToken = "";
 let credentials = null;
 
 async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
+    accessToken = "";
     //get Amtrust insurer.
     var InsurerModel = require('mongoose').model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
@@ -42,11 +43,21 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
                 const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
                 if(agencyLocationPrime){
                     agencyLocationId = agencyLocationPrime.systemId;
+                    //is Amtrust talageWholeSale
+                    const amtrustAL = agencyLocationPrime.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+                    if(amtrustAL?.talageWholesale){
+                        agencyLocationId = 1;
+                    }
                 }
             }
         }
         else {
             agencyLocationId = appAgencyLocDoc.systemId;
+            //is Amtrust talageWholeSale
+            const amtrustAL = appAgencyLocDoc.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+            if(amtrustAL?.talageWholesale){
+                agencyLocationId = 1;
+            }
         }
     }
 
@@ -62,11 +73,31 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
         credentials = JSON.parse(insurer.test_password);
     }
     const amtrustAL = agencyLocDoc.insurers.find((alI) => alI.insurerId === insurer.insurerId);
-    const agentUserNamePassword = amtrustAL.agentId.trim();
-    const commaIndex = agentUserNamePassword.indexOf(',');
-    const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
-    const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
+    if(!amtrustAL?.agentId){
+        log.error(`agencyLocationId ${agencyLocationId} missing Amtrust credentials` + __location)
+        return null;
+    }
+    let agentUsername = '';
+    let agentPassword = '';
 
+    try{
+        const agentUserNamePassword = amtrustAL.agentId.trim();
+        const commaIndex = agentUserNamePassword.indexOf(',');
+        if(commaIndex === -1){
+            log.error(`agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
+        }
+        else {
+            agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
+            agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
+        }
+    }
+    catch(err){
+        log.error(`Task amtrust-client error gettign agentUsername & agentPassword ${amtrustAL.agentId} for agencyLocationId ${agencyLocationId} error: ${err}` + __location)
+        return null;
+    }
+    if(!agentUsername || !agentPassword){
+        return null;
+    }
 
     const requestData = {
         grant_type: "password",
@@ -95,15 +126,21 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
     if (response.data.error) {
         log.error(`${response.data.error} : ${response.data.error_message}` + __location);
     }
-    if (!response.data.access_token) {
+    if (!response.data?.access_token) {
         log.error(`Unable to find the access_token property` + __location);
+        return null;
     }
-    accessToken = response.data.access_token;
-
-    return accessToken;
+    else {
+        accessToken = response.data.access_token;
+        return accessToken;
+    }
 }
 
 async function callAPI(method, endpoint, queryParameters = null, data = null) {
+    if(!accessToken || accessToken === ""){
+        return null;
+    }
+
     const requestOptions = {headers: {
         "Content-type": "application/json",
         "Authorization": `Bearer ${accessToken}`,
@@ -175,7 +212,7 @@ async function makeRequest(method, url, params = null, data = null, options = nu
     }
     catch (error) {
         if(error.response){
-            log.error(`AmTrust Error: ${error.response.status} ${error.response.statusText}` + __location);
+            log.error(`AmTrust Error: ${error.response.status} ${error.response.statusText} ${method} url ${url} params ${params} data ${data}` + __location);
         }
         return {
             error: error,

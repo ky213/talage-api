@@ -4,7 +4,7 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 
-const applicationLinkTimeout = 24 * 60 * 60; // 24 hours
+const applicationLinkTimeout = 48 * 60 * 60; // 48 hours
 
 // eslint-disable-next-line multiline-comment-style
 /*

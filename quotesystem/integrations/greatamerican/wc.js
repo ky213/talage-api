@@ -292,6 +292,14 @@ module.exports = class GreatAmericanWC extends Integration {
             return this.return_result('error');
         }
 
+        if (_.get(pricingResponse, 'newBusiness.pricingType')) {
+            this.isBindable = _.get(pricingResponse, 'newBusiness.pricingType') === 'BINDABLE_QUOTE';
+        }
+
+        if (_.get(pricingResponse, 'newBusiness.id')) {
+            this.request_id = _.get(pricingResponse, 'newBusiness.id');
+        }
+
         if (_.get(pricingResponse, 'rating.data.policy.id')) {
             this.amount = parseFloat(_.get(pricingResponse, 'rating.data.TotalResult'));
             this.writer = _.get(pricingResponse, 'rating.data.policy.company.name');
