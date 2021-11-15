@@ -37,7 +37,7 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
     activityCodeId: {type: Number, required: false},
-    ncciCode: {type: Number, required: false},
+    ncciCode: {type: String, required: false},
     payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
@@ -45,7 +45,7 @@ const ActivtyCodeEmployeeTypeSchema = new Schema({
 
 const ActivtyCodePayrollSchema = new Schema({
     activityCodeId: {type: Number, required: false},
-    ncciCode: {type: Number, required: false},
+    ncciCode: {type: String, required: false},
     payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false}
 });
@@ -418,7 +418,6 @@ function populateActivityCodePayroll(schema) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
                         activityCodeId: ActivtyCodeEmployeeType.activityCodeId,
-                        ncciCode: ActivtyCodeEmployeeType.activityCodeId,
                         payroll: 0
                     };
                     activityCodesPayrollSumList.push(activityCodePayrollSum);
