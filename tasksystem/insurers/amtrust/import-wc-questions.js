@@ -205,6 +205,27 @@ async function QuestionImport(amtrustClassCodeMap) {
     log.info(logPrefix + `- ${newQuestionList.length} new AmTrust questions ` + __location);
     log.info(logPrefix + `- ${updatedIQLinks} updates to AmTrust question links ` + __location);
 
+    //send email with the above stats to integrations@talageins.com
+    if(newQuestionList.length > 0){
+        //trigger to send email since codes were addeded
+        const sendResult = false;
+        const sendMessage = `
+            <div>
+                ${newQuestionList.length} new AmTrust questions
+                ${updatedIQLinks} updates to AmTrust question links
+            </div>
+        `
+        try{
+            sendResult = await emailSvc.send('carlo+esend@talageins.com','New Questions were Added to AmTrust',sendMessage);
+            if(!sendResult){
+                console.log('An error occured when sending notification. Please contact us for details');
+            }
+        }
+        catch(err) {
+            console.log('error-sending email :', err);
+        }
+    }
+
     return true;
 }
 

@@ -19,7 +19,7 @@ global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleNam
 global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
 
-const emailSvc = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('/services/emailsvc.js');
 
 
 //
