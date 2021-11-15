@@ -219,7 +219,7 @@ function generateCSV(applicationList){
             'einClear': 'EIN',
             'website': 'Website',
             'renewal': 'renewal',
-            'tag': "tag",
+            'tagString': "tag",
             'createdString' : 'Created (UTC)'
         };
 
