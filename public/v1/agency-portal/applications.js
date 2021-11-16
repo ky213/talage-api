@@ -741,18 +741,19 @@ async function getApplications(req, res, next){
                 query.solepro = true;
             }
         }
-        if(req.params.searchApplicationStatus){
-            query.status = req.params.searchApplicationStatus;
-        }
     }
     catch(err){
         log.error("AP get App list error " + err + __location);
     }
 
-    // Add a application status search clause if requested
-    if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
-        const status = {status: req.params.searchApplicationStatus}
-        orClauseArray.push(status);
+    //Add a application status search clause if requested
+    // if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
+    //     const status = {status: req.params.searchApplicationStatus}
+    //     orClauseArray.push(status);
+    // }
+
+    if(req.params.searchApplicationStatus){
+        query.status = req.params.searchApplicationStatus;
     }
 
     if (req.params && Object.prototype.hasOwnProperty.call(req.params,'searchApplicationStatusId') && req.params.searchApplicationStatusId >= 0){
