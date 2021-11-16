@@ -194,9 +194,10 @@ module.exports = class AMTrustWC extends Integration {
             if (!officerType || !endorsementId || !formType) {
                 return validationError;
             }
-
+            //Amtrust has a 30 character limit.
+            const officeName = `${owner.fname} ${owner.lname}`.slice(0,30);
             officersList.push({
-                "Name": `${owner.fname} ${owner.lname}`,
+                "Name": officeName,
                 "EndorsementId": endorsementId,
                 "Type": officerType,
                 "State": state,
@@ -352,8 +353,8 @@ module.exports = class AMTrustWC extends Integration {
             },
             "BusinessName": this.app.business.name,
             "ContactInformation": {
-                "FirstName": this.app.business.contacts[0].first_name,
-                "LastName": this.app.business.contacts[0].last_name,
+                "FirstName": this.app.business.contacts[0].first_name.slice(0,30),
+                "LastName": this.app.business.contacts[0].last_name.slice(0,30),
                 "Email": this.app.business.contacts[0].email,
                 "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
                 "AgentContactId": agentId
@@ -851,21 +852,25 @@ module.exports = class AMTrustWC extends Integration {
         else {
             quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
         }
-        let priceIndicated = false;
-        let priceIndication = null
-        if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
-            priceIndicated = true;
-            priceIndication = quoteResponse.Data.PremiumDetails.PriceIndication
+        let isPriceIndicated = false;
+        let priceIndicationAmount = null
+        if(quoteResponse.Data?.PremiumDetails?.PriceIndication > 0){
+            isPriceIndicated = true;
+            priceIndicationAmount = quoteResponse.Data.PremiumDetails.PriceIndication
         }
-        else if(quoteResponse.EstimatedAnnualPremium){
-            priceIndicated = true;
-            priceIndication = quoteResponse.EstimatedAnnualPremium
+        else if(quoteResponse.PremiumDetails?.PriceIndication > 0){
+            isPriceIndicated = true;
+            priceIndicationAmount = quoteResponse.PremiumDetails.PriceIndication
+        }
+        else if(quoteResponse.EstimatedAnnualPremium > 0){
+            isPriceIndicated = true;
+            priceIndicationAmount = quoteResponse.EstimatedAnnualPremium
         }
         //If quickQuote were are done.
         if(quickQuote){
             //get price_indication
             if(quoteEligibility === "Refer") {
-                return this.client_referred(quoteId, {}, priceIndication);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             else {
                 return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`);
@@ -884,10 +889,10 @@ module.exports = class AMTrustWC extends Integration {
 
         const quoteAvailableLlimitesResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/available-liability-limits`);
         if (!quoteAvailableLlimitesResponse) {
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 log.error(`${logPrefix} Unexpected GET limits response - no response` + __location);
                 this.reasons.push(`The insurer's server returned an unspecified error when get the quote available limits information`);
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             return this.client_error("The insurer's server returned an unspecified error when get the quote available limits information.", __location);
         }
@@ -906,10 +911,10 @@ module.exports = class AMTrustWC extends Integration {
 
         const quoteUpdateResponse = await this.amtrustCallAPI('PUT', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}`, amTrustApplicationJSON);
         if (!quoteUpdateResponse) {
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 log.error(`${logPrefix} Unexpected Quote limits update response - no response` + __location);
                 this.reasons.push(`The insurer's server returned an unspecified error when submitting the quote update information.`);
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             return this.client_error("The insurer's server returned an unspecified error when submitting the quote update information.", __location);
         }
@@ -967,10 +972,10 @@ module.exports = class AMTrustWC extends Integration {
         }
         catch (e) {
             log.error(`AMtrust WC (application ${this.app.id}): Unable to check quote eligibility after submitting question answers: ${e}.`);
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 this.reasons.push("The insurer's server returned an unspecified error after submitting question answers.");
                 //we got a price indication above probably errored in questions.
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
         }
 
@@ -1030,11 +1035,11 @@ module.exports = class AMTrustWC extends Integration {
                     return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
                 }
                 else {
-                    if(priceIndication && priceIndicated){
+                    if(priceIndicationAmount && isPriceIndicated){
                         log.error(`${logPrefix} Unexpected Additional information response ${statusCode}` + __location);
                         this.reasons.push("The insurer's server returned an unspecified error when updating additional-information.");
                         //we got a price indication above probably errored in questions.
-                        return this.client_referred(quoteId, {}, priceIndicated);
+                        return this.client_referred(quoteId, {}, priceIndicationAmount);
                     }
                     return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
                 }
@@ -1042,18 +1047,20 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // Get the quote information
-        const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
+        let quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
         if (!quoteInformationResponse) {
             log.error(`Appid: ${this.app.id} AmTrust WC insurer's server returned an unspecified error when retrieving the final quote information. `, __location, {statusCode: statusCode})
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 this.reasons.push("The insurer's server returned an unspecified error when retrieving the final quote information.");
                 //we got a price indication above probably errored in questions.
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             return this.client_error("The insurer's server returned an unspecified error when retrieving the final quote information.", __location, {statusCode: statusCode});
         }
         // console.log("quoteInformationResponse", JSON.stringify(quoteInformationResponse, null, 4));
-
+        if(quoteInformationResponse.Data){
+            quoteInformationResponse = quoteInformationResponse.Data;
+        }
         // =========================================================================================================
         // Process the quote information response
 
@@ -1078,12 +1085,15 @@ module.exports = class AMTrustWC extends Integration {
 
         // Return the quote
         quoteEligibility = this.getChildProperty(quoteInformationResponse, "Eligibility.Eligibility");
+        if(!quoteEligibility){
+            quoteEligibility = this.getChildProperty(quoteInformationResponse, "Data.Eligibility.Eligibility");
+        }
         if (!quoteEligibility) {
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 log.error(`${logPrefix} The quote elibility could not be found for quote` + __location);
                 this.reasons.push("The quote elibility could not be found for quote after final update.");
                 //we got a price indication above probably errored in questions.
-                return this.client_referred(quoteId, quoteLimits, priceIndicated);
+                return this.client_referred(quoteId, quoteLimits, priceIndicationAmount);
             }
             return this.client_error(`The quote elibility could not be found for quote ${quoteId}.`);
         }
@@ -1172,9 +1182,9 @@ module.exports = class AMTrustWC extends Integration {
                 // There is no decline reason in their response
                 return this.client_declined("The insurer has declined to offer you coverage at this time");
             default:
-                if(priceIndication && priceIndicated){
+                if(priceIndicationAmount && isPriceIndicated){
                     //we got a price indication above probably errored in questions.
-                    return this.client_referred(quoteId, quoteLimits, priceIndicated);
+                    return this.client_referred(quoteId, quoteLimits, priceIndicationAmount);
                 }
                 break;
         }

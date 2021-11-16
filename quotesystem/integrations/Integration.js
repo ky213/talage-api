@@ -1780,11 +1780,13 @@ module.exports = class Integration {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
         this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
-        if (!this.limits && !this.quoteCoverages) {
-            this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
-            //BP - Do not error out the quote on lack of limits
-            //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
-        }
+        // check as logged in return_result.
+        // should be detected and log in insurer integration code.
+        // if (!this.limits && !this.quoteCoverages) {
+        //     this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
+        //     //BP - Do not error out the quote on lack of limits
+        //     //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+        // }
 
         if (premiumAmount) {
             this.amount = premiumAmount;
@@ -2016,6 +2018,7 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have an amount
         if ((result === 'quoted' || result === 'referred_with_price') && !this.amount) {
+            //amount error should be logged in the carrier integration code.
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.` + __location);
             this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
             if (result === 'quoted') {
@@ -2034,7 +2037,8 @@ module.exports = class Integration {
                 (!this.limits && this.quoteCoverages && !this.quoteCoverages.length > 0) ||
                 (!this.quoteCoverages && this.limits && !Object.keys(this.limits).length > 0)) 
             {
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
+                //error level log need to be in the integration.  Not all carriers supply limit in the response.
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
             }
 
         }
@@ -2237,7 +2241,6 @@ module.exports = class Integration {
 
             const req = https.request(options, (res) => {
                 let rawData = '';
-                log.debug("in https response " + __location)
                 // Grab each chunk of data
                 res.on('data', (d) => {
                     rawData += d;
