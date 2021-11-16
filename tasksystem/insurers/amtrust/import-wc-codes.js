@@ -13,15 +13,6 @@
 const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
 
-// Add global helpers to load shared modules
-global.sharedPath = require('path').join(__dirname, 'shared');
-global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.rootPath = require('path').join(__dirname, '/');
-global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-
-const emailSvc = global.requireShared('/services/emailsvc.js');
-
-
 //
 const DO_REMOVAL_CHECK = false;
 // NOWW removed
@@ -370,6 +361,7 @@ async function CodeImport() {
     log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
 
     //send email with the above stats to integrations@talageins.com
+    console.log('Update has run ...');
     if(amtrustAddCodes.length > 0){
         //trigger to send email since codes were addeded
         const sendResult = false;
