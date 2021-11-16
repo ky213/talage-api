@@ -2272,12 +2272,10 @@ module.exports = class ApplicationModel {
 
                 for(const quote of quoteList){
                     if(quote.quoteStatusId >= quoteStatus.quoted.id){
-                        log.debug(`Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType)} `)
                         if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
                             lowestQuote[quote.policyType] = quote.amount;
                         }
                     }
-                    log.debug(`Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType)}`)
                     if(quote.quoteStatusId >= quoteStatus.bind_requested.id){
                         if(Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) === false || lowestBoundQuote[quote.policyType] > quote.amount){
                             lowestBoundQuote[quote.policyType] = quote.amount;
