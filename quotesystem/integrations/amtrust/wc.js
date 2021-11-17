@@ -272,7 +272,7 @@ module.exports = class AMTrustWC extends Integration {
             credentials = JSON.parse(this.password);
         }
         catch (error) {
-            log.error(`Could not load AmTrust API credentials ${error}` +  __location);
+            log.error(`Could not load AmTrust API credentials ${error}` + __location);
             const pricingResult = {
                 gotPricing: false,
                 outOfAppetite: true,
