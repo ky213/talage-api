@@ -128,8 +128,45 @@ async function runPricing(app) {
     //log.info(`${quoteIDs.length} quotes returned for application ${app.id}`);
     let appPricingResultJSON = {}
     // Check for no quotes
-    if (pricingResults.length === 1 && typeof pricingResults[0] === 'object') {
+    let gotPricing = false;
+    let outOfAppetite = false;
+    let pricingError = false;
+    let lowPrice = 9999999;
+    let highPrice = -1;
+    let totalPrice = 0;
+    let priceCount = 0;
+    for(const priceResult of pricingResults){
+        if(priceResult.gotPricing){
+            gotPricing = true;
+            if(lowPrice > priceResult.price){
+                lowPrice = priceResult.price
+            }
+            if(highPrice < priceResult.price){
+                highPrice = priceResult.price
+            }
+            priceCount++;
+            totalPrice += priceResult.price
+        }
+        if(priceResult.outOfAppetite){
+            outOfAppetite = true;
+        }
+        if(priceResult.pricingError){
+            pricingError = true;
+        }
+    }
+    appPricingResultJSON = {
+        gotPricing: gotPricing,
+        outOfAppetite: outOfAppetite,
+        pricingError: pricingError,
+        lowPrice: lowPrice,
+        highPrice: highPrice
+    }
+
+    if (pricingResults.length === 1 && typeof pricingResults[0] === 'object' && priceCount > 0) {
         appPricingResultJSON = pricingResults[0]
+    }
+    else if(pricingResults.length > 1 && priceCount > 0){
+        appPricingResultJSON.price = parseInt(totalPrice / priceCount, 10);
     }
     else if (pricingResults.length < 1) {
         appPricingResultJSON = {

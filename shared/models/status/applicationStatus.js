@@ -71,7 +71,6 @@ async function updateApplicationStatus(application, timeout) {
 
     // Get the new application status
     let appStatus = {};
-    log.debug(`quoteDocJsonList  ${JSON.stringify(quoteDocJsonList)}`)
     switch (applicationDocJson.agencyNetworkId) {
         default:
             appStatus = getGenericApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
@@ -83,13 +82,6 @@ async function updateApplicationStatus(application, timeout) {
     }
 
     // Set the new application status
-    if(!appStatus.appStatusId){
-        log.debug(`bad getGenericApplicationStatus` + __location)
-    }
-    else {
-        log.debug(`getGenericApplicationStatus returned appStatus.appStatusId ${appStatus.appStatusId}` + __location)
-    }
-
     if(applicationDocJson.appStatusId < appStatus.appStatusId){
         try {
             //TODO change to applicationId
@@ -118,7 +110,6 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
     // Ensure that each quote has a quote status and ID
     // TODO: This should not be part of this function's responsibilities...
     // if the application status is already bound or application is dead, don't look at quotes to determine application status
-    log.debug(`in getGenericApplicationStatus`)
     const deadApplicationStatusId = 65;
     const boundApplicationStatusId = 90;
     if(applicationDoc.appStatusId === deadApplicationStatusId || applicationDoc.appStatusId === boundApplicationStatusId){
