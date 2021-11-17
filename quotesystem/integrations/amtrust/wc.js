@@ -435,6 +435,8 @@ module.exports = class AMTrustWC extends Integration {
                 outOfAppetite: false,
                 pricingError: true
             }
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         const statusCode = this.getChildProperty(quoteResponse, "StatusCode");
