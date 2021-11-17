@@ -145,6 +145,13 @@ async function runPricing(app) {
     const appUpdateJSON = {pricingInfo: appPricingResultJSON}
     const applicationBO = new ApplicationBO();
     await applicationBO.updateMongo(app.applicationDocData.applicationId, appUpdateJSON);
+    if(appPricingResultJSON.gotPricing === true){
+        //Update app status
+        await applicationStatus.updateApplicationStatus(app.applicationDocData.applicationId);
+        // Update Application-level quote metrics
+        await applicationBO.recalculateQuoteMetrics(app.applicationDocData.applicationId);
+    }
+
 
     return appPricingResultJSON
 }

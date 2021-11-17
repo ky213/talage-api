@@ -1188,17 +1188,27 @@ module.exports = class Integration {
                 return;
             }
 
-            // Check that industry codes codes are supported by the insurer if required
+            //Check that industry codes codes are supported by the insurer if required
             if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
                 // No industry codes when they are required
-                fulfill(false);
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: true,
+                    pricingError: false
+                }
+                fulfill(pricingResult);
                 return;
             }
 
             // Check that activity class codes codes are supported by the insurer if required
             if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
                 // No activity class codes when they are required
-                fulfill(false);
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: true,
+                    pricingError: false
+                }
+                fulfill(pricingResult);
                 return;
             }
 
@@ -1552,9 +1562,10 @@ module.exports = class Integration {
      *
      * @param {int} amount - The amount of the quote
      * @param {string} apiResult - The integration's api result
+      * @param {object} responseQuoteStatus - QuoteStatus object
      * @returns {mixed} - ID on success, error on error
      */
-    async record_quote(amount, apiResult) {
+    async record_quote(amount, apiResult, responseQuoteStatus) {
         const appId = this.applicationDocData.applicationId
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
@@ -1668,9 +1679,16 @@ module.exports = class Integration {
         }
     
         // quoteStatusId and quoteStatusDescription
-        const status = getQuoteStatus(false, '', apiResult);
-        quoteJSON.quoteStatusId = status.id;
-        quoteJSON.quoteStatusDescription = status.description;
+        if(responseQuoteStatus && responseQuoteStatus.id && responseQuoteStatus.description){
+            quoteJSON.quoteStatusId = responseQuoteStatus.id;
+            quoteJSON.quoteStatusDescription = responseQuoteStatus.description;
+        }
+        else {
+            const status = getQuoteStatus(false, '', apiResult);
+            quoteJSON.quoteStatusId = status.id;
+            quoteJSON.quoteStatusDescription = status.description;
+        }
+        
 
         try{
             // Set up quote limits for old-style hydration (should be deprecated eventually)

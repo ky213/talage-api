@@ -11,7 +11,9 @@ const applicationStatus = {
     wholesale: { appStatusId: 5, appStatusDesc: 'wholesale', appStatusText: 'Wholesale'},
     questionsDone: { appStatusId: 10, appStatusDesc: 'questions_done', appStatusText: 'Questions Done'},
     quoting: { appStatusId: 15, appStatusDesc: 'quoting', appStatusText: 'Quoting'},
+    piError: { appStatusId: 17, appStatusDesc: 'pi_error', appStatusText: 'PI - Error'},
     error: { appStatusId: 20, appStatusDesc: 'error', appStatusText: 'Error'},
+    piOutOfAppetite: { appStatusId: 25, appStatusDesc: 'pi_out_of_appetite', appStatusText: 'PI - Out of Appetite'},
     declined: { appStatusId: 30, appStatusDesc: 'declined', appStatusText: 'Declined'},
     priceIndication: { appStatusId: 35, appStatusDesc: 'price_indication', appStatusText: 'Price Indication'},
     referred: { appStatusId: 40, appStatusDesc: 'referred',appStatusText: 'Referred'},
@@ -69,6 +71,7 @@ async function updateApplicationStatus(application, timeout) {
 
     // Get the new application status
     let appStatus = {};
+    log.debug(`quoteDocJsonList  ${JSON.stringify(quoteDocJsonList)}`)
     switch (applicationDocJson.agencyNetworkId) {
         default:
             appStatus = getGenericApplicationStatus(applicationDocJson, quoteDocJsonList, timeout);
@@ -80,6 +83,13 @@ async function updateApplicationStatus(application, timeout) {
     }
 
     // Set the new application status
+    if(!appStatus.appStatusId){
+        log.debug(`bad getGenericApplicationStatus` + __location)
+    }
+    else {
+        log.debug(`getGenericApplicationStatus returned appStatus.appStatusId ${appStatus.appStatusId}` + __location)
+    }
+
     if(applicationDocJson.appStatusId < appStatus.appStatusId){
         try {
             //TODO change to applicationId
@@ -108,14 +118,11 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
     // Ensure that each quote has a quote status and ID
     // TODO: This should not be part of this function's responsibilities...
     // if the application status is already bound or application is dead, don't look at quotes to determine application status
+    log.debug(`in getGenericApplicationStatus`)
     const deadApplicationStatusId = 65;
     const boundApplicationStatusId = 90;
     if(applicationDoc.appStatusId === deadApplicationStatusId || applicationDoc.appStatusId === boundApplicationStatusId){
         return {appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.status};
-    }
-    else if (applicationDoc.appStatusId < 10) {
-        // return the current app status if it is less than 10
-        return { appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.status };
     }
     else if (applicationDoc.solepro || applicationDoc.wholesale) {
         //TODO separate status logic
@@ -157,6 +164,10 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         //return 'referred';
         return applicationStatus.referred;
     }
+    else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.priceIndication.id)) {
+        log.debug(`got price indication` + __location)
+        return applicationStatus.priceIndication;
+    }
     else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.declined.id)) {
         //appStatusId = 30
         // return 'declined';
@@ -167,21 +178,42 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         // return 'declined';
         return applicationStatus.declined;
     }
+    // else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.piOutOfAppetite.id)) {
+    //     // INTENTIONALLY SKIPPED - WE DO NOT WANT AGENT STOPPING BECAUSE OF PI ERRORS OR OUT OF APPETITE.
+    //     //  only a few insurers do Price Indications.
+    //     // price indication may take place before the application is complete or question are done.
+    //     // so let it fall throught to incomplete.
+    //     //  return 'error';
+    //     return applicationStatus.piOutOfAppetite;
+    // }
     else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.error.id)) {
         //appStatusId = 20
         //  return 'error';
         return applicationStatus.error;
     }
-    else if (applicationDoc.lastStep === 8 || applicationDoc.appStatusId === 10) {
+    // else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.piError.id)) {
+    //     // INTENTIONALLY SKIPPED - WE DO NOT WANT AGENT STOPPING BECAUSE OF PI ERRORS OR OUT OF APPETITE.
+    //     //  only a few insurers do Price Indications.
+    //     // price indication may take place before the application is complete or question are done.
+    //     // so let it fall throught to incomplete.
+    //     //  return 'error';
+    //     return applicationStatus.piError;
+    // }
+    else if (applicationDoc.appStatusId === 10) {
         //appStatusId = 10
         // return 'questions_done';
         return applicationStatus.questionsDone;
+    }
+    else if (applicationDoc.appStatusId < 10) {
+        // return the current app status if it is less than 10
+        return { appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.status };
     }
     else if(timeout) {
         // if timeout is specified then return error if nothing above is chosen
         return applicationStatus.error;
     }
     else{
+        log.debug(`no appstatus hits`)
         return applicationStatus.incomplete;
     }
 }

@@ -2270,6 +2270,23 @@ module.exports = class ApplicationModel {
                 let lowestBoundQuote = {};
                 let lowestQuote = {};
 
+                //only include price_indication when we had not tried quoting.
+                let hasQuotes = false;
+                for(const quote of quoteList){
+                    if(quote.quoteStatusId >= quoteStatus.quoted.id){
+                        hasQuotes = true;
+                    }
+                }
+                if(!hasQuotes){
+                    for(const quote of quoteList){
+                        if(quote.quoteStatusId === quoteStatus.priceIndication.id){
+                            if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
+                                lowestQuote[quote.policyType] = quote.amount;
+                            }
+                        }
+                    }
+                }
+
                 for(const quote of quoteList){
                     if(quote.quoteStatusId >= quoteStatus.quoted.id){
                         if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
@@ -2289,7 +2306,6 @@ module.exports = class ApplicationModel {
                         lowestQuote[quote.policyType] = quote.amount;
                     }
                 }
-                log.debug(`lowestBoundQuote ${JSON.stringify(lowestBoundQuote)}` + __location)
 
                 const metrics = {
                     lowestBoundQuoteAmount: {

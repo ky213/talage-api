@@ -10,6 +10,10 @@ const quoteStatus = {
         id: 0,
         description: "Initiated"
     },
+    piError: {
+        id: 5,
+        description: "PI Error"
+    },
     error: {
         id: 10,
         description: "Error"
@@ -21,6 +25,10 @@ const quoteStatus = {
     autodeclined: {
         id: 15,
         description: "Auto Declined"
+    },
+    piOutOfAppetite: {
+        id: 17,
+        description: "PI Out of Appetite"
     },
     declined: {
         id: 20,
@@ -100,7 +108,7 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
         return quoteStatus.referred;
     }
     else if (apiResult === 'price_indication') {
-        // return 'referred';
+        // return 'priceIndication';
         return quoteStatus.priceIndication;
     }
     else if (apiResult === 'acord_emailed') {
@@ -110,6 +118,10 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
     else if (apiResult === 'declined') {
         // return 'declined';
         return quoteStatus.declined;
+    }
+    else if (apiResult === 'pi_outofappetite') {
+        // return 'piOutOfAppetite';
+        return quoteStatus.piOutOfAppetite;
     }
     else if (apiResult === 'autodeclined') {
         return quoteStatus.autodeclined;

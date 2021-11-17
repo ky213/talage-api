@@ -19,6 +19,7 @@ const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
 const {Sleep} = global.requireShared('./helpers/utility.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const amtrustTestHost = "utgateway.amtrustgroup.com";
 const amtrustTestBasePath = "/DigitalAPI_Usertest";
@@ -271,7 +272,13 @@ module.exports = class AMTrustWC extends Integration {
             credentials = JSON.parse(this.password);
         }
         catch (error) {
-            return this.client_error("Could not load AmTrust API credentials", __location);
+            log.error(`Could not load AmTrust API credentials ${error}` +  __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
         log.info(`AmTrust AL insurer ${JSON.stringify(this.app.agencyLocation.insurers[this.insurer.id])}` + __location)
         let agentId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim();
@@ -283,16 +290,34 @@ module.exports = class AMTrustWC extends Integration {
         }
         catch (error) {
             log.error(`AMTrust WC error parsing AgentId ${error}` + __location)
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
             //return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
         }
         if (!agentId || agentId === 0) {
-            return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location);
+            log.error(`Invalid AmTrust agent ID '${agentId}'` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
 
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            return this.client_error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} `, __location);
+            log.error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} ` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
         const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
@@ -300,7 +325,13 @@ module.exports = class AMTrustWC extends Integration {
         // Authorize the client
         const accessToken = await amtrustClient.authorize(credentials.clientId, credentials.clientSecret, agentUsername, agentPassword, credentials.mulesoftSubscriberId, this.insurer.useSandbox);
         if (!accessToken) {
-            return this.client_error("Authorization with AmTrust server failed", __location);
+            log.error("Authorization with AmTrust server failed" + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
 
 
@@ -396,6 +427,7 @@ module.exports = class AMTrustWC extends Integration {
         let pricingResult = {};
         let amount = 0;
         let apiResult = "";
+        let piQuoteStatus = null;
         if (!quoteResponse) {
             //pricingResult JSON
             pricingResult = {
@@ -413,7 +445,8 @@ module.exports = class AMTrustWC extends Integration {
                 outOfAppetite: false,
                 pricingError: true
             }
-            apiResult = "error";
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
             this.reasons.push(`Status Code ${statusCode} returned`);
         }
 
@@ -426,7 +459,8 @@ module.exports = class AMTrustWC extends Integration {
                 outOfAppetite: true,
                 pricingError: false
             }
-            apiResult = "declined";
+            apiResult = "piOutOfAppetite";
+            piQuoteStatus = quoteStatus.piOutOfAppetite;
             this.reasons.push("Out of Appetite");
         }
         if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
@@ -438,6 +472,7 @@ module.exports = class AMTrustWC extends Integration {
                 pricingError: false
             }
             amount = quoteResponse.Data.PremiumDetails.PriceIndication;
+            piQuoteStatus = quoteStatus.priceIndication;
             apiResult = "price_indication";
         }
         else {
@@ -446,13 +481,18 @@ module.exports = class AMTrustWC extends Integration {
                 outOfAppetite: true,
                 pricingError: false
             }
-            apiResult = "error";
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
             this.reasons.push("No Price info.  not declined.");
         }
-        //write quote record to db.
-        await this.record_quote(amount, apiResult)
-
-        //update app metrics and status.
+        //write quote record to db. if successful write a quote record.
+        if(pricingResult.gotPricing){
+            await this.record_quote(amount, apiResult, piQuoteStatus)
+        }
+        //currently thinking PI error or out of market in AP Applications
+        // will cause confusing and agents to stop working the application
+        // SIU request - we silently fail PI request.
+        // appDoc will have the pricingResult info.
 
         return pricingResult;
 
