@@ -41,7 +41,9 @@ const specialCaseQuestions = [
     "cna.general.prevCarrier",
     "cna.general.yearsWithCarrier",
     "cna.general.havePrevCarrier",
-    "cna.general.yearsManagementExp"
+    "cna.general.yearsManagementExp",
+    "cna.general.choiceEndorsementPartial",
+    "cna.general.choiceEndorsementFull"
 ];
 
 const lossTypes = [
@@ -369,7 +371,7 @@ module.exports = class CnaBOP extends Integration {
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
         // =================================================================
-
+        
         const requestJSON = {
             SignonRq: {
                 SignonPswd: {
@@ -641,6 +643,56 @@ module.exports = class CnaBOP extends Integration {
             ]
         };
 
+        // add Underwriting Question required for BOP submissions
+        requestJSON.InsuranceSvcRq[0].BOPPolicyQuoteInqRq[0].BOPLineBusiness["com.cna_QuestionAnswer"].push({
+            "com.cna_QuestionCd": {
+              value: "UWSTMT"
+            },
+            YesNoCd: {
+              value: "YES"
+            }
+        });
+
+        // add choice endorsement if provided
+        const partialChoiceEndorsementQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.choiceEndorsementPartial");
+        const fullChoiceEndorsementQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.choiceEndorsementFull");
+        let choiceEndorsementQuestion = partialChoiceEndorsementQuestion || fullChoiceEndorsementQuestion;
+
+        let questionCode = null;
+        if (choiceEndorsementQuestion.answerValue) {
+            switch (choiceEndorsementQuestion.answerValue) {
+                case "Choice Endorsement":
+                    questionCode = "com.cna_BOP04";
+                    break;
+                case "Choice Extra Endorsement":
+                    questionCode = "com.cna_C07";
+                    break;
+                case "Super Choice Endorsement":
+                    questionCode = "com.cna_C14";
+                    break;
+                case "Industry Specific Choice Endorsement":
+                    questionCode = "com.cna_IndustryChoice";
+                    break;
+                case "None":
+                    break;
+                default:
+                    log.warn(`${logPrefix}Unknown Choice Endorsement question answer encountered: ${choiceEndorsementQuestion.answerValue}. Not adding...` + __location);
+            }
+
+            // if we have a question code (None wasn't selected, or answer wasn't found), add the choice endorsement
+            if (questionCode) {
+                requestJSON.InsuranceSvcRq[0].BOPPolicyQuoteInqRq[0].BOPLineBusiness["com.cna_QuestionAnswer"].push({
+                    "com.cna_QuestionCd": {
+                        value: questionCode
+                      },
+                      YesNoCd: {
+                        value: "YES"
+                      }
+                });
+            }
+        }
+
+        // NOTE: Although documentation states this is only applicable for CA and FL, the API doesn't not appear to follow this rule
         // if (applicationDocData.mailingState === 'CA' || applicationDocData.mailingState === 'FL') {
             const yearsManExp = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'cna.general.yearsManagementExp');
             if (yearsManExp) {
@@ -763,9 +815,10 @@ module.exports = class CnaBOP extends Integration {
                         }
 
                         // get limits (required)
+                        // TODO: REWORK THIS - grab PropertyInfo/CommlPropertyInfo information as well, store in new coverage schema
                         try {
-                            response.WorkCompLineBusiness.CommlCoverage[0].Limit.forEach(limit => {
-                                switch (limit.LimitAppliesToCd[0].value) {
+                            response.BOPLineBusiness.LiabilityInfo.CommlCoverage.forEach(limit => {
+                                switch (limit.CoverageCd.value) {
                                     case 'BIEachOcc':
                                         quoteLimits[1] = limit.FormatInteger.value;
                                         break;
@@ -783,7 +836,7 @@ module.exports = class CnaBOP extends Integration {
                         }
                         catch (e) {
                             log.error(`${logPrefix}Couldn't parse one or more limit values from response: ${e}.` + __location);
-                            return this.client_error(`Couldn't parse one or more limit values from response: ${e}.`);
+                            // return this.client_error(`Couldn't parse one or more limit values from response: ${e}.`);
                         }
                         
                         // get quote letter (optional) and quote MIME type (optional)
@@ -813,7 +866,6 @@ module.exports = class CnaBOP extends Integration {
                             catch (e) {
                                 log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
                             }
-
                         }
                         else {
                             log.error(`${logPrefix}Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
@@ -1048,6 +1100,11 @@ module.exports = class CnaBOP extends Integration {
             
             // BldgOccupancy question section
             const buildingOccObj = buildingObj.BldgOccupancy[0];
+
+            // temporarily adding... This is supposed to be optional but is not being treated as so
+            buildingOccObj["com.cna_FinishedBasementOccupancyCd"] = {
+                value: "BASEF"
+            };
 
             const areaOccupied = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.areaOccupied");
             if (areaOccupied) {
@@ -1354,7 +1411,6 @@ module.exports = class CnaBOP extends Integration {
     }
 
     getCNALimits(limits) {
-        console.log("In getCNALimits: " + limits);
         if (!limits) {
             return limits;
         }
