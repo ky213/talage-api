@@ -13,6 +13,7 @@ const applicationStatus = {
     quoting: { appStatusId: 15, appStatusDesc: 'quoting', appStatusText: 'Quoting'},
     error: { appStatusId: 20, appStatusDesc: 'error', appStatusText: 'Error'},
     declined: { appStatusId: 30, appStatusDesc: 'declined', appStatusText: 'Declined'},
+    priceIndication: { appStatusId: 35, appStatusDesc: 'price_indication', appStatusText: 'Price Indication'},
     referred: { appStatusId: 40, appStatusDesc: 'referred',appStatusText: 'Referred'},
     acordEmailed: { appStatusId: 45, appStatusDesc: 'acord_emailed', appStatusText: 'Acord Emailed'},
     quotedReferred: { appStatusId: 50, appStatusDesc: 'quoted_referred', appStatusText: 'Quoted*'},

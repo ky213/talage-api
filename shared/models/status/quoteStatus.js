@@ -26,6 +26,10 @@ const quoteStatus = {
         id: 20,
         description: "Declined"
     },
+    priceIndication: {
+        id: 25,
+        description: "Price Indication"
+    },
     ACORDEmailed: {
         id: 30,
         description: "ACORD Emailed"
@@ -94,6 +98,10 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
     else if (apiResult === 'referred') {
         // return 'referred';
         return quoteStatus.referred;
+    }
+    else if (apiResult === 'price_indication') {
+        // return 'referred';
+        return quoteStatus.priceIndication;
     }
     else if (apiResult === 'acord_emailed') {
         // return 'acord_emailed';

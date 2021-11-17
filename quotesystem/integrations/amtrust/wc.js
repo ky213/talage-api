@@ -393,56 +393,69 @@ module.exports = class AMTrustWC extends Integration {
         const createQuoteMethod = 'POST';
         const createRoute = '/api/v2/quotes'
         const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestDataV2);
+        let pricingResult = {};
+        let amount = 0;
+        let apiResult = "";
         if (!quoteResponse) {
             //pricingResult JSON
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: false,
                 pricingError: true
             }
-            return pricingResult;
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         const statusCode = this.getChildProperty(quoteResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             log.error(`AMtrust WC (application ${this.app.id}) pricing returned StatusCode ${statusCode}` + __location);
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: false,
                 pricingError: true
             }
-            return pricingResult;
+            apiResult = "error";
+            this.reasons.push(`Status Code ${statusCode} returned`);
         }
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.
         const quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
         if (quoteEligibility === "Decline") {
             // A decline at this stage is based on the class codes; they are out of appetite.
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: true,
                 pricingError: false
             }
-            return pricingResult
+            apiResult = "declined";
+            this.reasons.push("Out of Appetite");
         }
         if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
             //pricingResult JSON
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: true,
                 price: quoteResponse.Data.PremiumDetails.PriceIndication,
                 outOfAppetite: false,
                 pricingError: false
             }
-            return pricingResult;
+            amount = quoteResponse.Data.PremiumDetails.PriceIndication;
+            apiResult = "price_indication";
         }
         else {
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: true,
                 pricingError: false
             }
-            return pricingResult;
+            apiResult = "error";
+            this.reasons.push("No Price info.  not declined.");
         }
+        //write quote record to db.
+        await this.record_quote(amount, apiResult)
+
+        //update app metrics and status.
+
+        return pricingResult;
+
     }
 
 

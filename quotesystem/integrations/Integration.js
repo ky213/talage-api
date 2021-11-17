@@ -1908,7 +1908,7 @@ module.exports = class Integration {
 	 * @param {int} amount - The amount of the indication as a whole number
 	 * @returns {object} - An object containing the indication information
 	 */
-    async return_indication(amount) {
+    async return_referred_with_price(amount) {
         const quoteResp = await this.record_quote(amount, 'referred_with_price');
         return quoteResp;
     }
@@ -2104,7 +2104,7 @@ module.exports = class Integration {
                 return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication` + __location);
-                return this.return_indication(this.amount);
+                return this.return_referred_with_price(this.amount);
 
             default:
         }
