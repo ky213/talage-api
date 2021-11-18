@@ -1232,44 +1232,6 @@ module.exports = class CnaBOP extends Integration {
         return [taxIdentity];
     }
 
-    // generates the array of WorkCompRateState objects
-    // getWorkCompRateStates() {
-    //     const workCompRateStates = [];
-
-    //     for (const [index, location] of Object.entries(this.app.business.locations)) {
-    //         const wcrs = {
-    //             StateProvCd: {value: location.territory},
-    //             WorkCompLocInfo: this.getWorkCompLocInfo(location, index)
-    //         }
-    //         const firstNCCICode = location.activity_codes[0].ncciCode;
-    //         wcrs.GoverningClassCd = {value: firstNCCICode.substring(0, firstNCCICode.length - 1)}
-    //         workCompRateStates.push(wcrs);
-    //     }
-
-    //     return workCompRateStates;    
-    // }
-
-    // generates the WorkCompLocInfo objects
-    // getWorkCompLocInfo(location, index) {        
-    //     const wcli = {
-    //         NumEmployees: {value: location.full_time_employees + location.part_time_employees},
-    //         WorkCompRateClass: [],
-    //         LocationRef: `L${index}`,
-    //         NameInfoRef: this.getNameRef(index)
-    //     }
-
-    //     for (const activityCode of location.activity_codes) {
-    //         const wcrc = {
-    //             RatingClassificationCd: {value: activityCode.ncciCode}, 
-    //             Exposure: `${activityCode.payroll}`
-    //         }
-
-    //         wcli.WorkCompRateClass.push(wcrc);
-    //     }
-
-    //     return [wcli];
-    // }
-
     // generates the NameRef based off the index of the records being created
     getNameRef(index) {
         if (index >= 100) {
@@ -1283,27 +1245,7 @@ module.exports = class CnaBOP extends Integration {
         }
     }
 
-    // transform our policy limit selection into limit objects array to be inserted into the BOP Request Object
-    // getLimits(limits) {
-    //     const limitArray = [];
-        
-    //     if (typeof limits === 'string') {
-    //         limits = limits.split('/');
-    //     }
-
-    //     // for each limit, create a limit object with the limit value and applyTo code
-    //     limits.forEach((limit, i) => {
-    //         limitArray.push({
-    //             FormatInteger: {value: limit},
-    //             LimitAppliesToCd: [{value: LIMIT_CODES[i]}]
-    //         }); 
-    //     });
-
-    //     return limitArray;
-    // }
-
     // transform our questions into question objects array to be inserted into the BOP Request Object
-    // TODO: Handle Choice Endorsements
     getQuestions() {
         // filter insurer questions down to those matching answered talage questions
         const answeredQuestionList = [];
@@ -1320,7 +1262,6 @@ module.exports = class CnaBOP extends Integration {
         });
 
         return answeredQuestionList.filter(question => !specialCaseQuestions.includes(question.identifier)).map(question => {
-            // TODO: Check question.insurerQuestionAttributes to see what the QuestionCd should be
             const questionObj = {
                 "com.cna_QuestionCd": {
                     value: question.identifier
@@ -1511,7 +1452,6 @@ module.exports = class CnaBOP extends Integration {
                 SubLocationRef: `L${i + 1}S1`
             };
 
-            // TODO: 
             // If desired, set BillableLostPeriod here
             // coverageObj.BusinessIncomeInfo.BillableLostPeriod.Description.value
             
@@ -1799,31 +1739,6 @@ module.exports = class CnaBOP extends Integration {
         //     ]
         // }
     }
-
-    // getLimits(policy) {
-    //     const limitsStr = policy.limits;
-
-    //     if (limitsStr === "") {
-    //         log.warn(`CNA: Provided limits are empty. ${__location}`);
-    //         return limitsStr;
-    //     }
-
-    //     // skip first character, look for first occurance of non-zero number
-    //     const indexes = [];
-    //     for (let i = 1; i < limitsStr.length; i++) {
-    //         if (limitsStr[i] !== "0") {
-    //             indexes.push(i);
-    //         }
-    //     }
-
-    //     // parse first limit out of limits string
-    //     const limits = [];
-    //     limits.push(limitsStr.substring(0, indexes[0])); // per occ
-    //     limits.push(limitsStr.substring(indexes[0], indexes[1])); // gen agg
-    //     limits.push(limitsStr.substring(indexes[1], limitsStr.length)); // agg
-
-    //     return limits;
-    // }
 
     getGLClassifications() {
         return this.applicationDocData.locations.map((location, i) => {
