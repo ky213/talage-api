@@ -2081,7 +2081,7 @@ async function markQuoteAsDead(req, res, next){
     }
     let userName = null;
     if (userJSON) {
-        userName = userJSON.clear_email;
+        userName = userJSON.email;
     }
     else {
         log.error(`Could not find user json for user id ${req.authentication.userID} : ` + __location);
