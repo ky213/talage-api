@@ -34,21 +34,18 @@ module.exports = class LibertySBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote() {
+        let quoteResponses = [];
 
         const BOPSimple = new LibertyBOPSimple(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
-        let quoteResponses = [];
         quoteResponses.push(BOPSimple.quote());
-
         
-        const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy, this.applicationDocData);
+        const BOPCommercial = new LibertyBOPCommercial(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
         quoteResponses.push(BOPCommercial.quote());
-        
 
         quoteResponses = await Promise.all(quoteResponses);
         
         // just return the first quote response, we don't care about this information
         return quoteResponses[0];
-
     }
      
 }

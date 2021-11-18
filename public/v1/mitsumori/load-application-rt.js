@@ -26,11 +26,14 @@ const getApplicationFromHash = async(req, res, next) => {
             if(applicationDB.appStatusId >= 40){
                 res.send(403, {error: "Application has already been processed please contact your agent."})
             }
-            const token = await createApplicationToken(req, redisValueJSON.applicationId);
-            res.send(200, {
-                token,
-                applicationId: redisValueJSON.applicationId
-            });
+            else{
+                const token = await createApplicationToken(req, redisValueJSON.applicationId);
+                res.send(200, {
+                    token,
+                    applicationId: redisValueJSON.applicationId
+                });
+            }
+            return next();
         }
         else {
             log.error(`getApplicationFromHash Could not find Hash redis value for key: ${redisKey}` + __location);

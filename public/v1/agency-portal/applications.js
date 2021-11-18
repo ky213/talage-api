@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
@@ -18,6 +19,7 @@ const Quote = mongoose.model('Quote');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 /**
  * Validates the parameters for the applications call
@@ -38,7 +40,7 @@ function validateParameters(parent, expectedParameters){
             return false;
         }
         const parameterValue = parent[expectedParameter.name];
-        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
+        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue) && expectedParameter.optional !== true){
             log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
@@ -50,6 +52,42 @@ function validateParameters(parent, expectedParameters){
     return true;
 }
 
+/**
+ * calculates application value from metrics
+ * @param {object} applicationDoc - The list of parameters to validate
+ * @return {string} empty string or formated application value
+ */
+function getAppValueString(applicationDoc){
+    if(applicationDoc.metrics){
+        var formatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+            // These options are needed to round to whole numbers if that's what you want.
+            //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+            //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+        });
+        let appValueDollars = 0;
+        // eslint-disable-next-line no-unused-vars
+        const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
+        for(let i = 0; i < productTypeList.length; i++){
+            if(applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]){
+                appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
+            }
+            else if (applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]){
+                appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
+            }
+        }
+        if(appValueDollars > 0){
+            return formatter.format(appValueDollars);
+        }
+        else {
+            return "";
+        }
+    }
+    else {
+        return "";
+    }
+}
 
 /**
  * Generate a CSV file of exported application data
@@ -76,7 +114,9 @@ function generateCSV(applicationList){
             'referred': 'Referred',
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
-            'wholesale': 'Wholesale'
+            'wholesale': 'Wholesale',
+            'out_of_market': 'Out Of Market',
+            'dead': 'Dead'
         };
 
         // If no data was returned, stop and alert the user
@@ -103,6 +143,7 @@ function generateCSV(applicationList){
             // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
             applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
             applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
+
 
             //Get Primary Location
             const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
@@ -141,6 +182,11 @@ function generateCSV(applicationList){
             else{
                 applicationDoc.status = 'Unknown';
             }
+            // if(applicationDoc.renewal === true){
+            //     applicationDoc.renewal = "Yes";
+            // }
+            // applicationDoc.appValue = getAppValueString(applicationDoc);
+
             const createdAtMoment = moment(applicationDoc.createdAt)
             applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
 
@@ -155,6 +201,7 @@ function generateCSV(applicationList){
             'businessName': 'Business Name',
             'dba': 'DBA',
             'status': 'Application Status',
+            'appValue': 'Application Value',
             'agencyName': 'Agency',
             'referrer': 'Source',
             'mailingAddress': 'Mailing Address',
@@ -171,6 +218,8 @@ function generateCSV(applicationList){
             'entityType': 'Entity Type',
             'einClear': 'EIN',
             'website': 'Website',
+            'renewal': 'renewal',
+            'tagString': "tag",
             'createdString' : 'Created (UTC)'
         };
 
@@ -248,6 +297,11 @@ async function getApplications(req, res, next){
             "type": 'string'
         },
         {
+            "name": 'searchApplicationStatusId',
+            "type": 'number',
+            "optional": true
+        },
+        {
             "name": 'searchApplicationStatus',
             "type": 'string',
             "values": ['',
@@ -263,7 +317,8 @@ async function getApplications(req, res, next){
                 "questions_done",
                 "incomplete",
                 'error',
-                'dead']
+                'dead'],
+            "optional": true
         },
         {
             "name": 'startDate',
@@ -586,9 +641,11 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.toLowerCase();
 
         const businessName = {businessName: `%${req.params.searchText}%`}
+        const tag = {tagString: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
+        orClauseArray.push(tag);
 
         const mailingCity = {mailingCity: `%${req.params.searchText}%`}
         orClauseArray.push(mailingCity);
@@ -684,19 +741,23 @@ async function getApplications(req, res, next){
                 query.solepro = true;
             }
         }
-        if(req.params.searchApplicationStatus){
-            query.status = req.params.searchApplicationStatus;
-        }
     }
     catch(err){
         log.error("AP get App list error " + err + __location);
     }
 
+    //Add a application status search clause if requested
+    // if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
+    //     const status = {status: req.params.searchApplicationStatus}
+    //     orClauseArray.push(status);
+    // }
 
-    // Add a application status search clause if requested
-    if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
-        const status = {status: req.params.searchApplicationStatus}
-        orClauseArray.push(status);
+    if(req.params.searchApplicationStatus){
+        query.status = req.params.searchApplicationStatus;
+    }
+
+    if (req.params && Object.prototype.hasOwnProperty.call(req.params,'searchApplicationStatusId') && req.params.searchApplicationStatusId >= 0){
+        query.appStatusId = parseInt(req.params.searchApplicationStatusId, 10);
     }
 
     // eslint-disable-next-line prefer-const
@@ -734,6 +795,14 @@ async function getApplications(req, res, next){
             else {
                 application.location = "";
             }
+            //TODO update when customizeable status description are done.
+            if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+                application.status = "submitted_to_uw";
+            }
+
+            application.renewal = application.renewal === true ? "Yes" : "";
+            application.appValue = getAppValueString(application);
+
         }
 
     }
@@ -992,6 +1061,99 @@ async function getApplicationsResources(req, res, next){
         {label: "Bound", value:"iq:100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
+    const appStatusIdSearchOptions = [
+        {
+            text: "All Application Statuses",
+            value: -1
+        }
+    ];
+
+    for(const property in applicationStatus){
+        if(property){
+            const applicationStatusObj = applicationStatus[property];
+            if(applicationStatusObj.hasOwnProperty("appStatusId") && applicationStatusObj.hasOwnProperty("appStatusText")){
+                appStatusIdSearchOptions.push({text: applicationStatusObj.appStatusText, value: applicationStatusObj.appStatusId});
+            }
+        }
+    }
+    log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
+    if(req.authentication.agencyNetworkId === 4){
+        // backward compatibility, can remove next sprint
+        resources.appStatusSearchOptions = [
+            {
+                value: '',
+                text: 'All Application Statuses'
+            },
+            {
+                value: 'bound',
+                text: 'Bound'
+            },
+            {
+                value: 'request_to_bind_referred',
+                text: 'Referred Submitted To UW'
+            },
+            {
+                value: 'request_to_bind',
+                text: 'Submitted To UW'
+            },
+            {
+                value: 'quoted',
+                text: 'Quoted'
+            },
+            {
+                value: 'quoted_referred',
+                text: 'Quoted*'
+            },
+            {
+                value: 'acord_emailed',
+                text: 'Acord Emailed'
+            },
+            {
+                value: 'referred',
+                text: 'Referred'
+            },
+            {
+                value: 'declined',
+                text: 'Declined'
+            },
+            {
+                value: 'error',
+                text: 'Error'
+            },
+            {
+                value: 'quoting',
+                text: 'Quoting'
+            },
+            {
+                value: 'questions_done',
+                text: 'Questions Done'
+            },
+            {
+                value: 'incomplete',
+                text: 'Incomplete'
+            },
+            {
+                value: 'dead',
+                text: 'Dead'
+            }
+        ]
+        // change request to bind and request to bind* to custom text
+        const changeList = [{text: 'Submitted To UW', value: 70}, {text: "Referred Submitted To UW", value: 80}];
+        for(let i = 0; i < changeList.length; i++){
+            const appStatusId = changeList[i].value;
+            const index = appStatusIdSearchOptions.findIndex(option => option.value === appStatusId);
+            if(index > -1){
+                appStatusIdSearchOptions[index].text = changeList[i].text;
+            }
+        }
+        // remove wholesale
+        const wholesaleStatusId = 5;
+        const wholesaleIndex = appStatusIdSearchOptions.findIndex(option => option.value === wholesaleStatusId);
+        if(wholesaleIndex > -1){
+            appStatusIdSearchOptions.splice(wholesaleIndex, 1);
+        }
+    }
+    resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources
     res.send(200, resources);
     return next();

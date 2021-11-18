@@ -19,6 +19,7 @@ const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
 const {Sleep} = global.requireShared('./helpers/utility.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 const amtrustTestHost = "utgateway.amtrustgroup.com";
 const amtrustTestBasePath = "/DigitalAPI_Usertest";
@@ -194,9 +195,10 @@ module.exports = class AMTrustWC extends Integration {
             if (!officerType || !endorsementId || !formType) {
                 return validationError;
             }
-
+            //Amtrust has a 30 character limit.
+            const officeName = `${owner.fname} ${owner.lname}`.slice(0,30);
             officersList.push({
-                "Name": `${owner.fname} ${owner.lname}`,
+                "Name": officeName,
                 "EndorsementId": endorsementId,
                 "Type": officerType,
                 "State": state,
@@ -270,7 +272,13 @@ module.exports = class AMTrustWC extends Integration {
             credentials = JSON.parse(this.password);
         }
         catch (error) {
-            return this.client_error("Could not load AmTrust API credentials", __location);
+            log.error(`Could not load AmTrust API credentials ${error}` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
         log.info(`AmTrust AL insurer ${JSON.stringify(this.app.agencyLocation.insurers[this.insurer.id])}` + __location)
         let agentId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim();
@@ -282,16 +290,34 @@ module.exports = class AMTrustWC extends Integration {
         }
         catch (error) {
             log.error(`AMTrust WC error parsing AgentId ${error}` + __location)
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
             //return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
         }
         if (!agentId || agentId === 0) {
-            return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location);
+            log.error(`Invalid AmTrust agent ID '${agentId}'` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
 
         // Split the comma-delimited username,password field.
         const commaIndex = agentUserNamePassword.indexOf(',');
         if (commaIndex <= 0) {
-            return this.client_error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} `, __location);
+            log.error(`AmTrust username and password are not comma-delimited. commaIndex ${commaIndex} ` + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
         const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
         const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
@@ -299,7 +325,13 @@ module.exports = class AMTrustWC extends Integration {
         // Authorize the client
         const accessToken = await amtrustClient.authorize(credentials.clientId, credentials.clientSecret, agentUsername, agentPassword, credentials.mulesoftSubscriberId, this.insurer.useSandbox);
         if (!accessToken) {
-            return this.client_error("Authorization with AmTrust server failed", __location);
+            log.error("Authorization with AmTrust server failed" + __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: true
+            }
+            return pricingResult;
         }
 
 
@@ -352,8 +384,8 @@ module.exports = class AMTrustWC extends Integration {
             },
             "BusinessName": this.app.business.name,
             "ContactInformation": {
-                "FirstName": this.app.business.contacts[0].first_name,
-                "LastName": this.app.business.contacts[0].last_name,
+                "FirstName": this.app.business.contacts[0].first_name.slice(0,30),
+                "LastName": this.app.business.contacts[0].last_name.slice(0,30),
                 "Email": this.app.business.contacts[0].email,
                 "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
                 "AgentContactId": agentId
@@ -392,56 +424,80 @@ module.exports = class AMTrustWC extends Integration {
         const createQuoteMethod = 'POST';
         const createRoute = '/api/v2/quotes'
         const quoteResponse = await this.amtrustCallAPI(createQuoteMethod, accessToken, credentials.mulesoftSubscriberId, createRoute, quoteRequestDataV2);
+        let pricingResult = {};
+        let amount = 0;
+        let apiResult = "";
+        let piQuoteStatus = {};
         if (!quoteResponse) {
             //pricingResult JSON
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: false,
                 pricingError: true
             }
-            return pricingResult;
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         const statusCode = this.getChildProperty(quoteResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             log.error(`AMtrust WC (application ${this.app.id}) pricing returned StatusCode ${statusCode}` + __location);
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: false,
                 pricingError: true
             }
-            return pricingResult;
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
+            this.reasons.push(`Status Code ${statusCode} returned`);
         }
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.
         const quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
         if (quoteEligibility === "Decline") {
             // A decline at this stage is based on the class codes; they are out of appetite.
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: true,
                 pricingError: false
             }
-            return pricingResult
+            apiResult = "piOutOfAppetite";
+            piQuoteStatus = quoteStatus.piOutOfAppetite;
+            this.reasons.push("Out of Appetite");
         }
         if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
             //pricingResult JSON
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: true,
                 price: quoteResponse.Data.PremiumDetails.PriceIndication,
                 outOfAppetite: false,
                 pricingError: false
             }
-            return pricingResult;
+            amount = quoteResponse.Data.PremiumDetails.PriceIndication;
+            piQuoteStatus = quoteStatus.priceIndication;
+            apiResult = "price_indication";
         }
         else {
-            const pricingResult = {
+            pricingResult = {
                 gotPricing: false,
                 outOfAppetite: true,
                 pricingError: false
             }
-            return pricingResult;
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
+            this.reasons.push("No Price info.  not declined.");
         }
+        //write quote record to db. if successful write a quote record.
+        if(pricingResult.gotPricing || global.settings.ALWAYS_SAVE_PRICING_QUOTE === "YES"){
+            await this.record_quote(amount, apiResult, piQuoteStatus)
+        }
+        //currently thinking PI error or out of market in AP Applications
+        // will cause confusing and agents to stop working the application
+        // SIU request - we silently fail PI request.
+        // appDoc will have the pricingResult info.
+
+        return pricingResult;
+
     }
 
 
@@ -851,21 +907,25 @@ module.exports = class AMTrustWC extends Integration {
         else {
             quoteResponse.Data = JSON.parse(JSON.stringify(quoteResponse));
         }
-        let priceIndicated = false;
-        let priceIndication = null
-        if(quoteResponse.Data?.PremiumDetails?.PriceIndication){
-            priceIndicated = true;
-            priceIndication = quoteResponse.Data.PremiumDetails.PriceIndication
+        let isPriceIndicated = false;
+        let priceIndicationAmount = null
+        if(quoteResponse.Data?.PremiumDetails?.PriceIndication > 0){
+            isPriceIndicated = true;
+            priceIndicationAmount = quoteResponse.Data.PremiumDetails.PriceIndication
         }
-        else if(quoteResponse.EstimatedAnnualPremium){
-            priceIndicated = true;
-            priceIndication = quoteResponse.EstimatedAnnualPremium
+        else if(quoteResponse.PremiumDetails?.PriceIndication > 0){
+            isPriceIndicated = true;
+            priceIndicationAmount = quoteResponse.PremiumDetails.PriceIndication
+        }
+        else if(quoteResponse.EstimatedAnnualPremium > 0){
+            isPriceIndicated = true;
+            priceIndicationAmount = quoteResponse.EstimatedAnnualPremium
         }
         //If quickQuote were are done.
         if(quickQuote){
             //get price_indication
             if(quoteEligibility === "Refer") {
-                return this.client_referred(quoteId, {}, priceIndication);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             else {
                 return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`);
@@ -884,10 +944,10 @@ module.exports = class AMTrustWC extends Integration {
 
         const quoteAvailableLlimitesResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/available-liability-limits`);
         if (!quoteAvailableLlimitesResponse) {
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 log.error(`${logPrefix} Unexpected GET limits response - no response` + __location);
                 this.reasons.push(`The insurer's server returned an unspecified error when get the quote available limits information`);
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             return this.client_error("The insurer's server returned an unspecified error when get the quote available limits information.", __location);
         }
@@ -906,10 +966,10 @@ module.exports = class AMTrustWC extends Integration {
 
         const quoteUpdateResponse = await this.amtrustCallAPI('PUT', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}`, amTrustApplicationJSON);
         if (!quoteUpdateResponse) {
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 log.error(`${logPrefix} Unexpected Quote limits update response - no response` + __location);
                 this.reasons.push(`The insurer's server returned an unspecified error when submitting the quote update information.`);
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             return this.client_error("The insurer's server returned an unspecified error when submitting the quote update information.", __location);
         }
@@ -967,10 +1027,10 @@ module.exports = class AMTrustWC extends Integration {
         }
         catch (e) {
             log.error(`AMtrust WC (application ${this.app.id}): Unable to check quote eligibility after submitting question answers: ${e}.`);
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 this.reasons.push("The insurer's server returned an unspecified error after submitting question answers.");
                 //we got a price indication above probably errored in questions.
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
         }
 
@@ -1030,11 +1090,11 @@ module.exports = class AMTrustWC extends Integration {
                     return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
                 }
                 else {
-                    if(priceIndication && priceIndicated){
+                    if(priceIndicationAmount && isPriceIndicated){
                         log.error(`${logPrefix} Unexpected Additional information response ${statusCode}` + __location);
                         this.reasons.push("The insurer's server returned an unspecified error when updating additional-information.");
                         //we got a price indication above probably errored in questions.
-                        return this.client_referred(quoteId, {}, priceIndicated);
+                        return this.client_referred(quoteId, {}, priceIndicationAmount);
                     }
                     return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
                 }
@@ -1042,18 +1102,20 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // Get the quote information
-        const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
+        let quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
         if (!quoteInformationResponse) {
             log.error(`Appid: ${this.app.id} AmTrust WC insurer's server returned an unspecified error when retrieving the final quote information. `, __location, {statusCode: statusCode})
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 this.reasons.push("The insurer's server returned an unspecified error when retrieving the final quote information.");
                 //we got a price indication above probably errored in questions.
-                return this.client_referred(quoteId, {}, priceIndicated);
+                return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
             return this.client_error("The insurer's server returned an unspecified error when retrieving the final quote information.", __location, {statusCode: statusCode});
         }
         // console.log("quoteInformationResponse", JSON.stringify(quoteInformationResponse, null, 4));
-
+        if(quoteInformationResponse.Data){
+            quoteInformationResponse = quoteInformationResponse.Data;
+        }
         // =========================================================================================================
         // Process the quote information response
 
@@ -1078,12 +1140,15 @@ module.exports = class AMTrustWC extends Integration {
 
         // Return the quote
         quoteEligibility = this.getChildProperty(quoteInformationResponse, "Eligibility.Eligibility");
+        if(!quoteEligibility){
+            quoteEligibility = this.getChildProperty(quoteInformationResponse, "Data.Eligibility.Eligibility");
+        }
         if (!quoteEligibility) {
-            if(priceIndication && priceIndicated){
+            if(priceIndicationAmount && isPriceIndicated){
                 log.error(`${logPrefix} The quote elibility could not be found for quote` + __location);
                 this.reasons.push("The quote elibility could not be found for quote after final update.");
                 //we got a price indication above probably errored in questions.
-                return this.client_referred(quoteId, quoteLimits, priceIndicated);
+                return this.client_referred(quoteId, quoteLimits, priceIndicationAmount);
             }
             return this.client_error(`The quote elibility could not be found for quote ${quoteId}.`);
         }
@@ -1172,9 +1237,9 @@ module.exports = class AMTrustWC extends Integration {
                 // There is no decline reason in their response
                 return this.client_declined("The insurer has declined to offer you coverage at this time");
             default:
-                if(priceIndication && priceIndicated){
+                if(priceIndicationAmount && isPriceIndicated){
                     //we got a price indication above probably errored in questions.
-                    return this.client_referred(quoteId, quoteLimits, priceIndicated);
+                    return this.client_referred(quoteId, quoteLimits, priceIndicationAmount);
                 }
                 break;
         }

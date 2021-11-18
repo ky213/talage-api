@@ -11,6 +11,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const moment = require('moment');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 module.exports = class PieWC extends Integration {
 
@@ -22,6 +23,275 @@ module.exports = class PieWC extends Integration {
     _insurer_init() {
         this.requiresInsurerActivityClassCodes = true;
     }
+
+    async _insurer_price(){
+        const appDoc = this.applicationDocData
+        // These are the statuses returned by the insurer and how they map to our Talage statuses
+        /*
+		This.possible_api_responses.Accept = 'quoted';
+		this.possible_api_responses.Refer = 'referred';
+		this.possible_api_responses.Reject = 'declined';
+		*/
+        // These are the limits supported by Pie
+        // const carrierLimits = ['100000/500000/100000',
+        //     '500000/500000/500000',
+        //     '1000000/1000000/1000000'];
+
+        // An association list tying the Talage entity list (left) to the codes used by this insurer (right)
+        // const entityMatrix = {
+        //     Association: 'AssociationLaborUnionReligiousOrganization',
+        //     Corporation: 'Corporation',
+        //     'Joint Venture': 'JointVenture',
+        //     'Limited Liability Company': 'LimitedLiabilityCompany',
+        //     'Limited Liability Partnership': 'LimitedLiabilityPartnership',
+        //     'Limited Partnership': 'LimitedPartnership',
+        //     Other: 'Other',
+        //     Partnership: 'Partnership',
+        //     'Sole Proprietorship': 'Individual',
+        //     'Trust - For Profit': 'TrustOrEstate',
+        //     'Trust - Non-Profit': 'TrustOrEstate'
+        // };
+
+
+        // Determine which URL to use
+        let host = '';
+        if (this.insurer.useSandbox) {
+            host = 'api.post-prod.pieinsurance.com';
+        }
+        else {
+            host = 'api.pieinsurance.com';
+        }
+
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
+        // Prepare limits
+        // const limits = this.getBestLimits(carrierLimits);
+        // if (!limits) {
+        //     log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
+        //     this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
+        //     return this.return_result('autodeclined');
+        // }
+
+        // // If the user want's owners included, Pie cannot write it
+        // if (this.app.business.owners_included) {
+        //     log.info(`Appid: ${this.app.id} autodeclined: Pie does not support owners being included in a WC policy at this time. ` + __location)
+        //     this.reasons.push(`Pie does not support owners being included in a WC policy at this time.`);
+        //     return this.return_result('autodeclined');
+        // }
+
+        let token_response = null;
+        try {
+            const headers = {auth: {
+                username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
+            }};
+            //token_response = await this.send_request(host, '/oauth2/token', "", headers);
+            token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
+        }
+        catch (err) {
+            log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error ${err}` + __location)
+            return this.return_result('error');
+        }
+
+        if(!token_response.data){
+            log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error no response data` + __location)
+            return this.return_result('error');
+        }
+
+        const token = `${token_response.data.token_type} ${token_response.data.id_token}`;
+
+
+        let ratingZip = appDoc.mailingZipCode;
+        const primaryLocation = appDoc.locations?.find(loc => loc.primary);
+        if(primaryLocation){
+            ratingZip = primaryLocation.zipcode
+        }
+
+        const primaryContact = appDoc.contacts.find(c => c.primary);
+
+        // Build the JSON Request
+        const data = {
+            "state": appDoc.primaryState,
+            "zip": ratingZip.slice(0,5),
+            // "classCodes": [
+            //   {
+            //     "classCode": "5403",
+            //     "payroll": 20000
+            //   }
+            // ],
+            "partnerAgentEmail": 'customersuccess@talageins.com',
+            "contactEmail": primaryContact?.email,
+            "currentlyCovered": true,
+            "claimCountYear1": 0,
+            "claimCountYear2": 0,
+            "claimCountYear3": 0,
+            "effectiveDate": this.policy.effective_date.format('YYYY-MM-DD'),
+            "emod": 1,
+            "blanketWaiver": false
+        };
+        //classcodes
+        const classCodes = [];
+        for(const location of appDoc.locations){
+            for(const activtyCodePayroll of location.activityPayrollList){
+                const newClassCode = {};
+                newClassCode.payroll = activtyCodePayroll.payroll;
+                newClassCode.classCode = this.insurer_wc_codes[location.state + activtyCodePayroll.activityCodeId];
+                if(newClassCode.classCode){
+                    const existingClassCode = classCodes.find((cc) => cc.class === newClassCode.classCode);
+                    if(existingClassCode){
+                        existingClassCode.payroll += newClassCode.payroll
+                    }
+                    else {
+                        classCodes.push(newClassCode);
+                    }
+                }
+                else {
+                    log.error(`Pie WC Price did not match activityCode for state ${activtyCodePayroll.activityCodeId} - ${location.state} ` + __location)
+                }
+            }
+        }
+        data.classCodes = classCodes;
+        let pricingResult = {};
+        // Send JSON to the insurer
+        let res = null;
+
+        try {
+            res = await this.send_json_request(host, '/api/v1/PriceIndication', JSON.stringify(data), {Authorization: token});
+        }
+        catch (error) {
+            if(error.httpStatusCode === 400 && error.response){
+                log.error(`Appid: ${this.app.id} Pie WC BAD Request: Error  ${error} ` + __location)
+                try{
+                    res = JSON.parse(error.response);
+                }
+                catch(e){
+                    log.error(`Appid: ${this.app.id} Pie error parsing error response: Error  ${error} ` + __location)
+                }
+            }
+            else {
+                log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
+            }
+            pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+        }
+
+        //check for return not error
+        let amount = 0;
+        let apiResult = "";
+        let piQuoteStatus = {};
+        if(res?.bindStatus){
+            if(res?.bindStatus === "Quotable" || res.bindStatus === "Refer" || res.bindStatus === "Undetermined"){
+                //Check for Declines
+                // Attempt to get the amount of the quote
+                if (res.premiumDetails.totalEstimatedPremium){
+                    try {
+                        amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
+                        // Per Pie we should add totalTaxesAndAssessments to the amount we show.
+                        if(res.premiumDetails.totalTaxesAndAssessments){
+                            amount += parseInt(res.premiumDetails.totalTaxesAndAssessments, 10);
+                        }
+                    }
+                    catch (error) {
+                        log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
+                        //return this.return_result('error');
+                        pricingResult = {
+                            gotPricing: false,
+                            outOfAppetite: false,
+                            pricingError: true
+                        }
+                        apiResult = "pi_error";
+                        piQuoteStatus = quoteStatus.piError;
+                    }
+                    pricingResult = {
+                        gotPricing: true,
+                        price: amount,
+                        outOfAppetite: false,
+                        pricingError: false
+                    }
+                    piQuoteStatus = quoteStatus.priceIndication;
+                    apiResult = "price_indication";
+                }
+                else {
+                    pricingResult = {
+                        gotPricing: false,
+                        outOfAppetite: false,
+                        pricingError: true
+                    }
+                    apiResult = "pi_error";
+                    piQuoteStatus = quoteStatus.piError;
+                }
+            }
+            else if(res.bindStatus === "Decline"){
+                //loop declineReasons
+                this.processReason(res.declineReasons)
+
+                pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: true,
+                    pricingError: false
+                }
+                apiResult = "piOutOfAppetite";
+                piQuoteStatus = quoteStatus.piOutOfAppetite;
+                this.reasons.push("Out of Appetite");
+            }
+            else {
+                this.reasons.push(`Unknown or missing bindStatus from Pie -  ${res.bindStatus}`);
+                pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: false,
+                    pricingError: true
+                }
+                apiResult = "pi_error";
+                piQuoteStatus = quoteStatus.piError;
+            }
+        }
+        else if (res?.errors){
+            if(res.title){
+                this.reasons.push(res.title);
+            }
+            //loop res.errors
+            // eslint-disable-next-line guard-for-in
+            for(const errorReason in res.errors){
+                this.reasons.push("PIE: " + errorReason);
+                this.processReason(res.errors[errorReason])
+            }
+            this.processReason(res.errors)
+
+            pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
+        }
+        else {
+            this.reasons.push("unknown response from Pie");
+            pricingResult = {
+                gotPricing: false,
+                outOfAppetite: false,
+                pricingError: true
+            }
+            apiResult = "pi_error";
+            piQuoteStatus = quoteStatus.piError;
+        }
+        if(pricingResult.gotPricing || global.settings.ALWAYS_SAVE_PRICING_QUOTE === "YES"){
+            await this.record_quote(amount, apiResult, piQuoteStatus)
+        }
+        return pricingResult;
+
+
+        //only creating quote record if Pricing was successful (Got a price)
+
+    }
+
 
     /**
 	 * Requests a quote from Pie and returns. This request is not intended to be called directly.
@@ -658,7 +928,7 @@ module.exports = class PieWC extends Integration {
 
 
     processReason(reasonArray){
-        log.debug("IN Processing PIE reason: " + reasonArray + __location)
+        log.debug("PC WC IN Processing PIE reason: " + JSON.stringify(reasonArray) + __location)
         if(reasonArray && Array.isArray(reasonArray)){
             for(let i = 0; i < reasonArray.length; i++){
                 const reason = reasonArray[i]

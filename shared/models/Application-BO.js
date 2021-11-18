@@ -1687,8 +1687,9 @@ module.exports = class ApplicationModel {
                         mailingZipcode: 1,
                         handledByTalage: 1,
                         policies: 1,
-                        quotingStartedDate: 1
-
+                        quotingStartedDate: 1,
+                        renewal: 1,
+                        metrics: 1
                     };
                     if(requestParms.format === 'csv'){
                         //get full document
@@ -2269,14 +2270,29 @@ module.exports = class ApplicationModel {
                 let lowestBoundQuote = {};
                 let lowestQuote = {};
 
+                //only include price_indication when we had not tried quoting.
+                let hasQuotes = false;
                 for(const quote of quoteList){
                     if(quote.quoteStatusId >= quoteStatus.quoted.id){
-                        log.debug(`Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType)} `)
+                        hasQuotes = true;
+                    }
+                }
+                if(!hasQuotes){
+                    for(const quote of quoteList){
+                        if(quote.quoteStatusId === quoteStatus.priceIndication.id){
+                            if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
+                                lowestQuote[quote.policyType] = quote.amount;
+                            }
+                        }
+                    }
+                }
+
+                for(const quote of quoteList){
+                    if(quote.quoteStatusId >= quoteStatus.quoted.id){
                         if(Object.prototype.hasOwnProperty.call(lowestQuote, quote.policyType) === false || lowestQuote[quote.policyType] > quote.amount){
                             lowestQuote[quote.policyType] = quote.amount;
                         }
                     }
-                    log.debug(`Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) ${Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType)}`)
                     if(quote.quoteStatusId >= quoteStatus.bind_requested.id){
                         if(Object.prototype.hasOwnProperty.call(lowestBoundQuote, quote.policyType) === false || lowestBoundQuote[quote.policyType] > quote.amount){
                             lowestBoundQuote[quote.policyType] = quote.amount;
@@ -2290,7 +2306,6 @@ module.exports = class ApplicationModel {
                         lowestQuote[quote.policyType] = quote.amount;
                     }
                 }
-                log.debug(`lowestBoundQuote ${JSON.stringify(lowestBoundQuote)}` + __location)
 
                 const metrics = {
                     lowestBoundQuoteAmount: {

@@ -36,16 +36,16 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
-    activityCodeId: {type: Number, required: true},
-    ncciCode: {type: Number, required: false},
+    activityCodeId: {type: Number, required: false},
+    ncciCode: {type: String, required: false},
     payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
 })
 
 const ActivtyCodePayrollSchema = new Schema({
-    activityCodeId: {type: Number, required: true},
-    ncciCode: {type: Number, required: false},
+    activityCodeId: {type: Number, required: false},
+    ncciCode: {type: String, required: false},
     payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false}
 });
@@ -138,8 +138,8 @@ const ownerSchema = new Schema({
 //IP required false in case we do not get it or maybe copying an old app.
 // issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: false},
-    version: {type: Number, required: true}
+    ip: { type: String, required: true, default: "0.0.0.0" },
+    version: { type: Number, required: true, default: -1 }
 });
 
 const claimSchema = new Schema({
@@ -328,6 +328,7 @@ const ApplicationSchema = new Schema({
     renewal: {type: Boolean, default: false},
     pricingInfo: {type:PricingInfoSchema, required: false},
     agencyCode: {type: String, required: false},
+    tagString: {type: String, required: false},
     active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
@@ -418,7 +419,6 @@ function populateActivityCodePayroll(schema) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
                         activityCodeId: ActivtyCodeEmployeeType.activityCodeId,
-                        ncciCode: ActivtyCodeEmployeeType.activityCodeId,
                         payroll: 0
                     };
                     activityCodesPayrollSumList.push(activityCodePayrollSum);

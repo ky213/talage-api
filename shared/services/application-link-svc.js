@@ -4,7 +4,7 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 
-const applicationLinkTimeout = 24 * 60 * 60; // 24 hours
+const applicationLinkTimeout = 48 * 60 * 60; // 48 hours
 
 // eslint-disable-next-line multiline-comment-style
 /*
@@ -129,8 +129,7 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    const emailData = {
-        html: `
+    let htmlBody = `
             <p>
                 Hello${options.firstName ? ` ${options.firstName}` : ""},
             </p>
@@ -157,7 +156,21 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
                     ${link}
                 </a>
             </p>
-        `,
+        `
+    if(options.htmlBody){
+        htmlBody = options.htmlBody
+        //replacements.
+        htmlBody = htmlBody.replace(/{{link}}/g, link);
+        htmlBody = htmlBody.replace(/{{agentName}}/g, agentName);
+        htmlBody = htmlBody.replace(/{{emailAgencyName}}/g, emailAgencyName);
+        htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
+        htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
+
+
+    }
+
+    const emailData = {
+        html: htmlBody,
         subject: emailSubject,
         to: recipients
     };

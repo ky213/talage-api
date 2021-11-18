@@ -70,7 +70,6 @@ async function runPricing(app) {
                             }
 
                             const normalizedPath = `${__dirname}/integrations/${slug}/${policyTypeAbbr}.js`;
-                            log.debug(`normalizedPathnormalizedPath}`)
                             try{
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises
@@ -128,8 +127,49 @@ async function runPricing(app) {
     //log.info(`${quoteIDs.length} quotes returned for application ${app.id}`);
     let appPricingResultJSON = {}
     // Check for no quotes
-    if (pricingResults.length === 1 && typeof pricingResults[0] === 'object') {
+    let gotPricing = false;
+    let outOfAppetite = false;
+    let pricingError = false;
+    let lowPrice = 9999999;
+    let highPrice = -1;
+    let totalPrice = 0;
+    let priceCount = 0;
+    for(const priceResult of pricingResults){
+        if(priceResult.gotPricing){
+            gotPricing = true;
+            if(lowPrice > priceResult.price){
+                lowPrice = priceResult.price
+            }
+            if(highPrice < priceResult.price){
+                highPrice = priceResult.price
+            }
+            priceCount++;
+            totalPrice += priceResult.price
+        }
+        if(priceResult.outOfAppetite){
+            outOfAppetite = true;
+        }
+        if(priceResult.pricingError){
+            pricingError = true;
+        }
+    }
+    if(lowPrice === 9999999){
+        lowPrice = null
+        highPrice = null
+    }
+    appPricingResultJSON = {
+        gotPricing: gotPricing,
+        outOfAppetite: outOfAppetite,
+        pricingError: pricingError,
+        lowPrice: lowPrice,
+        highPrice: highPrice
+    }
+
+    if (pricingResults.length === 1 && typeof pricingResults[0] === 'object' && priceCount > 0) {
         appPricingResultJSON = pricingResults[0]
+    }
+    else if(pricingResults.length > 1 && priceCount > 0){
+        appPricingResultJSON.price = parseInt(totalPrice / priceCount, 10);
     }
     else if (pricingResults.length < 1) {
         appPricingResultJSON = {
@@ -145,6 +185,13 @@ async function runPricing(app) {
     const appUpdateJSON = {pricingInfo: appPricingResultJSON}
     const applicationBO = new ApplicationBO();
     await applicationBO.updateMongo(app.applicationDocData.applicationId, appUpdateJSON);
+    if(appPricingResultJSON.gotPricing === true){
+        //Update app status
+        await applicationStatus.updateApplicationStatus(app.applicationDocData.applicationId);
+        // Update Application-level quote metrics
+        await applicationBO.recalculateQuoteMetrics(app.applicationDocData.applicationId);
+    }
+
 
     return appPricingResultJSON
 }
@@ -217,7 +264,6 @@ async function runQuoting(app) {
                             }
 
                             const normalizedPath = `${__dirname}/integrations/${slug}/${policyTypeAbbr}.js`;
-                            log.debug(`normalizedPathnormalizedPath}`)
                             try{
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises
