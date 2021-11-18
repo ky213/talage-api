@@ -5,6 +5,7 @@ global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const moment = require('moment');
 
+
 const travelersStagingHost = "swi-qa.travelers.com";
 const travelersStagingBasePath = "/biswi/api/qa/qi/wc/1-0-0";
 const travelersProductionHost = "swi.travelers.com";
@@ -142,7 +143,12 @@ module.exports = class AcuityWC extends Integration {
         const tomorrow = moment().add(1,'d').startOf('d');
         if(this.policy.effective_date < tomorrow){
             this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
-            return this.return_result('autodeclined');
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
         }
 
 
@@ -207,7 +213,12 @@ module.exports = class AcuityWC extends Integration {
             'Other': 'OT'
         };
         if (!legalEntityMap.hasOwnProperty(this.app.business.locations[0].business_entity_type)) {
-            return this.client_error(`The business entity type '${this.app.business.locations[0].business_entity_type}' is not supported by this insurer.`, __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
         }
         //Travelers does not have Insurer Industry Code records with us .  WC only.  using this.industry_code (insurer's)  lead to sic errors
         // in the submissions.
@@ -244,7 +255,12 @@ module.exports = class AcuityWC extends Integration {
                 const ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
                     this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
-                    return this.client_autodeclined(`Insurer activity class codes were not found for all activities in the application.`);
+                    const pricingResult = {
+                        gotPricing: false,
+                        outOfAppetite: true,
+                        pricingError: false
+                    }
+                    return pricingResult;
                 }
                 activityCode.ncciCode = ncciCode;
             }
@@ -327,14 +343,31 @@ module.exports = class AcuityWC extends Integration {
         catch (error) {
             try {
                 if(error.indexOf("ETIMEDOUT") > -1){
-                    return this.client_error(`The Submission to Travelers timed out`, __location, {error: error});
+                    log.error(`${logPrefix}The Submission to Travelers timed out` + __location);
+                }
+                else if(typeof error.response === 'string') {
+                    response = JSON.parse(error.response);
+                    log.error(`${logPrefix}The Submission to Travelers Error ${response}` + __location);
                 }
                 else {
-                    response = JSON.parse(error.response);
+                    log.error(`${logPrefix}The Submission to Travelers Error ${JSON.stringify(error.response)}` + __location);
                 }
+
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: false,
+                    pricingError: true
+                }
+                return pricingResult;
             }
             catch (error2) {
-                return this.client_error(`The Request to insurer had an error of ${error}`, __location, {error: error});
+                log.error(`${logPrefix}The Request to insurer had an error of ${error}` + __location);
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: false,
+                    pricingError: true
+                }
+                return pricingResult;
             }
         }
 
@@ -344,20 +377,35 @@ module.exports = class AcuityWC extends Integration {
         if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
             if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].code === 'INVALID_PRODUCER_INFORMATION'){
                 log.error(`${logPrefix} Travelers returned a INVALID_PRODUCER_INFORMATION  AgencyId ${appDoc.agencyId}`)
-                return this.client_error(` returned a INVALID_PRODUCER_INFORMATION check Agency configuration`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: true,
+                    pricingError: false
+                }
+                return pricingResult;
             }
             else {
-                return this.client_error(`The insurer returned an request error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: true,
+                    pricingError: false
+                }
+                return pricingResult;
             }
         }
 
         // =========================================================================================================
         // Process the quote information response
-
-        const quoteStatus = this.getChildProperty(response, "quoteStatus");
-        if (!quoteStatus) {
+        const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+        const respQuoteStatus = this.getChildProperty(response, "quoteStatus");
+        if (!respQuoteStatus) {
             log.error(`${logPrefix}Could not locate the quote status in the response.` + __location)
-            return this.client_error(`Could not locate the quote status in the response.`, __location);
+            const pricingResult = {
+                gotPricing: false,
+                outOfAppetite: true,
+                pricingError: false
+            }
+            return pricingResult;
         }
         // Extract all optional and required information
         const quoteStatusReasonList = this.getChildProperty(response, "quoteStatusReason") || [];
@@ -381,33 +429,11 @@ module.exports = class AcuityWC extends Integration {
         let pricingResult = {};
         let amount = 0;
         let apiResult = "";
-        let piQuoteStatus = null;
-
-        // Handle the status
-        switch (quoteStatus) {
-            case "DECLINE":
-                pricingResult = {
-                    gotPricing: false,
-                    outOfAppetite: true,
-                    pricingError: false
-                }
-                apiResult = "piOutOfAppetite";
-                piQuoteStatus = quoteStatus.piOutOfAppetite;
-                this.reasons.push("Out of Appetite");
-                break;
-            case "UNQUOTED":
-                if(premium){
-                    amount = premium
-                }
-                //check of error/decline reason in response
-                const declineReasonCodes = ["UNSUPPORTED_STATE","UNABLE_TO_CLASSIFY"];
-                let declined = false;
-                for (const quoteStatusReason of quoteStatusReasonList) {
-                    if(declineReasonCodes.indexOf(quoteStatusReason.code) > -1){
-                        declined = true;
-                    }
-                }
-                if(declined){
+        let piQuoteStatus = {};
+        try{
+            // Handle the status
+            switch (respQuoteStatus) {
+                case "DECLINE":
                     pricingResult = {
                         gotPricing: false,
                         outOfAppetite: true,
@@ -415,9 +441,55 @@ module.exports = class AcuityWC extends Integration {
                     }
                     apiResult = "piOutOfAppetite";
                     piQuoteStatus = quoteStatus.piOutOfAppetite;
-                    this.reasons.push("quoteStatusReasonMessage");
-                }
-                else {
+                    this.reasons.push("Out of Appetite");
+                    break;
+                case "UNQUOTED":
+                    if(premium){
+                        amount = premium
+                    }
+                    //check of error/decline reason in response
+                    const declineReasonCodes = ["UNSUPPORTED_STATE","UNABLE_TO_CLASSIFY"];
+                    let declined = false;
+                    for (const quoteStatusReason of quoteStatusReasonList) {
+                        if(declineReasonCodes.indexOf(quoteStatusReason.code) > -1){
+                            declined = true;
+                        }
+                    }
+                    if(declined){
+                        pricingResult = {
+                            gotPricing: false,
+                            outOfAppetite: true,
+                            pricingError: false
+                        }
+                        apiResult = "piOutOfAppetite";
+                        piQuoteStatus = quoteStatus.piOutOfAppetite;
+                        this.reasons.push("quoteStatusReasonMessage");
+                    }
+                    else {
+                        pricingResult = {
+                            gotPricing: false,
+                            outOfAppetite: false,
+                            pricingError: true
+                        }
+                        apiResult = "pi_error";
+                        piQuoteStatus = quoteStatus.piError;
+                        this.reasons.push("quoteStatusReasonMessage");
+                    }
+                    break;
+                case "AVAILABLE":
+                    //pricingResult JSON
+                    pricingResult = {
+                        gotPricing: true,
+                        price: premium,
+                        outOfAppetite: false,
+                        pricingError: false
+                    }
+                    amount = premium
+                    piQuoteStatus = quoteStatus.priceIndication;
+                    apiResult = "price_indication";
+
+                    break;
+                default:
                     pricingResult = {
                         gotPricing: false,
                         outOfAppetite: false,
@@ -425,33 +497,13 @@ module.exports = class AcuityWC extends Integration {
                     }
                     apiResult = "pi_error";
                     piQuoteStatus = quoteStatus.piError;
-                    this.reasons.push("quoteStatusReasonMessage");
-                }
-                break;
-            case "AVAILABLE":
-                //pricingResult JSON
-                pricingResult = {
-                    gotPricing: true,
-                    price: premium,
-                    outOfAppetite: false,
-                    pricingError: false
-                }
-                amount = premium
-                piQuoteStatus = quoteStatus.priceIndication;
-                apiResult = "price_indication";
+                    this.reasons.push(`UnKnown  quoteStatus ${respQuoteStatus} returned`);
 
-                break;
-            default:
-                pricingResult = {
-                    gotPricing: false,
-                    outOfAppetite: false,
-                    pricingError: true
-                }
-                apiResult = "pi_error";
-                piQuoteStatus = quoteStatus.piError;
-                this.reasons.push(`UnKnown  quoteStatus ${quoteStatus} returned`);
-
-                break;
+                    break;
+            }
+        }
+        catch(err){
+            log.error(`${logPrefix} error quoteStatus processing ${respQuoteStatus} error ${err}` + __location);
         }
         //write quote record to db. if successful write a quote record.
         if(pricingResult.gotPricing){
