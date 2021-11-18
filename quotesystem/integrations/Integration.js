@@ -1166,8 +1166,19 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     price() {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        
         return new Promise(async(fulfill) => {
+
+            // Make sure the insurer_quote() function exists - Most insurer do not.
+            if (typeof this._insurer_price === 'undefined') {
+                //const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
+                //log.warn(error_message + __location);
+                //this.reasons.push(error_message);
+                fulfill(false);
+                return;
+            }
+
+            log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
 
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
@@ -1177,15 +1188,6 @@ module.exports = class Integration {
             if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
                 log.warn(`Appid: ${this.app.id} Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
                 this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
-            }
-
-            // Make sure the insurer_quote() function exists
-            if (typeof this._insurer_price === 'undefined') {
-                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
-                log.error(error_message + __location);
-                this.reasons.push(error_message);
-                fulfill(false);
-                return;
             }
 
             //Check that industry codes codes are supported by the insurer if required
@@ -1232,7 +1234,12 @@ module.exports = class Integration {
             //     pricingError: false
             // }
             if(error){
-                fulfill(null);
+                const pricingResult = {
+                    gotPricing: false,
+                    outOfAppetite: false,
+                    pricingError: true
+                }
+                fulfill(pricingResult);
             }
             fulfill(pricingResults);
         });

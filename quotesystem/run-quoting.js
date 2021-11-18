@@ -70,7 +70,6 @@ async function runPricing(app) {
                             }
 
                             const normalizedPath = `${__dirname}/integrations/${slug}/${policyTypeAbbr}.js`;
-                            log.debug(`normalizedPathnormalizedPath}`)
                             try{
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises
@@ -153,6 +152,10 @@ async function runPricing(app) {
         if(priceResult.pricingError){
             pricingError = true;
         }
+    }
+    if(lowPrice === 9999999){
+        lowPrice = null
+        highPrice = null
     }
     appPricingResultJSON = {
         gotPricing: gotPricing,
@@ -261,7 +264,6 @@ async function runQuoting(app) {
                             }
 
                             const normalizedPath = `${__dirname}/integrations/${slug}/${policyTypeAbbr}.js`;
-                            log.debug(`normalizedPathnormalizedPath}`)
                             try{
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises

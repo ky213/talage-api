@@ -427,7 +427,7 @@ module.exports = class AMTrustWC extends Integration {
         let pricingResult = {};
         let amount = 0;
         let apiResult = "";
-        let piQuoteStatus = null;
+        let piQuoteStatus = {};
         if (!quoteResponse) {
             //pricingResult JSON
             pricingResult = {
