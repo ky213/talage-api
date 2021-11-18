@@ -187,7 +187,7 @@ module.exports = class PieWC extends Integration {
         let apiResult = "";
         let piQuoteStatus = {};
         if(res?.bindStatus){
-            if(res.bindStatus === "Quotable" || res.bindStatus === "Refer"){
+            if(res?.bindStatus === "Quotable" || res.bindStatus === "Refer" || res.bindStatus === "Undetermined"){
                 //Check for Declines
                 // Attempt to get the amount of the quote
                 if (res.premiumDetails.totalEstimatedPremium){
@@ -282,7 +282,7 @@ module.exports = class PieWC extends Integration {
             apiResult = "pi_error";
             piQuoteStatus = quoteStatus.piError;
         }
-        if(pricingResult.gotPricing){
+        if(pricingResult.gotPricing || global.settings.ALWAYS_SAVE_PRICING_QUOTE === "YES"){
             await this.record_quote(amount, apiResult, piQuoteStatus)
         }
         return pricingResult;
