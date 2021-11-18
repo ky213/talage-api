@@ -506,7 +506,7 @@ module.exports = class AcuityWC extends Integration {
             log.error(`${logPrefix} error quoteStatus processing ${respQuoteStatus} error ${err}` + __location);
         }
         //write quote record to db. if successful write a quote record.
-        if(pricingResult.gotPricing){
+        if(pricingResult.gotPricing || global.settings.ALWAYS_SAVE_PRICING_QUOTE === "YES"){
             await this.record_quote(amount, apiResult, piQuoteStatus)
         }
         //currently thinking PI error or out of market in AP Applications
