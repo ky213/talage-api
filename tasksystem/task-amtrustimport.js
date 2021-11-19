@@ -47,7 +47,7 @@ async function amtrustImport(){
         const amtrustImportCodes = require('./insurers/amtrust/import-wc-codes2.js');
         const amtrustImportQuestions = require('./insurers/amtrust/import-wc-questions.js');
         const amtrustCodes = await amtrustImportCodes.CodeImport();
-        // await amtrustImportQuestions.QuestionImport(amtrustCodes);
+        await amtrustImportQuestions.QuestionImport(amtrustCodes);
     }
     catch (err) {
         log.error(err + __location);

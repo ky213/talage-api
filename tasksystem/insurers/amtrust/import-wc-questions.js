@@ -208,22 +208,37 @@ async function QuestionImport(amtrustClassCodeMap) {
     //send email with the above stats to integrations@talageins.com
     if(newQuestionList.length > 0){
         //trigger to send email since codes were addeded
-        log.info('Sending email notification for new questions....');
         const sendResult = false;
+        let messageTable = '';
+
+        for (const codes in newQuestionList) {
+            messageTable = messageTable + `<tr>
+                   <td>${codes}.  ${newQuestionList[codes]}</td>
+               </tr>`
+        }
         const sendMessage = `
-            <div>
-                ${newQuestionList.length} new AmTrust questions
-                ${updatedIQLinks} updates to AmTrust question links
-            </div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>${newQuestionList.length} new AmTrust questions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${messageTable}
+                    <tr>
+                        <td>${updatedIQLinks} updates to AmTrust codes</td>
+                    </tr>
+                </tbody>
+            </table>
         `
         try{
-            sendResult = await emailSvc.send('carlo+esend@talageins.com','New Questions were Added to AmTrust',sendMessage);
+            sendResult = await emailSvc.send('integrations@talageins.com','New Questions were added to AmTrust',sendMessage);
             if(!sendResult){
                 console.log('An error occured when sending notification. Please contact us for details');
             }
         }
         catch(err) {
-            console.log('error-sending email :', err);
+            console.log('error-sending email:', err);
         }
     }
 
