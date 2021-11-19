@@ -286,7 +286,10 @@ module.exports = class AcuityWC extends Integration {
         else {
             contactPhone = "510555555";
         }
-
+        let yearEstabilished = parseInt(this.app.business.founded.format("YYYY"),10);
+        if(!yearEstabilished){
+            yearEstabilished = parseInt(this.policy.effective_date.add(-3,"y").format("YYYY"),10);
+        }
         // =========================================================================================================
         // Create the quote request
         const quoteRequestData = {
@@ -321,7 +324,7 @@ module.exports = class AcuityWC extends Integration {
             "businessInfo": {"locations": await this.getLocationList()},
             "basisOfQuotation": {
                 eligibility: {},
-                "yearBusinessEstablished": parseInt(this.app.business.founded.format("YYYY"),10),
+                "yearBusinessEstablished": yearEstabilished,
                 "totalAnnualWCPayroll": this.get_total_payroll()
             }
         };
