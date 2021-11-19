@@ -171,6 +171,12 @@ async function createUser(req, res, next) {
         message: 'User Created'
     });
 
+    //check for do not send email
+    if(req.body.sentEmail === false){
+        return next();
+    }
+
+
     // Check if this is an agency network
     agencyNetworkId = req.authentication.agencyNetworkId;
 
