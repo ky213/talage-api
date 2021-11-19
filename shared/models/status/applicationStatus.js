@@ -11,8 +11,11 @@ const applicationStatus = {
     wholesale: { appStatusId: 5, appStatusDesc: 'wholesale', appStatusText: 'Wholesale'},
     questionsDone: { appStatusId: 10, appStatusDesc: 'questions_done', appStatusText: 'Questions Done'},
     quoting: { appStatusId: 15, appStatusDesc: 'quoting', appStatusText: 'Quoting'},
+    piError: { appStatusId: 17, appStatusDesc: 'pi_error', appStatusText: 'PI - Error'},
     error: { appStatusId: 20, appStatusDesc: 'error', appStatusText: 'Error'},
+    piOutOfAppetite: { appStatusId: 25, appStatusDesc: 'pi_out_of_appetite', appStatusText: 'PI - Out of Appetite'},
     declined: { appStatusId: 30, appStatusDesc: 'declined', appStatusText: 'Declined'},
+    priceIndication: { appStatusId: 35, appStatusDesc: 'price_indication', appStatusText: 'Price Indication'},
     referred: { appStatusId: 40, appStatusDesc: 'referred',appStatusText: 'Referred'},
     acordEmailed: { appStatusId: 45, appStatusDesc: 'acord_emailed', appStatusText: 'Acord Emailed'},
     quotedReferred: { appStatusId: 50, appStatusDesc: 'quoted_referred', appStatusText: 'Quoted*'},
@@ -112,10 +115,6 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
     if(applicationDoc.appStatusId === deadApplicationStatusId || applicationDoc.appStatusId === boundApplicationStatusId){
         return {appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.status};
     }
-    else if (applicationDoc.appStatusId < 10) {
-        // return the current app status if it is less than 10
-        return { appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.status };
-    }
     else if (applicationDoc.solepro || applicationDoc.wholesale) {
         //TODO separate status logic
         //appStatusId = 5
@@ -156,6 +155,10 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         //return 'referred';
         return applicationStatus.referred;
     }
+    else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.priceIndication.id)) {
+        log.debug(`got price indication` + __location)
+        return applicationStatus.priceIndication;
+    }
     else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.declined.id)) {
         //appStatusId = 30
         // return 'declined';
@@ -166,21 +169,42 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         // return 'declined';
         return applicationStatus.declined;
     }
+    // else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.piOutOfAppetite.id)) {
+    //     // INTENTIONALLY SKIPPED - WE DO NOT WANT AGENT STOPPING BECAUSE OF PI ERRORS OR OUT OF APPETITE.
+    //     //  only a few insurers do Price Indications.
+    //     // price indication may take place before the application is complete or question are done.
+    //     // so let it fall throught to incomplete.
+    //     //  return 'error';
+    //     return applicationStatus.piOutOfAppetite;
+    // }
     else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.error.id)) {
         //appStatusId = 20
         //  return 'error';
         return applicationStatus.error;
     }
-    else if (applicationDoc.lastStep === 8 || applicationDoc.appStatusId === 10) {
+    // else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.piError.id)) {
+    //     // INTENTIONALLY SKIPPED - WE DO NOT WANT AGENT STOPPING BECAUSE OF PI ERRORS OR OUT OF APPETITE.
+    //     //  only a few insurers do Price Indications.
+    //     // price indication may take place before the application is complete or question are done.
+    //     // so let it fall throught to incomplete.
+    //     //  return 'error';
+    //     return applicationStatus.piError;
+    // }
+    else if (applicationDoc.appStatusId === 10) {
         //appStatusId = 10
         // return 'questions_done';
         return applicationStatus.questionsDone;
+    }
+    else if (applicationDoc.appStatusId < 10) {
+        // return the current app status if it is less than 10
+        return { appStatusId: applicationDoc.appStatusId, appStatusDesc: applicationDoc.status };
     }
     else if(timeout) {
         // if timeout is specified then return error if nothing above is chosen
         return applicationStatus.error;
     }
     else{
+        log.debug(`no appstatus hits`)
         return applicationStatus.incomplete;
     }
 }
