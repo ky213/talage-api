@@ -413,7 +413,7 @@ module.exports = class AMTrustWC extends Integration {
                 log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
             }
         }
-        if((contactPhone === '')) {
+        if(contactPhone === '') {
             contactPhone = "5105555555";
         }
 
