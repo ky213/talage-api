@@ -147,14 +147,14 @@
          let messageTable = '';
          for (const codes in amtrustAddCodes) {
              messageTable = messageTable + `<tr>
-                    <td class="col">${codes}.  ${amtrustAddCodes[codes]}</td>
+                    <td>${codes}.  ${amtrustAddCodes[codes]}</td>
                 </tr>`
          }
          const sendMessage = `
-             <table class="table-striped">
+             <table class="table table-striped">
                  <thead>
                      <tr>
-                         <th class="thread-dark">${amtrustAddCodes.length} new IAC records to AmTrust codes</th>
+                         <th>${amtrustAddCodes.length} new IAC records to AmTrust codes</th>
                      </tr>
                  </thead>
                  <tbody>
