@@ -12,7 +12,7 @@
  */
 const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
-
+const emailSvc = global.requireShared('./services/emailsvc.js');
 //
 const DO_REMOVAL_CHECK = false;
 // NOWW removed
@@ -207,7 +207,7 @@ async function CodeImport() {
                             insurerAcDocGA.attributes = {}
                         }
                         insurerAcDocGA.attributes[state] = amTrustClassCode;
-                        await insurerAcDocGA.save();
+                        // await insurerAcDocGA.save();
                     }
                 }
                 else {
@@ -272,7 +272,7 @@ async function CodeImport() {
                         newIACJson.talageActivityCodeIdList = talageActivityCodeIdList;
                     }
                     const newIACDoc = new InsurerActivityCodeModel(newIACJson);
-                    await newIACDoc.save();
+                    // await newIACDoc.save();
                     if(!talageActivityCodeIdList) {
                         newUnMappedCodes.push(newIACDoc);
                     }
@@ -321,7 +321,7 @@ async function CodeImport() {
                 if(iac.territoryList.length === removeTerritoryList.length){
                     log.info(logPrefix + `- ${i} - IAC not in new list ${iac.code}-${iac.sub} ${removeTerritoryList}`);
                     iac.expirationDate = moment();
-                    await iac.save();
+                    // await iac.save();
                     iacExpiredCount++;
                     expiredIACArray.push(iac);
                 }
@@ -330,7 +330,7 @@ async function CodeImport() {
                     updateRemoveTerritoryCount++;
                     iac.removeTerritoryList = removeTerritoryList;
                     iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
-                    await iac.save();
+                    // await iac.save();
                     removedToExistingCodeArray.push(iac)
                 }
             }
@@ -365,13 +365,39 @@ async function CodeImport() {
     if(amtrustAddCodes.length > 0){
         //trigger to send email since codes were addeded
         const sendResult = false;
+        let messageTable = '';
+        for (const codes in amtrustAddCodes) {
+            messageTable = messageTable + `<tr><td>${codes}</td></tr>`
+        }
         const sendMessage = `
-            <div>
-            ${amtrustAddCodes.length} new IAC records to AmTrust codes
-            ${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes
-            ${updateIacCount} updates to AmTrust codes
-            Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC 
-            IAC Straight Expired Processed ${iacExpiredCount}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>${amtrustAddCodes.length} new IAC records to AmTrust codes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${messageTable}
+                </tbody>
+            </table>
+            <table class="table mt-5">
+                <thead>
+                    <tr>
+                        <th>${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes</th>
+                    </tr>
+                <thead>
+                <tbody>
+                    <tr>
+                        <td>${updateIacCount} updates to AmTrust codes</td>
+                    </tr>
+                    <tr>
+                        <td>Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC </td>
+                    </tr>
+                    <tr>
+                        <td>IAC Straight Expired Processed ${iacExpiredCount}</td>
+                    <tr>
+                </tbody>
+            </table>
             </div>
         `
         try{

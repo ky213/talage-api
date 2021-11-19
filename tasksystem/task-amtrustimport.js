@@ -44,10 +44,10 @@ async function processtask(queueMessage){
 
 async function amtrustImport(){
     try {
-        const amtrustImportCodes = require('./insurers/amtrust/import-wc-codes.js');
+        const amtrustImportCodes = require('./insurers/amtrust/import-wc-codes2.js');
         const amtrustImportQuestions = require('./insurers/amtrust/import-wc-questions.js');
         const amtrustCodes = await amtrustImportCodes.CodeImport();
-        await amtrustImportQuestions.QuestionImport(amtrustCodes);
+        // await amtrustImportQuestions.QuestionImport(amtrustCodes);
     }
     catch (err) {
         log.error(err + __location);

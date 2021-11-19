@@ -208,6 +208,7 @@ async function QuestionImport(amtrustClassCodeMap) {
     //send email with the above stats to integrations@talageins.com
     if(newQuestionList.length > 0){
         //trigger to send email since codes were addeded
+        log.info('Sending email notification for new questions....');
         const sendResult = false;
         const sendMessage = `
             <div>
