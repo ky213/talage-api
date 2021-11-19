@@ -702,6 +702,12 @@ async function postAgency(req, res, next) {
 
 
     let sendEmail = true;
+    //Backward compatible with sentEmail not being sent by client.
+    //Default behavior is to send the email.
+    if(req.body.sentEmail === false){
+        sendEmail = false;
+    }
+    //Some scripts use this.
     if(req.body.donotSendEmail){
         sendEmail = false;
     }
