@@ -443,7 +443,7 @@ module.exports = class AgencyBO {
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {"createdAt": 1};
+            queryOptions.sort = {"name": 1};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
@@ -453,11 +453,10 @@ module.exports = class AgencyBO {
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
             }
-            else {
-                // default to DESC on sent
-                queryOptions.sort.createdAt = -1;
+            // else {
+            //     queryOptions.sort.name = 1;
 
-            }
+            // }
             const queryLimit = 5000;
             if (queryJSON.limit) {
                 var limitNum = parseInt(queryJSON.limit, 10);
