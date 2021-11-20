@@ -7,7 +7,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-//const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 // eslint-disable-next-line no-unused-vars
@@ -96,11 +96,39 @@ async function createUser(req, res, next) {
     // Determine if this is an agency or agency network
     let agencyId = null;
     let agencyNetworkId = null;
-    if (req.authentication.isAgencyNetworkUser && req.body.agency) {
-        agencyId = parseInt(req.body.agency, 10);
+    const agencyBO = new AgencyBO();
+    if (req.authentication.isAgencyNetworkUser && (req.body.agency || req.body.agencyId)){
+        if(req.body.agencyId){
+            agencyId = parseInt(req.body.agencyId, 10);
+        }
+        else {
+            agencyId = parseInt(req.body.agency, 10);
+        }
+        const agencyDoc = await agencyBO.getById(agencyId).catch(function(err){
+            log.error('agencyPortalUser error ' + err + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        });
+        const reqUserAgencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10)
+        let isTalageSuperUser = false;
+        if(reqUserAgencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+            isTalageSuperUser = true;
+        }
+        if(agencyDoc?.agencyNetworkId !== reqUserAgencyNetworkId && !isTalageSuperUser){
+            log.error(`agencyPortalUser Attempt to add user to agency of agency Network request user ${req.authentication.userID}` + __location);
+            return next(serverHelper.requestError(new Error("bad agencyId")));
+        }
+
     }
     else if (req.authentication.isAgencyNetworkUser){
+        //TODO update for Global Mode.
         agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10)
+        //req.authentication.permissions["globalMode"]
+        //Determine if in global model - if so look for agency Network in requeset or error out the request.
+        //short term if admin for Wheelhouse can add other agency Network user
+        if(agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true && parseInt(req.body.agencyNetworkId,10) > 0){
+            agencyNetworkId = req.body.agencyNetworkId
+        }
+
     }
     else {
         // Get the agents that we are permitted to view
@@ -111,6 +139,17 @@ async function createUser(req, res, next) {
             return next(error);
         }
         agencyId = agents[0];
+    }
+    if(agencyId){
+        //check it is valid agency
+        const agencyDoc = await agencyBO.getById(agencyId).catch(function(err){
+            log.error('agencyPortalUser error ' + err + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        });
+        if(!agencyDoc){
+            log.error(`agencyPortalUser Attempt to add user to non activeagency ${agencyId} request user ${req.authentication.userID}` + __location);
+            return next(serverHelper.requestError(new Error("bad agencyId")));
+        }
     }
 
     // Generate a random password for this user (they won't be using it anyway)

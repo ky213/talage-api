@@ -120,7 +120,7 @@ async function createToken(email) {
     }
 
     // Add the user ID to the payload
-    payload.userID = agencyPortalUserDBJson.id;
+    payload.userID = agencyPortalUserDBJson.agencyPortalUserId;
 
     // Add the permissions to the payload
     payload.permissions = agencyPortalUserDBJson.permissions;
