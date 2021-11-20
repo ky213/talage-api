@@ -322,11 +322,18 @@ async function postAgency(req, res, next) {
     // Begin compiling a list of territories
     const insurerIDs = [];
     let territoryAbbreviations = [];
-    // TODO Move to Model
-    // Build a query for getting all insurers with their territories
-    const agencyNetworkId = req.authentication.agencyNetworkId
+    //TODO update for Global Mode
+    let agencyNetworkId = req.authentication.agencyNetworkId
 
-
+    //req.authentication.permissions["globalMode"]
+    //Determine if in global model - if so look for agency Network in requeset or error out the request.
+    //short term if Wheelhouse Talage Super User can add other agency Network agency
+    if(agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true && parseInt(req.body.agencyNetworkId,10) > 0){
+        agencyNetworkId = parseInt(req.body.agencyNetworkId,10);
+    }
+    else if(parseInt(req.body.agencyNetworkId,10) !== agencyNetworkId){
+        return next(serverHelper.requestError('Bad agencyNetworkId'));
+    }
     // Validate
     if (!validator.agency_name(req.body.name)) {
         log.warn('Invalid agency name');
@@ -507,7 +514,7 @@ async function postAgency(req, res, next) {
 
 
     let wholesale = 0;
-    if (req.authentication.agencyNetworkId === 2) {
+    if (agencyNetworkId === 2) {
         wholesale = 1;
     }
 
@@ -515,7 +522,7 @@ async function postAgency(req, res, next) {
     const newAgencyJSON = {
         name: name,
         email: email,
-        agencyNetworkId: req.authentication.agencyNetworkId,
+        agencyNetworkId: agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
         slug: slug,
@@ -644,7 +651,7 @@ async function postAgency(req, res, next) {
         agencyId: agencyId,
         email: email,
         name: "Main",
-        agencyNetworkId: req.authentication.agencyNetworkId,
+        agencyNetworkId: agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
         useAgencyPrime: useAgencyPrime,
@@ -715,7 +722,7 @@ async function postAgency(req, res, next) {
         // Get the ID of the new agency user
         const userID = agencyPortalUserBO.id;
 
-        const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetworkId, userID, firstName, lastName, name, slug, email);
+        const onboardingEmailResponse = await sendOnboardingEmail(agencyNetworkId, userID, firstName, lastName, name, slug, email);
 
         if (onboardingEmailResponse) {
             return next(serverHelper.internalError(onboardingEmailResponse));
