@@ -40,11 +40,16 @@ async function get_account(req, res, next){
             id: timezone.id
         })
     }
-
-    res.send(200, {
+    const accountInformationObj = {
         'account_data': account_data,
         'timezones': timezones
-    });
+    };
+    // Additional logic that removes this property if user should not be able to edit this setting.
+    const talageSuperUserSystemId = 6;
+    if(agencyPortalUserJSON.hasOwnProperty('enableGlobalView') && agencyPortalUserJSON.hasOwnProperty('agencyPortalUserGroupId') && agencyPortalUserJSON.agencyPortalUserGroupId === talageSuperUserSystemId){
+        accountInformationObj.enableGlobalView = agencyPortalUserJSON.enableGlobalView;
+    }
+    res.send(200, accountInformationObj);
     return next();
 }
 
@@ -118,9 +123,12 @@ async function put_account(req, res, next){
 
 
     }
-
+    let enableGlobalView = null;
+    if(req.body.hasOwnProperty('enableGlobalView')){
+        enableGlobalView = req.body.enableGlobalView;
+    }
     // Do we have something to update?
-    if(!req.body.email && !password && !timezoneName){
+    if(!req.body.email && !password && !timezoneName && !enableGlobalView){
         log.warn('There is nothing to update');
         return next(serverHelper.requestError('There is nothing to update. Please check the documentation.'));
     }
@@ -137,7 +145,17 @@ async function put_account(req, res, next){
             newJson.timezoneName = timezoneName
         }
 
+        // grab agency portal user and see if they can update their global view settings
         const agencyPortalUserBO = new AgencyPortalUserBO();
+        const agencyPortalUserJSON = await agencyPortalUserBO.getById(parseInt(req.authentication.userID,10)).catch(function(err){
+            log.error(`Error trying to retrieve user by id: ${parseInt(req.authentication.userID,10)} error: ${err} ${__location}`);
+            return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+        });
+        // Additional logic that removes this property if user should not be able to edit this setting.
+        const talageSuperUserSystemId = 6;
+        if(agencyPortalUserJSON.hasOwnProperty('agencyPortalUserGroupId') && agencyPortalUserJSON.agencyPortalUserGroupId === talageSuperUserSystemId && enableGlobalView !== null){
+            newJson.enableGlobalView = enableGlobalView;
+        }
         await agencyPortalUserBO.saveModel(newJson);
     }
     catch(err){
