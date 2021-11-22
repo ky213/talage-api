@@ -136,7 +136,7 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
             <p>
                 ${agentName} at ${emailAgencyName} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
                 <br/>
-                Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
+                Its an easy way for you to fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process online. 
                 <br/>
                 If you ever need help, ${agentName} is still right here to help ensure you get the best policy at the best value. 
                 <br/>
