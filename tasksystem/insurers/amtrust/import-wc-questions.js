@@ -208,12 +208,11 @@ async function QuestionImport(amtrustClassCodeMap) {
     //send email with the above stats to integrations@talageins.com
     if(newQuestionList.length > 0){
         //trigger to send email since codes were addeded
-        const sendResult = false;
         let messageTable = '';
 
         for (const codes in newQuestionList) {
-            if({}.hasOwnProperty.call(amtrustAddCodes, codes)){
-                messageTable =+ `<tr>
+            if({}.hasOwnProperty.call(newQuestionList, codes)){
+                messageTable += `<tr>
                        <td>${codes}.  ${newQuestionList[codes]}</td>
                    </tr>`
             }

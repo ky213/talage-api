@@ -290,7 +290,7 @@ async function CodeImport() {
     // let iacExpiredCount = 0;
     // const expiredIACArray = [];
     // const removedToExistingCodeArray = [];
-    let updateRemoveTerritoryCount = 0;
+    // const updateRemoveTerritoryCount = 0;
     if(DO_REMOVAL_CHECK){
         const queryIAC = {
             insurerId: insurer.insurerId,
@@ -311,7 +311,7 @@ async function CodeImport() {
                     if(amtrustClassCodeMap[territory]){
                         const insurerCode = amtrustClassCodeMap[territory].find((importCode) => importCode.ClassCode === iac.code && importCode.ClassDescriptionCode === iac.sub)
                         if(!insurerCode){
-                            modified = true;
+                            // modified = true;
                             removeTerritoryList.push(territory)
                         }
                     }
@@ -364,11 +364,10 @@ async function CodeImport() {
     //send email with the above stats to integrations@talageins.com
     if(amtrustAddCodes.length > 0){
         //trigger to send email since codes were addeded
-        const sendResult = false;
         let messageTable = '';
         for (const codes in amtrustAddCodes) {
             if({}.hasOwnProperty.call(amtrustAddCodes, codes)){
-                messageTable =+ `<tr>
+                messageTable += `<tr>
                        <td>${codes}.  ${amtrustAddCodes[codes]}</td>
                    </tr>`
             }
@@ -394,12 +393,6 @@ async function CodeImport() {
                     <tr>
                         <td>${updateIacCount} updates to AmTrust codes</td>
                     </tr>
-                    <tr>
-                        <td>Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC </td>
-                    </tr>
-                    <tr>
-                        <td>IAC Straight Expired Processed ${iacExpiredCount}</td>
-                    <tr>
                 </tbody>
             </table>
             </div>
