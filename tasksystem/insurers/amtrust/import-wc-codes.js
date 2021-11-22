@@ -14,7 +14,7 @@ const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 //
-const DO_REMOVAL_CHECK = false;
+const DO_REMOVAL_CHECK = true;
 // NOWW removed
 const stateList = [
     "AL",
@@ -317,23 +317,24 @@ async function CodeImport() {
                     }
                 }
             }
-            if(modified){
-                if(iac.territoryList.length === removeTerritoryList.length){
-                    log.info(logPrefix + `- ${i} - IAC not in new list ${iac.code}-${iac.sub} ${removeTerritoryList}`);
-                    iac.expirationDate = moment();
-                    await iac.save();
-                    iacExpiredCount++;
-                    expiredIACArray.push(iac);
-                }
-                else {
-                    //remove removeTerritoryList from IAC save
-                    updateRemoveTerritoryCount++;
-                    iac.removeTerritoryList = removeTerritoryList;
-                    iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
-                    await iac.save();
-                    removedToExistingCodeArray.push(iac)
-                }
-            }
+            // commented to prevent updates of removed codes
+            // if(modified){
+            //     if(iac.territoryList.length === removeTerritoryList.length){
+            //         log.info(logPrefix + `- ${i} - IAC not in new list ${iac.code}-${iac.sub} ${removeTerritoryList}`);
+            //         iac.expirationDate = moment();
+            //         await iac.save();
+            //         iacExpiredCount++;
+            //         expiredIACArray.push(iac);
+            //     }
+            //     else {
+            //         //remove removeTerritoryList from IAC save
+            //         updateRemoveTerritoryCount++;
+            //         iac.removeTerritoryList = removeTerritoryList;
+            //         iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
+            //         await iac.save();
+            //         removedToExistingCodeArray.push(iac)
+            //     }
+            // }
             i++;
             if(i % 100 === 0){
                 log.info(logPrefix + `- Checking Existing Codes ${i} of ${insurerAcDocList.length}` + __location);
