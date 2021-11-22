@@ -287,9 +287,9 @@ async function CodeImport() {
         }
     }
     //look for missing - removed codes
-    let iacExpiredCount = 0;
-    const expiredIACArray = [];
-    const removedToExistingCodeArray = [];
+    // let iacExpiredCount = 0;
+    // const expiredIACArray = [];
+    // const removedToExistingCodeArray = [];
     let updateRemoveTerritoryCount = 0;
     if(DO_REMOVAL_CHECK){
         const queryIAC = {
@@ -302,7 +302,7 @@ async function CodeImport() {
         });
         let i = 0;
         for(const iac of insurerAcDocList){
-            let modified = false;
+            // let modified = false;
             //is in code list
             //loop territory List.
             const removeTerritoryList = [];
@@ -358,8 +358,8 @@ async function CodeImport() {
     log.info(logPrefix + `- ${amtrustAddCodes.length} new IAC records to AmTrust codes `);
     log.info(logPrefix + `- ${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes `);
     log.info(logPrefix + `- ${updateIacCount} updates to AmTrust codes `);
-    log.info(logPrefix + `- Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC `);
-    log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
+    // log.info(logPrefix + `- Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC `);
+    // log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
 
     //send email with the above stats to integrations@talageins.com
     if(amtrustAddCodes.length > 0){
@@ -367,9 +367,11 @@ async function CodeImport() {
         const sendResult = false;
         let messageTable = '';
         for (const codes in amtrustAddCodes) {
-            messageTable = messageTable + `<tr>
-                   <td>${codes}.  ${amtrustAddCodes[codes]}</td>
-               </tr>`
+            if({}.hasOwnProperty.call(amtrustAddCodes, codes)){
+                messageTable =+ `<tr>
+                       <td>${codes}.  ${amtrustAddCodes[codes]}</td>
+                   </tr>`
+            }
         }
         const sendMessage = `
             <table class="table table-striped">
@@ -403,7 +405,7 @@ async function CodeImport() {
             </div>
         `
         try{
-            sendResult = await emailSvc.send('integrations@talageins.com','New Codes were added to AmTrust',sendMessage);
+            const sendResult = await emailSvc.send('carlo+int@talageins.com','New Codes were added to AmTrust',sendMessage);
             if(!sendResult){
                 console.log('An error occured when sending notification. Please contact us for details');
             }

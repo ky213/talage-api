@@ -212,9 +212,11 @@ async function QuestionImport(amtrustClassCodeMap) {
         let messageTable = '';
 
         for (const codes in newQuestionList) {
-            messageTable = messageTable + `<tr>
-                   <td>${codes}.  ${newQuestionList[codes]}</td>
-               </tr>`
+            if({}.hasOwnProperty.call(amtrustAddCodes, codes)){
+                messageTable =+ `<tr>
+                       <td>${codes}.  ${newQuestionList[codes]}</td>
+                   </tr>`
+            }
         }
         const sendMessage = `
             <table class="table table-striped">
@@ -232,7 +234,7 @@ async function QuestionImport(amtrustClassCodeMap) {
             </table>
         `
         try{
-            sendResult = await emailSvc.send('integrations@talageins.com','New Questions were added to AmTrust',sendMessage);
+            const sendResult = await emailSvc.send('carlo+int@talageins.com','New Questions were added to AmTrust',sendMessage);
             if(!sendResult){
                 console.log('An error occured when sending notification. Please contact us for details');
             }
