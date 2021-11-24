@@ -149,7 +149,6 @@ async function put_account(req, res, next){
             newJson.timezoneName = timezoneName
         }
 
-        // grab agency portal user and see if they can update their global view settings
         const agencyPortalUserBO = new AgencyPortalUserBO();
         // Additional logic that removes this property if user should not be able to edit this setting.
         // The request must have enableGlobalView on the body, and be from agencyNetworkId 1, and must have talageStaff permissions
