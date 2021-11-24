@@ -150,7 +150,7 @@ async function put_account(req, res, next){
         }
 
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        // Additional logic that removes this property if user should not be able to edit this setting.
+        // Additional logic that checks if the user is able to edit the global view setting.
         // The request must have enableGlobalView on the body, and be from agencyNetworkId 1, and must have talageStaff permissions
         let agencyNetworkId = null;
         if(req.authentication.isAgencyNetworkUser){
