@@ -151,10 +151,6 @@ async function put_account(req, res, next){
 
         // grab agency portal user and see if they can update their global view settings
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        const agencyPortalUserJSON = await agencyPortalUserBO.getById(parseInt(req.authentication.userID,10)).catch(function(err){
-            log.error(`Error trying to retrieve user by id: ${parseInt(req.authentication.userID,10)} error: ${err} ${__location}`);
-            return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-        });
         // Additional logic that removes this property if user should not be able to edit this setting.
         // The request must have enableGlobalView on the body, and be from agencyNetworkId 1, and must have talageStaff permissions
         let agencyNetworkId = null;
@@ -162,9 +158,8 @@ async function put_account(req, res, next){
             agencyNetworkId = req.authentication.agencyNetworkId;
         }
         if(enableGlobalView !== null && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
-            newJson.enableGlobalView = enableGlobalView;    
+            newJson.enableGlobalView = enableGlobalView;
         }
-        
         await agencyPortalUserBO.saveModel(newJson);
     }
     catch(err){
