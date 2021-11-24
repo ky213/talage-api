@@ -45,8 +45,12 @@ async function get_account(req, res, next){
         'timezones': timezones
     };
     // Additional logic that removes this property if user should not be able to edit this setting.
-    const talageSuperUserSystemId = 6;
-    if(agencyPortalUserJSON.hasOwnProperty('enableGlobalView') && agencyPortalUserJSON.hasOwnProperty('agencyPortalUserGroupId') && agencyPortalUserJSON.agencyPortalUserGroupId === talageSuperUserSystemId){
+    // The request must be from agencyNetworkId 1, and must have talageStaff permissions
+    let agencyNetworkId = null;
+    if(req.authentication.isAgencyNetworkUser){
+        agencyNetworkId = req.authentication.agencyNetworkId;
+    }
+    if(agencyPortalUserJSON.hasOwnProperty('enableGlobalView') && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
         accountInformationObj.enableGlobalView = agencyPortalUserJSON.enableGlobalView;
     }
     res.send(200, accountInformationObj);
@@ -152,10 +156,15 @@ async function put_account(req, res, next){
             return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
         });
         // Additional logic that removes this property if user should not be able to edit this setting.
-        const talageSuperUserSystemId = 6;
-        if(agencyPortalUserJSON.hasOwnProperty('agencyPortalUserGroupId') && agencyPortalUserJSON.agencyPortalUserGroupId === talageSuperUserSystemId && enableGlobalView !== null){
-            newJson.enableGlobalView = enableGlobalView;
+        // The request must have enableGlobalView on the body, and be from agencyNetworkId 1, and must have talageStaff permissions
+        let agencyNetworkId = null;
+        if(req.authentication.isAgencyNetworkUser){
+            agencyNetworkId = req.authentication.agencyNetworkId;
         }
+        if(enableGlobalView !== null && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+            newJson.enableGlobalView = enableGlobalView;    
+        }
+        
         await agencyPortalUserBO.saveModel(newJson);
     }
     catch(err){
