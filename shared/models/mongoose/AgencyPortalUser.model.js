@@ -61,7 +61,8 @@ const AgencyPortalUserSchema = new Schema({
     agencyNotificationList: [Number],
     notificationPolicyTypeList: {type: [String], required: false, default: []},
     additionalInfo: {type: Schema.Types.Mixed},
-    active: {type: Boolean, default: true}
+    active: {type: Boolean, default: true},
+    enableGlobalView: {type: Boolean, required: false, default: false}
 },opts)
 
 

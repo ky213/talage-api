@@ -40,11 +40,20 @@ async function get_account(req, res, next){
             id: timezone.id
         })
     }
-
-    res.send(200, {
+    const accountInformationObj = {
         'account_data': account_data,
         'timezones': timezones
-    });
+    };
+    // Additional logic that removes this property if user should not be able to edit this setting.
+    // The request must be from agencyNetworkId 1, and must have talageStaff permissions
+    let agencyNetworkId = null;
+    if(req.authentication.isAgencyNetworkUser){
+        agencyNetworkId = req.authentication.agencyNetworkId;
+    }
+    if(agencyPortalUserJSON.hasOwnProperty('enableGlobalView') && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+        accountInformationObj.enableGlobalView = agencyPortalUserJSON.enableGlobalView;
+    }
+    res.send(200, accountInformationObj);
     return next();
 }
 
@@ -118,9 +127,12 @@ async function put_account(req, res, next){
 
 
     }
-
+    let enableGlobalView = null;
+    if(req.body.hasOwnProperty('enableGlobalView')){
+        enableGlobalView = req.body.enableGlobalView;
+    }
     // Do we have something to update?
-    if(!req.body.email && !password && !timezoneName){
+    if(!req.body.email && !password && !timezoneName && !enableGlobalView){
         log.warn('There is nothing to update');
         return next(serverHelper.requestError('There is nothing to update. Please check the documentation.'));
     }
@@ -138,6 +150,15 @@ async function put_account(req, res, next){
         }
 
         const agencyPortalUserBO = new AgencyPortalUserBO();
+        // Additional logic that checks if the user is able to edit the global view setting.
+        // The request must have enableGlobalView on the body, and be from agencyNetworkId 1, and must have talageStaff permissions
+        let agencyNetworkId = null;
+        if(req.authentication.isAgencyNetworkUser){
+            agencyNetworkId = req.authentication.agencyNetworkId;
+        }
+        if(enableGlobalView !== null && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+            newJson.enableGlobalView = enableGlobalView;
+        }
         await agencyPortalUserBO.saveModel(newJson);
     }
     catch(err){
