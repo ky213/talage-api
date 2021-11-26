@@ -2352,6 +2352,87 @@ async function manualQuote(req, res, next) {
     return next();
 }
 
+async function getHints(req, res, next){
+   
+    let appId = null;
+    if(req.params.id) {
+        appId = req.params.id;
+    }
+    else {
+        // Check for data
+        if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+            log.error('Bad Request: No data received ' + __location);
+            return next(serverHelper.requestError('Bad Request: No data received'));
+        }
+
+        // Make sure basic elements are present
+        if (!req.query.id) {
+            log.error('Bad Request: Missing ID ' + __location);
+            return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+        }
+        appId = req.query.id
+    }
+    
+    const applicationJSON = {};
+    const hasAccess = await accesscheck(appId, req, applicationJSON).catch(function(e){
+        log.error('Error get application hasAccess ' + e + __location);
+        return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+    });
+    if(hasAccess === true){
+        const applicationBO = new ApplicationBO();    
+        const hints = await applicationBO.getHints(appId)
+        res.send(200, hints); 
+        return next();
+    }
+    else {
+        const hints = {};
+        res.send(200, hints); 
+        return next();
+    }
+   
+}
+
+
+// eslint-disable-next-line no-unused-vars
+async function accesscheck(appId, req, applicationJSON){
+    const applicationBO = new ApplicationBO();
+    let passedAgencyCheck = false;
+    let error = null;
+    try{
+        const applicationDBDoc = await applicationBO.getById(appId);
+        if(applicationDBDoc){
+            if(req.authentication.isAgencyNetworkUser && applicationDBDoc?.agencyNetworkId === req.authentication.agencyNetworkId){
+                passedAgencyCheck = true;
+            }
+            else {
+                const agents = await auth.getAgents(req).catch(function(e) {
+                    error = e;
+                });
+                if (error) {
+                    log.error('Error get application getAgents ' + error + __location);
+                    throw error;
+                    //return next(error);
+                }   
+                if(agents.includes(applicationDBDoc?.agencyId)){
+                    passedAgencyCheck = true;
+                }
+            }
+        }
+        
+
+        if(applicationDBDoc){
+            applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
+        }
+       
+    }
+    catch(err){
+        log.error("Error Getting application doc " + err + __location)
+        throw err;
+    }
+
+    return passedAgencyCheck;
+}
+
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
@@ -2380,6 +2461,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
     server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
+    server.addGetAuth('GET Appplication Hints', `${basePath}/application/:id/hints`, getHints, 'applications', 'manage');
     server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Mark Quote As Dead', `${basePath}/application/:id/mark-as-dead`, markQuoteAsDead, 'applications', 'manage');
