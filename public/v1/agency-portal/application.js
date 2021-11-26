@@ -2139,11 +2139,22 @@ async function PutApplicationLink(req, res, next){
         return next(serverHelper.requestError('Some required data is missing - applicationId. Please check the documentation.'));
     }
 
-    const link = await appLinkCreator.createApplicationLink(req.body.applicationId, req.body);
+    const hasAccess = await accesscheck(req.body.applicationId, req).catch(function(e){
+        log.error('Error get application hasAccess ' + e + __location);
+        return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+    });
+    if(hasAccess === true){
+        req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+        const link = await appLinkCreator.createApplicationLink(req.body.applicationId, req.body);
 
-    // eslint-disable-next-line object-shorthand
-    res.send(200, {link});
-    return next();
+        // eslint-disable-next-line object-shorthand
+        res.send(200, {link});
+        return next();
+    }
+    else {
+        res.send(404);
+        return next(serverHelper.requestError('Not found'));
+    }
 }
 
 async function getOfficerEmployeeTypes(req, res, next){
