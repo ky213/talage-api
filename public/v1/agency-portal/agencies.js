@@ -45,6 +45,14 @@ async function getAgencies(req, res, next){
         const query = req.query;
         if(req.authentication.isAgencyNetworkUser){
             query.agencyNetworkId = req.authentication.agencyNetworkId
+            //Global View Check
+            if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true
+                && req.authentication.enableGlobalView === true){
+
+                delete query.agencyNetworkId
+            }
+
         }
         else {
             // Get the agents that we are permitted to view
@@ -68,7 +76,8 @@ async function getAgencies(req, res, next){
         }
 
         const agencyBO = new AgencyBO();
-        retAgencies = await agencyBO.getList(query).catch(function(err) {
+        const GET_AGENCY_NETWORK = true;
+        retAgencies = await agencyBO.getList(query, GET_AGENCY_NETWORK).catch(function(err) {
             error = err;
         });
         if (error) {
@@ -86,6 +95,7 @@ async function getAgencies(req, res, next){
                     let agencyInfo = {};
                     agencyInfo.id = retAgencies[i].systemId;
                     agencyInfo.name = retAgencies[i].name;
+                    agencyInfo.agencyNetworkName = retAgencies[i].agencyNetworkName;
                     agencyInfo.email = retAgencies[i].email;
                     agencyInfo.state = retAgencies[i].active ? "Active" : "Inactive";
                     if(retAgencies[i].primaryAgency === null || typeof retAgencies[i].primaryAgency === 'undefined'){

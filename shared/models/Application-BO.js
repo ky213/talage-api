@@ -1283,7 +1283,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCount = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
-            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
+            // log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
             let pageSize = 10;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
@@ -1695,7 +1695,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
+                    //log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
                     //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
@@ -1798,7 +1798,6 @@ module.exports = class ApplicationModel {
                         let appCount = null;
                         const resp = await global.redisSvc.getKeyValue(redisKey);
                         if(resp.found){
-                            log.debug(`REDIS: getAppListForAgencyPortalSearch Count got rediskey ${redisKey}`)
                             try{
                                 const parsedJSON = new FastJsonParse(resp.value)
                                 if(parsedJSON.err){
@@ -1818,7 +1817,7 @@ module.exports = class ApplicationModel {
 
                     }
                 }
-                log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
+                //log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error(`Application.countDocuments error query ${JSON.stringify(query)}` + err + __location);
                     error = null;

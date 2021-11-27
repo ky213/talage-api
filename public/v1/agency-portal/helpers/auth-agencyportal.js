@@ -163,10 +163,8 @@ exports.validateJWT = async function(req, permission, permissionType) {
     try{
         req.authentication.enableGlobalView = false;
         const redisKey = "apuserinfo-" + req.authentication.userID;
-        log.debug(`Checking redis cached for Global View key: ${redisKey} ` + __location)
         const redisValue = await global.redisSvc.getKeyValue(redisKey);
         if(redisValue.found){
-            log.debug(`Found User's redis cache` + __location)
             const userInfoJSON = JSON.parse(redisValue.value)
             if(Object.prototype.hasOwnProperty.call(userInfoJSON, 'enableGlobalView')
                 && req.authentication.isAgencyNetworkUser === true

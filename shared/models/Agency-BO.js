@@ -549,8 +549,8 @@ module.exports = class AgencyBO {
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    docList = await AgencyModel.find(query, queryProjection, queryOptions);
+                    //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
@@ -563,6 +563,9 @@ module.exports = class AgencyBO {
                                 catch (err) {
                                     log.error("Error getting agency network name " + err + __location);
                                 }
+                            }
+                            else {
+                                log.error(`Error getting agency network name missing info ${JSON.stringify(agencyNetworkList)}` + __location);
                             }
                         }
                     }
