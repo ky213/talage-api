@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
@@ -207,15 +208,15 @@ async function putAccountPreferences(req, res, next){
         log.warn('No valid data was received');
         return next(serverHelper.requestError('No valid data was received'));
     }
+    const userId = parseInt(req.authentication.userID, 10);
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const agencyPortalUserJSON = await agencyPortalUserBO.getById(parseInt(req.authentication.userID, 10)).catch(function(err){
-        log.error(err.message);
+    const agencyPortalUserJSON = await agencyPortalUserBO.getById(userId).catch(function(err){
+        log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     });
 
     const newPreferences = {
-        id: parseInt(req.authentication.userID, 10),
         tableOptions: agencyPortalUserJSON.tableOptions ? agencyPortalUserJSON.tableOptions : {}
     };
 
@@ -248,9 +249,9 @@ async function putAccountPreferences(req, res, next){
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
 
-    await agencyPortalUserBO.saveModel(newPreferences);
+    await agencyPortalUserBO.updateMongo(userId,newPreferences);
     //cache update in Redis
-    const apuDoc = await agencyPortalUserBO.getById(newPreferences.id);
+    const apuDoc = await agencyPortalUserBO.getById(userId);
     const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId;
     await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
 

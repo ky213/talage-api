@@ -265,7 +265,7 @@ const getAgencyList = async(where,req, nameAndIdOnly = false) => {
         }
         if(agencyList && agencyList.length > 0){
             let agencyDisplayList = [];
-            if(isAgencyNetworkUser && where.agencyNetworkId === 1 && req.authentication.enableGlobalView === true){
+            if(isAgencyNetworkUser && where.agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
                 const displayJSON = {
                     agencyId: -9999,
                     name: "Global View"
@@ -495,7 +495,9 @@ async function getReports(req) {
                     }
                     //check for all
                     if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
-                        && agencyId < 0){
+                        && req.authentication.permissions.talageStaff === true
+                        && agencyId < 0
+                        && req.authentication.enableGlobalView === true){
                         log.debug('global view 1')
 
                         if(where.agencyId){
@@ -516,7 +518,9 @@ async function getReports(req) {
 
                 }
                 else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
-                        && agencyId < 0){
+                        && req.authentication.permissions.talageStaff === true
+                        && agencyId < 0
+                        && req.authentication.enableGlobalView === true){
                     log.debug('global view 2')
 
                     if(where.agencyId){

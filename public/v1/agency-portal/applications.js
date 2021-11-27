@@ -676,15 +676,36 @@ async function getApplications(req, res, next){
     //agency search has to be after insurer search
 
     // Filter out any agencies with do_not_report value set to true
+    let agencyNetworkList = [];
+    let isGlobalViewMode = false;
     try{
-
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = agencyNetworkId;
+            if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true
+                && req.authentication.enableGlobalView === true){
+                isGlobalViewMode = true;
+                //get list of agencyNetworks
+                try{
+                    const agencyNetworkBO = new AgencyNetworkBO();
+                    agencyNetworkList = await agencyNetworkBO.getList({});
+                }
+                catch(err){
+                    log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
+                }
+
+
+            }
+            if(isGlobalViewMode === false){
+                query.agencyNetworkId = agencyNetworkId;
+            }
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
                 doNotReport: true,
                 agencyNetworkId: agencyNetworkId
+            }
+            if(isGlobalViewMode){
+                delete agencyQuery.agencyNetworkId
             }
             // eslint-disable-next-line prefer-const
             let donotReportAgencyIdArray = []
@@ -799,7 +820,13 @@ async function getApplications(req, res, next){
             if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
                 application.status = "submitted_to_uw";
             }
-
+            if(isGlobalViewMode){
+                //add agency Network name.
+                const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
+                if(agencyNetworkDoc){
+                    application.agencyNetworkName = agencyNetworkDoc.name;
+                }
+            }
             application.renewal = application.renewal === true ? "Yes" : "";
             application.appValue = getAppValueString(application);
 
