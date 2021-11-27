@@ -74,6 +74,10 @@ async function createTokenEndpoint(req, res, next){
 
     }
 
+    const redisKey = "apuserinfo-" + agencyPortalUserDBJson.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(agencyPortalUserDBJson));
+
+
     try {
         const jwtToken = await createToken(req.body.email);
         const token = `Bearer ${jwtToken}`;

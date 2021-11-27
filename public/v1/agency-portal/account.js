@@ -159,7 +159,21 @@ async function put_account(req, res, next){
         if(enableGlobalView !== null && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
             newJson.enableGlobalView = enableGlobalView;
         }
+        else{
+            log.debug(`Bad enableGlobalView check` + __location)
+        }
         await agencyPortalUserBO.saveModel(newJson);
+
+        const apuId = parseInt(req.authentication.userID,10);
+        const apuDoc = await agencyPortalUserBO.getById(apuId);
+        if(apuDoc){
+            const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId.toString();
+            await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
+        }
+        else {
+            log.error(`unable to retrieve user record for caching ` + __location)
+        }
+
     }
     catch(err){
         log.error(err.message + __location);
@@ -235,6 +249,10 @@ async function putAccountPreferences(req, res, next){
     }
 
     await agencyPortalUserBO.saveModel(newPreferences);
+    //cache update in Redis
+    const apuDoc = await agencyPortalUserBO.getById(newPreferences.id);
+    const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
 
     // Everything went okay, send a success response
     res.send(200, 'Account Preferences Updated');

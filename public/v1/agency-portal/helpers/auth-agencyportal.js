@@ -160,5 +160,27 @@ exports.validateJWT = async function(req, permission, permissionType) {
         return `An unknown error occurred when validating the JWT: ${error}`;
     }
     // Success
+    try{
+        req.authentication.enableGlobalView = false;
+        const redisKey = "apuserinfo-" + req.authentication.userID;
+        log.debug(`Checking redis cached for Global View key: ${redisKey} ` + __location)
+        const redisValue = await global.redisSvc.getKeyValue(redisKey);
+        if(redisValue.found){
+            log.debug(`Found User's redis cache` + __location)
+            const userInfoJSON = JSON.parse(redisValue.value)
+            if(Object.prototype.hasOwnProperty.call(userInfoJSON, 'enableGlobalView')
+                && req.authentication.isAgencyNetworkUser === true
+                && req.authentication.agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true){
+                //TODO double check with database hit.
+                req.authentication.enableGlobalView = userInfoJSON.enableGlobalView
+            }
+        }
+    }
+    catch(err){
+        log.error(`AP user redis cached error for ${req.authentication.userID}  error ${err}` + __location);
+    }
+
+
     return null;
 };
