@@ -210,6 +210,27 @@ async function createAgencyLocation(req, res, next) {
         req.body.agencyNetworkId = req.authentication.agencyNetworkId
     }
 
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+    const agency = await agencyBO.getById(req.body.agencyId).catch(function(err) {
+        log.error("agencyBO load error " + err + __location);
+        error = err;
+    });
+    if(!agency){
+        log.info('Bad Request: Bad data ');
+        return next(serverHelper.requestError('Bad data'));
+    }
+
+    if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+        && req.authentication.permissions.talageStaff === true
+        && req.authentication.enableGlobalView === true){
+        //Get agencyNetwork from Agency
+        req.body.agencyNetworkId = agency.agencyNetworkId
+    }
+    else if(req.body.agencyNetworkId !== agency.agencyNetworkId){
+        return next(serverHelper.notAuthorizedError('You are not authorized to manage this agency'));
+    }
+
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
 
@@ -271,36 +292,34 @@ async function deleteAgencyLocation(req, res, next) {
     }
 
     const id = parseInt(req.query.id, 10);
-
-    // Get the Agency ID corresponding to this location and load it into the request object
+    let agencyId = -1;
+    // Get the Agency ID corresponding to this location
     try {
-        req.query.agency = await getAgencyByLocationId(id);
+        agencyId = await getAgencyByLocationId(id);
     }
     catch (err) {
         log.error("Get Agency by ID error: " + err + __location)
         return next(err);
     }
 
-    // Get the agencies that the user is permitted to manage
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        log.error("auth.getAgents error " + e + __location);
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     // Security Check: Make sure this Agency Network has access to this Agency
-    if(req.authentication.isAgencyNetworkUser && req.body.agency){
-        const agencyId = parseInt(req.body.agency, 10);
-        const agencyBO = new AgencyBO();
-        const agency = await agencyBO.getById(agencyId);
-        if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
-            log.info('Forbidden: User is not authorized to manage th is agency');
-            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+    if(req.authentication.isAgencyNetworkUser && agencyId){
+
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`deleting agency location in global mode for agency ${agencyId}`)
+        }
+        else {
+            const agencyBO = new AgencyBO();
+            const agency = await agencyBO.getById(agencyId);
+            if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
         }
     }
-    else if (!agencies.includes(req.query.agency)) {
+    else {
         log.info('Forbidden: User is not authorized to manage this agency');
         return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
     }
@@ -419,12 +438,19 @@ async function updateAgencyLocation(req, res, next) {
     }
     // Security Check: Make sure this Agency Network has access to this Agency
     if(req.authentication.isAgencyNetworkUser && req.body.agency){
-        const agencyId = parseInt(req.body.agency, 10);
-        const agencyBO = new AgencyBO();
-        const agency = await agencyBO.getById(agencyId);
-        if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
-            log.info('Forbidden: User is not authorized to manage th is agency');
-            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`Updating agency location in global mode `)
+        }
+        else {
+            const agencyId = parseInt(req.body.agency, 10);
+            const agencyBO = new AgencyBO();
+            const agency = await agencyBO.getById(agencyId);
+            if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
         }
     }
     else if (!agencies.includes(req.body.agency)) {
@@ -503,13 +529,25 @@ async function getSelectionList(req, res, next) {
     let agencyId = parseInt(req.authentication.agents[0], 10);
 
     if(req.authentication.isAgencyNetworkUser){
-        agencyId = -1;
-        if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.debug(`Getting  agency location list in global mode`)
             agencyId = parseInt(req.query.agencyId, 10);
-            const agencyBO = new AgencyBO();
-            const agency = await agencyBO.getById(agencyId);
-            if(agency?.agencyNetworkId === req.authentication.agencyNetworkId){
-                agencyId = agency.systemId;
+        }
+        else {
+            agencyId = -1;
+            if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+                agencyId = parseInt(req.query.agencyId, 10);
+                const agencyBO = new AgencyBO();
+                const agency = await agencyBO.getById(agencyId);
+                if(agency?.agencyNetworkId === req.authentication.agencyNetworkId){
+                    agencyId = agency.systemId;
+                }
+                else {
+                    log.info('Forbidden: User is not authorized to manage th is agency');
+                    return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+                }
             }
         }
     }
