@@ -234,7 +234,8 @@ const getPremium = async(where) => {
     };
 }
 
-const getAgencyList = async(where,isAgencyNetworkUser, nameAndIdOnly = false) => {
+const getAgencyList = async(where,req, nameAndIdOnly = false) => {
+    const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
     const agencyBO = new AgencyBO()
     let agencyQuery = {active: true};
     //This should be manditory to have either agencyNetworkId or agencyID
@@ -264,12 +265,24 @@ const getAgencyList = async(where,isAgencyNetworkUser, nameAndIdOnly = false) =>
         }
         if(agencyList && agencyList.length > 0){
             let agencyDisplayList = [];
-            if(isAgencyNetworkUser && where.agencyNetworkId === 1){
+            if(isAgencyNetworkUser && where.agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
                 const displayJSON = {
                     agencyId: -9999,
                     name: "Global View"
                 }
                 agencyDisplayList.push(displayJSON);
+                // add agency networks. no wheelhouse.
+                const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkList = await agencyNetworkBO.getList({})
+                for(const agencyNetworkDoc of agencyNetworkList){
+                    const anJSON = {
+                        agencyId: -1 * agencyNetworkDoc.agencyNetworkId,
+                        name: agencyNetworkDoc.name
+                    }
+                    agencyDisplayList.push(anJSON);
+                }
+
             }
             agencyList.forEach((agencyDoc) => {
                 const displayJSON = {
@@ -450,7 +463,8 @@ async function getReports(req) {
     if (req.authentication.isAgencyNetworkUser) {
         where.agencyNetworkId = agencyNetworkId // make sure to limit exposure in case something is missed in the logic below.
         try {
-            if((req.query.agencyid || req.query.agencylocationid) && req.query.agencyid !== "-9999"){
+            const agencyId = parseInt(req.query.agencyid,10);
+            if((req.query.agencyid || req.query.agencylocationid) && agencyId > 0){
                 log.debug("in agency filter")
                 if(where.agencyId){
                     delete where.agencyId
@@ -460,14 +474,13 @@ async function getReports(req) {
                     where.agencyLocationId = agencyLocationId;
                 }
                 else if(req.query.agencyid){
-                    const agencyId = parseInt(req.query.agencyid,10);
                     where.agencyId = agencyId;
                 }
             }
             else {
                 const agencyBO = new AgencyBO();
                 const donotReportQuery = {doNotReport: true };
-                if(req.query.agencyid === "-9999"){
+                if(req.query.agencyid === "-9999" || agencyId === 4){
                     donotReportQuery.systemId = {$ne: 209}
                 }
                 const noReportAgencyList = await agencyBO.getList(donotReportQuery);
@@ -482,15 +495,21 @@ async function getReports(req) {
                     }
                     //check for all
                     if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
-                        && (req.query.all === '12332'
-                        || req.query.agencyid === "-9999")){
+                        && req.authentication.permissions.talageStaff === true
+                        && agencyId < 0
+                        && req.authentication.enableGlobalView === true){
                         log.debug('global view 1')
 
                         if(where.agencyId){
                             delete where.agencyId;
                         }
-                        if(where.agencyNetworkId){
-                            delete where.agencyNetworkId;
+                        if(req.query.agencyid === "-9999"){
+                            if(where.agencyNetworkId){
+                                delete where.agencyNetworkId;
+                            }
+                        }
+                        else {
+                            where.agencyNetworkId = -1 * agencyId
                         }
                         if(donotReportAgencyIdArray.length > 0){
                             where.agencyId = {$nin: donotReportAgencyIdArray};
@@ -499,15 +518,21 @@ async function getReports(req) {
 
                 }
                 else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
-                        && (req.query.all === '12332'
-                        || req.query.agencyid === "-9999")){
+                        && req.authentication.permissions.talageStaff === true
+                        && agencyId < 0
+                        && req.authentication.enableGlobalView === true){
                     log.debug('global view 2')
 
                     if(where.agencyId){
                         delete where.agencyId;
                     }
-                    if(where.agencyNetworkId){
-                        delete where.agencyNetworkId;
+                    if(req.query.agencyid === "-9999"){
+                        if(where.agencyNetworkId){
+                            delete where.agencyNetworkId;
+                        }
+                    }
+                    else {
+                        where.agencyNetworkId = -1 * agencyId
                     }
                 }
                 else {
@@ -562,14 +587,14 @@ async function getReports(req) {
             return {
                 minDate: await getMinDate(where),
                 hasApplications: await hasApplications(where) ? 1 : 0,
-                agencyList: await getAgencyList(where, req.authentication.isAgencyNetworkUser, nameAndIdOnly)
+                agencyList: await getAgencyList(where, req, nameAndIdOnly)
             };
         }
         else {
             return {
                 minDate: await getMinDate(where),
                 hasApplications: await hasApplications(where) ? 1 : 0,
-                "agencyList": await getAgencyList(where, req.authentication.isAgencyNetworkUser),
+                "agencyList": await getAgencyList(where, req),
                 "agencyLocationList": await getAgencyLocationList(where),
                 "referrerList": await getReferredList(where)
             };

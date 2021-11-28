@@ -93,9 +93,10 @@ function getAppValueString(applicationDoc){
  * Generate a CSV file of exported application data
  *
  * @param {array} applicationList - The list of appplication to put in CSV
+ * @param {boolean} isGlobalViewMode - true if in GlobalViewMode
  * @returns {Promise.<String, Error>} A promise that returns a string of CSV data on success, or an Error object if rejected
  */
-function generateCSV(applicationList){
+function generateCSV(applicationList, isGlobalViewMode){
     return new Promise(async(fulfill, reject) => {
 
 
@@ -197,31 +198,64 @@ function generateCSV(applicationList){
         }
 
         // Define the columns (and column order) in the CSV file and their user friendly titles
-        const columns = {
-            'businessName': 'Business Name',
-            'dba': 'DBA',
-            'status': 'Application Status',
-            'appValue': 'Application Value',
-            'agencyName': 'Agency',
-            'referrer': 'Source',
-            'mailingAddress': 'Mailing Address',
-            'mailingCity': 'Mailing City',
-            'mailingState': 'Mailing State',
-            'mailingZipcode': 'Mailing Zip Code',
-            'primaryAddress': 'Physical Address',
-            'primaryCity': 'Physical City',
-            'primaryState': 'Physical State',
-            'primaryZip': 'Physical Zip Code',
-            'contactName': 'Contact Name',
-            'email': 'Contact Email',
-            'phone': 'Contact Phone',
-            'entityType': 'Entity Type',
-            'einClear': 'EIN',
-            'website': 'Website',
-            'renewal': 'renewal',
-            'tagString': "tag",
-            'createdString' : 'Created (UTC)'
-        };
+        let columns = {}
+        log.debug(`CSV isGlobalViewMode ${isGlobalViewMode}` + __location)
+        if(isGlobalViewMode){
+            columns = {
+                'businessName': 'Business Name',
+                'dba': 'DBA',
+                'status': 'Application Status',
+                'appValue': 'Application Value',
+                'agencyNetworkName': 'Network',
+                'agencyName': 'Agency',
+                'referrer': 'Source',
+                'mailingAddress': 'Mailing Address',
+                'mailingCity': 'Mailing City',
+                'mailingState': 'Mailing State',
+                'mailingZipcode': 'Mailing Zip Code',
+                'primaryAddress': 'Physical Address',
+                'primaryCity': 'Physical City',
+                'primaryState': 'Physical State',
+                'primaryZip': 'Physical Zip Code',
+                'contactName': 'Contact Name',
+                'email': 'Contact Email',
+                'phone': 'Contact Phone',
+                'entityType': 'Entity Type',
+                'einClear': 'EIN',
+                'website': 'Website',
+                'renewal': 'renewal',
+                'tagString': "tag",
+                'createdString' : 'Created (UTC)'
+            };
+
+        }
+        else {
+            columns = {
+                'businessName': 'Business Name',
+                'dba': 'DBA',
+                'status': 'Application Status',
+                'appValue': 'Application Value',
+                'agencyName': 'Agency',
+                'referrer': 'Source',
+                'mailingAddress': 'Mailing Address',
+                'mailingCity': 'Mailing City',
+                'mailingState': 'Mailing State',
+                'mailingZipcode': 'Mailing Zip Code',
+                'primaryAddress': 'Physical Address',
+                'primaryCity': 'Physical City',
+                'primaryState': 'Physical State',
+                'primaryZip': 'Physical Zip Code',
+                'contactName': 'Contact Name',
+                'email': 'Contact Email',
+                'phone': 'Contact Phone',
+                'entityType': 'Entity Type',
+                'einClear': 'EIN',
+                'website': 'Website',
+                'renewal': 'renewal',
+                'tagString': "tag",
+                'createdString' : 'Created (UTC)'
+            };
+        }
 
         // Establish the headers for the CSV file
         const options = {
@@ -633,9 +667,6 @@ async function getApplications(req, res, next){
                 const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
                 orClauseArray.push(industryCodeListFilter);
             }
-            else {
-                log.warn("Application Search no agencies found " + __location);
-            }
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
@@ -676,15 +707,35 @@ async function getApplications(req, res, next){
     //agency search has to be after insurer search
 
     // Filter out any agencies with do_not_report value set to true
+    let agencyNetworkList = [];
+    let isGlobalViewMode = false;
     try{
-
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = agencyNetworkId;
+            if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true
+                && req.authentication.enableGlobalView === true){
+                isGlobalViewMode = true;
+                //get list of agencyNetworks
+                try{
+                    const agencyNetworkBO = new AgencyNetworkBO();
+                    agencyNetworkList = await agencyNetworkBO.getList({});
+                }
+                catch(err){
+                    log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
+                }
+
+
+            }
+            if(isGlobalViewMode === false){
+                query.agencyNetworkId = agencyNetworkId;
+            }
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
-                doNotReport: true,
-                agencyNetworkId: agencyNetworkId
+                doNotReport: true
+            }
+            if(!isGlobalViewMode){
+                agencyQuery.agencyNetworkId = agencyNetworkId
             }
             // eslint-disable-next-line prefer-const
             let donotReportAgencyIdArray = []
@@ -714,6 +765,7 @@ async function getApplications(req, res, next){
                         agencyIdArray.push(agency.systemId);
                         //prevent in from being too big.
                         if(agencyIdArray.length > 100){
+                            log.debug(`Get Agency maxed out agency filter` + __location)
                             break;
                         }
                     }
@@ -799,7 +851,13 @@ async function getApplications(req, res, next){
             if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
                 application.status = "submitted_to_uw";
             }
-
+            if(isGlobalViewMode){
+                //add agency Network name.
+                const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
+                if(agencyNetworkDoc){
+                    application.agencyNetworkName = agencyNetworkDoc.name;
+                }
+            }
             application.renewal = application.renewal === true ? "Yes" : "";
             application.appValue = getAppValueString(application);
 
@@ -812,7 +870,7 @@ async function getApplications(req, res, next){
     }
 
     if(returnCSV === true){
-        const csvData = await generateCSV(applicationList).catch(function(e){
+        const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
             error = e;
         });
         if(error){

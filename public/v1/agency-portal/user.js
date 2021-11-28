@@ -202,7 +202,7 @@ async function createUser(req, res, next) {
         return next(error);
     }
     const userID = agencyPortalUserBO.id;
-
+    //Do not update redis on create.  It will get updated at login.
     // Return the response
     res.send(200, {
         userID: userID,
@@ -336,7 +336,8 @@ async function deleteUser(req, res, next) {
     //TODO need rights check
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const result = await agencyPortalUserBO.deleteSoftById(parseInt(id, 10)).catch(function(err){
+    const userId = parseInt(id, 10)
+    const result = await agencyPortalUserBO.deleteSoftById(userId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         error = Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -349,6 +350,9 @@ async function deleteUser(req, res, next) {
         log.error('User delete failed');
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
+    //remove redis key
+    const redisKey = "apuserinfo-" + userId;
+    await global.redisSvc.deleteKey(redisKey);
 
     res.send(200, 'Deleted');
 }
@@ -484,9 +488,10 @@ async function updateUser(req, res, next) {
     }
 
     data.id = userObj.id;
+    const userId = parseInt(data.id, 10)
     // Prepare the email address
     const newUserJSON = {
-        id: parseInt(data.id, 10),
+        id: userId,
         canSign: data.canSign,
         email: data.email,
         agencyPortalUserGroupId: data.group,
@@ -512,7 +517,22 @@ async function updateUser(req, res, next) {
     if (error) {
         return next(error);
     }
+    await updateRedisCache(userId);
     res.send(200, 'Saved');
+}
+
+/**
+ * Updates a single user's redis cache
+ *
+ * @param {integer} userId - userId apUserId
+ * @returns {void}
+ */
+async function updateRedisCache(userId){
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const apuDoc = await agencyPortalUserBO.getById(userId);
+    const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
+
 }
 
 exports.registerEndpoint = (server, basePath) => {
