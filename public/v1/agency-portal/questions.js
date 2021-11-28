@@ -95,7 +95,6 @@ function isBlankCheckboxAnswer(answer) {
  * @returns {void}
  */
 async function getQuestions(req, res, next) {
-    let error = false;
     // Check for data
     if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
         log.info('Bad Request: No data received');
@@ -121,23 +120,8 @@ async function getQuestions(req, res, next) {
         const applicationBO = new ApplicationBO();
         const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
-            if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
-                passedAgencyCheck = true;
-            }
-            else {
-                const agents = await auth.getAgents(req).catch(function(e) {
-                    error = e;
-                });
-                if (error) {
-                    log.error('Error get application getAgents ' + error + __location);
-                    return next(error);
-                }
-                if(agents.includes(applicationDBDoc.agencyId)){
-                    passedAgencyCheck = true;
-                }
-            }
-        }
-        if(applicationDBDoc){
+            passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc.agencyId, applicationDBDoc.agencyNetworkId)
+
             applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
         }
     }
@@ -145,9 +129,13 @@ async function getQuestions(req, res, next) {
         log.error(`Error Getting application do appId ${appId} ` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
-
-    if(applicationJSON && applicationJSON.applicationId && passedAgencyCheck === false){
+    if(passedAgencyCheck === false){
         log.info(`Forbidden: User is not authorized for this application ${appId}` + __location);
+        //Return not found so do not expose that the application exists
+        return next(serverHelper.notFoundError('Application Not Found'));
+    }
+
+    if(!applicationJSON){
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }

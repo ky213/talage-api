@@ -54,14 +54,9 @@ async function getbyId(req, res, next) {
     log.debug(`query ${JSON.stringify(query)}`)
     const agencyLocationBO = new AgencyLocationBO();
     const locationJSON = await agencyLocationBO.getById(id, false);
+    const passedAgencyCheck = await auth.authorizedForAgency(req, locationJSON.agencyId)
 
-    const agencyList = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if (error){
-        return next(error);
-    }
-    if(agencyList.indexOf(locationJSON.agencyId) === -1){
+    if(!passedAgencyCheck){
         res.send(404);
         return next(serverHelper.notFoundError('Agency Location not found'));
     }
