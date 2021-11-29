@@ -346,9 +346,10 @@ async function postAgency(req, res, next) {
     if(agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true && parseInt(req.body.agencyNetworkId,10) > 0){
         agencyNetworkId = parseInt(req.body.agencyNetworkId,10);
     }
-    else if(parseInt(req.body.agencyNetworkId,10) !== agencyNetworkId){
+    else if(req.body.agencyNetworkId && parseInt(req.body.agencyNetworkId,10) !== agencyNetworkId){
         return next(serverHelper.requestError('Bad agencyNetworkId'));
     }
+
     // Validate
     if (!validator.agency_name(req.body.name)) {
         log.warn('Invalid agency name');
