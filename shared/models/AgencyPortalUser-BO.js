@@ -341,7 +341,7 @@ module.exports = class AgencyPortalUserBO{
 
             }
             else {
-                reject(new Error('no id supplied'))
+                reject(new Error('no email supplied'))
             }
         });
     }

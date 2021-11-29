@@ -37,11 +37,12 @@ async function getUser(email, agencyNetworkId) {
  * tokens.
  *
  * @param {*} email The email address of the user to generate the JWT token
+ * @param {*} agencyNetworkId The agencyNetworkId of the user to generate the JWT token
  *    for.
  * @returns {JWT} Newly generated JWT token
  */
-async function createToken(email) {
-    const agencyPortalUserDBJson = await getUser(email);
+async function createToken(email, agencyNetworkId) {
+    const agencyPortalUserDBJson = await getUser(email, agencyNetworkId);
 
     // Make sure we found the user
     if (!agencyPortalUserDBJson) {

@@ -79,7 +79,7 @@ async function createTokenEndpoint(req, res, next){
 
 
     try {
-        const jwtToken = await createToken(req.body.email);
+        const jwtToken = await createToken(req.body.email, req.body.agencyNetworkId);
         const token = `Bearer ${jwtToken}`;
         res.send(201, {
             status: 'Created',
