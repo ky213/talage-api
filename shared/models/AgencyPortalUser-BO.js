@@ -284,13 +284,16 @@ module.exports = class AgencyPortalUserBO{
     }
 
 
-    async getByEmailAndAgencyNetworkId(email, activeUser = true, agencyNetworkId) {
+    async getByEmailAndAgencyNetworkId(email, activeUser = true, agencyNetworkId, forceAgencyNetworkCheck) {
         return new Promise(async(resolve, reject) => {
             if (email) {
                 const query = {
                     "email": email.toLowerCase(),
                     active: activeUser
                 };
+                if(forceAgencyNetworkCheck){
+                    query.agencyNetworkId = agencyNetworkId
+                }
                 log.debug(`getByEmailAndAgencyNetworkId ${JSON.stringify(query)}` + __location);
                 let userDoc = null;
                 try {
