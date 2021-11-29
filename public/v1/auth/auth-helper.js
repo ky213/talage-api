@@ -75,15 +75,19 @@ async function createToken(email, agencyNetworkId) {
     });
 
     payload.isAgencyNetworkUser = false;
-    // Check if this was an agency network
-    if (agencyPortalUserDBJson.agency_network) {
-        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
-        //agency network ID now in payload for consistency between network and agency.
-        payload.agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId;
-
+    if(agencyPortalUserDBJson.hasOwnProperty("isAgencyNetworkUser")){
+        payload.isAgencyNetworkUser = agencyPortalUserDBJson.isAgencyNetworkUser
+    }
+    else if(agencyPortalUserDBJson.agencyNetworkId && !agencyPortalUserDBJson.agencyId){
         payload.isAgencyNetworkUser = true;
     }
-
+    // Check if this was an agency network
+    if (payload.isAgencyNetworkUser && agencyPortalUserDBJson.agencyNetworkId) {
+        //agencyNetwork used a flag in Agency Portal.
+        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
+        //agency network ID now in payload for consistency between network and agency.
+    }
+    payload.agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId;
     // Store a local copy of the agency network ID .
     const agencyBO = new AgencyBO();
     // For agency networks get the agencies they are allowed to access
