@@ -118,7 +118,7 @@ async function createUser(req, res, next) {
             log.error(`agencyPortalUser Attempt to add user to agency of agency Network request user ${req.authentication.userID}` + __location);
             return next(serverHelper.requestError(new Error("bad agencyId")));
         }
-
+        agencyNetworkId = reqUserAgencyNetworkId;
     }
     else if (req.authentication.isAgencyNetworkUser){
         //TODO update for Global Mode.
@@ -152,6 +152,7 @@ async function createUser(req, res, next) {
             log.error(`agencyPortalUser Attempt to add user to non activeagency ${agencyId} request user ${req.authentication.userID}` + __location);
             return next(serverHelper.requestError(new Error("bad agencyId")));
         }
+        agencyNetworkId = agencyDoc.agencyNetworkId;
     }
 
     // Generate a random password for this user (they won't be using it anyway)
