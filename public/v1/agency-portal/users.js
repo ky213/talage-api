@@ -50,6 +50,7 @@ async function getUsers(req, res, next){
     }
     else if (req.authentication.isAgencyNetworkUser){
         query.agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
+        query.isAgencyNetworkUser = true
         getAgencyNetworkRoles = true;
     }
     else {

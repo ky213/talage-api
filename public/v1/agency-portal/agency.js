@@ -715,7 +715,9 @@ async function postAgency(req, res, next) {
         email: email,
         password: hashedPassword,
         canSign: true,
-        agencyPortalUserGroupId: 1
+        agencyPortalUserGroupId: 1,
+        agencyNetworkId: agencyNetworkId,
+        isAgencyNetworkUser: false
     };
     log.info('creating user');
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
