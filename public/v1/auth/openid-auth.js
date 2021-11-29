@@ -115,7 +115,7 @@ async function callback(req, res, next) {
             log.info(`Found user ${claims.preferred_username}! Generating JWT token...`);
         }
 
-        const token = await createToken(claims.preferred_username);
+        const token = await createToken(claims.preferred_username, config.agencyNetworkId);
         return res.redirect(`${global.settings.PORTAL_URL}/openid/${req.params.configId}/callback?token=${token}`, next);
     }
     catch (ex) {
