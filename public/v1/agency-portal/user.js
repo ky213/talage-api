@@ -184,7 +184,7 @@ async function createUser(req, res, next) {
     else {
         let existingDoc = null;
         try {
-            existingDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(userObj.email, true, agencyNetworkId);
+            existingDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(userObj.email, true, agencyNetworkId, isAgencyNetworkUser);
         }
         catch (e) {
             log.error('agencyPortalUser error ' + e + __location);
