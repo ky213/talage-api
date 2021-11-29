@@ -309,14 +309,14 @@ module.exports = class AgencyPortalUserBO{
                         const agencyBO = new AgencyBO();
                         for(const userDB of userList){
                             if(userDB.agencyNetworkId === agencyNetworkId){
-                                userDoc = userList[0];
+                                userDoc = userDB;
                                 break;
                             }
                             else if(!userDB.agencyNetworkId && userDB.agencyId){
                                 //load agency to get agencyNetworkId
                                 const agencyDoc = await agencyBO.getById(userDB.agencyId)
                                 if(agencyDoc?.agencyNetworkId === agencyNetworkId){
-                                    userDoc = userList[0];
+                                    userDoc = userDB;
                                     break;
                                 }
                             }
