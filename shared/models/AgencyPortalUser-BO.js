@@ -284,27 +284,52 @@ module.exports = class AgencyPortalUserBO{
     }
 
 
-    async getByEmail(email, activeUser = true) {
+    async getByEmailAndAgencyNetworkId(email, activeUser = true, agencyNetworkId) {
         return new Promise(async(resolve, reject) => {
             if (email) {
                 const query = {
                     "email": email.toLowerCase(),
                     active: activeUser
                 };
-                log.debug(`getByEmail ${JSON.stringify(query)}` + __location);
-                let docDB = null;
+                log.debug(`getByEmailAndAgencyNetworkId ${JSON.stringify(query)}` + __location);
+                let userDoc = null;
                 try {
-                    docDB = await AgencyPortalUserModel.findOne(query, '-__v');
-                    if(docDB){
-                        docDB.id = docDB.agencyPortalUserId;
+                    let userList = await AgencyPortalUserModel.find(query, '-__v');
+                    //backward compatible with only one email for system wide.
+                    if(userList.length === 1){
+                        //TODO hard match agencyNetworkId if not in development. (localhost)
+                        // after data update script have run and DNS has been updated
+                        userDoc = userList[0];
+                    }
+                    else if (userList.length > 1 && agencyNetworkId){
+                        const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
+                        const agencyBO = new AgencyBO();
+                        for(const userDB of userList){
+                            if(userDB.agencyNetworkId === agencyNetworkId){
+                                userDoc = userList[0];
+                                break;
+                            }
+                            else if(!userDB.agencyNetworkId && userDB.agencyId){
+                                //load agency to get agencyNetworkId
+                                const agencyDoc = await agencyBO.getById(userDB.agencyId)
+                                if(agencyDoc?.agencyNetworkId === agencyNetworkId){
+                                    userDoc = userList[0];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if(userDoc){
+                        userDoc.id = userDoc.agencyPortalUserId;
                     }
                 }
                 catch (err) {
                     log.error("Getting AgencyPortalUser error " + err + __location);
                     reject(err);
                 }
-                if(docDB){
-                    const agencyPortalUserDoc = mongoUtils.objCleanup(docDB);
+                if(userDoc){
+                    const agencyPortalUserDoc = mongoUtils.objCleanup(userDoc);
                     resolve(agencyPortalUserDoc);
                 }
                 else {
@@ -317,6 +342,41 @@ module.exports = class AgencyPortalUserBO{
             }
         });
     }
+
+    // Email is no longer unique system wide, only within an agency network
+    // async getByEmail(email, activeUser = true) {
+    //     return new Promise(async(resolve, reject) => {
+    //         if (email) {
+    //             const query = {
+    //                 "email": email.toLowerCase(),
+    //                 active: activeUser
+    //             };
+    //             log.debug(`getByEmail ${JSON.stringify(query)}` + __location);
+    //             let docDB = null;
+    //             try {
+    //                 docDB = await AgencyPortalUserModel.findOne(query, '-__v');
+    //                 if(docDB){
+    //                     docDB.id = docDB.agencyPortalUserId;
+    //                 }
+    //             }
+    //             catch (err) {
+    //                 log.error("Getting AgencyPortalUser error " + err + __location);
+    //                 reject(err);
+    //             }
+    //             if(docDB){
+    //                 const agencyPortalUserDoc = mongoUtils.objCleanup(docDB);
+    //                 resolve(agencyPortalUserDoc);
+    //             }
+    //             else {
+    //                 resolve(null);
+    //             }
+
+    //         }
+    //         else {
+    //             reject(new Error('no id supplied'))
+    //         }
+    //     });
+    // }
 
     async updateMongo(docId, newObjectJSON) {
         if (docId) {
@@ -526,9 +586,10 @@ module.exports = class AgencyPortalUserBO{
      *
 	 * @param {object} agencyPortalUserId - new or updating userId -999 for new
      * @param {object} chkEmail - chkEmail to check
+     * @param {object} agencyNetworkId - users agency network
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
 	 */
-    async checkForDuplicateEmail(agencyPortalUserId, chkEmail){
+    async checkForDuplicateEmail(agencyPortalUserId, chkEmail, agencyNetworkId){
         let hasDuplicate = false;
         //new user
         if(!agencyPortalUserId){
@@ -541,6 +602,9 @@ module.exports = class AgencyPortalUserBO{
                 active: true,
                 email: chkEmail
             };
+            if(agencyNetworkId){
+                query.agencyNetworkId = agencyNetworkId;
+            }
             const apuDoc = await AgencyPortalUserModel.findOne(query)
             // eslint-disable-next-line no-unneeded-ternary
             hasDuplicate = apuDoc ? true : false;

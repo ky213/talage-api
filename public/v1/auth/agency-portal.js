@@ -50,7 +50,7 @@ async function createTokenEndpoint(req, res, next){
     // Authenticate the information provided by the user
     //TODO move to BO/Mongo
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const agencyPortalUserDBJson = await agencyPortalUserBO.getByEmail(req.body.email).catch(function(e) {
+    const agencyPortalUserDBJson = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(req.body.email, true, req.body.agencNetworkId).catch(function(e) {
         log.error(e.message + __location);
         res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
         error = true;
