@@ -10,9 +10,10 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
  * passed in.
  *
  * @param {*} email Email address of the user.
+ * @param {*} agencyNetworkId agencyNetworkId of the user.
  * @returns {object} Talage user object in mongo
  */
-async function getUser(email) {
+async function getUser(email, agencyNetworkId) {
     // This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
     email = email.replace(' ', '+');
 
@@ -20,7 +21,7 @@ async function getUser(email) {
     //TODO move to BO/Mongo
     const agencyPortalUserBO = new AgencyPortalUserBO();
     try {
-        return await agencyPortalUserBO.getByEmail(email);
+        return await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, agencyNetworkId);
     }
     catch (e) {
         log.error(e.message + __location);
