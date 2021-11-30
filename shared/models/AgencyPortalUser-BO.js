@@ -274,6 +274,7 @@ module.exports = class AgencyPortalUserBO{
 
             }
             else {
+                log.info(`no id supplied` + __location);
                 reject(new Error('no id supplied'))
             }
         });
@@ -294,7 +295,7 @@ module.exports = class AgencyPortalUserBO{
                 if(forceAgencyNetworkCheck){
                     query.agencyNetworkId = agencyNetworkId
                 }
-                log.debug(`getByEmailAndAgencyNetworkId ${JSON.stringify(query)}` + __location);
+                log.debug(`getByEmailAndAgencyNetworkId ${JSON.stringify(query)} agencyNetworkId ${agencyNetworkId}` + __location);
                 let userDoc = null;
                 try {
                     let userList = await AgencyPortalUserModel.find(query, '-__v');
@@ -341,6 +342,7 @@ module.exports = class AgencyPortalUserBO{
 
             }
             else {
+                log.info(`no email supplied` + __location)
                 reject(new Error('no email supplied'))
             }
         });
@@ -424,6 +426,7 @@ module.exports = class AgencyPortalUserBO{
 
         }
         else {
+            log.info(`no id supplied` + __location);
             throw new Error('no id supplied')
         }
         // return true;
@@ -519,6 +522,7 @@ module.exports = class AgencyPortalUserBO{
 
             }
             else {
+                log.info(`no id supplied` + __location);
                 reject(new Error('no id supplied'))
             }
         });
@@ -639,6 +643,7 @@ module.exports = class AgencyPortalUserBO{
 
             }
             else {
+                log.info(`no id supplied` + __location);
                 reject(new Error('no id supplied'))
             }
         });
