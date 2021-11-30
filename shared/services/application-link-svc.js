@@ -32,7 +32,7 @@ options: {
  * @return {URL} The application link for Quote App
  * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
  */
-exports.createApplicationLink = async(appId, options) => {
+exports.createQuoteApplicationLink = async(appId, options) => {
     if(!appId){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
         return;
@@ -53,14 +53,14 @@ exports.createApplicationLink = async(appId, options) => {
 
     // store hash in redis with application id as value
     await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
-    const link = await buildLink(agency, agencyNetwork, options?.pageSlug, hash);
+    const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
-    const returnLink = await sendEmail(agency, link, options, application);
+    const returnLink = await sendQuoteEmail(agency, link, options, application);
     return returnLink;
 }
 
-const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
+const buildQuoteLink = async(agency, agencyNetwork, pageSlug, hash) => {
     let domain = "";
     if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
@@ -102,7 +102,7 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
     return link;
 }
 
-const sendEmail = async(agency, link, options, applicationJSON) => {
+const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     if(!link || !options?.emailAddress){
         log.warn(`Not sending email for application link ${link} ${__location}`);
         return;
