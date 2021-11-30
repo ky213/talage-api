@@ -477,7 +477,7 @@ async function postAgency(req, res, next) {
     const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const chkUserId = -999
-    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(chkUserId, email).catch(function(err){
+    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(chkUserId, email, agencyNetworkId).catch(function(err){
         log.error('create agency user check error ' + err + __location);
         error = serverHelper.internalError('Error querying database. Check logs.');
     });
