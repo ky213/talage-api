@@ -9,7 +9,7 @@ const log = global.log;
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-module.exports = class CompwestWC extends Integration {
+module.exports = class CoterieWC extends Integration {
 
     /**
      * Initializes this integration.
@@ -247,7 +247,7 @@ module.exports = class CompwestWC extends Integration {
                     isReferred = quote.isEstimate;
                     if(quote.quotes && quote.quotes.length > 0){
                         const quoteDetail = quote.quotes[0];
-                        this.number = quoteDetail.applicationId;
+                        this.number = quoteDetail.quoteId;
                     }
                     if(isReferred){
                         return this.return_result('referred_with_price');
