@@ -2006,7 +2006,7 @@ async function PutApplicationLink(req, res, next){
     });
     if(hasAccess === true){
         req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
-        const link = await appLinkCreator.createApplicationLink(req.body.applicationId, req.body);
+        const link = await appLinkCreator.createQuoteApplicationLink(req.body.applicationId, req.body);
 
         // eslint-disable-next-line object-shorthand
         res.send(200, {link});
