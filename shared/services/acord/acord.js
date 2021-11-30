@@ -618,6 +618,11 @@ module.exports = class ACORD{
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
                             pdfKey += 1;
+                            if(pdfKey > 78){
+                                pdfKey = 65;
+                                stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
+                                pageCounter += 1;
+                            }
                         }
                     }
                     else{
@@ -632,6 +637,11 @@ module.exports = class ACORD{
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
                         pdfKey += 1;
                     }
+                    // if(pdfKey > 14){
+                    //     pdfKey = 65;
+                    //     stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
+                    //     pageCounter += 1;
+                    // }
                 }
             }
             stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));

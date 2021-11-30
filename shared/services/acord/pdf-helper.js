@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 const fs = require('fs');
 const {
-    degrees, PDFDocument, rgb, StandardFonts
+    degrees, PDFDocument, rgb, StandardFonts, last
 } = require('pdf-lib');
 const path = require('path');
 let lineCount = 1;
@@ -16,23 +16,16 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
         const form = pdfPage.getForm();
         
         for (const formFieldString of Object.keys(dataFieldsObj)) {
-            if(formFieldString.slice(formFieldString.length - 2) == '_O'){
-                break;
-            }
-            // if(currentLine != lastLine ){
-            //     lastLine = currentLine;
-            //     lineCount++;
-            //     log.info('line-count: '+lineCount+' -> lastLine: '+lastLine);
-            // }
             if (!dataFieldsObj[formFieldString]) {
                 continue;
             }
             const field = form.getField(formFieldString);
-            currentLine = formFieldString.slice(formFieldString.length - 2);
+
+            log.info(formFieldString+'->'+dataFieldsObj[formFieldString]);
+
             switch (field.constructor.name) {
                 case 'PDFTextField':
                     field.setText(dataFieldsObj[formFieldString].toString());
-                    // log.debug(formFieldString+'->'+dataFieldsObj[formFieldString]);
                     break;
 
                 case 'PDFCheckBox':
