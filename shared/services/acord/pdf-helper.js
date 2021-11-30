@@ -9,8 +9,7 @@ let currentLine = '';
 let lastLine = '_0';
 const createPDF = async(sourcePDFString, dataFieldsObj) => {
     const pathToPdfString = path.resolve(__dirname, './pdf/' + sourcePDFString);
-    // log.debug('path-pdf-', pathToPdfString);
-    // log.debug('data fields', dataFieldsObj);
+    log.info(pathToPdfString);
     
     try {
         const pdfPage = await PDFDocument.load(fs.readFileSync(pathToPdfString).buffer);
