@@ -20,13 +20,14 @@ async function getUser(email, agencyNetworkId) {
     // Authenticate the information provided by the user
     //TODO move to BO/Mongo
     const agencyPortalUserBO = new AgencyPortalUserBO();
+    let userDoc = null;
     try {
-        return await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, agencyNetworkId);
+        userDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, agencyNetworkId);
     }
     catch (e) {
         log.error(e.message + __location);
     }
-    return null;
+    return userDoc;
 }
 
 /**
@@ -46,7 +47,7 @@ async function createToken(email, agencyNetworkId) {
 
     // Make sure we found the user
     if (!agencyPortalUserDBJson) {
-        log.info('Authentication failed - Account not found ' + email);
+        log.info(`Authentication failed - Account not found ${email} agencyNetworkId ${agencyNetworkId}` + __location);
         throw new Error('Authentication failed - Account not found ' + email);
     }
 
@@ -99,7 +100,7 @@ async function createToken(email, agencyNetworkId) {
         //     payload.agents.push(agencyJSON.systemId);
         // });
     }
-    else {
+    else if(agencyPortalUserDBJson.agencyId) {
         // Just allow access to the current agency
         payload.agents.push(agencyPortalUserDBJson.agencyId);
 
@@ -123,6 +124,13 @@ async function createToken(email, agencyNetworkId) {
             payload.agencyNetworkId = agency.agencyNetworkId;
         }
 
+    }
+    else if(agencyPortalUserDBJson.agencyNetworkId){
+        //old style record agency network user.
+        //no agencyId  w/ agencyNetworkId
+        payload.agents = [-1];
+        payload.isAgencyNetworkUser = true
+        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
     }
 
     // Add the user ID to the payload
