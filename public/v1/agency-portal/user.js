@@ -53,7 +53,7 @@ async function validate(user) {
     }
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(user.id, user.email).catch(function(err){
+    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(user.id, user.email, user.agencyNetworkId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -96,6 +96,7 @@ async function createUser(req, res, next) {
     // Determine if this is an agency or agency network
     let agencyId = null;
     let agencyNetworkId = null;
+    let isAgencyNetworkUser = false;
     const agencyBO = new AgencyBO();
     if (req.authentication.isAgencyNetworkUser && (req.body.agency || req.body.agencyId)){
         if(req.body.agencyId){
@@ -117,10 +118,11 @@ async function createUser(req, res, next) {
             log.error(`agencyPortalUser Attempt to add user to agency of agency Network request user ${req.authentication.userID}` + __location);
             return next(serverHelper.requestError(new Error("bad agencyId")));
         }
-
+        agencyNetworkId = reqUserAgencyNetworkId;
     }
     else if (req.authentication.isAgencyNetworkUser){
         //TODO update for Global Mode.
+        isAgencyNetworkUser = true;
         agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10)
         //req.authentication.permissions["globalMode"]
         //Determine if in global model - if so look for agency Network in requeset or error out the request.
@@ -150,6 +152,7 @@ async function createUser(req, res, next) {
             log.error(`agencyPortalUser Attempt to add user to non activeagency ${agencyId} request user ${req.authentication.userID}` + __location);
             return next(serverHelper.requestError(new Error("bad agencyId")));
         }
+        agencyNetworkId = agencyDoc.agencyNetworkId;
     }
 
     // Generate a random password for this user (they won't be using it anyway)
@@ -159,6 +162,7 @@ async function createUser(req, res, next) {
     const newUserJSON = {
         agencyId: agencyId,
         agencyNetworkId: agencyNetworkId,
+        isAgencyNetworkUser: isAgencyNetworkUser,
         email: userObj.email,
         password: passwordHash,
         canSign: data.canSign,
@@ -170,7 +174,7 @@ async function createUser(req, res, next) {
     // check if this user exists already but has been soft deleted.
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const deActiveUser = false;
-    const oldDoc = await agencyPortalUserBO.getByEmail(userObj.email, deActiveUser).catch(function(err){
+    const oldDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(userObj.email, deActiveUser, agencyNetworkId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -181,7 +185,7 @@ async function createUser(req, res, next) {
     else {
         let existingDoc = null;
         try {
-            existingDoc = await agencyPortalUserBO.getByEmail(userObj.email);
+            existingDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(userObj.email, true, agencyNetworkId, isAgencyNetworkUser);
         }
         catch (e) {
             log.error('agencyPortalUser error ' + e + __location);
@@ -202,7 +206,7 @@ async function createUser(req, res, next) {
         return next(error);
     }
     const userID = agencyPortalUserBO.id;
-
+    //Do not update redis on create.  It will get updated at login.
     // Return the response
     res.send(200, {
         userID: userID,
@@ -336,7 +340,8 @@ async function deleteUser(req, res, next) {
     //TODO need rights check
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const result = await agencyPortalUserBO.deleteSoftById(parseInt(id, 10)).catch(function(err){
+    const userId = parseInt(id, 10)
+    const result = await agencyPortalUserBO.deleteSoftById(userId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         error = Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -349,6 +354,9 @@ async function deleteUser(req, res, next) {
         log.error('User delete failed');
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
+    //remove redis key
+    const redisKey = "apuserinfo-" + userId;
+    await global.redisSvc.deleteKey(redisKey);
 
     res.send(200, 'Deleted');
 }
@@ -484,9 +492,10 @@ async function updateUser(req, res, next) {
     }
 
     data.id = userObj.id;
+    const userId = parseInt(data.id, 10)
     // Prepare the email address
     const newUserJSON = {
-        id: parseInt(data.id, 10),
+        id: userId,
         canSign: data.canSign,
         email: data.email,
         agencyPortalUserGroupId: data.group,
@@ -512,7 +521,22 @@ async function updateUser(req, res, next) {
     if (error) {
         return next(error);
     }
+    await updateRedisCache(userId);
     res.send(200, 'Saved');
+}
+
+/**
+ * Updates a single user's redis cache
+ *
+ * @param {integer} userId - userId apUserId
+ * @returns {void}
+ */
+async function updateRedisCache(userId){
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const apuDoc = await agencyPortalUserBO.getById(userId);
+    const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
+
 }
 
 exports.registerEndpoint = (server, basePath) => {

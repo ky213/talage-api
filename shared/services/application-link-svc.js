@@ -26,10 +26,10 @@ options: {
 */
 
 /**
- * Creates a link into an application
+ * Creates a link into an application for Quote App
  * @param {uuid} appId - The application to create a link for
  * @param {Object} options - Options for creating the link, see above comment for uses
- * @return {URL} The application link
+ * @return {URL} The application link for Quote App
  * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
  */
 exports.createApplicationLink = async(appId, options) => {
@@ -56,8 +56,8 @@ exports.createApplicationLink = async(appId, options) => {
     const link = await buildLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
-    await sendEmail(agency, link, options, application);
-    return link;
+    const returnLink = await sendEmail(agency, link, options, application);
+    return returnLink;
 }
 
 const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
@@ -125,7 +125,7 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
     const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
 
     const emailSubjectDefault = 'A portal to your application';
-    const emailSubject = options.subject ? options.subject : emailSubjectDefault;
+    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
@@ -169,12 +169,7 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
 
     }
 
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-    const branding = agencyNetworkBranding ? '' : 'agency'
+    let branding = agencyNetworkBranding ? '' : 'agency'
 
     const keys = {
 
@@ -184,6 +179,35 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
 
     }
 
+    const dataPackageJSON = {
+        appDoc: applicationJSON,
+        agency: agency,
+        link: link,
+        options: options,
+        htmlBody: htmlBody,
+        emailSubject: emailSubject,
+        branding: branding,
+        recipients: recipients
+    }
+
+    try{
+        await global.hookLoader.loadhook('quote-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
+        htmlBody = dataPackageJSON.htmlBody
+        emailSubject = dataPackageJSON.emailSubject
+        branding = dataPackageJSON.branding
+        link = dataPackageJSON.link;
+
+    }
+    catch(err){
+        log.error(`Error quote-app-link hook call error ${err}` + __location);
+    }
+
+    const emailData = {
+        html: htmlBody,
+        subject: emailSubject,
+        to: recipients
+    };
+
 
     const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
     if(!emailSent){
@@ -192,4 +216,5 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
     else {
         log.info(`Application link email was sent successfully to ${emailData.to}.`);
     }
+    return link;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
@@ -40,11 +41,20 @@ async function get_account(req, res, next){
             id: timezone.id
         })
     }
-
-    res.send(200, {
+    const accountInformationObj = {
         'account_data': account_data,
         'timezones': timezones
-    });
+    };
+    // Additional logic that removes this property if user should not be able to edit this setting.
+    // The request must be from agencyNetworkId 1, and must have talageStaff permissions
+    let agencyNetworkId = null;
+    if(req.authentication.isAgencyNetworkUser){
+        agencyNetworkId = req.authentication.agencyNetworkId;
+    }
+    if(agencyPortalUserJSON.hasOwnProperty('enableGlobalView') && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+        accountInformationObj.enableGlobalView = agencyPortalUserJSON.enableGlobalView;
+    }
+    res.send(200, accountInformationObj);
     return next();
 }
 
@@ -118,9 +128,12 @@ async function put_account(req, res, next){
 
 
     }
-
+    let enableGlobalView = null;
+    if(req.body.hasOwnProperty('enableGlobalView')){
+        enableGlobalView = req.body.enableGlobalView;
+    }
     // Do we have something to update?
-    if(!req.body.email && !password && !timezoneName){
+    if(!req.body.email && !password && !timezoneName && !enableGlobalView){
         log.warn('There is nothing to update');
         return next(serverHelper.requestError('There is nothing to update. Please check the documentation.'));
     }
@@ -138,7 +151,30 @@ async function put_account(req, res, next){
         }
 
         const agencyPortalUserBO = new AgencyPortalUserBO();
+        // Additional logic that checks if the user is able to edit the global view setting.
+        // The request must have enableGlobalView on the body, and be from agencyNetworkId 1, and must have talageStaff permissions
+        let agencyNetworkId = null;
+        if(req.authentication.isAgencyNetworkUser){
+            agencyNetworkId = req.authentication.agencyNetworkId;
+        }
+        if(enableGlobalView !== null && agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+            newJson.enableGlobalView = enableGlobalView;
+        }
+        else{
+            log.debug(`Bad enableGlobalView check` + __location)
+        }
         await agencyPortalUserBO.saveModel(newJson);
+
+        const apuId = parseInt(req.authentication.userID,10);
+        const apuDoc = await agencyPortalUserBO.getById(apuId);
+        if(apuDoc){
+            const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId.toString();
+            await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
+        }
+        else {
+            log.error(`unable to retrieve user record for caching ` + __location)
+        }
+
     }
     catch(err){
         log.error(err.message + __location);
@@ -172,15 +208,15 @@ async function putAccountPreferences(req, res, next){
         log.warn('No valid data was received');
         return next(serverHelper.requestError('No valid data was received'));
     }
+    const userId = parseInt(req.authentication.userID, 10);
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const agencyPortalUserJSON = await agencyPortalUserBO.getById(parseInt(req.authentication.userID, 10)).catch(function(err){
-        log.error(err.message);
+    const agencyPortalUserJSON = await agencyPortalUserBO.getById(userId).catch(function(err){
+        log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     });
 
     const newPreferences = {
-        id: parseInt(req.authentication.userID, 10),
         tableOptions: agencyPortalUserJSON.tableOptions ? agencyPortalUserJSON.tableOptions : {}
     };
 
@@ -213,7 +249,11 @@ async function putAccountPreferences(req, res, next){
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
 
-    await agencyPortalUserBO.saveModel(newPreferences);
+    await agencyPortalUserBO.updateMongo(userId,newPreferences);
+    //cache update in Redis
+    const apuDoc = await agencyPortalUserBO.getById(userId);
+    const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
 
     // Everything went okay, send a success response
     res.send(200, 'Account Preferences Updated');

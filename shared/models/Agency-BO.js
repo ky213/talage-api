@@ -549,8 +549,8 @@ module.exports = class AgencyBO {
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    docList = await AgencyModel.find(query, queryProjection, queryOptions);
+                    //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
@@ -563,6 +563,9 @@ module.exports = class AgencyBO {
                                 catch (err) {
                                     log.error("Error getting agency network name " + err + __location);
                                 }
+                            }
+                            else {
+                                log.error(`Error getting agency network name missing info ${JSON.stringify(agencyNetworkList)}` + __location);
                             }
                         }
                     }
@@ -743,12 +746,12 @@ module.exports = class AgencyBO {
 
     }
 
-    async getByAgencyNetworkDoNotReport(agencyNetworkId) {
+    async getByAgencyNetworkDoNotReport(agencyNetworkId, isGlobalView) {
 
         //validate
         if (agencyNetworkId && agencyNetworkId > 0) {
 
-            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && isGlobalView === false){
                 let docList = null;
                 const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
                 const resp = await global.redisSvc.getKeyValue(redisKey);
@@ -773,8 +776,11 @@ module.exports = class AgencyBO {
                 agencyNetworkId: agencyNetworkId,
                 doNotReport: true
             }
+            if(isGlobalView){
+                delete query.agencyNetworkId;
+            }
             const docList = await this.getList(query);
-            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && docList){
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && docList && isGlobalView === false){
                 const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
                 try{
                     const ttlSeconds = 900; //15 minutes

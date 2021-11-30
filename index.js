@@ -21,6 +21,8 @@ global.tracker = tracker;
 global.WHEELHOUSE_AGENCYNETWORK_ID = 1;
 global.DIGALENT_AGENCYNETWORK_ID = 2;
 
+//Settup global hookloader reference
+global.hookLoader = require('./hooks/hookloader.js');
 
 var hasMongoMadeInitialConnected = false;
 // Inject the tracker code
@@ -130,6 +132,7 @@ async function main(){
         // leave rest of API functional.
         //return;
     }
+
 
     //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
     global.redisSvc = redisSvc;
