@@ -88,6 +88,7 @@ async function createTokenEndpoint(req, res, next){
         return next();
     }
     catch (ex) {
+        log.error(`Internal error when authenticating ${ex}` + __location);
         res.send(500, serverHelper.internalError('Internal error when authenticating. Check logs.'));
         return next(false);
     }

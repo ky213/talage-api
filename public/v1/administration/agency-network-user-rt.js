@@ -32,7 +32,8 @@ async function findAll(req, res, next) {
         req.query.agencyNetworkId = req.query.agencynetworkid;
         delete req.query.agencynetworkid
     }
-
+    //only agencyNetwork users.
+    req.query.isAgencyNetworkUser = true;
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const rows = await agencyPortalUserBO.getList(req.query).catch(function(err) {
         error = err;
@@ -206,6 +207,7 @@ async function add(req, res, next) {
     }
     if(req.body.agency_network){
         insertJSON.agencyNetworkId = req.body.agency_network
+        insertJSON.isAgencyNetworkUser = true;
     }
 
 
@@ -280,6 +282,8 @@ async function update(req, res, next) {
         if(req.body.email){
             updateJSON.clear_email = req.body.email;
         }
+        //only agencyNetworkUsers
+        updateJSON.isAgencyNetworkUser = true;
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
         await agencyPortalUserBO.saveModel(updateJSON).catch(function(err) {
