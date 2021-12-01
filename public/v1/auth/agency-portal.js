@@ -19,7 +19,7 @@ const {createToken} = require('./auth-helper');
  * @param {object} res - Response object
  * @param {function} next - The next function to execute
  *
- * @returns {object} res - Returns an authorization token
+ * @returns {object} res - Returns an authorization token using username/password credentials
  */
 async function createTokenEndpoint(req, res, next){
     let error = false;
@@ -90,6 +90,76 @@ async function createTokenEndpoint(req, res, next){
 }
 
 /**
+ * Responds to get requests for an authorization token
+ *
+ * @param {object} req - Request object
+ * @param {object} res - Response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {object} res - Returns an authorization token using hash key to look up valid auto login in redis
+ */
+async function createAutoLoginToken(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+        log.info('Bad Request: Missing both email and password');
+        return next(serverHelper.requestError('You must supply an email address and password'));
+    }
+
+    // Make sure a hash key was provided
+    if (!req.body.hash) {
+        log.info('Missing hash for auto login' + __location);
+        res.send(400, serverHelper.requestError('No hash key provided for auto login'));
+        return next();
+    }
+
+    // Attempt to get the User ID from redis using the provided hash
+    const apuId = await global.redisSvc.getKeyValue(`apu-${req.body.hash}`);
+
+    if (!apuId) {
+        log.info('Unable to find user - Data may of expired.' + __location);
+        res.send(404, serverHelper.requestError('No data found, auto-login session may have expired'));
+        return next();
+    }
+    else {
+        // for security, we delete the key. Auto-login is one-time use only
+        await global.redisSvc.deleteKey(`apu-${req.body.hash}`);
+    }
+
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    let agencyPortalUserDBJSON = null;
+    try {
+        agencyPortalUserDBJSON = await agencyPortalUserBO.getById(apuId.apUserId);
+    }
+    catch (e) {
+        log.error(e.message + __location);
+        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
+        return next(false);
+    }
+
+    // Make sure we found the user
+    if (!agencyPortalUserDBJSON) {
+        log.info('Authentication failed - Account not found ' + req.body.email);
+        res.send(401, serverHelper.invalidCredentialsError('Invalid API Auto Login Credentials'));
+        return next();
+    }
+
+    try {
+        const jwtToken = await createToken(agencyPortalUserDBJSON.email);
+        const token = `Bearer ${jwtToken}`;
+        res.send(201, {
+            status: 'Created',
+            token: token
+        });
+        return next();
+    }
+    catch (e) {
+        log.error(`An error occurred creating access token: ${e}.` + __location);
+        res.send(500, serverHelper.internalError('Internal error when authenticating. Check logs.'));
+        return next(false);
+    }
+}
+
+/**
  * Updates (refreshes) an existing token
  *
  * @param {object} req - Request object
@@ -133,6 +203,7 @@ async function updateToken(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPost('Create Token', `${basePath}/agency-portal`, createTokenEndpoint);
+    server.addPost('Create Token for Auto Login', `${basePath}/agency-portal-auto`, createAutoLoginToken);
     server.addPut('Refresh Token', `${basePath}/agency-portal`, updateToken);
 };
 exports.createToken = createToken;

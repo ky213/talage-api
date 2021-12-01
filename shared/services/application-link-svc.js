@@ -83,10 +83,9 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
     const agencyNetworkBO = new AgencyNetworkBO();
     const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
+    // check that the provided email address is a valid agent (agency portal user) with proper permissions
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const agent = await agencyPortalUserBO.getByEmail(options.emailAddress);
-
-    // check that the provided email address is a valid agent (user) with proper permissions
     if (!agent) {
         log.error(`Error generating application link for agent: Unable to find Agency Portal User with provided email ${options.emailAddress},` + __location);
         return;
@@ -94,15 +93,18 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
 
     // TODO: Check user permissions (what am I looking for here?)
 
-    // create unique hash (key) and value
+    // create unique hash (key) and value. Store the link without the hash information to be used for loading the page after login
     const hash = await crypt.hash(`${moment.now()}`);
-    const value = {apUserId: agent.agencyPortalUserId};
-
-    // store the hash in redis with using prefixed key
-    await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
+    const value = {
+        apUserId: agent.agencyPortalUserId,
+        autoLogin: options.autoLogin || false
+    };
 
     // build the link
     const link = await buildLink(agency, agencyNetwork, null, hash, appId);
+
+    // store the hash in redis using prefixed key
+    await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
 
     // send the email to the agent and return the link
     await sendEmailForAgent(agency, link, options, application, agent);
@@ -143,7 +145,7 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash, appId) => {
 
     let link = "";
     if (appId) {
-        link = `${domain}/applications/application/${appId}?z=${hash}`;
+        link = `${domain}/_load/applications/application/${appId}?z=${hash}`;
     }
     else if (pageSlug) {
         link = `${domain}/${agency.slug}/${pageSlug}/_load/${hash}`;
