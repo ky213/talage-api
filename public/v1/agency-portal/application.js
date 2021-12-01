@@ -2284,8 +2284,8 @@ async function accesscheck(appId, req, applicationJSON){
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
-    server.addPutAuth('PUT Application Link for Applicant', `${basePath}/application/link`, putApplicationLink, 'applications', 'manage');
-    server.addPutAuth('PUT Application Link for Agent', `${basePath}/application/agent-link`, putApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Quote App', `${basePath}/application/link`, putApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Agency Portal', `${basePath}/application/agent-link`, putApplicationLink, 'applications', 'manage');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
