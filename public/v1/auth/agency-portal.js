@@ -50,7 +50,7 @@ async function createTokenEndpoint(req, res, next){
     // Authenticate the information provided by the user
     //TODO move to BO/Mongo
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const agencyPortalUserDBJson = await agencyPortalUserBO.getByEmail(req.body.email).catch(function(e) {
+    const agencyPortalUserDBJson = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(req.body.email, true, req.body.agencyNetworkId).catch(function(e) {
         log.error(e.message + __location);
         res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
         error = true;
@@ -74,8 +74,12 @@ async function createTokenEndpoint(req, res, next){
 
     }
 
+    const redisKey = "apuserinfo-" + agencyPortalUserDBJson.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(agencyPortalUserDBJson));
+
+
     try {
-        const jwtToken = await createToken(req.body.email);
+        const jwtToken = await createToken(req.body.email, req.body.agencyNetworkId);
         const token = `Bearer ${jwtToken}`;
         res.send(201, {
             status: 'Created',
@@ -84,6 +88,7 @@ async function createTokenEndpoint(req, res, next){
         return next();
     }
     catch (ex) {
+        log.error(`Internal error when authenticating ${ex}` + __location);
         res.send(500, serverHelper.internalError('Internal error when authenticating. Check logs.'));
         return next(false);
     }

@@ -28,13 +28,13 @@ options: {
 */
 
 /**
- * Creates a link into an application
+ * Creates a link into an application for Quote App
  * @param {uuid} appId - The application to create a link for
  * @param {Object} options - Options for creating the link, see above comment for uses
- * @return {URL} The application link
+ * @return {URL} The application link for Quote App
  * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
  */
-exports.createApplicationLink = async(appId, options) => {
+exports.createQuoteApplicationLink = async(appId, options) => {
     if(!appId){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
         return;
@@ -54,11 +54,11 @@ exports.createApplicationLink = async(appId, options) => {
 
     // store hash in redis with application id as value
     await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
-    const link = await buildLink(agency, agencyNetwork, options?.pageSlug, hash);
+    const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
-    await sendEmail(agency, link, options, application);
-    return link;
+    const returnLink = await sendQuoteEmail(agency, link, options, application);
+    return returnLink;
 }
 
 exports.createApplicationLinkForAgent = async(appId, options) => {
@@ -112,7 +112,7 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
     return link;
 }
 
-const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
+const buildQuoteLink = async(agency, agencyNetwork, pageSlug, hash) => {
     let domain = "";
     if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
@@ -138,7 +138,7 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
                 break;
             default:
                 // dont send the email
-                log.error(`Failed to generating application link, invalid environment. ${__location}`);
+                log.error(`Failed to generating application link, invalid environment.` + __location);
                 return;
         }
     }
@@ -198,7 +198,7 @@ const buildLinkForAgent = async(agencyNetwork, appId, hash) => {
     return link;
 }
 
-const sendEmail = async(agency, link, options, applicationJSON) => {
+const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     if(!link || !options?.emailAddress){
         log.warn(`Not sending email for application link ${link}.` + __location);
         return;
@@ -221,7 +221,7 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
     const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
 
     const emailSubjectDefault = 'A portal to your application';
-    const emailSubject = options.subject ? options.subject : emailSubjectDefault;
+    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
@@ -232,7 +232,7 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
         <p>
             ${agentName} at ${emailAgencyName} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
             <br/>
-            Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
+            Its an easy way for you to fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process online. 
             <br/>
             If you ever need help, ${agentName} is still right here to help ensure you get the best policy at the best value. 
             <br/>
@@ -265,12 +265,6 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
         htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
     }
 
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-
     const branding = agencyNetworkBranding ? '' : 'agency';
 
     const keys = {
@@ -279,6 +273,34 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
         applicationDoc: applicationJSON
     };
 
+    const dataPackageJSON = {
+        appDoc: applicationJSON,
+        agency: agency,
+        link: link,
+        options: options,
+        htmlBody: htmlBody,
+        emailSubject: emailSubject,
+        branding: branding,
+        recipients: recipients
+    }
+
+    try{
+        await global.hookLoader.loadhook('quote-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
+        htmlBody = dataPackageJSON.htmlBody
+        emailSubject = dataPackageJSON.emailSubject
+        branding = dataPackageJSON.branding
+        link = dataPackageJSON.link;
+
+    }
+    catch(err){
+        log.error(`Error quote-app-link hook call error ${err}` + __location);
+    }
+
+    const emailData = {
+        html: htmlBody,
+        subject: emailSubject,
+        to: recipients
+    };
 
     const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
     if(!emailSent){
@@ -357,4 +379,5 @@ const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
     else {
         log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
     }
+    return link;
 }

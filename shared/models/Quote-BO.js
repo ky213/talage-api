@@ -9,7 +9,8 @@ const moment = require('moment');
 const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
-var Quote = require('mongoose').model('Quote');
+const mongoose = require('mongoose')
+var Quote = mongoose.model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
@@ -641,6 +642,20 @@ module.exports = class QuoteBO {
         }
 
         return true;
+    }
+
+    /**
+     * Adds some extra information to the 'log' field for the specified Quote
+     * in mongo.
+     *
+     * @param {*} quoteId quoteId
+     * @param {*} log Extra data to put in the log
+     * @returns {void}
+     */
+    async appendToLog(quoteId, log) {
+        return mongoose.connection.db.collection('quotes').updateOne({quoteId: quoteId},
+            [{$set: {log: {$concat: ['$log', log]}}}],
+            {upsert: true});
     }
 
     // checks the status of the quote and fixes it if its timed out
