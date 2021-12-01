@@ -1988,7 +1988,7 @@ async function GetBopCodes(req, res, next){
     return next();
 }
 
-async function PutApplicationLink(req, res, next){
+async function putApplicationLink(req, res, next){
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
         log.warn('No data was received' + __location);
@@ -2006,8 +2006,13 @@ async function PutApplicationLink(req, res, next){
     });
     if(hasAccess === true){
         req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
-        const link = await appLinkCreator.createQuoteApplicationLink(req.body.applicationId, req.body);
-
+        let link = null;
+        if (req.body?.agencyPortalUser) {
+            link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
+        }
+        else {
+            link = await appLinkCreator.createQuoteApplicationLink(req.body.applicationId, req.body);
+        }
         // eslint-disable-next-line object-shorthand
         res.send(200, {link});
         return next();
@@ -2017,6 +2022,7 @@ async function PutApplicationLink(req, res, next){
         return next(serverHelper.requestError('Not found'));
     }
 }
+
 
 async function getOfficerEmployeeTypes(req, res, next){
     if (!req.query || typeof req.query !== 'object') {
@@ -2278,7 +2284,8 @@ async function accesscheck(appId, req, applicationJSON){
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
-    server.addPutAuth('PUT Application Link', `${basePath}/application/link`, PutApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Applicant', `${basePath}/application/link`, putApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Agent', `${basePath}/application/agent-link`, putApplicationLink, 'applications', 'manage');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
