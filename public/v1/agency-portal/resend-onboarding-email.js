@@ -126,7 +126,6 @@ async function postAgencyNetworkUserOnboardingEmail(req, res, next){
     let error = null;
     if(req.authentication.isAgencyNetworkUser === true){
         reqUserAgencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
-
     }
     else {
         log.warn(`Attempt at sending an agency network user onboarding email, but the req is not from an agency network: ${JSON.stringify(req.authentication)} ${__location}`);
@@ -209,7 +208,7 @@ async function postAgencyNetworkUserOnboardingEmail(req, res, next){
     }
     res.send(200, {
         "code": 'Success',
-        "message": 'Email sent'
+        "message": 'Onboarding Email Sent'
     });
 }
 exports.registerEndpoint = (server, basePath) => {
