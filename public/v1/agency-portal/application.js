@@ -2008,7 +2008,7 @@ async function putApplicationLink(req, res, next){
         req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
         let link = null;
         if (req.body?.agencyPortalUser) {
-            link = await appLinkCreator.createApplicationLinkForAgent(req.body.applicationId, req.body);
+            link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
         }
         else {
             link = await appLinkCreator.createQuoteApplicationLink(req.body.applicationId, req.body);
