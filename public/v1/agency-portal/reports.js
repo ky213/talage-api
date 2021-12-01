@@ -496,8 +496,7 @@ async function getReports(req) {
                     //check for all
                     if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                         && req.authentication.permissions.talageStaff === true
-                        && agencyId < 0
-                        && req.authentication.enableGlobalView === true){
+                        && agencyId < 0){
                         log.debug('global view 1')
 
                         if(where.agencyId){
@@ -519,8 +518,7 @@ async function getReports(req) {
                 }
                 else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                         && req.authentication.permissions.talageStaff === true
-                        && agencyId < 0
-                        && req.authentication.enableGlobalView === true){
+                        && agencyId < 0){
                     log.debug('global view 2')
 
                     if(where.agencyId){
