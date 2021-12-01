@@ -208,7 +208,7 @@ async function updateToken(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPost('Create Token', `${basePath}/agency-portal`, createTokenEndpoint);
-    server.addPost('Create Token for Auto Login', `${basePath}/agency-portal-auto`, createAutoLoginToken);
+    // server.addPost('Create Token for Auto Login', `${basePath}/agency-portal-auto`, createAutoLoginToken);
     server.addPut('Refresh Token', `${basePath}/agency-portal`, updateToken);
 };
 exports.createToken = createToken;

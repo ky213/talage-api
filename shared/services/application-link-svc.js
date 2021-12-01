@@ -59,8 +59,8 @@ exports.createQuoteApplicationLink = async(appId, options) => {
     const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
-    const returnLink = await sendQuoteEmail(agency, link, options, application);
-    return returnLink;
+    await sendQuoteEmail(agency, link, options, application);
+    return link;
 }
 
 exports.createApplicationLinkForAgent = async(appId, options) => {
