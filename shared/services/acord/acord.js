@@ -1,5 +1,5 @@
 const moment = require('moment');
-const {layoutSinglelineText} = require('pdf-lib');
+// const {layoutSinglelineText} = require('pdf-lib');
 const PdfHelper = require('./pdf-helper');
 
 const applicationBO = global.requireShared('./models/Application-BO.js');
@@ -609,7 +609,7 @@ module.exports = class ACORD{
                     if(!activity.activityCodeId){
                         activity.activityCodeId = activity.ncciCode
                     }
-                    if(insurerActivityCodeList.length){ 
+                    if(insurerActivityCodeList.length){
                         for(const insurerActivityCodeObj of insurerActivityCodeList){
                             const currentLetter = String.fromCharCode(pdfKey);
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;

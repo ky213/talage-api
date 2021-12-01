@@ -36,7 +36,7 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
         return pdfPage.save();
     }
     catch(err){
-        log.error('Failed to generate PDF 6644 '+ err + __location);
+        log.error('Failed to generate PDF ' + err + __location);
         throw err;
     }
 }
