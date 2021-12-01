@@ -1,9 +1,11 @@
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+// const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
+const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
+
 // const moment = require('moment');
 
 const applicationLinkTimeout = 48 * 60 * 60; // 48 hours
@@ -69,8 +71,13 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
     }
 
     // ensure email address was provided
-    if (!options?.emailAddress) {
+    if (!options?.agencyPortalUser?.email) {
         log.error(`Error generating application link for agent: No email address provided.` + __location);
+        return;
+    }
+
+    if (!options?.agencyPortalUser?.agencyPortalUserId) {
+        log.error(`Error generating application link for agent: Agency Portal User was not provided.` + __location);
         return;
     }
 
@@ -84,21 +91,20 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
     const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
     // check that the provided email address is a valid agent (agency portal user) with proper permissions
-    const agencyPortalUserBO = new AgencyPortalUserBO();
-    const agent = await agencyPortalUserBO.getByEmail(options.emailAddress);
-    if (!agent) {
-        log.error(`Error generating application link for agent: Unable to find Agency Portal User with provided email ${options.emailAddress},` + __location);
-        return;
-    }
-
     // TODO: Check user permissions (what am I looking for here?)
+    // const agencyPortalUserBO = new AgencyPortalUserBO();
+    // const agencyPortalUser = await agencyPortalUserBO.getById(options.agencyPortalUser.agencyPortalUserId);
+    // if (!agencyPortalUser) {
+    //     log.error(`Error generating application link for agent: Unable to find Agency Portal User with provided email ${options.emailAddress}.` + __location);
+    //     return;
+    // }
 
     // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
     const hash = null;
     // let value = null;
     // if (options.autoLogin) {
     //     hash = await crypt.hash(`${moment.now()}`);
-    //     value = {apUserId: agent.agencyPortalUserId};
+    //     value = {apUserId: options.agencyPortalUser.agencyPortalUserId};
     // }
 
     // build the link
@@ -108,7 +114,7 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
     // await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
 
     // send the email to the agent and return the link
-    await sendEmailForAgent(agency, link, options, application, agent);
+    await sendEmailForAgent(agency, link, options, application);
     return link;
 }
 
@@ -312,12 +318,12 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 }
 
 const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
-    if (!link || !options?.emailAddress) {
-        log.warn(`Not sending email for application link ${link}.` + __location);
+    if (!link || !options?.agencyPortalUser.email) {
+        log.warn(`Not sending email for application link ${link}: No email address provided.` + __location);
         return;
     }
 
-    const recipients = options.emailAddress;
+    const recipients = options.agencyPortalUser.email;
 
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
 
@@ -330,15 +336,28 @@ const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
+    const agentName = options.fullName ? capitalizeName(options.fullName) : null;
+
+    // eslint-disable-next-line multiline-ternary
+    const loginText = options.autoLogin ?
+        // eslint-disable-next-line multiline-ternary
+        `
+            The link provided below should allow you to log in without credentials and view the application.
+            <br/>
+        ` :
+        `
+            The link provided below will direct you to Agency Portal where you can login to view the application.
+            <br/>
+        `;
+
     let htmlBody = `
         <p>
-            Hello${options.firstName ? ` ${options.firstName}` : ""},
+            Hello${agentName ? ` ${agentName.trim()}` : ""},
         </p>
         <p>
             ${referringAgentName} at ${agencyDisplayName} is sending over an application for you to view in Agency Portal. 
             <br/>
-            The link provided below should allow you to log in without credentials.
-            <br/>
+            ${loginText}
             If you have any questions, please send them to ${agentEmail} or reach out to ${referringAgentName} directly.
         </p>
         <div align="center">
