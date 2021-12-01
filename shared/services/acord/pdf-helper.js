@@ -9,7 +9,6 @@ let currentLine = '';
 let lastLine = '_0';
 const createPDF = async(sourcePDFString, dataFieldsObj) => {
     const pathToPdfString = path.resolve(__dirname, './pdf/' + sourcePDFString);
-    log.info(pathToPdfString);
     
     try {
         const pdfPage = await PDFDocument.load(fs.readFileSync(pathToPdfString).buffer);
@@ -20,9 +19,6 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
                 continue;
             }
             const field = form.getField(formFieldString);
-
-            log.info(formFieldString+'->'+dataFieldsObj[formFieldString]);
-
             switch (field.constructor.name) {
                 case 'PDFTextField':
                     field.setText(dataFieldsObj[formFieldString].toString());
