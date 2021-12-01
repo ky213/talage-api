@@ -215,5 +215,5 @@ async function postAgencyNetworkUserOnboardingEmail(req, res, next){
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Resend Onboarding Email', `${basePath}/resend-onboarding-email`, postResendOnboardingEmail, 'agencies', 'view');
     server.addPostAuth('Resend Onboarding Email (depr)', `${basePath}/resendOnboardingEmail`, postResendOnboardingEmail, 'agencies', 'view');
-    server.addPostAuth('Resend Onboarding Email for Agency Network Users', `${basePath}/resend-network-user-onboarding-email`, postAgencyNetworkUserOnboardingEmail, 'users', 'manage');
+    server.addPostAuth('Resend Onboarding Email for Agency Network Users', `${basePath}/resend-onboarding-email/agency-network-users`, postAgencyNetworkUserOnboardingEmail, 'users', 'manage');
 };
