@@ -93,27 +93,28 @@ exports.createApplicationLinkForAgent = async(appId, options) => {
 
     // TODO: Check user permissions (what am I looking for here?)
 
-    // create unique hash (key) and value. Store the link without the hash information to be used for loading the page after login
-    const hash = await crypt.hash(`${moment.now()}`);
-    const value = {
-        apUserId: agent.agencyPortalUserId,
-        autoLogin: options.autoLogin || false
-    };
+    // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
+    const hash = null;
+    // let value = null;
+    // if (options.autoLogin) {
+    //     hash = await crypt.hash(`${moment.now()}`);
+    //     value = {apUserId: agent.agencyPortalUserId};
+    // }
 
     // build the link
-    const link = await buildLink(agency, agencyNetwork, null, hash, appId);
+    const link = await buildLinkForAgent(agencyNetwork, appId, hash);
 
     // store the hash in redis using prefixed key
-    await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
+    // await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
 
     // send the email to the agent and return the link
     await sendEmailForAgent(agency, link, options, application, agent);
     return link;
 }
 
-const buildLink = async(agency, agencyNetwork, pageSlug, hash, appId) => {
+const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
     let domain = "";
-    if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL && !appId){
+    if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
         domain = agencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].APPLICATION_URL;
     }
@@ -121,8 +122,7 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash, appId) => {
         // if environmentSettings is not defined for any reason, fall back to defaults
         switch(global.settings.ENV){
             case "development":
-                domain = "http://localhost";
-                domain += appId ? ":8081" : ":8080";
+                domain = "http://localhost:8080";
                 break;
             case "awsdev":
                 domain = "https://dev.wh-app.io";
@@ -144,10 +144,8 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash, appId) => {
     }
 
     let link = "";
-    if (appId) {
-        link = `${domain}/_load/applications/application/${appId}?z=${hash}`;
-    }
-    else if (pageSlug) {
+
+    if (pageSlug) {
         link = `${domain}/${agency.slug}/${pageSlug}/_load/${hash}`;
     }
     else {
@@ -157,9 +155,52 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash, appId) => {
     return link;
 }
 
+const buildLinkForAgent = async(agencyNetwork, appId, hash) => {
+    let domain = "";
+    if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.PORTAL_URL){
+        // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
+        domain = agencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].PORTAL_URL;
+    }
+    else {
+        // if environmentSettings is not defined for any reason, fall back to defaults
+        switch(global.settings.ENV){
+            case "development":
+                domain = "http://localhost:8081";
+                break;
+            case "awsdev":
+                domain = "https://dev.insurancewheelhouse.com";
+                break;
+            case "staging":
+                domain = "https://sta.insurancewheelhouse.com";
+                break;
+            case "demo":
+                domain = "https://demo.insurancewheelhouse.com/";
+                break;
+            case "production":
+                domain = "https://agents.insurancewheelhouse.com/";
+                break;
+            default:
+                // dont send the email
+                log.error('Failed generating application link: invalid environment.' + __location);
+                return;
+        }
+    }
+
+    let link = "";
+    // if hash is provided, augment url for auto login
+    if (hash) {
+        link = `${domain}/_auto/applications/application/${appId}?z=${hash}`;
+    }
+    else {
+        link = `${domain}/applications/application/${appId}`;
+    }
+
+    return link;
+}
+
 const sendEmail = async(agency, link, options, applicationJSON) => {
     if(!link || !options?.emailAddress){
-        log.warn(`Not sending email for application link ${link} ${__location}`);
+        log.warn(`Not sending email for application link ${link}.` + __location);
         return;
     }
 
@@ -241,16 +282,16 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
 
     const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
     if(!emailSent){
-        log.error(`Failed to send email for application link to ${emailData.to}.`);
+        log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
     }
     else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.`);
+        log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
     }
 }
 
 const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
     if(!link || !options?.emailAddress){
-        log.warn(`Not sending email for application link ${link} ${__location}`);
+        log.warn(`Not sending email for application link ${link}.` + __location);
         return;
     }
 
@@ -311,9 +352,9 @@ const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
     const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
 
     if(!emailSent){
-        log.error(`Failed to send email for application link to ${emailData.to}.`);
+        log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
     }
     else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.`);
+        log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
     }
 }
