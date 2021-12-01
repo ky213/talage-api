@@ -154,6 +154,10 @@ async function applicationSave(req, res, next) {
         //referrer check - if nothing sent set to API.
         if(!req.body.referrer){
             req.body.referrer = "API";
+            if(req.body.agencyPortalCreatedUser !== "system"){
+                req.body.agencyPortalCreatedUser = req.userTokenData.userId
+            }
+            req.body.apiCreated = true;
         }
     }
     else {
@@ -297,6 +301,10 @@ async function applicationSave(req, res, next) {
             if(!req.body.agencyPortalCreated){
                 req.body.agencyPortalCreated = false;
             }
+            if(!req.body.apiCreated){
+                req.body.apiCreated = false;
+            }
+
 
             responseAppDoc = await applicationBO.insertMongo(req.body);
 
