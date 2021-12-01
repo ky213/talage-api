@@ -602,6 +602,12 @@ module.exports = class ACORD{
                 if(!insurerActivityCodeList.length) {
                     log.info('No Insurer Activity Codes were found' + __location);
                 }
+                // if(location.activityPayrollList.length){
+                //     const pagesToAdd = location.activityPayrollList.length;
+                //     const totalPages = uniqueStateList.length+pagesToAdd;
+                //     log.info('payroll list - pages-to-add: '+pagesToAdd+' total pages:'+ totalPages);
+                //     statePdfDataFieldsObj['WorkersCompensation_RateState_TotalPageNumber_A'] = totalPages;
+                // }
 
                 for(const activity of location.activityPayrollList){
                     if(!activity.activityCodeId){
@@ -609,6 +615,12 @@ module.exports = class ACORD{
                     }
 
                     if(insurerActivityCodeList.length){
+                        const pagesToAdd = Math.trunc(insurerActivityCodeList.length);
+                        if(insurerActivityCodeList.length){
+                            const totalPages = uniqueStateList.length+pagesToAdd;
+                            log.info('pages-to-add: '+pagesToAdd+' total pages:'+ totalPages);
+                            statePdfDataFieldsObj['WorkersCompensation_RateState_TotalPageNumber_A'] = uniqueStateList.length + pagesToAdd;
+                        }
                         for(const insurerActivityCodeObj of insurerActivityCodeList){
                             const currentLetter = String.fromCharCode(pdfKey);
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
@@ -626,6 +638,7 @@ module.exports = class ACORD{
                         }
                     }
                     else{
+
                         const currentLetter = String.fromCharCode(pdfKey);
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
                         const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId);
