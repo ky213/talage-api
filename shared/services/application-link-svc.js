@@ -4,7 +4,7 @@ const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js')
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
-const moment = require('moment');
+// const moment = require('moment');
 
 const applicationLinkTimeout = 48 * 60 * 60; // 48 hours
 
