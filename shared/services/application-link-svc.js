@@ -265,7 +265,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
         htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
     }
 
-    const branding = agencyNetworkBranding ? '' : 'agency';
+    let branding = agencyNetworkBranding ? '' : 'agency';
 
     const keys = {
         agencyLocationId: applicationJSON.agencyLocationId,
@@ -312,7 +312,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 }
 
 const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
-    if(!link || !options?.emailAddress){
+    if (!link || !options?.emailAddress) {
         log.warn(`Not sending email for application link ${link}.` + __location);
         return;
     }
@@ -326,11 +326,11 @@ const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
     const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
     const emailSubjectDefault = 'An application to view in Agency Portal';
-    const emailSubject = options.subject ? options.subject : emailSubjectDefault;
+    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    const htmlBody = `
+    let htmlBody = `
         <p>
             Hello${options.firstName ? ` ${options.firstName}` : ""},
         </p>
@@ -357,18 +357,41 @@ const sendEmailForAgent = async(agency, link, options, applicationJSON) => {
         </p>
     `;
 
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-
-    const branding = agencyNetworkBranding ? '' : 'agency';
+    let branding = agencyNetworkBranding ? '' : 'agency';
 
     const keys = {
         agencyLocationId: applicationJSON.agencyLocationId,
         applicationId: applicationJSON.agencyLocationId,
         applicationDoc: applicationJSON
+    };
+
+    const dataPackageJSON = {
+        appDoc: applicationJSON,
+        agency: agency,
+        link: link,
+        options: options,
+        htmlBody: htmlBody,
+        emailSubject: emailSubject,
+        branding: branding,
+        recipients: recipients
+    }
+
+    try {
+        await global.hookLoader.loadhook('ap-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
+
+        htmlBody = dataPackageJSON.htmlBody
+        emailSubject = dataPackageJSON.emailSubject
+        branding = dataPackageJSON.branding
+        link = dataPackageJSON.link;
+    }
+    catch (e) {
+        log.error(`Error ap-app-link hook call error ${e}.` + __location);
+    }
+
+    const emailData = {
+        html: htmlBody,
+        subject: emailSubject,
+        to: recipients
     };
 
     const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
