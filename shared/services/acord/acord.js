@@ -1,4 +1,5 @@
 const moment = require('moment');
+// const {layoutSinglelineText} = require('pdf-lib');
 const PdfHelper = require('./pdf-helper');
 
 const applicationBO = global.requireShared('./models/Application-BO.js');
@@ -568,12 +569,13 @@ module.exports = class ACORD{
         // State rating sheets
         const stateRatingPdfList = [];
         let pageCounter = 1;
+        let totalPages = uniqueStateList.length
 
         for(const state of uniqueStateList){
             pdfKey = 65;
-            const statePdfDataFieldsObj = {
+            let statePdfDataFieldsObj = {
                 'WorkersCompensation_RateState_PageNumber_A': pageCounter,
-                'WorkersCompensation_RateState_TotalPageNumber_A': uniqueStateList.length,
+                'WorkersCompensation_RateState_TotalPageNumber_A': totalPages,
                 'WorkersCompensation_RateState_StateOrProvinceName_A': state
             };
 
@@ -607,7 +609,6 @@ module.exports = class ACORD{
                     if(!activity.activityCodeId){
                         activity.activityCodeId = activity.ncciCode
                     }
-
                     if(insurerActivityCodeList.length){
                         for(const insurerActivityCodeObj of insurerActivityCodeList){
                             const currentLetter = String.fromCharCode(pdfKey);
@@ -618,9 +619,22 @@ module.exports = class ACORD{
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
                             pdfKey += 1;
+                            if(pdfKey > 78){
+                                pdfKey = 65;
+                                totalPages += 1;
+                                statePdfDataFieldsObj.WorkersCompensation_RateState_TotalPageNumber_A = totalPages;
+                                stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
+                                pageCounter += 1;
+                                statePdfDataFieldsObj = {
+                                    'WorkersCompensation_RateState_PageNumber_A': pageCounter,
+                                    'WorkersCompensation_RateState_TotalPageNumber_A': totalPages,
+                                    'WorkersCompensation_RateState_StateOrProvinceName_A': state
+                                };
+                            }
                         }
                     }
                     else{
+
                         const currentLetter = String.fromCharCode(pdfKey);
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
                         const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId);
