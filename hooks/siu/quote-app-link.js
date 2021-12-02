@@ -1,7 +1,7 @@
 const Hook = require('../Hook.js');
 
 
-module.exports = class AmTrustAppEditHints extends Hook {
+module.exports = class SIUQuoteAppLink extends Hook {
     async _process_hook(){
         log.debug(`in SIU quote-app-link ` + __location)
         if(!this.appDoc){
@@ -18,7 +18,7 @@ module.exports = class AmTrustAppEditHints extends Hook {
             let apDomain = "https://siu.insurancewheelhouse.com"
             switch(global.settings.ENV){
                 case "development":
-                    apDomain = "http://localhost:8080";
+                    apDomain = "http://localhost:8081";
                     break;
                 case "awsdev":
                     apDomain = "https://dev.insurancewheelhouse.com";
@@ -38,20 +38,25 @@ module.exports = class AmTrustAppEditHints extends Hook {
                     return;
             }
 
-            const subjectText = `${this.dataPackageJSON.appDoc.businessName} SIU Cross-Sell Alert`
+            const subjectText = `${this.dataPackageJSON.appDoc.businessName} New Submission Notification`
             const link = `${apDomain}/applications/application/${this.appDoc.applicationId}`;
             let htmlBody = `
                 <p>
                     Hello${this.dataPackageJSON.options.firstName ? ` ${this.dataPackageJSON.options.firstName}` : ""}${this.dataPackageJSON.options.lastName ? ` ${this.dataPackageJSON.options.lastName}` : ""},
                 </p>
                 <p>
-                We noticed that we currently have a policy on the books for one of your insureds and would like to offer a competitive <STRONG>workers’ compensation</STRONG> quote with a few clicks of a button! We know you are busy, so we went ahead and prefilled the application with the information we had on file. All you have to do is click the link below to validate the prefilled policy information and click submit to instantly receive multiple premium indications or bindable quotes.
+                We received your application through our SIU submission inbox and transferred 
+                your insured’s information over to our new digital submission platform. All we need 
+                you to do is click the link below to complete the core underwriting questions for 
+                your insured. Click SUBMIT at the end of the application and <b>eligible accounts 
+                will receive apremium indication or an approved bindable quote!</b>
                 </p>
                 <p>Need Help? Email wcsupport@siuins.com or call call 678.498.4594.</p>
                 
                 <p align="center"><em>(Password reset instructions below. If you received this email we have already
                     registered your email in to our new comparative rating portal)</em></p>
-                <p align="center"><STRONG>Click The Button Below to Review your insured’s Workers’ Compensation Application</STRONG></p>
+                <p align="center"><STRONG>Click The Button Below To Review Your
+                Insured’s Application</STRONG></p>
                 
                 <div align="center">
                     <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
@@ -68,6 +73,10 @@ module.exports = class AmTrustAppEditHints extends Hook {
                         ${link}
                     </a>
                 </p>
+                <p>Receive quicker turnarounds on submissions by logging in to the digital portal and 
+                starting a new quote to receive instant feedback on your next application.</p>
+                <p>Need Help? Email wcsupport@siuins.com or call 678.498.4594</p>
+
                 <p><STRONG>Password Reset:</STRONG>
                 </p>
                 <p>If you do not have your password go to https://siu.insurancewheelhouse.com/ and click “forgot password” and a password reset will be sent to your account.</p>
