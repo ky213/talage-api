@@ -222,7 +222,7 @@ const getPremium = async(where) => {
     ])).map(t => t.count));
 
     const quoted = async(product) => _.sum((await Application.aggregate([
-        {$match: Object.assign({}, where, {appStatusId: {$gte: 40}})}, {$group: {
+        {$match: Object.assign({}, where, {appStatusId: {$gte: 25}})}, {$group: {
             _id: '$uuid',
             count: {$sum: '$metrics.lowestQuoteAmount.' + product}
         }}
