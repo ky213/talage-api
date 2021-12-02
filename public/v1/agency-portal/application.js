@@ -2011,10 +2011,7 @@ async function putApplicationLink(req, res, next){
     if(hasAccess === true){
         const appDocJson = retObject.appDoc;
         //check toEmail rights.
-        const emailHasAccess = await accesscheckEmail(req.body.toEmail, appDocJson);
-        if(!emailHasAccess){
-            return next(serverHelper.requestError('To email not in system'));
-        }
+       
 
         req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
         req.body.fromAgencyPortalUserId = req.authentication.userID;
@@ -2024,7 +2021,12 @@ async function putApplicationLink(req, res, next){
                 log.warn('Some required data is missing' + __location);
                 return next(serverHelper.requestError('Some required data is missing - toEmail. Please check the documentation.'));
             }
-            
+
+            const emailHasAccess = await accesscheckEmail(req.body.toEmail, appDocJson);
+            if(!emailHasAccess){
+                return next(serverHelper.requestError('To email not in system'));
+            }
+
             link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
         }
         else {
