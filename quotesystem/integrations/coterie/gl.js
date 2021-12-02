@@ -240,7 +240,7 @@ module.exports = class CoterieWC extends Integration {
                     const quote = quoteResponse.quote
                     this.amount = quote.premium;
                     this.request_id = quote.externalId;
-                    this.quoteLink = quote.agentUrl;
+                    this.quoteLink = quote.applicationUrl;
                     if(this.policy.type.toUpperCase() === 'BOP'){
                         this.deductible = coterieDeductible;
                     }
