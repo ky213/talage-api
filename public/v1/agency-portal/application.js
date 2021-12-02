@@ -2001,10 +2001,7 @@ async function putApplicationLink(req, res, next){
         return next(serverHelper.requestError('Some required data is missing - applicationId. Please check the documentation.'));
     }
 
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'toEmail')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing - toEmail. Please check the documentation.'));
-    }
+  
     // eslint-disable-next-line prefer-const
     let retObject = {};
     const hasAccess = await accesscheck(req.body.applicationId, req, retObject).catch(function(e){
@@ -2023,6 +2020,11 @@ async function putApplicationLink(req, res, next){
         req.body.fromAgencyPortalUserId = req.authentication.userID;
         let link = null;
         if (req.body.isAgencyPortalLink) {
+            if (!Object.prototype.hasOwnProperty.call(req.body, 'toEmail')) {
+                log.warn('Some required data is missing' + __location);
+                return next(serverHelper.requestError('Some required data is missing - toEmail. Please check the documentation.'));
+            }
+            
             link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
         }
         else {
