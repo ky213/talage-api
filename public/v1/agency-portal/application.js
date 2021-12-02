@@ -2006,8 +2006,9 @@ async function putApplicationLink(req, res, next){
     });
     if(hasAccess === true){
         req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+        req.body.fromAgencyPortalUserId = req.authentication.userID;
         let link = null;
-        if (req.body?.agencyPortalUser) {
+        if (req.body.isAgencyPortalLink) {
             link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
         }
         else {
