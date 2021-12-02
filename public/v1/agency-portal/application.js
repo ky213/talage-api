@@ -854,7 +854,7 @@ async function deleteObject(req, res, next) {
     //check that application is agency network.
     let error = null;
     const applicationBO = new ApplicationBO();
-    const applicationDocDB = await applicationBO.getById(req.body.applicationId);
+    const applicationDocDB = await applicationBO.getById(id);
     const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDocDB?.agencyId, applicationDocDB?.agencyNetworkId)
 
     if(!passedAgencyCheck){
