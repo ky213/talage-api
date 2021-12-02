@@ -1,7 +1,7 @@
 const Hook = require('../Hook.js');
 
 
-module.exports = class SIUQuoteAppLink extends Hook {
+module.exports = class AmTrustAppEditHints extends Hook {
     async _process_hook(){
         log.debug(`in SIU quote-app-link ` + __location)
         if(!this.appDoc){
@@ -42,7 +42,7 @@ module.exports = class SIUQuoteAppLink extends Hook {
             const link = `${apDomain}/applications/application/${this.appDoc.applicationId}`;
             let htmlBody = `
                 <p>
-                    Hello${this.dataPackageJSON.options.firstName ? ` ${this.dataPackageJSON.options.firstName}` : ""}${this.dataPackageJSON.options.lastName ? ` ${this.dataPackageJSON.options.lastName}` : ""},
+                    Hello${this.dataPackageJSON.options.toName ? ` ${this.dataPackageJSON.options.toName}` : ""},
                 </p>
                 <p>
                 We received your application through our SIU submission inbox and transferred 
