@@ -505,7 +505,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
     else if(applicationJSON.agencyPortalCreatedUser === "applicant"){
         applicationJSON.creatorEmail = "Applicant"
     }
-    else if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+    else if((applicationJSON.agencyPortalCreated || applicationJSON.apiCreated) && parseInt(applicationJSON.agencyPortalCreatedUser,10) > 0){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
             const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
@@ -1988,7 +1988,7 @@ async function GetBopCodes(req, res, next){
     return next();
 }
 
-async function PutApplicationLink(req, res, next){
+async function putApplicationLink(req, res, next){
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
         log.warn('No data was received' + __location);
@@ -2000,14 +2000,34 @@ async function PutApplicationLink(req, res, next){
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing - applicationId. Please check the documentation.'));
     }
-    const hasAccess = await accesscheck(req.body.applicationId, req).catch(function(e){
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'toEmail')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing - toEmail. Please check the documentation.'));
+    }
+    // eslint-disable-next-line prefer-const
+    let retObject = {};
+    const hasAccess = await accesscheck(req.body.applicationId, req, retObject).catch(function(e){
         log.error('Error get application hasAccess ' + e + __location);
         return next(serverHelper.requestError(`Bad Request: check error ${e}`));
     });
     if(hasAccess === true){
-        req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
-        const link = await appLinkCreator.createApplicationLink(req.body.applicationId, req.body);
+        const appDocJson = retObject.appDoc;
+        //check toEmail rights.
+        const emailHasAccess = await accesscheckEmail(req.body.toEmail, appDocJson);
+        if(!emailHasAccess){
+            return next(serverHelper.requestError('To email not in system'));
+        }
 
+        req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+        req.body.fromAgencyPortalUserId = req.authentication.userID;
+        let link = null;
+        if (req.body.isAgencyPortalLink) {
+            link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
+        }
+        else {
+            link = await appLinkCreator.createQuoteApplicationLink(req.body.applicationId, req.body);
+        }
         // eslint-disable-next-line object-shorthand
         res.send(200, {link});
         return next();
@@ -2017,6 +2037,7 @@ async function PutApplicationLink(req, res, next){
         return next(serverHelper.requestError('Not found'));
     }
 }
+
 
 async function getOfficerEmployeeTypes(req, res, next){
     if (!req.query || typeof req.query !== 'object') {
@@ -2230,8 +2251,8 @@ async function getHints(req, res, next){
         appId = req.query.id
     }
     
-    const applicationJSON = {};
-    const hasAccess = await accesscheck(appId, req, applicationJSON).catch(function(e){
+    
+    const hasAccess = await accesscheck(appId, req).catch(function(e){
         log.error('Error get application hasAccess ' + e + __location);
         return next(serverHelper.requestError(`Bad Request: check error ${e}`));
     });
@@ -2249,22 +2270,45 @@ async function getHints(req, res, next){
    
 }
 
+// eslint-disable-next-line no-unused-vars
+async function accesscheckEmail(email, applicationJSON){
+    let hasAccess = false;
+    try{
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        log.debug(`email ${email} applicationJSON.agencyNetworkId ${applicationJSON.agencyNetworkId} ${JSON.stringify(applicationJSON)} ` + __location)
+        const toUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, applicationJSON.agencyNetworkId);
+        if(toUser.isAgencyNetworkUser){
+            if(toUser.agencyNetworkId === applicationJSON.agencyNetworkId){
+                hasAccess = true;
+            }
+
+        }
+        else if(toUser.agencyId === applicationJSON.agencyId){
+            hasAccess = true;
+        }
+       
+    }
+    catch(err){
+        log.error("Error accesscheckEmail " + err + __location)
+        throw err;
+    }
+
+    return hasAccess;
+}
+
 
 // eslint-disable-next-line no-unused-vars
-async function accesscheck(appId, req, applicationJSON){
+async function accesscheck(appId, req, retObject){
     const applicationBO = new ApplicationBO();
     let passedAgencyCheck = false;
     try{
         const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
             passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc?.agencyId, applicationDBDoc?.agencyNetworkId)
+            retObject.appDoc = JSON.parse(JSON.stringify(applicationDBDoc))
         }
         log.debug(`accessCheck ${passedAgencyCheck}` + __location)
-
-        if(applicationDBDoc){
-            applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
-        }
-       
+      
     }
     catch(err){
         log.error("Error Getting application doc " + err + __location)
@@ -2278,7 +2322,8 @@ async function accesscheck(appId, req, applicationJSON){
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
-    server.addPutAuth('PUT Application Link', `${basePath}/application/link`, PutApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Quote App', `${basePath}/application/link`, putApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Agency Portal', `${basePath}/application/agent-link`, putApplicationLink, 'applications', 'manage');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');

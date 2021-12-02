@@ -1,8 +1,12 @@
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
+//const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
+
+// const moment = require('moment');
 
 const applicationLinkTimeout = 48 * 60 * 60; // 48 hours
 
@@ -32,7 +36,7 @@ options: {
  * @return {URL} The application link for Quote App
  * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
  */
-exports.createApplicationLink = async(appId, options) => {
+exports.createQuoteApplicationLink = async(appId, options) => {
     if(!appId){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
         return;
@@ -47,20 +51,74 @@ exports.createApplicationLink = async(appId, options) => {
     const agencyNetworkBO = new AgencyNetworkBO();
     const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
-
     // create hash
     const hash = await crypt.hash(appId);
 
     // store hash in redis with application id as value
     await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
-    const link = await buildLink(agency, agencyNetwork, options?.pageSlug, hash);
+    const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
 
     // send an email if an emailAddress is provided on options
-    const returnLink = await sendEmail(agency, link, options, application);
+    const returnLink = await sendQuoteEmail(agency, link, options, application);
     return returnLink;
 }
 
-const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
+exports.createAgencyPortalApplicationLink = async(appId, options) => {
+    // ensure an application ID was provided
+    if (!appId) {
+        log.error(`Error generating application link for agent: No application ID provided.` + __location);
+        return;
+    }
+
+    // ensure email address was provided
+    if (!options?.toEmail) {
+        log.error(`Error generating application link for Agency Portal: No to email address provided.` + __location);
+        return;
+    }
+
+    if (!options?.fromAgencyPortalUserId) {
+        log.error(`Error generating application link for agent: From Agency Portal User was not provided.` + __location);
+        return;
+    }
+
+    const applicationBO = new ApplicationBO();
+    const application = await applicationBO.getById(appId);
+
+    const agencyBO = new AgencyBO();
+    const agency = await agencyBO.getById(application.agencyId);
+
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+
+    //load from agencyportal user
+
+    // check that the provided email address is a valid agent (agency portal user) with proper permissions
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const agencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
+    if (agencyPortalUser) {
+        options.fromEmailAddress = agencyPortalUser.email;
+    }
+
+    // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
+    const hash = null;
+    // let value = null;
+    // if (options.autoLogin) {
+    //     hash = await crypt.hash(`${moment.now()}`);
+    //     value = {apUserId: options.agencyPortalUser.agencyPortalUserId};
+    // }
+
+    // build the link
+    const link = await buildAgencyPortalLink(agencyNetwork, appId, hash);
+
+    // store the hash in redis using prefixed key
+    // await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
+
+    // send the email to the agent and return the link
+    const returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
+    return returnLink;
+}
+
+const buildQuoteLink = async(agency, agencyNetwork, pageSlug, hash) => {
     let domain = "";
     if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
@@ -86,23 +144,67 @@ const buildLink = async(agency, agencyNetwork, pageSlug, hash) => {
                 break;
             default:
                 // dont send the email
-                log.error(`Failed to generating application link, invalid environment. ${__location}`);
+                log.error(`Failed to generating application link, invalid environment.` + __location);
                 return;
         }
     }
 
     let link = "";
-    if(pageSlug){
+
+    if (pageSlug) {
         link = `${domain}/${agency.slug}/${pageSlug}/_load/${hash}`;
     }
-    else{
+    else {
         link = `${domain}/${agency.slug}/_load/${hash}`;
     }
 
     return link;
 }
 
-const sendEmail = async(agency, link, options, applicationJSON) => {
+const buildAgencyPortalLink = async(agencyNetwork, appId, hash) => {
+    let domain = "";
+    if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.PORTAL_URL){
+        // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
+        domain = agencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].PORTAL_URL;
+    }
+    else {
+        // if environmentSettings is not defined for any reason, fall back to defaults
+        switch(global.settings.ENV){
+            case "development":
+                domain = "http://localhost:8081";
+                break;
+            case "awsdev":
+                domain = "https://dev.insurancewheelhouse.com";
+                break;
+            case "staging":
+                domain = "https://sta.insurancewheelhouse.com";
+                break;
+            case "demo":
+                domain = "https://demo.insurancewheelhouse.com/";
+                break;
+            case "production":
+                domain = "https://agents.insurancewheelhouse.com/";
+                break;
+            default:
+                // dont send the email
+                log.error('Failed generating application link: invalid environment.' + __location);
+                return;
+        }
+    }
+
+    let link = "";
+    // if hash is provided, augment url for auto login
+    if (hash) {
+        link = `${domain}/_auto/applications/application/${appId}?z=${hash}`;
+    }
+    else {
+        link = `${domain}/applications/application/${appId}`;
+    }
+
+    return link;
+}
+
+const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     if(!link || !options?.emailAddress){
         log.warn(`Not sending email for application link ${link} ${__location}`);
         return;
@@ -215,6 +317,106 @@ const sendEmail = async(agency, link, options, applicationJSON) => {
     }
     else {
         log.info(`Application link email was sent successfully to ${emailData.to}.`);
+    }
+    return link;
+}
+
+
+const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agencyNetwork) => {
+    if (!link || !options?.toEmail) {
+        log.warn(`Not sending email for application link ${link}: No email address provided.` + __location);
+        return;
+    }
+
+    const recipients = options.toEmail;
+
+    // const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
+    // const referringAgentName = `${agency.firstName} ${agency.lastName}`;
+    // const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
+
+    const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
+
+    //const agentName = options.fullName ? capitalizeName(options.fullName) : null;
+
+    const emailSubjectDefault = `A Link to ${applicationJSON.businessName}`;
+    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
+
+    // eslint-disable-next-line multiline-ternary
+    // const loginText = options.autoLogin ?
+    //     // eslint-disable-next-line multiline-ternary
+    //     `
+    //         The link provided below should allow you to log in without credentials and view the application.
+    //         <br/>
+    //     ` :
+    //     `
+    //         The link provided below will direct you to Agency Portal where you can login to view the application.
+    //         <br/>
+    //     `;
+
+    let htmlBody = `
+        <p>
+        Here’s a link to ${applicationJSON.businessName} Inside the ${agencyNetwork.name} Portal to review or edit the application. From this link you’ve be able to review the app and make any relevant changes before submitting the application for instant quotes.
+        </p>
+        <p align="center">
+            If the button does not work try pasting this link into your browser:
+            <br/>
+            <a href="${link}" target="_blank">
+                ${link}
+            </a>
+        </p>
+        <p>
+        If you have any questions, you can respond back to ${options.fromEmailAddress}
+        </p>
+        <p>
+        Thanks!
+        </p>
+    `;
+
+    let branding = agencyNetworkBranding ? '' : 'agency';
+
+    const keys = {
+        agencyLocationId: applicationJSON.agencyLocationId,
+        applicationId: applicationJSON.agencyLocationId,
+        applicationDoc: applicationJSON
+    };
+
+    const dataPackageJSON = {
+        appDoc: applicationJSON,
+        agencyNetwork: agencyNetwork,
+        agency: agency,
+        link: link,
+        options: options,
+        htmlBody: htmlBody,
+        emailSubject: emailSubject,
+        branding: branding,
+        recipients: recipients
+    }
+
+    try {
+        await global.hookLoader.loadhook('ap-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
+
+        htmlBody = dataPackageJSON.htmlBody
+        emailSubject = dataPackageJSON.emailSubject
+        branding = dataPackageJSON.branding
+        link = dataPackageJSON.link;
+    }
+    catch (e) {
+        log.error(`Error ap-app-link hook call error ${e}.` + __location);
+    }
+
+    const emailData = {
+        html: htmlBody,
+        subject: emailSubject,
+        to: recipients
+    };
+
+    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
+
+    if(!emailSent){
+        log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
+    }
+    else {
+        log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
     }
     return link;
 }
