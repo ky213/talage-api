@@ -2000,11 +2000,25 @@ async function putApplicationLink(req, res, next){
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing - applicationId. Please check the documentation.'));
     }
-    const hasAccess = await accesscheck(req.body.applicationId, req).catch(function(e){
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'toEmail')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing - toEmail. Please check the documentation.'));
+    }
+    // eslint-disable-next-line prefer-const
+    let retObject = {};
+    const hasAccess = await accesscheck(req.body.applicationId, req, retObject).catch(function(e){
         log.error('Error get application hasAccess ' + e + __location);
         return next(serverHelper.requestError(`Bad Request: check error ${e}`));
     });
     if(hasAccess === true){
+        const appDocJson = retObject.appDoc;
+        //check toEmail rights.
+        const emailHasAccess = await accesscheckEmail(req.body.toEmail, appDocJson);
+        if(!emailHasAccess){
+            return next(serverHelper.requestError('To email not in system'));
+        }
+
         req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
         req.body.fromAgencyPortalUserId = req.authentication.userID;
         let link = null;
@@ -2237,8 +2251,8 @@ async function getHints(req, res, next){
         appId = req.query.id
     }
     
-    const applicationJSON = {};
-    const hasAccess = await accesscheck(appId, req, applicationJSON).catch(function(e){
+    
+    const hasAccess = await accesscheck(appId, req).catch(function(e){
         log.error('Error get application hasAccess ' + e + __location);
         return next(serverHelper.requestError(`Bad Request: check error ${e}`));
     });
@@ -2256,22 +2270,45 @@ async function getHints(req, res, next){
    
 }
 
+// eslint-disable-next-line no-unused-vars
+async function accesscheckEmail(email, applicationJSON){
+    let hasAccess = false;
+    try{
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        log.debug(`email ${email} applicationJSON.agencyNetworkId ${applicationJSON.agencyNetworkId} ${JSON.stringify(applicationJSON)} ` + __location)
+        const toUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, applicationJSON.agencyNetworkId);
+        if(toUser.isAgencyNetworkUser){
+            if(toUser.agencyNetworkId === applicationJSON.agencyNetworkId){
+                hasAccess = true;
+            }
+
+        }
+        else if(toUser.agencyId === applicationJSON.agencyId){
+            hasAccess = true;
+        }
+       
+    }
+    catch(err){
+        log.error("Error accesscheckEmail " + err + __location)
+        throw err;
+    }
+
+    return hasAccess;
+}
+
 
 // eslint-disable-next-line no-unused-vars
-async function accesscheck(appId, req, applicationJSON){
+async function accesscheck(appId, req, retObject){
     const applicationBO = new ApplicationBO();
     let passedAgencyCheck = false;
     try{
         const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
             passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc?.agencyId, applicationDBDoc?.agencyNetworkId)
+            retObject.appDoc = JSON.parse(JSON.stringify(applicationDBDoc))
         }
         log.debug(`accessCheck ${passedAgencyCheck}` + __location)
-
-        if(applicationDBDoc){
-            applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
-        }
-       
+      
     }
     catch(err){
         log.error("Error Getting application doc " + err + __location)
