@@ -1,10 +1,10 @@
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-// const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
-const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
+//const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
 
 // const moment = require('moment');
 
@@ -71,13 +71,13 @@ exports.createAgencyPortalApplicationLink = async(appId, options) => {
     }
 
     // ensure email address was provided
-    if (!options?.agencyPortalUser?.email) {
-        log.error(`Error generating application link for agent: No email address provided.` + __location);
+    if (!options?.toEmail) {
+        log.error(`Error generating application link for Agency Portal: No to email address provided.` + __location);
         return;
     }
 
-    if (!options?.agencyPortalUser?.agencyPortalUserId) {
-        log.error(`Error generating application link for agent: Agency Portal User was not provided.` + __location);
+    if (!options?.fromAgencyPortalUserId) {
+        log.error(`Error generating application link for agent: From Agency Portal User was not provided.` + __location);
         return;
     }
 
@@ -90,14 +90,14 @@ exports.createAgencyPortalApplicationLink = async(appId, options) => {
     const agencyNetworkBO = new AgencyNetworkBO();
     const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
+    //load from agencyportal user
+
     // check that the provided email address is a valid agent (agency portal user) with proper permissions
-    // TODO: Check user permissions (what am I looking for here?)
-    // const agencyPortalUserBO = new AgencyPortalUserBO();
-    // const agencyPortalUser = await agencyPortalUserBO.getById(options.agencyPortalUser.agencyPortalUserId);
-    // if (!agencyPortalUser) {
-    //     log.error(`Error generating application link for agent: Unable to find Agency Portal User with provided email ${options.emailAddress}.` + __location);
-    //     return;
-    // }
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const agencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
+    if (agencyPortalUser) {
+        options.fromEmailAddress = agencyPortalUser.email;
+    }
 
     // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
     const hash = null;
@@ -114,7 +114,7 @@ exports.createAgencyPortalApplicationLink = async(appId, options) => {
     // await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
 
     // send the email to the agent and return the link
-    const returnLink = await sendAgencyPortalEmail(agency, link, options, application);
+    const returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
     return returnLink;
 }
 
@@ -322,62 +322,53 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 }
 
 
-const sendAgencyPortalEmail = async(agency, link, options, applicationJSON) => {
-    if (!link || !options?.agencyPortalUser.email) {
+const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agencyNetwork) => {
+    if (!link || !options?.toEmail) {
         log.warn(`Not sending email for application link ${link}: No email address provided.` + __location);
         return;
     }
 
-    const recipients = options.agencyPortalUser.email;
+    const recipients = options.toEmail;
 
-    const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
-
-    const referringAgentName = `${agency.firstName} ${agency.lastName}`;
-
-    const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
-
-    const emailSubjectDefault = 'An application to view in Agency Portal';
-    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
+    // const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
+    // const referringAgentName = `${agency.firstName} ${agency.lastName}`;
+    // const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    const agentName = options.fullName ? capitalizeName(options.fullName) : null;
+    //const agentName = options.fullName ? capitalizeName(options.fullName) : null;
+
+    const emailSubjectDefault = `A Link to ${applicationJSON.businessName}`;
+    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
     // eslint-disable-next-line multiline-ternary
-    const loginText = options.autoLogin ?
-        // eslint-disable-next-line multiline-ternary
-        `
-            The link provided below should allow you to log in without credentials and view the application.
-            <br/>
-        ` :
-        `
-            The link provided below will direct you to Agency Portal where you can login to view the application.
-            <br/>
-        `;
+    // const loginText = options.autoLogin ?
+    //     // eslint-disable-next-line multiline-ternary
+    //     `
+    //         The link provided below should allow you to log in without credentials and view the application.
+    //         <br/>
+    //     ` :
+    //     `
+    //         The link provided below will direct you to Agency Portal where you can login to view the application.
+    //         <br/>
+    //     `;
 
     let htmlBody = `
         <p>
-            Hello${agentName ? ` ${agentName.trim()}` : ""},
+        Here’s a link to ${applicationJSON.businessName} Inside the ${agencyNetwork.name} Portal to review or edit the application. From this link you’ve be able to review the app and make any relevant changes before submitting the application for instant quotes.
         </p>
-        <p>
-            ${referringAgentName} at ${agencyDisplayName} is sending over an application for you to view in Agency Portal. 
-            <br/>
-            ${loginText}
-            If you have any questions, please send them to ${agentEmail} or reach out to ${referringAgentName} directly.
-        </p>
-        <div align="center">
-            <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
-            <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
-                <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
-            </a>
-            <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
-        </div>
         <p align="center">
             If the button does not work try pasting this link into your browser:
             <br/>
             <a href="${link}" target="_blank">
                 ${link}
             </a>
+        </p>
+        <p>
+        If you have any questions, you can respond back to ${options.fromEmailAddress}
+        </p>
+        <p>
+        Thanks!
         </p>
     `;
 
@@ -391,6 +382,7 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON) => {
 
     const dataPackageJSON = {
         appDoc: applicationJSON,
+        agencyNetwork: agencyNetwork,
         agency: agency,
         link: link,
         options: options,
