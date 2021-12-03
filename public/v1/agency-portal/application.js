@@ -2279,7 +2279,6 @@ async function accesscheckEmail(email, applicationJSON){
     let hasAccess = false;
     try{
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        log.debug(`email ${email} applicationJSON.agencyNetworkId ${applicationJSON.agencyNetworkId} ${JSON.stringify(applicationJSON)} ` + __location)
         const toUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, applicationJSON.agencyNetworkId);
         if(toUser.isAgencyNetworkUser){
             if(toUser.agencyNetworkId === applicationJSON.agencyNetworkId){
