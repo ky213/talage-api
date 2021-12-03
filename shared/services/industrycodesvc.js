@@ -160,7 +160,7 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
                 if(insurerIndustryCodeList[0] && insurerIndustryCodeList[0].uniqueTalageIndustryCodes && insurerIndustryCodeList[0].uniqueTalageIndustryCodes.length > 0){
                     const industryIdList = insurerIndustryCodeList[0].uniqueTalageIndustryCodes;
                     if(industryIdList?.length > 0){
-                        log.debug(`GetBopIndustryCodes industryIdList ${industryIdList}` + __location)
+                        //log.debug(`GetBopIndustryCodes industryIdList ${industryIdList}` + __location)
                         icQuery.industryCodeId = {$in: industryIdList}
                     }
                     else {
