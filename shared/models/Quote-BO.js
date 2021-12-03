@@ -553,7 +553,7 @@ module.exports = class QuoteBO {
     }
     //bindQuote
 
-    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo) {
+    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo, sendNotification = true) {
         if(quoteId && applicationId && bindUser){
             const status = quoteStatus.bound;
 
@@ -591,7 +591,10 @@ module.exports = class QuoteBO {
                     const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
                     const quoteBind = new QuoteBind();
                     await quoteBind.loadFromQuoteDoc(quoteDoc,bindUser);
-                    await quoteBind.send_slack_notification("bound");
+                    if(sendNotification){
+                        await quoteBind.send_slack_notification("bound");
+                    }
+                    
 
                 }
             }
