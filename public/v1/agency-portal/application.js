@@ -392,7 +392,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
 
     //TODO update for customizeable status descriptions
     try{
-        if(applicationJSON.agencyNetworkId && (applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId || applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+        if(applicationJSON.agencyNetworkId === 4 && (applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId || applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
             applicationJSON.status = "submitted_to_uw";
         }
     }
