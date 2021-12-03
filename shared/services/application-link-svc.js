@@ -4,9 +4,9 @@ const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js')
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
-//const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
+const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
 
-// const moment = require('moment');
+const moment = require('moment');
 
 const applicationLinkTimeout = 48 * 60 * 60; // 48 hours
 
@@ -94,24 +94,37 @@ exports.createAgencyPortalApplicationLink = async(appId, options) => {
 
     // check that the provided email address is a valid agent (agency portal user) with proper permissions
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const agencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
-    if (agencyPortalUser) {
-        options.fromEmailAddress = agencyPortalUser.email;
+    const fromAgencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
+    if (fromAgencyPortalUser) {
+        options.fromEmailAddress = fromAgencyPortalUser.email;
     }
 
     // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
-    const hash = null;
-    // let value = null;
-    // if (options.autoLogin) {
-    //     hash = await crypt.hash(`${moment.now()}`);
-    //     value = {apUserId: options.agencyPortalUser.agencyPortalUserId};
-    // }
+    let hash = null;
+    if (options.autoLogin) {
+        let toAgencyPortalUser = null;
+        try {
+            toAgencyPortalUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(options.toEmail, application.agencyNetworkId);
+        }
+        catch (e) {
+            log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
+        }
+
+        // if we were able to find the person, create the auto-login hash/value and store in redis
+        if (toAgencyPortalUser) {
+            hash = await crypt.hash(`${moment.now()}`);
+            const value = {agencyPortalUserId: toAgencyPortalUser.agencyPortalUserId};
+
+            // store the hash in redis using prefixed key
+            await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
+        }
+        else {
+            log.info(`Unable to find agency portal user ${options.toEmail} for auto login.` + __location);
+        }
+    }
 
     // build the link
     const link = await buildAgencyPortalLink(agencyNetwork, appId, hash);
-
-    // store the hash in redis using prefixed key
-    // await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
 
     // send the email to the agent and return the link
     const returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
@@ -336,24 +349,15 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    //const agentName = options.fullName ? capitalizeName(options.fullName) : null;
+    const toName = options.toName ? capitalizeName(options.toName) : null;
 
     const emailSubjectDefault = `A Link to ${applicationJSON.businessName}`;
     let emailSubject = options.subject ? options.subject : emailSubjectDefault;
 
-    // eslint-disable-next-line multiline-ternary
-    // const loginText = options.autoLogin ?
-    //     // eslint-disable-next-line multiline-ternary
-    //     `
-    //         The link provided below should allow you to log in without credentials and view the application.
-    //         <br/>
-    //     ` :
-    //     `
-    //         The link provided below will direct you to Agency Portal where you can login to view the application.
-    //         <br/>
-    //     `;
-
     let htmlBody = `
+        <p>
+        Hello${toName ? ` ${toName}` : ""},
+        </p>
         <p>
         Here’s a link to ${applicationJSON.businessName} Inside the ${agencyNetwork.name} Portal to review or edit the application. From this link you’ve be able to review the app and make any relevant changes before submitting the application for instant quotes.
         </p>
