@@ -202,7 +202,7 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
 
     const endMongo = moment();
     const diff = endMongo.diff(start, 'milliseconds', true);
-    log.info(`Mongo IndustryCode BOP List processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds runQuery ${runQuery} ${JSON.stringify(icQuery)} ` + __location);
+    log.info(`Mongo IndustryCode BOP List processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds runQuery` + __location);
 
     if(IndustryCodeList.length > 0) {
         IndustryCodeList.forEach(function(ic) {

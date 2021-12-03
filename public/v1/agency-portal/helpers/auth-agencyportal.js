@@ -182,7 +182,6 @@ async function validateJWT(req, permission, permissionType) {
  * @return {string} null on success, error message on error
  */
 async function authorizedForAgency(req, agencyId, agencyNetworkId){
-
     if(typeof agencyId === 'string'){
         agencyId = parseInt(agencyId, 10);
     }
@@ -191,10 +190,9 @@ async function authorizedForAgency(req, agencyId, agencyNetworkId){
             && req.authentication.agencyNetworkId === 1
             && req.authentication.permissions.talageStaff === true
             && req.authentication.enableGlobalView === true){
-
             return true;
         }
-        if(!agencyNetworkId){
+        if(!req.authentication.isAgencyNetworkUser){
             let error = false;
             try{
                 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
@@ -208,16 +206,17 @@ async function authorizedForAgency(req, agencyId, agencyNetworkId){
             if(error){
                 return false;
             }
-        }
-        if(req.authentication.isAgencyNetworkUser){
-            return agencyNetworkId === req.authentication.agencyNetworkId
-        }
-        else {
             return parseInt(req.authentication.agents[0], 10) === agencyId
         }
-
+        else if (agencyNetworkId === req.authentication.agencyNetworkId) {
+            return true
+        }
+        else {
+            return false;
+        }
     }
     else {
+        log.warn(`authorizedForAgency missing agencyId` + __location)
         return false;
     }
 
