@@ -196,7 +196,7 @@ async function getApplication(req, res, next) {
                 const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
                 quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
             }
-            if(applicationJSON.agencyNetworkId && (quoteJSON.quoteStatusId === quoteStatus.bind_requested.id || quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id)){
+            if(applicationJSON.agencyNetworkId === 4 && (quoteJSON.quoteStatusId === quoteStatus.bind_requested.id || quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id)){
                 quoteJSON.status = "Submitted To UW";
                 quoteJSON.displayStatus = 'Submitted To UW';
             }
