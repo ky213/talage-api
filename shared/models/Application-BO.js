@@ -2449,6 +2449,7 @@ module.exports = class ApplicationModel {
                                 appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                                 await appDoc.save();
                                 errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
+                                log.warn(`setAgencyLocation ${errorMessage} ` + __location)
                             }
                         }
                     }
@@ -2458,6 +2459,7 @@ module.exports = class ApplicationModel {
                         appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                         await appDoc.save();
                         errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
+                        log.warn(`setAgencyLocation ${errorMessage} ` + __location)
                     }
                     else {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
