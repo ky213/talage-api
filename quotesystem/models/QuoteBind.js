@@ -430,7 +430,7 @@ module.exports = class QuoteBind{
                     catch(err){
                         log.error(`QuoteBind send_slack_notification process error ${err} ` + __location);
                     }
-                    slack.send('customer_success', 'celebrate', `*Bound Application notice recieved on ${this.insurer.name}'s webhook!*`, attachment);
+                    slack.send('customer_success', 'celebrate', `*Bound Application notice received on ${this.insurer.name}'s webhook!*`, attachment);
                     return;
                 case 'boundApiCheck':
                     try{

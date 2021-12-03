@@ -49,13 +49,15 @@ const onPolicyChange = async(req, res, next) => {
 
         // If this quote has been bound.
         if (req.body.Status === 'Active' && curQuote.quoteStatusId < quoteStatus.bound.id) {
-            await quoteModel.markQuoteAsBound(curQuote.quoteId, req.body.Metadata, 'system', {
+            const policyInfo = {
                 policyId : req.body.policyId,
                 policyNumber: req.body.PolicyNumber,
                 policyEffectiveDate: moment(req.body.StartDate).format('YYYY-MM-DD'),
                 policyPremium: req.body.Premium,
                 policyUrl: ''
-            });
+            };
+            const DO_NOT_SEND_SLACK_NOTIFICATION = false;
+            await quoteModel.markQuoteAsBound(curQuote.quoteId, req.body.Metadata, 'system' ,policyInfo, DO_NOT_SEND_SLACK_NOTIFICATION);
             await quoteModel.appendToLog(curQuote.quoteId, `<br><br>
                 --------======= Policy Webhook received from Coterie =======--------<br>
                 <pre>${JSON.stringify(req.body, null, 2)}</pre>
