@@ -1,5 +1,8 @@
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 const moment = require('moment');
 
 const onApplicationChange = async(req, res, next) => {
@@ -27,18 +30,25 @@ const onPolicyChange = async(req, res, next) => {
         const quoteModel = new QuoteBO();
         const applicationBo = new ApplicationBO();
         const quotes = await quoteModel.getByApplicationId(req.body.Metadata);
-
         // Find this Coterie quote ID
         const curQuote = quotes.find(q => q.insurerId === 29);
 
         if (!curQuote) {
-            log.error(`Can't find quotes (appid: ${req.body.Metadata}): ${JSON.stringify(quotes, null, 2)} ${__location}`);
-            res.send(500, {success: false});
+            //only error in production.
+            // test might be coming from 4 different systems or any engineers notebook
+            if(global.settings.ENV === 'production'){
+                log.error(`Can't find quotes (appid: ${req.body.Metadata}): ${JSON.stringify(quotes, null, 2)} ${__location}`);
+                res.send(500, {success: false});
+            }
+            else {
+                log.warn(`Can't find quotes on ${global.settings.ENV} (appid: ${req.body.Metadata}): ${JSON.stringify(quotes, null, 2)} ${__location}`);
+                res.send(200, {success: true});
+            }
             return next();
         }
 
         // If this quote has been bound.
-        if (req.body.Status === 'Active') {
+        if (req.body.Status === 'Active' && curQuote.quoteStatusId < quoteStatus.bound.id) {
             await quoteModel.markQuoteAsBound(curQuote.quoteId, req.body.Metadata, 'system', {
                 policyId : req.body.policyId,
                 policyNumber: req.body.PolicyNumber,
@@ -53,11 +63,21 @@ const onPolicyChange = async(req, res, next) => {
             log.debug(`Marked quote ${curQuote.quoteId} as bound (in application ${req.body.Metadata}) due to Coterie webhook`);
 
             // Mark application as bound
-            await applicationBo.updateStatus(req.body.Metadata, 'bound', 90);
+            await applicationBo.updateStatus(req.body.Metadata, 'bound', applicationStatus.bound.id);
             // Re-calculate quote metrics after binding.
             await applicationBo.recalculateQuoteMetrics(req.body.Metadata);
+
+            const quoteBind = new QuoteBind();
+            //default to yearly payment plan not important for notification.
+            await quoteBind.load(curQuote.quoteId, 1, null, null);
+            try{
+                await quoteBind.send_slack_notification("boundWebHook");
+            }
+            catch(err){
+                log.error(`appid ${curQuote.applicationId} quote ${curQuote.quoteId} had Slack API Bind Check  error ${err}` + __location);
+            }
         }
-        else {
+        else if(curQuote.quoteStatusId < quoteStatus.bound.id) {
             log.debug(`Not Marked as bound from Coterie: ${JSON.stringify(req.body, null, 2)}`);
 
         }
