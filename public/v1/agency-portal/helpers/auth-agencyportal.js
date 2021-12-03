@@ -178,7 +178,7 @@ async function validateJWT(req, permission, permissionType) {
  *
  * @param {object} req - The Restify request object
  * @param {integer} agencyId - AgencyId (systemId) required
- * @param {integer} agencyNetworkId - agencyNetworkId
+ * @param {integer} agencyNetworkId - agencyNetworkId - Optional
  * @return {string} null on success, error message on error
  */
 async function authorizedForAgency(req, agencyId, agencyNetworkId){
@@ -188,31 +188,29 @@ async function authorizedForAgency(req, agencyId, agencyNetworkId){
     if(agencyId > 0){
         if(req.authentication.isAgencyNetworkUser
             && req.authentication.agencyNetworkId === 1
-            && req.authentication.permissions.talageStaff === true
-            && req.authentication.enableGlobalView === true){
+            && req.authentication.permissions.talageStaff === true){
             return true;
         }
-        if(!req.authentication.isAgencyNetworkUser){
-            let error = false;
-            try{
-                const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
-                const agencyBO = new AgencyBO();
-                const agencyJSON = await agencyBO.getById(agencyId, false, false);
-                agencyNetworkId = agencyJSON?.agencyNetworkId;
+        if(req.authentication.isAgencyNetworkUser){
+            if(!agencyNetworkId){
+                let error = false;
+                try{
+                    const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
+                    const agencyBO = new AgencyBO();
+                    const agencyJSON = await agencyBO.getById(agencyId, false, false);
+                    agencyNetworkId = agencyJSON?.agencyNetworkId;
+                }
+                catch(err){
+                    error = true;
+                }
+                if(error){
+                    return false;
+                }
             }
-            catch(err){
-                error = true;
-            }
-            if(error){
-                return false;
-            }
-            return parseInt(req.authentication.agents[0], 10) === agencyId
-        }
-        else if (agencyNetworkId === req.authentication.agencyNetworkId) {
-            return true
+            return agencyNetworkId === req.authentication.agencyNetworkId
         }
         else {
-            return false;
+            return parseInt(req.authentication.agents[0], 10) === agencyId
         }
     }
     else {
