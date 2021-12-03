@@ -2308,7 +2308,12 @@ async function accesscheck(appId, req, retObject){
         const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
             passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc?.agencyId, applicationDBDoc?.agencyNetworkId)
-            retObject.appDoc = JSON.parse(JSON.stringify(applicationDBDoc))
+            if(retObject){
+                retObject.appDoc = JSON.parse(JSON.stringify(applicationDBDoc))
+            }
+        }
+        else {
+            log.warn(`access check appId ${appId} not found ` + __location)
         }
         log.debug(`accessCheck ${passedAgencyCheck}` + __location)
       
