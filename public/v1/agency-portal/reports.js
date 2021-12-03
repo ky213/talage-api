@@ -12,6 +12,7 @@ const Application = mongoose.model('Application');
 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const Quote = mongoose.model('Quote');
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 
 // eslint-disable-next-line valid-jsdoc
@@ -215,14 +216,14 @@ const getIndustries = async(where, totalAppCount) => {
 
 const getPremium = async(where) => {
     const bound = async(product) => _.sum((await Application.aggregate([
-        {$match: Object.assign({}, where, {appStatusId: {$gte: 40}})}, {$group: {
+        {$match: Object.assign({}, where, {appStatusId: {$gte: applicationStatus.referred.appStatusId}})}, {$group: {
             _id: '$uuid',
             count: {$sum: '$metrics.lowestBoundQuoteAmount.' + product}
         }}
     ])).map(t => t.count));
 
     const quoted = async(product) => _.sum((await Application.aggregate([
-        {$match: Object.assign({}, where, {appStatusId: {$gte: 25}})}, {$group: {
+        {$match: Object.assign({}, where, {appStatusId: {$gte: applicationStatus.priceIndication.appStatusId}})}, {$group: {
             _id: '$uuid',
             count: {$sum: '$metrics.lowestQuoteAmount.' + product}
         }}
@@ -606,9 +607,9 @@ async function getReports(req) {
         return {
             funnel: {
                 started: startedCount,
-                completed: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt: 10}})),
-                quoted: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: 40}})),
-                bound: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: 70}}))
+                completed: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt:  applicationStatus.questionsDone.appStatusId}})),
+                quoted: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt: applicationStatus.priceIndication.appStatusId}})),
+                bound: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: applicationStatus.requestToBind.appStatusId}}))
             },
             geography: await getGeography(where),
             industries: await getIndustries(where,startedCount),
