@@ -608,7 +608,7 @@ async function getReports(req) {
             funnel: {
                 started: startedCount,
                 completed: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt:  applicationStatus.questionsDone.appStatusId}})),
-                quoted: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt: applicationStatus.priceIndication.appStatusId}})),
+                quoted: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: applicationStatus.priceIndication.appStatusId}})),
                 bound: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: applicationStatus.requestToBind.appStatusId}}))
             },
             geography: await getGeography(where),
