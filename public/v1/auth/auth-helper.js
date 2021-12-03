@@ -10,22 +10,24 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
  * passed in.
  *
  * @param {*} email Email address of the user.
+ * @param {*} agencyNetworkId agencyNetworkId of the user.
  * @returns {object} Talage user object in mongo
  */
-async function getUser(email) {
+async function getUser(email, agencyNetworkId) {
     // This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
     email = email.replace(' ', '+');
 
     // Authenticate the information provided by the user
     //TODO move to BO/Mongo
     const agencyPortalUserBO = new AgencyPortalUserBO();
+    let userDoc = null;
     try {
-        return await agencyPortalUserBO.getByEmail(email);
+        userDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, agencyNetworkId);
     }
     catch (e) {
         log.error(e.message + __location);
     }
-    return null;
+    return userDoc;
 }
 
 /**
@@ -36,15 +38,16 @@ async function getUser(email) {
  * tokens.
  *
  * @param {*} email The email address of the user to generate the JWT token
+ * @param {*} agencyNetworkId The agencyNetworkId of the user to generate the JWT token
  *    for.
  * @returns {JWT} Newly generated JWT token
  */
-async function createToken(email) {
-    const agencyPortalUserDBJson = await getUser(email);
+async function createToken(email, agencyNetworkId) {
+    const agencyPortalUserDBJson = await getUser(email, agencyNetworkId);
 
     // Make sure we found the user
     if (!agencyPortalUserDBJson) {
-        log.info('Authentication failed - Account not found ' + email);
+        log.info(`Authentication failed - Account not found ${email} agencyNetworkId ${agencyNetworkId}` + __location);
         throw new Error('Authentication failed - Account not found ' + email);
     }
 
@@ -73,15 +76,19 @@ async function createToken(email) {
     });
 
     payload.isAgencyNetworkUser = false;
-    // Check if this was an agency network
-    if (agencyPortalUserDBJson.agency_network) {
-        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
-        //agency network ID now in payload for consistency between network and agency.
-        payload.agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId;
-
+    if(agencyPortalUserDBJson.hasOwnProperty("isAgencyNetworkUser")){
+        payload.isAgencyNetworkUser = agencyPortalUserDBJson.isAgencyNetworkUser
+    }
+    else if(agencyPortalUserDBJson.agencyNetworkId && !agencyPortalUserDBJson.agencyId){
         payload.isAgencyNetworkUser = true;
     }
-
+    // Check if this was an agency network
+    if (payload.isAgencyNetworkUser && agencyPortalUserDBJson.agencyNetworkId) {
+        //agencyNetwork used a flag in Agency Portal.
+        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
+        //agency network ID now in payload for consistency between network and agency.
+    }
+    payload.agencyNetworkId = agencyPortalUserDBJson.agencyNetworkId;
     // Store a local copy of the agency network ID .
     const agencyBO = new AgencyBO();
     // For agency networks get the agencies they are allowed to access
@@ -93,7 +100,7 @@ async function createToken(email) {
         //     payload.agents.push(agencyJSON.systemId);
         // });
     }
-    else {
+    else if(agencyPortalUserDBJson.agencyId) {
         // Just allow access to the current agency
         payload.agents.push(agencyPortalUserDBJson.agencyId);
 
@@ -118,9 +125,16 @@ async function createToken(email) {
         }
 
     }
+    else if(agencyPortalUserDBJson.agencyNetworkId){
+        //old style record agency network user.
+        //no agencyId  w/ agencyNetworkId
+        payload.agents = [-1];
+        payload.isAgencyNetworkUser = true
+        payload.agencyNetwork = agencyPortalUserDBJson.agencyNetworkId;
+    }
 
     // Add the user ID to the payload
-    payload.userID = agencyPortalUserDBJson.id;
+    payload.userID = agencyPortalUserDBJson.agencyPortalUserId;
 
     // Add the permissions to the payload
     payload.permissions = agencyPortalUserDBJson.permissions;

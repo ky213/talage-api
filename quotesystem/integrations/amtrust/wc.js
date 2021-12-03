@@ -18,6 +18,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const {Sleep} = global.requireShared('./helpers/utility.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
@@ -47,6 +48,9 @@ module.exports = class AMTrustWC extends Integration {
      * @returns {string} Formatted phone number of XXX-XXX-XXXX
      */
     formatPhoneNumber(phoneNumber) {
+        if(!phoneNumber){
+            return '';
+        }
         const phoneNumberString = phoneNumber.toString();
         return `${phoneNumberString.substring(0, 3)}-${phoneNumberString.substring(3, 6)}-${phoneNumberString.substring(6, 10)}`;
     }
@@ -357,14 +361,61 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // =========================================================================================================
-        // Create the quote request
-        if (!this.app.business.contacts[0].phone || this.app.business.contacts[0].phone.length === 0) {
-            log.warn(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust Pricing submission.`);
-            //return this.client_error(`AMTrust submission requires phone number.`);
-        }
-
         // Get primary location
         const primaryLocation = appDoc.locations.find(location => location.primary);
+
+        let primaryContact = appDoc.contacts.find(c => c.primary);
+        if(!primaryContact && appDoc.contacts.length > 0){
+            primaryContact = appDoc.contacts[0]
+        }
+        else if (!primaryContact){
+            // user agency contact info.
+            const AgencyBO = global.requireShared('./models/Agency-BO.js');
+            const agencyBO = new AgencyBO();
+            const agency = await agencyBO.getById(appDoc.agencyId);
+            if(agency){
+                primaryContact = {
+                    firstName: agency.firstName,
+                    lastName: agency.lastName,
+                    email: agency.email,
+                    phone: agency.phone
+                };
+            }
+            else {
+                const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetwork = await agencyNetworkBO.getById(appDoc.agencyNetworkId);
+                if(agencyNetwork){
+                    primaryContact = {
+                        firstName: agencyNetwork.fname,
+                        lastName: agencyNetwork.lname,
+                        email: agencyNetwork.email,
+                        phone: agencyNetwork.phone
+                    };
+                }
+                else {
+                    primaryContact = {
+                        firstName: 'Adam',
+                        lastName: 'Kiefer',
+                        email: 'customersuccess@talageins.com',
+                        phone: '8334825243'
+                    };
+                }
+            }
+        }
+        let contactPhone = '';
+        if(primaryContact && primaryContact.phone){
+            try{
+                contactPhone = primaryContact?.phone?.toString()
+                contactPhone = stringFunctions.santizeNumber(contactPhone, false);
+            }
+            catch(err){
+                log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
+            }
+        }
+        if(contactPhone === '') {
+            contactPhone = "5105555555";
+        }
 
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
@@ -384,10 +435,10 @@ module.exports = class AMTrustWC extends Integration {
             },
             "BusinessName": this.app.business.name,
             "ContactInformation": {
-                "FirstName": this.app.business.contacts[0].first_name.slice(0,30),
-                "LastName": this.app.business.contacts[0].last_name.slice(0,30),
-                "Email": this.app.business.contacts[0].email,
-                "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
+                "FirstName":  primaryContact?.firstName?.slice(0,30),
+                "LastName": primaryContact?.lastName?.slice(0,30),
+                "Email": primaryContact?.email,
+                "Phone": this.formatPhoneNumber(contactPhone),
                 "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,

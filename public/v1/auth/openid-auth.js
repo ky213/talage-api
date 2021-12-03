@@ -94,7 +94,7 @@ async function callback(req, res, next) {
         }
         const userGroup = _.get(await agencyPortalUserGroup.getList({name: userGroupName}), '[0]');
         log.info(`found role (agency portal user group) for user: ${userGroupName}`);
-        const user = await getUser(claims.preferred_username)
+        const user = await getUser(claims.preferred_username, config.agencyNetworkId)
         if (!user) {
             log.info(`User ${claims.preferred_username} not found for config ID: ${req.params.configId}. Creating user...`);
             const newUserJSON = {
@@ -115,7 +115,7 @@ async function callback(req, res, next) {
             log.info(`Found user ${claims.preferred_username}! Generating JWT token...`);
         }
 
-        const token = await createToken(claims.preferred_username);
+        const token = await createToken(claims.preferred_username, config.agencyNetworkId);
         return res.redirect(`${global.settings.PORTAL_URL}/openid/${req.params.configId}/callback?token=${token}`, next);
     }
     catch (ex) {

@@ -264,6 +264,7 @@ const ApplicationSchema = new Schema({
     wholesale:  {type: Boolean, default: false},
     coverageLapseWC:  {type: Boolean, default: false},
     agencyPortalCreated:  {type: Boolean, required: false, default: false},
+    apiCreated:  {type: Boolean, required: false, default: false},
     abandonedEmail:  {type: Boolean, default: false},
     abandonedAppEmail:  {type: Boolean, default: false},
     optedOutOnlineEmailsent:  {type: Boolean, default: false},
