@@ -2652,8 +2652,9 @@ module.exports = class ApplicationModel {
         }
         if(feinRequiredNote){
             hintJson.fein = {};
-            hintJson.fein.hint = `FEIN required for ${glCarriers.join()} ${glBopPolicy}. Check your agencies procedures`
-            hintJson.fein.displayMessage = `FEIN require by potential ${glBopPolicy} carrier(s)`;
+            hintJson.fein.hint = `FEIN required for ${glCarriers.join(', ')} ${glBopPolicy}. Check your agencies procedures`
+            //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+            hintJson.fein.displayMessage = `FEIN required for ${glCarriers.join(', ')} ${glBopPolicy}.`;
         }
 
         log.debug(`appBO getHint pre Hook  hintJson: ${JSON.stringify(hintJson)}` + __location)
