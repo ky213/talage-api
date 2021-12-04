@@ -594,7 +594,7 @@ module.exports = class MarkelWC extends Integration {
             const buildingObj = {
                 // optionalEndorsements: {}, // optional coverages - we are not handling these phase 1
                 classCode: industryCode.code,
-                classCodeDescription: industryCode.description, 
+                classCodeDescription: industryCode.attributes.BOPDescription, 
                 // naicsReferenceId: industryCode.attributes.NAICSReferenceId, // currently not supported. Can replace class code/description once it is
                 personalPropertyReplacementCost: location.businessPersonalPropertyLimit, // BPP
                 buildingReplacementCost: location.buildingLimit, // BL
@@ -764,7 +764,7 @@ module.exports = class MarkelWC extends Integration {
                     },
                     "Underwriter Questions": {
                         "UWQuestions": questionObj,
-                        "Description of Operations": industryCode.description
+                        "Description of Operations": industryCode.attributes.BOPDescription
                     },
                     "signaturePreference": "Electronic"
                 }
@@ -982,6 +982,7 @@ module.exports = class MarkelWC extends Integration {
         }
         catch (error) {
             log.error(`${logPrefix}Error parsing response structure: ${error}. ` + __location);
+            this.reasons.push(`An error occurred parsing Markel's response.`);
             return this.return_result('error');
         }
 
