@@ -615,8 +615,8 @@ module.exports = class ACORD{
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}${insurerActivityCodeObj.sub ? `-${insurerActivityCodeObj.sub}` : ''}`;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = insurerActivityCodeObj.description;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_FullTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType == 'Full Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_PartTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType == 'Part Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_FullTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Full Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
+                            statePdfDataFieldsObj['WorkersCompensation_RateClass_PartTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Part Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
