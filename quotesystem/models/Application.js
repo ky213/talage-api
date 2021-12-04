@@ -933,6 +933,12 @@ module.exports = class Application {
                         }
                         log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
+
+                        //TODO Applink processing 
+
+
+                        //TODO Sofware Hook
+
                         await emailSvc.send(this.agencyLocation.agencyEmail,
                             subject,
                             message,
@@ -979,6 +985,11 @@ module.exports = class Application {
                         if (quoteList[0].status) {
                             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                         }
+
+                        //TODO Applink processing
+
+
+
                         log.info(`AppId ${this.id} sending agency network NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
                         let recipientsString = agencyNetworkDB.email
@@ -997,6 +1008,8 @@ module.exports = class Application {
                                 log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
                         }
+
+                        //TODO Sofware Hook
 
                         await emailSvc.send(recipientsString,
                             subject,
@@ -1053,6 +1066,9 @@ module.exports = class Application {
                 if (quoteList[0].status) {
                     message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                 }
+
+                //TODO Applink processing 
+
                 log.info(`AppId ${this.id} sending agency network QUOTE email`);
                 // Send the email message - development should email. change local config to get the email.
                 let recipientsString = agencyNetworkDB.email
@@ -1071,6 +1087,8 @@ module.exports = class Application {
                         log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                     }
                 }
+
+                //TODO Sofware Hook
 
                 await emailSvc.send(recipientsString,
                     subject,
