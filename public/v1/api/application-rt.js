@@ -1018,7 +1018,7 @@ async function createQuoteSummary(quote, returnAllQuotes = false) {
         if(insurer){
             quoteSummary.insurer = {
                 id: insurer.id,
-                logo: global.settings.SITE_URL + '/' + insurer.logo,
+                logo: global.settings.IMAGE_URL + '/' + insurer.logo,
                 name: insurer.name,
                 rating: insurer.rating
             }
@@ -1036,7 +1036,7 @@ async function createQuoteSummary(quote, returnAllQuotes = false) {
             message: `${insurer.name} has declined to offer you coverage at this time`,
             insurer: {
                 id: insurer.id,
-                logo: global.settings.SITE_URL + '/' + insurer.logo,
+                logo: global.settings.IMAGE_URL + '/' + insurer.logo,
                 name: insurer.name,
                 rating: insurer.rating
             }
