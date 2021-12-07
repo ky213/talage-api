@@ -416,6 +416,10 @@ module.exports = class AMTrustWC extends Integration {
         if(contactPhone === '') {
             contactPhone = "5105555555";
         }
+        let yearsInBusiness = this.get_years_in_business()
+        if(!appDoc.founded){
+            yearsInBusiness = 4;
+        }
 
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
@@ -443,7 +447,7 @@ module.exports = class AMTrustWC extends Integration {
             },
             "NatureOfBusiness": this.industry_code.description,
             "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
-            "YearsInBusiness": this.get_years_in_business(),
+            "YearsInBusiness": yearsInBusiness,
             "IsNonProfit": false,
             "IsIncumbentAgent": false,
             "CompanyWebsiteAddress": this.app.business.website,
