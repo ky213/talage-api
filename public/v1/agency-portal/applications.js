@@ -365,6 +365,11 @@ async function getApplications(req, res, next){
             "type": 'string',
             "verifyDate": true,
             "optional": true
+        },
+        {
+            "name": 'tagString',
+            "type": 'string',
+            "optional": true
         }
     ];
 
@@ -672,11 +677,9 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.toLowerCase();
 
         const businessName = {businessName: `%${req.params.searchText}%`}
-        const tag = {tagString: `%${req.params.searchText}%`}
         const dba = {dba: `%${req.params.searchText}%`}
         orClauseArray.push(businessName);
         orClauseArray.push(dba);
-        orClauseArray.push(tag);
 
         const mailingCity = {mailingCity: `%${req.params.searchText}%`}
         orClauseArray.push(mailingCity);
@@ -704,6 +707,12 @@ async function getApplications(req, res, next){
         }
 
     }
+
+    if (req.params.tagString && req.params.tagString.length > 1) {
+        const tag = {tagString: `%${req.params.tagString}%`}
+        orClauseArray.push(tag);
+    }
+
     //agency search has to be after insurer search
 
     // Filter out any agencies with do_not_report value set to true
