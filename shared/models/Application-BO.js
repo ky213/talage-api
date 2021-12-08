@@ -2449,6 +2449,7 @@ module.exports = class ApplicationModel {
                                 appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                                 await appDoc.save();
                                 errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
+                                log.warn(`setAgencyLocation ${errorMessage} ` + __location)
                             }
                         }
                     }
@@ -2458,6 +2459,7 @@ module.exports = class ApplicationModel {
                         appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                         await appDoc.save();
                         errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
+                        log.warn(`setAgencyLocation ${errorMessage} ` + __location)
                     }
                     else {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
@@ -2560,6 +2562,16 @@ module.exports = class ApplicationModel {
 
         let glBopPolicy = "";
         let glCarriers = [];
+
+        let feinRequiredNote = false;
+        let hasGL = false;
+        let payrollRequiredNote = false;
+        let payrollCarriers = [];
+        let hasWC = false;
+
+        // let grossSalesRequiredNote = false;
+        // let grossSalesCarriers = [];
+
         const hintJson = {};
         const appDoc = await this.getById(appId)
         if(!appDoc){
@@ -2578,14 +2590,11 @@ module.exports = class ApplicationModel {
             return {};
         }
 
-        let feinRequiredNote = false;
-        let hasGL = false;
         const glPolicy = appDoc.policies.find((p) => p.policyType === "GL");
         if(glPolicy){
             hasGL = true;
             glBopPolicy = "GL";
         }
-        let hasWC = false;
         const wcPolicy = appDoc.policies.find((p) => p.policyType === "WC");
         if(wcPolicy){
             hasWC = true;
@@ -2619,7 +2628,7 @@ module.exports = class ApplicationModel {
                 glCarriers.push("Markel")
             }
 
-            //Libery an insurer
+            //Liberty an insurer
             if(insurerArray.includes(14)){
                 //fein not that is FEIN is required.
                 feinRequiredNote = true;
@@ -2641,18 +2650,42 @@ module.exports = class ApplicationModel {
             }
 
             //Cotirie - Needs payroll.
-
-
+            if(insurerArray.includes(29)){
+                //fein not that is FEIN is required.
+                payrollRequiredNote = true;
+                payrollCarriers.push("Coterie")
+            }
             //
         }
         if(hasWC){
-            //acuity gross sales
+        //     //acuity gross sales
+        //     //acuity Needs FEIN.
+        //     if(insurerArray.includes(10)){
+        //         //fein not that is FEIN is required.
+        //         grossSalesRequiredNote = true;
+        //         grossSalesCarriers.push("Acuity")
+        //     }
         }
         if(feinRequiredNote){
             hintJson.fein = {};
-            hintJson.fein.hint = `FEIN required for ${glCarriers.join()} ${glBopPolicy}. Check your agencies procedures`
-            hintJson.fein.displayMessage = `FEIN require by potential ${glBopPolicy} carrier(s)`;
+            hintJson.fein.hint = `FEIN required for ${glCarriers.join(', ')} ${glBopPolicy}. Check your agencies procedures`
+            //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+            hintJson.fein.displayMessage = `FEIN required for ${glCarriers.join(', ')} ${glBopPolicy}.`;
         }
+
+        if(payrollRequiredNote){
+            hintJson.payroll = {};
+            hintJson.payroll.hint = `Payroll required for ${payrollCarriers.join(', ')} ${glBopPolicy}. Check your agencies procedures`
+            //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+            hintJson.payroll.displayMessage = `Payroll required for ${payrollCarriers.join(', ')} ${glBopPolicy}.`;
+        }
+
+        // if(grossSalesRequiredNote){
+        //     hintJson.grossSalesAmt = {};
+        //     hintJson.grossSalesAmt.hint = `Payroll required for ${grossSalesCarriers.join(', ')} WC.`
+        //     //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+        //     hintJson.grossSalesAmt.displayMessage = `Payroll required for ${grossSalesCarriers.join(', ')} WC.`;
+        // }
 
         log.debug(`appBO getHint pre Hook  hintJson: ${JSON.stringify(hintJson)}` + __location)
 

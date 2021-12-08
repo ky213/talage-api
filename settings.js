@@ -20,7 +20,6 @@ const requiredVariables = [
     // Runtime profile
     'ENV',
     // Public URLs
-    'SITE_URL',
     'IMAGE_URL',
     // Internal Credentials
     'AUTH_SECRET_KEY',

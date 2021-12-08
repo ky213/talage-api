@@ -335,17 +335,6 @@ var send2SlackInternal = async function(slackReqJSON) {
         username: username
     };
 
-    // if (slackReqJSON.attachment && slackReqJSON.attachment.application_id) {
-    //     const url = `https://${global.settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${slackReqJSON.attachment.application_id}`;
-
-    //     post_data.attachments[0].actions.push({
-    //         style: button_style,
-    //         text: 'View Application',
-    //         type: 'button',
-    //         url: url
-    //     });
-    // }
-
     // For alerts and debug channels all instance info
     log.info(`slackReqJSON.channel: ${slackReqJSON.channel}`);
     if (slackReqJSON.channel === '#debug' || slackReqJSON.channel === '#alerts') {
