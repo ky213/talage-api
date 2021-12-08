@@ -349,7 +349,7 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    const toName = options.toName ? capitalizeName(options.toName) : null;
+    const toName = options.toName ? capitalizeName(options.toName).trim() : null;
 
     const emailSubjectDefault = `A Link to ${applicationJSON.businessName}`;
     let emailSubject = options.subject ? options.subject : emailSubjectDefault;

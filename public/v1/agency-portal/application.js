@@ -2024,7 +2024,7 @@ async function putApplicationLink(req, res, next){
 
             const emailHasAccess = await accesscheckEmail(req.body.toEmail, appDocJson);
             if(!emailHasAccess){
-                return next(serverHelper.requestError('To email not in system'));
+                return next(serverHelper.requestError(`User doesn't have access to view this application`));
             }
 
             link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
