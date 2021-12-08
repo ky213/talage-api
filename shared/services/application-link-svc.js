@@ -208,7 +208,7 @@ const buildAgencyPortalLink = async(agencyNetwork, appId, hash) => {
     let link = "";
     // if hash is provided, augment url for auto login
     if (hash) {
-        link = `${domain}/_auto/applications/application/${appId}?z=${hash}`;
+        link = `${domain}/applications/application/${appId}?z=${hash}`;
     }
     else {
         link = `${domain}/applications/application/${appId}`;

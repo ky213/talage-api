@@ -106,14 +106,14 @@ async function createTokenEndpoint(req, res, next){
 async function createAutoLoginToken(req, res, next){
     // Check for data
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
-        log.info('Bad Request: Missing both email and password');
-        return next(serverHelper.requestError('You must supply an email address and password'));
+        log.info('Bad Request: Missing request body' + __location);
+        return next(serverHelper.requestError('An error occurred while attempting to auto login'));
     }
 
     // Make sure a hash key was provided
     if (!req.body.hash) {
         log.warn('Missing hash for auto login' + __location);
-        res.send(400, serverHelper.requestError('No hash key provided for auto login'));
+        res.send(400, serverHelper.requestError('An error occurred while attempting to auto login'));
         return next();
     }
 
@@ -158,7 +158,7 @@ async function createAutoLoginToken(req, res, next){
     }
 
     try {
-        const jwtToken = await createToken(agencyPortalUserDBJSON.email);
+        const jwtToken = await createToken(agencyPortalUserDBJSON.email, req.body.agencyNetworkId);
         const token = `Bearer ${jwtToken}`;
         res.send(201, {
             status: 'Created',
