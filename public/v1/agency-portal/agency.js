@@ -542,7 +542,7 @@ async function postAgency(req, res, next) {
         firstName: firstName,
         lastName: lastName,
         slug: slug,
-        wholesale: wholesale,
+        wholesale: wholesale
     }
     if(req.body.displayName){
         newAgencyJSON.displayName = req.body.displayName
