@@ -431,8 +431,13 @@ module.exports = class CnaWC extends Integration {
         }
         catch (error) {
             let errorJSON = null;
+            let description = null;
+            let extendedDescription = null;
+            
             try {
                 errorJSON = JSON.parse(error.response);
+                description = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.MsgStatusDesc?.value
+                extendedDescription = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.ExtendedStatus[0]?.ExtendedStatusDesc?.value
             }
             catch (e) {
                 log.error(`CNA WC: There was an error parsing the error object: ${e}. ` + __location);
@@ -442,7 +447,7 @@ module.exports = class CnaWC extends Integration {
             // log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
             // log.debug("=================== QUOTE ERROR ===================");
             
-            this.reasons.push(JSON.stringify(errorJSON));
+            this.reasons.push(extendedDescription || description || 'CNA WC: unknown error');
 
             let errorMessage = "";
             try {
