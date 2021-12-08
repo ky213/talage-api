@@ -676,7 +676,7 @@ async function postAgency(req, res, next) {
         useAgencyPrime: useAgencyPrime,
         insurers: insurerArray,
         territories: territories,
-        additionalInfo: {territories: territories},
+        additionalInfo: {territories: territories}
     }
     if(req.body.location){
         newAgencyLocationJSON.address = req.body.location.address;
