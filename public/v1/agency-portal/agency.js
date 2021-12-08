@@ -543,7 +543,6 @@ async function postAgency(req, res, next) {
         lastName: lastName,
         slug: slug,
         wholesale: wholesale
-
     }
     if(req.body.displayName){
         newAgencyJSON.displayName = req.body.displayName
@@ -551,6 +550,10 @@ async function postAgency(req, res, next) {
 
     if(req.body.agencyCode){
         newAgencyJSON.agencyCode = req.body.agencyCode
+    }
+
+    if (req.body.location && req.body.location.phone){
+        newAgencyJSON.phone = req.body.location.phone
     }
 
     error = null;
@@ -666,7 +669,7 @@ async function postAgency(req, res, next) {
     const newAgencyLocationJSON = {
         agencyId: agencyId,
         email: email,
-        name: "Main",
+        name: req.body.location.name || "Main",
         agencyNetworkId: agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
@@ -675,13 +678,15 @@ async function postAgency(req, res, next) {
         territories: territories,
         additionalInfo: {territories: territories}
     }
-    if(req.body.address){
-        newAgencyLocationJSON.address = req.body.address
-        newAgencyLocationJSON.address2 = req.body.address2
-        newAgencyLocationJSON.city = req.body.city
-        newAgencyLocationJSON.state = req.body.state
-        newAgencyLocationJSON.zipcode = req.body.zipcode
-        newAgencyLocationJSON.phone = req.body.phone
+    if(req.body.location){
+        newAgencyLocationJSON.address = req.body.location.address;
+        newAgencyLocationJSON.address2 = req.body.location.address2;
+        newAgencyLocationJSON.city = req.body.location.city;
+        newAgencyLocationJSON.state = req.body.location.state;
+        newAgencyLocationJSON.zipcode = req.body.location.zipcode;
+        newAgencyLocationJSON.phone = req.body.location.phone;
+        newAgencyLocationJSON.openTime = req.body.location.openTime;
+        newAgencyLocationJSON.closeTime = req.body.location.closeTime;
     }
     //log.verbose(JSON.stringify(newAgencyLocationJSON))
     const agencyLocationBO = new AgencyLocationBO();
