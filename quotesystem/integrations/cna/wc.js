@@ -430,14 +430,14 @@ module.exports = class CnaWC extends Integration {
             result = await this.send_json_request(host, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
         }
         catch (error) {
-            let errorJSON = null;
-            let description = null;
-            let extendedDescription = null;
-            
+            let errorMessage = ''
+
             try {
-                errorJSON = JSON.parse(error.response);
-                description = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.MsgStatusDesc?.value
-                extendedDescription = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.ExtendedStatus[0]?.ExtendedStatusDesc?.value
+                const errorJSON = JSON.parse(error.response);
+                const description = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.MsgStatusDesc?.value
+                const extendedDescription = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.ExtendedStatus[0]?.ExtendedStatusDesc?.value
+                
+                errorMessage = extendedDescription || description || "An error occurred while attempting to quote."
             }
             catch (e) {
                 log.error(`CNA WC: There was an error parsing the error object: ${e}. ` + __location);
@@ -447,23 +447,7 @@ module.exports = class CnaWC extends Integration {
             // log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
             // log.debug("=================== QUOTE ERROR ===================");
             
-            this.reasons.push(extendedDescription || description || 'CNA WC: unknown error');
-
-            let errorMessage = "";
-            try {
-                errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
-            } 
-            catch (e1) {
-                try {
-                    errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.message}`;
-                } 
-                catch (e2) {
-                    log.error(`CNA: Couldn't parse error object for description. Parsing errors: ${JSON.stringify([e1, e2], null, 4)}. ` + __location);
-                }
-            }
-
-            errorMessage = errorMessage ? errorMessage : "CNA: An error occurred while attempting to quote.";
-            return this.client_declined(errorMessage);
+            return this.client_declined(`CNA: status code ${error.httpStatusCode}: ${errorMessage}`);
         }
 
        // log.debug("=================== QUOTE RESULT ===================");
