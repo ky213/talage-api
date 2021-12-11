@@ -15,6 +15,8 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 
+const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
+
 const log = global.log;
 
 /**
@@ -394,6 +396,21 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
 
+                    //Applink processing
+                    const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                    if(messageUpdate){
+                        message = messageUpdate
+                    }
+                    const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, agencyNetworkDB, message, subject)
+                    if(updatedEmailObject.message){
+                        message = updatedEmailObject.message
+                    }
+                    if(updatedEmailObject.subject){
+                        subject = updatedEmailObject.subject
+                    }
+
+                    //TODO Software Hook
+
 
                     // Send the email
                     const keyData2 = {'applicationDoc': applicationDoc};
@@ -452,6 +469,19 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
+                        // Applink processing
+                        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                        if(messageUpdate){
+                            message = messageUpdate
+                        }
+                        const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, agencyNetworkDB, message, subject)
+                        if(updatedEmailObject.message){
+                            message = updatedEmailObject.message
+                        }
+                        if(updatedEmailObject.subject){
+                            subject = updatedEmailObject.subject
+                        }
+
                         let recipientsString = agencyNetworkDB.email
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.
                         if(applicationDoc.agencyId){
@@ -468,6 +498,8 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                                 log.error(`AppId: ${applicationDoc.applicationId} agencyId ${applicationDoc.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
                         }
+
+                        //TODO Software hook
 
 
                         // Send the email
