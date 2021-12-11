@@ -13,6 +13,7 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const get_questions = global.requireShared('./helpers/getQuestions.js');
 const questionsSvc = global.requireShared('./services/questionsvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
 
 const runQuoting = require('../run-quoting.js');
 const AgencyLocation = require('./AgencyLocation.js');
@@ -934,7 +935,18 @@ module.exports = class Application {
                         log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
 
-                        //TODO Applink processing 
+                        //TODO Applink processing
+                        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
+                        if(messageUpdate){
+                            message = messageUpdate
+                        }
+                        const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
+                        if(updatedEmailObject.message){
+                            message = updatedEmailObject.message
+                        }
+                        if(updatedEmailObject.subject){
+                            subject = updatedEmailObject.subject
+                        }
 
 
                         //TODO Sofware Hook
@@ -987,7 +999,17 @@ module.exports = class Application {
                         }
 
                         //TODO Applink processing
-
+                        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
+                        if(messageUpdate){
+                            message = messageUpdate
+                        }
+                        const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
+                        if(updatedEmailObject.message){
+                            message = updatedEmailObject.message
+                        }
+                        if(updatedEmailObject.subject){
+                            subject = updatedEmailObject.subject
+                        }
 
 
                         log.info(`AppId ${this.id} sending agency network NO QUOTE email`);
@@ -1067,7 +1089,18 @@ module.exports = class Application {
                     message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                 }
 
-                //TODO Applink processing 
+                //TODO Applink processing
+                const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
+                if(messageUpdate){
+                    message = messageUpdate
+                }
+                const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
+                if(updatedEmailObject.message){
+                    message = updatedEmailObject.message
+                }
+                if(updatedEmailObject.subject){
+                    subject = updatedEmailObject.subject
+                }
 
                 log.info(`AppId ${this.id} sending agency network QUOTE email`);
                 // Send the email message - development should email. change local config to get the email.

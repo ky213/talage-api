@@ -8,6 +8,7 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
 
 
 /**
@@ -232,6 +233,21 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                     subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                     subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
+
+                    const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                    if(messageUpdate){
+                        message = messageUpdate
+                    }
+                    // Special policyType processing b/c it should only show
+                    // for the one quote not the full applications.
+                    const updatedEmailObject = await emailTemplateProceSvc.policyTypeQuoteProcessor(quoteDoc.policyType, message, subject)
+                    if(updatedEmailObject.message){
+                        message = updatedEmailObject.message
+                    }
+                    if(updatedEmailObject.subject){
+                        subject = updatedEmailObject.subject
+                    }
+
                     // Send the email
 
                     if (agencyLocationEmail) {
@@ -308,6 +324,20 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
+
+                        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                        if(messageUpdate){
+                            message = messageUpdate
+                        }
+                        // Special policyType processing b/c it should only show
+                        // for the one quote not the full applications.
+                        const updatedEmailObject = await emailTemplateProceSvc.policyTypeQuoteProcessor(quoteDoc.policyType, message, subject)
+                        if(updatedEmailObject.message){
+                            message = updatedEmailObject.message
+                        }
+                        if(updatedEmailObject.subject){
+                            subject = updatedEmailObject.subject
+                        }
 
 
                         let recipientsString = agencyNetworkDB.email

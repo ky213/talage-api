@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
@@ -36,7 +37,7 @@ options: {
  * @return {URL} The application link for Quote App
  * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
  */
-exports.createQuoteApplicationLink = async(appId, options) => {
+async function createQuoteApplicationLink(appId, options){
     if(!appId){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
         return;
@@ -63,7 +64,14 @@ exports.createQuoteApplicationLink = async(appId, options) => {
     return returnLink;
 }
 
-exports.createAgencyPortalApplicationLink = async(appId, options) => {
+/**
+ * Creates a link into an application for agency portal App
+ * @param {uuid} appId - The application to create a link for
+ * @param {Object} options - Options for creating the link, see above comment for uses
+ * @return {URL} The application link for agency portal App
+ * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
+ */
+async function createAgencyPortalApplicationLink(appId, options){
     // ensure an application ID was provided
     if (!appId) {
         log.error(`Error generating application link for agent: No application ID provided.` + __location);
@@ -118,7 +126,17 @@ exports.createAgencyPortalApplicationLink = async(appId, options) => {
     return returnLink;
 }
 
-const buildQuoteLink = async(agency, agencyNetwork, pageSlug, hash) => {
+
+/**
+ * Build a link to application in for agency portal.
+ * @param {Object} agency - agency Doc.
+ * @param {Object} agencyNetwork - AgencyNetwork Doc.
+ * @param {uuid} pageSlug - pageSlug for agency landing page being used
+ * @param {uuid} hash - hash for auto login.
+ * @return {URL} The application link for agency portal App
+ * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
+ */
+async function buildQuoteLink(agency, agencyNetwork, pageSlug, hash){
     let domain = "";
     if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
@@ -161,7 +179,15 @@ const buildQuoteLink = async(agency, agencyNetwork, pageSlug, hash) => {
     return link;
 }
 
-const buildAgencyPortalLink = async(agencyNetwork, appId, hash) => {
+/**
+ * Build a link to application in for agency portal.
+ * @param {Object} agencyNetwork - AgencyNetwork Doc.
+ * @param {uuid} appId - The application to create a link for
+ * @param {uuid} hash - hash for auto login.
+ * @return {URL} The application link for agency portal App
+ * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
+ */
+async function buildAgencyPortalLink(agencyNetwork, appId, hash){
     let domain = "";
     if(agencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.PORTAL_URL){
         // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
@@ -419,4 +445,11 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
         log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
     }
     return link;
+}
+
+module.exports = {
+    createQuoteApplicationLink,
+    createAgencyPortalApplicationLink,
+    buildAgencyPortalLink,
+    buildQuoteLink
 }
