@@ -935,7 +935,7 @@ module.exports = class Application {
                         log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
 
-                        //TODO Applink processing
+                        // Applink processing
                         const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
                         if(messageUpdate){
                             message = messageUpdate
@@ -948,10 +948,31 @@ module.exports = class Application {
                             subject = updatedEmailObject.subject
                         }
 
+                        let recipients = this.agencyLocation.agencyEmail;
 
-                        //TODO Sofware Hook
+                        // Sofware Hook
+                        const dataPackageJSON = {
+                            appDoc: this.applicationDocData,
+                            agencyNetworkDB: agencyNetworkDB,
+                            htmlBody: message,
+                            emailSubject: subject,
+                            branding: emailContentJSON.emailBrand,
+                            recipients: recipients
+                        }
+                        const hookName = 'no-qoute-email-agency'
+                        try{
+                            await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
+                            message = dataPackageJSON.htmlBody
+                            subject = dataPackageJSON.emailSubject
+                            emailContentJSON.emailBrand = dataPackageJSON.branding
+                            recipients = dataPackageJSON.recipients
+                        }
+                        catch(err){
+                            log.error(`Error ${hookName} hook call error ${err}` + __location);
+                        }
 
-                        await emailSvc.send(this.agencyLocation.agencyEmail,
+
+                        await emailSvc.send(recipients,
                             subject,
                             message,
                             {
@@ -1031,7 +1052,27 @@ module.exports = class Application {
                             }
                         }
 
-                        //TODO Sofware Hook
+                        // Sofware Hook
+                        const dataPackageJSON = {
+                            appDoc: this.applicationDocData,
+                            agencyNetworkDB: agencyNetworkDB,
+                            htmlBody: message,
+                            emailSubject: subject,
+                            branding: emailContentJSON.emailBrand,
+                            recipients: recipientsString
+                        }
+                        const hookName = 'no-qoute-email-agencynetwork'
+                        try{
+                            await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
+                            message = dataPackageJSON.htmlBody
+                            subject = dataPackageJSON.emailSubject
+                            emailContentJSON.emailBrand = dataPackageJSON.branding
+                            recipientsString = dataPackageJSON.recipients
+                        }
+                        catch(err){
+                            log.error(`Error ${hookName} hook call error ${err}` + __location);
+                        }
+
 
                         await emailSvc.send(recipientsString,
                             subject,
@@ -1121,7 +1162,27 @@ module.exports = class Application {
                     }
                 }
 
-                //TODO Sofware Hook
+                let branding = "Networkdefault";
+                // Sofware Hook
+                const dataPackageJSON = {
+                    appDoc: this.applicationDocData,
+                    agencyNetworkDB: agencyNetworkDB,
+                    htmlBody: message,
+                    emailSubject: subject,
+                    branding: branding,
+                    recipients: recipientsString
+                }
+                const hookName = 'got-qoute-email-agencynetwork'
+                try{
+                    await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
+                    message = dataPackageJSON.htmlBody
+                    subject = dataPackageJSON.emailSubject
+                    branding = dataPackageJSON.branding
+                    recipientsString = dataPackageJSON.recipients
+                }
+                catch(err){
+                    log.error(`Error ${hookName} hook call error ${err}` + __location);
+                }
 
                 await emailSvc.send(recipientsString,
                     subject,
@@ -1133,7 +1194,7 @@ module.exports = class Application {
 
                     },
                     this.applicationDocData.agencyNetworkId,
-                    "Networkdefault",
+                    branding,
                     this.applicationDocData.agencyId);
             }
         }
