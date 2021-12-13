@@ -177,7 +177,7 @@ async function startQueueProcessing() {
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
         const taskJson = {
-            "taskname": "agencyinactivityreport",
+            "taskname": "abandonquote",
             "deadBeat" : true
             //"minDaysInPast": 0,
             //"maxDaysInPast": 5
