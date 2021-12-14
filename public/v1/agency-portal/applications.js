@@ -865,7 +865,7 @@ async function getApplications(req, res, next){
             noCacheUseForTotal = false
         }
         log.debug(`Get applications totalQueryJson ${JSON.stringify(totalQueryJson)}` + __location)
-        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1}, 0, true);
+        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1}, 0, noCacheUseForTotal);
         applicationsTotalCount = applicationsTotalCountJSON.count;
 
         // query object is altered in getAppListForAgencyPortalSearch
