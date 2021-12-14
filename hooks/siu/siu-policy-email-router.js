@@ -32,7 +32,7 @@ async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
     }
 
     //Determine if WC, if so make sure workercomp@siuins.com is in recipients
-    let wcEmail = 'workercomp@siuins.com'
+    let wcEmail = 'workcomp@siuins.com'
     if(agencyNetworkJSON?.additionalInfo?.wcEmail){
         wcEmail = agencyNetworkJSON?.additionalInfo.wcEmail
     }
