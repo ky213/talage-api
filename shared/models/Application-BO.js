@@ -1283,7 +1283,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms, applicationsTotalCount = 0, noCacheUse = false, forceRedisUpdate = false){
         return new Promise(async(resolve, reject) => {
-            log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
+            // log.debug(`getAppListForAgencyPortalSearch queryJSON ${JSON.stringify(queryJSON)}` + __location)
             let useRedisCache = true;
             let pageSize = 10;
             if(global.settings.USE_REDIS_APP_LIST_CACHE !== "YES"){
@@ -1530,6 +1530,12 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if (queryJSON.appValue && queryJSON.appValue > 0) {
+                query['metrics.appValue'] = {$gte: queryJSON.appValue};
+                //query.appValue = {$gte: parseInt(queryJSON.appValue,10)};
+                delete queryJSON.appValue;
+            }
+
 
             //Policy expirationDate Searching
             if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
@@ -1696,9 +1702,10 @@ module.exports = class ApplicationModel {
                         queryProjection = {};
                     }
                     log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
-                    //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
-                    //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
+                    log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
+                    log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
+                    log.debug(`docList.length ${docList.length}`)
                     if(docList.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
@@ -1798,7 +1805,6 @@ module.exports = class ApplicationModel {
                         let appCount = null;
                         const resp = await global.redisSvc.getKeyValue(redisKey);
                         if(resp.found){
-                            log.debug(`REDIS: getAppListForAgencyPortalSearch Count got rediskey ${redisKey}`)
                             try{
                                 const parsedJSON = new FastJsonParse(resp.value)
                                 if(parsedJSON.err){
@@ -1818,7 +1824,7 @@ module.exports = class ApplicationModel {
 
                     }
                 }
-                log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
+                log.debug(`getAppListForAgencyPortalSearch Count use Mongo query ${JSON.stringify(query)} `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error(`Application.countDocuments error query ${JSON.stringify(query)}` + err + __location);
                     error = null;
@@ -1828,6 +1834,7 @@ module.exports = class ApplicationModel {
                     reject(error);
                     return;
                 }
+                log.debug(`getAppListForAgencyPortalSearch Count: ${docCount} `)
                 if(useRedisCache === true && redisKey && docCount){
                     try{
                         const ttlSeconds = 86400; //1 day
@@ -2183,46 +2190,11 @@ module.exports = class ApplicationModel {
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
-            log.debug(`Getting  Primary Agency insurers ` + __location);
-            //TODO Agency Prime
-            const agencyLocationBO = new AgencyLocationBO();
-            const getChildren = true;
-            const addAgencyPrimaryLocation = true;
-            let agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
-                log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
-            });
-            if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
-                try{
-                    const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
-                    if(!insurerObjList && insurerObjList.length === 0){
-                        log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
-                    }
-                    for (const policyType of policyTypeArray){
-                        for(let i = 0; i < insurerObjList.length; i++){
-                            if(insurerObjList[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(insurerObjList[i].insurerId) === -1){
-                                insurerArray.push(insurerObjList[i].insurerId)
-                            }
-                        }
-                    }
-                    log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
-                }
-                catch(err){
-                    log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
-                    throw new Error("Agency Network Error no Primary Agency Insurers")
-                }
+            try{
+                insurerArray = await this.getAgencyLocationInsurers(applicationDocDB, policyTypeArray)
             }
-            else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
-                for (const policyType of policyTypeArray){
-                    for(let i = 0; i < agencylocationJSON.insurers.length; i++){
-                        if(agencylocationJSON.insurers[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
-                            insurerArray.push(agencylocationJSON.insurers[i].insurerId)
-                        }
-                    }
-                }
-            }
-            else {
-                log.error(`Data problem prevented getting App agency location insurers for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
-                throw new Error(`Agency setup error Agency Location ${applicationDocDB.agencyLocationId} Not Found in database or does not have Insurers setup`)
+            catch(err){
+                throw err
             }
         }
         else {
@@ -2250,6 +2222,52 @@ module.exports = class ApplicationModel {
 
         return questionsObject;
 
+
+    }
+    async getAgencyLocationInsurers(applicationDocDB, policyTypeArray){
+        let insurerArray = [];
+        log.debug(`Getting  Primary Agency insurers ` + __location);
+        //TODO Agency Prime
+        const agencyLocationBO = new AgencyLocationBO();
+        const getChildren = true;
+        const addAgencyPrimaryLocation = true;
+        let agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+            log.error(`Error getting Agency Primary Location ${applicationDocDB.applicationId} ` + err + __location);
+        });
+        if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
+            try{
+                const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
+                if(!insurerObjList && insurerObjList.length === 0){
+                    log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
+                }
+                for (const policyType of policyTypeArray){
+                    for(let i = 0; i < insurerObjList.length; i++){
+                        if(insurerObjList[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(insurerObjList[i].insurerId) === -1){
+                            insurerArray.push(insurerObjList[i].insurerId)
+                        }
+                    }
+                }
+                log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
+            }
+            catch(err){
+                log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                throw new Error("Agency Network Error no Primary Agency Insurers")
+            }
+        }
+        else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+            for (const policyType of policyTypeArray){
+                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                    if(agencylocationJSON.insurers[i].policyTypeInfo[policyType.type]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){
+                        insurerArray.push(agencylocationJSON.insurers[i].insurerId)
+                    }
+                }
+            }
+        }
+        else {
+            log.error(`Data problem prevented getting App agency location insurers for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+            throw new Error(`Agency setup error Agency Location ${applicationDocDB.agencyLocationId} Not Found in database or does not have Insurers setup`)
+        }
+        return insurerArray;
 
     }
 
@@ -2325,9 +2343,23 @@ module.exports = class ApplicationModel {
                     }
                 };
 
+                let appValueDollars = 0;
+                // eslint-disable-next-line array-element-newline
+                const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
+                for(let i = 0; i < productTypeList.length; i++){
+                    if(metrics.lowestBoundQuoteAmount[productTypeList[i]]){
+                        appValueDollars += metrics.lowestBoundQuoteAmount[productTypeList[i]]
+                    }
+                    else if (metrics.lowestQuoteAmount[productTypeList[i]]){
+                        appValueDollars += metrics.lowestQuoteAmount[productTypeList[i]]
+                    }
+                }
+                metrics.appValue = appValueDollars;
+
                 // updateMongo does lots of checking and potential resettings.
                 // await this.updateMongo(applicationId, {metrics: metrics});
                 // Add updatedAt
+                // eslint-disable-next-line object-curly-newline
                 let updateJSON = {metrics: metrics};
                 updateJSON.updatedAt = new Date();
 
@@ -2439,6 +2471,7 @@ module.exports = class ApplicationModel {
                                 appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                                 await appDoc.save();
                                 errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
+                                log.warn(`setAgencyLocation ${errorMessage} ` + __location)
                             }
                         }
                     }
@@ -2448,6 +2481,7 @@ module.exports = class ApplicationModel {
                         appDoc.status = status.applicationStatus.outOfMarket.appStatusDesc;
                         await appDoc.save();
                         errorMessage = `AppId ${appDoc.applicationId} Agency does not cover application territory ${missingTerritory}`;
+                        log.warn(`setAgencyLocation ${errorMessage} ` + __location)
                     }
                     else {
                         log.error(`Could not set agencylocation on ${applicationId} no agency locations for ${appDoc.agencyId} ` + __location);
@@ -2531,6 +2565,167 @@ module.exports = class ApplicationModel {
         }
 
         return iicList;
+    }
+
+
+    async getHints(appId){
+        log.debug(`appBO getHints` + __location)
+        //hintJSON example
+        //      const hintJson = {
+        //     "fein": {
+        //         "hint": "FEIN required for Markel BOP. Check your agencies procedures",
+        //         "displayMessage": "FEIN require by potential carriers"
+        //     },
+        //     "grossSalesAmt": {
+        //        "hint": "",
+        //         "displayMessage": "Acuity requires gross sales for WC"
+        //    }
+        // }
+
+        let glBopPolicy = "";
+        let glCarriers = [];
+
+        let feinRequiredNote = false;
+        let hasGL = false;
+        let payrollRequiredNote = false;
+        let payrollCarriers = [];
+        let hasWC = false;
+
+        // let grossSalesRequiredNote = false;
+        // let grossSalesCarriers = [];
+
+        const hintJson = {};
+        const appDoc = await this.getById(appId)
+        if(!appDoc){
+            return {};
+        }
+        let policyTypeArray = [];
+        if(appDoc.policies && appDoc.policies.length > 0){
+            for(let i = 0; i < appDoc.policies.length; i++){
+                policyTypeArray.push({
+                    type: appDoc.policies[i].policyType,
+                    effectiveDate: appDoc.policies[i].effectiveDate
+                });
+            }
+        }
+        if(policyTypeArray.length === 0){
+            return {};
+        }
+
+        const glPolicy = appDoc.policies.find((p) => p.policyType === "GL");
+        if(glPolicy){
+            hasGL = true;
+            glBopPolicy = "GL";
+        }
+        const wcPolicy = appDoc.policies.find((p) => p.policyType === "WC");
+        if(wcPolicy){
+            hasWC = true;
+        }
+        let hasBOP = false;
+        const bopPolicy = appDoc.policies.find((p) => p.policyType === "BOP");
+        if(bopPolicy){
+            hasBOP = true;
+            glBopPolicy = "BOP";
+        }
+        log.debug(`appBO getHint glBopPolicy: ${glBopPolicy}` + __location)
+        ////Get get AgencyLocation Insurers
+        let insurerArray = [];
+        if(appDoc.agencyLocationId && appDoc.agencyLocationId > 0){
+            try{
+                insurerArray = await this.getAgencyLocationInsurers(appDoc, policyTypeArray)
+            }
+            catch(err){
+                throw err
+            }
+        }
+        else {
+            return {}
+        }
+        log.debug(`appBO getHint insurerArray: ${JSON.stringify(insurerArray)}` + __location)
+        if(hasBOP){
+            //Markel an insurer
+            if(insurerArray.includes(3)){
+                //fein not that is FEIN is required.
+                feinRequiredNote = true;
+                glCarriers.push("Markel")
+            }
+
+            //Liberty an insurer
+            if(insurerArray.includes(14)){
+                //fein not that is FEIN is required.
+                feinRequiredNote = true;
+                glCarriers.push("Liberty")
+            }
+        }
+        if(hasGL){
+            //Libery an insurer
+            if(insurerArray.includes(14)){
+                //fein not that is FEIN is required.
+                feinRequiredNote = true;
+                glCarriers.push("Liberty")
+            }
+            //acuity Needs FEIN.
+            if(insurerArray.includes(10)){
+                //fein not that is FEIN is required.
+                feinRequiredNote = true;
+                glCarriers.push("Acuity")
+            }
+
+            //Cotirie - Needs payroll.
+            if(insurerArray.includes(29)){
+                //fein not that is FEIN is required.
+                payrollRequiredNote = true;
+                payrollCarriers.push("Coterie")
+            }
+            //
+        }
+        if(hasWC){
+        //     //acuity gross sales
+        //     //acuity Needs FEIN.
+        //     if(insurerArray.includes(10)){
+        //         //fein not that is FEIN is required.
+        //         grossSalesRequiredNote = true;
+        //         grossSalesCarriers.push("Acuity")
+        //     }
+        }
+        if(feinRequiredNote){
+            hintJson.fein = {};
+            hintJson.fein.hint = `FEIN required for ${glCarriers.join(', ')} ${glBopPolicy}. Check your agencies procedures`
+            //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+            hintJson.fein.displayMessage = `FEIN required for ${glCarriers.join(', ')} ${glBopPolicy}.`;
+        }
+
+        if(payrollRequiredNote){
+            hintJson.payroll = {};
+            hintJson.payroll.hint = `Payroll required for ${payrollCarriers.join(', ')} ${glBopPolicy}. Check your agencies procedures`
+            //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+            hintJson.payroll.displayMessage = `Payroll required for ${payrollCarriers.join(', ')} ${glBopPolicy}.`;
+        }
+
+        // if(grossSalesRequiredNote){
+        //     hintJson.grossSalesAmt = {};
+        //     hintJson.grossSalesAmt.hint = `Payroll required for ${grossSalesCarriers.join(', ')} WC.`
+        //     //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
+        //     hintJson.grossSalesAmt.displayMessage = `Payroll required for ${grossSalesCarriers.join(', ')} WC.`;
+        // }
+
+        log.debug(`appBO getHint pre Hook  hintJson: ${JSON.stringify(hintJson)}` + __location)
+
+        const dataPackageJSON = {
+            hintJson: hintJson,
+            appDoc: appDoc,
+            glCarriers: glCarriers,
+            glBopPolicy: glBopPolicy
+        }
+
+        try{
+            await global.hookLoader.loadhook('app-edit-hints', appDoc.agencyNetworkId, dataPackageJSON);
+        }
+        catch(err){
+            log.error(`Error app-edit-hints hook call error ${err}` + __location);
+        }
+        log.debug(`appBO getHint post Hook  hintJson: ${JSON.stringify(hintJson)}` + __location)
+        return hintJson
     }
 
 }

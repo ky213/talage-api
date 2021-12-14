@@ -288,7 +288,7 @@ module.exports = class AcuityWC extends Integration {
         }
         let yearEstabilished = parseInt(this.app.business.founded.format("YYYY"),10);
         if(!yearEstabilished){
-            yearEstabilished = parseInt(this.policy.effective_date.add(-3,"y").format("YYYY"),10);
+            yearEstabilished = parseInt(moment(this.policy.effective_date).add(-3,"y").format("YYYY"),10);
         }
         // =========================================================================================================
         // Create the quote request

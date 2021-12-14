@@ -275,6 +275,7 @@ async function getAgencyNetworkLogo(req,res, next){
     // Default logoName and Agency Network Name
     let logoName = '1-wheelhouse.png';
     let networkName = 'Wheelhouse';
+    let agencyNetworkId = 1;
 
     // Const for agency network environmentSettings property
     const agencyNetworkEnvironment = 'PORTAL_URL';
@@ -323,6 +324,7 @@ async function getAgencyNetworkLogo(req,res, next){
                     if(agencyNetwork.hasOwnProperty('name')){
                         networkName = agencyNetwork.name;
                     }
+                    agencyNetworkId = agencyNetwork.agencyNetworkId;
                     break;
                 }
             }
@@ -332,7 +334,8 @@ async function getAgencyNetworkLogo(req,res, next){
     const logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
     res.send(200, {
         logoUrl: logoUrl,
-        networkName: networkName
+        networkName: networkName,
+        agencyNetworkId: agencyNetworkId
     });
     return next();
 

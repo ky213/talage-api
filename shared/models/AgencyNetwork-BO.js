@@ -31,31 +31,6 @@ module.exports = class AgencyNetworkBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-            //logo processing
-            if(newObjectJSON.headerLogoContent){
-                const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName).catch(function(err){
-                    reject(err)
-                })
-                if(newFileName){
-                    newObjectJSON.logo = newFileName;
-                }
-                else {
-                    log.error("No files name for S3 logo " + __location)
-                }
-
-            }
-            if(newObjectJSON.footerLogoContent){
-                const newFileName = await this.saveLogofiles(newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false).catch(function(err){
-                    reject(err)
-                })
-                if(newFileName){
-                    newObjectJSON.footer_logo = newFileName;
-                }
-                else {
-                    log.error("No files name for S3 logo " + __location)
-                }
-            }
-            //save
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
@@ -63,6 +38,31 @@ module.exports = class AgencyNetworkBO{
                     reject(err);
                     return;
                 });
+                //logo processing
+                if(newObjectJSON.headerLogoContent){
+                    const newFileName = await this.saveLogofiles(dbDocJSON.name, newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName, true).catch(function(err){
+                        reject(err)
+                    })
+                    if(newFileName){
+                        newObjectJSON.logo = newFileName;
+                    }
+                    else {
+                        log.error("No files name for S3 logo " + __location)
+                    }
+
+                }
+                if(newObjectJSON.footerLogoContent){
+                    const newFileName = await this.saveLogofiles(dbDocJSON.name,newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false).catch(function(err){
+                        reject(err)
+                    })
+                    if(newFileName){
+                        newObjectJSON.footer_logo = newFileName;
+                    }
+                    else {
+                        log.error("No files name for S3 logo " + __location)
+                    }
+                }
+
                 if(dbDocJSON){
                     this.id = dbDocJSON.systemId;
                     newObjectJSON.systemId = dbDocJSON.systemId;
@@ -83,13 +83,13 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-    async saveLogofiles(newLogoContent64, newFileName, isHeader = true){
+    async saveLogofiles(agencyNetworkName,newLogoContent64, newFileName, isHeader = true){
 
         const logoData = newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
 
         const baseS3Path = 'public/agency-network-logos/';
         //clean name
-        let fileName = stringFunctions.santizeFilename(this.name);
+        let fileName = stringFunctions.santizeFilename(agencyNetworkName);
         fileName += isHeader ? "-header-" : "-footer-"
         fileName += uuidv4().toString();
         fileName += `-${stringFunctions.santizeFilename(newFileName)}`

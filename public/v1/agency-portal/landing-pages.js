@@ -19,14 +19,21 @@ async function getLandingPages(req, res, next){
 
     let agent = -1;
     if (req.authentication.isAgencyNetworkUser) {
-        // This is an agency network user, they can only modify agencies in their network
-        // Get the agencies that we are permitted to manage
-        const agencyId = parseInt(req.query.agency, 10);
-        const agencyBO = new AgencyBO();
-        const agencydb = await agencyBO.getById(agencyId);
-        if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
-            log.info('Forbidden: User is not authorized to manage th is agency');
-            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.debug(`usersin global mode for agency` + __location)
+        }
+        else {
+            // This is an agency network user, they can only modify agencies in their network
+            // Get the agencies that we are permitted to manage
+            const agencyId = parseInt(req.query.agency, 10);
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(agencyId);
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage this agency' + __location);
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
         }
         agent = req.query.agency
     }

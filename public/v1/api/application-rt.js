@@ -51,7 +51,7 @@ async function isAuthForApplication(req, applicationId){
                     log.warn("Application requested not found " + __location);
                 }
                 // if the user is part of an agency network, get the list of agencies
-                else if(apUser.agencyNetworkId){
+                else if(apUser.isAgencyNetworkUser){
                     canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
                 }
                 // if not part of a network, just look at the single agency
@@ -80,6 +80,74 @@ async function isAuthForApplication(req, applicationId){
 
     return canAccessApp;
 }
+
+async function isAuthForAgency(req, agencyId, agencyJSON = null){
+    let canAccessAgency = false;
+    if(!req.userTokenData){
+        log.error(`request processing error no userTokenData ` + __location)
+        return false;
+    }
+    //handle quote app adding an application
+    if(req.userTokenData && req.userTokenData.quoteApp && !req.userTokenData.applicationId){
+        return true;
+    }
+
+
+    if(!agencyJSON){
+        try {
+            //TODO check rights to agency.
+            const agencyBO = new AgencyBO();
+            agencyJSON = await agencyBO.getById(agencyId);
+            if (!agencyJSON) {
+                return false;
+            }
+        }
+        catch (err) {
+            log.error(`Application Save get agencyNetworkId  agencyID: ${req.body.agencyId} ` +
+                    err +
+                    __location);
+            return false;
+        }
+    }
+
+
+    if (req.userTokenData && req.userTokenData.apiToken){
+        if(req.userTokenData.userId){
+            // check which agencies the user has access to
+            const agencyPortalUserBO = new AgencyPortalUserBO();
+            const apUser = await agencyPortalUserBO.getById(req.userTokenData.userId);
+            if(apUser){
+                //Is talage super user......
+                if(apUser.agencyNetworkId === 1 && apUser.isAgencyNetworkUser === true && apUser.agencyPortalUserGroupId === 6){
+                    canAccessAgency = true
+                }
+                else if(apUser.isAgencyNetworkUser === true && apUser.agencyNetworkId === agencyJSON.agencyNetworkId){
+                    canAccessAgency = true
+                }
+                if(apUser.agencyId === agencyId){
+                    canAccessAgency = true
+                }
+
+            }
+            else {
+                log.warn(`User ${req.userTokenData.userId} not found in user system` + __location);
+            }
+        }
+        else {
+            log.warn("Recieved request with token but no user id " + __location);
+        }
+    }
+    else {
+        log.warn(`Unauthorized Attempt to modify or access Application JWT type unknown  token: ${JSON.stringify(req.userTokenData)}` + __location);
+    }
+
+    if(canAccessAgency === false){
+        log.warn("Unauthorized Attempt to modify or access Application " + __location);
+    }
+
+    return canAccessAgency;
+}
+
 
 async function applicationSave(req, res, next) {
     log.debug("Application Post: " + JSON.stringify(req.body));
@@ -114,16 +182,28 @@ async function applicationSave(req, res, next) {
             }
         }
 
-
         //Get AgencyNetworkID
         try {
+            //check rights to agency.
             const agencyBO = new AgencyBO();
             const agencyDB = await agencyBO.getById(req.body.agencyId);
-            if (agencyDB) {
-                req.body.agencyNetworkId = agencyDB.agencyNetworkId;
+            let hasAccessToAgency = false;
+            if(agencyDB){
+                hasAccessToAgency = isAuthForAgency(req,req.body.agencyId, agencyDB)
             }
             else {
                 log.warn("Application Save agencyId not found in db " +
+                        req.body.agencyId +
+                        __location);
+                return next(serverHelper.requestError("Not Found Agency"));
+            }
+            if(hasAccessToAgency){
+                if (!req.body.agencyNetworkId) {
+                    req.body.agencyNetworkId = agencyDB.agencyNetworkId;
+                }
+            }
+            else {
+                log.warn("Application Save agencyId access deniedb " +
                         req.body.agencyId +
                         __location);
                 return next(serverHelper.requestError("Not Found Agency"));
@@ -154,6 +234,10 @@ async function applicationSave(req, res, next) {
         //referrer check - if nothing sent set to API.
         if(!req.body.referrer){
             req.body.referrer = "API";
+            if(req.body.agencyPortalCreatedUser !== "system"){
+                req.body.agencyPortalCreatedUser = req.userTokenData.userId
+            }
+            req.body.apiCreated = true;
         }
     }
     else {
@@ -297,6 +381,10 @@ async function applicationSave(req, res, next) {
             if(!req.body.agencyPortalCreated){
                 req.body.agencyPortalCreated = false;
             }
+            if(!req.body.apiCreated){
+                req.body.apiCreated = false;
+            }
+
 
             responseAppDoc = await applicationBO.insertMongo(req.body);
 
@@ -1010,7 +1098,7 @@ async function createQuoteSummary(quote, returnAllQuotes = false) {
         if(insurer){
             quoteSummary.insurer = {
                 id: insurer.id,
-                logo: global.settings.SITE_URL + '/' + insurer.logo,
+                logo: global.settings.IMAGE_URL + '/' + insurer.logo,
                 name: insurer.name,
                 rating: insurer.rating
             }
@@ -1028,7 +1116,7 @@ async function createQuoteSummary(quote, returnAllQuotes = false) {
             message: `${insurer.name} has declined to offer you coverage at this time`,
             insurer: {
                 id: insurer.id,
-                logo: global.settings.SITE_URL + '/' + insurer.logo,
+                logo: global.settings.IMAGE_URL + '/' + insurer.logo,
                 name: insurer.name,
                 rating: insurer.rating
             }

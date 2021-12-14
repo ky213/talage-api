@@ -18,6 +18,10 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
+const QuoteMongooseModel = require('mongoose').model('Quote');
+//const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+
+
 /**
  * Quotereport Task processor
  *
@@ -32,8 +36,11 @@ exports.processtask = async function(queueMessage){
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 1800){
         // DO STUFF
-
-        await quoteReportTask().catch(err => error = err);
+        let messageBody = queueMessage.Body;
+        if(typeof queueMessage.Body === 'string'){
+            messageBody = JSON.parse(queueMessage.Body)
+        }
+        await quoteReportTask(messageBody).catch(err => error = err);
         if(error){
             log.error("Error Quote Report " + error + __location);
         }
@@ -72,22 +79,56 @@ exports.taskProcessorExternal = async function(){
     return;
 }
 
-var quoteReportTask = async function(){
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+var quoteReportTask = async function(messageBody){
+
+    let beginRefDate = moment();
+    let endRefDate = moment();
+    if(messageBody?.beginDate){
+        try{
+            const testDate = moment(messageBody.beginDate);
+            if (testDate.isValid()) {
+                beginRefDate = testDate;
+            }
+
+        }
+        catch(err){
+            log.error(`bad beginDate ${messageBody.beginDate} error ${err}` + __location)
+        }
+    }
+
+    if(messageBody?.endDate){
+        try{
+            const testDate = moment(messageBody.endDate);
+            if (testDate.isValid()) {
+                endRefDate = testDate;
+            }
+
+        }
+        catch(err){
+            log.error(`bad beginDate ${messageBody.endDate} error ${err}` + __location)
+        }
+    }
+
+    const beginDayBegin = beginRefDate.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    const endDayEnd = endRefDate.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     // const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
     // const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     const quoteBO = new QuoteBO()
-    let quoteList = null;
+    let quoteIdList = null;
     try {
         //sort by policyType
-        const quoteQuery = {
-            "searchenddate": yesterdayEnd,
-            "searchbegindate": yesterdayBegin
-        }
-        quoteList = await quoteBO.getList(quoteQuery);
+        // const donotIncludeStatusList = [];
+        // donotIncludeStatusList.push(quoteStatus.piOutOfAppetite.id)
+        // donotIncludeStatusList.push(quoteStatus.priceIndication.id)
+        const quoteQuery = {active: true}
+        quoteQuery.createdAt = {
+            $lte: endDayEnd,
+            $gte: beginDayBegin
+        };
+        const queryProjection = {"quoteId": 1};
+        quoteIdList = await QuoteMongooseModel.find(quoteQuery,queryProjection).lean();
     }
     catch(err){
         log.error("Error getting quote for qoute list " + err + __location);
@@ -113,7 +154,7 @@ var quoteReportTask = async function(){
     // non production Brian so we can test it.
     const toEmail = global.settings.ENV === 'production' ? 'quotereport@talageins.com' : 'brian@talageins.com';
 
-    if(quoteList && quoteList.length > 0){
+    if(quoteIdList && quoteIdList.length > 0){
         const activityCodeBO = new ActivityCodeBO();
         let lastAppDoc = null;
         const reportRows = [];
@@ -135,9 +176,9 @@ var quoteReportTask = async function(){
             log.error("Could not get agency network id to name map " + err + __location);
         })
         //loop quote list.
-        for(let i = 0; i < quoteList.length; i++){
+        for(let i = 0; i < quoteIdList.length; i++){
             try{
-                const quoteDoc = quoteList[i];
+                const quoteDoc = await quoteBO.getById(quoteIdList[i].quoteId);
                 let getAppDoc = false;
                 if(!lastAppDoc){
                     getAppDoc = true;

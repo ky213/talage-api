@@ -227,7 +227,8 @@ const ApplicationMetricsPremiumSchema = new Schema({
 
 const ApplicationMetricsSchema = new Schema({
     lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
-    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    appValue: {type: Number, default: 0}
 });
 
 
@@ -264,6 +265,7 @@ const ApplicationSchema = new Schema({
     wholesale:  {type: Boolean, default: false},
     coverageLapseWC:  {type: Boolean, default: false},
     agencyPortalCreated:  {type: Boolean, required: false, default: false},
+    apiCreated:  {type: Boolean, required: false, default: false},
     abandonedEmail:  {type: Boolean, default: false},
     abandonedAppEmail:  {type: Boolean, default: false},
     optedOutOnlineEmailsent:  {type: Boolean, default: false},

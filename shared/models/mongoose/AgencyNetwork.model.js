@@ -67,6 +67,7 @@ const AgencyNetworkSchema = new Schema({
     agencyNetworkId: {type: Number, unique: true},
     systemId: {type: Number, unique: true},
     name: {type: String, required: true},
+    slug: {type: String, required: false},
     email: {type: String, required: false},
     email_brand: {type: String, required: false},
     logo: {type: String, required: false},
