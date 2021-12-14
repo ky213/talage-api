@@ -177,10 +177,13 @@ async function startQueueProcessing() {
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
         const taskJson = {
-            "taskname": "abandonquote",
-            "deadBeat" : true
+            "taskname": "quotereport",
+            beginDate: "2021-12-08",
+            endDate: "2021-12-10"
+            //"deadBeat" : true
             //"minDaysInPast": 0,
             //"maxDaysInPast": 5
+
         };
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
