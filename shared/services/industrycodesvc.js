@@ -160,7 +160,7 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
                 if(insurerIndustryCodeList[0] && insurerIndustryCodeList[0].uniqueTalageIndustryCodes && insurerIndustryCodeList[0].uniqueTalageIndustryCodes.length > 0){
                     const industryIdList = insurerIndustryCodeList[0].uniqueTalageIndustryCodes;
                     if(industryIdList?.length > 0){
-                        log.debug(`GetBopIndustryCodes industryIdList ${industryIdList}` + __location)
+                        //log.debug(`GetBopIndustryCodes industryIdList ${industryIdList}` + __location)
                         icQuery.industryCodeId = {$in: industryIdList}
                     }
                     else {
@@ -202,7 +202,7 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
 
     const endMongo = moment();
     const diff = endMongo.diff(start, 'milliseconds', true);
-    log.info(`Mongo IndustryCode BOP List processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds runQuery ${runQuery} ${JSON.stringify(icQuery)} ` + __location);
+    log.info(`Mongo IndustryCode BOP List processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds runQuery` + __location);
 
     if(IndustryCodeList.length > 0) {
         IndustryCodeList.forEach(function(ic) {

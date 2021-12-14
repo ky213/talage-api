@@ -1184,19 +1184,8 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     price() {
-        
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
-
-            // Make sure the insurer_quote() function exists - Most insurer do not.
-            if (typeof this._insurer_price === 'undefined') {
-                //const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
-                //log.warn(error_message + __location);
-                //this.reasons.push(error_message);
-                fulfill(false);
-                return;
-            }
-
-            log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
 
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
@@ -1208,27 +1197,26 @@ module.exports = class Integration {
                 this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
             }
 
-            //Check that industry codes codes are supported by the insurer if required
+            // Make sure the insurer_quote() function exists
+            if (typeof this._insurer_price === 'undefined') {
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                fulfill(false);
+                return;
+            }
+
+            // Check that industry codes codes are supported by the insurer if required
             if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
                 // No industry codes when they are required
-                const pricingResult = {
-                    gotPricing: false,
-                    outOfAppetite: true,
-                    pricingError: false
-                }
-                fulfill(pricingResult);
+                fulfill(false);
                 return;
             }
 
             // Check that activity class codes codes are supported by the insurer if required
             if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
                 // No activity class codes when they are required
-                const pricingResult = {
-                    gotPricing: false,
-                    outOfAppetite: true,
-                    pricingError: false
-                }
-                fulfill(pricingResult);
+                fulfill(false);
                 return;
             }
 
@@ -1252,12 +1240,7 @@ module.exports = class Integration {
             //     pricingError: false
             // }
             if(error){
-                const pricingResult = {
-                    gotPricing: false,
-                    outOfAppetite: false,
-                    pricingError: true
-                }
-                fulfill(pricingResult);
+                fulfill(null);
             }
             fulfill(pricingResults);
         });
@@ -1587,10 +1570,9 @@ module.exports = class Integration {
      *
      * @param {int} amount - The amount of the quote
      * @param {string} apiResult - The integration's api result
-      * @param {object} responseQuoteStatus - QuoteStatus object
      * @returns {mixed} - ID on success, error on error
      */
-    async record_quote(amount, apiResult, responseQuoteStatus) {
+    async record_quote(amount, apiResult) {
         const appId = this.applicationDocData.applicationId
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
@@ -1704,16 +1686,9 @@ module.exports = class Integration {
         }
     
         // quoteStatusId and quoteStatusDescription
-        if(responseQuoteStatus && responseQuoteStatus.id && responseQuoteStatus.description){
-            quoteJSON.quoteStatusId = responseQuoteStatus.id;
-            quoteJSON.quoteStatusDescription = responseQuoteStatus.description;
-        }
-        else {
-            const status = getQuoteStatus(false, '', apiResult);
-            quoteJSON.quoteStatusId = status.id;
-            quoteJSON.quoteStatusDescription = status.description;
-        }
-        
+        const status = getQuoteStatus(false, '', apiResult);
+        quoteJSON.quoteStatusId = status.id;
+        quoteJSON.quoteStatusDescription = status.description;
 
         try{
             // Set up quote limits for old-style hydration (should be deprecated eventually)
@@ -1951,7 +1926,7 @@ module.exports = class Integration {
 	 * @param {int} amount - The amount of the indication as a whole number
 	 * @returns {object} - An object containing the indication information
 	 */
-    async return_referred_with_price(amount) {
+    async return_indication(amount) {
         const quoteResp = await this.record_quote(amount, 'referred_with_price');
         return quoteResp;
     }
@@ -2147,7 +2122,7 @@ module.exports = class Integration {
                 return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication` + __location);
-                return this.return_referred_with_price(this.amount);
+                return this.return_indication(this.amount);
 
             default:
         }

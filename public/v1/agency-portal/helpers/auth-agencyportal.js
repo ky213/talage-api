@@ -16,7 +16,7 @@ const serverHelper = global.requireRootPath('server.js');
  * @param {object} req - The Restify request object
  * @return {Promise.<array, ServerError>} A promise that returns an array of agent IDs on success, or a ServerError on failure
  */
-exports.getAgents = async function(req) {
+async function getAgents(req) {
     // Localize data variables that the user is permitted to access
     let error = false;
 
@@ -36,7 +36,6 @@ exports.getAgents = async function(req) {
         agencyResult = await agencyBO.getByAgencyNetwork(agencyNetworkId);
     }
     catch(err){
-        log.error("getAgency load error " + err + __location);
         error = serverHelper.internalError('Error querying database. Check logs.');
     }
 
@@ -48,7 +47,7 @@ exports.getAgents = async function(req) {
     return agencyResult.map(function(agency) {
         return agency.systemId;
     });
-};
+}
 
 /**
  * Validates that the JWT includes the parameters we are expecting
@@ -58,7 +57,7 @@ exports.getAgents = async function(req) {
  * @param {string} permissionType - Required permissions type
  * @return {string} null on success, error message on error
  */
-exports.validateJWT = async function(req, permission, permissionType) {
+async function validateJWT(req, permission, permissionType) {
     try {
         // NOTE: This function should be moved to a shared module. That module should also token creation
 
@@ -72,7 +71,6 @@ exports.validateJWT = async function(req, permission, permissionType) {
         // ====================================================================================================
         if (permission && permission === 'administration') {
             if (!req.authentication.permissions[permission][permissionType]) {
-                log.info('Forbidden: User does not have the correct permissions');
                 return 'User does not have the correct permissions';
             }
             return null;
@@ -83,25 +81,21 @@ exports.validateJWT = async function(req, permission, permissionType) {
 
         // Make sure this user is authenticated
         if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
-            log.info('Forbidden: User is not authenticated' + __location);
             return 'User is not authenticated';
         }
         // Make sure the authentication payload has everything we are expecting
         if (!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID') || !Object.prototype.hasOwnProperty.call(req.authentication, 'permissions')) {
-            log.info('Forbidden: JWT payload is missing parameters' + __location);
             return 'User is not properly authenticated';
         }
 
         // Make sure the agents are what we are expecting
         if (typeof req.authentication.agents !== 'object') {
-            log.info('Forbidden: JWT payload is invalid (agents)');
             return 'User is not properly authenticated';
         }
 
         // Check for the correct permissions
         if (permission && permissionType) {
             if (!req.authentication.permissions[permission][permissionType]) {
-                log.info('Forbidden: User does not have the correct permissions');
                 return 'User does not have the correct permissions';
             }
         }
@@ -111,7 +105,6 @@ exports.validateJWT = async function(req, permission, permissionType) {
             const agent = req.authentication.agents[i];
             // Check the type
             if (typeof agent !== 'number') {
-                log.info('Forbidden: JWT payload is invalid (single agent)');
                 return 'User is not properly authenticated';
             }
         }
@@ -131,7 +124,6 @@ exports.validateJWT = async function(req, permission, permissionType) {
 
         // Make sure the agencyNetwork is what we are expecting
         if (req.authentication.isAgencyNetworkUser === true && typeof req.authentication.agencyNetworkId !== 'number') {
-            log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
             return 'User is not properly authenticated';
         }
 
@@ -139,20 +131,17 @@ exports.validateJWT = async function(req, permission, permissionType) {
         if (req.authentication.isAgencyNetworkUser === true && req.authentication.agencyNetworkId) {
             // Validate the agency network ID
             if (!await validator.is_valid_id(req.authentication.agencyNetworkId)) {
-                log.info('Forbidden: User is not authenticated (agencyNetwork)' + __location);
                 return 'User is not properly authenticated';
             }
         }
         else if (req.authentication.agents.length > 1) {
             // Agencies can only have one agent in their payload
-            log.info('Forbidden: JWT payload is invalid (too many agents)');
             return 'User is not properly authenticated';
         }
 
         // Make sure the User ID is user on the system - Hits database.
         if (!await validator.agency_portal_user(req.authentication.userID)) {
             //Something might be up (attack) if we get here. - BP
-            log.error('JWT payload does not have a valid UserId (invalid User ID)' + __location);
             return 'User is not properly authenticated';
         }
     }
@@ -160,5 +149,79 @@ exports.validateJWT = async function(req, permission, permissionType) {
         return `An unknown error occurred when validating the JWT: ${error}`;
     }
     // Success
+    try{
+        req.authentication.enableGlobalView = false;
+        const redisKey = "apuserinfo-" + req.authentication.userID;
+        const redisValue = await global.redisSvc.getKeyValue(redisKey);
+        if(redisValue.found){
+            const userInfoJSON = JSON.parse(redisValue.value)
+            if(Object.prototype.hasOwnProperty.call(userInfoJSON, 'enableGlobalView')
+                && req.authentication.isAgencyNetworkUser === true
+                && req.authentication.agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true){
+
+                req.authentication.enableGlobalView = userInfoJSON.enableGlobalView
+            }
+        }
+    }
+    catch(err){
+        log.error(`getting user redis cache ${err}` + __location)
+    }
+
+
     return null;
-};
+}
+
+
+/**
+ * Determine if User is Authorized to manage an Agency
+ *
+ * @param {object} req - The Restify request object
+ * @param {integer} agencyId - AgencyId (systemId) required
+ * @param {integer} agencyNetworkId - agencyNetworkId - Optional
+ * @return {string} null on success, error message on error
+ */
+async function authorizedForAgency(req, agencyId, agencyNetworkId){
+    if(typeof agencyId === 'string'){
+        agencyId = parseInt(agencyId, 10);
+    }
+    if(agencyId > 0){
+        if(req.authentication.isAgencyNetworkUser
+            && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true){
+            return true;
+        }
+        if(req.authentication.isAgencyNetworkUser){
+            if(!agencyNetworkId){
+                let error = false;
+                try{
+                    const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
+                    const agencyBO = new AgencyBO();
+                    const agencyJSON = await agencyBO.getById(agencyId, false, false);
+                    agencyNetworkId = agencyJSON?.agencyNetworkId;
+                }
+                catch(err){
+                    error = true;
+                }
+                if(error){
+                    return false;
+                }
+            }
+            return agencyNetworkId === req.authentication.agencyNetworkId
+        }
+        else {
+            return parseInt(req.authentication.agents[0], 10) === agencyId
+        }
+    }
+    else {
+        log.warn(`authorizedForAgency missing agencyId` + __location)
+        return false;
+    }
+
+}
+
+module.exports = {
+    authorizedForAgency: authorizedForAgency,
+    validateJWT: validateJWT,
+    getAgents: getAgents
+}

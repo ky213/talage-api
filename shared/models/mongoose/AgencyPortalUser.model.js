@@ -45,7 +45,8 @@ const AgencyPortalUserSchema = new Schema({
     agencyId: {type: Number},
     agencyLocationId: {type: Number},
     agencyNetworkId: {type: Number},
-    email: {type: String, required: true, unique: true},
+    isAgencyNetworkUser: {type: Boolean, default: false},
+    email: {type: String, required: true},
     password: {type: String, required: false},
     openidAuthConfigId: {type: String, required: false},
     agencyPortalUserGroupId: {type: Number, required: true, default: 0},
@@ -61,7 +62,8 @@ const AgencyPortalUserSchema = new Schema({
     agencyNotificationList: [Number],
     notificationPolicyTypeList: {type: [String], required: false, default: []},
     additionalInfo: {type: Schema.Types.Mixed},
-    active: {type: Boolean, default: true}
+    active: {type: Boolean, default: true},
+    enableGlobalView: {type: Boolean, required: false, default: false}
 },opts)
 
 

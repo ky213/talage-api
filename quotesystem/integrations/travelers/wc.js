@@ -271,18 +271,25 @@ module.exports = class AcuityWC extends Integration {
             primaryContact = appDoc.contacts[0]
         }
         else if (!primaryContact){
-            primaryContact = {};
+            primaryContact = {phone: ''};
         }
         let contactPhone = '';
-        try{
-            contactPhone = primaryContact.phone.toString()
-            contactPhone = stringFunctions.santizeNumber(contactPhone, false);
+        if(primaryContact){
+            try{
+                contactPhone = primaryContact?.phone?.toString()
+                contactPhone = stringFunctions.santizeNumber(contactPhone, false);
+            }
+            catch(err){
+                log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
+            }
         }
-        catch(err){
-            log.error(`Appid: ${this.app.id} Travelers WC: Unable to get contact phone. error: ${err} ` + __location);
+        else {
+            contactPhone = "510555555";
         }
-
-
+        let yearEstabilished = parseInt(this.app.business.founded.format("YYYY"),10);
+        if(!yearEstabilished){
+            yearEstabilished = parseInt(moment(this.policy.effective_date).add(-3,"y").format("YYYY"),10);
+        }
         // =========================================================================================================
         // Create the quote request
         const quoteRequestData = {
@@ -317,7 +324,7 @@ module.exports = class AcuityWC extends Integration {
             "businessInfo": {"locations": await this.getLocationList()},
             "basisOfQuotation": {
                 eligibility: {},
-                "yearBusinessEstablished": parseInt(this.app.business.founded.format("YYYY"),10),
+                "yearBusinessEstablished": yearEstabilished,
                 "totalAnnualWCPayroll": this.get_total_payroll()
             }
         };

@@ -364,7 +364,7 @@ module.exports = class QuoteBind{
         const agencyLocationBO = new AgencyLocationBO()
         let notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
         //Temporarily send talage all bound activity.
-        if(type === 'bound' || type === 'boundApiCheck'){
+        if(type === 'bound' || type === 'boundApiCheck' || type === 'boundWebHook'){
             notifiyTalage = true;
         }
         //temporarily notify Talage of all Bound
@@ -418,6 +418,20 @@ module.exports = class QuoteBind{
 
             switch(type){
                 //bound app found check insurer API.
+                case 'boundWebHook':
+                    try{
+                        const appIdField = {
+                            'short': true,
+                            'title': 'Application Id',
+                            'value': this.quoteDoc.applicationId
+                        }
+                        attachment.fields.push(appIdField)
+                    }
+                    catch(err){
+                        log.error(`QuoteBind send_slack_notification process error ${err} ` + __location);
+                    }
+                    slack.send('customer_success', 'celebrate', `*Bound Application notice received on ${this.insurer.name}'s webhook!*`, attachment);
+                    return;
                 case 'boundApiCheck':
                     try{
                         const appIdField = {

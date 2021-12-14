@@ -31,18 +31,26 @@ async function getUsers(req, res, next){
     }
 
     if(req.authentication.isAgencyNetworkUser && req.query.agency){
-        const agencyId = parseInt(req.query.agency, 10);
-        const agencyBO = new AgencyBO();
-        const agencydb = await agencyBO.getById(agencyId);
-        if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
-            log.info('Forbidden: User is not authorized to manage th is user');
-            return next(serverHelper.forbiddenError('You are not authorized to manage this user'));
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.debug(`usersin global mode for agency` + __location)
+        }
+        else {
+            const agencyId = parseInt(req.query.agency, 10);
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(agencyId);
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage this user' + __location);
+                return next(serverHelper.forbiddenError('You are not authorized to manage this user'));
+            }
         }
 
         retrievingAgencyUsersForAgencyNetwork = true;
     }
     else if (req.authentication.isAgencyNetworkUser){
         query.agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
+        query.isAgencyNetworkUser = true
         getAgencyNetworkRoles = true;
     }
     else {
