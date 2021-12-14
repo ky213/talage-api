@@ -1530,6 +1530,12 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if (queryJSON.appValue && queryJSON.appValue > 0) {
+                query['metrics.appValue'] = {$gte: queryJSON.appValue};
+                //query.appValue = {$gte: parseInt(queryJSON.appValue,10)};
+                delete queryJSON.appValue;
+            }
+
 
             //Policy expirationDate Searching
             if (queryJSON.beginpolicyexprdate && queryJSON.endpolicyexprdate) {
@@ -1695,10 +1701,11 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    //log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
-                    //log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
-                    //log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
+                    log.debug("getAppListForAgencyPortalSearch query " + JSON.stringify(query) + __location)
+                    log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
+                    log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
+                    log.debug(`docList.length ${docList.length}`)
                     if(docList.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
@@ -1817,7 +1824,7 @@ module.exports = class ApplicationModel {
 
                     }
                 }
-                //log.debug(`getAppListForAgencyPortalSearch Count use Mongo `)
+                log.debug(`getAppListForAgencyPortalSearch Count use Mongo query ${JSON.stringify(query)} `)
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
                     log.error(`Application.countDocuments error query ${JSON.stringify(query)}` + err + __location);
                     error = null;
@@ -1827,6 +1834,7 @@ module.exports = class ApplicationModel {
                     reject(error);
                     return;
                 }
+                log.debug(`getAppListForAgencyPortalSearch Count: ${docCount} `)
                 if(useRedisCache === true && redisKey && docCount){
                     try{
                         const ttlSeconds = 86400; //1 day
@@ -2335,9 +2343,23 @@ module.exports = class ApplicationModel {
                     }
                 };
 
+                let appValueDollars = 0;
+                // eslint-disable-next-line array-element-newline
+                const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
+                for(let i = 0; i < productTypeList.length; i++){
+                    if(metrics.lowestBoundQuoteAmount[productTypeList[i]]){
+                        appValueDollars += metrics.lowestBoundQuoteAmount[productTypeList[i]]
+                    }
+                    else if (metrics.lowestQuoteAmount[productTypeList[i]]){
+                        appValueDollars += metrics.lowestQuoteAmount[productTypeList[i]]
+                    }
+                }
+                metrics.appValue = appValueDollars;
+
                 // updateMongo does lots of checking and potential resettings.
                 // await this.updateMongo(applicationId, {metrics: metrics});
                 // Add updatedAt
+                // eslint-disable-next-line object-curly-newline
                 let updateJSON = {metrics: metrics};
                 updateJSON.updatedAt = new Date();
 

@@ -227,7 +227,8 @@ const ApplicationMetricsPremiumSchema = new Schema({
 
 const ApplicationMetricsSchema = new Schema({
     lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
-    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    appValue: {type: Number, default: 0}
 });
 
 

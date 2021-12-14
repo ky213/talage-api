@@ -66,22 +66,32 @@ function getAppValueString(applicationDoc){
             //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
             //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
         });
-        let appValueDollars = 0;
-        // eslint-disable-next-line no-unused-vars
-        const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
-        for(let i = 0; i < productTypeList.length; i++){
-            if(applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]){
-                appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
-            }
-            else if (applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]){
-                appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
-            }
+
+        if(applicationDoc.metrics.appValue > 0){
+            return formatter.format(applicationDoc.metrics.appValue);
         }
-        if(appValueDollars > 0){
-            return formatter.format(appValueDollars);
-        }
-        else {
-            return "";
+        else{
+            let appValueDollars = 0;
+            //update record so it is searchable.
+            // eslint-disable-next-line no-unused-vars
+            const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
+            for(let i = 0; i < productTypeList.length; i++){
+                if(applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]){
+                    appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
+                }
+                else if (applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]){
+                    appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
+                }
+            }
+            if(appValueDollars > 0){
+                //do not await - write can take place in background.
+                const appBO = new ApplicationBO();
+                appBO.recalculateQuoteMetrics(applicationDoc.applicationId);
+                return formatter.format(appValueDollars);
+            }
+            else {
+                return "";
+            }
         }
     }
     else {
@@ -369,6 +379,11 @@ async function getApplications(req, res, next){
         {
             "name": 'tagString',
             "type": 'string',
+            "optional": true
+        },
+        {
+            "name": 'appValue',
+            "type": 'number',
             "optional": true
         }
     ];
@@ -708,9 +723,17 @@ async function getApplications(req, res, next){
 
     }
 
+    //Tag from advanced filter should not be an OR. It should act as a filter. therefore it is an AND. - BP
+    //tag should be a hard match not a substring match. - BP
     if (req.params.tagString && req.params.tagString.length > 1) {
-        const tag = {tagString: `%${req.params.tagString}%`}
-        orClauseArray.push(tag);
+        //const tag = {tagString: `%${req.params.tagString}%`}
+        //orClauseArray.push(tag);
+        query.tagString = req.params.tagString;
+    }
+
+    if (req.params.appValue && req.params.appValue > 0) {
+        //$GTE handled in BO.
+        query.appValue = req.params.appValue;
     }
 
     //agency search has to be after insurer search
@@ -832,16 +855,21 @@ async function getApplications(req, res, next){
     try{
         // eslint-disable-next-line prefer-const
         let totalQueryJson = {};
+        let noCacheUseForTotal = true
         if(query.agencyNetworkId){
             totalQueryJson.agencyNetworkId = query.agencyNetworkId
+            noCacheUseForTotal = false
         }
         else if(query.agencyId){
             totalQueryJson.agencyId = query.agencyId
+            noCacheUseForTotal = false
         }
-        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
+        log.debug(`Get applications totalQueryJson ${JSON.stringify(totalQueryJson)}` + __location)
+        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1}, 0, true);
         applicationsTotalCount = applicationsTotalCountJSON.count;
 
         // query object is altered in getAppListForAgencyPortalSearch
+        log.debug(`Get applications query ${JSON.stringify(query)}` + __location)
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
@@ -874,7 +902,7 @@ async function getApplications(req, res, next){
 
     }
     catch(err){
-        log.error(`Error Getting application doc JSON.stringify(requestParms) JSON.stringify(query) error:` + err + __location)
+        log.error(`Error Getting application doc requestParms: ${JSON.stringify(requestParms)} query: ${JSON.stringify(query)} error:` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
