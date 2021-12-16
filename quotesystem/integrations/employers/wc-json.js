@@ -247,15 +247,20 @@ module.exports = class EmployersWC extends Integration {
             const businessName = appDoc.businessName.substring(0,60).replace('&', '');
 
             const locations = [];
-            //If there is only one location make sure it is marked as primary.  Old apps used in renewal may not have it marked.
-            if(appDoc.locations?.length === 1 && appDoc.locations[0].primary !== true){
-                appDoc.locations[0].primary = true;
-            }
+            const primaryLocationIndex = appDoc.locations.findIndex(
+              ({ primary }) => primary
+            )    
 
-            for (const location of appDoc.locations) {
+            for (const index in appDoc.locations) {
+                const location = appDoc.locations[index]
                 const locationJSON = {};
 
-                locationJSON.primary = appDoc.locations[0].primary = true;
+                //make sure only one location is set to "primary"
+                if (primaryLocationIndex > -1 ) {
+                    locationJSON.primary = index == primaryLocationIndex
+                } else {
+                  if (index == 0) locationJSON.primary = true
+                }
 
                 if (businessName) {
                     locationJSON.businessName = businessName;
