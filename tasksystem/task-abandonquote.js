@@ -25,7 +25,7 @@ const log = global.log;
  * @param {string} queueMessage - message from queue
  * @returns {void}
  */
-exports.processtask = async function(queueMessage){
+async function processtask(queueMessage){
     let error = null;
     //check sent time over 30 seconds do not process.
     var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
@@ -63,7 +63,7 @@ exports.processtask = async function(queueMessage){
  *
  * @returns {void}
  */
-exports.taskProcessorExternal = async function(){
+async function taskProcessorExternal(){
     let error = null;
     await abandonquotetask().catch(err => error = err);
     if(error){
@@ -77,7 +77,7 @@ exports.taskProcessorExternal = async function(){
  *
  * @returns {void}
  */
-var abandonquotetask = async function(){
+async function abandonquotetask(){
 
     const oneHourAgo = new moment().subtract(1,'h').startOf('minute');
     const twoHourAgo = new moment().subtract(2,'h').startOf('minute');
@@ -183,7 +183,8 @@ var abandonquotetask = async function(){
     return;
 }
 
-var processAbandonQuote = async function(applicationDoc, insurerList, policyTypeList){
+// eslint-disable-next-line require-jsdoc
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
     if(!applicationDoc){
         return;
     }
@@ -590,4 +591,10 @@ var markApplicationProcess = async function(appDoc){
         throw err;
     }
 
+}
+
+module.exports = {
+    processtask: processtask,
+    taskProcessorExternal: taskProcessorExternal,
+    processAbandonQuote: processAbandonQuote
 }
