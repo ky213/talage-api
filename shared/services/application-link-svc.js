@@ -2,7 +2,6 @@
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
-const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
@@ -42,25 +41,32 @@ async function createQuoteApplicationLink(appId, options){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
         return;
     }
+    let returnLink = '';
+    try{
+        const ApplicationBO = global.requireShared("models/Application-BO.js");
+        const applicationBO = new ApplicationBO();
+        const application = await applicationBO.getById(appId);
 
-    const applicationBO = new ApplicationBO();
-    const application = await applicationBO.getById(appId);
+        const agencyBO = new AgencyBO();
+        const agency = await agencyBO.getById(application.agencyId);
 
-    const agencyBO = new AgencyBO();
-    const agency = await agencyBO.getById(application.agencyId);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+        // create hash
+        const hash = await crypt.hash(appId);
 
-    // create hash
-    const hash = await crypt.hash(appId);
-
-    // store hash in redis with application id as value
-    await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
-    const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
+        // store hash in redis with application id as value
+        await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
+        const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
+        returnLink = await sendQuoteEmail(agency, link, options, application);
+    }
+    catch(err){
+        log.error(`createQuoteApplicationLink error ${err}` + __location)
+    }
 
     // send an email if an emailAddress is provided on options
-    const returnLink = await sendQuoteEmail(agency, link, options, application);
+
     return returnLink;
 }
 
@@ -88,54 +94,68 @@ async function createAgencyPortalApplicationLink(appId, options){
         log.error(`Error generating application link for agent: From Agency Portal User was not provided.` + __location);
         return;
     }
+    let returnLink = '';
+    try{
+        let application = null;
+        try{
+            const ApplicationBO = global.requireShared("models/Application-BO.js");
+            const applicationBO = new ApplicationBO();
+            application = await applicationBO.getById(appId);
+        }
+        catch(err){
+            log.error(`createQuoteApplicationLink error ${err}` + __location)
+            throw err;
+        }
 
-    const applicationBO = new ApplicationBO();
-    const application = await applicationBO.getById(appId);
+        const agencyBO = new AgencyBO();
+        const agency = await agencyBO.getById(application.agencyId);
 
-    const agencyBO = new AgencyBO();
-    const agency = await agencyBO.getById(application.agencyId);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+        //load from agencyportal user
 
-    //load from agencyportal user
+        // check that the provided email address is a valid agent (agency portal user) with proper permissions
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        const fromAgencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
+        if (fromAgencyPortalUser) {
+            options.fromEmailAddress = fromAgencyPortalUser.email;
+        }
 
-    // check that the provided email address is a valid agent (agency portal user) with proper permissions
-    const agencyPortalUserBO = new AgencyPortalUserBO();
-    const fromAgencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
-    if (fromAgencyPortalUser) {
-        options.fromEmailAddress = fromAgencyPortalUser.email;
+        // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
+        let hash = null;
+        if (options.autoLogin) {
+            let toAgencyPortalUser = null;
+            try {
+                toAgencyPortalUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(options.toEmail, application.agencyNetworkId);
+            }
+            catch (e) {
+                log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
+            }
+
+            // if we were able to find the person, create the auto-login hash/value and store in redis
+            if (toAgencyPortalUser) {
+                hash = await crypt.hash(`${moment.now()}`);
+                const value = {agencyPortalUserId: toAgencyPortalUser.agencyPortalUserId};
+
+                // store the hash in redis using prefixed key
+                await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
+            }
+            else {
+                log.info(`Unable to find agency portal user ${options.toEmail} for auto login.` + __location);
+            }
+        }
+
+        // build the link
+        const link = await buildAgencyPortalLink(agencyNetwork, appId, hash);
+
+        // send the email to the agent and return the link
+        returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
+    }
+    catch(err){
+        log.error(`createAgencyPortalApplicationLink error ${err}` + __location)
     }
 
-    // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
-    let hash = null;
-    if (options.autoLogin) {
-        let toAgencyPortalUser = null;
-        try {
-            toAgencyPortalUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(options.toEmail, application.agencyNetworkId);
-        }
-        catch (e) {
-            log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
-        }
-
-        // if we were able to find the person, create the auto-login hash/value and store in redis
-        if (toAgencyPortalUser) {
-            hash = await crypt.hash(`${moment.now()}`);
-            const value = {agencyPortalUserId: toAgencyPortalUser.agencyPortalUserId};
-
-            // store the hash in redis using prefixed key
-            await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
-        }
-        else {
-            log.info(`Unable to find agency portal user ${options.toEmail} for auto login.` + __location);
-        }
-    }
-
-    // build the link
-    const link = await buildAgencyPortalLink(agencyNetwork, appId, hash);
-
-    // send the email to the agent and return the link
-    const returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
     return returnLink;
 }
 

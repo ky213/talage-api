@@ -2302,9 +2302,10 @@ async function accesscheckEmail(email, applicationJSON){
 
 // eslint-disable-next-line no-unused-vars
 async function accesscheck(appId, req, retObject){
-    const applicationBO = new ApplicationBO();
+    
     let passedAgencyCheck = false;
     try{
+        const applicationBO = new ApplicationBO();
         const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
             passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc?.agencyId, applicationDBDoc?.agencyNetworkId)
