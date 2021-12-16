@@ -247,19 +247,19 @@ module.exports = class EmployersWC extends Integration {
             const businessName = appDoc.businessName.substring(0,60).replace('&', '');
 
             const locations = [];
-            const primaryLocationIndex = appDoc.locations.findIndex(
-              ({ primary }) => primary
-            )    
+            const primaryLocationIndex = appDoc.locations.findIndex(({ primary }) => primary);
 
             for (const index in appDoc.locations) {
                 const location = appDoc.locations[index]
                 const locationJSON = {};
 
                 //make sure only one location is set to "primary"
-                if (primaryLocationIndex > -1 ) {
-                    locationJSON.primary = index == primaryLocationIndex
+                if (primaryLocationIndex > -1) {
+                  locationJSON.primary = +index === primaryLocationIndex
                 } else {
-                  if (index == 0) locationJSON.primary = true
+                  if (+index === 0) {
+                    locationJSON.primary = true
+                  }
                 }
 
                 if (businessName) {
