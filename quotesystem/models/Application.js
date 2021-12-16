@@ -461,8 +461,16 @@ module.exports = class Application {
 
         let talageQuestionDefList = null;
         try {
+            const zipCodeArray = [];
+            const stateList = [];
+            for (let i = 0; i < this.applicationDocData.locations.length; i++) {
+                zipCodeArray.push(this.applicationDocData.locations[i].zipcode);
+                if (stateList.indexOf(this.applicationDocData.locations[i].state) === -1) {
+                    stateList.push(this.applicationDocData.locations[i].state)
+                }
+            }
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
-            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, this.business.getZips(), policyList, insurer_ids, "general", true);
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, zipCodeArray, policyList, insurer_ids, "general", true, stateList);
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
         }
         catch (e) {
@@ -470,7 +478,6 @@ module.exports = class Application {
             //throw e;
         }
         // Grab the answers the user provided to our questions and reset the question object
-
         this.questions = {};
         // Convert each question from the database into a question object and load in the user's answer to each
         if (talageQuestionDefList) {
@@ -480,7 +487,6 @@ module.exports = class Application {
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
                 q.load(questionDef);
-
                 // Load the user's answer
                 //work with Application dataa
                 if (this.applicationDocData.questions) {
