@@ -379,7 +379,7 @@ const injectAnswers = async(integration, token, fullQuestionSession, questionAns
     // questionAnswers parameter.
     for (const group of allGroups) {
         for (const question of group.questions) {
-            if (!questionAnswers[question.questionId]) {
+            if (!questionAnswers.hasOwnProperty(question.questionId)) {
                 continue;
             }
             let answer = questionAnswers[question.questionId]
