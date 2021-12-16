@@ -1102,106 +1102,139 @@ module.exports = class Application {
                 log.error(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
             }
         }
-        else if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
-            // immediately notify agency network of quote
-            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
-            if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
-                log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
-            }
-            else {
-                let portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
-
-                let message = emailContentAgencyNetworkJSON.message;
-                let subject = emailContentAgencyNetworkJSON.subject;
-
-                // Perform content replacements
-                const capitalizedBrand = emailContentAgencyNetworkJSON.emailBrand.charAt(0).toUpperCase() + emailContentAgencyNetworkJSON.emailBrand.substring(1);
-                message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
-
-                message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
-                message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
-
-                message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
-
-                message = message.replace(/{{Brand}}/g, capitalizedBrand);
-                message = message.replace(/{{Business Name}}/g, this.business.name);
-                message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
-                message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
-                message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
-                message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
-
-                subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                if (quoteList[0].status) {
-                    message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
-                }
-
-                //TODO Applink processing
-                const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
-                if(messageUpdate){
-                    message = messageUpdate
-                }
-                const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
-                if(updatedEmailObject.message){
-                    message = updatedEmailObject.message
-                }
-                if(updatedEmailObject.subject){
-                    subject = updatedEmailObject.subject
-                }
-
-                log.info(`AppId ${this.id} sending agency network QUOTE email`);
-                // Send the email message - development should email. change local config to get the email.
-                let recipientsString = agencyNetworkDB.email
-                //Check for AgencyNetwork users are suppose to get notifications for this agency.
-                if(this.applicationDocData.agencyId){
-                    // look up agencyportal users by agencyNotificationList
-                    try{
-                        const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
-                        const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
-
-                        if(anRecipents.length > 2){
-                            recipientsString += `,${anRecipents}`
-                        }
-                    }
-                    catch(err){
-                        log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
-                    }
-                }
-
-                let branding = "Networkdefault";
-                // Sofware Hook
-                const dataPackageJSON = {
-                    appDoc: this.applicationDocData,
-                    agencyNetworkDB: agencyNetworkDB,
-                    htmlBody: message,
-                    emailSubject: subject,
-                    branding: branding,
-                    recipients: recipientsString
-                }
-                const hookName = 'got-qoute-email-agencynetwork'
+        else {
+            // eslint-disable-next-line no-lonely-if
+            if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && agencyNetworkDB?.featureJson?.agencyQuoteEmailsNoWaitOnQuote === true){
+                ////&& this.agencyPortalQuote === false
+                //call abanddonQuotetask to send agency and agencynetwork emails.
+                // Assumes agency network get an immediate notication also.
+                const taskAbandonQuote = global.requireRootPath('tasksystem/task-abandonquote.js');
+                const InsurerBO = global.requireShared('models/Insurer-BO.js');
+                const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
+                let insurerList = null;
+                const insurerBO = new InsurerBO();
                 try{
-                    await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
-                    message = dataPackageJSON.htmlBody
-                    subject = dataPackageJSON.emailSubject
-                    branding = dataPackageJSON.branding
-                    recipientsString = dataPackageJSON.recipients
+                    insurerList = await insurerBO.getList();
                 }
                 catch(err){
-                    log.error(`Error ${hookName} hook call error ${err}` + __location);
+                    log.error("Error get InsurerList " + err + __location)
                 }
+                let policyTypeList = null;
+                const policyTypeBO = new PolicyTypeBO()
+                try{
+                    policyTypeList = await policyTypeBO.getList();
+                }
+                catch(err){
+                    log.error("Error get policyTypeList " + err + __location)
+                }
+                try{
+                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList)
+                }
+                catch(err){
+                    log.debug('catch error from await ' + err);
+                }
+            }
+            else if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
+                // immediately notify agency network of quote
+                const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
+                if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
+                    log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
+                }
+                else {
+                    let portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
 
-                await emailSvc.send(recipientsString,
-                    subject,
-                    message,
-                    {
-                        agencyLocationId: this.agencyLocation.id,
-                        applicationId: this.applicationDocData.applicationId,
-                        applicationDoc: this.applicationDocData
+                    let message = emailContentAgencyNetworkJSON.message;
+                    let subject = emailContentAgencyNetworkJSON.subject;
 
-                    },
-                    this.applicationDocData.agencyNetworkId,
-                    branding,
-                    this.applicationDocData.agencyId);
+                    // Perform content replacements
+                    const capitalizedBrand = emailContentAgencyNetworkJSON.emailBrand.charAt(0).toUpperCase() + emailContentAgencyNetworkJSON.emailBrand.substring(1);
+                    message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
+
+                    message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                    message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+                    message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+
+                    message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
+
+                    message = message.replace(/{{Brand}}/g, capitalizedBrand);
+                    message = message.replace(/{{Business Name}}/g, this.business.name);
+                    message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
+                    message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
+                    message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
+                    message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+
+                    subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                    if (quoteList[0].status) {
+                        message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
+                    }
+
+                    //TODO Applink processing
+                    const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
+                    if(messageUpdate){
+                        message = messageUpdate
+                    }
+                    const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
+                    if(updatedEmailObject.message){
+                        message = updatedEmailObject.message
+                    }
+                    if(updatedEmailObject.subject){
+                        subject = updatedEmailObject.subject
+                    }
+
+                    log.info(`AppId ${this.id} sending agency network QUOTE email`);
+                    // Send the email message - development should email. change local config to get the email.
+                    let recipientsString = agencyNetworkDB.email
+                    //Check for AgencyNetwork users are suppose to get notifications for this agency.
+                    if(this.applicationDocData.agencyId){
+                        // look up agencyportal users by agencyNotificationList
+                        try{
+                            const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                            const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
+
+                            if(anRecipents.length > 2){
+                                recipientsString += `,${anRecipents}`
+                            }
+                        }
+                        catch(err){
+                            log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
+                        }
+                    }
+
+                    let branding = "Networkdefault";
+                    // Sofware Hook
+                    const dataPackageJSON = {
+                        appDoc: this.applicationDocData,
+                        agencyNetworkDB: agencyNetworkDB,
+                        htmlBody: message,
+                        emailSubject: subject,
+                        branding: branding,
+                        recipients: recipientsString
+                    }
+                    const hookName = 'got-qoute-email-agencynetwork'
+                    try{
+                        await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
+                        message = dataPackageJSON.htmlBody
+                        subject = dataPackageJSON.emailSubject
+                        branding = dataPackageJSON.branding
+                        recipientsString = dataPackageJSON.recipients
+                    }
+                    catch(err){
+                        log.error(`Error ${hookName} hook call error ${err}` + __location);
+                    }
+
+                    await emailSvc.send(recipientsString,
+                        subject,
+                        message,
+                        {
+                            agencyLocationId: this.agencyLocation.id,
+                            applicationId: this.applicationDocData.applicationId,
+                            applicationDoc: this.applicationDocData
+
+                        },
+                        this.applicationDocData.agencyNetworkId,
+                        branding,
+                        this.applicationDocData.agencyId);
+                }
             }
         }
 
