@@ -88,8 +88,10 @@ module.exports = class AgencyNetworkBO{
         const logoData = newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
 
         const baseS3Path = 'public/agency-network-logos/';
-        //clean name
+        //clean filename
         let fileName = stringFunctions.santizeFilename(agencyNetworkName);
+        //clean filename for S3 as filesvc does.
+        fileName = fileName.replace(/[^a-zA-Z0-9-_/.]/g, '');
         fileName += isHeader ? "-header-" : "-footer-"
         fileName += uuidv4().toString();
         fileName += `-${stringFunctions.santizeFilename(newFileName)}`
