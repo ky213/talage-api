@@ -276,7 +276,7 @@ module.exports = class GreatAmericanWC extends Integration {
             insurerAskedQuestionIds = this.getInsurerAskedQuestionIds(questionnaire);
             missingQuestionIds = [];
             for (const insurerAskedQuestionId of insurerAskedQuestionIds) {
-                if (!questions[insurerAskedQuestionId]) {
+                if (!questions.hasOwnProperty(insurerAskedQuestionId)) {
                     missingQuestionIds.push(insurerAskedQuestionId);
                 }
             }
