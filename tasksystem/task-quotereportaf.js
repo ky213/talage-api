@@ -111,9 +111,9 @@ var quoteReportTask = async function(){
 
         //Load AgencyNetwork Map
         const agencyNetworkBO = new AgencyNetworkBO();
-        let agencyNetworkNameMapJSON = {};
-        agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
-            log.error("Could not get agency network id to name map " + err + __location);
+        let agencyNetworkList = {};
+        agencyNetworkList = await agencyNetworkBO.getList({}).catch(function(err){
+            log.error("Could not get agency network list " + err + __location);
         })
         //loop quote list.
         for(let i = 0; i < quoteList.length; i++){
@@ -144,8 +144,12 @@ var quoteReportTask = async function(){
                 newRow.policy_type = quoteDoc.policyType;
                 newRow.name = insurer.name;
                 if(lastAppDoc){
-                    newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
-                    newRow.businessName = lastAppDoc.businessName;
+                    // eslint-disable-next-line no-loop-func
+                    const agencyNetworkJSON = agencyNetworkList.find((an) => an.agencyNetworkId === lastAppDoc.agencyNetworkId)
+                    if(agencyNetworkJSON){
+                        newRow.network = agencyNetworkJSON.name;
+                        newRow.businessName = lastAppDoc.businessName;
+                    }
                 }
                 else {
                     newRow.network = "App Deleted"
@@ -281,34 +285,4 @@ var quoteReportTask = async function(){
         return;
     }
 
-
-    // // Loop locations setting up activity codes.
-    // if(quoteListDBJSON && quoteListDBJSON.length > 0){
-    //     //Load AgencyNetwork Map
-    //     const agencyNetworkBO = new AgencyNetworkBO();
-    //     let agencyNetworkNameMapJSON = {};
-    //     agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
-    //         log.error("Could not get agency network id to name map " + err + __location);
-    //     });
-
-    //     for(let i = 0; i < quoteListDBJSON.length; i++){
-
-    //         const quote = quoteListDBJSON[i];
-
-    //         // get AgencyNetwork name from map
-    //         if(agencyNetworkNameMapJSON[quoteListDBJSON[i].agencyNetworkId]){
-    //             quoteListDBJSON[i].network = agencyNetworkNameMapJSON[quoteListDBJSON[i].agencyNetworkId];
-    //         }
-
-    //         //split activity_codes
-    //         if(quote.activity_codes){
-    //             const activityCodeList = quote.activity_codes.split(",")
-    //             if (activityCodeList.length > 0) quote.activitycode1 = activityCodeList[0];
-    //             if (activityCodeList.length > 1) quote.activitycode2 = activityCodeList[1];
-    //             if (activityCodeList.length > 2) quote.activitycode3 = activityCodeList[2];
-    //         }
-
-    //     }
-
-    //
 }

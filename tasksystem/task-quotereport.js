@@ -171,9 +171,9 @@ var quoteReportTask = async function(messageBody){
 
         //Load AgencyNetwork Map
         const agencyNetworkBO = new AgencyNetworkBO();
-        let agencyNetworkNameMapJSON = {};
-        agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
-            log.error("Could not get agency network id to name map " + err + __location);
+        let agencyNetworkList = {};
+        agencyNetworkList = await agencyNetworkBO.getList({}).catch(function(err){
+            log.error("Could not get agency network list " + err + __location);
         })
         //loop quote list.
         for(let i = 0; i < quoteIdList.length; i++){
@@ -210,7 +210,11 @@ var quoteReportTask = async function(messageBody){
                 newRow.policy_type = quoteDoc.policyType;
                 newRow.name = insurer.name;
                 if(lastAppDoc){
-                    newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
+                    // eslint-disable-next-line no-loop-func
+                    const agencyNetworkJSON = agencyNetworkList.find((an) => an.agencyNetworkId === lastAppDoc.agencyNetworkId)
+                    if(agencyNetworkJSON){
+                        newRow.network = agencyNetworkJSON.name;
+                    }
                 }
                 else {
                     newRow.network = "App Deleted"
