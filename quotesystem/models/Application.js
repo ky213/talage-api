@@ -1307,7 +1307,12 @@ module.exports = class Application {
             }
             catch (e) {
                 if(logValidationErrors){
-                    log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                    if(e.message?.includes("Application's Agency Location does not cover")){
+                        log.info(`Applicaiton Model: validateAgencyLocation(): ${e.message}. ` + __location);
+                    }
+                    else {
+                        log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                    }
                 }
                 return reject(e);
             }

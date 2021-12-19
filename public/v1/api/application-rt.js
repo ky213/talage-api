@@ -844,7 +844,11 @@ async function validate(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error('Application Validation ' + errMessage + __location);
+
+        if (!err.message?.includes("Application's Agency Location does not cover")) {
+            log.error('Application Validation ' + errMessage + __location)
+        }
+
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -930,7 +934,11 @@ async function startQuoting(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${applicationId}: ${err.message}`;
-        log.error('Application Validation ' + errMessage + __location);
+
+        if (!err.message?.includes("Application's Agency Location does not cover")) {
+            log.error('Application Validation ' + errMessage + __location)
+        }
+
         res.send(400, errMessage);
         return next();
     }
