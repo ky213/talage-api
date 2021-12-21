@@ -206,7 +206,7 @@ async function QuestionImport(amtrustClassCodeMap) {
     log.info(logPrefix + `- ${updatedIQLinks} updates to AmTrust question links ` + __location);
 
     //send email with the above stats to integrations@talageins.com
-    if(newQuestionList.length > 0){
+    if(newQuestionList.length > 0 || updatedIQLinks > 0){
         //trigger to send email since codes were addeded
         let messageTable = '';
 

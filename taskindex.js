@@ -177,7 +177,7 @@ async function startQueueProcessing() {
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
         const taskJson = {
-            "taskname": "quotereport",
+            "taskname": "amtrustimport",
             beginDate: "2021-12-08",
             endDate: "2021-12-10"
             //"deadBeat" : true

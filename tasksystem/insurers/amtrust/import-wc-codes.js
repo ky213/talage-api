@@ -358,8 +358,8 @@ async function CodeImport() {
     log.info(logPrefix + `- ${amtrustAddCodes.length} new IAC records to AmTrust codes `);
     log.info(logPrefix + `- ${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes `);
     log.info(logPrefix + `- ${updateIacCount} updates to AmTrust codes `);
-    // log.info(logPrefix + `- Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC `);
-    // log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
+    log.info(logPrefix + `- Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC `);
+    log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
 
     //send email with the above stats to integrations@talageins.com
     if(amtrustAddCodes.length > 0){
@@ -398,7 +398,7 @@ async function CodeImport() {
             </div>
         `
         try{
-            const sendResult = await emailSvc.send('carlo+int@talageins.com','New Codes were added to AmTrust',sendMessage);
+            const sendResult = await emailSvc.send('integrations@talageins.com','New Codes were added to AmTrust',sendMessage);
             if(!sendResult){
                 console.log('An error occured when sending notification. Please contact us for details');
             }
