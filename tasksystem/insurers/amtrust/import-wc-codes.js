@@ -287,10 +287,10 @@ async function CodeImport() {
         }
     }
     //look for missing - removed codes
-    // let iacExpiredCount = 0;
-    // const expiredIACArray = [];
-    // const removedToExistingCodeArray = [];
-    // const updateRemoveTerritoryCount = 0;
+    let iacExpiredCount = 0;
+    const expiredIACArray = [];
+    const removedToExistingCodeArray = [];
+    const updateRemoveTerritoryCount = 0;
     if(DO_REMOVAL_CHECK){
         const queryIAC = {
             insurerId: insurer.insurerId,
@@ -302,7 +302,7 @@ async function CodeImport() {
         });
         let i = 0;
         for(const iac of insurerAcDocList){
-            // let modified = false;
+            let modified = false;
             //is in code list
             //loop territory List.
             const removeTerritoryList = [];
@@ -311,30 +311,30 @@ async function CodeImport() {
                     if(amtrustClassCodeMap[territory]){
                         const insurerCode = amtrustClassCodeMap[territory].find((importCode) => importCode.ClassCode === iac.code && importCode.ClassDescriptionCode === iac.sub)
                         if(!insurerCode){
-                            // modified = true;
+                            modified = true;
                             removeTerritoryList.push(territory)
                         }
                     }
                 }
             }
             // commented to prevent updates of removed codes
-            // if(modified){
-            //     if(iac.territoryList.length === removeTerritoryList.length){
-            //         log.info(logPrefix + `- ${i} - IAC not in new list ${iac.code}-${iac.sub} ${removeTerritoryList}`);
-            //         iac.expirationDate = moment();
+            if(modified){
+                if(iac.territoryList.length === removeTerritoryList.length){
+                    log.info(logPrefix + `- ${i} - IAC not in new list ${iac.code}-${iac.sub} ${removeTerritoryList}`);
+                    iac.expirationDate = moment();
             //         await iac.save();
-            //         iacExpiredCount++;
-            //         expiredIACArray.push(iac);
-            //     }
-            //     else {
+                    iacExpiredCount++;
+                    expiredIACArray.push(iac);
+                }
+                else {
             //         //remove removeTerritoryList from IAC save
-            //         updateRemoveTerritoryCount++;
-            //         iac.removeTerritoryList = removeTerritoryList;
-            //         iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
+                    updateRemoveTerritoryCount++;
+                    iac.removeTerritoryList = removeTerritoryList;
+                    iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
             //         await iac.save();
-            //         removedToExistingCodeArray.push(iac)
-            //     }
-            // }
+                    removedToExistingCodeArray.push(iac)
+                }
+            }
             i++;
             if(i % 100 === 0){
                 log.info(logPrefix + `- Checking Existing Codes ${i} of ${insurerAcDocList.length}` + __location);
