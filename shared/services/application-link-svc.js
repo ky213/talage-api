@@ -291,7 +291,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     const agencyNetworkBO = new AgencyNetworkBO();
     try {
         const agencyNetworkId = agency.agencyNetworkId;
-        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"application_link");
+        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"quote_app_application_link");
         let message = emailContentAgencyNetworkJSON.message;
         let emailSubject = emailContentAgencyNetworkJSON.subject;
         if(message && emailSubject){
@@ -371,79 +371,73 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
     const toName = options.toName ? capitalizeName(options.toName).trim() : null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    try{
+        const agencyNetworkId = agency.agencyNetworkId;
+        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"agency_portal_application_link");
+        let message = emailContentAgencyNetworkJSON.message;
+        let emailSubject = emailContentAgencyNetworkJSON.subject;
 
-    const emailSubjectDefault = `A Link to ${applicationJSON.businessName}`;
-    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
+        if(message && emailSubject){
+            //replacements.
+            message = message.replace(/{{toName}}/g, toName);
+            message = message.replace(/{{businessName}}/g, applicationJSON.businessName);
+            message = message.replace(/{{agencyNetworkName}}/g, agencyNetwork.name);
+            message = message.replace(/{{link}}/g, link);
+            message = message.replace(/{{fromEmailAddress}}/g, options.fromEmailAddress);
+            emailSubject = emailSubject.replace(/{{businessName}}/g, applicationJSON.businessName);
+        }
+        let branding = agencyNetworkBranding ? '' : 'agency';
 
-    let htmlBody = `
-        <p>
-        Hello${toName ? ` ${toName}` : ""},
-        </p>
-        <p>
-        Here’s a link to ${applicationJSON.businessName} Inside the ${agencyNetwork.name} Portal to review or edit the application. From this link you’ve be able to review the app and make any relevant changes before submitting the application for instant quotes.
-        </p>
-        <p align="center">
-            If the button does not work try pasting this link into your browser:
-            <br/>
-            <a href="${link}" target="_blank">
-                ${link}
-            </a>
-        </p>
-        <p>
-        If you have any questions, you can respond back to ${options.fromEmailAddress}
-        </p>
-        <p>
-        Thanks!
-        </p>
-    `;
+        const keys = {
+            agencyLocationId: applicationJSON.agencyLocationId,
+            applicationId: applicationJSON.agencyLocationId,
+            applicationDoc: applicationJSON
+        };
 
-    let branding = agencyNetworkBranding ? '' : 'agency';
+        const dataPackageJSON = {
+            appDoc: applicationJSON,
+            agencyNetwork: agencyNetwork,
+            agency: agency,
+            link: link,
+            options: options,
+            htmlBody: message,
+            emailSubject: emailSubject,
+            branding: branding,
+            recipients: recipients
+        }
 
-    const keys = {
-        agencyLocationId: applicationJSON.agencyLocationId,
-        applicationId: applicationJSON.agencyLocationId,
-        applicationDoc: applicationJSON
-    };
+        try {
+            await global.hookLoader.loadhook('ap-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
 
-    const dataPackageJSON = {
-        appDoc: applicationJSON,
-        agencyNetwork: agencyNetwork,
-        agency: agency,
-        link: link,
-        options: options,
-        htmlBody: htmlBody,
-        emailSubject: emailSubject,
-        branding: branding,
-        recipients: recipients
+            message = dataPackageJSON.htmlBody
+            emailSubject = dataPackageJSON.emailSubject
+            branding = dataPackageJSON.branding
+            link = dataPackageJSON.link;
+        }
+        catch (e) {
+            log.error(`Error ap-app-link hook call error ${e}.` + __location);
+        }
+
+        const emailData = {
+            html: message,
+            subject: emailSubject,
+            to: recipients
+        };
+
+        const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
+
+        if(!emailSent){
+            log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
+        }
+        else {
+            log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
+        }
+        return link;
     }
-
-    try {
-        await global.hookLoader.loadhook('ap-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
-
-        htmlBody = dataPackageJSON.htmlBody
-        emailSubject = dataPackageJSON.emailSubject
-        branding = dataPackageJSON.branding
-        link = dataPackageJSON.link;
+    catch(err){
+        log.error(`Sending Application Link email ${err}` + __location);
     }
-    catch (e) {
-        log.error(`Error ap-app-link hook call error ${e}.` + __location);
-    }
-
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
-
-    if(!emailSent){
-        log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
-    }
-    else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
-    }
-    return link;
 }
 
 module.exports = {
