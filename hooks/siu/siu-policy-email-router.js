@@ -15,7 +15,7 @@ async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
         recipients = '';
     }
     //Determine if GL or BOP, if so make sure quote@siunis.com is in recipients
-    let bopEmail = 'quote@siunis.com'
+    let bopEmail = 'quote@siuins.com'
     if(agencyNetworkJSON?.additionalInfo?.bopEmail){
         bopEmail = agencyNetworkJSON?.additionalInfo.bopEmail
     }
