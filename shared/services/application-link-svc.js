@@ -276,6 +276,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
         recipients += `,${options.agentEmail}`;
     }
 
+    const firstName = options.firstName ? options.firstName : "";
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
 
     const agentFullname = `${agency.firstName} ${agency.lastName}`;
@@ -285,99 +286,73 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 
     const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
 
-    const emailSubjectDefault = 'A portal to your application';
-    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
-
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    let htmlBody = `
-            <p>
-                Hello${options.firstName ? ` ${options.firstName}` : ""},
-            </p>
-            <p>
-                ${agentName} at ${emailAgencyName} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
-                <br/>
-                Its an easy way for you to fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process online. 
-                <br/>
-                If you ever need help, ${agentName} is still right here to help ensure you get the best policy at the best value. 
-                <br/>
-                If you have any questions, let us know at ${agentEmail} or reach out to ${agentName} directly.
-            </p>
-            <div align="center">
-                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
-                <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
-                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
-                </a>
-                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
-            </div>
-            <p align="center">
-                If the button does not work try pasting this link into your browser:
-                <br/>
-                <a href="${link}" target="_blank">
-                    ${link}
-                </a>
-            </p>
-        `
-    if(options.htmlBody){
-        htmlBody = options.htmlBody
-        //replacements.
-        htmlBody = htmlBody.replace(/{{link}}/g, link);
-        htmlBody = htmlBody.replace(/{{agentName}}/g, agentName);
-        htmlBody = htmlBody.replace(/{{emailAgencyName}}/g, emailAgencyName);
-        htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
-        htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
+    const agencyNetworkBO = new AgencyNetworkBO();
+    try {
+        const agencyNetworkId = agency.agencyNetworkId;
+        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"application_link");
+        let message = emailContentAgencyNetworkJSON.message;
+        let emailSubject = emailContentAgencyNetworkJSON.subject;
+        if(message && emailSubject){
+            //replacements.
+            message = message.replace(/{{firstName}}/g, firstName);
+            message = message.replace(/{{link}}/g, link);
+            message = message.replace(/{{agentName}}/g, agentName);
+            message = message.replace(/{{emailAgencyName}}/g, emailAgencyName);
+            message = message.replace(/{{agentEmail}}/g, agentEmail);
+            message = message.replace(/{{agentEmail}}/g, agentEmail);
+        }
+        let branding = agencyNetworkBranding ? '' : 'agency';
+
+        const keys = {
+            agencyLocationId: applicationJSON.agencyLocationId,
+            applicationId: applicationJSON.agencyLocationId,
+            applicationDoc: applicationJSON
+        }
+
+        const dataPackageJSON = {
+            appDoc: applicationJSON,
+            agency: agency,
+            link: link,
+            options: options,
+            htmlBody: message,
+            emailSubject: emailSubject,
+            branding: branding,
+            recipients: recipients
+        }
+
+        try{
+            await global.hookLoader.loadhook('quote-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
+            message = dataPackageJSON.htmlBody
+            emailSubject = dataPackageJSON.emailSubject
+            branding = dataPackageJSON.branding
+            link = dataPackageJSON.link;
+
+        }
+        catch(err){
+            log.error(`Error quote-app-link hook call error ${err}` + __location);
+        }
+
+        const emailData = {
+            html: message,
+            subject: emailSubject,
+            to: recipients
+        };
 
 
-    }
-
-    let branding = agencyNetworkBranding ? '' : 'agency'
-
-    const keys = {
-
-        agencyLocationId: applicationJSON.agencyLocationId,
-        applicationId: applicationJSON.agencyLocationId,
-        applicationDoc: applicationJSON
-
-    }
-
-    const dataPackageJSON = {
-        appDoc: applicationJSON,
-        agency: agency,
-        link: link,
-        options: options,
-        htmlBody: htmlBody,
-        emailSubject: emailSubject,
-        branding: branding,
-        recipients: recipients
-    }
-
-    try{
-        await global.hookLoader.loadhook('quote-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
-        htmlBody = dataPackageJSON.htmlBody
-        emailSubject = dataPackageJSON.emailSubject
-        branding = dataPackageJSON.branding
-        link = dataPackageJSON.link;
-
+        const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
+        if(!emailSent){
+            log.error(`Failed to send email for application link to ${emailData.to}.`);
+        }
+        else {
+            log.info(`Application link email was sent successfully to ${emailData.to}.`);
+        }
+        return link;
     }
     catch(err){
-        log.error(`Error quote-app-link hook call error ${err}` + __location);
+        log.error(`Sending Application Link email ${err}` + __location);
     }
-
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-
-
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
-    if(!emailSent){
-        log.error(`Failed to send email for application link to ${emailData.to}.`);
-    }
-    else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.`);
-    }
-    return link;
 }
 
 
