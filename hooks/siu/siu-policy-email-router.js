@@ -10,6 +10,7 @@
  * To create a link and NOT send an email, don't pass emailAddress on the options, or leave options null
  */
 async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
+    log.debug(`in siu-policy-email-router.GetRecipients hook` + __location)
     //Note SUI underwriters might already by on recipients list.  Those UW need to stay on the list.
     if(!recipients){
         recipients = '';
@@ -22,11 +23,15 @@ async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
     const bopPolicy = appDoc.policies.find((p) => p.policyType === "BOP")
     const glPolicy = appDoc.policies.find((p) => p.policyType === "GL")
     if(bopPolicy || glPolicy){
+        log.debug(`in siu-policy-email-router.GetRecipients has bopPolicy ${bopPolicy}  or glPolicy ${glPolicy}` + __location)
         if(!recipients.includes(bopEmail)){
             if(recipients.length > 0){
                 recipients += ","
             }
             recipients += bopEmail
+        }
+        else {
+            log.debug(`in siu-policy-email-router.GetRecipients bopPolicy no new emails ` + __location)
         }
 
     }
@@ -38,11 +43,15 @@ async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
     }
     const wcPolicy = appDoc.policies.find((p) => p.policyType === "WC")
     if(wcPolicy){
+        log.debug(`in siu-policy-email-router.GetRecipients has wcPolicy ${wcPolicy}` + __location)
         if(!recipients.includes(wcEmail)){
             if(recipients.length > 0){
                 recipients += ","
             }
             recipients += wcEmail
+        }
+        else {
+            log.debug(`in siu-policy-email-router.GetRecipients wcPolicy no new emails ` + __location)
         }
     }
 
