@@ -228,6 +228,10 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                     message = message.replace(/{{Quote Result}}/g, quoteResult);
                     message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                     message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+
                     message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + `" src="${global.settings.IMAGE_URL}/${stringFunctions.trimString(insurerJson.logo, 'images/')}" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$` + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
 
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);

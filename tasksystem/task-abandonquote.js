@@ -397,6 +397,9 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
                     message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
 
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                     subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
