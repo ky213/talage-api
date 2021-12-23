@@ -396,7 +396,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                     message = message.replace(/{{Contact Phone}}/g, phone);
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
-
+                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
 
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                     subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
