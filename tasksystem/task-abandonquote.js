@@ -184,7 +184,7 @@ async function abandonquotetask(){
 }
 
 // eslint-disable-next-line require-jsdoc
-async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, agencyOnly = true){
     if(!applicationDoc){
         return;
     }
@@ -452,7 +452,8 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
             if(agencyNetworkDB
                 && agencyNetworkDB.featureJson
                 && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
-                && agencyNetworkDB.email){
+                && agencyNetworkDB.email
+                && agencyOnly === false){
                 try{
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
                     if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){

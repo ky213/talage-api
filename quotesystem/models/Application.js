@@ -1128,13 +1128,15 @@ module.exports = class Application {
                     log.error("Error get policyTypeList " + err + __location)
                 }
                 try{
-                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList)
+                    const AGENCY_ONLY = true
+                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, AGENCY_ONLY)
                 }
                 catch(err){
                     log.debug('catch error from await ' + err);
                 }
             }
-            else if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
+
+            if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
                 // immediately notify agency network of quote
                 const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
                 if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
