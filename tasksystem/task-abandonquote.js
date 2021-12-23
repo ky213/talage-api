@@ -184,7 +184,7 @@ async function abandonquotetask(){
 }
 
 // eslint-disable-next-line require-jsdoc
-async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, agencyOnly = true){
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, sendAgency = true, sendAgencyNetwork = true){
     if(!applicationDoc){
         return;
     }
@@ -370,7 +370,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
 
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
-            if(agencyNetworkDB.featureJson.quoteEmailsAgency){
+            if(sendAgency && agencyNetworkDB.featureJson.quoteEmailsAgency){
                 // Only send for non-Talage accounts that are not wholesale
                 //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
                 if(applicationDoc.wholesale === false){
@@ -396,6 +396,11 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                     message = message.replace(/{{Contact Phone}}/g, phone);
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
+
+
+                    subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                    subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
                     //Applink processing
                     const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
@@ -453,7 +458,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                 && agencyNetworkDB.featureJson
                 && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
                 && agencyNetworkDB.email
-                && agencyOnly === false){
+                && sendAgencyNetwork){
                 try{
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
                     if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){

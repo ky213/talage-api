@@ -226,9 +226,9 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
                     message = message.replace(/{{Quote Result}}/g, quoteResult);
-
-
                     message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+
+
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                     subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                     subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
@@ -298,6 +298,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + `" src="${global.settings.IMAGE_URL}/${stringFunctions.trimString(insurerJson.logo, 'images/')}" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$` + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
 
                         message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+
                         subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
@@ -342,9 +343,8 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         message = message.replace(/{{Industry}}/g, industryCodeDesc);
                         message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
                         message = message.replace(/{{Quote Result}}/g, quoteResult);
-
-
                         message = message.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
+
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
