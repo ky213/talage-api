@@ -150,7 +150,7 @@ async function CodeImport() {
     const amtrustAddCodes = [];
     const newUnMappedCodes = [];
     const startImportDate = moment();
-    //let insurerActivityCodesUpdateList = [];
+    const insurerActivityCodesUpdateList = [];
     // // Map all of the codes to the code list
     // // const codeList = new CodeList(CodeList.TYPE_WC, insurer.name, insurer.insurerId);
     for (const state of Object.keys(amtrustClassCodeMap)) {
@@ -290,7 +290,7 @@ async function CodeImport() {
     let iacExpiredCount = 0;
     const expiredIACArray = [];
     const removedToExistingCodeArray = [];
-    const updateRemoveTerritoryCount = 0;
+    let updateRemoveTerritoryCount = 0;
     if(DO_REMOVAL_CHECK){
         const queryIAC = {
             insurerId: insurer.insurerId,
@@ -322,16 +322,16 @@ async function CodeImport() {
                 if(iac.territoryList.length === removeTerritoryList.length){
                     log.info(logPrefix + `- ${i} - IAC not in new list ${iac.code}-${iac.sub} ${removeTerritoryList}`);
                     iac.expirationDate = moment();
-            //         await iac.save();
+                    // await iac.save();
                     iacExpiredCount++;
                     expiredIACArray.push(iac);
                 }
                 else {
-            //         //remove removeTerritoryList from IAC save
+                    //         //remove removeTerritoryList from IAC save
                     updateRemoveTerritoryCount++;
                     iac.removeTerritoryList = removeTerritoryList;
                     iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
-            //         await iac.save();
+                    //         await iac.save();
                     removedToExistingCodeArray.push(iac)
                 }
             }
@@ -361,10 +361,11 @@ async function CodeImport() {
     log.info(logPrefix + `- Updates Territory Removed Processed ${updateRemoveTerritoryCount} IAC `);
     log.info(logPrefix + `- IAC Straight Expired Processed ${iacExpiredCount} `);
 
+    let messageTable = '';
     //send email with the above stats to integrations@talageins.com
     if(amtrustAddCodes.length > 0){
         //trigger to send email since codes were addeded
-        let messageTable = '';
+
         for (const codes in amtrustAddCodes) {
             if({}.hasOwnProperty.call(amtrustAddCodes, codes)){
                 messageTable += `<tr>
@@ -372,41 +373,59 @@ async function CodeImport() {
                    </tr>`
             }
         }
-        const sendMessage = `
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>${amtrustAddCodes.length} new IAC records to AmTrust codes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${messageTable}
-                </tbody>
-            </table>
-            <table class="thread-light mt-5">
-                <thead>
-                    <tr>
-                        <th>${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes</th>
-                    </tr>
-                <thead>
-                <tbody>
-                    <tr>
-                        <td>${updateIacCount} updates to AmTrust codes</td>
-                    </tr>
-                </tbody>
-            </table>
-            </div>
-        `
-        try{
-            const sendResult = await emailSvc.send('integrations@talageins.com','New Codes were added to AmTrust',sendMessage);
-            if(!sendResult){
-                console.log('An error occured when sending notification. Please contact us for details');
-            }
-        }
-        catch(err) {
-            console.log('error-sending email from :', err);
+    }
+
+    if(updateRemoveTerritoryCount > 0){
+        for(const territoryCount in removedToExistingCodeArray) {
+            messageTable += `<tr>
+                    <td>${territoryCount.code}-${territoryCount}</td>
+                    </tr>`
         }
     }
+
+    if(iacExpiredCount > 0){
+        for(const exIAC in expiredIACArray){
+            messageTable += `<tr>
+                    <td>${exIAC}</td>
+                </td>`
+        }
+    }
+
+    const sendMessage = `
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>${amtrustAddCodes.length} new IAC records to AmTrust codes</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${messageTable}
+            </tbody>
+        </table>
+        <table class="thread-light mt-5">
+            <thead>
+                <tr>
+                    <th>${newUnMappedCodes.length} Unmapped new IAC records to AmTrust codes</th>
+                </tr>
+            <thead>
+            <tbody>
+                <tr>
+                    <td>${updateIacCount} updates to AmTrust codes</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    `
+    try{
+        const sendResult = await emailSvc.send('integrations@talageins.com','New Codes were added to AmTrust',sendMessage);
+        if(!sendResult){
+            console.log('An error occured when sending notification. Please contact us for details');
+        }
+    }
+    catch(err) {
+        console.log('error-sending email from :', err);
+    }
+
 
     return amtrustClassCodeMap;
 }
