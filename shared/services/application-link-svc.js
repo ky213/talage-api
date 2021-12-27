@@ -284,7 +284,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 
     const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
-    const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
+    const agencyName = options.agencyName ? options.agencyName : agencyDisplayName;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
@@ -296,12 +296,11 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
         let emailSubject = emailContentAgencyNetworkJSON.subject;
         if(message && emailSubject){
             //replacements.
-            message = message.replace(/{{firstName}}/g, firstName);
-            message = message.replace(/{{link}}/g, link);
-            message = message.replace(/{{agentName}}/g, agentName);
-            message = message.replace(/{{emailAgencyName}}/g, emailAgencyName);
-            message = message.replace(/{{agentEmail}}/g, agentEmail);
-            message = message.replace(/{{agentEmail}}/g, agentEmail);
+            message = message.replace(/{{Contact Name}}/g, firstName);
+            message = message.replace(/{{Application Link}}/g, link);
+            message = message.replace(/{{Agent Name}}/g, agentName);
+            message = message.replace(/{{Agency Name}}/g, agencyName);
+            message = message.replace(/{{Agent Email}}/g, agentEmail);
         }
         let branding = agencyNetworkBranding ? '' : 'agency';
 
@@ -380,12 +379,12 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
 
         if(message && emailSubject){
             //replacements.
-            message = message.replace(/{{toName}}/g, toName);
-            message = message.replace(/{{businessName}}/g, applicationJSON.businessName);
-            message = message.replace(/{{agencyNetworkName}}/g, agencyNetwork.name);
-            message = message.replace(/{{link}}/g, link);
-            message = message.replace(/{{fromEmailAddress}}/g, options.fromEmailAddress);
-            emailSubject = emailSubject.replace(/{{businessName}}/g, applicationJSON.businessName);
+            message = message.replace(/{{Agent Name}}/g, toName);
+            message = message.replace(/{{Business Name}}/g, applicationJSON.businessName);
+            message = message.replace(/{{Agency Network Name}}/g, agencyNetwork.name);
+            message = message.replace(/{{Application Link}}/g, link);
+            message = message.replace(/{{Agent Email}}/g, options.fromEmailAddress);
+            emailSubject = emailSubject.replace(/{{Business Name}}/g, applicationJSON.businessName);
         }
         let branding = agencyNetworkBranding ? '' : 'agency';
 
