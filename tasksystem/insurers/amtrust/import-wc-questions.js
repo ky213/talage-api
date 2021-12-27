@@ -213,7 +213,7 @@ async function QuestionImport(amtrustClassCodeMap) {
         for (const codes in newQuestionList) {
             if({}.hasOwnProperty.call(newQuestionList, codes)){
                 messageTable += `<tr>
-                       <td>${codes}.  ${newQuestionList[codes]}</td>
+                       <td>${newQuestionList[codes].QuestionId} - ${newQuestionList[codes].Question}</td>
                    </tr>`
             }
         }
@@ -221,14 +221,11 @@ async function QuestionImport(amtrustClassCodeMap) {
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>${newQuestionList.length} new AmTrust questions</th>
+                        <th>${newQuestionList.length} new AmTrust questions / ${updatedIQLinks} updates to AmTrust codes</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${messageTable}
-                    <tr>
-                        <td>${updatedIQLinks} updates to AmTrust codes</td>
-                    </tr>
                 </tbody>
             </table>
         `

@@ -150,7 +150,7 @@ async function CodeImport() {
     const amtrustAddCodes = [];
     const newUnMappedCodes = [];
     const startImportDate = moment();
-    const insurerActivityCodesUpdateList = [];
+    // const insurerActivityCodesUpdateList = [];
     // // Map all of the codes to the code list
     // // const codeList = new CodeList(CodeList.TYPE_WC, insurer.name, insurer.insurerId);
     for (const state of Object.keys(amtrustClassCodeMap)) {
@@ -327,7 +327,7 @@ async function CodeImport() {
                     expiredIACArray.push(iac);
                 }
                 else {
-                    //         //remove removeTerritoryList from IAC save
+                    //         remove removeTerritoryList from IAC save
                     updateRemoveTerritoryCount++;
                     iac.removeTerritoryList = removeTerritoryList;
                     iac.territoryList = iac.territoryList.filter((el) => !removeTerritoryList.includes(el));
@@ -369,25 +369,35 @@ async function CodeImport() {
         for (const codes in amtrustAddCodes) {
             if({}.hasOwnProperty.call(amtrustAddCodes, codes)){
                 messageTable += `<tr>
-                       <td>${codes}.  ${amtrustAddCodes[codes]}</td>
+                       <td>Added: ${codes}.  ${amtrustAddCodes[codes].code}-${amtrustAddCodes[codes].description}</td>
                    </tr>`
             }
         }
     }
 
     if(updateRemoveTerritoryCount > 0){
+        messageTable += `<tr>
+                <td><b>Updates Territory Removed Processed ${updateRemoveTerritoryCount}</b></td>
+                </tr>`
         for(const territoryCount in removedToExistingCodeArray) {
-            messageTable += `<tr>
-                    <td>${territoryCount.code}-${territoryCount}</td>
-                    </tr>`
+            if({}.hasOwnProperty.call(removedToExistingCodeArray, territoryCount)){
+                messageTable += `<tr>
+                        <td>${removedToExistingCodeArray[territoryCount].code}-${removedToExistingCodeArray[territoryCount].description}</td>
+                        </tr>`
+            }
         }
     }
 
     if(iacExpiredCount > 0){
+        messageTable += `<tr>
+                <td><b>IAC Straight Expored Processed ${iacExpiredCount}</b></td>
+                </tr>`
         for(const exIAC in expiredIACArray){
-            messageTable += `<tr>
-                    <td>${exIAC}</td>
-                </td>`
+            if({}.hasOwnProperty.call(expiredIACArray, exIAC)){
+                messageTable += `<tr>
+                        <td>${expiredIACArray[exIAC].code}-${expiredIACArray[exIAC].sub} ${expiredIACArray[exIAC].territoryList}</td>
+                    </td>`
+            }
         }
     }
 
