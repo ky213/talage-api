@@ -30,6 +30,15 @@ module.exports = class GreatAmericanWC extends Integration {
         this.log += `--------======= End =======--------<br><br>`;
     }
 
+    getInsurerAskedQuestionIds(questionnaire) {
+        let questionIds = [];
+        for (const group of questionnaire.groups) {
+            const ids = group.questions.map(q => q.questionId);
+            questionIds = questionIds.concat(ids);
+        }
+        return questionIds;
+    }
+
     /**
      * Requests a quote from Great America and returns. This request is not
      * intended to be called directly.
@@ -230,6 +239,18 @@ module.exports = class GreatAmericanWC extends Integration {
         });
 
         // begins to hydrate (udpate) the question session
+        let questionnaire = session?.riskSelection.data.answerSession.questionnaire;
+        let insurerAskedQuestionIds = this.getInsurerAskedQuestionIds(questionnaire);
+        let missingQuestionIds = [];
+        for (const insurerAskedQuestionId of insurerAskedQuestionIds) {
+            if (!questions.hasOwnProperty(insurerAskedQuestionId)) {
+                missingQuestionIds.push(insurerAskedQuestionId);
+            }
+        }
+        if (missingQuestionIds && missingQuestionIds.length > 0) {
+            this.reasons.push(`Missing Questions Error: Could not find answers for question IDs: ${missingQuestionIds}`)
+            return this.return_result('error');
+        }
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         if (curAnswers?.newBusiness?.status === 'DECLINE') {
             this.reasons.push(`Great American has declined to offer you coverage at this time`);
@@ -241,7 +262,7 @@ module.exports = class GreatAmericanWC extends Integration {
             this.reasons.push(`injectAnswers Error: No reponse`);
             return this.return_result('error');
         }
-        let questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
+        questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
 
         // Often times follow-up questions are offered by the Great American
@@ -251,6 +272,18 @@ module.exports = class GreatAmericanWC extends Integration {
             log.warn(`${logPrefix}There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered) ` + __location);
             this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)`;
             const oldQuestionsAnswered = questionnaire.questionsAnswered;
+
+            insurerAskedQuestionIds = this.getInsurerAskedQuestionIds(questionnaire);
+            missingQuestionIds = [];
+            for (const insurerAskedQuestionId of insurerAskedQuestionIds) {
+                if (!questions.hasOwnProperty(insurerAskedQuestionId)) {
+                    missingQuestionIds.push(insurerAskedQuestionId);
+                }
+            }
+            if (missingQuestionIds && missingQuestionIds.length > 0) {
+                this.reasons.push(`Missing Questions Error: Could not find answers for question IDs: ${missingQuestionIds}`)
+                return this.return_result('error');
+            }
 
             // continue to update the question session until complete
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);

@@ -80,7 +80,7 @@ function validateCognitoJWT(options) {
             //check Cognito if the Token is good and get groups.
             cognitoSvc.getUserByToken(jwtToken, function(err, cognitoUser){
                 if(err){
-                    if(err.includes("NotAuthorizedException")){
+                    if(err.message?.includes("NotAuthorizedException")){
                         log.info(`NotAuthorizedException returned by cognitoSvc.getUserByToken ${err}` + __location)
                     }
                     else {

@@ -16,6 +16,10 @@ global.tracker = tracker;
 global.WHEELHOUSE_AGENCYNETWORK_ID = 1;
 global.DIGALENT_AGENCYNETWORK_ID = 2;
 
+//Settup global hookloader reference
+global.hookLoader = require('./hooks/hookloader.js');
+
+
 const colors = require('colors');
 
 const logger = require('./shared/services/logger.js');

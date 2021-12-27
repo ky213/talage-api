@@ -99,9 +99,9 @@ var agencyReportTask = async function(){
     if(agencyList && agencyList.length > 0){
         //Load AgencyNetwork Map
         const agencyNetworkBO = new AgencyNetworkBO();
-        let agencyNetworkNameMapJSON = {};
-        agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
-            log.error("Could not get agency network id to name map " + err + __location);
+        let agencyNetworkList = [];
+        agencyNetworkList = await agencyNetworkBO.getList({}).catch(function(err){
+            log.error("Could not get agency network list " + err + __location);
         })
 
         for(let i = 0; i < agencyList.length; i++){
@@ -137,8 +137,9 @@ var agencyReportTask = async function(){
                 agency.deletedAt = moment_timezone(agency.deletedAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
             // get AgencyNetwork name from map
-            if(agencyNetworkNameMapJSON[agencyList[i].agency_network]){
-                agencyList[i].networkName = agencyNetworkNameMapJSON[agencyList[i].agency_network];
+            const agencyNetworkJSON = agencyNetworkList.find((an) => an.agencyNetworkId === agency.agencyNetworkId)
+            if(agencyNetworkJSON){
+                agencyList[i].networkName = agencyNetworkJSON.name;
             }
 
         }
