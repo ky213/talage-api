@@ -694,14 +694,20 @@ module.exports = class LibertyWC extends Integration {
         //find payment plans
         const insurerPaymentPlans =
           res.Policy[0]?.QuoteInfo[0]?.QuoteInfoExt[0]?.PaymentOption?.map(
-            ({ $, ...rest }) => ({
+            ({$, ...rest}) => ({
               PaymentRule: $['com.libertymutual.ci_PaymentRuleInfoRefs'],
-              ...rest,
+              ...rest
             })
           )
 
         if (insurerPaymentPlans?.length > 0) {
-          const [Annual, SemiAnnual, Quarterly, TenPay, Monthly, PayAsYouGo] = paymentPlanSVC.getList()
+          const [
+            Annual,
+            ,
+            Quarterly,
+            TenPay,
+            Monthly
+        ] = paymentPlanSVC.getList()
           const talageInsurerPaymentPlans = []
           const paymentPlansMap = {
               'FL':Annual,
@@ -712,20 +718,20 @@ module.exports = class LibertyWC extends Integration {
           }
 
           const numberOfPayments = {
-            'FL': 1,
-            'QT': 4,
-            'MO': 12,
-            '10': 11,
-            '9E': 10, // 10% down + 9 equal payments.
+            'FL': 1, // Full
+            'QT': 4, // Quarterly
+            'MO': 12, // Monthly
+            '10': 11, // 2 months down + 10 installments
+            '9E': 10 // 10% down + 9 equal payments.
           }
           const costFactor = {
-            '10': 6,
-            ...numberOfPayments,
+              ...numberOfPayments,
+              '10': 6
           }
 
           // Raw insurer payment plans
-          this.insurerPaymentPlans = insurerPaymentPlans
-          
+        this.insurerPaymentPlans = insurerPaymentPlans
+
           // Talage payment plans
           for (const insurerPaymentPlan of insurerPaymentPlans) {
             const code = insurerPaymentPlan.PaymentPlanCd[0]
@@ -733,7 +739,18 @@ module.exports = class LibertyWC extends Integration {
             const mode = insurerPaymentPlan.PaymentRule
             const talagePaymentPlan = paymentPlansMap[code]
             const total = amount * costFactor[code]
-            const installmentPayment = code === 'FL' ? 0 : code === '10' ? amount / 2 : amount
+            let installmentPayment = null
+
+            switch (code) {
+                case 'FL':
+                    installmentPayment = 0
+                    break;
+                case '10':
+                    installmentPayment = amount / 2
+                    break;
+                default:
+                    installmentPayment = amount
+            }
 
             if (talagePaymentPlan) {
               talageInsurerPaymentPlans.push({
@@ -746,10 +763,9 @@ module.exports = class LibertyWC extends Integration {
                 DownPayment: code === 'FL' ? 0 : amount,
                 TotalStateTaxes: 0,
                 TotalBillingFees: 0,
-                DepositPercent: (amount / total).toFixed(4) * 100,
+                DepositPercent: Number((100 * amount / total).toFixed(2)),
                 IsDirectDebit: true,
-                installmentPayment,
-                // invoices: [TalageInsurerInvoiceSchema]
+                installmentPayment: installmentPayment
               })
             }
           }
