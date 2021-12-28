@@ -184,7 +184,7 @@ async function abandonquotetask(){
 }
 
 // eslint-disable-next-line require-jsdoc
-async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, sendAgency = true, sendAgencyNetwork = true){
     if(!applicationDoc){
         return;
     }
@@ -370,7 +370,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
 
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
-            if(agencyNetworkDB.featureJson.quoteEmailsAgency){
+            if(sendAgency && agencyNetworkDB.featureJson.quoteEmailsAgency){
                 // Only send for non-Talage accounts that are not wholesale
                 //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
                 if(applicationDoc.wholesale === false){
@@ -396,6 +396,14 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
                     message = message.replace(/{{Contact Phone}}/g, phone);
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
+                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+
+                    subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                    subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
                     //Applink processing
                     const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
@@ -452,7 +460,8 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList){
             if(agencyNetworkDB
                 && agencyNetworkDB.featureJson
                 && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
-                && agencyNetworkDB.email){
+                && agencyNetworkDB.email
+                && sendAgencyNetwork){
                 try{
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
                     if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){
