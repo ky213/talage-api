@@ -298,8 +298,8 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
             //replacements.
             message = message.replace(/{{Contact Name}}/g, firstName);
             message = message.replace(/{{Application Link}}/g, link);
-            message = message.replace(/{{Agent Name}}/g, agentName);
-            message = message.replace(/{{Agency Name}}/g, agencyName);
+            message = message.replace(/{{Agent First Name}}/g, agentName);
+            message = message.replace(/{{Agency}}/g, agencyName);
             message = message.replace(/{{Agent Email}}/g, agentEmail);
         }
         let branding = agencyNetworkBranding ? '' : 'agency';
@@ -379,7 +379,7 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
 
         if(message && emailSubject){
             //replacements.
-            message = message.replace(/{{Agent Name}}/g, toName);
+            message = message.replace(/{{Agent First Name}}/g, toName);
             message = message.replace(/{{Business Name}}/g, applicationJSON.businessName);
             message = message.replace(/{{Agency Network Name}}/g, agencyNetwork.name);
             message = message.replace(/{{Application Link}}/g, link);
