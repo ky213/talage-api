@@ -40,9 +40,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     if(global.settings.ENV === 'test'){
         return true;
     }
-    // log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
-    // log.debug("EmailSvc: brandOverride:  " + brandOverride);
-    // log.debug("EmailSvc: agencyId:  " + agencyId);
+    log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
+    log.debug("EmailSvc: brandOverride:  " + brandOverride);
+    log.debug("EmailSvc: agencyId:  " + agencyId);
     //check agencyNetworkId is number
     let applicationDoc = null;
     if(keys && keys.applicationDoc){
