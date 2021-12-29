@@ -28,8 +28,6 @@ async function postResendOnboardingEmail(req, res, next){
         return next(serverHelper.requestError('No data was received'));
     }
 
-    // Log the entire request
-    log.verbose(util.inspect(req.body, false, null));
 
     // Make sure all information is present
     if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName') || typeof req.body.firstName !== 'string' || !req.body.firstName){
