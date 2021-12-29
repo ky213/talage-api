@@ -1,6 +1,6 @@
 'use strict';
 
-const util = require('util');
+//const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
