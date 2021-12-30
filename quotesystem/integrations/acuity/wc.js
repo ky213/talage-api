@@ -423,6 +423,46 @@ module.exports = class AcuityWC extends Integration {
                     });
                 }
 
+                // Set payment plans
+                const insurerPaymentPlans = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
+
+                this.insurerPaymentPlans = insurerPaymentPlans.map(({$, ...rest})=>({id: $.id, ...rest}))
+
+                const paymentPlansIDsMap = {
+                    'FL': 1,
+                    'SA': 2,
+                    'QT': 3,
+                    '5P': 1,
+                    '11': 1,
+                }
+      
+                this.talageInsurerPaymentPlans = insurerPaymentPlans.map((insurerPaymentPlan) => {
+                    const insurerPaymentPlanId = insurerPaymentPlan.$.id
+                    const code = insurerPaymentPlan.PaymentPlanCd[0]
+                    const description = insurerPaymentPlan.Description[0]
+                    const numberPayments = Number(insurerPaymentPlan.NumPayments[0])
+                    const total = premiumAmount
+                    const depositAmount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+                    const installmentFees = Number(insurerPaymentPlan.InstallmentFeeAmt[0].Amt[0])
+                    const paymentMethod = insurerPaymentPlan.MethodPaymentCd[0]
+                    const installmentPayment = Number(insurerPaymentPlan.InstallmentInfo[0].InstallmentAmt[0].Amt[0])
+
+                    return {
+                        paymentPlanId: paymentPlansIDsMap[code],
+                        insurerPaymentPlanId: insurerPaymentPlanId,
+                        insurerPaymentPlanDescription: `${description} (${paymentMethod})`,
+                        NumberPayments: numberPayments,
+                        TotalCost: total,
+                        TotalPremium: total,
+                        DownPayment: code === 'FL' ? 0 : depositAmount,
+                        TotalStateTaxes: 0,
+                        TotalBillingFees: numberPayments * installmentFees,
+                        DepositPercent: Number((100 * depositAmount / total).toFixed(2)),
+                        IsDirectDebit: paymentMethod === 'CHECK',
+                        installmentPayment: installmentPayment
+                    }
+                })
+
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {
                     return this.client_quoted(quoteNumber, quoteLimits, premiumAmount, quoteLetter, quoteLetterMimeType);
