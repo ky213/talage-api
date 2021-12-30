@@ -426,16 +426,22 @@ module.exports = class AcuityWC extends Integration {
                 // Set payment plans
                 const insurerPaymentPlans = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
 
-                this.insurerPaymentPlans = insurerPaymentPlans.map(({$, ...rest})=>({id: $.id, ...rest}))
+                this.insurerPaymentPlans = insurerPaymentPlans.map(({
+                    $, ...rest
+                }) => (
+                    {
+                        id: $.id,
+                        ...rest
+                    }))
 
                 const paymentPlansIDsMap = {
                     'FL': 1,
                     'SA': 2,
                     'QT': 3,
                     '5P': 1,
-                    '11': 1,
+                    '11': 1
                 }
-      
+
                 this.talageInsurerPaymentPlans = insurerPaymentPlans.map((insurerPaymentPlan) => {
                     const insurerPaymentPlanId = insurerPaymentPlan.$.id
                     const code = insurerPaymentPlan.PaymentPlanCd[0]
