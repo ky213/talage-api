@@ -297,6 +297,9 @@ module.exports = class CnaBOP extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+
+        // this integration uses BOP codes
+        this.usePolciyBOPindustryCode = true;
     }
 
 	/** 
@@ -656,10 +659,10 @@ module.exports = class CnaBOP extends Integration {
         // add choice endorsement if provided
         const partialChoiceEndorsementQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.choiceEndorsementPartial");
         const fullChoiceEndorsementQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.choiceEndorsementFull");
-        let choiceEndorsementQuestion = partialChoiceEndorsementQuestion || fullChoiceEndorsementQuestion;
+        const choiceEndorsementQuestion = partialChoiceEndorsementQuestion || fullChoiceEndorsementQuestion;
 
         let questionCode = null;
-        if (choiceEndorsementQuestion.answerValue) {
+        if (choiceEndorsementQuestion?.answerValue) {
             switch (choiceEndorsementQuestion.answerValue) {
                 case "Choice Endorsement":
                     questionCode = "com.cna_BOP04";
@@ -677,6 +680,7 @@ module.exports = class CnaBOP extends Integration {
                     break;
                 default:
                     log.warn(`${logPrefix}Unknown Choice Endorsement question answer encountered: ${choiceEndorsementQuestion.answerValue}. Not adding...` + __location);
+                    break;
             }
 
             // if we have a question code (None wasn't selected, or answer wasn't found), add the choice endorsement
