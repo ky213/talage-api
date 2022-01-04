@@ -1,14 +1,23 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
+/* eslint-disable no-lonely-if */
+/* eslint-disable require-jsdoc */
+/* eslint-disable no-unused-vars */
+/* eslint-disable prefer-const */
+/* eslint-disable no-process-exit */
+/* eslint sort-keys: "off"*/
+
 // Add global helpers to load shared modules
 global.rootPath = require('path').join(__dirname, '..');
 global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-const talageEvent = global.requireShared('services/talageeventemitter.js');
 global.requireShared('./helpers/tracker.js');
 const cliProgress = require('cli-progress');
 
 const logger = global.requireShared('/services/logger.js');
 const globalSettings = global.requireRootPath('./settings.js');
+const colors = require('colors');
 
 const mongoose = require('../mongoose');
 
@@ -18,7 +27,7 @@ const mongoose = require('../mongoose');
  * @param {string} message - The message to be logged
  * @returns {void}
  */
- function logError(message) {
+function logError(message) {
     if (global.log) {
         log.error(message);
     }
@@ -46,8 +55,8 @@ const collectionsToMigrate = [
 /**
  * Copies the contents of the collections in collectionsToMigrate from
  * MONGODB_DATABASENAME to MONGODB_INSURER_DATABASENAME database.
- * 
- * @returns 
+ *
+ * @returns {void}
  */
 async function main() {
     // Load the settings from a .env file - Settings are loaded first
@@ -67,9 +76,7 @@ async function main() {
     for (const curCollection of collectionsToMigrate) {
         const rows = await global.mongodb.collection(curCollection).find({});
         const promises = [];
-        const bar1 = new cliProgress.SingleBar({
-            format: `{bar} {percentage}% | {value}/{total} | ${curCollection} Importer`
-        }, cliProgress.Presets.legacy);
+        const bar1 = new cliProgress.SingleBar({format: `{bar} {percentage}% | {value}/{total} | ${curCollection} Importer`}, cliProgress.Presets.legacy);
         bar1.start(await rows.count(), 0);
         if (await rows.count() <= 0) {
             throw new Error(`Why are there no rows to import in mongodb.${curCollection}? We can't really import nothing.`);
