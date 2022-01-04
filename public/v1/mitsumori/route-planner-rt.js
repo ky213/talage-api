@@ -9,7 +9,8 @@ const AmTrustAgencyNetworkId = 10;
 async function getNextRoute(req, res, next){
     // Check that at least some post parameters were received
     // Let basic through with no app id
-    if (!req.query.currentRoute || !req.query.appId && req.query.currentRoute !== "_basic") {
+    const listOfInitialLandingPages = ["_basic", "_am-basic"]
+    if (!req.query.currentRoute || !req.query.appId && listOfInitialLandingPages.indexOf(req.query.currentRoute) === -1) {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -20,7 +21,9 @@ async function getNextRoute(req, res, next){
         return;
     }
     let nextRouteName = null;
-    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_basic-created"){
+
+    // TODO: find a more graceful approach to this, if we have a bunch of basic pages things will get out of hand really fast
+    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_am-basic" || req.query.currentRoute === "_am-basic-created" || req.query.currentRoute === "_basic-created"){
         nextRouteName = "_policies";
     }
     else {
@@ -73,7 +76,7 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
         log.debug(`No userSessionMetaData found, value returned by redis: ${userSessionMetaData} ${__location}`);
     }
 
-    if(agencyNetworkId == null){
+    if(agencyNetworkId === null){
         if(!application){
             application = await getApplication(appId);
         }
@@ -135,30 +138,64 @@ const getRoute = async(jwtToken, userSessionMetaData, currentRT, appId) => {
     return nextRoute;
 }
 
+/**
+ * Takes in the next computed route and determines if it is a route we skip, if we skip it then grab the next route after skipping the route else return the next route being checked
+ * Recurses until we find a route we are not skipping
+ * @param {string} route - The route being checked for skip
+ * @param {object} customRouteFlowObj - Contains info related to the custom flow of an Agency Network, if it exists
+ * @param {string} application - The application object
+ * @param {string} agencyNetworkId - The agency Network Id
+ *
+ * @returns {string}  Returns the route after skipping current route if one exists else just returns the current route
+ */
+const cyberSkip = (route, customRouteFlowObj, application, agencyNetworkId) => {
+    log.debug(`Current route ${route} being checked for skip ${__location}`);
+    const skippedRoutes = ["_officers", "_claims"];
+    // if route equals officers or claims get the next route and call yourself to see if the next route is a skipped route
+    if(skippedRoutes.includes(route)){
+        log.debug(`Current route ${route} is part of the skipped list so grabbing next route. ${__location}`);
+        // if the custom route exists grab the custom route
+        let routeAfterSkip = null;
+        if(customRouteFlowObj){
+            routeAfterSkip = getNextRouteCustom(customRouteFlowObj, route, application.applicationId, agencyNetworkId);
+            log.debug(`skipping from ${route} to ${routeAfterSkip} on app ${application.applicationId} ${__location}`);
+        }
+        else{
+            // otherwise just get the generic route
+            routeAfterSkip = getNextRouteDefault(route, application.applicationId)
+            log.debug(`skipping from ${route} to ${routeAfterSkip} on app ${application.applicationId} ${__location}`);
+        }
+        // only recurse if we found a route after skipping the current route
+        if(routeAfterSkip === null || typeof routeAfterSkip === "undefined" || routeAfterSkip === "_unknown"){
+            log.error(`Could not find the next route after trying to skip route ${route} for ${application.applicationId} ${__location}`);
+        }
+        else{
+            // we only recurse if we found a routeAfterSkip after skipping the route being passed in,
+            // otherwise we will just return the route being sent in from params
+            return cyberSkip(routeAfterSkip, customRouteFlowObj, application, agencyNetworkId);
+        }
+    }
+    else {
+        log.debug(`Current route ${route} is not part of the skipped list so returning route.`);
+    }
+    // otherwise we will just return the current route
+    return route;
+}
 // take both application and app id in case we need to look up the application (this is the first place it is needed)
 const checkForSkip = async(nextRoute, customRouteFlowObj, application, appId, agencyNetworkId) => {
     let next = nextRoute;
-
-    // skip officers if only cyber policy
-    if(nextRoute === "_officers"){
-        if(!application){
-            application = await getApplication(appId);
-        }
-        if(application.policies?.length === 1 && application.policies.some(p => p.policyType === "CYBER")){
-            if(customRouteFlowObj){
-                next = getNextRouteCustom(customRouteFlowObj, nextRoute, appId, agencyNetworkId);
-                log.debug(`skipping from ${nextRoute} to ${next} on app ${appId} ${__location}`);
-            }
-            else{
-                next = getNextRouteDefault(nextRoute, appId);
-                log.debug(`skipping from ${nextRoute} to ${next} on app ${appId} ${__location}`);
-            }
-        }
+    if(!application){
+        application = await getApplication(appId);
+    }
+    // skip officers and claims routes if only cyber policy
+    if(application.policies?.length === 1 && application.policies.some(p => p.policyType === "CYBER")){
+        next = cyberSkip(nextRoute, customRouteFlowObj, application, agencyNetworkId)
     }
     return next;
 }
 
 const getNextRouteDefault = (currentRoute, appId) => {
+
     switch(currentRoute){
         case "_policies":
             return "_business-questions"

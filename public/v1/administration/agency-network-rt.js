@@ -73,6 +73,13 @@ async function add(req, res, next) {
     if(req.body && req.body.feature_json){
         req.body.featureJson = req.body.feature_json
     }
+    if(req.body && !req.body.slug && req.body.name){
+        req.body.slug = req.body.name.trim().
+            replace(/\s/g, '-').
+            replace(/[^a-zA-Z0-9-]/g, '').
+            toLowerCase().
+            substring(0, 50);
+    }
 
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
@@ -106,6 +113,15 @@ async function update(req, res, next) {
     if(req.body.feature_json){
         req.body.featureJson = req.body.feature_json
     }
+    if(req.body && !req.body.slug && req.body.name){
+        req.body.slug = req.body.name.trim().
+            replace(/\s/g, '-').
+            replace(/[^a-zA-Z0-9-]/g, '').
+            toLowerCase().
+            substring(0, 50);
+    }
+
+
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
     await agencyNetworkBO.saveModel(req.body).catch(function(err) {

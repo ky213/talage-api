@@ -8,6 +8,7 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
 
 
 /**
@@ -104,7 +105,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
             catch(err){
                 log.error("Error getting quote for emailbindagency " + err + __location);
             }
-
+            const quotePolicyTypeList = [quoteDoc.policyType]
 
             //get email content.
             const agencyNetworkId = applicationDoc.agencyNetworkId;
@@ -225,15 +226,61 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
                     message = message.replace(/{{Quote Result}}/g, quoteResult);
-
-
                     message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+
+                    message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + `" src="${global.settings.IMAGE_URL}/${stringFunctions.trimString(insurerJson.logo, 'images/')}" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$` + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
+
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                    subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
+
+
+                    const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                    if(messageUpdate){
+                        message = messageUpdate
+                    }
+                    // Special policyType processing b/c it should only show
+                    // for the one quote not the full applications.
+                    const updatedEmailObject = await emailTemplateProceSvc.policyTypeQuoteProcessor(quoteDoc.policyType, message, subject)
+                    if(updatedEmailObject.message){
+                        message = updatedEmailObject.message
+                    }
+                    if(updatedEmailObject.subject){
+                        subject = updatedEmailObject.subject
+                    }
+
+                    // Software hook
+                    let branding = "Networkdefault"
+                    // Sofware Hook
+                    const dataPackageJSON = {
+                        appDoc: applicationDoc,
+                        agencyNetworkDB: agencyNetworkDB,
+                        htmlBody: message,
+                        emailSubject: subject,
+                        branding: branding,
+                        recipients: agencyLocationEmail
+                    }
+                    const hookName = 'request-bind-email-agencynetwork'
+                    try{
+                        await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
+                        message = dataPackageJSON.htmlBody
+                        subject = dataPackageJSON.emailSubject
+                        branding = dataPackageJSON.branding
+                        agencyLocationEmail = dataPackageJSON.recipients
+                    }
+                    catch(err){
+                        log.error(`Error ${hookName} hook call error ${err}` + __location);
+                    }
+
 
                     // Send the email
 
                     if (agencyLocationEmail) {
-                        const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, "Networkdefault");
+                        const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, branding);
                         if (emailResp === false) {
                             slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
                         }
@@ -254,8 +301,12 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         message = message.replace(/{{Agency Phone}}/g, agencyPhone);
                         message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
                         message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + `" src="${global.settings.IMAGE_URL}/${stringFunctions.trimString(insurerJson.logo, 'images/')}" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$` + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
+                        message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                        message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
 
+                        subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                        subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
                         //log.debug("sending customer email " + __location);
                         const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
@@ -272,14 +323,12 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
 
 
                 //Determine if Agency Network Email is required.
-                if(agencyNetworkDB
-                    && agencyNetworkDB.featureJson
-                    && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
-                    && agencyNetworkDB.email){
+                if(agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmails
+                    && agencyNetworkDB?.email){
                     try{
                         const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"policy_purchase_agency_network");
                         if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
-                            log.error(`AgencyNetwork ${agencyNetworkDB.name} missing policy_purchase_agency_network email template` + __location)
+                            log.error(`appId: ${applicationId} AgencyNetwork ${agencyNetworkDB.name} missing policy_purchase_agency_network email template` + __location)
                             return true;
                         }
 
@@ -299,37 +348,73 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         message = message.replace(/{{Industry}}/g, industryCodeDesc);
                         message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
                         message = message.replace(/{{Quote Result}}/g, quoteResult);
-
-
                         message = message.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
+                        message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + `" src="${global.settings.IMAGE_URL}/${stringFunctions.trimString(insurerJson.logo, 'images/')}" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$` + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
+
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                        subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
+
+                        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                        if(messageUpdate){
+                            message = messageUpdate
+                        }
+                        // Special policyType processing b/c it should only show
+                        // for the one quote not the full applications.
+                        const updatedEmailObject = await emailTemplateProceSvc.policyTypeQuoteProcessor(quoteDoc.policyType, message, subject)
+                        if(updatedEmailObject.message){
+                            message = updatedEmailObject.message
+                        }
+                        if(updatedEmailObject.subject){
+                            subject = updatedEmailObject.subject
+                        }
 
 
                         let recipientsString = agencyNetworkDB.email
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.
                         if(applicationDoc.agencyId){
                             // look up agencyportal users by agencyNotificationList
-                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
-                            const agencyPortalUserBO = new AgencyPortalUserBO();
-                            const query = {agencyNotificationList: applicationDoc.agencyId}
                             try{
-                                const anUserList = await agencyPortalUserBO.getList(query)
-                                if(anUserList && anUserList.length > 0){
-                                    for(const anUser of anUserList){
-                                        recipientsString += `,${anUser.email}`
-                                    }
+                                log.debug(`appId: ${applicationId} emailbindagency checking agencynotificationsvc` + __location)
+                                const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                                const anRecipents = await agencynotificationsvc.getUsersByAgency(applicationDoc.agencyId,quotePolicyTypeList)
+                                log.debug(`appId: ${applicationId} emailbindagency agencynotificationsvc returned ${anRecipents}` + __location)
+                                if(anRecipents.length > 2){
+                                    recipientsString += `,${anRecipents}`
                                 }
                             }
                             catch(err){
-                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                                log.error(`AppId: ${applicationDoc.applicationId} agencyId ${applicationDoc.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
+                        }
+
+                        // Software hook
+                        let branding = "Networkdefault"
+                        // Sofware Hook
+                        const dataPackageJSON = {
+                            appDoc: applicationDoc,
+                            agencyNetworkDB: agencyNetworkDB,
+                            htmlBody: message,
+                            emailSubject: subject,
+                            branding: branding,
+                            recipients: recipientsString
+                        }
+                        const hookName = 'request-bind-email-agencynetwork'
+                        try{
+                            await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
+                            message = dataPackageJSON.htmlBody
+                            subject = dataPackageJSON.emailSubject
+                            branding = dataPackageJSON.branding
+                            recipientsString = dataPackageJSON.recipients
+                        }
+                        catch(err){
+                            log.error(`Error ${hookName} hook call error ${err}` + __location);
                         }
 
                         // Send the email
                         const keyData3 = {'applicationDoc': applicationDoc};
-                        if (agencyNetworkDB.email) {
-                            const emailResp = await emailSvc.send(recipientsString, subject, message, keyData3, agencyNetworkId, "Networkdefault");
+                        if (recipientsString) {
+                            const emailResp = await emailSvc.send(recipientsString, subject, message, keyData3, agencyNetworkId, branding);
                             if (emailResp === false) {
                                 slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
                             }
@@ -342,6 +427,9 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                     catch(err){
                         log.error(`Sending Agency Network bind email ${err}` + __location);
                     }
+                }
+                else {
+                    log.debug(`Agency Network not setup for agencyNetworkQuoteEmails ${agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmails}  in emailbindagency appId: ${applicationId} `)
                 }
                 return true;
             }

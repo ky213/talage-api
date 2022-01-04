@@ -71,6 +71,11 @@ module.exports = class Policy {
         this.effective_date = policyJSON.effectiveDate;
         this.expiration_date = policyJSON.expirationDate;
         this.limits = this.formatLimits(policyJSON.limits);
+        this.limitArray = []
+        if(policyJSON.limits){
+            this.limitArray = policyJSON.limits.match(/[1-9]+0*/g);
+        }
+
 
         this.gross_sales = applicationDocData.grossSalesAmt;
 

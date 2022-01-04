@@ -101,6 +101,7 @@ module.exports = class BtisGL extends Integration {
 	 */
     async _insurer_quote() {
 
+        const appDoc = this.applicationDocData
         let errorMessage = '';
         let host = '';
         let service_channel = null;
@@ -293,7 +294,6 @@ module.exports = class BtisGL extends Integration {
         let subcontractorCosts = 0;
         let constructionExperience = 0;
         const qualifyingStatements = [];
-
         for (const question_id in this.questions) {
             if(this.questions[question_id]){
                 const question = this.questions[question_id];
@@ -388,15 +388,15 @@ module.exports = class BtisGL extends Integration {
                     Line2: primaryAddress.address2,
                     City: primaryAddress.city,
                     State: primaryAddress.territory,
-                    Zip: primaryAddress.zip.toString()
+                    Zip: primaryAddress.zip.toString().slice(0,5)
                 },
 
                 MailingAddress: {
-                    Line1: this.app.business.mailing_address,
-                    Line2: this.app.business.mailing_address2,
-                    City: this.app.business.mailing_city,
-                    State: this.app.business.mailing_territory,
-                    Zip: this.app.business.mailing_zip.toString()
+                    Line1: appDoc.mailingAddress,
+                    Line2: appDoc.mailingAddress2,
+                    City: appDoc.mailingCity,
+                    State: appDoc.mailingState,
+                    Zip: appDoc.mailingZipcode.slice(0,5)
                 },
 
                 GrossReceipts:[

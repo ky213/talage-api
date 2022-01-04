@@ -30,6 +30,15 @@ module.exports = class GreatAmericanWC extends Integration {
         this.log += `--------======= End =======--------<br><br>`;
     }
 
+    getInsurerAskedQuestionIds(questionnaire) {
+        let questionIds = [];
+        for (const group of questionnaire.groups) {
+            const ids = group.questions.map(q => q.questionId);
+            questionIds = questionIds.concat(ids);
+        }
+        return questionIds;
+    }
+
     /**
      * Requests a quote from Great America and returns. This request is not
      * intended to be called directly.
@@ -38,6 +47,14 @@ module.exports = class GreatAmericanWC extends Integration {
      *   containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
+
         const logPrefix = `Appid: ${this.app.id} Great American WC: `;
         const codes = await Promise.all(Object.keys(this.insurer_wc_codes).map(code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))));
         let error = null
@@ -222,6 +239,18 @@ module.exports = class GreatAmericanWC extends Integration {
         });
 
         // begins to hydrate (udpate) the question session
+        let questionnaire = session?.riskSelection.data.answerSession.questionnaire;
+        let insurerAskedQuestionIds = this.getInsurerAskedQuestionIds(questionnaire);
+        let missingQuestionIds = [];
+        for (const insurerAskedQuestionId of insurerAskedQuestionIds) {
+            if (!questions.hasOwnProperty(insurerAskedQuestionId)) {
+                missingQuestionIds.push(insurerAskedQuestionId);
+            }
+        }
+        if (missingQuestionIds && missingQuestionIds.length > 0) {
+            this.reasons.push(`Missing Questions Error: Could not find answers for question IDs: ${missingQuestionIds}`)
+            return this.return_result('error');
+        }
         let curAnswers = await GreatAmericanApi.injectAnswers(this, token, session, questions);
         if (curAnswers?.newBusiness?.status === 'DECLINE') {
             this.reasons.push(`Great American has declined to offer you coverage at this time`);
@@ -233,7 +262,7 @@ module.exports = class GreatAmericanWC extends Integration {
             this.reasons.push(`injectAnswers Error: No reponse`);
             return this.return_result('error');
         }
-        let questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
+        questionnaire = curAnswers?.riskSelection.data.answerSession.questionnaire;
 
 
         // Often times follow-up questions are offered by the Great American
@@ -243,6 +272,18 @@ module.exports = class GreatAmericanWC extends Integration {
             log.warn(`${logPrefix}There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered) ` + __location);
             this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)`;
             const oldQuestionsAnswered = questionnaire.questionsAnswered;
+
+            insurerAskedQuestionIds = this.getInsurerAskedQuestionIds(questionnaire);
+            missingQuestionIds = [];
+            for (const insurerAskedQuestionId of insurerAskedQuestionIds) {
+                if (!questions.hasOwnProperty(insurerAskedQuestionId)) {
+                    missingQuestionIds.push(insurerAskedQuestionId);
+                }
+            }
+            if (missingQuestionIds && missingQuestionIds.length > 0) {
+                this.reasons.push(`Missing Questions Error: Could not find answers for question IDs: ${missingQuestionIds}`)
+                return this.return_result('error');
+            }
 
             // continue to update the question session until complete
             curAnswers = await GreatAmericanApi.injectAnswers(this, token, curAnswers, questions);
@@ -282,6 +323,14 @@ module.exports = class GreatAmericanWC extends Integration {
             this.reasons.push(errorMessage);
             log.error(logPrefix + errorMessage + __location);
             return this.return_result('error');
+        }
+
+        if (_.get(pricingResponse, 'newBusiness.pricingType')) {
+            this.isBindable = _.get(pricingResponse, 'newBusiness.pricingType') === 'BINDABLE_QUOTE';
+        }
+
+        if (_.get(pricingResponse, 'newBusiness.id')) {
+            this.request_id = _.get(pricingResponse, 'newBusiness.id');
         }
 
         if (_.get(pricingResponse, 'rating.data.policy.id')) {

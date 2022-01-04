@@ -16,6 +16,10 @@ global.tracker = tracker;
 global.WHEELHOUSE_AGENCYNETWORK_ID = 1;
 global.DIGALENT_AGENCYNETWORK_ID = 2;
 
+//Settup global hookloader reference
+global.hookLoader = require('./hooks/hookloader.js');
+
+
 const colors = require('colors');
 
 const logger = require('./shared/services/logger.js');
@@ -175,7 +179,15 @@ async function startQueueProcessing() {
     if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
-        const taskJson = {"taskname": "amtrustimport"};
+        const taskJson = {
+            "taskname": "amtrustimport",
+            beginDate: "2021-12-08",
+            endDate: "2021-12-10"
+            //"deadBeat" : true
+            //"minDaysInPast": 0,
+            //"maxDaysInPast": 5
+
+        };
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
         const testMessage = {

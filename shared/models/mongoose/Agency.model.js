@@ -41,6 +41,8 @@ const AgencySchema = new Schema({
     firstName: {type: String, required: false},
     lastName: {type: String, required: false},
     name: {type: String, required: false},
+    displayName: {type: String, required: false},
+    agencyCode: {type: String, required: false},
     phone: {type: String, required: false},
     slug: {type: String, required: false},
     website: {type: String, required: false},

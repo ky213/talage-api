@@ -7,7 +7,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-//const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 // eslint-disable-next-line no-unused-vars
@@ -43,6 +43,7 @@ async function validate(user) {
     if (!validator.email(user.email)) {
         throw new Error('Email address is invalid');
     }
+
     data.email = user.email;
 
     data.group = user.group;
@@ -52,7 +53,7 @@ async function validate(user) {
     }
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(user.id, user.email).catch(function(err){
+    const doesDupExist = await agencyPortalUserBO.checkForDuplicateEmail(user.id, user.email, user.agencyNetworkId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -95,11 +96,41 @@ async function createUser(req, res, next) {
     // Determine if this is an agency or agency network
     let agencyId = null;
     let agencyNetworkId = null;
-    if (req.authentication.isAgencyNetworkUser && req.body.agency) {
-        agencyId = parseInt(req.body.agency, 10);
+    let isAgencyNetworkUser = false;
+    const agencyBO = new AgencyBO();
+    if (req.authentication.isAgencyNetworkUser && (req.body.agency || req.body.agencyId)){
+        if(req.body.agencyId){
+            agencyId = parseInt(req.body.agencyId, 10);
+        }
+        else {
+            agencyId = parseInt(req.body.agency, 10);
+        }
+        const agencyDoc = await agencyBO.getById(agencyId).catch(function(err){
+            log.error('agencyPortalUser error ' + err + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        });
+        const reqUserAgencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10)
+        let isTalageSuperUser = false;
+        if(reqUserAgencyNetworkId === 1 && req.authentication.permissions.talageStaff === true){
+            isTalageSuperUser = true;
+        }
+        if(agencyDoc?.agencyNetworkId !== reqUserAgencyNetworkId && !isTalageSuperUser){
+            log.error(`agencyPortalUser Attempt to add user to agency of agency Network request user ${req.authentication.userID}` + __location);
+            return next(serverHelper.requestError(new Error("bad agencyId")));
+        }
+        agencyNetworkId = reqUserAgencyNetworkId;
     }
     else if (req.authentication.isAgencyNetworkUser){
+        //TODO update for Global Mode.
+        isAgencyNetworkUser = true;
         agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10)
+        //req.authentication.permissions["globalMode"]
+        //Determine if in global model - if so look for agency Network in requeset or error out the request.
+        //short term if admin for Wheelhouse can add other agency Network user
+        if(agencyNetworkId === 1 && req.authentication.permissions.talageStaff === true && parseInt(req.body.agencyNetworkId,10) > 0){
+            agencyNetworkId = req.body.agencyNetworkId
+        }
+
     }
     else {
         // Get the agents that we are permitted to view
@@ -111,6 +142,18 @@ async function createUser(req, res, next) {
         }
         agencyId = agents[0];
     }
+    if(agencyId){
+        //check it is valid agency
+        const agencyDoc = await agencyBO.getById(agencyId).catch(function(err){
+            log.error('agencyPortalUser error ' + err + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        });
+        if(!agencyDoc){
+            log.error(`agencyPortalUser Attempt to add user to non activeagency ${agencyId} request user ${req.authentication.userID}` + __location);
+            return next(serverHelper.requestError(new Error("bad agencyId")));
+        }
+        agencyNetworkId = agencyDoc.agencyNetworkId;
+    }
 
     // Generate a random password for this user (they won't be using it anyway)
     const passwordHash = await crypt.hashPassword(Math.random().toString(36).substring(2, 15));
@@ -119,6 +162,7 @@ async function createUser(req, res, next) {
     const newUserJSON = {
         agencyId: agencyId,
         agencyNetworkId: agencyNetworkId,
+        isAgencyNetworkUser: isAgencyNetworkUser,
         email: userObj.email,
         password: passwordHash,
         canSign: data.canSign,
@@ -130,13 +174,28 @@ async function createUser(req, res, next) {
     // check if this user exists already but has been soft deleted.
     const agencyPortalUserBO = new AgencyPortalUserBO();
     const deActiveUser = false;
-    const oldDoc = await agencyPortalUserBO.getByEmail(userObj.email, deActiveUser).catch(function(err){
+    const oldDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(userObj.email, deActiveUser, agencyNetworkId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if(oldDoc){
         newUserJSON.active = true;
         newUserJSON.id = oldDoc.agencyPortalUserId;
+    }
+    else {
+        let existingDoc = null;
+        try {
+            existingDoc = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(userObj.email, true, agencyNetworkId, isAgencyNetworkUser);
+        }
+        catch (e) {
+            log.error('agencyPortalUser error ' + e + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        }
+
+        if (existingDoc) {
+            log.warn(`agencyPortalUser: User with this email already exists.` + __location);
+            return next(new Error('A user with this email already exists.'));
+        }
     }
 
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
@@ -147,13 +206,19 @@ async function createUser(req, res, next) {
         return next(error);
     }
     const userID = agencyPortalUserBO.id;
-
+    //Do not update redis on create.  It will get updated at login.
     // Return the response
     res.send(200, {
         userID: userID,
         code: 'Success',
         message: 'User Created'
     });
+
+    //check for do not send email
+    if(req.body.sentEmail === false){
+        return next();
+    }
+
 
     // Check if this is an agency network
     agencyNetworkId = req.authentication.agencyNetworkId;
@@ -275,7 +340,8 @@ async function deleteUser(req, res, next) {
     //TODO need rights check
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const result = await agencyPortalUserBO.deleteSoftById(parseInt(id, 10)).catch(function(err){
+    const userId = parseInt(id, 10)
+    const result = await agencyPortalUserBO.deleteSoftById(userId).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         error = Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -288,6 +354,9 @@ async function deleteUser(req, res, next) {
         log.error('User delete failed');
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
+    //remove redis key
+    const redisKey = "apuserinfo-" + userId;
+    await global.redisSvc.deleteKey(redisKey);
 
     res.send(200, 'Deleted');
 }
@@ -331,13 +400,36 @@ async function getUser(req, res, next) {
     }
 
     const agencyPortalUserBO = new AgencyPortalUserBO();
-    const userInfo = await agencyPortalUserBO.getList(userQuery).catch(function(err){
+    const userInfoList = await agencyPortalUserBO.getList(userQuery).catch(function(err){
         log.error('agencyPortalUser error ' + err + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 
     });
+    const userInfo = JSON.parse(JSON.stringify(userInfoList[0]));
+    //convert notificationPolicyTypeList to JSON object with enabled.
+    // eslint-disable-next-line array-element-newline
+    const policyTypeList = ["WC","GL", "BOP", "PL", "CYBER"];
+    const notificationPolicyTypeJSONList = [];
+    for(const pt of policyTypeList) {
+        let enabled = false;
+        if(!userInfo.notificationPolicyTypeList || userInfo.notificationPolicyTypeList?.length === 0){
+            enabled = true
+        }
+        else if(userInfo.notificationPolicyTypeList.indexOf(pt) > -1){
+            enabled = true
+        }
 
-    res.send(200, userInfo[0]);
+        const ptJSON = {
+            policyType: pt,
+            "enabled": enabled
+        }
+        notificationPolicyTypeJSONList.push(ptJSON);
+    }
+
+    userInfo.notificationPolicyTypeJSONList = notificationPolicyTypeJSONList;
+
+    log.debug(JSON.stringify(userInfo))
+    res.send(200, userInfo);
 }
 
 /**
@@ -400,13 +492,26 @@ async function updateUser(req, res, next) {
     }
 
     data.id = userObj.id;
+    const userId = parseInt(data.id, 10)
     // Prepare the email address
     const newUserJSON = {
-        id: parseInt(data.id, 10),
+        id: userId,
         canSign: data.canSign,
         email: data.email,
         agencyPortalUserGroupId: data.group,
         agencyNotificationList: data.agencyNotificationList
+    }
+    // if(data.notificationPolicyTypeList){
+    //     newUserJSON.notificationPolicyTypeList = data.notificationPolicyTypeList
+    // }
+    if(req.body.user.notificationPolicyTypeJSONList?.length > 0){
+        newUserJSON.notificationPolicyTypeList = [];
+        for(const pt of req.body.user.notificationPolicyTypeJSONList){
+            if(pt.enabled){
+                newUserJSON.notificationPolicyTypeList.push(pt.policyType);
+            }
+        }
+        log.debug(`newUserJSON.notificationPolicyTypeList  ${JSON.stringify(newUserJSON.notificationPolicyTypeList)}`)
     }
     const agencyPortalUserBO = new AgencyPortalUserBO();
     await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err) {
@@ -416,7 +521,22 @@ async function updateUser(req, res, next) {
     if (error) {
         return next(error);
     }
+    await updateRedisCache(userId);
     res.send(200, 'Saved');
+}
+
+/**
+ * Updates a single user's redis cache
+ *
+ * @param {integer} userId - userId apUserId
+ * @returns {void}
+ */
+async function updateRedisCache(userId){
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const apuDoc = await agencyPortalUserBO.getById(userId);
+    const redisKey = "apuserinfo-" + apuDoc.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(apuDoc));
+
 }
 
 exports.registerEndpoint = (server, basePath) => {

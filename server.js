@@ -41,7 +41,7 @@ function processJWT() {
 function validateJWT(options) {
     return async(req, res, next) => {
         if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
-            log.info('Forbidden: User is not authenticated');
+            log.info('Forbidden: User is not authenticated' + __location);
             return next(new RestifyError.ForbiddenError('User is not authenticated'));
         }
 
@@ -80,7 +80,7 @@ function validateCognitoJWT(options) {
             //check Cognito if the Token is good and get groups.
             cognitoSvc.getUserByToken(jwtToken, function(err, cognitoUser){
                 if(err){
-                    if(err.includes("NotAuthorizedException")){
+                    if(err.message?.includes("NotAuthorizedException")){
                         log.info(`NotAuthorizedException returned by cognitoSvc.getUserByToken ${err}` + __location)
                     }
                     else {
@@ -178,7 +178,7 @@ async function getUserTokenDataFromJWT(req){
 function validateAppApiJWT(options) {
     return async(req, res, next) => {
         if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
-            log.info('Forbidden: User is not authenticated');
+            log.info('Forbidden: User is not authenticated' + __location);
             return next(new RestifyError.ForbiddenError('User is not authenticated'));
         }
 
@@ -210,7 +210,7 @@ function validateAppApiJWT(options) {
 function validateQuoteAppV2JWT(options) {
     return async(req, res, next) => {
         if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
-            log.info('Forbidden: User is not authenticated');
+            log.info('Forbidden: User is not authenticated' + __location);
             return next(new RestifyError.ForbiddenError('User is not authenticated'));
         }
         let goodJWT = false;
@@ -462,6 +462,21 @@ class AbstractedHTTPServer {
             permission: permission,
             permissionType: permissionType,
             agencyPortal: true
+        }));
+    }
+
+    addPutAuthNotAP(name, path, handler, permission = null, permissionType = null) {
+        name += ' (auth)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
         }));
     }
 

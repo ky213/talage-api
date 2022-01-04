@@ -36,17 +36,17 @@ const ActivityCodeEmployeeTypeEntrySchema = new Schema({
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
-    activityCodeId: {type: Number, required: true},
-    ncciCode: {type: Number, required: false},
-    payroll: {type: Number, required: true},
+    activityCodeId: {type: Number, required: false},
+    ncciCode: {type: String, required: false},
+    payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false},
     employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
 })
 
 const ActivtyCodePayrollSchema = new Schema({
-    activityCodeId: {type: Number, required: true},
-    ncciCode: {type: Number, required: false},
-    payroll: {type: Number, required: true},
+    activityCodeId: {type: Number, required: false},
+    ncciCode: {type: String, required: false},
+    payroll: {type: Number, required: true, default: 0},
     ownerPayRoll: {type: Number, required: false}
 });
 
@@ -65,6 +65,7 @@ const QuestionSchema = new Schema({
 const locationBOPPolicySchema = new Schema({
     fireAlarmType: {type: String, required: false},
     sprinklerEquipped: {type: Boolean, required: false},
+    sprinklerPercentCoverage: {type: Number, required: false},
     roofingImprovementYear: {type: Number, required: false},
     wiringImprovementYear: {type: Number, required: false},
     heatingImprovementYear: {type: Number, required: false},
@@ -137,8 +138,8 @@ const ownerSchema = new Schema({
 //IP required false in case we do not get it or maybe copying an old app.
 // issues have been seen in demo with not ip address.
 const legalAcceptanceSchema = new Schema({
-    ip: {type: String, required: false},
-    version: {type: Number, required: true}
+    ip: { type: String, required: true, default: "0.0.0.0" },
+    version: { type: Number, required: true, default: -1 }
 });
 
 const claimSchema = new Schema({
@@ -226,7 +227,8 @@ const ApplicationMetricsPremiumSchema = new Schema({
 
 const ApplicationMetricsSchema = new Schema({
     lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
-    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    appValue: {type: Number, default: 0}
 });
 
 
@@ -263,6 +265,7 @@ const ApplicationSchema = new Schema({
     wholesale:  {type: Boolean, default: false},
     coverageLapseWC:  {type: Boolean, default: false},
     agencyPortalCreated:  {type: Boolean, required: false, default: false},
+    apiCreated:  {type: Boolean, required: false, default: false},
     abandonedEmail:  {type: Boolean, default: false},
     abandonedAppEmail:  {type: Boolean, default: false},
     optedOutOnlineEmailsent:  {type: Boolean, default: false},
@@ -327,6 +330,7 @@ const ApplicationSchema = new Schema({
     renewal: {type: Boolean, default: false},
     pricingInfo: {type:PricingInfoSchema, required: false},
     agencyCode: {type: String, required: false},
+    tagString: {type: String, required: false},
     active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
@@ -419,7 +423,6 @@ function populateActivityCodePayroll(schema) {
                     // Add it if it doesn't exist
                     activityCodePayrollSum = {
                         activityCodeId: ActivtyCodeEmployeeType.activityCodeId,
-                        ncciCode: ActivtyCodeEmployeeType.activityCodeId,
                         payroll: 0
                     };
                     activityCodesPayrollSumList.push(activityCodePayrollSum);

@@ -218,7 +218,7 @@ function prepRequestQuestion(questionDoc){
     if(questionDoc.question){
         questionDoc.text = questionDoc.question
     }
-    if(questionDoc.state){
+    if(questionDoc.hasOwnProperty("state")){
         questionDoc.active = questionDoc.state === 1;
     }
     if(questionDoc.typeId){

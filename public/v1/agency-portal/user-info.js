@@ -50,6 +50,9 @@ async function GetUserInfo(req, res, next){
         userInfo.timezone_name = "America/Los_Angeles"
     }
     userInfo.tz = userInfo.timezoneName;
+    const redisKey = "apuserinfo-" + userInfo.agencyPortalUserId;
+    await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(userInfo));
+
 
     let agencyNetworkId = null;
     if(isAgencyNetworkUser){
@@ -88,7 +91,7 @@ async function GetUserInfo(req, res, next){
         log.error("Get AgencyNetwork Error " + err + __location);
     })
     if(agencyNetworkJSON){
-        userInfo.feature_json = agencyNetworkJSON.feature_json;
+        userInfo.feature_json = agencyNetworkJSON.featureJson;
         if(!agencyNetworkJSON.additionalInfo){
             log.error("additionalInfo was not present on agencyNetwork: " + agencyNetworkJSON.id);
         }
@@ -110,6 +113,11 @@ async function GetUserInfo(req, res, next){
             userInfo.helpText = agencyNetworkJSON.help_text
         }
     }
+
+    // Check that the user has accepted the latest Terms of Service version
+    const latestTermsOfServiceVersion = 3;
+    userInfo.acceptedCurrentTOS = userInfo.termsOfServiceVersion === latestTermsOfServiceVersion;
+
     // Send the user's data back
     res.send(200, userInfo);
     return next();

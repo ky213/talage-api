@@ -6,7 +6,8 @@ const axios = require("axios")
 let accessToken = "";
 let credentials = null;
 
-async function authorize() {
+async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
+    accessToken = "";
     //get Amtrust insurer.
     var InsurerModel = global.insurerMongodb.model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
@@ -14,9 +15,55 @@ async function authorize() {
         log.error(`No Amtrust record ` + __location)
         return false;
     }
-    //get Talage's AgencyLocation
+
+    credentials = JSON.parse(insurer.password);
+    if(global.settings.ENV !== 'production'){
+        credentials = JSON.parse(insurer.test_password);
+    }
     const AgencyLocationMongooseModel = global.mongodb.model('AgencyLocation');
-    const agencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: 1}, '-__v');
+    let agencyLocationId = 1; //talage
+    if(agencyId){
+        const appAgencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: appAgencyLocationId}, '-__v');
+        //user prime agency ??
+        if(appAgencyLocDoc.useAgencyPrime === true){
+            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+            const agencyLocationBO = new AgencyLocationBO();
+            const AgencyBO = global.requireShared('./models/Agency-BO.js');
+            const agencyBO = new AgencyBO();
+            const queryAgency = {
+                "agencyNetworkId": agencyNetworkId,
+                "primaryAgency": true
+            }
+            const agencyList = await agencyBO.getList(queryAgency);
+            if(agencyList && agencyList.length > 0){
+                const agencyPrime = agencyList[0];
+                //get agency's prime location
+                // return prime location's insurers.
+                const returnChildren = false;
+                const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                if(agencyLocationPrime){
+                    agencyLocationId = agencyLocationPrime.systemId;
+                    //is Amtrust talageWholeSale
+                    const amtrustAL = agencyLocationPrime.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+                    if(amtrustAL?.talageWholesale){
+                        agencyLocationId = 1;
+                    }
+                }
+            }
+        }
+        else {
+            agencyLocationId = appAgencyLocDoc.systemId;
+            //is Amtrust talageWholeSale
+            const amtrustAL = appAgencyLocDoc.insurers.find((alI) => alI.insurerId === insurer.insurerId);
+            if(amtrustAL?.talageWholesale){
+                agencyLocationId = 1;
+            }
+        }
+    }
+
+    //get AgencyLocation
+
+    const agencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: agencyLocationId}, '-__v');
     if(!agencyLocDoc){
         log.error(`Amtrust WC Importing Could not load Talage Agency Location` + __location);
         throw new Error(`Amtrust WC Importing Could not load Talage Agency Location`)
@@ -26,11 +73,31 @@ async function authorize() {
         credentials = JSON.parse(insurer.test_password);
     }
     const amtrustAL = agencyLocDoc.insurers.find((alI) => alI.insurerId === insurer.insurerId);
-    const agentUserNamePassword = amtrustAL.agentId.trim();
-    const commaIndex = agentUserNamePassword.indexOf(',');
-    const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
-    const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
+    if(!amtrustAL?.agentId){
+        log.error(`agencyLocationId ${agencyLocationId} missing Amtrust credentials` + __location)
+        return null;
+    }
+    let agentUsername = '';
+    let agentPassword = '';
 
+    try{
+        const agentUserNamePassword = amtrustAL.agentId.trim();
+        const commaIndex = agentUserNamePassword.indexOf(',');
+        if(commaIndex === -1){
+            log.error(`agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
+        }
+        else {
+            agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
+            agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
+        }
+    }
+    catch(err){
+        log.error(`Task amtrust-client error gettign agentUsername & agentPassword ${amtrustAL.agentId} for agencyLocationId ${agencyLocationId} error: ${err}` + __location)
+        return null;
+    }
+    if(!agentUsername || !agentPassword){
+        return null;
+    }
 
     const requestData = {
         grant_type: "password",
@@ -42,6 +109,8 @@ async function authorize() {
         response_type: "token id_token",
         undefined: ""
     };
+    //const requestDataString = JSON.stringify(requestData);
+
     const requestDataString = queryString.stringify(requestData);
 
     const requestOptions = {headers: {"Content-type": "application/x-www-form-urlencoded"}}
@@ -57,15 +126,21 @@ async function authorize() {
     if (response.data.error) {
         log.error(`${response.data.error} : ${response.data.error_message}` + __location);
     }
-    if (!response.data.access_token) {
+    if (!response.data?.access_token) {
         log.error(`Unable to find the access_token property` + __location);
+        return null;
     }
-    accessToken = response.data.access_token;
-
-    return accessToken;
+    else {
+        accessToken = response.data.access_token;
+        return accessToken;
+    }
 }
 
 async function callAPI(method, endpoint, queryParameters = null, data = null) {
+    if(!accessToken || accessToken === ""){
+        return null;
+    }
+
     const requestOptions = {headers: {
         "Content-type": "application/json",
         "Authorization": `Bearer ${accessToken}`,
@@ -137,7 +212,7 @@ async function makeRequest(method, url, params = null, data = null, options = nu
     }
     catch (error) {
         if(error.response){
-            log.error(`AmTrust Error: ${error.response.status} ${error.response.statusText}` + __location);
+            log.warn(`AmTrust Error: ${error.response.status} ${error.response.statusText} ${method} url ${url} params ${params} data ${data}` + __location);
         }
         return {
             error: error,

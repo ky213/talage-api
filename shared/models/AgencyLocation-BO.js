@@ -537,40 +537,8 @@ module.exports = class AgencyLocationBO{
                         locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
                         locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
                         locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
-                    }
-                    else {
-                        log.error(`addInsureInfoTolocationInsurers Error insurerId = ${JSON.stringify(locationInsurerInfoArray[i])} `)
-                    }
-
-                }
-            }
-            else {
-                log.error("No Insures AgencLocation.Insurers " + __location);
-            }
-        }
-    }
-
-    async addInsureInfoTolocationInsurers(locationInsurerInfoArray){
-        if(locationInsurerInfoArray){
-            // let error = null;
-            const insurerBO = new InsurerBO();
-            const query = {};
-            const insurerList = await insurerBO.getList(query).catch(function(err) {
-                log.error("admin agencynetwork error: " + err + __location);
-                //    error = err;
-            })
-            if(insurerList){
-                for(let i = 0; i < locationInsurerInfoArray.length; i++){
-                    if(typeof locationInsurerInfoArray[i].insurerId === "string"){
-                        locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
-                    }
-                    const insurer = insurerList.find(insurertest => insurertest.id === locationInsurerInfoArray[i].insurer);
-                    if(insurer){
-                        locationInsurerInfoArray[i].logo = insurer.logo;
-                        locationInsurerInfoArray[i].name = insurer.name;
-                        locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
-                        locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
-                        locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+                        locationInsurerInfoArray[i].cred3_label = insurer.agent_cred3_label;
+                        locationInsurerInfoArray[i].enable_cred3 = insurer.enable_cred3;
                     }
                     else {
                         log.error(`addInsureInfoTolocationInsurers Error insurerId = ${JSON.stringify(locationInsurerInfoArray[i])} `)

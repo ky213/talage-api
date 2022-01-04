@@ -20,17 +20,20 @@ const getApplicationFromHash = async(req, res, next) => {
         if(redisValueJSON && redisValueJSON?.applicationId){
             // if application appStatusId is greater than or equal to referred (40) then don't allow user to deep link
             const applicationBO = new ApplicationBO();
-            const applicationDB = await applicationBO.getById(redisValueJSON.applicationId).catch(function (err) {
-                log.error(`Getting application appId# ${appId} resulted in error ${err}`  + __location);
+            const applicationDB = await applicationBO.getById(redisValueJSON.applicationId).catch(function(err) {
+                log.error(`Getting application appId# ${redisValueJSON.applicationId} resulted in error ${err}` + __location);
             });
             if(applicationDB.appStatusId >= 40){
                 res.send(403, {error: "Application has already been processed please contact your agent."})
             }
-            const token = await createApplicationToken(req, redisValueJSON.applicationId);
-            res.send(200, {
-                token,
-                applicationId: redisValueJSON.applicationId
-            });
+            else{
+                const token = await createApplicationToken(req, redisValueJSON.applicationId);
+                res.send(200, {
+                    token,
+                    applicationId: redisValueJSON.applicationId
+                });
+            }
+            return next();
         }
         else {
             log.error(`getApplicationFromHash Could not find Hash redis value for key: ${redisKey}` + __location);

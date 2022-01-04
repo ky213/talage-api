@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
@@ -14,6 +15,10 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 const Quote = global.mongodb.model('Quote');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 /**
  * Validates the parameters for the applications call
@@ -34,7 +39,7 @@ function validateParameters(parent, expectedParameters){
             return false;
         }
         const parameterValue = parent[expectedParameter.name];
-        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
+        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue) && expectedParameter.optional !== true){
             log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
@@ -46,14 +51,61 @@ function validateParameters(parent, expectedParameters){
     return true;
 }
 
+/**
+ * calculates application value from metrics
+ * @param {object} applicationDoc - The list of parameters to validate
+ * @return {string} empty string or formated application value
+ */
+function getAppValueString(applicationDoc){
+    if(applicationDoc.metrics){
+        var formatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+            // These options are needed to round to whole numbers if that's what you want.
+            //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+            //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+        });
+
+        if(applicationDoc.metrics.appValue > 0){
+            return formatter.format(applicationDoc.metrics.appValue);
+        }
+        else{
+            let appValueDollars = 0;
+            //update record so it is searchable.
+            // eslint-disable-next-line no-unused-vars
+            const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
+            for(let i = 0; i < productTypeList.length; i++){
+                if(applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]){
+                    appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
+                }
+                else if (applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]){
+                    appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
+                }
+            }
+            if(appValueDollars > 0){
+                //do not await - write can take place in background.
+                const appBO = new ApplicationBO();
+                appBO.recalculateQuoteMetrics(applicationDoc.applicationId);
+                return formatter.format(appValueDollars);
+            }
+            else {
+                return "";
+            }
+        }
+    }
+    else {
+        return "";
+    }
+}
 
 /**
  * Generate a CSV file of exported application data
  *
  * @param {array} applicationList - The list of appplication to put in CSV
+ * @param {boolean} isGlobalViewMode - true if in GlobalViewMode
  * @returns {Promise.<String, Error>} A promise that returns a string of CSV data on success, or an Error object if rejected
  */
-function generateCSV(applicationList){
+function generateCSV(applicationList, isGlobalViewMode){
     return new Promise(async(fulfill, reject) => {
 
 
@@ -72,7 +124,9 @@ function generateCSV(applicationList){
             'referred': 'Referred',
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
-            'wholesale': 'Wholesale'
+            'wholesale': 'Wholesale',
+            'out_of_market': 'Out Of Market',
+            'dead': 'Dead'
         };
 
         // If no data was returned, stop and alert the user
@@ -99,6 +153,7 @@ function generateCSV(applicationList){
             // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
             applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
             applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
+
 
             //Get Primary Location
             const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
@@ -137,6 +192,11 @@ function generateCSV(applicationList){
             else{
                 applicationDoc.status = 'Unknown';
             }
+            // if(applicationDoc.renewal === true){
+            //     applicationDoc.renewal = "Yes";
+            // }
+            // applicationDoc.appValue = getAppValueString(applicationDoc);
+
             const createdAtMoment = moment(applicationDoc.createdAt)
             applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
 
@@ -147,28 +207,64 @@ function generateCSV(applicationList){
         }
 
         // Define the columns (and column order) in the CSV file and their user friendly titles
-        const columns = {
-            'businessName': 'Business Name',
-            'dba': 'DBA',
-            'status': 'Application Status',
-            'agencyName': 'Agency',
-            'referrer': 'Source',
-            'mailingAddress': 'Mailing Address',
-            'mailingCity': 'Mailing City',
-            'mailingState': 'Mailing State',
-            'mailingZipcode': 'Mailing Zip Code',
-            'primaryAddress': 'Physical Address',
-            'primaryCity': 'Physical City',
-            'primaryState': 'Physical State',
-            'primaryZip': 'Physical Zip Code',
-            'contactName': 'Contact Name',
-            'email': 'Contact Email',
-            'phone': 'Contact Phone',
-            'entityType': 'Entity Type',
-            'einClear': 'EIN',
-            'website': 'Website',
-            'createdString' : 'Created (UTC)'
-        };
+        let columns = {}
+        log.debug(`CSV isGlobalViewMode ${isGlobalViewMode}` + __location)
+        if(isGlobalViewMode){
+            columns = {
+                'businessName': 'Business Name',
+                'dba': 'DBA',
+                'status': 'Application Status',
+                'appValue': 'Application Value',
+                'agencyNetworkName': 'Network',
+                'agencyName': 'Agency',
+                'referrer': 'Source',
+                'mailingAddress': 'Mailing Address',
+                'mailingCity': 'Mailing City',
+                'mailingState': 'Mailing State',
+                'mailingZipcode': 'Mailing Zip Code',
+                'primaryAddress': 'Physical Address',
+                'primaryCity': 'Physical City',
+                'primaryState': 'Physical State',
+                'primaryZip': 'Physical Zip Code',
+                'contactName': 'Contact Name',
+                'email': 'Contact Email',
+                'phone': 'Contact Phone',
+                'entityType': 'Entity Type',
+                'einClear': 'EIN',
+                'website': 'Website',
+                'renewal': 'renewal',
+                'tagString': "tag",
+                'createdString' : 'Created (UTC)'
+            };
+
+        }
+        else {
+            columns = {
+                'businessName': 'Business Name',
+                'dba': 'DBA',
+                'status': 'Application Status',
+                'appValue': 'Application Value',
+                'agencyName': 'Agency',
+                'referrer': 'Source',
+                'mailingAddress': 'Mailing Address',
+                'mailingCity': 'Mailing City',
+                'mailingState': 'Mailing State',
+                'mailingZipcode': 'Mailing Zip Code',
+                'primaryAddress': 'Physical Address',
+                'primaryCity': 'Physical City',
+                'primaryState': 'Physical State',
+                'primaryZip': 'Physical Zip Code',
+                'contactName': 'Contact Name',
+                'email': 'Contact Email',
+                'phone': 'Contact Phone',
+                'entityType': 'Entity Type',
+                'einClear': 'EIN',
+                'website': 'Website',
+                'renewal': 'renewal',
+                'tagString': "tag",
+                'createdString' : 'Created (UTC)'
+            };
+        }
 
         // Establish the headers for the CSV file
         const options = {
@@ -244,6 +340,11 @@ async function getApplications(req, res, next){
             "type": 'string'
         },
         {
+            "name": 'searchApplicationStatusId',
+            "type": 'number',
+            "optional": true
+        },
+        {
             "name": 'searchApplicationStatus',
             "type": 'string',
             "values": ['',
@@ -259,7 +360,8 @@ async function getApplications(req, res, next){
                 "questions_done",
                 "incomplete",
                 'error',
-                'dead']
+                'dead'],
+            "optional": true
         },
         {
             "name": 'startDate',
@@ -271,6 +373,16 @@ async function getApplications(req, res, next){
             "name": 'endDate',
             "type": 'string',
             "verifyDate": true,
+            "optional": true
+        },
+        {
+            "name": 'tagString',
+            "type": 'string',
+            "optional": true
+        },
+        {
+            "name": 'appValue',
+            "type": 'number',
             "optional": true
         }
     ];
@@ -574,9 +686,6 @@ async function getApplications(req, res, next){
                 const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
                 orClauseArray.push(industryCodeListFilter);
             }
-            else {
-                log.warn("Application Search no agencies found " + __location);
-            }
         }
 
         req.params.searchText = req.params.searchText.toLowerCase();
@@ -597,6 +706,8 @@ async function getApplications(req, res, next){
         if(req.params.searchText.length > 2){
             const uuid = {uuid: `%${req.params.searchText}%`}
             orClauseArray.push(uuid);
+            const agencyCode = {agencyCode: `%${req.params.searchText}%`}
+            orClauseArray.push(agencyCode);
         }
 
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
@@ -610,18 +721,52 @@ async function getApplications(req, res, next){
         }
 
     }
+
+    //Tag from advanced filter should not be an OR. It should act as a filter. therefore it is an AND. - BP
+    //tag should be a hard match not a substring match. - BP
+    if (req.params.tagString && req.params.tagString.length > 1) {
+        //const tag = {tagString: `%${req.params.tagString}%`}
+        //orClauseArray.push(tag);
+        query.tagString = req.params.tagString;
+    }
+
+    if (req.params.appValue && req.params.appValue > 0) {
+        //$GTE handled in BO.
+        query.appValue = req.params.appValue;
+    }
+
     //agency search has to be after insurer search
 
     // Filter out any agencies with do_not_report value set to true
+    let agencyNetworkList = [];
+    let isGlobalViewMode = false;
     try{
-
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = agencyNetworkId;
+            if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true
+                && req.authentication.enableGlobalView === true){
+                isGlobalViewMode = true;
+                //get list of agencyNetworks
+                try{
+                    const agencyNetworkBO = new AgencyNetworkBO();
+                    agencyNetworkList = await agencyNetworkBO.getList({});
+                }
+                catch(err){
+                    log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
+                }
+
+
+            }
+            if(isGlobalViewMode === false){
+                query.agencyNetworkId = agencyNetworkId;
+            }
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
-                doNotReport: true,
-                agencyNetworkId: agencyNetworkId
+                doNotReport: true
+            }
+            if(!isGlobalViewMode){
+                agencyQuery.agencyNetworkId = agencyNetworkId
             }
             // eslint-disable-next-line prefer-const
             let donotReportAgencyIdArray = []
@@ -635,7 +780,7 @@ async function getApplications(req, res, next){
                     query.agencyId = {$nin: donotReportAgencyIdArray};
                 }
             }
-            if(req.params.searchText){
+            if(req.params.searchText.length > 2){
                 agencyQuery.name = req.params.searchText + "%"
                 agencyQuery.doNotReport = false;
                 const noActiveCheck = true;
@@ -649,6 +794,11 @@ async function getApplications(req, res, next){
                     let agencyIdArray = [];
                     for (const agency of agencyList) {
                         agencyIdArray.push(agency.systemId);
+                        //prevent in from being too big.
+                        if(agencyIdArray.length > 100){
+                            log.debug(`Get Agency maxed out agency filter` + __location)
+                            break;
+                        }
                     }
                     agencyIdArray = agencyIdArray.filter(function(value){
                         return donotReportAgencyIdArray.indexOf(value) === -1;
@@ -674,19 +824,23 @@ async function getApplications(req, res, next){
                 query.solepro = true;
             }
         }
-        if(req.params.searchApplicationStatus){
-            query.status = req.params.searchApplicationStatus;
-        }
     }
     catch(err){
         log.error("AP get App list error " + err + __location);
     }
 
+    //Add a application status search clause if requested
+    // if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
+    //     const status = {status: req.params.searchApplicationStatus}
+    //     orClauseArray.push(status);
+    // }
 
-    // Add a application status search clause if requested
-    if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
-        const status = {status: req.params.searchApplicationStatus}
-        orClauseArray.push(status);
+    if(req.params.searchApplicationStatus){
+        query.status = req.params.searchApplicationStatus;
+    }
+
+    if (req.params && Object.prototype.hasOwnProperty.call(req.params,'searchApplicationStatusId') && req.params.searchApplicationStatusId >= 0){
+        query.appStatusId = parseInt(req.params.searchApplicationStatusId, 10);
     }
 
     // eslint-disable-next-line prefer-const
@@ -700,16 +854,21 @@ async function getApplications(req, res, next){
     try{
         // eslint-disable-next-line prefer-const
         let totalQueryJson = {};
+        let noCacheUseForTotal = true
         if(query.agencyNetworkId){
             totalQueryJson.agencyNetworkId = query.agencyNetworkId
+            noCacheUseForTotal = false
         }
         else if(query.agencyId){
             totalQueryJson.agencyId = query.agencyId
+            noCacheUseForTotal = false
         }
-        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
+        log.debug(`Get applications totalQueryJson ${JSON.stringify(totalQueryJson)}` + __location)
+        const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1}, 0, noCacheUseForTotal);
         applicationsTotalCount = applicationsTotalCountJSON.count;
 
         // query object is altered in getAppListForAgencyPortalSearch
+        log.debug(`Get applications query ${JSON.stringify(query)}` + __location)
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
@@ -724,16 +883,30 @@ async function getApplications(req, res, next){
             else {
                 application.location = "";
             }
+            //TODO update when customizeable status description are done.
+            if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+                application.status = "submitted_to_uw";
+            }
+            if(isGlobalViewMode){
+                //add agency Network name.
+                const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
+                if(agencyNetworkDoc){
+                    application.agencyNetworkName = agencyNetworkDoc.name;
+                }
+            }
+            application.renewal = application.renewal === true ? "Yes" : "";
+            application.appValue = getAppValueString(application);
+
         }
 
     }
     catch(err){
-        log.error(`Error Getting application doc JSON.stringify(requestParms) JSON.stringify(query)` + err + __location)
+        log.error(`Error Getting application doc requestParms: ${JSON.stringify(requestParms)} query: ${JSON.stringify(query)} error:` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
     if(returnCSV === true){
-        const csvData = await generateCSV(applicationList).catch(function(e){
+        const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
             error = e;
         });
         if(error){
@@ -784,7 +957,305 @@ async function getApplications(req, res, next){
     }
 }
 
+/**
+ * Populates the resources object with insurers and policies
+ *
+ * @param {object} resources - Resources Object to be decorated
+ * @param {array} insurerIdArray - Array of insurer ids
+ *
+ * @returns {void}
+ */
+async function populateInsurersAndPolicies(resources, insurerIdArray){
+    const insurerBO = new InsurerBO();
+    const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+    const query = {"insurerId": insurerIdArray};
+    const insurerDBJSONList = await insurerBO.getList(query);
+    if(insurerDBJSONList.length > 0){
+        const insurerList = insurerDBJSONList.map(insurerObj => ({name: insurerObj.name, insurerId: insurerObj.insurerId, slug: insurerObj.slug}));
+        // sort list by name
+        const sortFunction = function(firstInsurerObj, secondInsurerObj){
+            // sort alphabetically
+            if(firstInsurerObj.name > secondInsurerObj.name){
+                return 1;
+            }
+            if(firstInsurerObj.name < secondInsurerObj.name){
+                return -1;
+            }
+            return 0;
+        }
+        const sortedInsurerList = insurerList.sort(sortFunction);
+        resources.insurers = sortedInsurerList;
+        const queryPT =
+        {
+            "wheelhouse_support": true,
+            insurerId: insurerIdArray
+        };
+        const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT);
+        let listOfPolicies = [];
+        if(insurerPtDBList?.length > 0){
+            // just map them to a policy type list, so WC, CYBER, GL ...
+            listOfPolicies = insurerPtDBList.map(insurerPolicyType => insurerPolicyType.policy_type);
+        }
+        // lets go ahead and grab the unique values for policy types and store in the policy type selections list
+        if(listOfPolicies.length > 0){
+            const productTypeSelections = [];
+            // push policy type to the productTypeSelections if it isn't in the list, ensures no duplicate values
+            for(let i = 0; i < listOfPolicies.length; i++){
+                const policyType = listOfPolicies[i];
+                if(productTypeSelections.indexOf(policyType) === -1){
+                    productTypeSelections.push(policyType);
+                }
+            }
+            if(productTypeSelections.length > 0){
+                resources.productTypeSelections = productTypeSelections;
+            }
+        }
+    }
+}
+
+/**
+ * Responds to get requests for the get resources endpoint
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getApplicationsResources(req, res, next){
+    const resources = {};
+    let error = null;
+    // determine if signed in is an agencyNetwork User or agency user
+    const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+
+    // our default list, if or when we add a new product, add it to this const list
+    const defaultProductTypeFilters =
+        [
+            "WC",
+            "GL",
+            "BOP",
+            "CYBER",
+            "PL"
+        ];
+
+    resources.productTypeSelections = defaultProductTypeFilters;
+
+    // if login is agency network grab the id
+    if(isAgencyNetworkUser === true){
+        const agencyNetworkId = req.authentication.agencyNetworkId;
+        try{
+            // grab the agencyNetworkDB
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+                log.error(`agencyNetworkBO load error for agencyNetworkId ${agencyNetworkId} ${err} ${__location}`);
+                error = err;
+            });
+            if (error) {
+                return next(error);
+            }
+            // grab all the insurers for this agency network
+            const insurerIdArray = agencyNetworkJSON.insurerIds;
+            // add insurers and policies to the resources
+            if(insurerIdArray.length > 0){
+                await populateInsurersAndPolicies(resources, insurerIdArray);
+            }
+        }
+        catch(err){
+            log.error(`Error retrieving Agency Network Insurer and Policies List for agency network id: ${agencyNetworkId}` + err + __location);
+        }
+    }
+    else {
+        // grab the list of agencies from the req.authentication
+        const listOfAgencyIds = req.authentication.agents;
+        // make sure we got agencyIds back, safety check, in this flow should always be 1 but even if more we just grab the first one
+        if(listOfAgencyIds?.length > 0){
+            const agencyLocationBO = new AgencyLocationBO();
+            let locationList = [];
+            // we should only have a single agency id if the req is not agencyNetwork
+            // grab the agency
+            const agencyId = listOfAgencyIds[0];
+            const query = {"agencyId": agencyId}
+            const getChildren = true;
+            const getAgencyName = false;
+            const useAgencyPrimeInsurers = true;
+            const insurerIdArray = [];
+            try {
+                // grab all the locations for an agency
+                locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+                    log.error(`Could not get agency locations for agencyId ${agencyId} ` + err.message + __location);
+                    error = err;
+                });
+                if (error) {
+                    return next(error);
+                }
+                // iterate through each location and grab the insurerId
+                for(let i = 0; i < locationList.length; i++){
+                    const locationObj = locationList[i];
+                    if(locationObj?.insurers && locationObj?.insurers?.length > 0){
+                        // grab all the insurers
+                        const locationInsurers = locationObj.insurers;
+                        // for each insurer grab their id and push into insurerId Array
+                        for(let j = 0; j < locationInsurers.length; j++){
+                            const insurer = locationInsurers[j];
+                            // if the id doesn't exist in the isnurerIdArray then add it to the list
+                            if(insurerIdArray.indexOf(insurer.insurerId) === -1){
+                                insurerIdArray.push(insurer.insurerId);
+                            }
+                        }
+                    }
+                }
+                if(insurerIdArray.length > 0){
+                    await populateInsurersAndPolicies(resources, insurerIdArray);
+                }
+            }
+            catch(err){
+                log.error(`Error retrieving Agency Insurer and Policies List for agency id: ${agencyId}` + err + __location);
+            }
+        }
+        else{
+            log.error(`Error,  req.authentication.agents is returning empty agency list: ${JSON.stringify(req.authentication.agents)} ${__location}`)
+        }
+    }
+    // Add date filters
+    const dateFilters = [
+        {
+            label: 'Created Date',
+            value: ''
+        },
+        {
+            label: 'Modified Date',
+            value: 'md:'
+        },
+        {
+            label: 'Policy Effective Date',
+            value: 'pd:'
+        },
+        {
+            label: 'Policy Expiration Date',
+            value: 'pde:'
+        }
+    ]
+    resources.dateFilters = dateFilters;
+    // Add Skip Filters
+    const skipFilters = [{label: 'Renewals', value: 'skiprenewals'}, {label: 'System Generated', value: 'system'}]
+    resources.skipFilters = skipFilters;
+
+    // Add quoteStatusSelections
+    const quoteStatusSelections =
+    [
+        {label: "Errored", value:"iq:10"},
+        {label: "Auto Declined", value:"iq:15"},
+        {label: "Declined", value:"iq:20"},
+        {label: "Acord Emailed", value:"iq:30"},
+        {label: "Referred", value:"iq:40"},
+        {label: "Quoted", value:"iq:50"},
+        {label: "Referred Quoted", value:"iq:55"},
+        {label: "Bind Requested", value:"iq:60"},
+        {label: "Bind Requested For Referral", value:"iq:65"},
+        {label: "Bound", value:"iq:100"}
+    ]
+    resources.quoteStatusSelections = quoteStatusSelections;
+    const appStatusIdSearchOptions = [
+        {
+            text: "All Application Statuses",
+            value: -1
+        }
+    ];
+
+    for(const property in applicationStatus){
+        if(property){
+            const applicationStatusObj = applicationStatus[property];
+            if(applicationStatusObj.hasOwnProperty("appStatusId") && applicationStatusObj.hasOwnProperty("appStatusText")){
+                appStatusIdSearchOptions.push({text: applicationStatusObj.appStatusText, value: applicationStatusObj.appStatusId});
+            }
+        }
+    }
+    log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
+    if(req.authentication.agencyNetworkId === 4){
+        // backward compatibility, can remove next sprint
+        resources.appStatusSearchOptions = [
+            {
+                value: '',
+                text: 'All Application Statuses'
+            },
+            {
+                value: 'bound',
+                text: 'Bound'
+            },
+            {
+                value: 'request_to_bind_referred',
+                text: 'Referred Submitted To UW'
+            },
+            {
+                value: 'request_to_bind',
+                text: 'Submitted To UW'
+            },
+            {
+                value: 'quoted',
+                text: 'Quoted'
+            },
+            {
+                value: 'quoted_referred',
+                text: 'Quoted*'
+            },
+            {
+                value: 'acord_emailed',
+                text: 'Acord Emailed'
+            },
+            {
+                value: 'referred',
+                text: 'Referred'
+            },
+            {
+                value: 'declined',
+                text: 'Declined'
+            },
+            {
+                value: 'error',
+                text: 'Error'
+            },
+            {
+                value: 'quoting',
+                text: 'Quoting'
+            },
+            {
+                value: 'questions_done',
+                text: 'Questions Done'
+            },
+            {
+                value: 'incomplete',
+                text: 'Incomplete'
+            },
+            {
+                value: 'dead',
+                text: 'Dead'
+            }
+        ]
+        // change request to bind and request to bind* to custom text
+        const changeList = [{text: 'Submitted To UW', value: 70}, {text: "Referred Submitted To UW", value: 80}];
+        for(let i = 0; i < changeList.length; i++){
+            const appStatusId = changeList[i].value;
+            const index = appStatusIdSearchOptions.findIndex(option => option.value === appStatusId);
+            if(index > -1){
+                appStatusIdSearchOptions[index].text = changeList[i].text;
+            }
+        }
+        // remove wholesale
+        const wholesaleStatusId = 5;
+        const wholesaleIndex = appStatusIdSearchOptions.findIndex(option => option.value === wholesaleStatusId);
+        if(wholesaleIndex > -1){
+            appStatusIdSearchOptions.splice(wholesaleIndex, 1);
+        }
+    }
+    resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
+    // return the resources
+    res.send(200, resources);
+    return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
     server.addGetAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
+    server.addGetAuth('Get applications list view resources', `${basePath}/applications/resources`, getApplicationsResources, 'applications', 'view');
 };

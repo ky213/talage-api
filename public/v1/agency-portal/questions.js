@@ -36,6 +36,56 @@ function getAnswer(appQuestion) {
 }
 
 /**
+ * Recursive function for digging through children to find a parent
+ *
+ * @param {Array<Object>} questions - array of questions (children of a previous parent)
+ * @param {Number} parentId - The parent ID of the question being looked for
+ *
+ * @returns {Object} - The parent question
+ */
+function _findQuestion(questions, parentId) {
+    if (questions[parentId]) {
+        return questions[parentId];
+    }
+    else {
+        for (const question of Object.values(questions)) {
+            const foundQuestion = _findQuestion(question.children);
+
+            if (foundQuestion) {
+                return foundQuestion;
+            }
+        }
+    }
+
+    return;
+}
+
+/**
+ * A function to determine whether the answer is an empty checkbox answer or not. Empty checkbox answers are just a series of verticle brackets (i.e. |||)
+ *
+ * @param {String} answer - A question answer
+ *
+ * @returns {Boolean} - Whether or not the answer is an empty checkbox answer or not
+ */
+function isBlankCheckboxAnswer(answer) {
+    if (answer.length === 0) {
+        return false;
+    }
+
+    if (typeof answer !== "string") {
+        return false;
+    }
+
+    for (const character of answer.trim()) {
+        if (character !== "|") {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Responds to get requests for the Questions endpoint
  *
  * @param {object} req - HTTP request object
@@ -45,7 +95,6 @@ function getAnswer(appQuestion) {
  * @returns {void}
  */
 async function getQuestions(req, res, next) {
-    let error = false;
     // Check for data
     if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
         log.info('Bad Request: No data received');
@@ -63,135 +112,141 @@ async function getQuestions(req, res, next) {
     //     log.info('Bad Request: Invalid application id');
     //     return next(serverHelper.requestError('Invalid application id'));
     // }
-    const id = req.query.application_id;
+    const appId = req.query.application_id;
 
     let passedAgencyCheck = false;
     let applicationJSON = null;
     try{
         const applicationBO = new ApplicationBO();
-        const applicationDBDoc = await applicationBO.getById(id);
+        const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
-            if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
-                passedAgencyCheck = true;
-            }
-            else {
-                const agents = await auth.getAgents(req).catch(function(e) {
-                    error = e;
-                });
-                if (error) {
-                    log.error('Error get application getAgents ' + error + __location);
-                    return next(error);
-                }
-                if(agents.includes(applicationDBDoc.agencyId)){
-                    passedAgencyCheck = true;
-                }
-            }
-        }
-        if(applicationDBDoc){
+            passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc.agencyId, applicationDBDoc.agencyNetworkId)
+
             applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
         }
     }
     catch(err){
-        log.error("Error Getting application doc " + err + __location)
+        log.error(`Error Getting application do appId ${appId} ` + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
-
-    if(applicationJSON && applicationJSON.applicationId && passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this application' + __location);
+    if(passedAgencyCheck === false){
+        log.info(`Forbidden: User is not authorized for this application ${appId}` + __location);
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }
-    //Get list of questions to retreived to setup parent child relationships.
-    // NOTE Question Text must be from Application in case questions have been edited.
-    if(applicationJSON.questions && applicationJSON.questions.length > 0){
-        // The object which will hold all the questions in the correct nesting
-        const dependencyList = {};
-        // The object to hold child ID: childId
-        const childToParent = {};
-        for(let i = 0; i < applicationJSON.questions.length; i++){
-            const appQuestion = applicationJSON.questions[i];
-            error = null;
-            const questionBO = new QuestionBO();
-            // Load the request data into it
-            const questionDBJson = await questionBO.getById(appQuestion.questionId).catch(function(err) {
-                log.error("question load error " + err + __location);
-                error = err;
-            });
 
-            if(questionDBJson){
-                // Go through the data and build place the child questions under their parents
-                // If this question is a parent then add its info
-                if (questionDBJson.parent === null) {
-                    dependencyList[appQuestion.questionId] = {
-                        "answer": getAnswer(appQuestion),
-                        "children": {},
-                        "question": appQuestion.questionText
-                    };
-                // If this question is a child add to the children array
+    if(!applicationJSON){
+        //Return not found so do not expose that the application exists
+        return next(serverHelper.notFoundError('Application Not Found'));
+    }
+
+    if (applicationJSON.questions && applicationJSON.questions.length > 0) {
+        // copy app questions
+        const appQuestions = JSON.parse(JSON.stringify(applicationJSON.questions));
+        const questions = {};
+        const questionBO = new QuestionBO();
+
+        let prevQuestionCount = appQuestions.length;
+        let executionCount = 0;
+        // NOTE Question Text must be from Application in case questions have been edited.
+        while (appQuestions.length > 0) {
+            // if we've done one full round of question processing...
+            if (executionCount === prevQuestionCount) {
+                // if the count of appQuestions didn't change, we're just spinning in the while loop, exit out
+                if (appQuestions.length === prevQuestionCount) {
+                    log.warn(`Application ${appId} ${appQuestions.length} remaining child questions could not be properly processed. These questions are likely unanswered children questions. Skipping... ` + __location);
+                    break;
                 }
-                else {
-                // Store the relationship between this question and its parent
-                    childToParent[appQuestion.questionId] = questionDBJson.parent;
 
-                    // The array of the IDs of all the parents for this question
-                    const listOfParents = [questionDBJson.parent];
-                    // Add all the parent IDs all the way to the top level
-                    while (childToParent[listOfParents.slice(-1)[0]]) {
-                        listOfParents.push(childToParent[listOfParents.slice(-1)[0]]);
-                    }
-                    // Save the original list of parents to a string for logging output
-                    const listOfParentsString = listOfParents.toString();
-
-                    let childId = listOfParents.pop();
-                    // If parent of childId does not exist
-                    if (!dependencyList.hasOwnProperty(childId)) {
-                        log.warn(`Child question ${childId} Does Not Exist: questionDBJson.parent=${questionDBJson.parent} questionDBJson.id=${questionDBJson.id} listOfParents=${listOfParentsString} ApplicationId ${req.query.application_id} ` + __location);
-                    }
-                    else if(dependencyList[childId]){
-                        let child = dependencyList[childId];
-                        // Build objects for parents with children questions for dependencyList
-                        do {
-                            if (!child) {
-                                log.warn(`Child question ${childId} Does Not Exist: questionDBJson.parent=${questionDBJson.parent} questionDBJson.id=${questionDBJson.id} listOfParents=${listOfParentsString} ApplicationId ${req.query.application_id}` + __location);
-                                break;
-                            }
-                            childId = listOfParents.pop();
-                            // If childId is undefined, listofParents is empty, build child object
-                            if (childId) {
-                                child = child.children[childId];
-                            }
-                            else {
-                                childId = appQuestion.questionId;
-                                child.children[childId] = {
-                                    "question": appQuestion.questionText,
-                                    "answer": getAnswer(appQuestion),
-                                    "children": {}
-                                };
-                            }
-                        } while (childId !== questionDBJson.id);
-                    }
-                }
+                // else update prev question count and reset execution counter
+                prevQuestionCount = appQuestions.length;
+                executionCount = 0;
             }
-            else {
-                //not question in DB anymore.
-                dependencyList[appQuestion.questionId] = {
-                    "answer": getAnswer(appQuestion),
-                    "children": {},
-                    "question": appQuestion.questionText
+
+            const question = appQuestions.splice(0, 1)[0];
+
+            // Grab question data from DB
+            let dbQuestion = null;
+            try {
+                dbQuestion = await questionBO.getById(question.questionId)
+            }
+            catch (e) {
+                log.warn(`Application ${appId} - An error occurred trying to grab question ${question.questionId}: ${e}. It might no longer be in the database.` + __location);
+
+                // question no longer in the db, add it as parent
+                questions[question.questionId] = {
+                    answer: getAnswer(question),
+                    answerId: question.answerId,
+                    children: {},
+                    question: question.questionText,
+                    questionId: question.questionId
                 };
 
-
+                executionCount++;
+                continue;
             }
-        }//questions loop
 
+            if(!dbQuestion){
+                log.warn(`Application ${appId} - Could not find question ${question.questionId} in the database.` + __location);
 
-        res.send(200, {"questions": dependencyList});
+                // question no longer in the db, add it as parent
+                questions[question.questionId] = {
+                    answer: getAnswer(question),
+                    answerId: question.answerId,
+                    children: {},
+                    question: question.questionText,
+                    questionId: question.questionId
+                };
 
+                executionCount++;
+                continue;
+            }
+
+            // if question is not a child, just add it
+            if (!dbQuestion.parent) {
+                questions[question.questionId] = {
+                    answer: getAnswer(question),
+                    answerId: question.answerId,
+                    children: {},
+                    question: question.questionText,
+                    questionId: question.questionId
+                };
+            }
+            else {
+                // else it's a child (potentially both), find its parent
+                const parent = _findQuestion(questions, dbQuestion.parent);
+
+                // if the parent wasn't found...
+                if (!parent) {
+                    // add it back in to be processed later
+                    appQuestions.push(question);
+                    executionCount++;
+                    continue;
+                }
+
+                // if the child question was answered, or its a text question that was answered and it's not checkbox question that was unanswered
+                const questionAnswer = getAnswer(question);
+                if (dbQuestion.parent_answer === parent.answerId ||
+                    !question.answerId && typeof questionAnswer === "string" && questionAnswer.trim().length > 0 && !isBlankCheckboxAnswer(questionAnswer)) {
+                    // add the child question to the parent's children map
+                    parent.children[question.questionId] = {
+                        answer: getAnswer(question),
+                        answerId: question.answerId,
+                        children: {},
+                        question: question.questionText,
+                        questionId: question.questionId
+                    };
+                }
+            }
+
+            executionCount++;
+        }
+
+        res.send(200, {"questions": questions});
     }
     else {
-        //no questions
-        const noQuestions = {}
-        res.send(200, {"questions": noQuestions});
+        // no questions to return, pass empty object
+        res.send(200, {"questions": {}});
     }
 
 

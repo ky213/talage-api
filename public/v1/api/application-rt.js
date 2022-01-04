@@ -51,7 +51,7 @@ async function isAuthForApplication(req, applicationId){
                     log.warn("Application requested not found " + __location);
                 }
                 // if the user is part of an agency network, get the list of agencies
-                else if(apUser.agencyNetworkId){
+                else if(apUser.isAgencyNetworkUser){
                     canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
                 }
                 // if not part of a network, just look at the single agency
@@ -80,6 +80,74 @@ async function isAuthForApplication(req, applicationId){
 
     return canAccessApp;
 }
+
+async function isAuthForAgency(req, agencyId, agencyJSON = null){
+    let canAccessAgency = false;
+    if(!req.userTokenData){
+        log.error(`request processing error no userTokenData ` + __location)
+        return false;
+    }
+    //handle quote app adding an application
+    if(req.userTokenData && req.userTokenData.quoteApp && !req.userTokenData.applicationId){
+        return true;
+    }
+
+
+    if(!agencyJSON){
+        try {
+            //TODO check rights to agency.
+            const agencyBO = new AgencyBO();
+            agencyJSON = await agencyBO.getById(agencyId);
+            if (!agencyJSON) {
+                return false;
+            }
+        }
+        catch (err) {
+            log.error(`Application Save get agencyNetworkId  agencyID: ${req.body.agencyId} ` +
+                    err +
+                    __location);
+            return false;
+        }
+    }
+
+
+    if (req.userTokenData && req.userTokenData.apiToken){
+        if(req.userTokenData.userId){
+            // check which agencies the user has access to
+            const agencyPortalUserBO = new AgencyPortalUserBO();
+            const apUser = await agencyPortalUserBO.getById(req.userTokenData.userId);
+            if(apUser){
+                //Is talage super user......
+                if(apUser.agencyNetworkId === 1 && apUser.isAgencyNetworkUser === true && apUser.agencyPortalUserGroupId === 6){
+                    canAccessAgency = true
+                }
+                else if(apUser.isAgencyNetworkUser === true && apUser.agencyNetworkId === agencyJSON.agencyNetworkId){
+                    canAccessAgency = true
+                }
+                if(apUser.agencyId === agencyId){
+                    canAccessAgency = true
+                }
+
+            }
+            else {
+                log.warn(`User ${req.userTokenData.userId} not found in user system` + __location);
+            }
+        }
+        else {
+            log.warn("Recieved request with token but no user id " + __location);
+        }
+    }
+    else {
+        log.warn(`Unauthorized Attempt to modify or access Application JWT type unknown  token: ${JSON.stringify(req.userTokenData)}` + __location);
+    }
+
+    if(canAccessAgency === false){
+        log.warn("Unauthorized Attempt to modify or access Application " + __location);
+    }
+
+    return canAccessAgency;
+}
+
 
 async function applicationSave(req, res, next) {
     log.debug("Application Post: " + JSON.stringify(req.body));
@@ -114,16 +182,28 @@ async function applicationSave(req, res, next) {
             }
         }
 
-
         //Get AgencyNetworkID
         try {
+            //check rights to agency.
             const agencyBO = new AgencyBO();
             const agencyDB = await agencyBO.getById(req.body.agencyId);
-            if (agencyDB) {
-                req.body.agencyNetworkId = agencyDB.agencyNetworkId;
+            let hasAccessToAgency = false;
+            if(agencyDB){
+                hasAccessToAgency = isAuthForAgency(req,req.body.agencyId, agencyDB)
             }
             else {
                 log.warn("Application Save agencyId not found in db " +
+                        req.body.agencyId +
+                        __location);
+                return next(serverHelper.requestError("Not Found Agency"));
+            }
+            if(hasAccessToAgency){
+                if (!req.body.agencyNetworkId) {
+                    req.body.agencyNetworkId = agencyDB.agencyNetworkId;
+                }
+            }
+            else {
+                log.warn("Application Save agencyId access deniedb " +
                         req.body.agencyId +
                         __location);
                 return next(serverHelper.requestError("Not Found Agency"));
@@ -154,6 +234,10 @@ async function applicationSave(req, res, next) {
         //referrer check - if nothing sent set to API.
         if(!req.body.referrer){
             req.body.referrer = "API";
+            if(req.body.agencyPortalCreatedUser !== "system"){
+                req.body.agencyPortalCreatedUser = req.userTokenData.userId
+            }
+            req.body.apiCreated = true;
         }
     }
     else {
@@ -292,11 +376,16 @@ async function applicationSave(req, res, next) {
             log.debug("App Doc INSERT.....");
             if(!req.body.agencyPortalCreatedUser){
                 req.body.agencyPortalCreatedUser = "applicant";
-                req.body.agencyPortalCreated = true;
+                req.body.agencyPortalCreated = false;
             }
             if(!req.body.agencyPortalCreated){
                 req.body.agencyPortalCreated = false;
             }
+            if(!req.body.apiCreated){
+                req.body.apiCreated = false;
+            }
+
+
             responseAppDoc = await applicationBO.insertMongo(req.body);
 
             // update JWT
@@ -755,7 +844,11 @@ async function validate(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.error('Application Validation ' + errMessage + __location);
+
+        if (!err.message?.includes("Application's Agency Location does not cover")) {
+            log.error('Application Validation ' + errMessage + __location)
+        }
+
         const responseJSON = {
             "passedValidation": passValidation,
             "validationError":errMessage
@@ -841,7 +934,11 @@ async function startQuoting(req, res, next) {
     }
     catch (err) {
         const errMessage = `Error validating application ${applicationId}: ${err.message}`;
-        log.error('Application Validation ' + errMessage + __location);
+
+        if (!err.message?.includes("Application's Agency Location does not cover")) {
+            log.error('Application Validation ' + errMessage + __location)
+        }
+
         res.send(400, errMessage);
         return next();
     }
@@ -973,10 +1070,11 @@ async function setupReturnedApplicationJSON(applicationJSON){
  * Create a quote summary to return to the frontend
  *
  * @param {Object} quote - Quote JSON to be summarized
+ * @param {boolean} returnAllQuotes - returns all quotes regardless of status
  *
  * @returns {Object} quote summary
  */
-async function createQuoteSummary(quote) {
+async function createQuoteSummary(quote, returnAllQuotes = false) {
     // Retrieve the quote
     if(!quote){
         log.error(`Quote object not supplied to createQuoteSummary ` + __location);
@@ -992,166 +1090,184 @@ async function createQuoteSummary(quote) {
         log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-    switch (quote.quoteStatusId) {
-        case quoteStatus.declined.id:
-            // Return a declined quote summary
-            //TODO full quote object for the carrier response json is available.
-            return {
-                id: quote.qouteId,
-                policy_type: quote.policyType,
-                status: 'declined',
-                message: `${insurer.name} has declined to offer you coverage at this time`,
-                insurer: {
-                    id: insurer.id,
-                    logo: global.settings.SITE_URL + '/' + insurer.logo,
-                    name: insurer.name,
-                    rating: insurer.rating
-                }
-            };
-        case quoteStatus.quoted_referred.id:
-        case quoteStatus.quoted.id:
-            const instantBuy = quote.quoteStatusId === quoteStatus.quoted.id;
 
-            // Retrieve the limits and create the limits object
-            const limits = {};
-            const limitsModel = new LimitsBO();
-            if(quote.limits){
-                for (const quoteLimit of quote.limits) {
-                    try {
-                        const limit = await limitsModel.getById(quoteLimit.limitId);
-                        // NOTE: frontend expects a string. -SF
-                        limits[limit.description] = `${quoteLimit.amount}`;
-                    }
-                    catch (error) {
-                        log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
-                        return null;
-                    }
-                }
-            }
-            if(quote.quoteCoverages){
-                // sort ascending order based on id, if no sort value then number will be sorted first
-                // eslint-disable-next-line no-inner-declarations
-                function ascendingOrder(a, b){
-                    if(a.sort && b.sort){
-                        // this sorts in ascending order
-                        return a.sort - b.sort;
-                    }
-                    else if (a.sort && !b.sort){
-                        // since no sort order on "b" then return -1
-                        return -1;
-                    }
-                    else if (!a.sort && b.sort){
-                        // since no sort order on "a" return 1
-                        return 1;
-                    }
-                    else {
-                        return 0;
-                    }
-                }
-                const sortedCoverageList = quote.quoteCoverages.sort(ascendingOrder);
-                for(const quoteCoverage of sortedCoverageList){
-                    limits[quoteCoverage.description] = `${quoteCoverage.value}`;
-                }
-            }
+    let addLimitAndDoc = false;
 
-            // Retrieve the insurer's payment plan
-            const insurerPaymentPlanList = insurer.paymentPlans;
-
-            // Retrieve the payment plans and create the payment options object
-            const paymentOptions = [];
-            for (const insurerPaymentPlan of insurerPaymentPlanList) {
-                if (quote.amount > insurerPaymentPlan.premium_threshold) {
-                    try {
-                        const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
-                        const paymentPlan = PaymentPlanSvc.getById(insurerPaymentPlan.payment_plan);
-                        log.debug(`payment plan service added ` + __location);
-                        paymentOptions.push({
-                            id: paymentPlan.id,
-                            name: paymentPlan.name,
-                            description: paymentPlan.description
-                        });
-                    }
-                    catch (error) {
-                        log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
-                        return null;
-                    }
-                }
-            }
-
-            // If we have a quote letter then retrieve the file from our cloud storage service
-            let quoteLetterContent = '';
-            const quoteLetterName = quote.quoteLetter;
-            if (quoteLetterName) {
-                // Get the file from our cloud storage service
-                let error = null;
-                const data = await fileSvc.GetFileSecure(`secure/quote-letters/${quoteLetterName}`).catch(function(err) {
-                    log.error('file get error: ' + err.message + __location);
-                    error = err;
-                });
-                if(error){
-                    return null;
-                }
-
-                // Return the response
-                if (data && data.Body) {
-                    quoteLetterContent = data.Body;
-                }
-                else {
-                    log.error('file get error: no file content' + __location);
-                }
-            }
-            let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
-            // checking below to see if images path inserted twice, the IMAGE_URL ends with /images and the insurer.logos starts with images/
-            // the following check should fix the double images path issue
-            if(insurerLogoUrl.includes("imagesimages")){
-                insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
-            }
-            else if (insurerLogoUrl.includes("images/images")){
-                insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
-            }
-            const quoteSummary = JSON.parse(JSON.stringify(quote));
-
-            quoteSummary.id = quote.quoteId;
-            quoteSummary.policy_type = quote.policyType;
-            quoteSummary.instant_buy = instantBuy;
-            quoteSummary.letter = quoteLetterContent;
+    if(returnAllQuotes && quote.quoteStatusId < quoteStatus.quoted_referred.id){
+        const quoteSummary = JSON.parse(JSON.stringify(quote));
+        if(quoteSummary._id){
+            delete quoteSummary._id
+        }
+        //compatible with Quote V2 decline.
+        quote.id = quote.qouteId
+        quote.policy_type = quote.policyType
+        // quote.status = 'declined'
+        quoteSummary.message = `${insurer.name} has declined to offer you coverage at this time`
+        if(insurer){
             quoteSummary.insurer = {
                 id: insurer.id,
-                logo: insurerLogoUrl,
+                logo: global.settings.IMAGE_URL + '/' + insurer.logo,
                 name: insurer.name,
                 rating: insurer.rating
-            };
+            }
+        }
+        return quoteSummary;
 
-            quoteSummary.limits = limits
-            quoteSummary.payment_options = paymentOptions
-            // Return the quote summary
-            // return {
-            //     id: quote.quoteId,
-            //     policy_type: quote.policyType,
-            //     instant_buy: instantBuy,
-            //     letter: quoteLetterContent,
-            //     talageInsurerPaymentPlans: quote.talageInsurerPaymentPlans,
-            //     iaBindable: quote.isBindable,
-            // insurer: {
-            //     id: insurer.id,
-            //     logo: insurerLogoUrl,
-            //     name: insurer.name,
-            //     rating: insurer.rating
-            // },
-            // limits: limits,
-            // payment_options: paymentOptions
-            // };
-
-
-            return quoteSummary
-
-        default:
-            // We don't return a quote for any other status
-            // log.error(`Quote ${quote.id} has a unknown status of ${quote.aggregated_status} when creating quote summary ${__location}`);
-            return null;
     }
+    else if(quote.quoteStatusId === quoteStatus.declined.id){
+        // Return a declined quote summary
+        //TODO full quote object for the carrier response json is available.
+        return {
+            id: quote.qouteId,
+            policy_type: quote.policyType,
+            status: 'declined',
+            message: `${insurer.name} has declined to offer you coverage at this time`,
+            insurer: {
+                id: insurer.id,
+                logo: global.settings.IMAGE_URL + '/' + insurer.logo,
+                name: insurer.name,
+                rating: insurer.rating
+            }
+        };
+    }
+    else if(returnAllQuotes && quote.quoteStatusId >= quoteStatus.quoted_referred.id){
+        addLimitAndDoc = true
+
+
+    }
+    else if(quote.quoteStatusId === quoteStatus.quoted_referred.id
+            || quote.quoteStatusId === quoteStatus.quoted.id){
+        addLimitAndDoc = true;
+
+    }
+
+
+    if(addLimitAndDoc){
+        const instantBuy = quote.quoteStatusId === quoteStatus.quoted.id;
+        // Retrieve the limits and create the limits object
+        const limits = {};
+        const limitsModel = new LimitsBO();
+        if(quote.limits){
+            for (const quoteLimit of quote.limits) {
+                try {
+                    const limit = await limitsModel.getById(quoteLimit.limitId);
+                    // NOTE: frontend expects a string. -SF
+                    limits[limit.description] = `${quoteLimit.amount}`;
+                }
+                catch (error) {
+                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+                    return null;
+                }
+            }
+        }
+        if(quote.quoteCoverages){
+            // sort ascending order based on id, if no sort value then number will be sorted first
+            // eslint-disable-next-line no-inner-declarations
+            function ascendingOrder(a, b){
+                if(a.sort && b.sort){
+                    // this sorts in ascending order
+                    return a.sort - b.sort;
+                }
+                else if (a.sort && !b.sort){
+                    // since no sort order on "b" then return -1
+                    return -1;
+                }
+                else if (!a.sort && b.sort){
+                    // since no sort order on "a" return 1
+                    return 1;
+                }
+                else {
+                    return 0;
+                }
+            }
+            const sortedCoverageList = quote.quoteCoverages.sort(ascendingOrder);
+            for(const quoteCoverage of sortedCoverageList){
+                limits[quoteCoverage.description] = `${quoteCoverage.value}`;
+            }
+        }
+
+        // Retrieve the insurer's payment plan
+        const insurerPaymentPlanList = insurer.paymentPlans;
+
+        // Retrieve the payment plans and create the payment options object
+        const paymentOptions = [];
+        for (const insurerPaymentPlan of insurerPaymentPlanList) {
+            if (quote.amount > insurerPaymentPlan.premium_threshold) {
+                try {
+                    const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
+                    const paymentPlan = PaymentPlanSvc.getById(insurerPaymentPlan.payment_plan);
+                    log.debug(`payment plan service added ` + __location);
+                    paymentOptions.push({
+                        id: paymentPlan.id,
+                        name: paymentPlan.name,
+                        description: paymentPlan.description
+                    });
+                }
+                catch (error) {
+                    log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
+                    return null;
+                }
+            }
+        }
+
+        // If we have a quote letter then retrieve the file from our cloud storage service
+        let quoteLetterContent = '';
+        const quoteLetterName = quote.quoteLetter;
+        if (quoteLetterName) {
+            // Get the file from our cloud storage service
+            let error = null;
+            const data = await fileSvc.GetFileSecure(`secure/quote-letters/${quoteLetterName}`).catch(function(err) {
+                log.error('file get error: ' + err.message + __location);
+                error = err;
+            });
+            if(error){
+                return null;
+            }
+
+            // Return the response
+            if (data && data.Body) {
+                quoteLetterContent = data.Body;
+            }
+            else {
+                log.error('file get error: no file content' + __location);
+            }
+        }
+        let insurerLogoUrl = global.settings.IMAGE_URL + insurer.logo;
+        // checking below to see if images path inserted twice, the IMAGE_URL ends with /images and the insurer.logos starts with images/
+        // the following check should fix the double images path issue
+        if(insurerLogoUrl.includes("imagesimages")){
+            insurerLogoUrl = insurerLogoUrl.replace("imagesimages","images")
+        }
+        else if (insurerLogoUrl.includes("images/images")){
+            insurerLogoUrl = insurerLogoUrl.replace("images/images","images")
+        }
+        const quoteSummary = JSON.parse(JSON.stringify(quote));
+        if(quoteSummary._id){
+            delete quoteSummary._id
+        }
+        quoteSummary.id = quote.quoteId;
+        quoteSummary.policy_type = quote.policyType;
+        quoteSummary.instant_buy = instantBuy;
+        quoteSummary.letter = quoteLetterContent;
+        quoteSummary.insurer = {
+            id: insurer.id,
+            logo: insurerLogoUrl,
+            name: insurer.name,
+            rating: insurer.rating
+        };
+
+        quoteSummary.limits = limits
+        quoteSummary.payment_options = paymentOptions
+        return quoteSummary
+    }
+    else {
+        //Quote V2 Error - incomplete, initiated...
+        return null;
+    }
+
 }
 
+//For Quote V2 during Quoting
 async function quotingCheck(req, res, next) {
 
     // Check for data
@@ -1205,6 +1321,74 @@ async function quotingCheck(req, res, next) {
     let returnedQuoteList = [];
     for(const quote of quoteList){
         const quoteSummary = await createQuoteSummary(quote);
+        if (quoteSummary !== null) {
+            returnedQuoteList.push(quoteSummary);
+        }
+    }
+
+    res.send(200, {
+        complete: complete,
+        quotes: returnedQuoteList
+    });
+    return next();
+}
+
+//For Getting all the applications quotes
+async function getQuoteList(req, res, next) {
+
+    // Check for data
+    if (!req.params || !req.params.id) {
+        log.warn('No id was received' + __location);
+        return next(serverHelper.requestError('No id was received'));
+    }
+
+    const rightsToApp = await isAuthForApplication(req, req.params.id);
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    const applicationId = req.params.id;
+
+    // Retrieve if we are complete. Must be done first or we may miss quotes.
+    // return not complete if there is db error.
+    // app will try again.
+    let progress = 'quoting';
+    const applicationBO = new ApplicationBO();
+    try{
+        progress = await applicationBO.getProgress(applicationId);
+        log.debug("Application progress check " + progress + __location);
+    }
+    catch(err){
+        log.error(`Error getting application progress appId = ${applicationId}. ` + err + __location);
+        res.send(400, `Could not get quote list: ${err}`);
+        return next();
+    }
+
+    const complete = progress !== 'quoting';
+
+    // Retrieve quotes newer than the last quote ID
+    // use createdAt Datetime instead.
+    const quoteModel = new QuoteBO();
+    let quoteList = null;
+
+
+    const query = {applicationId: applicationId};
+    try {
+        quoteList = await quoteModel.getNewAppQuotes(query);
+    }
+    catch (error) {
+        log.error(`Could not get quote list for appId ${applicationId} error:` + error + __location);
+        res.send(400, `Could not get quote list: ${error}`);
+        return next();
+    }
+    if(!quoteList){
+        return null;
+    }
+    // eslint-disable-next-line prefer-const
+    let returnedQuoteList = [];
+    for(const quote of quoteList){
+        //Return the full quote object plus insurer info.
+        const RETURN_ALL_QUOTE = true;
+        const quoteSummary = await createQuoteSummary(quote, RETURN_ALL_QUOTE);
         if (quoteSummary !== null) {
             returnedQuoteList.push(quoteSummary);
         }
@@ -1354,7 +1538,16 @@ async function markQuoteAsBound(req, res, next) {
     let markAsBoundSuccess = false;
     const markAsBoundFailureMessage = "Failed to mark quote as bound. If this continues please contact us.";
     try {
-        markAsBoundSuccess = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID);
+        const policyInfo = {};
+        if (Object.prototype.hasOwnProperty.call(req.body, 'premiumAmount')) {
+            policyInfo.policyPremium = parseInt(req.body.premiumAmount,10);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'policyNumber')) {
+            policyInfo.policyNumber = req.body.policyNumber;
+        }
+
+        markAsBoundSuccess = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID, policyInfo);
+        //a different prolicy type might already be the reason for app.status being bound.
         if(applicationDB.appStatusId !== 90){
             // Update application status
             await applicationBO.updateStatus(applicationId, "bound", 90);
@@ -1601,7 +1794,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
-    server.addGetAuthAppApi('GET Quotes for Application', `${basePath}/application/:id/quotes`, quotingCheck);
+    server.addGetAuthAppApi('GET Quotes for Application', `${basePath}/application/:id/quotes`, getQuoteList);
     server.addPutAuthAppApi('PUT Request Bind Quote', `${basePath}/application/request-bind-quote`, requestToBindQuote);
     server.addPutAuthAppApi('PUT Mark Quote Bound', `${basePath}/application/mark-quote-bound`, markQuoteAsBound);
     server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);

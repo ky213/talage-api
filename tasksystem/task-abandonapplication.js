@@ -123,8 +123,11 @@ var abandonAppTask = async function(){
                     error = err;
                 });
             }
-            if(error === null){
+            if(error === null && succesfulProcess === true){
                 log.info(`Processed abandon app for appId: ${appDoc.applicationId}`);
+            }
+            else {
+                log.error(`Abandon app did NOT sucessfully process for appId: ${appDoc.applicationId}`);
             }
 
         }
@@ -166,6 +169,11 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
         //Load AgencyNetwork
         const agencyNetworkId = applicationDoc.agencyNetworkId;
         const agencyNetworkJSON = agencyNetworkList.find((ag) => ag.agencyNetworkId === agencyNetworkId);
+        if(!agencyNetworkJSON){
+            log.error(`Abandon App Error did not find Agency Network for appId ${applicationDoc.applicationId}  ` + __location);
+            succesfulProcess = false;
+            return false;
+        }
 
         const agencyBO = new AgencyBO();
         let agencyJSON = {};
@@ -173,10 +181,12 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
             agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
         }
         catch(err){
+            log.error(`Abandon App Error getting agency forr appId ${applicationDoc.applicationId} - ${err} ` + __location);
             error = true;
 
         }
         if(error){
+            succesfulProcess = false;
             return false;
         }
         //only hit db for email content if we are going to send.
@@ -184,7 +194,7 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
 
         //Use AgencyNetwork feature agencyAbandonAppEmails to determine who get the email.
 
-        if(agencyNetworkJSON.featureJson.abandonAppEmailsCustomer === true && applicationDoc.agencyPortalCreated === false){
+        if(agencyNetworkJSON.featureJson.abandonAppEmailsCustomer === true && applicationDoc.agencyPortalCreated !== true){
             emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "abandoned_applications_agency", "abandoned_applications_customer").catch(function(err){
                 log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
                 error = true;
@@ -194,6 +204,9 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
 
                 const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
                 customerEmail = customerContact.email;
+                if(!customerEmail && applicationDoc.contacts.length > 0){
+                    customerEmail = applicationDoc.contacts[0].email;
+                }
 
                 let agencyPhone = agencyJSON.phone;
                 let agencyWebsite = agencyJSON.website;
@@ -229,11 +242,13 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
                 const emailResp = await emailSvc.send(customerEmail, subject, message, keys ,agencyNetworkId, emailContentJSON.emailBrand, applicationDoc.agencyId);
                 //log.debug("emailResp = " + emailResp);
                 if(emailResp === false){
+                    log.error(`AbandonApp Error failed to send email for  appId ${applicationDoc.applicationId} ` + __location);
                     slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationDoc.applicationId}. Please follow-up manually.`, {'application_id': applicationDoc.applicationId});
+                    succesfulProcess = false;
                 }
             }
             else {
-                log.error(`AbandonApp missing emailcontent for agencyid ${applicationDoc.agencyId} and  agencynetwork: ` + agencyNetworkId + __location);
+                log.error(`AbandonApp missing emailcontent for appId ${applicationDoc.applicationId} agencyid ${applicationDoc.agencyId} and agencynetwork: ` + agencyNetworkId + __location);
                 succesfulProcess = false;
             }
 
@@ -251,6 +266,9 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
 
                 const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
                 customerEmail = customerContact.email;
+                if(!customerEmail && applicationDoc.contacts.length > 0){
+                    customerEmail = applicationDoc.contacts[0].email;
+                }
 
                 const portalLink = emailContentJSON.PORTAL_URL;
 
@@ -290,11 +308,14 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
                 if(agencyLocationEmail){
                     const emailResp = await emailSvc.send(agencyLocationEmail, subject2, message2, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
                     if(emailResp === false){
+                        log.error(`AbandonApp Error failed to send email for  appId ${applicationDoc.applicationId} ` + __location);
                         slack.send('#alerts', 'warning',`The system failed to inform an agency of the abandoned app for application ${applicationDoc.applicationId}. Please follow-up manually.`);
+                        succesfulProcess = false;
                     }
                 }
                 else {
                     log.error(`Abandon App no email address for application: ${applicationDoc.applicationId} ` + __location);
+                    succesfulProcess = false;
                 }
             }
             else {
@@ -307,6 +328,7 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
         return succesfulProcess;
     }
     else {
+        log.error("AbandApp Error missing applicationDoc " + __location);
         return false;
     }
 

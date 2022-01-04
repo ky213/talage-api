@@ -137,6 +137,12 @@ module.exports = class MarkelWC extends Integration {
     async _insurer_quote() {
         const applicationDocData = this.applicationDocData;
 
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
         const special_activity_codes = {
             AK: [
                 '8842',
@@ -1456,6 +1462,44 @@ module.exports = class MarkelWC extends Integration {
                     return this.return_result('referred_with_price');
                 }
                 else {
+                    // collect payment information
+                    if (response[rquIdKey]?.paymentOptions) {
+                        this.insurerPaymentPlans = response[rquIdKey].paymentOptions;
+                        const paymentPlanIdMatrix = {
+                            1: 1,
+                            11: 2,
+                            3: 3
+                        };
+
+                        const talagePaymentPlans = [];
+                        for (const paymentPlan of response[rquIdKey].paymentOptions) {
+                            let paymentPlanId = paymentPlanIdMatrix[paymentPlan.id];
+                            if (!paymentPlanId) {
+                                // we do not have a payment plan mapping for this insurer payment plan, default to 1 (UI shouldn't be using per Brian's comments)
+                                paymentPlanId = 1;
+                            }
+
+                            try {
+                                const talagePaymentPlan = {
+                                    paymentPlanId: paymentPlanId,
+                                    insurerPaymentPlanId: paymentPlan.id,
+                                    insurerPaymentPlanDescription: paymentPlan.description,
+                                    NumberPayments: paymentPlan.numberOfInstallments,
+                                    DepositPercent: paymentPlan.downPaymentPercent,
+                                    DownPayment: paymentPlan.deposit
+                                };
+    
+                                talagePaymentPlans.push(talagePaymentPlan);
+                            }
+                            catch (e) {
+                                log.warn(`Appid: ${this.app.id} Markel WC: Unable to parse payment plan: ${e}. Skipping...`);
+                            }
+                        }
+
+                        if (talagePaymentPlans.length > 0) {
+                            this.talageInsurerPaymentPlans = talagePaymentPlans;
+                        }
+                    }
                     return this.return_result('quoted');
                 }
             }
@@ -1479,15 +1523,19 @@ module.exports = class MarkelWC extends Integration {
             return this.return_result('declined');
         }
         else if (response[rquIdKey].errors) {
+            let isDeclined = false;
             response[rquIdKey].errors.forEach((error) => {
                 if(typeof error === 'string'){
                     if(error.indexOf("One or more class codes are Declined") > -1){
                         this.reasons.push(`Markel Declined ${error}`);
-                        return this.return_result('declined');
+                        isDeclined = true;
+                    }
+                    else if (error.toLowerCase().indexOf("declined") > -1){
+                        this.reasons.push(`Markel ${error}`);
+                        isDeclined = true;
                     }
                     else {
                         this.reasons.push(`Markel: ${error}`);
-
                     }
                 }
                 else {
@@ -1495,6 +1543,10 @@ module.exports = class MarkelWC extends Integration {
                 }
 
             });
+            if(isDeclined){
+                return this.return_result('declined');
+            }
+
         }
         else {
             this.reasons.push(`Markel Error unknown for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);

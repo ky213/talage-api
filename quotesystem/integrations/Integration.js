@@ -345,6 +345,7 @@ module.exports = class Integration {
      * @returns {object} - Claims information lumped together by policy year
      */
     claims_to_policy_years() {
+        //Note:  this.policy.claims already filter to policyType
         const claims = {};
 
         // Get the effective date of the policy
@@ -1168,10 +1169,6 @@ module.exports = class Integration {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Pricing Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
-            // if (!this.quoteId) {
-            //     this.quoteId = await this.run_pricing(null, quoteStatus.initiated.description);
-            // }
-
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
@@ -1300,6 +1297,7 @@ module.exports = class Integration {
                 questionSubjectArea: "general",
                 active: true
             }
+            log.debug(`InsurerQuestion query ${JSON.stringify(query)}` + __location)
             const InsurerQuestionModel = global.insurerMongodb.model('InsurerQuestion');
             try{
                 insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
@@ -1318,11 +1316,26 @@ module.exports = class Integration {
                         try{
                             //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
                             const qId_String = insurerQuestion.talageQuestionId.toString();
-                            if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
-                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
-                                
+                            //first look if the TalageQuestion is in the App data directly, before using old strustures.  
+                            //    old structures and logic around them is complex and overkill. requiring similar logic to QuestionSvc to be repeated here.
+                            //    This question is there or not....
+                            const appQuestion = this.applicationDocData.questions.find((aq) => aq.questionId === insurerQuestion.talageQuestionId)
+                            if(appQuestion){
                                 this.insurerQuestionList.push(insurerQuestion)
-                                
+                                if(!this.questions[insurerQuestion.talageQuestionId]){
+                                    const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
+                                    if(question){
+                                        this.questions[insurerQuestion.talageQuestionId] = question;
+                                    }
+                                    else {
+                                        //this.app.questions did not load properly  BTIS can cause this.
+                                        // fix it here creating a question Object and adding it.
+                                    }
+                                }
+                            }
+                            else if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
+                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
+                                this.insurerQuestionList.push(insurerQuestion)
                                 if(!this.questions[insurerQuestion.talageQuestionId]){
                                     const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
                                     this.questions[insurerQuestion.talageQuestionId] = question;
@@ -1425,7 +1438,7 @@ module.exports = class Integration {
     }
 
     /**
-     * Filter the question list to remove hidden questions, unanswered questions, and question for other carriers
+     * Legacy - New intregration should not use this - Filter the question list to remove hidden questions, unanswered questions, and question for other carriers
      * This function logs its own errors.
      *
      * @param {string} questionSubjectArea - The question subject area ("general", "location", ...) Default is "general".
@@ -1562,19 +1575,16 @@ module.exports = class Integration {
         const insurerName = this.insurer.name;
         const policyType = this.policy.type;
 
+
         //build mongo Document
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
-            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             agencyId: this.applicationDocData.agencyId,
-            agencyLocationId: this.applicationDocData.agencyLocationId,
+            agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: this.policy.type,
-            quoteTimeSeconds: this.seconds,
-            effectiveDate: this.policy.effective_date,
-            expirationDate: this.policy.expiration_date 
-
+            quoteTimeSeconds: this.seconds
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
@@ -1589,6 +1599,7 @@ module.exports = class Integration {
             // Amount
             if (amount) {
                 quoteJSON.amount = amount;
+                quoteJSON.quotedPremium = amount;
             }
 
             // Deductible
@@ -1718,9 +1729,7 @@ module.exports = class Integration {
         //QuoteBO
         try{
             const quoteBO = new QuoteBO();
-            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON).catch(function(err){
-                log.error("Error quoteBO.saveIntegrationQuote " + err + __location);
-            });
+            this.quoteId = await quoteBO.saveIntegrationQuote(this.quoteId, quoteJSON);
         }
         catch(err){
             log.error(`AppId: ${appId} Insurer:  ${insurerName} : ${policyType} - record_quote error saving quote. Error: ${err} ` + __location)
@@ -1787,11 +1796,13 @@ module.exports = class Integration {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
         this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
 
-        if (!this.limits && !this.quoteCoverages) {
-            this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
-            //BP - Do not error out the quote on lack of limits
-            //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
-        }
+        // check as logged in return_result.
+        // should be detected and log in insurer integration code.
+        // if (!this.limits && !this.quoteCoverages) {
+        //     this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
+        //     //BP - Do not error out the quote on lack of limits
+        //     //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+        // }
 
         if (premiumAmount) {
             this.amount = premiumAmount;
@@ -2023,6 +2034,7 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have an amount
         if ((result === 'quoted' || result === 'referred_with_price') && !this.amount) {
+            //amount error should be logged in the carrier integration code.
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.` + __location);
             this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
             if (result === 'quoted') {
@@ -2041,7 +2053,8 @@ module.exports = class Integration {
                 (!this.limits && this.quoteCoverages && !this.quoteCoverages.length > 0) ||
                 (!this.quoteCoverages && this.limits && !Object.keys(this.limits).length > 0)) 
             {
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
+                //error level log need to be in the integration.  Not all carriers supply limit in the response.
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
             }
 
         }
@@ -2244,7 +2257,6 @@ module.exports = class Integration {
 
             const req = https.request(options, (res) => {
                 let rawData = '';
-                log.debug("in https response " + __location)
                 // Grab each chunk of data
                 res.on('data', (d) => {
                     rawData += d;

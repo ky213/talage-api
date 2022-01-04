@@ -10,11 +10,6 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
-/**
- * 
- * NOTE: This integration treats Arrowhead Wendy's as a unique insurer
- */
-
 'use strict';
 
 const Integration = require('../Integration.js');
@@ -45,6 +40,12 @@ module.exports = class ArrowheadBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote() {
+        // Get Subscription Key
+        let subscriptionKey = null;
+        if (this.username) {
+            subscriptionKey = this.username;
+        }
+
         // Determine which URL to use
         let host = null; 
         let path = null; 
@@ -53,8 +54,8 @@ module.exports = class ArrowheadBOP extends Integration {
             path = '/Quote/v0.2-beta/CreateQuote';
         }
         else {
-            host = 'bad';
-            path = 'bad';
+            host = 'https://api.nationalprograms.io';
+            path = '/Quote/v1.0.0/CreateQuote';
         }
 
         // "Other" is not included, as anything not below is defaulted to it
@@ -142,7 +143,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 effectiveProduct: "BBOP",
                 state: applicationDocData.mailingState,
                 company: applicationDocData.businessName,
-                agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
+                agentid: this.app.agencyLocation.insurers[this.insurer.id].agent_id, //Check if this is different than sub producer. 
                 effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
                 expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
                 commonSet: {
@@ -185,7 +186,9 @@ module.exports = class ArrowheadBOP extends Integration {
         try {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
-            return this.client_error(`There was an issue adding general questions to the application`, __location, e);
+            const errorMessage = `There was an issue adding general questions to the application`;
+            log.error(errorMessage + `: ${e}` + __location);
+            return this.client_error(errorMessage, __location, e);
         }
 
         // TODO: Update question sheet, make this building-level question, not general question...
@@ -206,6 +209,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE REQUEST ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
         // log.info("=================== QUOTE REQUEST ===================");
+        this.log += `--------======= QUOTE REQUEST =======--------<br><br>`;
         this.log += `--------======= Sending to Arrowhead =======--------<br><br>`;
         this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
         this.log += `URL: ${host}${path}<br><br>`;
@@ -217,7 +221,7 @@ module.exports = class ArrowheadBOP extends Integration {
             "Cache-Control": "no-cache",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
+            "Ocp-Apim-Subscription-Key": subscriptionKey
         }
 
         let calloutFailure = true;
@@ -256,6 +260,7 @@ module.exports = class ArrowheadBOP extends Integration {
             const error = result.data.error;
 
             this.reasons.push(`Arrowhead API Error: ${result.data}`);
+            this.log += `=================== QUOTE ERROR ===================<br><br>`;
             this.log += `--------======= Arrowhead Request Error =======--------<br><br>`;
             this.log += JSON.stringify(error, null, 2);
 
@@ -293,7 +298,7 @@ module.exports = class ArrowheadBOP extends Integration {
         // log.info("=================== QUOTE RESULT ===================");
         // log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         // log.info("=================== QUOTE RESULT ===================");
-        this.log += `--------======= ${logPrefix} =======--------<br><br>`;
+        this.log += `--------======= Insurer Response =======--------<br><br>`;
         this.log += `<pre>${JSON.stringify(result.data, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
 
@@ -307,9 +312,12 @@ module.exports = class ArrowheadBOP extends Integration {
                 });
             }
 
-            this.log += `--------======= ${logPrefix} =======--------<br><br>`;
+            this.log += `--------======= Insurer Decision Message =======--------<br><br>`;
             this.log += `<pre>${decisionMessage}</pre><br><br>`;
             this.log += `--------======= End =======--------<br><br>`;
+            if (decision.toLowerCase().trim() === 'decline') {
+                return this.client_declined(decisionMessage);
+            }
         }
 
         let quoteNumber = null;
@@ -457,9 +465,9 @@ module.exports = class ArrowheadBOP extends Integration {
             const resultLocationsList = res.coreCommRatedVs.acord.insuranceSvcRsList[0].policyQuoteInqRs.additionalQuotedScenarioList[0].bopReporting.locationList;
             for (let i = 0; i < resultLocationsList.length; i++) {
                 const building = resultLocationsList[i].buildingList[0];
-                log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
-                log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
-                log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
+                //log.debug(`Location[i]: ${JSON.stringify(resultLocationsList[i], null, 4)}`);
+                //log.debug(`Building: ${JSON.stringify(building, null, 4)}`);
+                //log.debug(`Building.coverages: ${JSON.stringify(building.coverages, null, 4)}`);
                 for (const coverage of Object.keys(building.coverages)) {
                     log.debug(`Coverage: ${JSON.stringify(coverage, null, 4)}`);
                     if (building.coverages[coverage].limit && building.coverages[coverage].desc) {
@@ -571,8 +579,6 @@ module.exports = class ArrowheadBOP extends Integration {
                             plumbingUpdates: location.bop.plumbingImprovementYear,
                             electricalUpdates: location.bop.wiringImprovementYear
                         },
-                        sprinklered: location.bop.sprinklerEquipped,
-                        numStories: location.numStories, 
                         coverages: {
                             // this is required because classTag is set to "SALES"
                             liab: {
@@ -584,6 +590,31 @@ module.exports = class ArrowheadBOP extends Integration {
                     }
                 ]
             };
+
+            if (location.hasOwnProperty('numStories')){
+                locationObj.buildingList[0].numStories = location.numStories > 0 ? location.numStories : 1;
+            }
+            else {
+                locationObj.buildingList[0].numStories = 1;
+            }
+
+            if (location.hasOwnProperty('bop')) {
+                locationObj.buildingList[0].sprinklered = location.bop.hasOwnProperty('sprinklerEquipped') ? location.bop.sprinklerEquipped : false;
+            }
+            else {
+                locationObj.buildingList[0].sprinklered = false;
+            }
+
+            const constructionTypes = {
+                "Frame": "Frame",
+                "Fire Resistive": "Fire Resistive",
+                "Joisted Masonry": "Joisted Masonry",
+                "Masonry Non Combustible": "Masonry Non-Combustible",
+                "Non Combustible": "Non-Combustible"
+            };
+            if (location.constructionType && constructionTypes[location.constructionType]) {
+                locationObj.buildingList[0].construction = constructionTypes[location.constructionType];
+            }
 
             if (location.state === 'NC') {
                 locationObj.territoryNC = ''; // TODO Options for NC include 003, 005, and 006. Figure out how to determine which one
@@ -606,6 +637,7 @@ module.exports = class ArrowheadBOP extends Integration {
         
         // parent questions
         const contractorCoverage = [];
+        const contractorScheduled = [];
         const datcom = [];
         const cyber = [];
         const edol = [];
@@ -634,7 +666,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "conToolsCovType":
                 case "blanketLimitNoMin":
                 case "itemSubLimitText":
-                case "conscd.equips.desc":
                 case "nonownTools.limit":
                 case "empTools.limit":
                     contractorCoverage.push({id, answer});
@@ -645,11 +676,14 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "empTools.includeInd":
                     contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
                     break;
-                case "conscd.equips.val":
-                    contractorCoverage.push({id, answer: this.convertToInteger(answer)});
-                    break;
                 case "actualCashValueInd":
-                    contractorCoverage.push({id, answer: this.convertToBoolean(answer)});
+                    contractorCoverage.push({id: "ACVInd", answer: this.convertToBoolean(answer)});
+                    break;
+                case "conscd.equips.desc":
+                    contractorScheduled.push({id, answer});
+                    break;
+                case "conscd.equips.val":
+                    contractorScheduled.push({id, answer: this.convertToInteger(answer)});
                     break;
                 case "eqpbrk":
                     bbopSet.coverages.eqpbrk = {
@@ -713,25 +747,25 @@ module.exports = class ArrowheadBOP extends Integration {
                 case "stopGapLimit":
                     // Limit applies to up to four separate states if those states are present on the application
                     if (applicationDocData.locations.find(loc => loc.state === 'WA')) {
-                        bbopSet.coverages.stopGapWA = {limit: answer};
+                        bbopSet.coverages.stopwa = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'WY')) {
-                        bbopSet.coverages.stopGapWY = {limit: answer};
+                        bbopSet.coverages.stopwy = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'ND')) {
-                        bbopSet.coverages.stopGapND = {limit: answer};
+                        bbopSet.coverages.stopnd = {limit: answer};
                     }
                     if (applicationDocData.locations.find(loc => loc.state === 'OH')) {
-                        bbopSet.coverages.stopGapOH = {limit: answer};
+                        bbopSet.coverages.stopoh = {limit: answer};
                     }
                     break;
                 case "moldIncl":
                     bbopSet.coverages.mold = {
-                        IncludeInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "moldIncl.stateException":
-                    mold.push({id: "GeorgiaStateException", answer: this.convertToBoolean(answer)});
+                    mold.push({id: "georgiaStateException", answer: this.convertToBoolean(answer)});
                     break;
                 case "dentistEuipFloater":
                     bbopSet.coverages.dentistEquip = {
@@ -746,8 +780,35 @@ module.exports = class ArrowheadBOP extends Integration {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
-                case "schedBookFloater.limit":
-                    schedBookFloater.push({id: "limit", answer});
+                case "schedBookFloater.limit1":
+                    schedBookFloater.push({id: "limit1", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit2":
+                    schedBookFloater.push({id: "limit2", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit3":
+                    schedBookFloater.push({id: "limit3", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit4":
+                    schedBookFloater.push({id: "limit4", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.limit5":
+                    schedBookFloater.push({id: "limit5", answer: this.convertToInteger(answer)});
+                    break;
+                case "schedBookFloater.description1":
+                    schedBookFloater.push({id: "description1", answer});
+                    break;
+                case "schedBookFloater.description2":
+                    schedBookFloater.push({id: "description2", answer});
+                    break;
+                case "schedBookFloater.description3":
+                    schedBookFloater.push({id: "description3", answer});
+                    break;
+                case "schedBookFloater.description4":
+                    schedBookFloater.push({id: "description4", answer});
+                    break;
+                case "schedBookFloater.description5":
+                    schedBookFloater.push({id: "description5", answer});
                     break;
                 case "nonOwnedAutoLiab":
                     // This question populates both nonown and hired auto in arrowhead request
@@ -762,7 +823,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     nonOwnedAutoLiab.push({id: "exposure", answer});
                     break;
                 case "liquorLiab":
-                    bbopSet.coverages.liqLia = {
+                    bbopSet.coverages.liqlia = {
                         includeInd: this.convertToBoolean(answer)
                     };
                     break;
@@ -825,7 +886,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         suppPropDmg.push({id: "limit", answer})
                     break;
                 case "contractorsAdditionalInsured":
-                        bbopSet.coverages.conadd = {IncludeInd: this.convertToBoolean(answer)};
+                        bbopSet.coverages.conadd = {includeInd: this.convertToBoolean(answer)};
                     break;
                 case "waiverTOR":
                         bbopSet.coverages.waiver = {includeInd: this.convertToBoolean(answer)};
@@ -837,7 +898,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     pharmLiab.push({id: "option", answer});
                     break;
                 case "pharmacistLiab.grossSales":
-                    pharmLiab.push({id: "grossSales", answer: this.convertToInteger(answer)});
+                    pharmLiab.push({id: "grossSales", answer: answer});
                     break;
                 case "pharmacistLiab.limit":
                     pharmLiab.push({id: "ilLimit", answer});
@@ -853,6 +914,28 @@ module.exports = class ArrowheadBOP extends Integration {
                     break;
             }
         }
+        // hydrate Contractors' Scheduled coverage with child question data, if any exist
+        if (contractorScheduled.length > 0) {
+            if (!bbopSet.coverages.hasOwnProperty("conscd")) {
+                bbopSet.coverages.conscd = {
+                    equips: [{}]
+                };
+            }
+            contractorScheduled.forEach(({id, answer}) => {
+                switch (id) {
+                    case "conscd.equips.desc":
+                        bbopSet.coverages.conscd.equips[0].desc = answer;
+                        break;
+                    case "conscd.equips.val":
+                        bbopSet.coverages.conscd.equips[0].val = answer;
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Contractors' Installation Coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
+                        break;
+                }
+            });
+        }
+
         // hydrate Contractors' Installation coverage with child question data, if any exist
         if (contractorCoverage.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("conins")) {
@@ -866,24 +949,8 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "conToolsCovType":
                     case "blanketLimitNoMin":
                     case "itemSubLimitText":
-                    case "actualCashValueInd":
+                    case "ACVInd":
                         bbopSet.coverages.conins[id] = answer;
-                        break;
-                    case "conscd.equips.desc":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.desc = answer;
-                        break;
-                    case "conscd.equips.val":
-                        if (!bbopSet.coverages.conins.hasOwnProperty("conscd")) {
-                            bbopSet.coverages.conins.conscd = {
-                                equips: {}
-                            };
-                        }
-                        bbopSet.coverages.conins.conscd.equips.val = answer;
                         break;
                     case "nonownTools.includeInd":
                         if (!bbopSet.coverages.conins.hasOwnProperty("nonownTools")) {
@@ -914,6 +981,10 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                 }
             });
+
+            if (!bbopSet.coverages.conins.hasOwnProperty('conToolsCovType') && (bbopSet.coverages.conins.hasOwnProperty('blanketLimitNoMin') || bbopSet.coverages.conins.hasOwnProperty('actualCashValueInd') || bbopSet.coverages.conins.hasOwnProperty('itemSubLimitText'))) {
+                bbopSet.coverages.conins.conToolsCovType = "Blanket Limit";
+            }
         }
 
         // hydrate Computer Fraud coverage with child question data, if any exist
@@ -1013,8 +1084,8 @@ module.exports = class ArrowheadBOP extends Integration {
 
         // hydrate Liquor Liability coverage with child question data, if any exist
         if (liquorLiab.length > 0) {
-            if (!bbopSet.coverages.hasOwnProperty("liqLia")) {
-                bbopSet.coverages.liqLia = {
+            if (!bbopSet.coverages.hasOwnProperty("liqlia")) {
+                bbopSet.coverages.liqlia = {
                     includeInd: true
                 }
             }
@@ -1025,7 +1096,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     case "salesTotal":
                     case "salesLiquor":
                     case "premOp":
-                        bbopSet.coverages.liqLia[id] = answer;
+                        bbopSet.coverages.liqlia[id] = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Liquor Liability coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
@@ -1060,23 +1131,77 @@ module.exports = class ArrowheadBOP extends Integration {
                     includeInd: true
                 }
             }
+            if (!bbopSet.coverages.schdbk.hasOwnProperty("equips")) {
+                bbopSet.coverages.schdbk.equips = [{}];
+            }
+            const equips = [];
+            for (let i = 0; i < 5; i++) {
+                equips.push({});
+            }
             schedBookFloater.forEach(({id, answer}) => {
                 switch (id) {
-                    case "limit":
-                        bbopSet.coverages.schdbk[id] = answer;
+                    case "limit1":
+                        equips[0].val = answer;
+                        break;
+                    case "description1":
+                        equips[0].desc = answer;
+                        break;
+                    case "limit2":
+                        equips[1].val = answer;
+                        break;
+                    case "description2":
+                        equips[1].desc = answer;
+                        break;
+                    case "limit3":
+                        equips[2].val = answer;
+                        break;
+                    case "description3":
+                        equips[2].desc = answer;
+                        break;
+                    case "limit4":
+                        equips[3].val = answer;
+                        break;
+                    case "description4":
+                        equips[3].desc = answer;
+                        break;
+                    case "limit5":
+                        equips[4].val = answer;
+                        break;
+                    case "description5":
+                        equips[4].desc = answer;
                         break;
                     default:
                         log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions for Scheduled Book and Manuscript Floater coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration. ${__location}`);
                         break;
                 }
             });
+
+            const filteredEquips = equips.filter(equip => equip && equip.val && !isNaN(equip.val) && equip.desc); // Submit only those with both non-empty description and non-zero limit value
+            if (filteredEquips && filteredEquips.length > 0) {
+                bbopSet.coverages.schdbk.equips = filteredEquips;
+                bbopSet.coverages.schdbk.limit = String(bbopSet.coverages.schdbk.equips.reduce((sum, elem) => {
+                    let addVal = 0;
+                    if (elem.val){
+                        addVal = elem.val;
+                    }
+                    return sum + addVal;
+                }, 0));
+            }
+            else {
+                bbopSet.coverages.schdbk.includeInd = false;
+            }
         }
+
+        if (bbopSet.coverages.schdbk && (!bbopSet.coverages.schdbk.equips || bbopSet.coverages.schdbk.equips.length === 0)) {
+            bbopSet.coverages.schdbk.includeInd = false;
+        }
+
 
         // hydrate dentist/physician equipment coverage with child question data, if any exist
         if (dentistEquip.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("dentistEquip")) {
                 bbopSet.coverages.dentistEquip = {
-                    IncludeInd: true
+                    includeInd: true
                 }
             }
             dentistEquip.forEach(({id, answer}) => {
@@ -1095,12 +1220,12 @@ module.exports = class ArrowheadBOP extends Integration {
         if (mold.length > 0) {
             if (!bbopSet.coverages.hasOwnProperty("mold")) {
                 bbopSet.coverages.mold = {
-                    IncludeInd: true
+                    includeInd: true
                 }
             }
             mold.forEach(({id, answer}) => {
                 switch (id) {
-                    case "GeorgiaStateException":
+                    case "georgiaStateException":
                         bbopSet.coverages.mold[id] = answer;
                         break;
                     default:
@@ -1216,7 +1341,6 @@ module.exports = class ArrowheadBOP extends Integration {
             const spoil = [];
             const compf = [];
             const windstormFeatures = [];
-            const mine = [];
             const addLivingExpense = [];
             const actReceivable = [];
             const condoOwner = [];
@@ -1230,9 +1354,6 @@ module.exports = class ArrowheadBOP extends Integration {
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
-                    case "construction":
-                        building[id] = answer;
-                        break;
                     case "description":
                         building[id] = answer;
                         break;
@@ -1264,7 +1385,7 @@ module.exports = class ArrowheadBOP extends Integration {
                         }; 
                         break;
                     case "spoil.limit":
-                        spoil.push({id: "limit", answer});
+                        spoil.push({id: "spoilageLimit", answer: this.convertToInteger(answer)});
                         break;
                     case "spoil.breakCont.refrigMaint":
                         spoil.push({id: "refrigerationInd", answer: this.convertToBoolean(answer)});
@@ -1273,27 +1394,10 @@ module.exports = class ArrowheadBOP extends Integration {
                         spoil.push({id: "breakContInd", answer: this.convertToBoolean(answer)});
                         break;
                     case "spoil.stockDesc":
-                        spoil.push({id: "description", answer});
+                        spoil.push({id: "spoilageDescription", answer});
                         break;
                     case "spoil.powerOut":
                         spoil.push({id: "powerOutInd", answer: this.convertToBoolean(answer)});
-                        break;
-                    case "mineSubsidenceCoverage":
-                        if (location.state === "IL") {
-                            building.coverages.bld.mine = {il: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "IN") {
-                            building.coverages.bld.mine = {in: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "KY") {
-                            building.coverages.bld.mine = {ky: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        if (location.state === "WV") {
-                            building.coverages.bld.mine = {wv: {includeInd: this.convertToBoolean(answer)}}
-                        }
-                        break;
-                    case "mineSubsidenceCoverage.limit":
-                        mine.push({id: "limit", answer: this.convertToInteger(answer)});
                         break;
                     case "addLivingExpense":
                         building.coverages.bld.addexp = {in: {includeInd: this.convertToBoolean(answer)}};
@@ -1656,46 +1760,6 @@ module.exports = class ArrowheadBOP extends Integration {
                 });
             }    
 
-            // injection of Mine Subsidence Coverage child question data
-            if (mine.length > 0) {
-                if (!building.coverages.hasOwnProperty("mine")){
-                    building.coverages.mine = {};
-                    if (location.state === "IL") {
-                        building.mine.il = {includeInd: true};
-                    }
-                    if (location.state === "IN") {
-                        building.mine.in = {includeInd: true};
-                    }
-                    if (location.state === "KY") {
-                        building.mine.ky = {includeInd: true};
-                    }
-                    if (location.state === "WV") {
-                        building.mine.wv = {includeInd: true};
-                    }
-                }
-                mine.forEach(({id, answer}) => {
-                    switch (id) {
-                        case "limit":
-                            if (location.state === "IL") {
-                                building.coverages.mine.il = {limit: answer};
-                            }
-                            if (location.state === "IN") {
-                                building.coverages.mine.in = {limit: answer};
-                            }
-                            if (location.state === "KY") {
-                                building.coverages.mine.ky = {limit: answer};
-                            }
-                            if (location.state === "WV") {
-                                building.coverages.mine.wv = {limit: answer};
-                            }
-                            break;
-                        default:
-                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for Mine Subsidence coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.` + __location);
-                            break;
-                    }
-                });
-            }    
-
             // injection of Windstorm Construction Feature child question data
             if (windstormFeatures.length > 0) {
                 building.windstormFeatures = {};
@@ -1755,10 +1819,10 @@ module.exports = class ArrowheadBOP extends Integration {
                 spoil.forEach(({id, answer}) => {
                     switch (id) {
                         case "breakContInd":
-                        case "description":
+                        case "spoilageDescription":
                         case "powerOutInd":
                         case "refrigerationInd":
-                        case "limit":
+                        case "spoilageLimit":
                             building.coverages.spoil[id] = answer;
                             break;
                         default:
@@ -1814,6 +1878,62 @@ module.exports = class ArrowheadBOP extends Integration {
                 valuation: "Replacement Cost",
                 limit: building.occupancy === "Tenant" ? 0 : location.buildingLimit
             };
+
+            // Mine subsidence coverage required for certain territories
+            const mineSubStates = [
+                'IL',
+                'IN',
+                'KY',
+                'WV'
+                ];
+            const mineMaxLimits = {
+                IL: 500000,
+                IN: 500000,
+                KY: 300000,
+                WV: 200000
+            }
+            if (mineSubStates.includes(location.state) && building.coverages.bld.includeInd) {
+                switch (location.state) {
+                    case 'IL':
+                        building.coverages.bld.mine = {il: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.il.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.il.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'IN': 
+                        building.coverages.bld.mine = {in: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.in.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.in.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'KY':
+                        building.coverages.bld.mine = {ky: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.ky.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.ky.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    case 'WV':
+                        building.coverages.bld.mine = {wv: {includeInd: true}}
+                        if (building.coverages.bld.limit < mineMaxLimits[location.state]) {
+                            building.coverages.bld.mine.wv.limit = `${building.coverages.bld.limit}`;
+                        }
+                        else {
+                            building.coverages.bld.mine.wv.limit = `${mineMaxLimits[location.state]}`;
+                        }
+                        break;
+                    default:
+                        log.error(`Location territory is ${location.state} but it needs to be either IL, IN, KY, WV`);
+                }
+            }
 
         }
     }

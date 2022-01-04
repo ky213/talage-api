@@ -31,31 +31,6 @@ module.exports = class AgencyNetworkBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-            //logo processing
-            if(newObjectJSON.headerLogoContent){
-                const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName).catch(function(err){
-                    reject(err)
-                })
-                if(newFileName){
-                    newObjectJSON.logo = newFileName;
-                }
-                else {
-                    log.error("No files name for S3 logo " + __location)
-                }
-
-            }
-            if(newObjectJSON.footerLogoContent){
-                const newFileName = await this.saveLogofiles(newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false).catch(function(err){
-                    reject(err)
-                })
-                if(newFileName){
-                    newObjectJSON.footer_logo = newFileName;
-                }
-                else {
-                    log.error("No files name for S3 logo " + __location)
-                }
-            }
-            //save
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
@@ -63,6 +38,31 @@ module.exports = class AgencyNetworkBO{
                     reject(err);
                     return;
                 });
+                //logo processing
+                if(newObjectJSON.headerLogoContent){
+                    const newFileName = await this.saveLogofiles(dbDocJSON.name, newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName, true).catch(function(err){
+                        reject(err)
+                    })
+                    if(newFileName){
+                        newObjectJSON.logo = newFileName;
+                    }
+                    else {
+                        log.error("No files name for S3 logo " + __location)
+                    }
+
+                }
+                if(newObjectJSON.footerLogoContent){
+                    const newFileName = await this.saveLogofiles(dbDocJSON.name,newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false).catch(function(err){
+                        reject(err)
+                    })
+                    if(newFileName){
+                        newObjectJSON.footer_logo = newFileName;
+                    }
+                    else {
+                        log.error("No files name for S3 logo " + __location)
+                    }
+                }
+
                 if(dbDocJSON){
                     this.id = dbDocJSON.systemId;
                     newObjectJSON.systemId = dbDocJSON.systemId;
@@ -83,13 +83,15 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-    async saveLogofiles(newLogoContent64, newFileName, isHeader = true){
+    async saveLogofiles(agencyNetworkName,newLogoContent64, newFileName, isHeader = true){
 
         const logoData = newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
 
         const baseS3Path = 'public/agency-network-logos/';
-        //clean name
-        let fileName = stringFunctions.santizeFilename(this.name);
+        //clean filename
+        let fileName = stringFunctions.santizeFilename(agencyNetworkName);
+        //clean filename for S3 as filesvc does.
+        fileName = fileName.replace(/[^a-zA-Z0-9-_/.]/g, '');
         fileName += isHeader ? "-header-" : "-footer-"
         fileName += uuidv4().toString();
         fileName += `-${stringFunctions.santizeFilename(newFileName)}`
@@ -417,11 +419,11 @@ module.exports = class AgencyNetworkBO{
                 const customermessage = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
                 const customersubject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
 
-
                 const agencyEmailData = agencyNetworkJSON.custom_emails[agencyContentProperty];
                 const defaultAgencyEmailData = wheelHouseAgencyNetworkJSON.custom_emails[agencyContentProperty];
                 const agencyMessage = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
+
 
                 emailTemplateJSON = {
                     "brandName": agencyNetworkJSON.name,
@@ -512,6 +514,9 @@ module.exports = class AgencyNetworkBO{
                         log.error("getEmailContent error: " + err + __location);
                     }
                 }
+                else {
+                    log.error(`AgencyNetwork ${agencyNetworkId} has no email content for ${contentProperty}` + __location);
+                }
 
                 const environmentSettings = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo, agencyNetworkId)
                 if(typeof environmentSettings === "object"){
@@ -576,41 +581,6 @@ module.exports = class AgencyNetworkBO{
             log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
             return {};
         }
-    }
-
-    getIdToNameMap(){
-        return new Promise(async(resolve, reject) => {
-            // eslint-disable-next-line prefer-const
-            let map = {};
-            let rejected = false;
-            // Create the update query
-            const sql = `
-                select *  from ${tableName}  
-            `;
-            // Run the query
-            //log.debug("AgencyNetworkBO getlist sql: " + sql);
-            const result = await this.getList({}).catch(function(error) {
-                // Check if this was
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    map[result[i].systemId] = result[i].name;
-                }
-                resolve(map);
-            }
-            else {
-                //Search so no hits ok.
-                resolve(map);
-            }
-
-
-        });
     }
 
 }

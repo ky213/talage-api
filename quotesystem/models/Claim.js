@@ -5,7 +5,7 @@
 'use strict';
 
 const moment = require('moment');
-const validator = global.requireShared('./helpers/validator.js');
+//const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class Claim{
 

@@ -105,7 +105,7 @@ module.exports = class QuoteBO {
                     await Quote.updateOne(query, quoteJSON);
                 }
                 catch (e) {
-                    log.error(`Error updating quote: ${e}.`);
+                    log.error(`Error updating quoteId ${quoteId}: ${e}.` + __location);
                     throw e;
                 }
             }
@@ -552,7 +552,7 @@ module.exports = class QuoteBO {
     }
     //bindQuote
 
-    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo) {
+    async markQuoteAsBound(quoteId, applicationId, bindUser, policyInfo, sendNotification = true) {
         if(quoteId && applicationId && bindUser){
             const status = quoteStatus.bound;
 
@@ -564,7 +564,7 @@ module.exports = class QuoteBO {
             let quoteDoc = null;
             try{
                 quoteDoc = await Quote.findOne(query, '-__v');
-                if(!quoteDoc.bound){
+                if(quoteDoc && !quoteDoc.bound){
                     const bindDate = moment();
                     // eslint-disable-next-line prefer-const
                     let updateJSON = {
@@ -577,9 +577,24 @@ module.exports = class QuoteBO {
                     };
                     if(policyInfo){
                         updateJSON.policyInfo = policyInfo;
+                        if(policyInfo.policyPremium){
+                            if(!quoteDoc.quotedPremium && quoteDoc.amount){
+                                updateJSON.quotedPremium = quoteDoc.amount;
+                            }
+                            updateJSON.amount = policyInfo.policyPremium
+                            updateJSON.boundPremium = policyInfo.policyPremium
+                        }
                     }
                     await Quote.updateOne(query, updateJSON);
                     log.info(`Update Mongo QuoteDoc bound status on quoteId: ${quoteId}` + __location);
+                    const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
+                    const quoteBind = new QuoteBind();
+                    await quoteBind.loadFromQuoteDoc(quoteDoc,bindUser);
+                    if(sendNotification){
+                        await quoteBind.send_slack_notification("bound");
+                    }
+                    
+
                 }
             }
             catch(err){
@@ -629,6 +644,20 @@ module.exports = class QuoteBO {
         }
 
         return true;
+    }
+
+    /**
+     * Adds some extra information to the 'log' field for the specified Quote
+     * in mongo.
+     *
+     * @param {*} quoteId quoteId
+     * @param {*} log Extra data to put in the log
+     * @returns {void}
+     */
+    async appendToLog(quoteId, log) {
+        return mongoose.connection.db.collection('quotes').updateOne({quoteId: quoteId},
+            [{$set: {log: {$concat: ['$log', log]}}}],
+            {upsert: true});
     }
 
     // checks the status of the quote and fixes it if its timed out

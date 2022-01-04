@@ -15,6 +15,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
+const moment = require('moment');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -83,6 +84,13 @@ module.exports = class EmployersWC extends Integration {
             const appDoc = this.app.applicationDocData;
 
             const logPrefix = `Employers WC (Appid: ${this.app.id}): `;
+
+             const tomorrow = moment().add(1,'d').startOf('d');
+            if(this.policy.effective_date < tomorrow){
+                this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+                fulfill(this.return_result('autodeclined'));
+                return;
+            }
 
             // These are the statuses returned by the insurer and how they map to our Talage statuses
             this.possible_api_responses.DECLINED = 'declined';
@@ -374,6 +382,7 @@ module.exports = class EmployersWC extends Integration {
                log.error(`${logPrefix}Could not get EIN` + __location);
                this.reasons.push("No FEIN - Stopped before submission to insurer");
                fulfill(this.return_result('autodeclined'));
+               return;
             }
 
             const entityCode = entityMatrix[appDoc.entityType];
@@ -505,10 +514,21 @@ module.exports = class EmployersWC extends Integration {
                 this.log += err;
                 this.log += `--------======= End =======--------<br><br>`;
                 fulfill(this.return_result('error'));
+                return;
             }
 
             if (!quoteResponse || !quoteResponse.success) {
-                this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
+
+                this.request_id = this.quoteId;
+                this.quoteResponseJSON = quoteResponse;
+
+                if (quoteResponse.status) {
+                    this.reasons.push(`Insurer returned status: ${quoteResponse.status}`);
+                }
+                else {
+                    this.reasons.push(`Insurer returned unknown status.`);
+                }
+
                 if (quoteResponse.errors) {
                     // quoteResponse.errors array also contains info and warnings. Get the actual errors which can make a quote fail
                     const failingQuoteErrors = quoteResponse.errors.filter(error => {
@@ -531,6 +551,7 @@ module.exports = class EmployersWC extends Integration {
                     });
                 }
                 fulfill(this.return_result('declined'));
+                return;
             }
 
             // Attempt to get the policy number
@@ -571,38 +592,69 @@ module.exports = class EmployersWC extends Integration {
             const insurerPaymentPlans = quoteResponse.availablePaymentPlans;
             try {
                 if (insurerPaymentPlans) {
+                    const employerPaymentPlanTranslations = {
+                        "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
+                        "DB-D-9": 4
+                    };
+
                     this.insurerPaymentPlans = insurerPaymentPlans;
                     this.talageInsurerPaymentPlans = [];
                     for (const insurerPaymentPlan of insurerPaymentPlans) {
                         const talagePaymentPlan = {};
-                        const employerPaymentPlanTranslations = {
-                            "DB-D-K": 1, // Employers Billing Option Id - Pay By Code - Pay Option Code
-                            "DB-D-9": 4
-                        };
                         const lookupKey = `${insurerPaymentPlan.billingOptionId}-${insurerPaymentPlan.payByCode}-${insurerPaymentPlan.payOptionCode}`;
                         const talagePaymentPlanId = employerPaymentPlanTranslations[lookupKey];
                         if (!talagePaymentPlanId) {
-                            continue;
+                            log.debug(`Could not determine Talage payment plan ID. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue; // Can't determine Payment Plan type so skip this payment plan
                         }
                         talagePaymentPlan.paymentPlanId = talagePaymentPlanId;
                         talagePaymentPlan.insurerPaymentPlanId = insurerPaymentPlan.billingOptionId;
-                        talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
-                        talagePaymentPlan.NumberPayments = insurerPaymentPlan.numberOfInstallments;
-                        talagePaymentPlan.TotalPremium = quoteResponse.totalPremium;
+                        if (insurerPaymentPlan.description) {
+                            talagePaymentPlan.insurerPaymentPlanDescription = insurerPaymentPlan.description;
+                        }
 
-                        let totalInstallmentCost = 0;
-                        if (insurerPaymentPlan.amountDue) { // Amount due per installment if any
-                            talagePaymentPlan.installmentPayment = insurerPaymentPlan.amountDue
-                            totalInstallmentCost = insurerPaymentPlan.amountDue * insurerPaymentPlan.numberOfInstallments;
+                        if (insurerPaymentPlan.hasOwnProperty('numberOfInstallments') && !isNaN(insurerPaymentPlan.numberOfInstallments)) {
+                            talagePaymentPlan.NumberPayments = Number(insurerPaymentPlan.numberOfInstallments);
                         }
                         else {
-                            talagePaymentPlan.installmentPayment = 0;
+                            log.debug(`Could not determine number of installments. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue;
                         }
-                        talagePaymentPlan.TotalCost = insurerPaymentPlan.downPayment + totalInstallmentCost;
 
-                        talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
-                        talagePaymentPlan.DownPayment = insurerPaymentPlan.downPayment;
+                        if (quoteResponse.hasOwnProperty('totalPremium') && !isNaN(quoteResponse.totalPremium)) {
+                            talagePaymentPlan.TotalPremium = Number(quoteResponse.totalPremium);
+                        }
+                        else {
+                            log.debug(`Could not determine total premium. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue;
+                        }
+
+                        let totalInstallmentCost = 0;
+                        if (insurerPaymentPlan.hasOwnProperty('amountDue') && !isNaN(insurerPaymentPlan.amountDue)) { // Amount due per installment if any
+                            talagePaymentPlan.installmentPayment = Number(insurerPaymentPlan.amountDue);
+                            totalInstallmentCost = Number(insurerPaymentPlan.amountDue) * Number(insurerPaymentPlan.numberOfInstallments);
+                        }
+                        else {
+                            log.debug(`Could not determine installment payment. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue; // If we can't find amountDue then skip this payment plan. We don't want to make a down payment seem like the total cost of the payment plan
+                        }
+
+                        if (insurerPaymentPlan.hasOwnProperty('downPayment') && !isNaN(insurerPaymentPlan.downPayment)){
+                            talagePaymentPlan.DownPayment = Number(insurerPaymentPlan.downPayment);
+                        }
+                        else {
+                            log.debug(`Could not determine down payment. Skipping payment plan with lookup key "${lookupKey}"`);
+                            continue;
+                        }
+
+                        talagePaymentPlan.TotalCost = Number(insurerPaymentPlan.downPayment) + totalInstallmentCost;
+
+                        if (insurerPaymentPlan.hasOwnProperty('downPaymentPercent') && !isNaN(insurerPaymentPlan.downPaymentPercent)) {
+                            talagePaymentPlan.DepositPercent = insurerPaymentPlan.downPaymentPercent;
+                        }
+
                         talagePaymentPlan.invoices = [];
+
                         this.talageInsurerPaymentPlans.push(talagePaymentPlan);
                     }
                 }
@@ -610,7 +662,6 @@ module.exports = class EmployersWC extends Integration {
             catch (err) {
                 log.error(`${logPrefix}Problem getting payment plan from response object: ${err}` + __location);
             }
-
 
             try {
                 const quoteLetter = quoteResponse.attachments.find(attachment => attachment.attachmentType === "QuoteLetter");

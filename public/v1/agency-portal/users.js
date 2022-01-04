@@ -1,11 +1,11 @@
 /* eslint-disable max-statements-per-line */
 'use strict';
 const auth = require('./helpers/auth-agencyportal.js');
-const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Responds to get requests for the users endpoint
@@ -31,22 +31,26 @@ async function getUsers(req, res, next){
     }
 
     if(req.authentication.isAgencyNetworkUser && req.query.agency){
-        const agencies = await auth.getAgents(req).catch(function(e){error = e;})
-        if(error){
-            return next(error);
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.debug(`usersin global mode for agency` + __location)
         }
-        if (!await validator.integer(req.query.agency)) {
-            log.warn(`Agency validation error: ${__location}`)
-            return next(serverHelper.notFoundError('Agency is invalid'));
+        else {
+            const agencyId = parseInt(req.query.agency, 10);
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(agencyId);
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage this user' + __location);
+                return next(serverHelper.forbiddenError('You are not authorized to manage this user'));
+            }
         }
-        if (!agencies.includes(parseInt(req.query.agency, 10))) {
-            log.warn(`Agency network tried to modify agency that is not part of its network. ${__location}`);
-            return next(serverHelper.notFoundError('Agency is invalid'));
-        }
+
         retrievingAgencyUsersForAgencyNetwork = true;
     }
     else if (req.authentication.isAgencyNetworkUser){
         query.agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
+        query.isAgencyNetworkUser = true
         getAgencyNetworkRoles = true;
     }
     else {

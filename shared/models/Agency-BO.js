@@ -13,7 +13,7 @@ var AgencyEmail = global.mongodb.model('AgencyEmail');
 
 var AgencyModel = global.mongodb.model('Agency');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const s3AgencyLogoPath = "public/agency-logos/";
 const s3AgencyFaviconPath = "public/agency-logos/favicon/";
@@ -409,7 +409,7 @@ module.exports = class AgencyBO {
 
             }
             else {
-                reject(new Error('no slug supplied'))
+                reject(new Error('no slug supplied'));
             }
         });
     }
@@ -422,19 +422,18 @@ module.exports = class AgencyBO {
             }
             // eslint-disable-next-line prefer-const
             let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
-
             let agencyNetworkList = null;
             if (getAgencyNetwork === true) {
                 const agencyNetworkBO = new AgencyNetworkBO();
                 try {
-                    agencyNetworkList = await agencyNetworkBO.getList()
+                    agencyNetworkList = await agencyNetworkBO.getList();
                 }
                 catch (err) {
                     log.error("Error getting Agency Network List " + err + __location);
                 }
             }
 
-            const queryProjection = {"__v": 0}
+            const queryProjection = {"__v": 0};
 
             let findCount = false;
 
@@ -444,22 +443,21 @@ module.exports = class AgencyBO {
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {};
+            queryOptions.sort = {"name": 1};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
                     acs = -1;
-                    delete queryJSON.desc
+                    delete queryJSON.desc;
                 }
                 queryOptions.sort[queryJSON.sort] = acs;
-                delete queryJSON.sort
+                delete queryJSON.sort;
             }
-            else {
-                // default to DESC on sent
-                queryOptions.sort.createdAt = -1;
+            // else {
+            //     queryOptions.sort.name = 1;
 
-            }
-            const queryLimit = 1000;
+            // }
+            const queryLimit = 5000;
             if (queryJSON.limit) {
                 var limitNum = parseInt(queryJSON.limit, 10);
                 delete queryJSON.limit
@@ -473,6 +471,12 @@ module.exports = class AgencyBO {
             else {
                 queryOptions.limit = queryLimit;
             }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
             if (queryJSON.count) {
                 if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
                     findCount = true;
@@ -481,40 +485,46 @@ module.exports = class AgencyBO {
             }
             if(queryJSON.agency_network){
                 query.agencyNetworkId = queryJSON.agency_network;
-                delete queryJSON.systemId
+                delete queryJSON.systemId;
             }
 
             if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
-                query.systemId = {$in: queryJSON.systemId};
-                delete queryJSON.systemId
+                if(queryJSON.notInSystemId === true || queryJSON.notInSystemId === 'true'){
+                    query.systemId = {$nin: queryJSON.systemId};
+                    delete queryJSON.notInSystemId;
+                }
+                else{
+                    query.systemId = {$in: queryJSON.systemId};
+                }
+                delete queryJSON.systemId;
             }
             else if(queryJSON.systemId){
                 query.systemId = queryJSON.systemId;
-                delete queryJSON.systemId
+                delete queryJSON.systemId;
             }
 
             if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
                 query.agencyId = {$in: queryJSON.agencyId};
-                delete queryJSON.agencyId
+                delete queryJSON.agencyId;
             }
             else if(queryJSON.agencyId){
                 query.agencyId = queryJSON.agencyId;
-                delete queryJSON.agencyId
+                delete queryJSON.agencyId;
             }
             //doNotReport false - So we can search on false
             if(queryJSON.doNotReport === false){
                 query.doNotReport = false;
-                delete queryJSON.doNotReport
+                delete queryJSON.doNotReport;
             }
 
             // Old Mysql reference
             if(queryJSON.agency && Array.isArray(queryJSON.agency)){
                 query.systemId = {$in: queryJSON.agency};
-                delete queryJSON.agency
+                delete queryJSON.agency;
             }
             else if(queryJSON.agency){
                 query.systemId = queryJSON.agency;
-                delete queryJSON.agency
+                delete queryJSON.agency;
             }
 
 
@@ -539,8 +549,8 @@ module.exports = class AgencyBO {
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location)
-                    docList = await AgencyModel.find(query,queryProjection, queryOptions);
+                    //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
@@ -553,6 +563,9 @@ module.exports = class AgencyBO {
                                 catch (err) {
                                     log.error("Error getting agency network name " + err + __location);
                                 }
+                            }
+                            else {
+                                log.error(`Error getting agency network name missing info ${JSON.stringify(agencyNetworkList)}` + __location);
                             }
                         }
                     }
@@ -588,6 +601,133 @@ module.exports = class AgencyBO {
     }
 
 
+    // ***************************
+    //    Copied same as getList, except removed network list and hardcoded query projection
+    //
+    // *************************
+    getNameAndIdList(requestQueryJSON, noActiveCheck = false) {
+        return new Promise(async(resolve, reject) => {
+            if(!requestQueryJSON){
+                requestQueryJSON = {};
+            }
+            // eslint-disable-next-line prefer-const
+            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+
+            const queryProjection =
+                {
+                    "name": 1,
+                    "systemId": 1
+                };
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = noActiveCheck ? {} : {active:true};
+            let error = null;
+
+            var queryOptions = {};
+            queryOptions.sort = {"name": 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc;
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort;
+            }
+            const queryLimit = 10000;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+            if (queryJSON.count) {
+                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId;
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId;
+            }
+            //doNotReport false - So we can search on false
+            if(queryJSON.doNotReport === false){
+                query.doNotReport = false;
+                delete queryJSON.doNotReport;
+            }
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(mongoUtils.objListCleanup(docList));
+                return;
+            }
+            else {
+                const docCount = await AgencyModel.countDocuments(query).catch(err => {
+                    log.error("AgencyModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+        });
+    }
+
     getById(id, getAgencyNetwork = false, returnDeleted = false) {
         const returnDoc = false;
         return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork, returnDeleted)
@@ -606,12 +746,12 @@ module.exports = class AgencyBO {
 
     }
 
-    async getByAgencyNetworkDoNotReport(agencyNetworkId) {
+    async getByAgencyNetworkDoNotReport(agencyNetworkId, isGlobalView) {
 
         //validate
         if (agencyNetworkId && agencyNetworkId > 0) {
 
-            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && isGlobalView === false){
                 let docList = null;
                 const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
                 const resp = await global.redisSvc.getKeyValue(redisKey);
@@ -636,8 +776,11 @@ module.exports = class AgencyBO {
                 agencyNetworkId: agencyNetworkId,
                 doNotReport: true
             }
+            if(isGlobalView){
+                delete query.agencyNetworkId;
+            }
             const docList = await this.getList(query);
-            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && docList){
+            if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && docList && isGlobalView === false){
                 const redisKey = REDIS_AGENCYNETWORK_DONOTREPORT_PREFIX + agencyNetworkId;
                 try{
                     const ttlSeconds = 900; //15 minutes
@@ -958,6 +1101,9 @@ module.exports = class AgencyBO {
             }
             return emailTemplateJSON;
 
+        }
+        else {
+            log.error(`getEmailContentAgencyAndCustomer Agency ID ${agencyId} did not find agnecy record` + __location)
         }
     }
 

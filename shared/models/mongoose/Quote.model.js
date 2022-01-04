@@ -37,7 +37,8 @@ const PolicySchema = new Schema({
     policyUrl: {type: String, required: false},
     policyNumber: {type: String, required: false},
     policyEffectiveDate: {type: String, required: false},
-    policyPremium: {type: String, required: false}
+    policyPremium: {type: Number, required: false},
+    commissionPercent: {type: Number, required: false}
 }, {_id: false});
 
 
@@ -72,8 +73,8 @@ const TalageInsurerPaymentPlanSchema = new Schema({
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
     applicationId: {type: String},
-    agencyNetworkId: {type: Number, required: true},
-    agencyId: {type: Number, required: true},
+    agencyNetworkId: {type: Number, required: false},
+    agencyId: {type: Number, required: false},
     agencyLocationId: {type: Number, default: 0},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
@@ -83,6 +84,8 @@ const QuoteSchema = new Schema({
     packageTypeId: {type: Number},
     requestId: {type: String},
     amount: {type: Number},
+    quotedPremium: {type: Number},
+    boundPremium: {type: Number},
     deductible: {type: Number},
     status: {type: String},
     quoteStatusId: {type: Number},
@@ -112,6 +115,8 @@ const QuoteSchema = new Schema({
     policyInfo: PolicySchema,
     quotingStartedDate: {type: Date},
     productDesc: {type: String},
+    isManualQuote: {type: Boolean, default: false},
+    addUser: {type: String},
     active: {type: Boolean, default: true}
 });
 

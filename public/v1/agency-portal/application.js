@@ -7,14 +7,12 @@
 'use strict';
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth-agencyportal.js');
-const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
@@ -29,11 +27,10 @@ const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
-const emailsvc = global.requireShared('./services/emailsvc.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
-
-const applicationLinkTimeout = 4 * 60 * 60; // 4 hours
+const appLinkCreator = global.requireShared('./services/application-link-svc.js');
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -49,7 +46,6 @@ var Message = global.mongodb.model('Message');
  * @returns {void}
  */
 async function getApplication(req, res, next) {
-    let error = false;
 
     // sort ascending order based on id, if no sort value then number will be sorted first
     function ascendingOrder(a, b){
@@ -99,38 +95,28 @@ async function getApplication(req, res, next) {
     try{
         const applicationDBDoc = await applicationBO.getById(id);
         if(applicationDBDoc){
-            if(req.authentication.isAgencyNetworkUser && applicationDBDoc.agencyNetworkId === req.authentication.agencyNetworkId){
-                passedAgencyCheck = true;
-            }
-            else {
-                const agents = await auth.getAgents(req).catch(function(e) {
-                    error = e;
-                });
-                if (error) {
-                    log.error('Error get application getAgents ' + error + __location);
-                    return next(error);
-                }   
-                if(agents.includes(applicationDBDoc.agencyId)){
-                    passedAgencyCheck = true;
-                }
-            }
+            passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc.agencyId, applicationDBDoc.agencyNetworkId)
         }
         
-
-        if(applicationDBDoc){
+        if(applicationDBDoc && passedAgencyCheck){
             applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
         }
+       
     }
     catch(err){
         log.error("Error Getting application doc " + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
-
-    if(applicationJSON && applicationJSON.applicationId && passedAgencyCheck === false){
+    if(passedAgencyCheck === false){
         log.info('Forbidden: User is not authorized for this application' + __location);
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }
+    
+    if(!applicationJSON){
+        return next(serverHelper.notFoundError('Application Not Found'));
+    }
+    
     await setupReturnedApplicationJSON(applicationJSON)
 
     // Get the quotes from the database
@@ -179,21 +165,29 @@ async function getApplication(req, res, next) {
             if(quoteJSON.quoteLetter){
                 quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
-            if (!quoteJSON.status && quoteJSON.apiResult) {
-                // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
-                if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
-                    quoteJSON.status = quoteStatus.error.description;
-                }
-                else {
-                    quoteJSON.status = quoteJSON.apiResult;
-                }
+            //apiResult is obsolete 
+            // if (!quoteJSON.status && quoteJSON.apiResult) {
+            //     // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
+            //     if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
+            //         quoteJSON.status = quoteStatus.error.description;
+            //     }
+            //     else {
+            //         quoteJSON.status = quoteJSON.apiResult;
+            //     }
+            // }
+            if(quoteJSON.quoteStatusDescription){
+                quoteJSON.status = quoteJSON.quoteStatusDescription
             }
             quoteJSON.number = quoteJSON.quoteNumber;
-            if (quoteJSON.status === 'bind_requested' || quoteJSON.bound || quoteJSON.status === 'quoted') {
+            //filter out referred with price that is 55.
+            if (quoteJSON.quoteStatusId === quoteStatus.quoted.id || quoteJSON.quoteStatusId > quoteStatus.quoted_referred.id || quoteJSON.bound){
                 quoteJSON.reasons = '';
+                if(quoteJSON.quoteStatusId === quoteStatus.bound.id || quoteJSON.bound){
+                    quoteJSON.status = quoteStatus.bound.description;
+                }
             }
             // Change the name of autodeclined
-            if (quoteJSON.status === 'autodeclined') {
+            if (quoteJSON.quoteStatusId === quoteStatus.autodeclined.id) {
                 quoteJSON.status = 'Out of Market';
                 quoteJSON.displayStatus = 'Out of Market';
             }
@@ -201,6 +195,10 @@ async function getApplication(req, res, next) {
                 //ucase word
                 const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
                 quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
+            }
+            if(applicationJSON.agencyNetworkId === 4 && (quoteJSON.quoteStatusId === quoteStatus.bind_requested.id || quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id)){
+                quoteJSON.status = "Submitted To UW";
+                quoteJSON.displayStatus = 'Submitted To UW';
             }
 
             // can see log?
@@ -215,11 +213,17 @@ async function getApplication(req, res, next) {
             //Insurer
             if(insurerList){
                 const insurer = insurerList.find(insurertest => insurertest.id === quoteJSON.insurerId);
-                // i.logo,
-                //i.name as insurerName,
-                quoteJSON.logo = insurer.logo
-                quoteJSON.insurerName = insurer.name
-                quoteJSON.website = insurer.website
+                if(insurer){
+                    // i.logo,
+                    //i.name as insurerName,
+                    quoteJSON.logo = insurer.logo
+                    quoteJSON.insurerName = insurer.name
+                    quoteJSON.website = insurer.website
+                }
+                else {
+                    log.error(`Error Quote insurer ${quoteJSON.insurerId} not found in database for Application GET  appId ${applicationJSON.applicationId}` + __location);
+                    quoteJSON.insurerName = "unknown";
+                }
             }
             //policyType
             if(policyTypeList){
@@ -317,13 +321,24 @@ async function getApplicationDoc(req, res ,next){
     const applicationBO = new ApplicationBO();
     try{
         applicationDB = await applicationBO.getById(appId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+        if(applicationDB && agencies.includes(applicationDB?.agencyId)){
             passedAgencyCheck = true;
         }
         await setupReturnedApplicationJSON(applicationDB);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    try{
+        applicationDB = await applicationBO.getById(appId);
+        if(applicationDB){
+            passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB.agencyId, applicationDB.agencyNetworkId)
+        }
+    }
+    catch(err){
+        log.error("Error Getting application doc " + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
@@ -375,6 +390,15 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
 
+    //TODO update for customizeable status descriptions
+    try{
+        if(applicationJSON.agencyNetworkId === 4 && (applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId || applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+            applicationJSON.status = "submitted_to_uw";
+        }
+    }
+    catch(err){
+        log.error("Application Status processing error " + err + __location)
+    }
     // // owners birthday formatting
     try{
         if(applicationJSON.owners && applicationJSON.owners.length > 0){
@@ -481,7 +505,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
     else if(applicationJSON.agencyPortalCreatedUser === "applicant"){
         applicationJSON.creatorEmail = "Applicant"
     }
-    else if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+    else if((applicationJSON.agencyPortalCreated || applicationJSON.apiCreated) && parseInt(applicationJSON.agencyPortalCreatedUser,10) > 0){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
             const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
@@ -499,20 +523,26 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 
     //add industry description
-    const industryCodeBO = new IndustryCodeBO();
-    try{
-        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
-        if(industryCodeJson){
-            applicationJSON.industryCodeName = industryCodeJson.description;
-            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
-            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.industryCodeCategoryId);
-            if(industryCodeCategoryJson){
-                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
+    if(applicationJSON.industryCode){
+        const industryCodeBO = new IndustryCodeBO();
+        try{
+            const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+            if(industryCodeJson){
+                applicationJSON.industryCodeName = industryCodeJson.description;
+                const industryCodeCategoryBO = new IndustryCodeCategoryBO()
+                const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.industryCodeCategoryId);
+                if(industryCodeCategoryJson){
+                    applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
+                }
             }
         }
+        catch(err){
+            log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
+        }
     }
-    catch(err){
-        log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
+    else {
+        applicationJSON.industryCodeName = "";
+        applicationJSON.industryCodeCategory = "";
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
@@ -543,15 +573,6 @@ async function applicationSave(req, res, next) {
     }
 
 
-    //get user's agency List
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     const applicationBO = new ApplicationBO();
 
     //Insert checks
@@ -565,16 +586,13 @@ async function applicationSave(req, res, next) {
                 return next(serverHelper.requestError(`Bad Request: Missing ${requiredPropertyList[i]}`));
             }
         }
-        //Insert agency check.
-        if (!agencies.includes(req.body.agencyId)) {
-            log.info('Forbidden: User is not authorized for this agency' + __location);
-            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
-        }
+       
 
         //Get AgencyNetworkID
+        let agencyDB = null
         try{
             const agencyBO = new AgencyBO()
-            const agencyDB = await agencyBO.getById(req.body.agencyId)
+            agencyDB = await agencyBO.getById(req.body.agencyId)
             if(agencyDB){
                 req.body.agencyNetworkId = agencyDB.agencyNetworkId;
             }
@@ -586,6 +604,15 @@ async function applicationSave(req, res, next) {
         catch(err){
             log.error(`Application Save get agencyNetworkId  agencyID: ${req.body.agencyId} ` + err + __location)
             return next(serverHelper.internalError("error checking agency"));
+        }
+        
+        const passedAgencyCheck = await auth.authorizedForAgency(req, agencyDB.systemId, agencyDB.agencyNetworkId)
+
+
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!passedAgencyCheck) {
+            log.info('Forbidden: User is not authorized for this agency' + __location);
+            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
         }
 
 
@@ -601,19 +628,16 @@ async function applicationSave(req, res, next) {
         }
     }
     else {
-        //get application and valid agency
         let passedAgencyCheck = false;
         try{
-            const applicationDB = await applicationBO.getById(req.body.applicationId);
-            if(applicationDB && agencies.includes(applicationDB.agencyId)){
-                passedAgencyCheck = true;
-            }
-            if(!applicationDB){
-                return next(serverHelper.requestError('Not Found'));
+            const appId = req.body.applicationId
+            const applicationDB = await applicationBO.getById(appId);
+            if(applicationDB){
+                passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB.agencyId, applicationDB.agencyNetworkId)
             }
         }
         catch(err){
-            log.error("Error checking application doc " + err + __location)
+            log.error("Error Getting application doc " + err + __location)
             return next(serverHelper.requestError(`Bad Request: check error ${err}`));
         }
 
@@ -707,15 +731,6 @@ async function applicationCopy(req, res, next) {
     }
 
 
-    //get user's agency List
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     const applicationBO = new ApplicationBO();
 
 
@@ -724,9 +739,8 @@ async function applicationCopy(req, res, next) {
     let responseAppDoc = null;
     try{
         const applicationDocDB = await applicationBO.getById(req.body.applicationId);
-        if(applicationDocDB && agencies.includes(applicationDocDB.agencyId)){
-            passedAgencyCheck = true;
-        }
+        passedAgencyCheck = await auth.authorizedForAgency(req, applicationDocDB?.agencyId, applicationDocDB?.agencyNetworkId)
+
         if(!applicationDocDB){
             return next(serverHelper.requestError('Not Found'));
         }
@@ -740,9 +754,21 @@ async function applicationCopy(req, res, next) {
         const propsToRemove = ["_id", "id", "applicationId", "uuid", "mysqlId", "createdAt"];
         for(let i = 0; i < propsToRemove.length; i++){
             if(newApplicationDoc[propsToRemove[i]]){
-                delete newApplicationDoc[propsToRemove[i]]
+                delete newApplicationDoc[propsToRemove[i]];
             }
         }
+
+        // for cross sell, change the policy and effective date to the ones passed through
+        if(req.body.crossSellCopy === true || req.body.crossSellCopy === "true"){
+            if(req.body.policyType && req.body.effectiveDate){
+                newApplicationDoc.policies = [{
+                    policyType: req.body.policyType,
+                    effectiveDate: req.body.effectiveDate
+                }];
+            }
+            newApplicationDoc.claims = [];
+        }
+
         //default back not pre quoting for mysql State.
         newApplicationDoc.processStateOld = 1;
 
@@ -820,7 +846,6 @@ async function deleteObject(req, res, next) {
     }
     
     //Deletes only by AgencyNetwork Users.
-    const agencyNetworkId = req.authentication.agencyNetworkId;
     if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
@@ -829,16 +854,11 @@ async function deleteObject(req, res, next) {
     //check that application is agency network.
     let error = null;
     const applicationBO = new ApplicationBO();
-    // Load the request data into it
-    const appAgencyNetworkId = await applicationBO.getAgencyNewtorkIdById(id).catch(function(err) {
-        log.error("Getting  appAgencyNetworkId error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
-    }
-    if (appAgencyNetworkId !== agencyNetworkId) {
-        log.warn("Application Delete agencynetowrk miss match")
+    const applicationDocDB = await applicationBO.getById(id);
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDocDB?.agencyId, applicationDocDB?.agencyNetworkId)
+
+    if(!passedAgencyCheck){
+        log.warn(`Application Delete not authorized to manage this agency userId ${req.authentication.userID}` + __location)
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
     }
@@ -917,18 +937,11 @@ async function validate(req, res, next) {
     if (!applicationDocDB) {
         return next(serverHelper.requestError('Not Found'));
     }
-    //TODO Check agency Network or Agency rights....
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
-    }
-
+   
+    
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDocDB?.agencyId, applicationDocDB?.agencyNetworkId)
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDocDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -1047,18 +1060,11 @@ async function requote(req, res, next) {
     if (!applicationDB) {
         return next(serverHelper.requestError('Not Found'));
     }
-    // Check agency Network or Agency rights....
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
-    }
+    
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -1102,7 +1108,11 @@ async function requote(req, res, next) {
     catch (err) {
         //pre quote validation log any errors
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.warn(errMessage + __location);
+
+        if(!err.message?.includes("Application's Agency Location does not cover")){
+            log.warn(errMessage + __location);
+        }
+
         res.send(400, errMessage);
         return next();
     }
@@ -1158,6 +1168,20 @@ async function GetQuestions(req, res, next){
         return next(error);
     }
 
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getfromMongoByAppId(req.params.id).catch(function(err) {
+        log.error(`Error getting application Doc for runQuotes ${req.params.id} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+
+    });
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
     // Set the question subject area. Default to "general" if not specified.
     let questionSubjectArea = "general";
     if (req.query.questionSubjectArea) {
@@ -1185,7 +1209,6 @@ async function GetQuestions(req, res, next){
     const skipAgencyCheck = true;
     const requestActivityCodeList = []
     try{
-        const applicationBO = new ApplicationBO();
         getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList,skipAgencyCheck,requestActivityCodeList, policyType);
     }
     catch(err){
@@ -1253,21 +1276,15 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.requestError('Invalid id'));
     }
 
-    //TODO Check agency Network or Agency rights....
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
-    }
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
+
+
     let bindSuccess = false;
     let bindFailureMessage = '';
     try {
@@ -1353,10 +1370,18 @@ async function bindQuote(req, res, next) {
             // }
             let markAsBoundResponse = false;
             try {
-                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID)
+                const policyInfo = {};
+                if (Object.prototype.hasOwnProperty.call(req.body, 'premiumAmount')) {
+                    policyInfo.policyPremium = parseInt(req.body.premiumAmount,10);
+                }
+                if (Object.prototype.hasOwnProperty.call(req.body, 'policyNumber')) {
+                    policyInfo.policyNumber = req.body.policyNumber;
+                }
+
+                markAsBoundResponse = await quoteBO.markQuoteAsBound(quoteId, applicationId, req.authentication.userID, policyInfo)
                 if(applicationDB.appStatusId !== 90){
                     // Update application status
-                    await applicationBO.updateStatus(applicationId,"bound", 90);
+                    await applicationBO.updateStatus(applicationId,"bound", 90)
                    
                 }
                 else {
@@ -1418,6 +1443,10 @@ async function GetPolicyLimits(agencyId){
             {
                 "key": "1000000/2000000/2000000",
                 "value": "$1,000,000 / $2,000,000 / $2,000,000"
+            },
+            {
+                "key": "2000000/4000000/4000000",
+                "value": "$2,000,000 / $4,000,000 / $4,000,000"
             }
         ],
         "GL": [
@@ -1471,6 +1500,14 @@ async function GetResources(req, res, next){
     if (req.query.agencyId) {
         agencyId = req.query.agencyId;
     }
+
+    const passedAgencyCheck = await auth.authorizedForAgency(req, agencyId)
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested resource');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested resource'));
+    }
+
     const responseObj = {};
     let rejected = false;
 
@@ -1703,6 +1740,16 @@ async function GetQuoteLimits(req, res, next){
     if(error){
         return next(error);
     }
+
+    const passedAgencyCheck = await auth.authorizedForAgency(req, quote?.agencyId, quote?.agencyNetworkId)
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+
     // Retrieve the limits and create the limits object
     const limits = {};
     const limitsModel = new LimitsBO();
@@ -1739,23 +1786,19 @@ async function getApplicationNotes(req, res, next){
     const id = req.query.applicationId;
 
     // Get the agents that we are permitted to view
-    let error = false;
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error);
-    }
 
     const applicationBO = new ApplicationBO();
     //get application and valid agency
-    let passedAgencyCheck = false;
-    try{
+    try{   
         const applicationDB = await applicationBO.getById(req.query.applicationId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
-            passedAgencyCheck = true;
+        const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
+    
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!passedAgencyCheck) {
+            log.info('Forbidden: User is not authorized to access the requested application');
+            return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
         }
+
         if(!applicationDB){
             return next(serverHelper.requestError('Not Found'));
         }
@@ -1765,10 +1808,7 @@ async function getApplicationNotes(req, res, next){
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
-    if(passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this agency' + __location);
-        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
-    }
+
     const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
     let applicationNotesJSON = null;
     try{
@@ -1800,26 +1840,13 @@ async function saveApplicationNotes(req, res, next){
         return next(serverHelper.requestError('Bad Request: Missing applicationId'));
     }
 
-    //get user's agency List
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     const applicationBO = new ApplicationBO();
     //get application and valid agency
     let passedAgencyCheck = false;
     try{
         const applicationDB = await applicationBO.getById(req.body.applicationId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
-            passedAgencyCheck = true;
-        }
-        if(!applicationDB){
-            return next(serverHelper.requestError('Not Found'));
-        }
+        passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
+        
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
@@ -1900,16 +1927,10 @@ async function markQuoteAsDead(req, res, next){
         return next(serverHelper.requestError('Invalid id'));
     }
 
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error)
-
-    }
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
+    
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+    if (!passedAgencyCheck) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -1926,7 +1947,7 @@ async function markQuoteAsDead(req, res, next){
     }
     let userName = null;
     if (userJSON) {
-        userName = userJSON.clear_email;
+        userName = userJSON.email;
     }
     else {
         log.error(`Could not find user json for user id ${req.authentication.userID} : ` + __location);
@@ -1971,7 +1992,7 @@ async function GetBopCodes(req, res, next){
     return next();
 }
 
-async function PutApplicationLink(req, res, next){
+async function putApplicationLink(req, res, next){
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
         log.warn('No data was received' + __location);
@@ -1981,137 +2002,50 @@ async function PutApplicationLink(req, res, next){
     // Make sure all elements are present
     if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
         log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'emailAddress')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'agentEmail')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+        return next(serverHelper.requestError('Some required data is missing - applicationId. Please check the documentation.'));
     }
 
-    const applicationId = req.body.applicationId;
+  
+    // eslint-disable-next-line prefer-const
+    let retObject = {};
+    const hasAccess = await accesscheck(req.body.applicationId, req, retObject).catch(function(e){
+        log.error('Error get application hasAccess ' + e + __location);
+        return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+    });
+    if(hasAccess === true){
+        const appDocJson = retObject.appDoc;
+        //check toEmail rights.
+       
 
-    // create hash
-    const hash = await crypt.hash(applicationId);
+        req.body.isAgencyNetworkUser = req.authentication.isAgencyNetworkUser;
+        req.body.fromAgencyPortalUserId = req.authentication.userID;
+        let link = null;
+        if (req.body.isAgencyPortalLink) {
+            if (!Object.prototype.hasOwnProperty.call(req.body, 'toEmail')) {
+                log.warn('Some required data is missing' + __location);
+                return next(serverHelper.requestError('Some required data is missing - toEmail. Please check the documentation.'));
+            }
 
-    // store hash in redis with application id as value
-    // eslint-disable-next-line object-shorthand
-    await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId}), applicationLinkTimeout);
+            const emailHasAccess = await accesscheckEmail(req.body.toEmail, appDocJson);
+            if(!emailHasAccess){
+                return next(serverHelper.requestError(`User doesn't have access to view this application`));
+            }
 
-    const link = await SendApplicationLinkEmail(req.body, hash);
-
-    // return link to frontend to show link (SHOULD WE STORE THE LINK ANYWHERE TO CHECK IF WE HAVE AN EXISTING LINK IF THEY COME BACK?)
-    // eslint-disable-next-line object-shorthand
-    res.send(200, {link});
-    return next();
-}
-
-async function SendApplicationLinkEmail(reqBody, hash){
-    // reqBody: {
-    //     firstName,
-    //     lastName,
-    //     emailAddress,
-    //     pageSlug,
-    //     applicationId,
-    //     businessName,
-    //     agentEmail
-    //     agentName
-    // }
-
-    // get agency
-    const applicationBO = new ApplicationBO();
-    const application = await applicationBO.getById(reqBody.applicationId);
-
-    const agencyBO = new AgencyBO();
-    const agency = await agencyBO.getById(application.agencyId);
-
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agnencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
-
-    let domain = "";
-    if(agnencyNetwork?.additionalInfo?.environmentSettings[global.settings.ENV]?.APPLICATION_URL){
-        // get the domain from agency networks env settings, so we can point digalent to their custom site, etc.
-        domain = agnencyNetwork.additionalInfo.environmentSettings[global.settings.ENV].APPLICATION_URL;
-    }
-    else{
-        // if environmentSettings is not defined for any reason, fall back to defaults
-        switch(global.settings.ENV){
-            case "development":
-                domain = "http://localhost:8080";
-                break;
-            case "awsdev":
-                domain = "https://dev.wh-app.io";
-                break;
-            case "staging":
-                domain = "https://sta.wh-app.io";
-                break;
-            case "demo":
-                domain = "https://demo.wh-app.io";
-                break;
-            case "production":
-                domain = "https://wh-app.io";
-                break;
-            default:
-                // dont send the email
-                log.error(`Failed to send application link to ${emailData.to}, invalid environment. ${__location}`);
-                return;
+            link = await appLinkCreator.createAgencyPortalApplicationLink(req.body.applicationId, req.body);
         }
-    }
-
-    let link = "";
-    if(reqBody.pageSlug){
-        link = `${domain}/${agency.slug}/${reqBody.pageSlug}/_load/${hash}`;
-    }
-    else{
-        link = `${domain}/${agency.slug}/_load/${hash}`;
-    }
-    // TODO: should we use agency.email or agency location email?
-    const emailData = {
-        html: `
-            <p>
-                Hello${reqBody.firstName ? ` ${reqBody.firstName}` : ""},
-            </p>
-            <p>
-                ${reqBody.agentName ? `${reqBody.agentName} at ` : ""}${agency.name} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
-                <br/>
-                Its an easy way for you fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process on online. 
-                <br/>
-                If you ever need help, ${reqBody.agentName ? `${reqBody.agentName} is ` : "we're"} still right here to help ensure you get the best policy at the best value. 
-                <br/>
-                If you have any questions, let us know at ${agency.email}${reqBody.agentName ? ` or reach out to ${reqBody.agentName} directly.` : "."}
-            </p>
-            <div align="center">
-                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
-                <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
-                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
-                </a>
-                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
-            </div>
-            <p align="center">
-                If the button does not work try pasting this link into your browser:
-                <br/>
-                <a href="${link}" target="_blank">
-                    ${link}
-                </a>
-            </p>
-        `,
-        subject: 'A portal to your application',
-        to: `${reqBody.emailAddress},${reqBody.agentEmail}`
-    };
-
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, application.agencyNetworkId, 'agency', application.agencyId);
-    if(!emailSent){
-        log.error(`Failed to send application link to ${emailData.to}.`);
+        else {
+            link = await appLinkCreator.createQuoteApplicationLink(req.body.applicationId, req.body);
+        }
+        // eslint-disable-next-line object-shorthand
+        res.send(200, {link});
+        return next();
     }
     else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.`);
+        res.send(404);
+        return next(serverHelper.requestError('Not found'));
     }
-
-    return link;
 }
+
 
 async function getOfficerEmployeeTypes(req, res, next){
     if (!req.query || typeof req.query !== 'object') {
@@ -2160,14 +2094,254 @@ async function getOfficerEmployeeTypes(req, res, next){
     return next();
 }
 
+async function manualQuote(req, res, next) {
+    //Double check it is TalageStaff user
+    log.debug("manualQuote request: " + JSON.stringify(req.body))
+   
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'insurerId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'policyType')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'amount')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+
+    //assume uuid input
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDoc = await applicationBO.loadDocfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+    if(applicationDoc){
+        applicationId = applicationDoc.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for bound ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDoc?.agencyId, applicationDoc?.agencyNetworkId)
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+
+    let addQuoteSuccess = false;
+   
+    try {
+
+        //check if application has policyType.
+        let hasPolicyType = false;
+        const policy = applicationDoc.policies.find((pt) => pt.policyType === req.body.policyType)
+    
+        //if not check if valid policyType.
+        if(policy){
+            hasPolicyType = true
+        }
+        else {
+            const policyTypeBO = new PolicyTypeBO();
+            const policyTypeJSON = await policyTypeBO.getByPolicyTypeCd(req.body.policyType)
+            if (policyTypeJSON) {
+                //add policy to application.
+                const policyJSON = {
+                    policyType: req.body.policyType
+                }
+                if(req.body.effectiveDate){
+                    policyJSON.effectiveDate = moment(req.body.effectiveDate)
+                }
+                if(req.body.effectiveDate){
+                    policyJSON.expirationDate = moment(req.body.expirationDate)
+                }
+                if(req.body.limits){
+                    policyJSON.limits = req.body.limits
+                }
+                applicationDoc.policies.push(policyJSON)
+                await applicationDoc.save()
+                hasPolicyType = true;
+            }
+        }
+        if(!hasPolicyType){
+            log.warn(`Manual Quote bad policy type ${req.body.policyType} appId ${req.body.policyType} ` + __location);
+            return next(serverHelper.requestError('Invalid data - policy type. Please check the documentation.'));
+        }
+
+        const quoteJSON = JSON.parse(JSON.stringify(req.body))
+        quoteJSON.isManualQuote = true;
+        quoteJSON.log = "Manual Quote";
+        quoteJSON.agencyId = applicationDoc.agencyId
+        quoteJSON.agencyNetworkId = applicationDoc.agencyNetworkId;
+        quoteJSON.quotedPremium = quoteJSON.amount;
+        quoteJSON.quoteStatusId = quoteStatus.quoted.id
+        quoteJSON.quoteStatusDescription = quoteStatus.quoted.description
+        if(quoteJSON.bound){
+            quoteJSON.quoteStatusId = quoteStatus.bound.id
+            quoteJSON.quoteStatusDescription = quoteStatus.bound.description
+        }
+        //direct to mongose model
+        var QuoteModel = global.mongodb.model('Quote');
+        const quoteDoc = new QuoteModel(quoteJSON);
+        await quoteDoc.save()
+        //update application metrics
+        applicationBO.recalculateQuoteMetrics(applicationId)
+        addQuoteSuccess = true
+    }
+
+    catch (err) {
+        // We Do not pass error object directly to Client - May cause info leak.
+        log.error(`Error Manual Quote for application ${applicationId ? applicationId : ''}: ${err}` + __location);
+        res.send({'message': "Failed To Saved failed"});
+        return next();
+    }
+
+    // Send back bound for both request, mark and API binds.
+    if(addQuoteSuccess){
+        res.send(200, {"saved": true});
+    }
+    else {
+        res.send({'message': "Saved failed"});
+    }
+
+    return next();
+}
+
+async function getHints(req, res, next){
+   
+    let appId = null;
+    if(req.params.id) {
+        appId = req.params.id;
+    }
+    else {
+        // Check for data
+        if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+            log.error('Bad Request: No data received ' + __location);
+            return next(serverHelper.requestError('Bad Request: No data received'));
+        }
+
+        // Make sure basic elements are present
+        if (!req.query.id) {
+            log.error('Bad Request: Missing ID ' + __location);
+            return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+        }
+        appId = req.query.id
+    }
+    
+    
+    const hasAccess = await accesscheck(appId, req).catch(function(e){
+        log.error('Error get application hasAccess ' + e + __location);
+        return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+    });
+    if(hasAccess === true){
+        const applicationBO = new ApplicationBO();    
+        const hints = await applicationBO.getHints(appId)
+        res.send(200, hints); 
+        return next();
+    }
+    else {
+        const hints = {};
+        res.send(200, hints); 
+        return next();
+    }
+   
+}
+
+// eslint-disable-next-line no-unused-vars
+async function accesscheckEmail(email, applicationJSON){
+    let hasAccess = false;
+    try{
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        const toUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, applicationJSON.agencyNetworkId);
+        if(toUser.isAgencyNetworkUser){
+            if(toUser.agencyNetworkId === applicationJSON.agencyNetworkId){
+                hasAccess = true;
+            }
+
+        }
+        else if(toUser.agencyId === applicationJSON.agencyId){
+            hasAccess = true;
+        }
+       
+    }
+    catch(err){
+        log.error("Error accesscheckEmail " + err + __location)
+        throw err;
+    }
+
+    return hasAccess;
+}
+
+
+// eslint-disable-next-line no-unused-vars
+async function accesscheck(appId, req, retObject){
+    
+    let passedAgencyCheck = false;
+    try{
+        const applicationBO = new ApplicationBO();
+        const applicationDBDoc = await applicationBO.getById(appId);
+        if(applicationDBDoc){
+            passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc?.agencyId, applicationDBDoc?.agencyNetworkId)
+            if(retObject){
+                retObject.appDoc = JSON.parse(JSON.stringify(applicationDBDoc))
+            }
+        }
+        else {
+            log.warn(`access check appId ${appId} not found ` + __location)
+        }
+        log.debug(`accessCheck ${passedAgencyCheck}` + __location)
+      
+    }
+    catch(err){
+        log.error("Error Getting application doc " + err + __location)
+        throw err;
+    }
+
+    return passedAgencyCheck;
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
-    server.addPutAuth('PUT Application Link', `${basePath}/application/link`, PutApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Quote App', `${basePath}/application/link`, putApplicationLink, 'applications', 'manage');
+    server.addPutAuth('PUT Application Link for Agency Portal', `${basePath}/application/agent-link`, putApplicationLink, 'applications', 'manage');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
+    server.addPostAuth('POST Add Manual Quote for Application', `${basePath}/application/:id/quote`, manualQuote, 'applications', 'manage');
 
     server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
 
@@ -2186,6 +2360,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
     server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
+    server.addGetAuth('GET Appplication Hints', `${basePath}/application/:id/hints`, getHints, 'applications', 'manage');
     server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Mark Quote As Dead', `${basePath}/application/:id/mark-as-dead`, markQuoteAsDead, 'applications', 'manage');

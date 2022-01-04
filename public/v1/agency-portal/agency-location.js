@@ -30,7 +30,8 @@ async function getbyId(req, res, next) {
     let error = false;
     //santize id.
     const id = stringFunctions.santizeNumber(req.params.id, true);
-    if (!id) {
+    log.debug(`id ${id}`)
+    if (!id || id < 1) {
         return next(new Error("bad parameter"));
     }
 
@@ -49,24 +50,23 @@ async function getbyId(req, res, next) {
     if (error) {
         return next(error);
     }
-
-
-    // Determine the agency ID
-    //const agencyList = req.authentication.agents;
-    const agencyList = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if (error){
-        return next(error);
-    }
-
-    // Initialize an agency object
+    const query = {"systemId": id};
+    log.debug(`query ${JSON.stringify(query)}`)
     const agencyLocationBO = new AgencyLocationBO();
+    const locationJSON = await agencyLocationBO.getById(id, false);
+    const passedAgencyCheck = await auth.authorizedForAgency(req, locationJSON.agencyId)
+
+    if(!passedAgencyCheck){
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency Location not found'));
+    }
+    query.agencyId = locationJSON.agencyId;
+    // Initialize an agency object
 
     // Load the request data into it
     //const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
     // eslint-disable-next-line object-curly-newline
-    const query = {"systemId": id, agencyId: agencyList};
+
     log.debug("AL GET query: " + JSON.stringify(query));
     const getAgencyName = true;
     const loadChildren = true;
@@ -205,6 +205,27 @@ async function createAgencyLocation(req, res, next) {
         req.body.agencyNetworkId = req.authentication.agencyNetworkId
     }
 
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+    const agency = await agencyBO.getById(req.body.agencyId).catch(function(err) {
+        log.error("agencyBO load error " + err + __location);
+        error = err;
+    });
+    if(!agency){
+        log.info('Bad Request: Bad data ');
+        return next(serverHelper.requestError('Bad data'));
+    }
+
+    if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+        && req.authentication.permissions.talageStaff === true
+        && req.authentication.enableGlobalView === true){
+        //Get agencyNetwork from Agency
+        req.body.agencyNetworkId = agency.agencyNetworkId
+    }
+    else if(req.body.agencyNetworkId !== agency.agencyNetworkId){
+        return next(serverHelper.notAuthorizedError('You are not authorized to manage this agency'));
+    }
+
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
 
@@ -266,27 +287,34 @@ async function deleteAgencyLocation(req, res, next) {
     }
 
     const id = parseInt(req.query.id, 10);
-
-    // Get the Agency ID corresponding to this location and load it into the request object
+    let agencyId = -1;
+    // Get the Agency ID corresponding to this location
     try {
-        req.query.agency = await getAgencyByLocationId(id);
+        agencyId = await getAgencyByLocationId(id);
     }
     catch (err) {
         log.error("Get Agency by ID error: " + err + __location)
         return next(err);
     }
 
-    // Get the agencies that the user is permitted to manage
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        log.error("auth.getAgents error " + e + __location);
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     // Security Check: Make sure this Agency Network has access to this Agency
-    if (!agencies.includes(req.query.agency)) {
+    if(req.authentication.isAgencyNetworkUser && agencyId){
+
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`deleting agency location in global mode for agency ${agencyId}`)
+        }
+        else {
+            const agencyBO = new AgencyBO();
+            const agency = await agencyBO.getById(agencyId);
+            if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
+        }
+    }
+    else {
         log.info('Forbidden: User is not authorized to manage this agency');
         return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
     }
@@ -403,10 +431,25 @@ async function updateAgencyLocation(req, res, next) {
             req.body.agency = agencies[0];
         }
     }
-
     // Security Check: Make sure this Agency Network has access to this Agency
-    if (!agencies.includes(req.body.agency)) {
-        log.info('Forbidden: User is not authorized to manage this agency');
+    if(req.authentication.isAgencyNetworkUser && req.body.agency){
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`Updating agency location in global mode `)
+        }
+        else {
+            const agencyId = parseInt(req.body.agency, 10);
+            const agencyBO = new AgencyBO();
+            const agency = await agencyBO.getById(agencyId);
+            if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
+        }
+    }
+    else if (!agencies.includes(req.body.agency)) {
+        log.info('Forbidden: User is not authorized to manage th is agency');
         return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
     }
     //Fix location:
@@ -481,22 +524,26 @@ async function getSelectionList(req, res, next) {
     let agencyId = parseInt(req.authentication.agents[0], 10);
 
     if(req.authentication.isAgencyNetworkUser){
-        // Get the agencies that the user is permitted to manage
-        const agencies = await auth.getAgents(req).catch(function(e) {
-            log.error("auth.getAgents error " + e + __location);
-            error = e;
-        });
-        if (error) {
-            return next(error);
-        }
-        if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.debug(`Getting  agency location list in global mode`)
             agencyId = parseInt(req.query.agencyId, 10);
         }
-
-        // Security Check: Make sure this Agency Network has access to this Agency
-        if (!agencies.includes(agencyId)) {
-            log.info('Forbidden: User is not authorized to manage this agency');
-            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+        else {
+            agencyId = -1;
+            if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+                agencyId = parseInt(req.query.agencyId, 10);
+                const agencyBO = new AgencyBO();
+                const agency = await agencyBO.getById(agencyId);
+                if(agency?.agencyNetworkId === req.authentication.agencyNetworkId){
+                    agencyId = agency.systemId;
+                }
+                else {
+                    log.info('Forbidden: User is not authorized to manage th is agency');
+                    return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+                }
+            }
         }
     }
     // Initialize

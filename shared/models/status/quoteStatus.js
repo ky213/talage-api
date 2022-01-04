@@ -10,6 +10,10 @@ const quoteStatus = {
         id: 0,
         description: "Initiated"
     },
+    piError: {
+        id: 5,
+        description: "PI Error"
+    },
     error: {
         id: 10,
         description: "Error"
@@ -22,9 +26,17 @@ const quoteStatus = {
         id: 15,
         description: "Auto Declined"
     },
+    piOutOfAppetite: {
+        id: 17,
+        description: "PI Out of Appetite"
+    },
     declined: {
         id: 20,
         description: "Declined"
+    },
+    priceIndication: {
+        id: 25,
+        description: "Price Indication"
     },
     ACORDEmailed: {
         id: 30,
@@ -61,31 +73,6 @@ const quoteStatus = {
 };
 
 /**
- * Ensures that a quote has a value for aggregated_status
- *
- * @param {Object} quoteDocJson - the quote to update
- * @param {boolean} timeout - optional (defaulted to false), whether or not the quote timed out
- * @return {void}
- */
-async function updateQuoteStatus(quoteDocJson, timeout = false) {
-    const QuoteBO = global.requireShared('./models/Quote-BO.js');
-    const status = getQuoteStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult, timeout);
-
-    // have both checks just for backwards compatibility, in case there is misalignment, to force an update
-    if (status.id !== quoteDocJson.quoteStatusId || status.description !== quoteDocJson.quoteStatusDescription || timeout === true) {
-        const quoteBO = new QuoteBO();
-        try {
-            await quoteBO.updateQuoteStatus(quoteDocJson, status);
-        }
-        catch (error) {
-            log.error(`Could not update quote ${quoteDocJson.id} status: ${error} ${__location}`);
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
  * Retrieves a quote status
  *
  * @param {Boolean} bound - whether or not the quote is bound
@@ -120,6 +107,10 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
         // return 'referred';
         return quoteStatus.referred;
     }
+    else if (apiResult === 'price_indication') {
+        // return 'priceIndication';
+        return quoteStatus.priceIndication;
+    }
     else if (apiResult === 'acord_emailed') {
         // return 'acord_emailed';
         return quoteStatus.ACORDEmailed;
@@ -127,6 +118,10 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
     else if (apiResult === 'declined') {
         // return 'declined';
         return quoteStatus.declined;
+    }
+    else if (apiResult === 'pi_outofappetite') {
+        // return 'piOutOfAppetite';
+        return quoteStatus.piOutOfAppetite;
     }
     else if (apiResult === 'autodeclined') {
         return quoteStatus.autodeclined;
@@ -147,6 +142,5 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
 
 module.exports = {
     getQuoteStatus,
-    updateQuoteStatus,
     quoteStatus
 };

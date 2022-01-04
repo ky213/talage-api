@@ -29,7 +29,7 @@ async function getToken(req, res, next) {
 
         const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        const agencyPortalUserJSON = await agencyPortalUserBO.getByEmail(req.body.user).catch(function(err){
+        const agencyPortalUserJSON = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(req.body.user, true, req.body.agencyNetworkId).catch(function(err){
             log.error(err + __location);
             res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
             error = true;

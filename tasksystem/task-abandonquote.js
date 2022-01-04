@@ -15,6 +15,8 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 
+const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
+
 const log = global.log;
 
 /**
@@ -23,7 +25,7 @@ const log = global.log;
  * @param {string} queueMessage - message from queue
  * @returns {void}
  */
-exports.processtask = async function(queueMessage){
+async function processtask(queueMessage){
     let error = null;
     //check sent time over 30 seconds do not process.
     var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
@@ -61,7 +63,7 @@ exports.processtask = async function(queueMessage){
  *
  * @returns {void}
  */
-exports.taskProcessorExternal = async function(){
+async function taskProcessorExternal(){
     let error = null;
     await abandonquotetask().catch(err => error = err);
     if(error){
@@ -75,7 +77,7 @@ exports.taskProcessorExternal = async function(){
  *
  * @returns {void}
  */
-var abandonquotetask = async function(){
+async function abandonquotetask(){
 
     const oneHourAgo = new moment().subtract(1,'h').startOf('minute');
     const twoHourAgo = new moment().subtract(2,'h').startOf('minute');
@@ -181,13 +183,15 @@ var abandonquotetask = async function(){
     return;
 }
 
-var processAbandonQuote = async function(applicationDoc, insurerList, policyTypeList){
+// eslint-disable-next-line require-jsdoc
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, sendAgency = true, sendAgencyNetwork = true){
     if(!applicationDoc){
         return;
     }
 
     const quoteBO = new QuoteBO()
     let quoteList = null;
+    const quotePolicyTypeList = [];
     try {
         //sort by policyType
         const quoteQuery = {
@@ -306,10 +310,14 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                 if(quoteList.length > 1){
                     // Show the policy type heading
                     if(quoteDoc.policyType !== lastPolicyType){
+                        quotePolicyTypeList.push(quoteDoc.policyType)
                         lastPolicyType = quoteDoc.policyType;
                         const policyTypeJSON = policyTypeList.find(policyTypeTest => policyTypeTest.abbr === quoteDoc.policyType)
                         quotesHTML += `<tr><td colspan=\"5\" style=\"text-align: center; font-weight: bold\">${policyTypeJSON.name}</td></tr>`;
                     }
+                }
+                else {
+                    quotePolicyTypeList.push(quoteDoc.policyType)
                 }
                 // Determine the Quote Result
                 const quoteResult = quoteDoc.apiResult.indexOf('_') ? quoteDoc.apiResult.substr(stringFunctions.ucwords(quoteDoc.apiResult), 0, quoteDoc.apiResult.indexOf('_')) : stringFunctions.ucwords(quoteDoc.apiResult);
@@ -362,7 +370,7 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
-            if(agencyNetworkDB.featureJson.quoteEmailsAgency){
+            if(sendAgency && agencyNetworkDB.featureJson.quoteEmailsAgency){
                 // Only send for non-Talage accounts that are not wholesale
                 //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
                 if(applicationDoc.wholesale === false){
@@ -388,12 +396,57 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                     message = message.replace(/{{Contact Phone}}/g, phone);
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
+                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+
+                    subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                    subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
+
+                    //Applink processing
+                    const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                    if(messageUpdate){
+                        message = messageUpdate
+                    }
+                    const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, agencyNetworkDB, message, subject)
+                    if(updatedEmailObject.message){
+                        message = updatedEmailObject.message
+                    }
+                    if(updatedEmailObject.subject){
+                        subject = updatedEmailObject.subject
+                    }
+
+                    //Software Hook
+                    let branding = emailContentJSON.emailBrand
+                    let recipients = agencyLocationEmail
+                    // Sofware Hook
+                    const dataPackageJSON = {
+                        appDoc: applicationDoc,
+                        agencyNetworkDB: agencyNetworkDB,
+                        htmlBody: message,
+                        emailSubject: subject,
+                        branding: branding,
+                        recipients: recipients
+                    }
+                    const hookName = 'abandon-quote-agency'
+                    try{
+                        await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
+                        message = dataPackageJSON.htmlBody
+                        subject = dataPackageJSON.emailSubject
+                        branding = dataPackageJSON.branding
+                        recipients = dataPackageJSON.recipients
+                    }
+                    catch(err){
+                        log.error(`Error ${hookName} hook call error ${err}` + __location);
+                    }
 
 
                     // Send the email
                     const keyData2 = {'applicationDoc': applicationDoc};
                     if(agencyLocationEmail){
-                        const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
+                        const emailResp = await emailSvc.send(recipients, subject, message, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
                         if(emailResp === false){
                             slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
                         }
@@ -407,7 +460,8 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
             if(agencyNetworkDB
                 && agencyNetworkDB.featureJson
                 && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
-                && agencyNetworkDB.email){
+                && agencyNetworkDB.email
+                && sendAgencyNetwork){
                 try{
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
                     if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){
@@ -447,31 +501,63 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
+                        // Applink processing
+                        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+                        if(messageUpdate){
+                            message = messageUpdate
+                        }
+                        const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, agencyNetworkDB, message, subject)
+                        if(updatedEmailObject.message){
+                            message = updatedEmailObject.message
+                        }
+                        if(updatedEmailObject.subject){
+                            subject = updatedEmailObject.subject
+                        }
+
                         let recipientsString = agencyNetworkDB.email
                         //Check for AgencyNetwork users are suppose to get notifications for this agency.
                         if(applicationDoc.agencyId){
                             // look up agencyportal users by agencyNotificationList
-                            const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
-                            const agencyPortalUserBO = new AgencyPortalUserBO();
-                            const query = {agencyNotificationList: applicationDoc.agencyId}
                             try{
-                                const anUserList = await agencyPortalUserBO.getList(query)
-                                if(anUserList && anUserList.length > 0){
-                                    for(const anUser of anUserList){
-                                        recipientsString += `,${anUser.email}`
-                                    }
+                                const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                                const anRecipents = await agencynotificationsvc.getUsersByAgency(applicationDoc.agencyId,quotePolicyTypeList)
+
+                                if(anRecipents.length > 2){
+                                    recipientsString += `,${anRecipents}`
                                 }
                             }
                             catch(err){
-                                log.error(`Error get agencyportaluser notification list ${err}` + __location);
+                                log.error(`AppId: ${applicationDoc.applicationId} agencyId ${applicationDoc.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
                             }
+                        }
+
+                        let branding = emailContentAgencyNetworkJSON.emailBrand
+                        // Sofware Hook
+                        const dataPackageJSON = {
+                            appDoc: applicationDoc,
+                            agencyNetworkDB: agencyNetworkDB,
+                            htmlBody: message,
+                            emailSubject: subject,
+                            branding: branding,
+                            recipients: recipientsString
+                        }
+                        const hookName = 'abandon-quote-agencynetwork'
+                        try{
+                            await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
+                            message = dataPackageJSON.htmlBody
+                            subject = dataPackageJSON.emailSubject
+                            branding = dataPackageJSON.branding
+                            recipientsString = dataPackageJSON.recipients
+                        }
+                        catch(err){
+                            log.error(`Error ${hookName} hook call error ${err}` + __location);
                         }
 
 
                         // Send the email
                         const keyData2 = {'applicationDoc': applicationDoc};
                         if(agencyNetworkDB.email){
-                            const emailResp = await emailSvc.send(recipientsString, subject, message, keyData2,agencyNetworkId, emailContentAgencyNetworkJSON.emailBrand);
+                            const emailResp = await emailSvc.send(recipientsString, subject, message, keyData2,agencyNetworkId, branding);
                             if(emailResp === false){
                                 slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quoteList.length === 1 ? '' : 's') + ` for application ${applicationDoc.applicationId}. Please follow-up manually.`);
                             }
@@ -514,4 +600,10 @@ var markApplicationProcess = async function(appDoc){
         throw err;
     }
 
+}
+
+module.exports = {
+    processtask: processtask,
+    taskProcessorExternal: taskProcessorExternal,
+    processAbandonQuote: processAbandonQuote
 }

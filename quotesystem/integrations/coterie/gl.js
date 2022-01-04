@@ -9,7 +9,7 @@ const log = global.log;
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-module.exports = class CompwestWC extends Integration {
+module.exports = class CoterieWC extends Integration {
 
     /**
      * Initializes this integration.
@@ -97,6 +97,11 @@ module.exports = class CompwestWC extends Integration {
             "mailingAddressZip": appDoc.mailingZipcode.slice(0,5),
             "locations": locationArray
         }
+
+        if(this.username){
+            submissionJSON.agencyexternalid = this.username
+        }
+
         if(policyTypeArray.includes("GL") || policyTypeArray.includes("BOP")){
             log.debug('this.policy.limits ' + this.policy.limits + __location)
             const requestedLimits = this.getSplitLimits(this.policy.limits);
@@ -186,7 +191,7 @@ module.exports = class CompwestWC extends Integration {
         const publicKey = this.app.agencyLocation.insurers[this.insurer.id].agency_id
         //call API
         let host = null;
-        let path = '/v1/commercial/quotes/bindable';
+        let path = '/v1.2/commercial/quotes/bindable';
         if (this.insurer.useSandbox) {
             host = 'https://api-sandbox.coterieinsurance.com';
             //path = '/v1/commercial/quotes/bindable';
@@ -247,7 +252,7 @@ module.exports = class CompwestWC extends Integration {
                     isReferred = quote.isEstimate;
                     if(quote.quotes && quote.quotes.length > 0){
                         const quoteDetail = quote.quotes[0];
-                        this.number = quoteDetail.applicationId;
+                        this.number = quoteDetail.quoteId;
                     }
                     if(isReferred){
                         return this.return_result('referred_with_price');

@@ -2,6 +2,7 @@
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Retrieves the landing-pages for the logged in user
@@ -15,28 +16,45 @@ const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.
 async function getLandingPages(req, res, next){
     let error = false;
     // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
 
-    if (error){
-        log.warn(`Error when retrieving agents: ${error} ${__location}`)
-        return next(error);
-    }
-    // Get the first value in agents
-    let agent = agents[0];
-
-    // If this is an agency network, use the the agency id from the query
+    let agent = -1;
     if (req.authentication.isAgencyNetworkUser) {
-        agent = req.query.agency;
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.debug(`usersin global mode for agency` + __location)
+        }
+        else {
+            // This is an agency network user, they can only modify agencies in their network
+            // Get the agencies that we are permitted to manage
+            const agencyId = parseInt(req.query.agency, 10);
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(agencyId);
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage this agency' + __location);
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
+        }
+        agent = req.query.agency
     }
+    else {
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
 
-    // Make sure this user has access to the requested agent
-    if (!agents.includes(parseInt(agent, 10))) {
-        log.info('Forbidden: User is not authorized to access the requested agent');
-        return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
+        if (error){
+            log.warn(`Error when retrieving agents: ${error} ${__location}`)
+            return next(error);
+        }
+        // Get the first value in agents
+        agent = agents[0];
+
+        //if (!agents.includes(parseInt(agent, 10))) {
+        if(!agent){
+            log.info(`Forbidden: User is not authorized to access the requested agent - ${req.query.agency}`);
+            return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
+        }
     }
-
     let landingPages = [];
     try{
         const agencyId = parseInt(agent, 10);

@@ -1,17 +1,14 @@
 /* eslint-disable no-unused-vars */
 const fs = require('fs');
 const {
-    degrees, PDFDocument, rgb, StandardFonts
+    degrees, PDFDocument, rgb, StandardFonts, last
 } = require('pdf-lib');
 const path = require('path');
-
 const createPDF = async(sourcePDFString, dataFieldsObj) => {
     const pathToPdfString = path.resolve(__dirname, './pdf/' + sourcePDFString);
-
     try {
         const pdfPage = await PDFDocument.load(fs.readFileSync(pathToPdfString).buffer);
         const form = pdfPage.getForm();
-
         for (const formFieldString of Object.keys(dataFieldsObj)) {
             if (!dataFieldsObj[formFieldString]) {
                 continue;
@@ -36,7 +33,6 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
                     throw new Error(`Unknown type: ${field.constructor.name}`);
             }
         }
-
         return pdfPage.save();
     }
     catch(err){

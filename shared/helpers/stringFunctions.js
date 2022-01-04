@@ -401,6 +401,37 @@ exports.trimString = function(str, toTrim, trimOptions = {
 }
 
 /**
+ * Capitalized the first letter of each name in a single or multi name string 
+ * 
+ * @param {String} str - [Required] The name to be capitalized. This should be a single string, space separated, name if multiple names are provided
+ * @returns {String} - The provided name string, but with each individual name's first letter capitalized
+ */
+exports.capitalizeName = (str) => {
+    if (!str) {
+        log.error(`capitalizeName: Parameter str is not defined.` + __location);
+        return str;
+    }
+
+    if (typeof str !== "string") {
+        log.error(`capitalizeName: Parameter str is not type string.` + __location);
+        return str;
+    }
+
+    if (str === "") {
+        log.error(`capitalizeName: Parameter str is an empty string.` + __location);
+        return str;
+    }
+
+    let newStr = "";
+    const strArray = str.split(" ");
+    strArray.forEach(name => {
+        newStr += name.charAt(0).toUpperCase() + name.slice(1) + " ";
+    });
+
+    return newStr;
+}
+
+/**
  * Converts a passed in string to a dollar amount representation, extended to 2 decimal places. 
  * 
  * @param {String} str - [Required] The string to convert into a dollar amount (f.e. 1000.56 -> $1,000.56) 
@@ -412,18 +443,20 @@ exports.convertToDollarFormat = (str, trimDecimal = false) => {
         str = str.toString();
     }
     
+    str = str.replace('$', '').replace(',', '');
+
     if (typeof str !== "string") {
-        log.error(`convertToDollarFormat: Parameter str is not type string.`);
+        log.error(`convertToDollarFormat: Parameter str is not type string.` + __location);
         return str;
     }
 
     if (!str || !str.length > 0) {
-        log.error(`convertToDollarFormat: No string provided, cannot convert.`);
+        log.error(`convertToDollarFormat: No string provided, cannot convert.` + __location);
         return str;
     }
     
     if (isNaN(parseFloat(str, 10))) {
-        log.error(`convertToDollarFormat: Provided string cannot be converted to a number.`);
+        log.error(`convertToDollarFormat: Provided string cannot be converted to a number. string ${str}` + __location);
         return str;
     }
 

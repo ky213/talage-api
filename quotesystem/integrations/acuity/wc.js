@@ -51,6 +51,12 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        const tomorrow = moment().add(1,'d').startOf('d');
+        if(this.policy.effective_date < tomorrow){
+            this.reasons.push("Insurer: Does not allow effective dates before tomorrow. - Stopped before submission to insurer");
+            return this.return_result('autodeclined');
+        }
+
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
         const insurer = await insurerBO.getBySlug(insurerSlug);
@@ -388,6 +394,7 @@ module.exports = class AcuityWC extends Integration {
                 // eslint-disable-line no-fallthrough
             case 'com.acuity_BindableQuote':
             case "com.acuity_BindableModifiedQuote":
+            case 'com.acuity_BindableReferredQuote':
             case 'com.acuity_NonBindableQuote':
                 // Retrieve and populate the quote amount
                 const amt = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.FullTermAmt.Amt");
@@ -415,6 +422,52 @@ module.exports = class AcuityWC extends Integration {
                         }
                     });
                 }
+
+                // Set payment plans
+                const insurerPaymentPlans = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
+
+                this.insurerPaymentPlans = insurerPaymentPlans.map(({
+                    $, ...rest
+                }) => (
+                    {
+                        id: $.id,
+                        ...rest
+                    }))
+
+                const paymentPlansIDsMap = {
+                    'FL': 1,
+                    'SA': 2,
+                    'QT': 3,
+                    '5P': 1,
+                    '11': 1
+                }
+
+                this.talageInsurerPaymentPlans = insurerPaymentPlans.map((insurerPaymentPlan) => {
+                    const insurerPaymentPlanId = insurerPaymentPlan.$.id
+                    const code = insurerPaymentPlan.PaymentPlanCd[0]
+                    const description = insurerPaymentPlan.Description[0]
+                    const numberPayments = Number(insurerPaymentPlan.NumPayments[0])
+                    const total = premiumAmount
+                    const depositAmount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+                    const installmentFees = Number(insurerPaymentPlan.InstallmentFeeAmt[0].Amt[0])
+                    const paymentMethod = insurerPaymentPlan.MethodPaymentCd[0]
+                    const installmentPayment = Number(insurerPaymentPlan.InstallmentInfo[0].InstallmentAmt[0].Amt[0])
+
+                    return {
+                        paymentPlanId: paymentPlansIDsMap[code],
+                        insurerPaymentPlanId: insurerPaymentPlanId,
+                        insurerPaymentPlanDescription: `${description} (${paymentMethod})`,
+                        NumberPayments: numberPayments,
+                        TotalCost: total,
+                        TotalPremium: total,
+                        DownPayment: code === 'FL' ? 0 : depositAmount,
+                        TotalStateTaxes: 0,
+                        TotalBillingFees: numberPayments * installmentFees,
+                        DepositPercent: Number((100 * depositAmount / total).toFixed(2)),
+                        IsDirectDebit: paymentMethod === 'CHECK',
+                        installmentPayment: installmentPayment
+                    }
+                })
 
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {

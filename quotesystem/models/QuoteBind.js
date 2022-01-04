@@ -4,8 +4,8 @@
  */
 
 'use strict';
-
-const QuoteBO = global.requireShared('./models/Quote-BO.js');
+//remove potential reference conflict
+//const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
@@ -55,10 +55,6 @@ module.exports = class QuoteBind{
 
         // Make sure that this quote was quoted by the API
         if(!statusWithinBindingRange){
-            // If this was a price indication, let's send a Slack message
-            // if(this.quoteDoc.apiResult === 'referred_with_price'){
-            //     await this.send_slack_notification('indication');
-            // }
 
             // Return an error
             log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);
@@ -122,6 +118,7 @@ module.exports = class QuoteBind{
                     //in case upstrign need to get access to it.
                     this.policyInfo = policyInfo;
                     log.debug("policyInfo " + JSON.stringify(policyInfo));
+                    const QuoteBO = global.requireShared('./models/Quote-BO.js');
                     const quoteBO = new QuoteBO()
                     await quoteBO.markQuoteAsBound(this.quoteDoc.quoteId, this.applicationDoc.applicationId, this.requestUserId, policyInfo);
                     //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
@@ -168,13 +165,13 @@ module.exports = class QuoteBind{
     /**
 	 * Populates this object with data from the database
 	 *
-	 * @param {int} id - The ID of the quote
+	 * @param {int} quoteId - The ID of the quote
 	 * @param {int} paymentPlanId - The ID of the payment plan selected by the user
      * @param {int} requestUserId - The Agency Portal user ID that requested the bind.
      * @param {int} insurerPaymentPlanId - The ID of the Insurer payment plan selected by the user
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
-    async load(id, paymentPlanId, requestUserId, insurerPaymentPlanId){
+    async load(quoteId, paymentPlanId, requestUserId, insurerPaymentPlanId){
         if(requestUserId){
             this.requestUserId = requestUserId;
         }
@@ -184,20 +181,21 @@ module.exports = class QuoteBind{
 
         // Attempt to get the details of this quote from the database
         //USE BO's
+        const QuoteBO = global.requireShared('./models/Quote-BO.js');
         const quoteModel = new QuoteBO();
         try {
             const returnModel = true
-            this.quoteDoc = await quoteModel.getById(id,returnModel)
+            this.quoteDoc = await quoteModel.getById(quoteId,returnModel)
         }
         catch (err) {
-            log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
+            log.error(`Loading quote for bind request quote ${quoteId} error:` + err + __location);
             //throw err;
             return;
         }
 
         if(!this.quoteDoc){
-            log.error(`No quoteDoc quoteId ${id} ` + __location);
-            throw new Error(`No quoteDoc quoteId ${id}`);
+            log.error(`No quoteDoc quoteId ${quoteId} ` + __location);
+            throw new Error(`No quoteDoc quoteId ${quoteId}`);
         }
         //If there is an insurer payment plan it overrided the talage paymentplan
         if(insurerPaymentPlanId || this.quoteDoc.insurerPaymentPlanId){
@@ -233,7 +231,7 @@ module.exports = class QuoteBind{
             log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
-            log.error("Unable to get applicationData for binding appId: " + id + __location);
+            log.error("Unable to get applicationData for binding appId: " + quoteId + __location);
             return;
         }
 
@@ -272,12 +270,84 @@ module.exports = class QuoteBind{
         if (!this.insurerPaymentPlanId && paymentPlanId) {
             const insurerPaymentPlan = this.insurer.insurerDoc.paymentPlans;
             if(!insurerPaymentPlan || !insurerPaymentPlan.length > 0){
-                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${id} payment_plan: ${paymentPlanId} insurer ${this.quoteDoc.insurerId}`);
+                throw new Error(`Payment plan does not belong to the insurer who provided this quote: quoteId ${quoteId} payment_plan: ${paymentPlanId} insurer ${this.quoteDoc.insurerId}`);
             }
             this.payment_plan = paymentPlanId;
         }
         else if(!this.insurerPaymentPlanId){
-            log.error(`Could not get insurer payment plan for quoteId ${id} payment_plan: ${paymentPlanId}:` + __location);
+            log.error(`Could not get insurer payment plan for quoteId ${quoteId} payment_plan: ${paymentPlanId}:` + __location);
+        }
+    }
+
+    /**
+	 * Populates this object with an already loaded quoteDoc - use for notifications
+	 *
+	 * @param {object} quoteDoc - The quoteDoc - a complete QuoteDoc (post binding)
+     * @param {int} requestUserId - The Agency Portal user ID that requested the bind.
+	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
+	 */
+    async loadFromQuoteDoc(quoteDoc, requestUserId){
+        if(requestUserId){
+            this.requestUserId = requestUserId;
+        }
+        else {
+            this.requestUserId = "applicant";
+        }
+
+        if(!quoteDoc){
+            log.error(`No quoteDoc for loadFromQuoteDoc ` + __location);
+            return;
+        }
+        this.quoteDoc = quoteDoc;
+
+        this.insurerPaymentPlanId = quoteDoc.insurerPaymentPlanId
+        let paymentPlanId = quoteDoc.paymentPlanId
+        //If there is an insurer payment plan it overrided the talage paymentplan
+
+        if(!paymentPlanId){
+            paymentPlanId = 1;
+        }
+        this.payment_plan = paymentPlanId;
+        //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
+        const ApplicationBO = global.requireShared('./models/Application-BO.js');
+        const applicationBO = new ApplicationBO();
+        try{
+            this.applicationDoc = await applicationBO.getById(this.quoteDoc.applicationId);
+            log.debug("Quote Application added applicationData" + __location)
+        }
+        catch(err){
+            log.error("Unable to get applicationData for binding appId: " + quoteDoc.quoteId + __location);
+            return;
+        }
+
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        try {
+            this.agencyJSON = await agencyBO.getById(this.applicationDoc.agencyId)
+        }
+        catch (err) {
+            log.error("Agency load for bind error " + err + __location);
+            return;
+        }
+        //for API credentials.
+        //load agencyLocation
+        try {
+            const agencyLocationBO = new AgencyLocationBO()
+            this.agencyLocation = await agencyLocationBO.getById(this.applicationDoc.agencyLocationId)
+        }
+        catch (err) {
+            log.error("Agency Location load for bind error " + err + __location);
+            return;
+        }
+
+        // Load up an insurer based on the ID found
+        const insurer = new Insurer();
+        try{
+            this.insurer = await insurer.init(this.quoteDoc.insurerId);
+        }
+        catch(err){
+            log.error("Insurer load for bind error " + err + __location);
+            throw err;
         }
     }
 
@@ -294,7 +364,7 @@ module.exports = class QuoteBind{
         const agencyLocationBO = new AgencyLocationBO()
         let notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
         //Temporarily send talage all bound activity.
-        if(type === 'bound'){
+        if(type === 'bound' || type === 'boundApiCheck' || type === 'boundWebHook'){
             notifiyTalage = true;
         }
         //temporarily notify Talage of all Bound
@@ -347,6 +417,35 @@ module.exports = class QuoteBind{
             };
 
             switch(type){
+                //bound app found check insurer API.
+                case 'boundWebHook':
+                    try{
+                        const appIdField = {
+                            'short': true,
+                            'title': 'Application Id',
+                            'value': this.quoteDoc.applicationId
+                        }
+                        attachment.fields.push(appIdField)
+                    }
+                    catch(err){
+                        log.error(`QuoteBind send_slack_notification process error ${err} ` + __location);
+                    }
+                    slack.send('customer_success', 'celebrate', `*Bound Application notice received on ${this.insurer.name}'s webhook!*`, attachment);
+                    return;
+                case 'boundApiCheck':
+                    try{
+                        const appIdField = {
+                            'short': true,
+                            'title': 'Application Id',
+                            'value': this.quoteDoc.applicationId
+                        }
+                        attachment.fields.push(appIdField)
+                    }
+                    catch(err){
+                        log.error(`QuoteBind send_slack_notification process error ${err} ` + __location);
+                    }
+                    slack.send('customer_success', 'celebrate', `*Bound Application found on ${this.insurer.name}'s system!*`, attachment);
+                    return;
                 case 'bound':
                     slack.send('customer_success', 'celebrate', '*Application Bound!*', attachment);
                     return;

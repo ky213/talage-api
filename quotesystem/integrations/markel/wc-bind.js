@@ -3,7 +3,13 @@ const axios = require('axios');
 
 class MarkelBind extends Bind {
     async bind() {
-
+        const billingPlan = this?.quote?.insurerPaymentPlanId;
+        if (!billingPlan) {
+            this.quote.log += `--------======= Bind Request ERROR =======--------<br><br>`;
+            this.quote.log += `Quote has no selected payment option<br><br>`;
+            this.quote.log += `--------======= End =======--------<br><br>`;
+            return "error";
+        }
 
         let host = '';
         let path = '';
@@ -29,7 +35,7 @@ class MarkelBind extends Bind {
 
         const bindRequestJson = {
             "applicationId": parseInt(this.quote.requestId,10),
-            "billingPlan": "1"
+            "billingPlan": `${billingPlan}`
         }
         const requestUrl = `https://${host}${path}`;
         this.quote.log += `--------======= Bind Request to ${requestUrl} =======--------<br><br>`;
@@ -38,7 +44,7 @@ class MarkelBind extends Bind {
 
         let result = null;
         try {
-            result = await axios.put(requestUrl, JSON.stringify(bindRequestJson), axiosOptions);
+            result = await axios.post(requestUrl, JSON.stringify(bindRequestJson), axiosOptions);
         }
         catch (error) {
             log.error(`Markel Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error}  Response ${JSON.stringify(error.response.data)} ${__location}`);

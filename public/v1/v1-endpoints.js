@@ -57,6 +57,9 @@ exports.registerEndpoints = (server) => {
     // Agency portal
     registerEndpoint(server, 'agency-portal', 'account');
 
+    // Webhooks
+    registerEndpoint(server, 'webhooks', 'coterie');
+
     // Activities removed in 1.5.0
     // RegisterEndpoint(server, 'agency-portal', 'activities');
     registerEndpoint(server, 'agency-portal', 'agencies');
@@ -103,11 +106,6 @@ exports.registerEndpoints = (server) => {
 
     // Question
     registerEndpoint(server, 'question', 'questions');
-
-    // Quote
-    registerEndpoint(server, 'quote', 'quote-agency');
-    registerEndpoint(server, 'quote', 'application');
-    registerEndpoint(server, 'quote', 'quotes');
 
     // Site
     registerEndpoint(server, 'site', 'brand');
