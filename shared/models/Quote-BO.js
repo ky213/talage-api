@@ -655,7 +655,7 @@ module.exports = class QuoteBO {
      * @returns {void}
      */
     async appendToLog(quoteId, log) {
-        return mongoose.connection.db.collection('quotes').updateOne({quoteId: quoteId},
+        return global.mongodb.db.collection('quotes').updateOne({quoteId: quoteId},
             [{$set: {log: {$concat: ['$log', log]}}}],
             {upsert: true});
     }
