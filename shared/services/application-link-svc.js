@@ -2,7 +2,6 @@
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
-const ApplicationBO = global.requireShared("models/Application-BO.js");
 const crypt = global.requireShared('./services/crypt.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const {capitalizeName} = global.requireShared('./helpers/stringFunctions.js');
@@ -42,25 +41,32 @@ async function createQuoteApplicationLink(appId, options){
         log.error(`Error generating application link, invalid appId ${appId}` + __location);
         return;
     }
+    let returnLink = '';
+    try{
+        const ApplicationBO = global.requireShared("models/Application-BO.js");
+        const applicationBO = new ApplicationBO();
+        const application = await applicationBO.getById(appId);
 
-    const applicationBO = new ApplicationBO();
-    const application = await applicationBO.getById(appId);
+        const agencyBO = new AgencyBO();
+        const agency = await agencyBO.getById(application.agencyId);
 
-    const agencyBO = new AgencyBO();
-    const agency = await agencyBO.getById(application.agencyId);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+        // create hash
+        const hash = await crypt.hash(appId);
 
-    // create hash
-    const hash = await crypt.hash(appId);
-
-    // store hash in redis with application id as value
-    await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
-    const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
+        // store hash in redis with application id as value
+        await global.redisSvc.storeKeyValue(hash, JSON.stringify({applicationId: appId}), applicationLinkTimeout);
+        const link = await buildQuoteLink(agency, agencyNetwork, options?.pageSlug, hash);
+        returnLink = await sendQuoteEmail(agency, link, options, application);
+    }
+    catch(err){
+        log.error(`createQuoteApplicationLink error ${err}` + __location)
+    }
 
     // send an email if an emailAddress is provided on options
-    const returnLink = await sendQuoteEmail(agency, link, options, application);
+
     return returnLink;
 }
 
@@ -88,54 +94,68 @@ async function createAgencyPortalApplicationLink(appId, options){
         log.error(`Error generating application link for agent: From Agency Portal User was not provided.` + __location);
         return;
     }
+    let returnLink = '';
+    try{
+        let application = null;
+        try{
+            const ApplicationBO = global.requireShared("models/Application-BO.js");
+            const applicationBO = new ApplicationBO();
+            application = await applicationBO.getById(appId);
+        }
+        catch(err){
+            log.error(`createQuoteApplicationLink error ${err}` + __location)
+            throw err;
+        }
 
-    const applicationBO = new ApplicationBO();
-    const application = await applicationBO.getById(appId);
+        const agencyBO = new AgencyBO();
+        const agency = await agencyBO.getById(application.agencyId);
 
-    const agencyBO = new AgencyBO();
-    const agency = await agencyBO.getById(application.agencyId);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
 
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetwork = await agencyNetworkBO.getById(application.agencyNetworkId);
+        //load from agencyportal user
 
-    //load from agencyportal user
+        // check that the provided email address is a valid agent (agency portal user) with proper permissions
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        const fromAgencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
+        if (fromAgencyPortalUser) {
+            options.fromEmailAddress = fromAgencyPortalUser.email;
+        }
 
-    // check that the provided email address is a valid agent (agency portal user) with proper permissions
-    const agencyPortalUserBO = new AgencyPortalUserBO();
-    const fromAgencyPortalUser = await agencyPortalUserBO.getById(options.fromAgencyPortalUserId);
-    if (fromAgencyPortalUser) {
-        options.fromEmailAddress = fromAgencyPortalUser.email;
+        // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
+        let hash = null;
+        if (options.autoLogin) {
+            let toAgencyPortalUser = null;
+            try {
+                toAgencyPortalUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(options.toEmail, application.agencyNetworkId);
+            }
+            catch (e) {
+                log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
+            }
+
+            // if we were able to find the person, create the auto-login hash/value and store in redis
+            if (toAgencyPortalUser) {
+                hash = await crypt.hash(`${moment.now()}`);
+                const value = {agencyPortalUserId: toAgencyPortalUser.agencyPortalUserId};
+
+                // store the hash in redis using prefixed key
+                await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
+            }
+            else {
+                log.info(`Unable to find agency portal user ${options.toEmail} for auto login.` + __location);
+            }
+        }
+
+        // build the link
+        const link = await buildAgencyPortalLink(agencyNetwork, appId, hash);
+
+        // send the email to the agent and return the link
+        returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
+    }
+    catch(err){
+        log.error(`createAgencyPortalApplicationLink error ${err}` + __location)
     }
 
-    // create unique hash (key) and value ONLY FOR auto login. Store the link without the hash information to be used for loading the page after login
-    let hash = null;
-    if (options.autoLogin) {
-        let toAgencyPortalUser = null;
-        try {
-            toAgencyPortalUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(options.toEmail, application.agencyNetworkId);
-        }
-        catch (e) {
-            log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
-        }
-
-        // if we were able to find the person, create the auto-login hash/value and store in redis
-        if (toAgencyPortalUser) {
-            hash = await crypt.hash(`${moment.now()}`);
-            const value = {agencyPortalUserId: toAgencyPortalUser.agencyPortalUserId};
-
-            // store the hash in redis using prefixed key
-            await global.redisSvc.storeKeyValue(`apu-${hash}`, JSON.stringify(value), applicationLinkTimeout);
-        }
-        else {
-            log.info(`Unable to find agency portal user ${options.toEmail} for auto login.` + __location);
-        }
-    }
-
-    // build the link
-    const link = await buildAgencyPortalLink(agencyNetwork, appId, hash);
-
-    // send the email to the agent and return the link
-    const returnLink = await sendAgencyPortalEmail(agency, link, options, application, agencyNetwork);
     return returnLink;
 }
 
@@ -256,6 +276,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
         recipients += `,${options.agentEmail}`;
     }
 
+    const firstName = options.firstName ? options.firstName : "";
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
 
     const agentFullname = `${agency.firstName} ${agency.lastName}`;
@@ -263,101 +284,74 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 
     const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
-    const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
-
-    const emailSubjectDefault = 'A portal to your application';
-    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
+    const agencyName = options.agencyName ? options.agencyName : agencyDisplayName;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    let htmlBody = `
-            <p>
-                Hello${options.firstName ? ` ${options.firstName}` : ""},
-            </p>
-            <p>
-                ${agentName} at ${emailAgencyName} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
-                <br/>
-                Its an easy way for you to fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process online. 
-                <br/>
-                If you ever need help, ${agentName} is still right here to help ensure you get the best policy at the best value. 
-                <br/>
-                If you have any questions, let us know at ${agentEmail} or reach out to ${agentName} directly.
-            </p>
-            <div align="center">
-                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
-                <a href="${link}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
-                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
-                </a>
-                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
-            </div>
-            <p align="center">
-                If the button does not work try pasting this link into your browser:
-                <br/>
-                <a href="${link}" target="_blank">
-                    ${link}
-                </a>
-            </p>
-        `
-    if(options.htmlBody){
-        htmlBody = options.htmlBody
-        //replacements.
-        htmlBody = htmlBody.replace(/{{link}}/g, link);
-        htmlBody = htmlBody.replace(/{{agentName}}/g, agentName);
-        htmlBody = htmlBody.replace(/{{emailAgencyName}}/g, emailAgencyName);
-        htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
-        htmlBody = htmlBody.replace(/{{agentEmail}}/g, agentEmail);
+    const agencyNetworkBO = new AgencyNetworkBO();
+    try {
+        const agencyNetworkId = agency.agencyNetworkId;
+        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"quote_app_application_link");
+        let message = emailContentAgencyNetworkJSON.message;
+        let emailSubject = emailContentAgencyNetworkJSON.subject;
+        if(message && emailSubject){
+            //replacements.
+            message = message.replace(/{{Contact Name}}/g, firstName);
+            message = message.replace(/{{Application Link}}/g, link);
+            message = message.replace(/{{Agent First Name}}/g, agentName);
+            message = message.replace(/{{Agency}}/g, agencyName);
+            message = message.replace(/{{Agent Email}}/g, agentEmail);
+        }
+        let branding = agencyNetworkBranding ? '' : 'agency';
+
+        const keys = {
+            agencyLocationId: applicationJSON.agencyLocationId,
+            applicationId: applicationJSON.agencyLocationId,
+            applicationDoc: applicationJSON
+        }
+
+        const dataPackageJSON = {
+            appDoc: applicationJSON,
+            agency: agency,
+            link: link,
+            options: options,
+            htmlBody: message,
+            emailSubject: emailSubject,
+            branding: branding,
+            recipients: recipients
+        }
+
+        try{
+            await global.hookLoader.loadhook('quote-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
+            message = dataPackageJSON.htmlBody
+            emailSubject = dataPackageJSON.emailSubject
+            branding = dataPackageJSON.branding
+            link = dataPackageJSON.link;
+
+        }
+        catch(err){
+            log.error(`Error quote-app-link hook call error ${err}` + __location);
+        }
+
+        const emailData = {
+            html: message,
+            subject: emailSubject,
+            to: recipients
+        };
 
 
-    }
-
-    let branding = agencyNetworkBranding ? '' : 'agency'
-
-    const keys = {
-
-        agencyLocationId: applicationJSON.agencyLocationId,
-        applicationId: applicationJSON.agencyLocationId,
-        applicationDoc: applicationJSON
-
-    }
-
-    const dataPackageJSON = {
-        appDoc: applicationJSON,
-        agency: agency,
-        link: link,
-        options: options,
-        htmlBody: htmlBody,
-        emailSubject: emailSubject,
-        branding: branding,
-        recipients: recipients
-    }
-
-    try{
-        await global.hookLoader.loadhook('quote-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
-        htmlBody = dataPackageJSON.htmlBody
-        emailSubject = dataPackageJSON.emailSubject
-        branding = dataPackageJSON.branding
-        link = dataPackageJSON.link;
-
+        const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
+        if(!emailSent){
+            log.error(`Failed to send email for application link to ${emailData.to}.`);
+        }
+        else {
+            log.info(`Application link email was sent successfully to ${emailData.to}.`);
+        }
+        return link;
     }
     catch(err){
-        log.error(`Error quote-app-link hook call error ${err}` + __location);
+        log.error(`Sending Application Link email ${err}` + __location);
     }
-
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-
-
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
-    if(!emailSent){
-        log.error(`Failed to send email for application link to ${emailData.to}.`);
-    }
-    else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.`);
-    }
-    return link;
 }
 
 
@@ -376,79 +370,73 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
     const toName = options.toName ? capitalizeName(options.toName).trim() : null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    try{
+        const agencyNetworkId = agency.agencyNetworkId;
+        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"agency_portal_application_link");
+        let message = emailContentAgencyNetworkJSON.message;
+        let emailSubject = emailContentAgencyNetworkJSON.subject;
 
-    const emailSubjectDefault = `A Link to ${applicationJSON.businessName}`;
-    let emailSubject = options.subject ? options.subject : emailSubjectDefault;
+        if(message && emailSubject){
+            //replacements.
+            message = message.replace(/{{Agent First Name}}/g, toName);
+            message = message.replace(/{{Business Name}}/g, applicationJSON.businessName);
+            message = message.replace(/{{Agency Network Name}}/g, agencyNetwork.name);
+            message = message.replace(/{{Application Link}}/g, link);
+            message = message.replace(/{{Agent Email}}/g, options.fromEmailAddress);
+            emailSubject = emailSubject.replace(/{{Business Name}}/g, applicationJSON.businessName);
+        }
+        let branding = agencyNetworkBranding ? '' : 'agency';
 
-    let htmlBody = `
-        <p>
-        Hello${toName ? ` ${toName}` : ""},
-        </p>
-        <p>
-        Here’s a link to ${applicationJSON.businessName} Inside the ${agencyNetwork.name} Portal to review or edit the application. From this link you’ve be able to review the app and make any relevant changes before submitting the application for instant quotes.
-        </p>
-        <p align="center">
-            If the button does not work try pasting this link into your browser:
-            <br/>
-            <a href="${link}" target="_blank">
-                ${link}
-            </a>
-        </p>
-        <p>
-        If you have any questions, you can respond back to ${options.fromEmailAddress}
-        </p>
-        <p>
-        Thanks!
-        </p>
-    `;
+        const keys = {
+            agencyLocationId: applicationJSON.agencyLocationId,
+            applicationId: applicationJSON.agencyLocationId,
+            applicationDoc: applicationJSON
+        };
 
-    let branding = agencyNetworkBranding ? '' : 'agency';
+        const dataPackageJSON = {
+            appDoc: applicationJSON,
+            agencyNetwork: agencyNetwork,
+            agency: agency,
+            link: link,
+            options: options,
+            htmlBody: message,
+            emailSubject: emailSubject,
+            branding: branding,
+            recipients: recipients
+        }
 
-    const keys = {
-        agencyLocationId: applicationJSON.agencyLocationId,
-        applicationId: applicationJSON.agencyLocationId,
-        applicationDoc: applicationJSON
-    };
+        try {
+            await global.hookLoader.loadhook('ap-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
 
-    const dataPackageJSON = {
-        appDoc: applicationJSON,
-        agencyNetwork: agencyNetwork,
-        agency: agency,
-        link: link,
-        options: options,
-        htmlBody: htmlBody,
-        emailSubject: emailSubject,
-        branding: branding,
-        recipients: recipients
+            message = dataPackageJSON.htmlBody
+            emailSubject = dataPackageJSON.emailSubject
+            branding = dataPackageJSON.branding
+            link = dataPackageJSON.link;
+        }
+        catch (e) {
+            log.error(`Error ap-app-link hook call error ${e}.` + __location);
+        }
+
+        const emailData = {
+            html: message,
+            subject: emailSubject,
+            to: recipients
+        };
+
+        const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
+
+        if(!emailSent){
+            log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
+        }
+        else {
+            log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
+        }
+        return link;
     }
-
-    try {
-        await global.hookLoader.loadhook('ap-app-link', applicationJSON.agencyNetworkId, dataPackageJSON);
-
-        htmlBody = dataPackageJSON.htmlBody
-        emailSubject = dataPackageJSON.emailSubject
-        branding = dataPackageJSON.branding
-        link = dataPackageJSON.link;
+    catch(err){
+        log.error(`Sending Application Link email ${err}` + __location);
     }
-    catch (e) {
-        log.error(`Error ap-app-link hook call error ${e}.` + __location);
-    }
-
-    const emailData = {
-        html: htmlBody,
-        subject: emailSubject,
-        to: recipients
-    };
-
-    const emailSent = await emailsvc.send(emailData.to, emailData.subject, emailData.html, keys, agency.agencyNetworkId, branding, agency.systemId);
-
-    if(!emailSent){
-        log.error(`Failed to send email for application link to ${emailData.to}.` + __location);
-    }
-    else {
-        log.info(`Application link email was sent successfully to ${emailData.to}.` + __location);
-    }
-    return link;
 }
 
 module.exports = {

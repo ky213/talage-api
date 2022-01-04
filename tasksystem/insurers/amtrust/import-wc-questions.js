@@ -14,7 +14,7 @@
 const moment = require("moment");
 const amtrust = require('./amtrust-client.js');
 const sha1 = require("sha1");
-
+const emailSvc = global.requireShared('./services/emailsvc.js');
 
 const ncciStates = ["RI",
     "IA",
@@ -204,6 +204,41 @@ async function QuestionImport(amtrustClassCodeMap) {
 
     log.info(logPrefix + `- ${newQuestionList.length} new AmTrust questions ` + __location);
     log.info(logPrefix + `- ${updatedIQLinks} updates to AmTrust question links ` + __location);
+
+    //send email with the above stats to integrations@talageins.com
+    if(newQuestionList.length > 0 || updatedIQLinks > 0){
+        //trigger to send email since codes were addeded
+        let messageTable = '';
+
+        for (const codes in newQuestionList) {
+            if({}.hasOwnProperty.call(newQuestionList, codes)){
+                messageTable += `<tr>
+                       <td>${newQuestionList[codes].QuestionId} - ${newQuestionList[codes].Question}</td>
+                   </tr>`
+            }
+        }
+        const sendMessage = `
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>${newQuestionList.length} new AmTrust questions / ${updatedIQLinks} updates to AmTrust codes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${messageTable}
+                </tbody>
+            </table>
+        `
+        try{
+            const sendResult = await emailSvc.send('carlo+int@talageins.com','New Questions were added to AmTrust',sendMessage);
+            if(!sendResult){
+                console.log('An error occured when sending notification. Please contact us for details');
+            }
+        }
+        catch(err) {
+            console.log('error-sending email:', err);
+        }
+    }
 
     return true;
 }

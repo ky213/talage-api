@@ -88,8 +88,10 @@ module.exports = class AgencyNetworkBO{
         const logoData = newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
 
         const baseS3Path = 'public/agency-network-logos/';
-        //clean name
+        //clean filename
         let fileName = stringFunctions.santizeFilename(agencyNetworkName);
+        //clean filename for S3 as filesvc does.
+        fileName = fileName.replace(/[^a-zA-Z0-9-_/.]/g, '');
         fileName += isHeader ? "-header-" : "-footer-"
         fileName += uuidv4().toString();
         fileName += `-${stringFunctions.santizeFilename(newFileName)}`
@@ -579,41 +581,6 @@ module.exports = class AgencyNetworkBO{
             log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
             return {};
         }
-    }
-
-    getIdToNameMap(){
-        return new Promise(async(resolve, reject) => {
-            // eslint-disable-next-line prefer-const
-            let map = {};
-            let rejected = false;
-            // Create the update query
-            const sql = `
-                select *  from ${tableName}  
-            `;
-            // Run the query
-            //log.debug("AgencyNetworkBO getlist sql: " + sql);
-            const result = await this.getList({}).catch(function(error) {
-                // Check if this was
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    map[result[i].systemId] = result[i].name;
-                }
-                resolve(map);
-            }
-            else {
-                //Search so no hits ok.
-                resolve(map);
-            }
-
-
-        });
     }
 
 }

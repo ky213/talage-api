@@ -2656,6 +2656,13 @@ module.exports = class ApplicationModel {
                 feinRequiredNote = true;
                 glCarriers.push("Liberty")
             }
+
+            //Cotirie - Needs payroll.
+            if(insurerArray.includes(29)){
+                //fein not that is FEIN is required.
+                payrollRequiredNote = true;
+                payrollCarriers.push("Coterie")
+            }
         }
         if(hasGL){
             //Libery an insurer

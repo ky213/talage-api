@@ -1108,7 +1108,11 @@ async function requote(req, res, next) {
     catch (err) {
         //pre quote validation log any errors
         const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
-        log.warn(errMessage + __location);
+
+        if(!err.message?.includes("Application's Agency Location does not cover")){
+            log.warn(errMessage + __location);
+        }
+
         res.send(400, errMessage);
         return next();
     }
@@ -2302,9 +2306,10 @@ async function accesscheckEmail(email, applicationJSON){
 
 // eslint-disable-next-line no-unused-vars
 async function accesscheck(appId, req, retObject){
-    const applicationBO = new ApplicationBO();
+    
     let passedAgencyCheck = false;
     try{
+        const applicationBO = new ApplicationBO();
         const applicationDBDoc = await applicationBO.getById(appId);
         if(applicationDBDoc){
             passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc?.agencyId, applicationDBDoc?.agencyNetworkId)

@@ -25,7 +25,7 @@ const log = global.log;
  * @param {string} queueMessage - message from queue
  * @returns {void}
  */
-exports.processtask = async function(queueMessage){
+async function processtask(queueMessage){
     let error = null;
     //check sent time over 30 seconds do not process.
     var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
@@ -63,7 +63,7 @@ exports.processtask = async function(queueMessage){
  *
  * @returns {void}
  */
-exports.taskProcessorExternal = async function(){
+async function taskProcessorExternal(){
     let error = null;
     await abandonquotetask().catch(err => error = err);
     if(error){
@@ -77,7 +77,7 @@ exports.taskProcessorExternal = async function(){
  *
  * @returns {void}
  */
-var abandonquotetask = async function(){
+async function abandonquotetask(){
 
     const oneHourAgo = new moment().subtract(1,'h').startOf('minute');
     const twoHourAgo = new moment().subtract(2,'h').startOf('minute');
@@ -183,7 +183,8 @@ var abandonquotetask = async function(){
     return;
 }
 
-var processAbandonQuote = async function(applicationDoc, insurerList, policyTypeList){
+// eslint-disable-next-line require-jsdoc
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, sendAgency = true, sendAgencyNetwork = true){
     if(!applicationDoc){
         return;
     }
@@ -369,7 +370,7 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
 
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
-            if(agencyNetworkDB.featureJson.quoteEmailsAgency){
+            if(sendAgency && agencyNetworkDB.featureJson.quoteEmailsAgency){
                 // Only send for non-Talage accounts that are not wholesale
                 //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
                 if(applicationDoc.wholesale === false){
@@ -395,6 +396,14 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
                     message = message.replace(/{{Contact Phone}}/g, phone);
                     message = message.replace(/{{Industry}}/g, industryCodeDesc);
                     message = message.replace(/{{Quotes}}/g, quotesHTML);
+                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+
+                    subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                    subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
                     //Applink processing
                     const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
@@ -451,7 +460,8 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
             if(agencyNetworkDB
                 && agencyNetworkDB.featureJson
                 && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
-                && agencyNetworkDB.email){
+                && agencyNetworkDB.email
+                && sendAgencyNetwork){
                 try{
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"abandoned_quotes_agency_network");
                     if(emailContentAgencyNetworkJSON && emailContentAgencyNetworkJSON.message && emailContentAgencyNetworkJSON.subject){
@@ -590,4 +600,10 @@ var markApplicationProcess = async function(appDoc){
         throw err;
     }
 
+}
+
+module.exports = {
+    processtask: processtask,
+    taskProcessorExternal: taskProcessorExternal,
+    processAbandonQuote: processAbandonQuote
 }

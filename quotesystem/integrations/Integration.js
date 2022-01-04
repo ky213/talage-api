@@ -1315,6 +1315,7 @@ module.exports = class Integration {
                 questionSubjectArea: "general",
                 active: true
             }
+            log.debug(`InsurerQuestion query ${JSON.stringify(query)}` + __location)
             const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
             try{
                 insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
@@ -1333,11 +1334,26 @@ module.exports = class Integration {
                         try{
                             //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
                             const qId_String = insurerQuestion.talageQuestionId.toString();
-                            if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
-                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
-                                
+                            //first look if the TalageQuestion is in the App data directly, before using old strustures.  
+                            //    old structures and logic around them is complex and overkill. requiring similar logic to QuestionSvc to be repeated here.
+                            //    This question is there or not....
+                            const appQuestion = this.applicationDocData.questions.find((aq) => aq.questionId === insurerQuestion.talageQuestionId)
+                            if(appQuestion){
                                 this.insurerQuestionList.push(insurerQuestion)
-                                
+                                if(!this.questions[insurerQuestion.talageQuestionId]){
+                                    const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
+                                    if(question){
+                                        this.questions[insurerQuestion.talageQuestionId] = question;
+                                    }
+                                    else {
+                                        //this.app.questions did not load properly  BTIS can cause this.
+                                        // fix it here creating a question Object and adding it.
+                                    }
+                                }
+                            }
+                            else if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
+                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
+                                this.insurerQuestionList.push(insurerQuestion)
                                 if(!this.questions[insurerQuestion.talageQuestionId]){
                                     const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
                                     this.questions[insurerQuestion.talageQuestionId] = question;
@@ -1440,7 +1456,7 @@ module.exports = class Integration {
     }
 
     /**
-     * Filter the question list to remove hidden questions, unanswered questions, and question for other carriers
+     * Legacy - New intregration should not use this - Filter the question list to remove hidden questions, unanswered questions, and question for other carriers
      * This function logs its own errors.
      *
      * @param {string} questionSubjectArea - The question subject area ("general", "location", ...) Default is "general".

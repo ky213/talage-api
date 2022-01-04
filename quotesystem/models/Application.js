@@ -461,8 +461,16 @@ module.exports = class Application {
 
         let talageQuestionDefList = null;
         try {
+            const zipCodeArray = [];
+            const stateList = [];
+            for (let i = 0; i < this.applicationDocData.locations.length; i++) {
+                zipCodeArray.push(this.applicationDocData.locations[i].zipcode);
+                if (stateList.indexOf(this.applicationDocData.locations[i].state) === -1) {
+                    stateList.push(this.applicationDocData.locations[i].state)
+                }
+            }
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
-            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, this.business.getZips(), policyList, insurer_ids, "general", true);
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, zipCodeArray, policyList, insurer_ids, "general", true, stateList);
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
         }
         catch (e) {
@@ -470,7 +478,6 @@ module.exports = class Application {
             //throw e;
         }
         // Grab the answers the user provided to our questions and reset the question object
-
         this.questions = {};
         // Convert each question from the database into a question object and load in the user's answer to each
         if (talageQuestionDefList) {
@@ -480,7 +487,6 @@ module.exports = class Application {
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
                 q.load(questionDef);
-
                 // Load the user's answer
                 //work with Application dataa
                 if (this.applicationDocData.questions) {
@@ -935,6 +941,10 @@ module.exports = class Application {
                         log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                         // Send the email message - development should email. change local config to get the email.
 
+                        subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                        subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
+                        subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
+
                         // Applink processing
                         const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
                         if(messageUpdate){
@@ -1015,11 +1025,13 @@ module.exports = class Application {
                         message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
 
                         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                        subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
+                        subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
                         if (quoteList[0].status) {
                             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                         }
 
-                        //TODO Applink processing
+                        //Applink processing
                         const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
                         if(messageUpdate){
                             message = messageUpdate
@@ -1096,106 +1108,153 @@ module.exports = class Application {
                 log.error(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
             }
         }
-        else if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
-            // immediately notify agency network of quote
-            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
-            if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
-                log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
+        else if(agencyNetworkDB?.featureJson?.agencyQuoteEmailsNoWaitOnQuote === true && agencyNetworkDB.featureJson.quoteEmailsAgency === true
+                || agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true){
+            //call abanddonQuotetask to send agency and agencynetwork emails.
+            // Assumes agency network get an immediate notication also.
+            const taskAbandonQuote = global.requireRootPath('tasksystem/task-abandonquote.js');
+            const InsurerBO = global.requireShared('models/Insurer-BO.js');
+            const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
+            let insurerList = null;
+            const insurerBO = new InsurerBO();
+            try{
+                insurerList = await insurerBO.getList();
             }
-            else {
-                let portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
+            catch(err){
+                log.error("Error get InsurerList " + err + __location)
+            }
+            let policyTypeList = null;
+            const policyTypeBO = new PolicyTypeBO()
+            try{
+                policyTypeList = await policyTypeBO.getList();
+            }
+            catch(err){
+                log.error("Error get policyTypeList " + err + __location)
+            }
 
-                let message = emailContentAgencyNetworkJSON.message;
-                let subject = emailContentAgencyNetworkJSON.subject;
 
-                // Perform content replacements
-                const capitalizedBrand = emailContentAgencyNetworkJSON.emailBrand.charAt(0).toUpperCase() + emailContentAgencyNetworkJSON.emailBrand.substring(1);
-                message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
-
-                message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
-                message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
-
-                message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
-
-                message = message.replace(/{{Brand}}/g, capitalizedBrand);
-                message = message.replace(/{{Business Name}}/g, this.business.name);
-                message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
-                message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
-                message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
-                message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
-
-                subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                if (quoteList[0].status) {
-                    message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
-                }
-
-                //TODO Applink processing
-                const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
-                if(messageUpdate){
-                    message = messageUpdate
-                }
-                const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
-                if(updatedEmailObject.message){
-                    message = updatedEmailObject.message
-                }
-                if(updatedEmailObject.subject){
-                    subject = updatedEmailObject.subject
-                }
-
-                log.info(`AppId ${this.id} sending agency network QUOTE email`);
-                // Send the email message - development should email. change local config to get the email.
-                let recipientsString = agencyNetworkDB.email
-                //Check for AgencyNetwork users are suppose to get notifications for this agency.
-                if(this.applicationDocData.agencyId){
-                    // look up agencyportal users by agencyNotificationList
-                    try{
-                        const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
-                        const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
-
-                        if(anRecipents.length > 2){
-                            recipientsString += `,${anRecipents}`
-                        }
-                    }
-                    catch(err){
-                        log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
-                    }
-                }
-
-                let branding = "Networkdefault";
-                // Sofware Hook
-                const dataPackageJSON = {
-                    appDoc: this.applicationDocData,
-                    agencyNetworkDB: agencyNetworkDB,
-                    htmlBody: message,
-                    emailSubject: subject,
-                    branding: branding,
-                    recipients: recipientsString
-                }
-                const hookName = 'got-qoute-email-agencynetwork'
+            // eslint-disable-next-line no-lonely-if
+            if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && agencyNetworkDB?.featureJson?.agencyQuoteEmailsNoWaitOnQuote === true){
+                ////&& this.agencyPortalQuote === false
                 try{
-                    await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
-                    message = dataPackageJSON.htmlBody
-                    subject = dataPackageJSON.emailSubject
-                    branding = dataPackageJSON.branding
-                    recipientsString = dataPackageJSON.recipients
+                    const SEND_AGENCY = true
+                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, SEND_AGENCY, !SEND_AGENCY)
                 }
                 catch(err){
-                    log.error(`Error ${hookName} hook call error ${err}` + __location);
+                    log.debug('catch error from await ' + err);
                 }
+            }
 
-                await emailSvc.send(recipientsString,
-                    subject,
-                    message,
-                    {
-                        agencyLocationId: this.agencyLocation.id,
-                        applicationId: this.applicationDocData.applicationId,
-                        applicationDoc: this.applicationDocData
+            if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
+                try{
+                    const SEND_AGENCYNETWORK = true
+                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, !SEND_AGENCYNETWORK, SEND_AGENCYNETWORK)
+                }
+                catch(err){
+                    log.debug('catch error from await ' + err);
+                }
+                //     // immediately notify agency network of quote
+                //     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
+                //     if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
+                //         log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
+                //     }
+                //     else {
+                //         let portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
 
-                    },
-                    this.applicationDocData.agencyNetworkId,
-                    branding,
-                    this.applicationDocData.agencyId);
+                //         let message = emailContentAgencyNetworkJSON.message;
+                //         let subject = emailContentAgencyNetworkJSON.subject;
+
+                //         // Perform content replacements
+                //         const capitalizedBrand = emailContentAgencyNetworkJSON.emailBrand.charAt(0).toUpperCase() + emailContentAgencyNetworkJSON.emailBrand.substring(1);
+                //         message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
+
+                //         message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                //         message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+                //         message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+
+                //         message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
+
+                //         message = message.replace(/{{Brand}}/g, capitalizedBrand);
+                //         message = message.replace(/{{Business Name}}/g, this.business.name);
+                //         message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
+                //         message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
+                //         message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
+                //         message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+
+                //         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
+                //         subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
+                //         subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
+                //         if (quoteList[0].status) {
+                //             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
+                //         }
+
+                //         //TODO Applink processing
+                //         const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
+                //         if(messageUpdate){
+                //             message = messageUpdate
+                //         }
+                //         const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
+                //         if(updatedEmailObject.message){
+                //             message = updatedEmailObject.message
+                //         }
+                //         if(updatedEmailObject.subject){
+                //             subject = updatedEmailObject.subject
+                //         }
+
+                //         log.info(`AppId ${this.id} sending agency network QUOTE email`);
+                //         // Send the email message - development should email. change local config to get the email.
+                //         let recipientsString = agencyNetworkDB.email
+                //         //Check for AgencyNetwork users are suppose to get notifications for this agency.
+                //         if(this.applicationDocData.agencyId){
+                //             // look up agencyportal users by agencyNotificationList
+                //             try{
+                //                 const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
+                //                 const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
+
+                //                 if(anRecipents.length > 2){
+                //                     recipientsString += `,${anRecipents}`
+                //                 }
+                //             }
+                //             catch(err){
+                //                 log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
+                //             }
+                //         }
+
+                //         let branding = "Networkdefault";
+                //         // Sofware Hook
+                //         const dataPackageJSON = {
+                //             appDoc: this.applicationDocData,
+                //             agencyNetworkDB: agencyNetworkDB,
+                //             htmlBody: message,
+                //             emailSubject: subject,
+                //             branding: branding,
+                //             recipients: recipientsString
+                //         }
+                //         const hookName = 'got-qoute-email-agencynetwork'
+                //         try{
+                //             await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
+                //             message = dataPackageJSON.htmlBody
+                //             subject = dataPackageJSON.emailSubject
+                //             branding = dataPackageJSON.branding
+                //             recipientsString = dataPackageJSON.recipients
+                //         }
+                //         catch(err){
+                //             log.error(`Error ${hookName} hook call error ${err}` + __location);
+                //         }
+
+                //         await emailSvc.send(recipientsString,
+                //             subject,
+                //             message,
+                //             {
+                //                 agencyLocationId: this.agencyLocation.id,
+                //                 applicationId: this.applicationDocData.applicationId,
+                //                 applicationDoc: this.applicationDocData
+
+            //             },
+            //             this.applicationDocData.agencyNetworkId,
+            //             branding,
+            //             this.applicationDocData.agencyId);
+            //     }
             }
         }
 
@@ -1268,7 +1327,12 @@ module.exports = class Application {
             }
             catch (e) {
                 if(logValidationErrors){
-                    log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                    if(e.message?.includes("Application's Agency Location does not cover")){
+                        log.info(`Applicaiton Model: validateAgencyLocation(): ${e.message}. ` + __location);
+                    }
+                    else {
+                        log.error(`Applicaiton Model: validateAgencyLocation() error: ${e}. ` + __location);
+                    }
                 }
                 return reject(e);
             }

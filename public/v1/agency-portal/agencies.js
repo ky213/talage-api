@@ -4,6 +4,7 @@ const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 /**
  * Responds to get requests for the applications endpoint
@@ -43,6 +44,22 @@ async function getAgencies(req, res, next){
         }
 
         const query = req.query;
+        let addAppCount = true;
+        if(query.hasOwnProperty("skipappcount")){
+            if(query.skipappcount === "y"){
+                addAppCount = false
+            }
+            delete query.skipappcount
+        }
+
+        let addLocations = false;
+        if(query.hasOwnProperty("addlocations")){
+            if(query.addlocations === "y"){
+                addLocations = true;
+            }
+            delete query.addlocations
+        }
+
         if(req.authentication.isAgencyNetworkUser){
             query.agencyNetworkId = req.authentication.agencyNetworkId
             //Global View Check
@@ -89,6 +106,7 @@ async function getAgencies(req, res, next){
             //Get app count.
             returnAgencyList = [];
             const applicationBO = new ApplicationBO();
+            const agencyLocationBO = new AgencyLocationBO();
             for(let i = 0; i < retAgencies.length; i++){
                 try{
                     // eslint-disable-next-line prefer-const
@@ -116,8 +134,27 @@ async function getAgencies(req, res, next){
                     const _query = {"agencyId": retAgencies[i].systemId};
                     //use getAppListForAgencyPortalSearch get hit redis cache
                     //const appCount = await applicationBO.getAppListForAgencyPortalSearch(query);
-                    const appCount = await applicationBO.getAppListForAgencyPortalSearch(_query, [], {count: 1});
-                    agencyInfo.applications = appCount.count;
+                    if(addAppCount === true){
+                        const appCount = await applicationBO.getAppListForAgencyPortalSearch(_query, [], {count: 1});
+                        agencyInfo.applications = appCount.count;
+                    }
+                    if(addLocations === true){
+                        const queryLoc = {"agencyId": retAgencies[i].systemId}
+                        const getAgencyName = false;
+                        const getChildren = false;
+                        const useAgencyPrimeInsurers = false;
+
+                        const locationList = await agencyLocationBO.getList(queryLoc, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+                            log.error(err.message + __location);
+                        });
+                        if(locationList){
+                            agencyInfo.locations = locationList;
+                        }
+                        else {
+                            agencyInfo.locations = [];
+                        }
+                    }
+
                     returnAgencyList.push(agencyInfo);
                 }
                 catch(err){
