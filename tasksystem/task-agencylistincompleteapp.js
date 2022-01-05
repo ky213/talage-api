@@ -94,8 +94,8 @@ var emailIncompleteTask = async function(){
     let appList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
     const query = {
         "status":"incomplete",
-        "searchenddate": yesterdayEnd,
-        "searchbegindate": yesterdayBegin
+        // "searchenddate": yesterdayEnd,
+        // "searchbegindate": yesterdayBegin
     };
     // const query = {"status":"incomplete"};
     const applicationBO = new ApplicationBO();
@@ -104,7 +104,7 @@ var emailIncompleteTask = async function(){
         log.error(`Error get application list from DB. error:  ${err}` + __location);
         return false;
     });
-
+    log.info(`application list obj-> ${JSON.stringify(applicationList[0])} `); 
     let message = null;
     const subject = `Daily Incomplete Applications list`;
 
