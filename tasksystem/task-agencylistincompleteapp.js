@@ -68,17 +68,36 @@ exports.taskProcessorExternal = async function(){
 
 var emailIncompleteTask = async function(){
 
-    const yesterdayBegin = moment().tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+    // this code is necessary to correct the timezone-bug in momentjs-- forgive the bad code
+    const getTimeInNewYork = (date) => moment_timezone.tz(`${moment_timezone.tz('America/New_York').format('DD')} ${date}`, 'DD hh:mma', 'America/New_York')
+
+    const triggerTime1 = getTimeInNewYork('10:00am');
+    const triggerTime2 = getTimeInNewYork('02:00pm');
+    let yesterdayBegin = moment_timezone.tz("America/New_York");
+
+    if(moment_timezone.tz("America/New_York").isAfter(triggerTime2)){
+        yesterdayBegin = moment_timezone.tz("America/New_York").subtract(4,'hours');
+        log.info('Email Incomplete Application triggered after 2:00 pm EST');
+
+    }
+    else if(moment_timezone.tz("America/New_York").isAfter(triggerTime1)){
+        yesterdayBegin = moment_timezone.tz("America/New_York").subtract(19,'hours');
+        log.info('Email Incomplete Application triggered after 10:00 am EST');
+
+    }
+    else{
+        log.error('Invalid time trigger for Incomplete Applications email list' + __location);
+    }
+    const yesterdayEnd = moment_timezone.tz("America/New_York");
 
     let applicationList = null;
     let appList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
-    // const query = {
-    //     "status":"incomplete",
-    //     "searchenddate": yesterdayEnd,
-    //     "searchbegindate": yesterdayBegin
-    // };
-    const query = {"status":"incomplete"};
+    const query = {
+        "status":"incomplete",
+        "searchenddate": yesterdayEnd,
+        "searchbegindate": yesterdayBegin
+    };
+    // const query = {"status":"incomplete"};
     const applicationBO = new ApplicationBO();
 
     applicationList = await applicationBO.getList(query).catch(function(err){
@@ -88,7 +107,6 @@ var emailIncompleteTask = async function(){
 
     let message = null;
     const subject = `Daily Incomplete Applications list`;
-    log.info('application list --> ' + applicationList.length + ' end ' + yesterdayEnd + ' start ' + yesterdayBegin)
 
     if(applicationList && applicationList.length > 0){
         for(let i = 0; i < applicationList.length; i++){
@@ -117,7 +135,7 @@ var emailIncompleteTask = async function(){
         appList += '</tbody></table><br>';
 
         try{
-            message = message.replace(/{{Application List}}/g, appList);
+            message = appList;
             // send email
             const emailResp = await emailSvc.send('integrations@talageins.com', subject, message);
             if(emailResp === false){
@@ -125,7 +143,7 @@ var emailIncompleteTask = async function(){
             }
         }
         catch(e){
-            log.error(`Daily Digest email content creation error: ${e}` + __location);
+            log.error(`Incomplete Applications email content creation error: ${e}` + __location);
             return false;
         }
     }
