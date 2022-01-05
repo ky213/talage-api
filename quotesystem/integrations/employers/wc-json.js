@@ -250,17 +250,17 @@ module.exports = class EmployersWC extends Integration {
             const primaryLocationIndex = appDoc.locations.findIndex(({primary}) => primary);
 
             for (const index in appDoc.locations) {
+              if(index) {// eslint fix
                 const location = appDoc.locations[index]
                 const locationJSON = {};
 
                 //make sure only one location is set to "primary"
                 if (primaryLocationIndex > -1) {
                   locationJSON.primary = Number(index) === primaryLocationIndex
-                 } else {
-                  if (Number(index) === 0) {
+                 }
+                else if (Number(index) === 0) {
                     locationJSON.primary = true
                   }
-                }
 
                 if (businessName) {
                     locationJSON.businessName = businessName;
@@ -369,7 +369,8 @@ module.exports = class EmployersWC extends Integration {
                     locationJSON.rateClasses.push(rateClass);
                 }
 
-                locations.push(locationJSON);
+                    locations.push(locationJSON);
+              }
             }
 
             requestJSON.namedInsureds = [{}];
