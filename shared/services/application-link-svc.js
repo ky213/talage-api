@@ -275,8 +275,9 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     if(options.agentEmail && options.emailAddress !== options.agentEmail){
         recipients += `,${options.agentEmail}`;
     }
+    const toName = options.toName ? capitalizeName(options.toName).trim() : null;
 
-    const firstName = options.firstName ? options.firstName : "";
+    const send2FirstName = options.firstName ? options.firstName : "";
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
 
     const agentFullname = `${agency.firstName} ${agency.lastName}`;
@@ -284,23 +285,66 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 
     const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
-    const agencyName = options.agencyName ? options.agencyName : agencyDisplayName;
-
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
     const agencyNetworkBO = new AgencyNetworkBO();
     try {
         const agencyNetworkId = agency.agencyNetworkId;
-        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"quote_app_application_link");
-        let message = emailContentAgencyNetworkJSON.message;
-        let emailSubject = emailContentAgencyNetworkJSON.subject;
+        let emailSubject = 'A portal to your application';
+        const displayToName = toName ? toName : "";
+        let message = `
+            <p>
+                Hello{{Send To Name}},
+            </p>
+            <p>
+                {{Agent Contact Name}} at {{Agency}} is sending over an application for you to get started! We know you are busy, so with this, you can go at your convenience. 
+                <br/>
+                Its an easy way for you to fill out everything we'll need to get started on your insurance quotes, and you'll even be able to complete the process online. 
+                <br/>
+                If you ever need help, {{Agent Contact Name}} is still right here to help ensure you get the best policy at the best value. 
+                <br/>
+                If you have any questions, let us know at {{Agent Email}} or reach out to {{Agent Contact Name}} directly.
+            </p>
+            <div align="center">
+                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
+                <a href="{{quoteAppLink}}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
+                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
+                </a>
+                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
+            </div>
+            <p align="center">
+                If the button does not work try pasting this link into your browser:
+                <br/>
+                <a href="{{quoteAppLink}}" target="_blank">
+                    {{quoteAppLink}}
+                </a>
+            </p>
+        `;
+
+        try{
+            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"quote_app_application_link");
+            message = emailContentAgencyNetworkJSON.message ? emailContentAgencyNetworkJSON.message : message;
+            emailSubject = emailContentAgencyNetworkJSON.subject ? emailContentAgencyNetworkJSON.subject : emailSubject;
+        }
+        catch(err){
+            log.debug(`Error getting email content for quote_app_application_link} using hardcoded default ${err}` + __location);
+        }
         if(message && emailSubject){
             //replacements.
-            message = message.replace(/{{Contact Name}}/g, firstName);
-            message = message.replace(/{{Application Link}}/g, link);
-            message = message.replace(/{{Agent First Name}}/g, agentName);
-            message = message.replace(/{{Agency}}/g, agencyName);
+            message = message.replace(/{{Agent Contact Name}}/g, agentName);
+            message = message.replace(/{{Agency}}/g, agencyDisplayName);
             message = message.replace(/{{Agent Email}}/g, agentEmail);
+
+            message = message.replace(/{{Send To Name}}/g, displayToName);
+            message = message.replace(/{{Send To First Name}}/g, send2FirstName);
+            message = message.replace(/{{Business Name}}/g, applicationJSON.businessName);
+            message = message.replace(/{{quoteAppLink}}/g, link);
+            message = message.replace(/{{From Email Address}}/g, options.fromEmailAddress);
+
+            emailSubject = emailSubject.replace(/{{Business Name}}/g, applicationJSON.businessName);
+            emailSubject = emailSubject.replace(/{{Agency}}/g, agencyDisplayName);
+
+
         }
         let branding = agencyNetworkBranding ? '' : 'agency';
 
@@ -372,19 +416,57 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
     const toName = options.toName ? capitalizeName(options.toName).trim() : null;
     const agencyNetworkBO = new AgencyNetworkBO();
     try{
+        const brandName = agencyNetwork.email_brand ? capitalizeName(agencyNetwork.email_brand).trim() : agencyNetwork.name;
         const agencyNetworkId = agency.agencyNetworkId;
-        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"agency_portal_application_link");
-        let message = emailContentAgencyNetworkJSON.message;
-        let emailSubject = emailContentAgencyNetworkJSON.subject;
+        let emailSubject = 'A Link to {{Business Name}}';
+        const displayToName = toName ? toName : "";
+        let message = `
+            <p>
+            Hello{{Send To Name}},
+            </p>
+            <p>
+            Here’s a link to {{Business Name}} Inside the {{Brand}} Portal to review or edit the application. From this link you’ve be able to review the app and make any relevant changes before submitting the application for instant quotes.
+            </p>
+            <div align="center">
+                <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-spacing: 0; border-collapse: collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;font-family:arial,helvetica,sans-serif;"><tr><td style="font-family:arial,helvetica,sans-serif;" align="center"><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="" style="height:45px; v-text-anchor:middle; width:120px;" arcsize="9%" stroke="f" fillcolor="#3AAEE0"><w:anchorlock/><center style="color:#FFFFFF;font-family:arial,helvetica,sans-serif;"><![endif]-->
+                <a href="{{apAppLink}}" target="_blank" style="box-sizing: border-box;display: inline-block;font-family:arial,helvetica,sans-serif;text-decoration: none;-webkit-text-size-adjust: none;text-align: center;color: #FFFFFF; background-color: #3AAEE0; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; width:auto; max-width:100%; overflow-wrap: break-word; word-break: break-word; word-wrap:break-word; mso-border-alt: none;">
+                    <span style="display:block;padding:10px 20px;line-height:120%;"><span style="font-size: 14px; line-height: 16.8px;">Open Application</span></span>
+                </a>
+                <!--[if mso]></center></v:roundrect></td></tr></table><![endif]-->
+            </div>
+
+            <p align="center">
+                If the button does not work try pasting this link into your browser:
+                <br/>
+                <a href="{{apAppLink}}" target="_blank">
+                    {{apAppLink}}
+                </a>
+            </p>
+            <p>
+            If you have any questions, you can respond back to {{From Email Address}}
+            </p>
+            <p>
+            Thanks!
+            </p>
+        `;
+        try{
+            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"agency_portal_application_link");
+            message = emailContentAgencyNetworkJSON.message ? emailContentAgencyNetworkJSON.message : message;
+            emailSubject = emailContentAgencyNetworkJSON.subject ? emailContentAgencyNetworkJSON.subject : emailSubject;
+        }
+        catch(err){
+            log.debug(`Error getting email content for agency_portal_application_link using hardcoded default ${err}` + __location);
+        }
 
         if(message && emailSubject){
             //replacements.
-            message = message.replace(/{{Agent First Name}}/g, toName);
+            message = message.replace(/{{Send To Name}}/g, displayToName);
             message = message.replace(/{{Business Name}}/g, applicationJSON.businessName);
-            message = message.replace(/{{Agency Network Name}}/g, agencyNetwork.name);
-            message = message.replace(/{{Application Link}}/g, link);
-            message = message.replace(/{{Agent Email}}/g, options.fromEmailAddress);
+            message = message.replace(/{{Brand}}/g, brandName);
+            message = message.replace(/{{apAppLink}}/g, link);
+            message = message.replace(/{{From Email Address}}/g, options.fromEmailAddress);
             emailSubject = emailSubject.replace(/{{Business Name}}/g, applicationJSON.businessName);
+            emailSubject = emailSubject.replace(/{{Brand}}/g, brandName);
         }
         let branding = agencyNetworkBranding ? '' : 'agency';
 
