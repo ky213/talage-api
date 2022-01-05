@@ -275,8 +275,13 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     if(options.agentEmail && options.emailAddress !== options.agentEmail){
         recipients += `,${options.agentEmail}`;
     }
-    const toName = options.toName ? capitalizeName(options.toName).trim() : null;
-
+    let toName = options.toName ? " " + capitalizeName(options.toName).trim() : "";
+    if(!toName && options.firstName){
+        toName = " " + options.firstName.trim();
+        if(options.lastName){
+            toName = toName + " " + options.lastName.trim();
+        }
+    }
     const send2FirstName = options.firstName ? options.firstName : "";
     const agencyDisplayName = agency.displayName ? agency.displayName : agency.name;
 
@@ -419,7 +424,7 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
         const brandName = agencyNetwork.email_brand ? capitalizeName(agencyNetwork.email_brand).trim() : agencyNetwork.name;
         const agencyNetworkId = agency.agencyNetworkId;
         let emailSubject = 'A Link to {{Business Name}}';
-        const displayToName = toName ? toName : "";
+        const displayToName = toName ? " " + toName : "";
         let message = `
             <p>
             Hello{{Send To Name}},
