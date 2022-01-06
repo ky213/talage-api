@@ -487,6 +487,10 @@ module.exports = class EmployersWC extends Integration {
                     }
             }
 
+            // set blanket waiver
+            requestJSON.blanketWaiver = appDoc.policies[0]?.blanketWaiver
+        
+
             //call API
             let host = null;
             if (this.insurer.useSandbox) {
