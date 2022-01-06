@@ -12,6 +12,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
 /**
  * emailIncomplete Task processor
@@ -92,8 +93,9 @@ var emailIncompleteTask = async function(){
     }
     const yesterdayEnd = moment_timezone.tz("America/New_York");
     const agencyBO = new AgencyBO();
+    const industryCodeBO = new IndustryCodeBO();
     const agencyNetworkBO = new AgencyNetworkBO();
-    let agencyNetworkList = await agencyNetworkBO.getList().catch(function(err){
+    const agencyNetworkList = await agencyNetworkBO.getList().catch(function(err){
         log.error(`Error get Agency Network list form DB. error: ${err}` + __location);
         return false;
     })
@@ -105,8 +107,8 @@ var emailIncompleteTask = async function(){
             const query = {
                 "status":"incomplete",
                 "agencyNetworkId":agencyNetworkDoc.agencyNetworkId,
-                // "searchenddate": yesterdayEnd,
-                // "searchbegindate": yesterdayBegin
+                "searchenddate": yesterdayEnd,
+                "searchbegindate": yesterdayBegin
             }
 
             // build incomplete application list
@@ -118,15 +120,16 @@ var emailIncompleteTask = async function(){
             });
 
             if(applicationList && applicationList.length > 0){
-                
-                let appList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
-                log.info(`Building Agency Network list -> ${agencyNetworkDoc.name} `); 
-            
+
+                let appList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Agency Name</th><th>Industry</th><th>Business Address</th><th>Contact info</th></tr></thead><tbody>';
+                log.info(`Building Agency Network list -> ${agencyNetworkDoc.name} with ${applicationList.length} Incomplete Applications`);
+
                 let message = null;
-                const subject = `Daily Incomplete Applications list`;
-            
-                for(let i = 0; i < applicationList.length; i++){
-                    const applicationDoc = applicationList[i];
+                const subject = `Daily Incomplete Applications list for ${agencyNetworkDoc.name}`;
+                const emailTo = agencyNetworkDoc.email ? agencyNetworkDoc.email : 'integrations@talageins.com';
+
+                for(let x = 0; x < applicationList.length; x++){
+                    const applicationDoc = applicationList[x];
                     // process each application determined from the query. make sure we have an active Agency
                     const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
                     let customerPhone = "ukn";
@@ -141,25 +144,35 @@ var emailIncompleteTask = async function(){
                     }
 
                     // find the agency name and industry
+                    let agencyName = '';
+                    let industryName = '';
+                    let businessAddress = '';
                     const agencyDoc = await agencyBO.getById(applicationDoc.agencyId).catch(function(err){
-                        log.error(`Error get Agency ID did not have a result ` + __location);
-                    })         
-                    
-                    let agencyName = agencyDoc.name;
-                    let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
-                    if(applicationDoc.solepro){
-                        wholesale = "SolePro"
+                        log.error(`Error get Agency ID did not have a result - ${err}` + __location);
+                    })
+                    if(agencyDoc && agencyDoc.name){
+                        agencyName = agencyDoc.name;
                     }
-        
-                    appList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + agencyName + '</td><td>' + customerEmail + '</td><td>' + customerContact + '</td><td>' + wholesale + '</td></tr>';
-        
+
+                    const industryDoc = await industryCodeBO.getById(applicationDoc.industryCode).catch(function(err){
+                        log.error(`Error getting Industry Codes from database - ${err}` + __location);
+                    })
+                    if(industryDoc && industryDoc.description){
+                        industryName = industryDoc.description;
+                    }
+                    if(applicationDoc.mailingAddress){
+                        businessAddress = applicationDoc.mailingAddress + '<br>' + applicationDoc.mailingCity + '<br>' + applicationDoc.mailingState + '<br>' + applicationDoc.mailingZipcode + '<br>';
+                    }
+                    const customerInfo = firstName + ' ' + lastName + '<br>' + customerPhone + '<br>' + customerEmail
+                    appList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + agencyName + '</td><td>' + industryName + '</td><td><address>' + businessAddress + '</address></td><td><address>' + customerInfo + '</address></td></tr>';
+
                 }
                 appList += '</tbody></table><br>';
-        
+
                 try{
                     message = appList;
                     // send email
-                    const emailResp = await emailSvc.send('integrations@talageins.com', subject, message);
+                    const emailResp = await emailSvc.send(emailTo, subject, message);
                     if(emailResp === false){
                         slack.send('#alerts', 'warning',`The system failed to send Incomplete Applications for the last 24 hrs.`);
                     }
@@ -172,8 +185,6 @@ var emailIncompleteTask = async function(){
 
         }
     }
-
-
 
 
     return;
