@@ -293,36 +293,35 @@ module.exports = class PieWC extends Integration {
     }
 
     createTalageInsurerPaymentPlansArray(res) {
-        console.dir(res);
         try {
             const talageInsurerPaymentPlans = [];
             if (res.installments && res.installments.monthly){
                 const installments = res.installments;
-                const paymentPlans = Object.keys(installments.monthly).map(i => installments.monthly[i]); //why monthly and no other plan could be selected?
+                const paymentPlans = Object.keys(installments).map(installment => installments[installment]); // Should be each installment
                 const stateQuotes = res.primaryStateQuotes;
                 const premiumDetails = res.premiumDetails;
                 paymentPlans.forEach((paymentPlan, index) => {
                     const feeAmount = paymentPlan.feeAmount ? paymentPlan.feeAmount : 0;
                     const talageInsurerPaymentPlan = {};
-                    talageInsurerPaymentPlan.IsDirectDebit = false; //Where is it?
+                    talageInsurerPaymentPlan.IsDirectDebit = false; // Default value
                     talageInsurerPaymentPlan.NumberPayments = paymentPlans.length;
-                    talageInsurerPaymentPlan.TotalCost = paymentPlan.totalAmount; //should include taxes?
+                    talageInsurerPaymentPlan.TotalCost = paymentPlan.totalAmount; //add payment together... with map or sum
                     talageInsurerPaymentPlan.TotalStateTaxes = stateQuotes.length > 0 ? stateQuotes[0].totalTaxesAndAssessments : 0;
-                    talageInsurerPaymentPlan.TotalBillingFees = feeAmount;
-                    talageInsurerPaymentPlan.DepositPercent = 0; //rate?
-                    talageInsurerPaymentPlan.DownPayment = 0; //rate?
-                    talageInsurerPaymentPlan.paymentPlanId = index + 1; // Where is it? could be the index of the array?
-                    talageInsurerPaymentPlan.insurerPaymentPlanId = index + 1; // Where is it? could be the index of the array?
-                    talageInsurerPaymentPlan.insurerPaymentPlanDescription = ''; // Where is it? Should by the name and the date of the installment?
-                    talageInsurerPaymentPlan.invoices = [ //invoices make sense at these step?
+                    talageInsurerPaymentPlan.TotalBillingFees = feeAmount; //sum or map
+                    talageInsurerPaymentPlan.DepositPercent = 0; // default to zero
+                    talageInsurerPaymentPlan.DownPayment = 0; // default to zero
+                    talageInsurerPaymentPlan.paymentPlanId = index + 1; //
+                    talageInsurerPaymentPlan.insurerPaymentPlanId = index + 1; // It is a string " monthly + id"
+                    talageInsurerPaymentPlan.insurerPaymentPlanDescription = ''; // Ex: monthly...
+                    talageInsurerPaymentPlan.invoices = [ //invoices make sense at these step? ask Brian to double check
                         {
-                            'Taxes': premiumDetails.totalTaxesAndAssessments,
+                            'Taxes': 0,
                             'Fees': feeAmount,
                             'IsDownPayment': false,
                             'PremiumAmount': premiumDetails.totalEstimatedPremium,
                             'TotalBillAmount': 0,
                             'BillDate': '',
-                            'DueDate': ''
+                            'DueDate': '' //date on the JSON
                         }
                     ];
                     talageInsurerPaymentPlans.push(talageInsurerPaymentPlan);
