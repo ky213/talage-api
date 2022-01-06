@@ -493,9 +493,15 @@ module.exports = class EmployersWC extends Integration {
                     }
             }
 
-            // set blanket waiver
-            requestJSON.blanketWaiver = appDoc.policies[0]?.blanketWaiver
+            // set blanket-waiver
+            if(appDoc.policies[0]?.blanketWaiver){
+                const states = new Set(appDoc.locations.map(({state}) => state))
 
+                requestJSON.stateMods = [...states].map((state) => ({
+                    state: state,
+                    modType: "WAIVER-BLANKET"
+                }))
+            }
 
             //call API
             let host = null;
