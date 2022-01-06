@@ -292,6 +292,49 @@ module.exports = class PieWC extends Integration {
 
     }
 
+    createTalageInsurerPaymentPlansArray(res) {
+        console.dir(res);
+        try {
+            const talageInsurerPaymentPlans = [];
+            if (res.installments && res.installments.monthly){
+                const installments = res.installments;
+                const paymentPlans = Object.keys(installments.monthly).map(i => installments.monthly[i]); //why monthly and no other plan could be selected?
+                const stateQuotes = res.primaryStateQuotes;
+                const premiumDetails = res.premiumDetails;
+                paymentPlans.forEach((paymentPlan, index) => {
+                    const feeAmount = paymentPlan.feeAmount ? paymentPlan.feeAmount : 0;
+                    const talageInsurerPaymentPlan = {};
+                    talageInsurerPaymentPlan.IsDirectDebit = false; //Where is it?
+                    talageInsurerPaymentPlan.NumberPayments = paymentPlans.length;
+                    talageInsurerPaymentPlan.TotalCost = paymentPlan.totalAmount; //should include taxes?
+                    talageInsurerPaymentPlan.TotalStateTaxes = stateQuotes.length > 0 ? stateQuotes[0].totalTaxesAndAssessments : 0;
+                    talageInsurerPaymentPlan.TotalBillingFees = feeAmount;
+                    talageInsurerPaymentPlan.DepositPercent = 0; //rate?
+                    talageInsurerPaymentPlan.DownPayment = 0; //rate?
+                    talageInsurerPaymentPlan.paymentPlanId = index + 1; // Where is it? could be the index of the array?
+                    talageInsurerPaymentPlan.insurerPaymentPlanId = index + 1; // Where is it? could be the index of the array?
+                    talageInsurerPaymentPlan.insurerPaymentPlanDescription = ''; // Where is it? Should by the name and the date of the installment?
+                    talageInsurerPaymentPlan.invoices = [ //invoices make sense at these step?
+                        {
+                            'Taxes': premiumDetails.totalTaxesAndAssessments,
+                            'Fees': feeAmount,
+                            'IsDownPayment': false,
+                            'PremiumAmount': premiumDetails.totalEstimatedPremium,
+                            'TotalBillAmount': 0,
+                            'BillDate': '',
+                            'DueDate': ''
+                        }
+                    ];
+                    talageInsurerPaymentPlans.push(talageInsurerPaymentPlan);
+                });
+                //this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
+            }
+
+        }
+        catch(err) {
+            log.error(`Appid: ${this.app.id} Pie WC error getting payment plans ${err}` + __location);
+        }
+    }
 
     /**
 	 * Requests a quote from Pie and returns. This request is not intended to be called directly.
@@ -681,6 +724,23 @@ module.exports = class PieWC extends Integration {
 
             }
         }
+        // Temp workaround because of an issue I'm having with some required questions on Pie
+        questionsArray.push({
+            "id": "fa056329-55ff-49bf-97b5-f50a59fa94a6",
+            "answer": "No"
+        });
+        questionsArray.push({
+            "id": "d3985c52-9012-4278-9649-23b33da936b5",
+            "answer": "No"
+        });
+        questionsArray.push({
+            "id": "3ce48d82-963d-4477-a850-2f34d7df0583",
+            "answer": "No"
+        });
+        questionsArray.push({
+            "id": "6936feea-92eb-426c-ad36-3e195652801d",
+            "answer": "No"
+        });
         // const questionsArray = [];
         // for(const question_id in this.questions){
         //     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
@@ -798,6 +858,7 @@ module.exports = class PieWC extends Integration {
                         if(res.premiumDetails.totalTaxesAndAssessments){
                             this.amount += parseInt(res.premiumDetails.totalTaxesAndAssessments, 10);
                         }
+                        this.createTalageInsurerPaymentPlansArray(res, host, token);
                     }
                     catch (error) {
                         log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
@@ -871,7 +932,6 @@ module.exports = class PieWC extends Integration {
                     catch(err){
                         log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
                     }
-
 
                     return this.return_result('quoted');
                 }
