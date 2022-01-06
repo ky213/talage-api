@@ -10,6 +10,8 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * emailIncomplete Task processor
@@ -89,64 +91,90 @@ var emailIncompleteTask = async function(){
         log.error('Invalid time trigger for Incomplete Applications email list' + __location);
     }
     const yesterdayEnd = moment_timezone.tz("America/New_York");
-
-    let applicationList = null;
-    let appList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
-    const query = {
-        "status":"incomplete",
-        // "searchenddate": yesterdayEnd,
-        // "searchbegindate": yesterdayBegin
-    };
-    // const query = {"status":"incomplete"};
-    const applicationBO = new ApplicationBO();
-
-    applicationList = await applicationBO.getList(query).catch(function(err){
-        log.error(`Error get application list from DB. error:  ${err}` + __location);
+    const agencyBO = new AgencyBO();
+    const agencyNetworkBO = new AgencyNetworkBO();
+    let agencyNetworkList = await agencyNetworkBO.getList().catch(function(err){
+        log.error(`Error get Agency Network list form DB. error: ${err}` + __location);
         return false;
-    });
-    log.info(`application list obj-> ${JSON.stringify(applicationList[0])} `); 
-    let message = null;
-    const subject = `Daily Incomplete Applications list`;
+    })
 
-    if(applicationList && applicationList.length > 0){
-        for(let i = 0; i < applicationList.length; i++){
-            const applicationDoc = applicationList[i];
-            // process each application determined from the query. make sure we have an active Agency
-            const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-            let customerPhone = "ukn";
-            let firstName = 'unkn';
-            let lastName = 'unkn';
-            let customerEmail = 'unkn';
-            if(customerContact){
-                customerPhone = formatPhone(customerContact.phone);
-                firstName = customerContact.firstName;
-                lastName = customerContact.lastName;
-                customerEmail = customerContact.email
+    if(agencyNetworkList && agencyNetworkList.length > 0){
+        for(let i = 0; i < agencyNetworkList.length; i++){
+            const agencyNetworkDoc = agencyNetworkList[i];
+            // build the query for the applicationList
+            const query = {
+                "status":"incomplete",
+                "agencyNetworkId":agencyNetworkDoc.agencyNetworkId,
+                // "searchenddate": yesterdayEnd,
+                // "searchbegindate": yesterdayBegin
             }
 
-            let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
-            if(applicationDoc.solepro){
-                wholesale = "SolePro"
+            // build incomplete application list
+            const applicationBO = new ApplicationBO();
+            let applicationList = null;
+            applicationList = await applicationBO.getList(query).catch(function(err){
+                log.error(`Error get application list from DB. error:  ${err}` + __location);
+                return false;
+            });
+
+            if(applicationList && applicationList.length > 0){
+                
+                let appList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
+                log.info(`Building Agency Network list -> ${agencyNetworkDoc.name} `); 
+            
+                let message = null;
+                const subject = `Daily Incomplete Applications list`;
+            
+                for(let i = 0; i < applicationList.length; i++){
+                    const applicationDoc = applicationList[i];
+                    // process each application determined from the query. make sure we have an active Agency
+                    const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                    let customerPhone = "ukn";
+                    let firstName = 'unkn';
+                    let lastName = 'unkn';
+                    let customerEmail = 'unkn';
+                    if(customerContact){
+                        customerPhone = formatPhone(customerContact.phone);
+                        firstName = customerContact.firstName;
+                        lastName = customerContact.lastName;
+                        customerEmail = customerContact.email
+                    }
+
+                    // find the agency name and industry
+                    const agencyDoc = await agencyBO.getById(applicationDoc.agencyId).catch(function(err){
+                        log.error(`Error get Agency ID did not have a result ` + __location);
+                    })         
+                    
+                    let agencyName = agencyDoc.name;
+                    let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
+                    if(applicationDoc.solepro){
+                        wholesale = "SolePro"
+                    }
+        
+                    appList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + agencyName + '</td><td>' + customerEmail + '</td><td>' + customerContact + '</td><td>' + wholesale + '</td></tr>';
+        
+                }
+                appList += '</tbody></table><br>';
+        
+                try{
+                    message = appList;
+                    // send email
+                    const emailResp = await emailSvc.send('integrations@talageins.com', subject, message);
+                    if(emailResp === false){
+                        slack.send('#alerts', 'warning',`The system failed to send Incomplete Applications for the last 24 hrs.`);
+                    }
+                }
+                catch(e){
+                    log.error(`Incomplete Applications email content creation error: ${e}` + __location);
+                    return false;
+                }
             }
 
-            appList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + firstName + ' ' + lastName + '</td><td>' + customerEmail + '</td><td>' + customerPhone + '</td><td>' + wholesale + '</td></tr>';
-
-        }
-        appList += '</tbody></table><br>';
-
-        try{
-            message = appList;
-            // send email
-            const emailResp = await emailSvc.send('integrations@talageins.com', subject, message);
-            if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to send Incomplete Applications for the last 24 hrs.`);
-            }
-        }
-        catch(e){
-            log.error(`Incomplete Applications email content creation error: ${e}` + __location);
-            return false;
         }
     }
+
+
+
 
     return;
 }
