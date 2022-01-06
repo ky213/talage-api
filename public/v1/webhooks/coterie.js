@@ -21,7 +21,7 @@ const onPolicyChange = async(req, res, next) => {
     // Ignore if no Talage application ID provided. Then likely policy is not
     // bound.
     if (!req.body.Metadata) {
-        log.error('No Metadata provided by Coterie. Ignoring...');
+        log.warn('No Metadata provided by Coterie. Ignoring...');
         res.send(200, {success: true});
         return next();
     }
