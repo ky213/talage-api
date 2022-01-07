@@ -295,38 +295,42 @@ module.exports = class PieWC extends Integration {
     createTalageInsurerPaymentPlansArray(res) {
         try {
             const talageInsurerPaymentPlans = [];
-            if (res.installments && res.installments.monthly){
+            if (res.installments){
                 const installments = res.installments;
-                const paymentPlans = Object.keys(installments).map(installment => installments[installment]); // Should be each installment
-                const stateQuotes = res.primaryStateQuotes;
-                const premiumDetails = res.premiumDetails;
-                paymentPlans.forEach((paymentPlan, index) => {
-                    const feeAmount = paymentPlan.feeAmount ? paymentPlan.feeAmount : 0;
+                const installmentsKeys = Object.keys(installments);
+                installmentsKeys.forEach((paymentPlanId, index) => {
+                    const installmentPlanKeys = Object.keys(installments[paymentPlanId]);
+                    const paymentPlans = installmentPlanKeys.map(installmentId => installments[paymentPlanId][installmentId]);
+                    const totalCost = paymentPlans.reduce((prev, current) => prev + current.totalAmount, 0);
+                    const totalFee = paymentPlans.reduce((prev, current) => {
+                        const fee = current.feeAmount ? current.feeAmount : 0;
+                        return prev + fee;
+                    }, 0);
+                    const paymentDescription = `Standard Payment in ${paymentPlanId}`;
                     const talageInsurerPaymentPlan = {};
-                    talageInsurerPaymentPlan.IsDirectDebit = false; // Default value
+
+                    talageInsurerPaymentPlan.IsDirectDebit = false; // Default value if there isn't a value
                     talageInsurerPaymentPlan.NumberPayments = paymentPlans.length;
-                    talageInsurerPaymentPlan.TotalCost = paymentPlan.totalAmount; //add payment together... with map or sum
-                    talageInsurerPaymentPlan.TotalStateTaxes = stateQuotes.length > 0 ? stateQuotes[0].totalTaxesAndAssessments : 0;
-                    talageInsurerPaymentPlan.TotalBillingFees = feeAmount; //sum or map
-                    talageInsurerPaymentPlan.DepositPercent = 0; // default to zero
-                    talageInsurerPaymentPlan.DownPayment = 0; // default to zero
-                    talageInsurerPaymentPlan.paymentPlanId = index + 1; //
-                    talageInsurerPaymentPlan.insurerPaymentPlanId = index + 1; // It is a string " monthly + id"
-                    talageInsurerPaymentPlan.insurerPaymentPlanDescription = ''; // Ex: monthly...
-                    talageInsurerPaymentPlan.invoices = [ //invoices make sense at these step? ask Brian to double check
-                        {
-                            'Taxes': 0,
-                            'Fees': feeAmount,
-                            'IsDownPayment': false,
-                            'PremiumAmount': premiumDetails.totalEstimatedPremium,
-                            'TotalBillAmount': 0,
-                            'BillDate': '',
-                            'DueDate': '' //date on the JSON
-                        }
-                    ];
+                    talageInsurerPaymentPlan.TotalCost = totalCost;
+                    talageInsurerPaymentPlan.TotalStateTaxes = 0 // Default value if there isn't a value
+                    talageInsurerPaymentPlan.TotalBillingFees = totalFee
+                    talageInsurerPaymentPlan.DepositPercent = 0; // Default value if there isn't a value
+                    talageInsurerPaymentPlan.DownPayment = 0; // Default value if there isn't a value
+                    talageInsurerPaymentPlan.paymentPlanId = index + 1; // check the index with Brian
+                    talageInsurerPaymentPlan.insurerPaymentPlanId = `${paymentPlanId}`; // It is a string " monthly + id"
+                    talageInsurerPaymentPlan.insurerPaymentPlanDescription = paymentDescription
+                    talageInsurerPaymentPlan.invoices = paymentPlans.map((plan, planIndex) => ({ //ask Brian to double check
+                        'Taxes': 0,
+                        'Fees': plan.feeAmount ? plan.feeAmount : 0,
+                        'IsDownPayment': false,
+                        'PremiumAmount': plan.premiumAmount,
+                        'TotalBillAmount': plan.totalAmount,
+                        'BillDate': '',
+                        'DueDate': installmentPlanKeys[planIndex] //ask Brian to double check
+                    }));
                     talageInsurerPaymentPlans.push(talageInsurerPaymentPlan);
                 });
-                //this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
+                this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
             }
 
         }
@@ -723,23 +727,7 @@ module.exports = class PieWC extends Integration {
 
             }
         }
-        // Temp workaround because of an issue I'm having with some required questions on Pie
-        questionsArray.push({
-            "id": "fa056329-55ff-49bf-97b5-f50a59fa94a6",
-            "answer": "No"
-        });
-        questionsArray.push({
-            "id": "d3985c52-9012-4278-9649-23b33da936b5",
-            "answer": "No"
-        });
-        questionsArray.push({
-            "id": "3ce48d82-963d-4477-a850-2f34d7df0583",
-            "answer": "No"
-        });
-        questionsArray.push({
-            "id": "6936feea-92eb-426c-ad36-3e195652801d",
-            "answer": "No"
-        });
+
         // const questionsArray = [];
         // for(const question_id in this.questions){
         //     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
