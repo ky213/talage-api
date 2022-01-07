@@ -1,9 +1,4 @@
-/* eslint-disable object-curly-newline */
-/* eslint-disable object-property-newline */
-/* eslint-disable no-lonely-if */
-/* eslint-disable require-jsdoc */
-/* eslint-disable no-unused-vars */
-/* eslint-disable prefer-const */
+/* eslint-disable no-console */
 /* eslint-disable no-process-exit */
 /* eslint sort-keys: "off"*/
 
@@ -99,7 +94,8 @@ async function main() {
         const checkRows2 = await global.insurerMongodb.collection(curCollection).find({});
         if (await checkRows1.count() !== await checkRows2.count()) {
             throw new Error(`Cannot continue. Insurer database rows in ${curCollection} does not equal old database rows.`);
-        } else {
+        }
+        else {
             // If everything looks OK, then keep the old dataset for now. It's
             // safer that way. But if you want to uncomment this on your local,
             // then go for it!
@@ -111,5 +107,7 @@ async function main() {
     process.exit(0);
 }
 
-main()
-    .catch(err => { console.log(err); process.exit(0); });
+main().catch(err => {
+    console.log(err);
+    process.exit(0);
+});
