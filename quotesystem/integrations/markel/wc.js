@@ -1279,7 +1279,7 @@ module.exports = class MarkelWC extends Integration {
         applicationDocData.locations.forEach(location => {
             const locationObj = {
                 "Location Address1":location.address,
-                "Location Zip": location.zipcode,
+                "Location Zip": location.zipcode.slice(0,5),
                 "Location City": location.city,
                 "Location State": location.state,
                 "Payroll Section": []
@@ -1380,7 +1380,7 @@ module.exports = class MarkelWC extends Integration {
                     dba: this.app.business.dba,
                     website: this.app.business.website,
                     fein: applicationDocData.ein,
-                    postalCode: this.app.business.mailing_zipcode,
+                    postalCode: this.app.business.mailing_zipcode.slice(0,5),
                     state: this.app.business.mailing_territory
                 },
                 application: {
