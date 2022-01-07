@@ -180,9 +180,9 @@ async function startQueueProcessing() {
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
         const taskJson = {
-            "taskname": "amtrustimport",
-            beginDate: "2021-12-08",
-            endDate: "2021-12-10"
+            "taskname": "agencylistincompleteapp",
+            beginDate: "2021-10-08",
+            endDate: "2021-10-30"
             //"deadBeat" : true
             //"minDaysInPast": 0,
             //"maxDaysInPast": 5
