@@ -25,7 +25,7 @@ const CodeGroupSchema = new Schema({
 
 CodeGroupSchema.plugin(timestamps);
 CodeGroupSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
+    historyConnection: global.insurerMongodb
 });
 
 
