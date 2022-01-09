@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -29,7 +29,7 @@ IndustryCodeCategorySchema.virtual('id').
 
 IndustryCodeCategorySchema.plugin(timestamps);
 IndustryCodeCategorySchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
+    historyConnection: global.insurerMongodb
 });
 
 

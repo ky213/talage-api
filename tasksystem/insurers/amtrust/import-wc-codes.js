@@ -111,7 +111,7 @@ const logPrefix = "AmTrust Importing WC codes ";
 
 async function CodeImport() {
     const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
-    const ActivityCode = global.mongodb.model('ActivityCode');
+    const ActivityCode = global.insurerMongodb.model('ActivityCode');
     const Insurer = global.insurerMongodb.model('Insurer');
 
     const insurer = await Insurer.findOne({slug: 'amtrust'});

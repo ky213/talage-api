@@ -7,7 +7,7 @@ const moment = require('moment');
 
 //, codeGroupList = []
 async function GetIndustryCodeCategories(agencyId, codeGroupList){
-    const IndustryCodeCategoryModel = global.mongodb.model('IndustryCodeCategory');
+    const IndustryCodeCategoryModel = global.insurerMongodb.model('IndustryCodeCategory');
     const queryProjection = {
         "__v": 0,
         "_id": 0,
@@ -61,7 +61,7 @@ async function GetIndustryCodes(){
     const catList = await GetIndustryCodeCategories();
     //log.debug(`catList ${JSON.stringify(catList)}` + __location)
     const start = moment();
-    const IndustryCodeModel = global.mongodb.model('IndustryCode');
+    const IndustryCodeModel = global.insurerMongodb.model('IndustryCode');
     let IndustryCodeList = [];
     try{
         const icQuery = {
@@ -128,7 +128,7 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
         return [];
     }
     const start = moment();
-    const IndustryCodeModel = global.mongodb.model('IndustryCode');
+    const IndustryCodeModel = global.insurerMongodb.model('IndustryCode');
     let IndustryCodeList = [];
     let runQuery = true;
     const icQuery = {

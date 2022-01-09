@@ -35,4 +35,5 @@ OpenIdAuthConfigSchema.pre('validate', (next) => {
     next();
 });
 
+mongoose.set('useCreateIndex', true);
 mongoose.model('OpenIdAuthConfig', OpenIdAuthConfigSchema);

@@ -8,7 +8,7 @@ const moment = require('moment');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-var IndustryCode = global.mongodb.model('IndustryCode');
+var IndustryCode = global.insurerMongodb.model('IndustryCode');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
 
