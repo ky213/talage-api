@@ -136,6 +136,7 @@ async function main(){
         //log.info('Assetws Mongoose connected to mongodb');
         if(hasMongoMadeInitialConnected === false){
             hasMongoMadeInitialConnected = true;
+            log.info('mongo-connnected event' + __location)
             startQueueProcessing();
         }
 
@@ -152,7 +153,7 @@ async function main(){
 
     // MONGO
     const mongoose = require('./mongoose');
-    await mongoose.init();
+    mongoose.init();
 }
 
 /**
