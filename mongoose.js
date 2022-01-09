@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable object-curly-newline */
 // Invoke 'strict' JavaScript mode
 /* jshint -W097 */ // don't warn about "use strict"
@@ -57,6 +58,17 @@ allConnections.init = async function init() {
     require('./shared/models/mongoose/AgencyLandingPage.model');
     require('./shared/models/mongoose/ApplicationNotesCollection.model');
 
+    require('./shared/models/mongoose/OpenIdAuthConfig.model');
+
+    require('./shared/models/mongoose/PolicyType.model');
+    require('./shared/models/mongoose/WCStateIncomeLimits.model');
+    require('./shared/models/mongoose/ZipCode.model');
+    require('./shared/models/mongoose/AgencyPortalUser.model');
+    require('./shared/models/mongoose/Territory.model');
+
+    require('./shared/models/mongoose/ColorScheme.model');
+
+    //Insurer, Code and Questions DB
     require('./shared/models/mongoose/Insurer.model');
     require('./shared/models/mongoose/InsurerPolicyType.model');
     require('./shared/models/mongoose/InsurerIndustryCode.model');
@@ -66,18 +78,45 @@ allConnections.init = async function init() {
     require('./shared/models/mongoose/ActivityCode.model');
     require('./shared/models/mongoose/IndustryCode.model');
     require('./shared/models/mongoose/IndustryCodeCategory.model');
-    require('./shared/models/mongoose/CodeGroup.model');
-    require('./shared/models/mongoose/QuestionGroup.model');
-    require('./shared/models/mongoose/OpenIdAuthConfig.model');
-
-    require('./shared/models/mongoose/PolicyType.model');
-    require('./shared/models/mongoose/WCStateIncomeLimits.model');
-    require('./shared/models/mongoose/ZipCode.model');
-    require('./shared/models/mongoose/AgencyPortalUser.model');
-    require('./shared/models/mongoose/Territory.model');
 
     require('./shared/models/mongoose/Question.model');
-    require('./shared/models/mongoose/ColorScheme.model');
+    require('./shared/models/mongoose/QuestionGroup.model');
+
+    require('./shared/models/mongoose/CodeGroup.model');
+
+
+
+    //Touch all the model so the models are loaded. - index checks have run...
+    //Application DB
+    const Mapping = require('mongoose').model('Mapping');
+
+    //InsurerDB
+    const ActivityCode = require('mongoose').model('ActivityCode');
+    const IndustryCode = require('mongoose').model('IndustryCode');
+    const IndustryCodeCategory = require('mongoose').model('IndustryCodeCategory');
+    const Insurer = require('mongoose').model('Insurer');
+    const InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
+    const InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
+    const InsurerPolicyType = require('mongoose').model('InsurerPolicyType');
+    const InsurerQuestion = require('mongoose').model('InsurerQuestion');
+    const Question = require('mongoose').model('Question');
+    const CodeGroup = require('mongoose').model('CodeGroup');
+    const QuestionGroup = require('mongoose').model('QuestionGroup');
+
+
+    // global.mongoose = {
+    //     Insurer: require('mongoose').model('Insurer'),
+    //     InsurerPolicyType: require('mongoose').model('InsurerPolicyType'),
+    //     InsurerIndustryCode: require('mongoose').model('InsurerIndustryCode'),
+    //     InsurerActivityCode: require('mongoose').model('InsurerActivityCode'),
+    //     InsurerQuestion: require('mongoose').model('InsurerQuestion'),
+    //     Mapping: require('mongoose').model('Mapping'),
+    //     IndustryCode: require('mongoose').model('IndustryCode'),
+    //     IndustryCodeCategory: require('mongoose').model('IndustryCodeCategory'),
+    //     Question: require('mongoose').model('Question'),
+    //     ActivityCode: require('mongoose').model('ActivityCode')
+    // }
+
 
     // Only emit the main connection
     talageEvent.emit('mongo-connected', allConnections.conn);

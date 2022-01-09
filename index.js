@@ -145,12 +145,13 @@ async function main(){
         //log.info('Assetws Mongoose connected to mongodb');
         if(hasMongoMadeInitialConnected === false){
             hasMongoMadeInitialConnected = true;
+            log.info('mongo-connnected event' + __location)
             setupListeners();
         }
     });
 
     talageEvent.on('mongo-disconnected', function() {
-        log.warn('Mongoose disconnected');
+        log.error('Mongoose disconnected' + __location);
 
     });
 
