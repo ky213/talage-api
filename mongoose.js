@@ -16,7 +16,7 @@ const allConnections = {
     insurerConn: null
 };
 
-allConnections.init = async function init() {
+allConnections.init = function init() {
     mongoose.Promise = Promise;
 
     let connectionUrlQuery = '';
@@ -29,7 +29,11 @@ allConnections.init = async function init() {
         connectionUrlQuery;
 
     let mongoInsurerConnStr = mongoConnStr;
+    let mongoInsurerUrl = global.settings.MONGODB_CONNECTIONURL
+    let mongoInsurerDB = global.settings.MONGODB_DATABASENAME
     if(global.settings.MONGODB_INSURER_CONNECTIONURL && global.settings.MONGODB_INSURER_DATABASENAME){
+        mongoInsurerUrl = global.settings.MONGODB_INSURER_CONNECTIONURL
+        mongoInsurerDB = global.settings.MONGODB_INSURER_DATABASENAME
         mongoInsurerConnStr = global.settings.MONGODB_INSURER_CONNECTIONURL +
             global.settings.MONGODB_INSURER_DATABASENAME +
             connectionUrlQuery;
@@ -46,9 +50,78 @@ allConnections.init = async function init() {
     global.mongodb = allConnections.conn;
     global.insurerMongodb = allConnections.insurerConn;
 
+    let appDBConnected = false;
+    let insurerDBConnected = false;
     // Wait for connections to complete.
-    await waitForConnection(allConnections.conn, mongoConnStr, "Application Database");
-    await waitForConnection(allConnections.insurerConn, mongoInsurerConnStr, "Insurer Database");
+    // await waitForConnection(allConnections.conn, mongoConnStr, "Application Database");
+    // await waitForConnection(allConnections.insurerConn, mongoInsurerConnStr, "Insurer Database");
+    //åvar mongodb = mongoose.connect(mongoConnStr,connectionOption);
+    var mongodb2 = allConnections.conn;
+
+    mongodb2.on('connected', function() {
+        var connectionParts = global.settings.MONGODB_CONNECTIONURL.split("@");
+        var dataserver = "";
+        if(connectionParts.length > 1){
+            dataserver = connectionParts[1];
+        }
+        else {
+            dataserver = connectionParts[0];
+        }
+        log.info('Mongoose connected to mongodb at ' + dataserver + ' DB: ' + global.settings.MONGODB_DATABASENAME);
+        appDBConnected = true;
+        if(insurerDBConnected === true){
+            talageEvent.emit('mongo-connected', allConnections.conn);
+        }
+        //
+    });
+
+    mongodb2.on('disconnected', function() {
+        log.warn('Mongoose disconnected');
+        talageEvent.emit('mongo-disconnected');
+    });
+
+    mongodb2.on('error', function(err) {
+        log.error('Mongoose database error ' + err + __location);
+        log.error(" KILLING process do to mongoose client failure at " + new Date().toISOString());
+        talageEvent.emit('mongo-error', err);
+
+        // eslint-disable-next-line no-process-exit
+        process.exit(1);
+    });
+
+
+    var mongodbInsurer2 = allConnections.conn;
+
+    mongodbInsurer2.on('connected', function() {
+        var connectionParts = mongoInsurerUrl.split("@");
+        var dataserver = "";
+        if(connectionParts.length > 1){
+            dataserver = connectionParts[1];
+        }
+        else {
+            dataserver = connectionParts[0];
+        }
+        log.info('Mongoose connected to mongodb at ' + dataserver + ' DB: ' + mongoInsurerDB);
+        insurerDBConnected = true;
+        if(appDBConnected === true){
+            talageEvent.emit('mongo-connected', allConnections.conn);
+        }
+    });
+
+    mongodbInsurer2.on('disconnected', function() {
+        log.warn('Mongoose disconnected');
+        talageEvent.emit('mongo-disconnected');
+    });
+
+    mongodbInsurer2.on('error', function(err) {
+        log.error('Mongoose database error ' + err + __location);
+        log.error(" KILLING process do to mongoose client failure at " + new Date().toISOString());
+        talageEvent.emit('mongo-error', err);
+
+        // eslint-disable-next-line no-process-exit
+        process.exit(1);
+    });
+
 
     require('./shared/models/mongoose/message.model');
     require('./shared/models/mongoose/Application.model');
@@ -91,20 +164,20 @@ allConnections.init = async function init() {
 
     //Touch all the model so the models are loaded. - index checks have run...
     //Application DB
-    const Mapping = require('mongoose').model('Mapping');
+    //const Mapping = require('mongoose').model('Mapping');
 
     //InsurerDB
-    const ActivityCode = require('mongoose').model('ActivityCode');
-    const IndustryCode = require('mongoose').model('IndustryCode');
-    const IndustryCodeCategory = require('mongoose').model('IndustryCodeCategory');
-    const Insurer = require('mongoose').model('Insurer');
-    const InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
-    const InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
-    const InsurerPolicyType = require('mongoose').model('InsurerPolicyType');
-    const InsurerQuestion = require('mongoose').model('InsurerQuestion');
-    const Question = require('mongoose').model('Question');
-    const CodeGroup = require('mongoose').model('CodeGroup');
-    const QuestionGroup = require('mongoose').model('QuestionGroup');
+    // const ActivityCode = require('mongoose').model('ActivityCode');
+    // const IndustryCode = require('mongoose').model('IndustryCode');
+    // const IndustryCodeCategory = require('mongoose').model('IndustryCodeCategory');
+    // const Insurer = require('mongoose').model('Insurer');
+    // const InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
+    // const InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
+    // const InsurerPolicyType = require('mongoose').model('InsurerPolicyType');
+    // const InsurerQuestion = require('mongoose').model('InsurerQuestion');
+    // const Question = require('mongoose').model('Question');
+    // const CodeGroup = require('mongoose').model('CodeGroup');
+    // const QuestionGroup = require('mongoose').model('QuestionGroup');
 
 
     // global.mongoose = {
@@ -122,9 +195,9 @@ allConnections.init = async function init() {
 
 
     // Only emit the main connection
-    talageEvent.emit('mongo-connected', allConnections.conn);
+    //talageEvent.emit('mongo-connected', allConnections.conn);
 
-    return;
+    // return;
 };
 
 /**

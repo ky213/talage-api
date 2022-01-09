@@ -161,7 +161,7 @@ async function main(){
 
     // MONGO
     const mongoose = require('./mongoose');
-    await mongoose.init();
+    mongoose.init();
 }
 
 /**
