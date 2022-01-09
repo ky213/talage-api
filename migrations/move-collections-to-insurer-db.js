@@ -92,6 +92,18 @@ async function main() {
         if (await rowsInNewCollection.count() > 0) {
             throw new Error(`Row count in insurerDatabase.${curCollection} contains rows. So not sure if it's save to do import`);
         }
+        if(curCollection.indexOf("_history") === -1){
+            log.info(`setting up indexes for ${curCollection}`)
+            const indexesSource = await global.mongodb.collection(curCollection).getIndexes({full: false});
+            const indexesDest = await global.insurerMongodb.collection(curCollection).getIndexes({full: false});
+            log.debug(`indexes ${JSON.stringify(indexesSource)}`)
+            // eslint-disable-next-line guard-for-in
+            for (const indexKey in indexesSource){
+                if(!indexesDest[indexKey]){
+                    await global.insurerMongodb.collection(curCollection).createIndex(indexesSource[indexKey])
+                }
+            }
+        }
         log.info(`Moving ${curCollection} to DEST`)
         await rows.forEach(async(row) => {
             promises.push(global.insurerMongodb.collection(curCollection).insertOne(row).
