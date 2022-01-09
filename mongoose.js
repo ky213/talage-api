@@ -42,8 +42,8 @@ allConnections.init = async function init() {
     global.insurerMongodb = allConnections.insurerConn;
 
     // Wait for connections to complete.
-    await waitForConnection(allConnections.conn, mongoConnStr);
-    await waitForConnection(allConnections.insurerConn, mongoInsurerConnStr);
+    await waitForConnection(allConnections.conn, mongoConnStr, "Application Database");
+    await waitForConnection(allConnections.insurerConn, mongoInsurerConnStr, "Insurer Database");
 
     require('./shared/models/mongoose/message.model');
     require('./shared/models/mongoose/Application.model');
@@ -88,19 +88,20 @@ allConnections.init = async function init() {
  * that may arise. If a DB connection occurs, we will run process.exit(1).
  * @param {*} conn Newly created Mongo connection
  * @param {string} mongoConnStr MongoDB connection string
+ * @param {string} connDesc Description of connection - DB purpose
  * @returns {void}
  */
-async function waitForConnection(conn, mongoConnStr) {
+async function waitForConnection(conn, mongoConnStr, connDesc) {
     //do not log password
     const mongoConnStrParts = mongoConnStr.split("@")
     // If using localhost, then there might not be a password. If so, print the
     // whole string. If there is a password, then remove the password part.
     const logConnectionString = mongoConnStrParts.length > 1 ? mongoConnStrParts[1] : mongoConnStrParts[0];
-    log.debug(`mongoConnStr: ${logConnectionString}`);
+    log.debug(`${connDesc} mongoConnStr: ${logConnectionString}`);
 
     await new Promise((resolve) => {
         conn.on('connected', function() {
-            log.info(`Mongoose connected to mongodb at ${logConnectionString}`);
+            log.info(`${connDesc} Mongoose connected to mongodb at ${logConnectionString}`);
             resolve();
         });
 
