@@ -4,7 +4,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
+var InsurerActivityCode = global.insurerMongodb.model('InsurerActivityCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 //const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');

@@ -3,7 +3,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
+var InsurerIndustryCode = global.insurerMongodb.model('InsurerIndustryCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const moment = require('moment');

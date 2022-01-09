@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -27,7 +27,9 @@ const TerritorySchema = new Schema({
 
 
 TerritorySchema.plugin(timestamps);
-TerritorySchema.plugin(mongooseHistory);
+TerritorySchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 TerritorySchema.pre('validate', function(next) {

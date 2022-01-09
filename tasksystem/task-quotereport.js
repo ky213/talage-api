@@ -18,7 +18,7 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
-const QuoteMongooseModel = require('mongoose').model('Quote');
+const QuoteMongooseModel = global.mongodb.model('Quote');
 //const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 

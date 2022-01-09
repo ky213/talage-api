@@ -139,26 +139,29 @@ async function main(){
     log.info('Startup Redis Svc')
 
     log.info('Startup Global DB')
-    // MONGO
-    var mongoose = require('./mongoose');
-    global.monogdb = mongoose();
+
     //Mongo connect event here to setup listeners
     talageEvent.on('mongo-connected', function() {
         //log.info('Assetws Mongoose connected to mongodb');
         if(hasMongoMadeInitialConnected === false){
             hasMongoMadeInitialConnected = true;
+            log.info('mongo-connnected event' + __location)
             setupListeners();
         }
     });
 
     talageEvent.on('mongo-disconnected', function() {
-        log.warn('Mongoose disconnected');
+        log.error('Mongoose disconnected' + __location);
 
     });
 
     talageEvent.on('mongo-error', function(err) {
         log.error('Mongoose database error ' + err);
     });
+
+    // MONGO
+    const mongoose = require('./mongoose');
+    await mongoose.init();
 }
 
 /**

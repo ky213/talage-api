@@ -131,10 +131,6 @@ async function main(){
     global.redisSvc = redisSvc;
     log.info('Startup Redis Svc')
 
-
-    // MONGO
-    var mongoose = require('./mongoose');
-    global.monogdb = mongoose();
     //Mongo connect event here to start queue processing
     talageEvent.on('mongo-connected', function() {
         //log.info('Assetws Mongoose connected to mongodb');
@@ -154,6 +150,9 @@ async function main(){
         log.error('Mongoose database error ' + err);
     });
 
+    // MONGO
+    const mongoose = require('./mongoose');
+    await mongoose.init();
 }
 
 /**

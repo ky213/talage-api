@@ -10,7 +10,7 @@
 /*jshint esversion: 6 */
 'use strict';
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -360,7 +360,9 @@ ApplicationSchema.virtual('industryCodeId').
     });
 
 ApplicationSchema.plugin(timestamps);
-ApplicationSchema.plugin(mongooseHistory);
+ApplicationSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 ApplicationSchema.pre('validate', function(next) {
