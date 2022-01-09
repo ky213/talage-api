@@ -35,6 +35,7 @@ function logError(message) {
 const collectionsToMigrate = [
 	'activitycodes',
 	'activitycodes_history',
+	'codegroups',
 	'industrycodecategories',
 	'industrycodecategories_history'.
 	'industrycodes',
@@ -50,7 +51,8 @@ const collectionsToMigrate = [
     'insurers',
     'insurers_history',
     'questions',
-    'questions_history'
+    'questions_history',
+    'questiongroups'
 ];
 
 /**
