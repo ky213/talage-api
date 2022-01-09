@@ -51,8 +51,7 @@ const collectionsToMigrate = [
     'insurers',
     'insurers_history',
     'questions',
-    'questions_history',
-    'questiongroups'
+    'questions_history'
 ];
 
 /**
@@ -75,8 +74,10 @@ async function main() {
     }
 
     await mongoose.init();
+    log.info(`starting migration`)
 
     for (const curCollection of collectionsToMigrate) {
+        log.info(`Getting ${curCollection}`)
         const rows = await global.mongodb.collection(curCollection).find({});
         const promises = [];
         const bar1 = new cliProgress.SingleBar({format: `{bar} {percentage}% | {value}/{total} | ${curCollection} Importer`}, cliProgress.Presets.legacy);
@@ -86,11 +87,12 @@ async function main() {
         }
 
         // Check that count is zero in the receiving collection.
+        log.info(`Checking ${curCollection} at DEST`)
         const rowsInNewCollection = await global.insurerMongodb.collection(curCollection).find({});
         if (await rowsInNewCollection.count() > 0) {
             throw new Error(`Row count in insurerDatabase.${curCollection} contains rows. So not sure if it's save to do import`);
         }
-
+        log.info(`Moving ${curCollection} to DEST`)
         await rows.forEach(async(row) => {
             promises.push(global.insurerMongodb.collection(curCollection).insertOne(row).
                 then(() => bar1.increment()));

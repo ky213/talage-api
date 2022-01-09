@@ -123,6 +123,8 @@ allConnections.init = async function init() {
 
     // Only emit the main connection
     talageEvent.emit('mongo-connected', allConnections.conn);
+
+    return;
 };
 
 /**
