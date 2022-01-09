@@ -33,6 +33,12 @@ function logError(message) {
 }
 
 const collectionsToMigrate = [
+	'activitycodes',
+	'activitycodes_history',
+	'industrycodecategories',
+	'industrycodecategories_history'.
+	'industrycodes',
+	'industrycodes_history',
     'insureractivitycodes',
     'insureractivitycodes_history',
     'insurerindustrycodes',

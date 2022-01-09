@@ -15,7 +15,6 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
-const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -1735,6 +1734,7 @@ module.exports = class ApplicationModel {
                                 }
                             }
                             //industry desc
+                            const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
                             const industryCodeBO = new IndustryCodeBO();
                             // Load the request data into it
                             if(application.industryCode > 0){
