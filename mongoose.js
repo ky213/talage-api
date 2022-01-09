@@ -27,9 +27,13 @@ allConnections.init = async function init() {
     const mongoConnStr = global.settings.MONGODB_CONNECTIONURL +
         global.settings.MONGODB_DATABASENAME +
         connectionUrlQuery;
-    const mongoInsurerConnStr = global.settings.MONGODB_INSURER_CONNECTIONURL +
-        global.settings.MONGODB_INSURER_DATABASENAME +
-        connectionUrlQuery;
+
+    let mongoInsurerConnStr = mongoConnStr;
+    if(global.settings.MONGODB_INSURER_CONNECTIONURL && global.settings.MONGODB_INSURER_DATABASENAME){
+        mongoInsurerConnStr = global.settings.MONGODB_INSURER_CONNECTIONURL +
+            global.settings.MONGODB_INSURER_DATABASENAME +
+            connectionUrlQuery;
+    }
 
     const connectionOption = {
         useNewUrlParser: true,
@@ -83,7 +87,6 @@ allConnections.init = async function init() {
     require('./shared/models/mongoose/QuestionGroup.model');
 
     require('./shared/models/mongoose/CodeGroup.model');
-
 
 
     //Touch all the model so the models are loaded. - index checks have run...
