@@ -61,7 +61,9 @@ const optionalVariables = [
     'REDIS_HOST',
     'REDIS_PORT',
     'REDIS_CLUSTER',
-    'USE_REDIS_QUESTION_CACHE'
+    'USE_REDIS_QUESTION_CACHE',
+    'MONGODB_INSURER_CONNECTIONURL',
+    'MONGODB_INSURER_DATABASENAME'
 ]
 
 exports.load = () => {

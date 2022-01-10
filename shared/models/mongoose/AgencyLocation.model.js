@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -140,7 +140,9 @@ AgencyLocationSchema.virtual('zip').
     });
 
 AgencyLocationSchema.plugin(timestamps);
-AgencyLocationSchema.plugin(mongooseHistory);
+AgencyLocationSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyLocationSchema.pre('validate', function(next) {

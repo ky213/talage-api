@@ -2,7 +2,7 @@
 
 
 global.requireShared('./helpers/tracker.js');
-const ZipCodeModel = require('mongoose').model('ZipCode');
+const ZipCodeModel = global.mongodb.model('ZipCode');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');

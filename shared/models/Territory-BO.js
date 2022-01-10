@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var TerritoryModel = require('mongoose').model('Territory');
+var TerritoryModel = global.mongodb.model('Territory');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 

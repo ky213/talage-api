@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -121,7 +121,9 @@ const QuoteSchema = new Schema({
 });
 
 QuoteSchema.plugin(timestamps);
-QuoteSchema.plugin(mongooseHistory);
+QuoteSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 QuoteSchema.pre('validate', function(next) {
