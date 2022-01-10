@@ -735,39 +735,46 @@ module.exports = class CnaBOP extends Integration {
             'branch-producer-cd': branchProdCd,
             'agentid': agentId,
             'content-type': 'application/json'
-        }
+        };
 
         let result = null;
-
         try {
             result = await this.send_json_request(host, QUOTE_URL, JSON.stringify(requestJSON), headers, "POST");
         }
         catch (error) {
+            // insure we got an actual response back, and not just a general error object
             let errorJSON = null;
             try {
                 errorJSON = JSON.parse(error.response);
             }
             catch (e) {
-                log.error(`${logPrefix}There was an error parsing the error object: ${e}.` + __location);
+                const errorMessage = `${logPrefix}There was an error parsing the error object: ${e}.`
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
             }
+
+            // following cases catch different error response structures CNA returns, since some errors do not come back in a normal response structure
             
-            this.reasons.push(JSON.stringify(errorJSON));
-
-            let errorMessage = "";
-            try {
-                errorMessage = `${logPrefix}status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
-            } 
-            catch (e1) {
-                try {
-                    errorMessage = `${logPrefix}status code ${error.httpStatusCode}: ${errorJSON.message}`;
-                } 
-                catch (e2) {
-                    log.error(`${logPrefix}Couldn't parse error object for description. Parsing errors: ${JSON.stringify([e1, e2], null, 4)}.` + __location);
-                }
+            if (errorJSON?.message) {
+                const errorMessage = `${logPrefix}${errorJSON.message}`;
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
             }
 
-            errorMessage = errorMessage ? errorMessage : "An error occurred while attempting to quote.";
-            return this.client_declined(errorMessage);
+            if (errorJSON?.StatusDesc) {
+                const errorMessage = `${logPrefix}${errorJSON.StatusDesc}`;
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
+            }
+
+            if (!errorJSON?.InsuranceSvcRs[0]?.BOPPolicyQuoteInqRs[0]?.MsgStatus) {
+                const errorMessage = `There was an error parsing the response object: ${errorJSON}. The result structure may have changed.`;
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
+            }
+            else {
+                result = errorJSON;
+            }
         }
 
         let quoteNumber = null;
@@ -778,16 +785,45 @@ module.exports = class CnaBOP extends Integration {
         let policyStatus = null;
 
         const response = result.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0];
-        switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {
+        switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {                
             case "dataerror":
             case "datainvalid":
             case "error":
             case "login_error":
             case "general failure":
-                log.error(`${logPrefix}response ${response.MsgStatus.MsgStatusDesc.value} ` + __location);
-                return this.client_error(`${response.MsgStatus.MsgStatusDesc.value}`, __location);
+                console.log("ERROR HERE");
+                const error = response.MsgStatus;
+                log.error(`${logPrefix}response ${error.MsgStatusDesc.value} ` + __location);
+                if (error.ExtendedStatus && Array.isArray(error.ExtendedStatus)) {
+                    error.ExtendedStatus.forEach(status => {
+                        if (status.ExtendedStatusCd !== "VerifyDataAbsence") {
+                            const prefix = status.ExtendedStatusCd ? status.ExtendedStatusCd.value : "";
+                            const statusMsg = status.ExtendedStatusDesc ? `: ${status.ExtendedStatusDesc.value}` : "";
+    
+                            if (prefix + statusMsg !== "") {
+                                this.reasons.push(prefix + statusMsg);
+                            }
+                        }
+                    });
+                }
+                return this.client_error(`${error.MsgStatusDesc.value}`, __location);
             case "rejected": 
-                return this.client_declined(`${response.MsgStatus.MsgStatusDesc.value}`);
+                console.log("REJECTED HERE");
+                const decline = response.MsgStatus;
+                log.info(`${logPrefix}response ${decline.MsgStatusDesc.value} ` + __location);
+                if (decline.ExtendedStatus && Array.isArray(decline.ExtendedStatus)) {
+                    decline.ExtendedStatus.forEach(status => {
+                        if (status.ExtendedStatusCd !== "VerifyDataAbsence") {
+                            const prefix = status.ExtendedStatusCd ? status.ExtendedStatusCd.value : "";
+                            const statusMsg = status.ExtendedStatusDesc ? `: ${status.ExtendedStatusDesc.value}` : "";
+    
+                            if (prefix + statusMsg !== "") {
+                                this.reasons.push(prefix + statusMsg);
+                            }
+                        }
+                    });
+                }
+                return this.client_declined(`${response.MsgStatus.MsgStatusDesc.value}`, this.reasons);
             case "in_progress":
                 return this.client_error(`The quote request did not complete.`, __location);
             case "351":
@@ -796,6 +832,7 @@ module.exports = class CnaBOP extends Integration {
             case "successwithinfo":
             case "successwithchanges":
             case "resultpendingoutofband":
+                console.log("SUCCESS HERE");
                 const policySummary = response.PolicySummaryInfo;
                 policyStatus = policySummary.PolicyStatusCd.value;
                 switch (policySummary.PolicyStatusCd.value.toLowerCase()) {
@@ -1170,11 +1207,31 @@ module.exports = class CnaBOP extends Integration {
                             {
                                 NumUnits: {
                                     value: areaLeasedValue
+                                },
+                                UnitMeasurementCd: {
+                                    value: "Feet"
                                 }
                             }  
                         ];
                         buildingOccObj["com.cna_LeasedSpaceDesc"] = [{}]; // For now, leaving this as blank, and not accepting this from applicant
+
+                        if (areaLeasedValue > 0) {
+                            buildingOccObj["com.cna_LeasedSpaceDesc"][0].value = "Description not provided";
+                        }
                     }
+                }
+                else {
+                    // if question not found, default to 0 (element is always required)
+                    buildingOccObj["com.cna_AreaLeased"] = [
+                        {
+                            NumUnits: {
+                                value: 0
+                            },
+                            UnitMeasurementCd: {
+                                value: "Feet"
+                            }
+                        }  
+                    ];
                 }
             }
 
@@ -1216,7 +1273,8 @@ module.exports = class CnaBOP extends Integration {
                 }
 
                 let lossType = lossTypeQuestion ? lossTypeQuestion.answerValue : "Other";
-                loss["com.cna_LossTypeCd"] = lossTypes[lossType] ? lossTypes[lossType] : "Other"; 
+                lossType = lossTypes[lossType] ? lossTypes[lossType] : "Other";
+                loss["com.cna_LossTypeCd"] = {value: lossType};
 
                 losses.push(loss);
             }
@@ -1583,6 +1641,7 @@ module.exports = class CnaBOP extends Integration {
         ];
 
         const ineligible250 = [
+            "51112_53",
             "56111_51",     
             "56210_50",
             "56211_51",  
