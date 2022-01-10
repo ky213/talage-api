@@ -5,7 +5,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-var ColorSchemeModel = require('mongoose').model('ColorScheme');
+var ColorSchemeModel = global.mongodb.model('ColorScheme');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 

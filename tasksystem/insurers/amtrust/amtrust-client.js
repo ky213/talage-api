@@ -9,7 +9,7 @@ let credentials = null;
 async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
     accessToken = "";
     //get Amtrust insurer.
-    var InsurerModel = require('mongoose').model('Insurer');
+    var InsurerModel = global.insurerMongodb.model('Insurer');
     const insurer = await InsurerModel.findOne({slug: 'amtrust'});
     if (!insurer) {
         log.error(`No Amtrust record ` + __location)
@@ -20,7 +20,7 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
     if(global.settings.ENV !== 'production'){
         credentials = JSON.parse(insurer.test_password);
     }
-    const AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
+    const AgencyLocationMongooseModel = global.mongodb.model('AgencyLocation');
     let agencyLocationId = 1; //talage
     if(agencyId){
         const appAgencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: appAgencyLocationId}, '-__v');

@@ -7,7 +7,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 
 
-var Application = require('mongoose').model('Application');
+var Application = global.mongodb.model('Application');
 
 let insurerJson = null;
 const employersInsurerId = 1; //Employers
@@ -52,7 +52,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
     try{
         //log.info(`Employers Policycheck checking quoteId ${quoteId} ` + __location)
         //get quote doc
-        var Quote = require('mongoose').model('Quote');
+        var Quote = global.mongodb.model('Quote');
         const query = {quoteId: quoteId}
 
         const queryProjection = {"__v": 0}
@@ -145,7 +145,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
     return;
 }
 async function getInsurerDoc(insurerId){
-    var InsurerModel = require('mongoose').model('Insurer');
+    var InsurerModel = global.insurerMongodb.model('Insurer');
     const insurer = await InsurerModel.findOne({insurerId: insurerId}).lean()
     if (!insurer) {
         log.error(`No Amtrust record ` + __location)

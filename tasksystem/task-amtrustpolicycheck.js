@@ -86,7 +86,7 @@ async function amtrustPolicyCheck(taskBodyJSON){
             sendSlackMessage = taskBodyJSON.sendSlackMessage
         }
 
-        var Quote = require('mongoose').model('Quote');
+        var Quote = global.mongodb.model('Quote');
         const queryProjection = {
             quoteId:1,
             applicationId: 1,

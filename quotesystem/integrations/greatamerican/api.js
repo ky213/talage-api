@@ -42,7 +42,7 @@ const getToken = async(integration) => {
 
 const getNcciFromClassCode = async(code, territory) => {
 
-    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+    const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
     const activityCodeQuery = {
         insurerId: 26,
         talageActivityCodeIdList: code,
