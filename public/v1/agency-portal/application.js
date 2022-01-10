@@ -34,7 +34,7 @@ const appLinkCreator = global.requireShared('./services/application-link-svc.js'
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-var Message = global.mongodb.model('Message');
+var Message = global.mongoose.Message;
 
 /**
  * Responds to get requests for the application endpoint
@@ -2212,7 +2212,7 @@ async function manualQuote(req, res, next) {
             quoteJSON.quoteStatusDescription = quoteStatus.bound.description
         }
         //direct to mongose model
-        var QuoteModel = global.mongodb.model('Quote');
+        var QuoteModel = global.mongoose.Quote;
         const quoteDoc = new QuoteModel(quoteJSON);
         await quoteDoc.save()
         //update application metrics

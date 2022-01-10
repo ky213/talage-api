@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var PolicyTypeModel = global.mongodb.model('PolicyType');
+var PolicyTypeModel = global.mongoose.PolicyType;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 

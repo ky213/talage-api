@@ -7,10 +7,10 @@ const serverHelper = global.requireRootPath('server.js');
 const _ = require('lodash');
 const moment = require('moment');
 
-const Application = global.mongodb.model('Application');
+const Application = global.mongoose.Application;
 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-//const Quote = global.mongodb.model('Quote');
+//const Quote = global.mongoose.Quote;
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 
