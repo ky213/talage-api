@@ -292,34 +292,38 @@ module.exports = class PieWC extends Integration {
 
     }
 
-    createTalageInsurerPaymentPlansArray(res) {
+    /**
+     * Add payments plans array to the response of Pie Quote
+     * @param {Object} installments Payment plans object
+     * @returns {void}
+     */
+    addTalageInsurerPaymentPlansArray(installments) {
         try {
-            const talageInsurerPaymentPlans = [];
-            if (res.installments){
-                const installments = res.installments;
-                const installmentsKeys = Object.keys(installments);
-                installmentsKeys.forEach((paymentPlanId, index) => {
-                    const installmentPlanKeys = Object.keys(installments[paymentPlanId]);
-                    const paymentPlans = installmentPlanKeys.map(installmentId => installments[paymentPlanId][installmentId]);
-                    const totalCost = paymentPlans.reduce((prev, current) => prev + current.totalAmount, 0);
-                    const totalFee = paymentPlans.reduce((prev, current) => {
-                        const fee = current.feeAmount ? current.feeAmount : 0;
-                        return prev + fee;
-                    }, 0);
-                    const paymentDescription = `Standard Payment in ${paymentPlanId}`;
-                    const talageInsurerPaymentPlan = {};
-
-                    talageInsurerPaymentPlan.IsDirectDebit = false; // Default value if there isn't a value
-                    talageInsurerPaymentPlan.NumberPayments = paymentPlans.length;
-                    talageInsurerPaymentPlan.TotalCost = totalCost;
-                    talageInsurerPaymentPlan.TotalStateTaxes = 0 // Default value if there isn't a value
-                    talageInsurerPaymentPlan.TotalBillingFees = totalFee
-                    talageInsurerPaymentPlan.DepositPercent = 0; // Default value if there isn't a value
-                    talageInsurerPaymentPlan.DownPayment = 0; // Default value if there isn't a value
-                    talageInsurerPaymentPlan.paymentPlanId = index + 1; // check the index with Brian
-                    talageInsurerPaymentPlan.insurerPaymentPlanId = `${paymentPlanId}`; // It is a string " monthly + id"
-                    talageInsurerPaymentPlan.insurerPaymentPlanDescription = paymentDescription
-                    talageInsurerPaymentPlan.invoices = paymentPlans.map((plan, planIndex) => ({ //ask Brian to double check
+            const installmentsKeys = Object.keys(installments);
+            this.talageInsurerPaymentPlans = installmentsKeys.map((paymentPlanId, index) => {
+                const installmentPlanKeys = Object.keys(installments[paymentPlanId]);
+                const paymentPlans = installmentPlanKeys.map(installmentId => installments[paymentPlanId][installmentId]);
+                const totalCost = paymentPlans.reduce((prev, current) => {
+                    const amount = current.totalAmount ? current.totalAmount : 0;
+                    return prev + amount;
+                }, 0);
+                const totalFee = paymentPlans.reduce((prev, current) => {
+                    const fee = current.feeAmount ? current.feeAmount : 0;
+                    return prev + fee;
+                }, 0);
+                const paymentDescription = `Standard Payment in ${paymentPlanId}`;
+                return {
+                    IsDirectDebit: false, // Default value because there isn't a value on the objects
+                    NumberPayments: paymentPlans.length,
+                    TotalCost: totalCost,
+                    TotalStateTaxes: 0,
+                    TotalBillingFees: totalFee,
+                    DepositPercent: 0,
+                    DownPayment: 0,
+                    paymentPlanId: index + 1, // check the index with Brian
+                    insurerPaymentPlanId: `${paymentPlanId}`, // Check with Brian. It is a string like: "monthly "
+                    insurerPaymentPlanDescription: paymentDescription,
+                    invoices: paymentPlans.map((plan, planIndex) => ({ //ask Brian to double check
                         'Taxes': 0,
                         'Fees': plan.feeAmount ? plan.feeAmount : 0,
                         'IsDownPayment': false,
@@ -327,12 +331,9 @@ module.exports = class PieWC extends Integration {
                         'TotalBillAmount': plan.totalAmount,
                         'BillDate': '',
                         'DueDate': installmentPlanKeys[planIndex] //ask Brian to double check
-                    }));
-                    talageInsurerPaymentPlans.push(talageInsurerPaymentPlan);
-                });
-                this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
-            }
-
+                    }))
+                }
+            });
         }
         catch(err) {
             log.error(`Appid: ${this.app.id} Pie WC error getting payment plans ${err}` + __location);
@@ -727,7 +728,6 @@ module.exports = class PieWC extends Integration {
 
             }
         }
-
         // const questionsArray = [];
         // for(const question_id in this.questions){
         //     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
@@ -845,7 +845,6 @@ module.exports = class PieWC extends Integration {
                         if(res.premiumDetails.totalTaxesAndAssessments){
                             this.amount += parseInt(res.premiumDetails.totalTaxesAndAssessments, 10);
                         }
-                        this.createTalageInsurerPaymentPlansArray(res, host, token);
                     }
                     catch (error) {
                         log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
@@ -856,6 +855,13 @@ module.exports = class PieWC extends Integration {
                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find Premium from Quote.` + __location);
                 }
 
+                // Attempt to get insurer payment plans
+                if (res.installments) {
+                    this.addTalageInsurerPaymentPlansArray(res.installments);
+                }
+                else {
+                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find Payment Plans.` + __location);
+                }
 
                 // Attempt to grab the limits info
                 if(res.employersLiabilityLimits){
