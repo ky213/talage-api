@@ -170,6 +170,7 @@ allConnections.init = function init() {
         Agency: global.mongodb.model('Agency'),
         AgencyEmail: global.mongodb.model('AgencyEmail'),
         AgencyLandingPage: global.mongodb.model('AgencyLandingPage'),
+        AgencyLocation: global.mongodb.model('AgencyLocation'),
         AgencyNetwork: global.mongodb.model('AgencyNetwork'),
         AgencyPortalUser: global.mongodb.model('AgencyPortalUser'),
         AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
