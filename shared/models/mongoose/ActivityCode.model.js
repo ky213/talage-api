@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -31,9 +31,8 @@ ActivityCodeSchema.virtual('id').
     });
 
 ActivityCodeSchema.plugin(timestamps);
-ActivityCodeSchema.plugin(mongooseHistory, {
-    historyConnection: global.insurerMongodb
-});
+ActivityCodeSchema.plugin(mongooseHistory);
+
 
 ActivityCodeSchema.pre('validate', function(next) {
     if (this.isNew) {

@@ -1,7 +1,7 @@
 'use strict';
 
 global.requireShared('./helpers/tracker.js');
-const WCStateIncomeLimitsModel = global.mongodb.model('WCStateIncomeLimits');
+const WCStateIncomeLimitsModel = require('mongoose').model('WCStateIncomeLimits');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 

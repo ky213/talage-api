@@ -9,9 +9,9 @@ const fileSvc = global.requireShared('services/filesvc.js');
 const {'v4': uuidv4} = require('uuid');
 var FastJsonParse = require('fast-json-parse')
 
-var AgencyEmail = global.mongodb.model('AgencyEmail');
+var AgencyEmail = require('mongoose').model('AgencyEmail');
 
-var AgencyModel = global.mongodb.model('Agency');
+var AgencyModel = require('mongoose').model('Agency');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 

@@ -1,4 +1,4 @@
-const OpenIdAuthConfig = global.mongodb.model('OpenIdAuthConfig');
+const OpenIdAuthConfig = require('mongoose').model('OpenIdAuthConfig');
 
 module.exports = class OpenIdAuthConfigBO {
     async getById(id) {

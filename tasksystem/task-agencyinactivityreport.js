@@ -89,8 +89,8 @@ var agencyReportTask = async function(taskBodyJSON){
     // log.debug(`deadBeatAppCuttOff ${deadBeatAppCuttOff}`)
 
 
-    const Application = global.mongodb.model('Application');
-    const Agency = global.mongodb.model('Agency');
+    const Application = require('mongoose').model('Application');
+    const Agency = require('mongoose').model('Agency');
     const agencyBO = new AgencyBO();
 
     let agencyList = [];

@@ -302,7 +302,7 @@ module.exports = class LibertyGL extends Integration{
                             //         "policyType": this.policy.type,
                             //         "talageQuestionId": {$in: Object.keys(this.questions)}
                             // }
-                            // const InsurerQuestionModel = global.insurerMongodb.model('InsurerQuestion');
+                            // const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
                             // const insurerQuestionList = await InsurerQuestionModel.find(query).catch((error) => {
                             //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
                             //     this.reasons.push('System error - Unable to get question attributes');

@@ -8,7 +8,7 @@
 /*jshint esversion: 10 */
 
 
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 //var moment = require('moment');
 var uuid = require('uuid');
@@ -25,9 +25,7 @@ const MappingSchema = new Schema({
 })
 
 MappingSchema.plugin(timestamps);
-MappingSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
-});
+MappingSchema.plugin(mongooseHistory);
 
 
 MappingSchema.pre('validate', function(next) {

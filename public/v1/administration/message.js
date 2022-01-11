@@ -15,7 +15,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const moment = require("moment");
 const rowLimit = 100;
-const Message = global.mongodb.model('Message');
+const Message = require('mongoose').model('Message');
 
 async function findAll(req, res, next) {
     const options = {sort: {}};

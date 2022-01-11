@@ -9,7 +9,8 @@ const moment = require('moment');
 const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
-var Quote = global.mongodb.model('Quote');
+const mongoose = require('mongoose')
+var Quote = mongoose.model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
@@ -655,7 +656,7 @@ module.exports = class QuoteBO {
      * @returns {void}
      */
     async appendToLog(quoteId, log) {
-        return global.mongodb.db.collection('quotes').updateOne({quoteId: quoteId},
+        return mongoose.connection.db.collection('quotes').updateOne({quoteId: quoteId},
             [{$set: {log: {$concat: ['$log', log]}}}],
             {upsert: true});
     }

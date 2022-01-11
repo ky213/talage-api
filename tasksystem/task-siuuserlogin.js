@@ -8,8 +8,8 @@ const csvStringify = util.promisify(require("csv-stringify"));
 const tracker = global.requireShared('./helpers/tracker.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
-const AgencyModel = global.mongodb.model('Agency');
-const AgencyPortalUserModel = global.mongodb.model('AgencyPortalUser');
+const AgencyModel = require('mongoose').model('Agency');
+const AgencyPortalUserModel = require('mongoose').model('AgencyPortalUser');
 
 /**
  * User Login Task processor

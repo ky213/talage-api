@@ -114,7 +114,7 @@ function logErrorAndExit(message) {
     }
 
     // MONGO
-    await mongoose.init();
+    global.monogdb = mongoose();
     //var mongoose = require('./mongoose');
 
     //Mongo connect event
@@ -137,7 +137,7 @@ function logErrorAndExit(message) {
 })();
 
 async function runFunction() {
-    const WCStateIncomeLimitsModel = global.mongodb.model('WCStateIncomeLimits');
+    const WCStateIncomeLimitsModel = require('mongoose').model('WCStateIncomeLimits');
     const wcStateIncomeLimitsData = require('./data/WCStateIncomeLimits.json');
 
     let successes = 0;

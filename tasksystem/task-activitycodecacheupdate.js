@@ -8,7 +8,7 @@ const moment = require('moment');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-var IndustryCode = global.insurerMongodb.model('IndustryCode');
+var IndustryCode = require('mongoose').model('IndustryCode');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 
 
@@ -82,7 +82,7 @@ var activityCodeCacheUpdate = async function(){
 
     let territoryList = [];
     let error = null;
-    var TerritoryModel = global.mongodb.model('Territory');
+    var TerritoryModel = require('mongoose').model('Territory');
 
     const territoryQuery = {
         active: true,

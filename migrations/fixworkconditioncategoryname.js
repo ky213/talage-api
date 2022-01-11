@@ -137,7 +137,7 @@ function logErrorAndExit(message) {
 })();
 
 async function runFunction() {
-    const QuestionModel = global.insurerMongodb.model('Question');
+    const QuestionModel = require('mongoose').model('Question');
 
     let successes = 0;
     let errors = 0;
