@@ -105,6 +105,7 @@ async function getbyId(req, res, next) {
         if(location.insurers){
             for(let i = 0; i < location.insurers.length; i++) {
                 let insurer = location.insurers[i];
+                insurer.cred3 = insurer.agencyCred3
                 //backward compatible for Quote App.  properties for WC, BOP, GL
                 if(insurer.policyTypeInfo){
                     insurer.policy_type_info = insurer.policyTypeInfo
@@ -193,6 +194,9 @@ async function createAgencyLocation(req, res, next) {
             }
             if(insurer.policy_type_info){
                 insurer.policyTypeInfo = insurer.policy_type_info
+            }
+            if(insurer.cred3){
+                insurer.agencyCred3 = insurer.cred3
             }
         }
     }
@@ -464,6 +468,9 @@ async function updateAgencyLocation(req, res, next) {
             if(insurer.policy_type_info){
                 insurer.policyTypeInfo = insurer.policy_type_info
             }
+            if(insurer.cred3){
+                insurer.agencyCred3 = insurer.cred3
+            }
         }
     }
 
@@ -589,6 +596,7 @@ async function getSelectionList(req, res, next) {
             for(let i = 0; i < location.insurers.length; i++) {
                 let insurer = location.insurers[i];
                 insurer.insurer = insurer.insurerId
+                insurer.cred3 = insurer.agencyCred3
                 //backward compatible for Quote App.  properties for WC, BOP, GL
                 if(insurer.policyTypeInfo){
                     insurer.policy_type_info = insurer.policyTypeInfo
