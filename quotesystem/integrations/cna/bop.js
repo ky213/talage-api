@@ -18,6 +18,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js')
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 
 /**
  * BOP Integration for CNA
@@ -46,16 +47,24 @@ const specialCaseQuestions = [
     "cna.general.choiceEndorsementFull"
 ];
 
-const lossTypes = [
-    "Fire",
-    "Lightening",
-    "Vandalism",
-    "Theft",
-    "Wind",
-    "WindHail",
-    "Water",
-    "Other"
-];
+const lossTypes = {
+    "Fire": "Fire",
+    "Water": "Internal Water",
+    "Hail": "Weather/Winter",
+    "Vandalism": "Vandalism/Theft",
+    "Collapse": "Other-Property",
+    "Windstorm": "Weather/Winter",
+    "Theft/Burglary": "Vandalism/Theft",
+    "Food Spoilage": "Other-Liability",
+    "Inland Marine": "Other-Property",
+    "Slip/Fall - Inside": "Other-Liability",
+    "Slip/Fall - Outside": "Other-Liability",
+    "Products": "Other-Liability",
+    "Personal Injury": "Other-Liability",
+    "Property Damage": "Other-Property",
+    "Weather/Winter": "Weather/Winter",
+    "Other": "Other-Property"
+};
 
 const limitIneligibility = [
     "89990_50",
@@ -602,7 +611,7 @@ module.exports = class CnaBOP extends Integration {
                                     CommlCoverage: this.getCoverages(limits),
                                     GeneralLiabilityClassification: this.getGLClassifications()
                                 },
-                                // TODO: What is this? Is it a question? 
+                                // TODO: These are convoluted to fill out, and is tied to area leased. Leaving out for now unless CNA kicks back
                                 // "com.cna_ProductInfo":[
                                 //     {
                                 //         "ProductDesignedDesc":{
@@ -779,7 +788,7 @@ module.exports = class CnaBOP extends Integration {
 
         let quoteNumber = null;
         let premium = null;
-        let quoteLimits = {};
+        const quoteCoverages = [];
         let quoteLetter = null;
         let quoteMIMEType = null;
         let policyStatus = null;
@@ -791,7 +800,6 @@ module.exports = class CnaBOP extends Integration {
             case "error":
             case "login_error":
             case "general failure":
-                console.log("ERROR HERE");
                 const error = response.MsgStatus;
                 log.error(`${logPrefix}response ${error.MsgStatusDesc.value} ` + __location);
                 if (error.ExtendedStatus && Array.isArray(error.ExtendedStatus)) {
@@ -808,13 +816,12 @@ module.exports = class CnaBOP extends Integration {
                 }
                 return this.client_error(`${error.MsgStatusDesc.value}`, __location);
             case "rejected": 
-                console.log("REJECTED HERE");
                 const decline = response.MsgStatus;
-                log.info(`${logPrefix}response ${decline.MsgStatusDesc.value} ` + __location);
+                log.info(`${logPrefix}${decline.MsgStatusDesc.value} ` + __location);
                 if (decline.ExtendedStatus && Array.isArray(decline.ExtendedStatus)) {
                     decline.ExtendedStatus.forEach(status => {
-                        if (status.ExtendedStatusCd !== "VerifyDataAbsence") {
-                            const prefix = status.ExtendedStatusCd ? status.ExtendedStatusCd.value : "";
+                        if (status?.ExtendedStatusCd?.value !== "VerifyDataAbsence") {
+                            const prefix = status.ExtendedStatusCd.value;
                             const statusMsg = status.ExtendedStatusDesc ? `: ${status.ExtendedStatusDesc.value}` : "";
     
                             if (prefix + statusMsg !== "") {
@@ -823,7 +830,7 @@ module.exports = class CnaBOP extends Integration {
                         }
                     });
                 }
-                return this.client_declined(`${response.MsgStatus.MsgStatusDesc.value}`, this.reasons);
+                return this.client_declined(`${decline.MsgStatusDesc.value}`);
             case "in_progress":
                 return this.client_error(`The quote request did not complete.`, __location);
             case "351":
@@ -832,7 +839,6 @@ module.exports = class CnaBOP extends Integration {
             case "successwithinfo":
             case "successwithchanges":
             case "resultpendingoutofband":
-                console.log("SUCCESS HERE");
                 const policySummary = response.PolicySummaryInfo;
                 policyStatus = policySummary.PolicyStatusCd.value;
                 switch (policySummary.PolicyStatusCd.value.toLowerCase()) {
@@ -856,28 +862,79 @@ module.exports = class CnaBOP extends Integration {
                         }
 
                         // get limits (required)
-                        // TODO: REWORK THIS - grab PropertyInfo/CommlPropertyInfo information as well, store in new coverage schema
+                        // TODO: Rework limit parsing to continue parsing limits even if one fails (add inner try/catch blocks)
+                        let coverageSort = 0;
                         try {
-                            response.BOPLineBusiness.LiabilityInfo.CommlCoverage.forEach(limit => {
-                                switch (limit.CoverageCd.value) {
-                                    case 'BIEachOcc':
-                                        quoteLimits[1] = limit.FormatInteger.value;
+                            // general limits
+                            response.BOPLineBusiness.LiabilityInfo.CommlCoverage.forEach(genLim => {
+                                const newCoverage = {
+                                    description: genLim.Limit[0].LimitAppliesToCd[0].value,
+                                    value: convertToDollarFormat(genLim.Limit[0].FormatInteger.value, true),
+                                    sort: coverageSort++,
+                                    category: 'General Limits',
+                                    insurerIdentifier: genLim.CoverageCd.value
+                                };
+
+                                quoteCoverages.push(newCoverage);
+                            });
+                        }
+                        catch (e) {
+                            log.error(`${logPrefix}Couldn't parse one or more general limit values from the response: ${e}.` + __location);
+                        }
+
+                        try {
+                            // property limits
+                            response.BOPLineBusiness.PropertyInfo.CommlPropertyInfo[0].CommlCoverage.forEach(propLim => {
+                                let description = propLim.CoverageCd.value;
+                                switch (propLim.CoverageCd.value) {
+                                    case "BLDG":
+                                        description = "Building";
                                         break;
-                                    case 'DisEachEmpl':
-                                        quoteLimits[2] = limit.FormatInteger.value;
+                                    case "BPP":
+                                        description = "Building Personal Property";
                                         break;
-                                    case 'DisPol':
-                                        quoteLimits[3] = limit.FormatInteger.value;
+                                    case "WH":
+                                        description = "Wind / Hail";
+                                        break;
+                                    case "GLASS":
+                                        description = "Glass";
                                         break;
                                     default:
-                                        log.error(`${logPrefix}Unexpected limit found in quote response. ` + __location);
                                         break;
+                                }
+
+                                if (propLim.Limit) {
+                                    const newCoverage = {
+                                        description: description + " Limit",
+                                        value: convertToDollarFormat(propLim.Limit[0].FormatInteger.value, true),
+                                        sort: coverageSort++,
+                                        category: 'Property Limits',
+                                        insurerIdentifier: propLim.CoverageCd.value
+                                    };
+    
+                                    quoteCoverages.push(newCoverage);
+                                }
+
+                                if (propLim.Deductible) {
+                                    let value = null;
+                                    if (propLim.Deductible[0].FormatText.value && propLim.Deductible[0].FormatText.value === "Policy Level") {
+                                        value = "Policy Level";
+                                    }
+
+                                    const newCoverage = {
+                                        description: description + " Deductible",
+                                        value: value ? value : convertToDollarFormat(propLim.Deductible[0].FormatInteger.value, true),
+                                        sort: coverageSort++,
+                                        category: 'Property Limits',
+                                        insurerIdentifier: propLim.CoverageCd.value
+                                    };
+    
+                                    quoteCoverages.push(newCoverage);
                                 }
                             });
                         }
                         catch (e) {
-                            log.error(`${logPrefix}Couldn't parse one or more limit values from response: ${e}.` + __location);
-                            // return this.client_error(`Couldn't parse one or more limit values from response: ${e}.`);
+                            log.error(`${logPrefix}Couldn't parse one or more property limit values from the response: ${e}.` + __location);
                         }
                         
                         // get quote letter (optional) and quote MIME type (optional)
@@ -927,10 +984,10 @@ module.exports = class CnaBOP extends Integration {
         if (policyStatus) {
             // will either be issued or quotednotbound
             if (policyStatus === "issued") { 
-                return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                return this.client_quoted(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
             }
             else {
-                return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                return this.client_referred(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
             }
         }
         else {
@@ -1273,7 +1330,7 @@ module.exports = class CnaBOP extends Integration {
                 }
 
                 let lossType = lossTypeQuestion ? lossTypeQuestion.answerValue : "Other";
-                lossType = lossTypes[lossType] ? lossTypes[lossType] : "Other";
+                lossType = lossTypes[lossType] ? lossTypes[lossType] : "Other-Property";
                 loss["com.cna_LossTypeCd"] = {value: lossType};
 
                 losses.push(loss);
