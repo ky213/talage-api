@@ -313,24 +313,24 @@ module.exports = class PieWC extends Integration {
                 }, 0);
                 const paymentDescription = `Standard Payment in ${paymentPlanId}`;
                 return {
-                    IsDirectDebit: false, // Default value because there isn't a value on the objects
+                    IsDirectDebit: false,
                     NumberPayments: paymentPlans.length,
                     TotalCost: totalCost,
                     TotalStateTaxes: 0,
                     TotalBillingFees: totalFee,
                     DepositPercent: 0,
                     DownPayment: 0,
-                    paymentPlanId: index + 1, // check the index with Brian
-                    insurerPaymentPlanId: `${paymentPlanId}`, // Check with Brian. It is a string like: "monthly "
+                    paymentPlanId: index,
+                    insurerPaymentPlanId: `${paymentPlanId}`,
                     insurerPaymentPlanDescription: paymentDescription,
-                    invoices: paymentPlans.map((plan, planIndex) => ({ //ask Brian to double check
+                    invoices: paymentPlans.map((plan, planIndex) => ({
                         'Taxes': 0,
                         'Fees': plan.feeAmount ? plan.feeAmount : 0,
                         'IsDownPayment': false,
                         'PremiumAmount': plan.premiumAmount,
                         'TotalBillAmount': plan.totalAmount,
                         'BillDate': '',
-                        'DueDate': installmentPlanKeys[planIndex] //ask Brian to double check
+                        'DueDate': new Date(installmentPlanKeys[planIndex]).toISOString()
                     }))
                 }
             });
