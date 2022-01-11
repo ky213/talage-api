@@ -5,7 +5,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 // const moment = require('moment');
 // const moment_timezone = require('moment-timezone');
 // const {debug} = require('request');
-var AgencyLandingPageModel = global.mongodb.model('AgencyLandingPage');
+var AgencyLandingPageModel = global.mongoose.AgencyLandingPage;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const collectionName = 'AgencyLandingPags'

@@ -110,9 +110,9 @@ const paDeStates = ["PA", "DE"];
 const logPrefix = "AmTrust Importing WC codes ";
 
 async function CodeImport() {
-    const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
-    const ActivityCode = global.insurerMongodb.model('ActivityCode');
-    const Insurer = global.insurerMongodb.model('Insurer');
+    const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
+    const ActivityCode = global.mongoose.ActivityCode;
+    const Insurer = global.mongoose.Insurer;
 
     const insurer = await Insurer.findOne({slug: 'amtrust'});
     if (!insurer) {

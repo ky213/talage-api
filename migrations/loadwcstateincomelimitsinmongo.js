@@ -137,7 +137,7 @@ function logErrorAndExit(message) {
 })();
 
 async function runFunction() {
-    const WCStateIncomeLimitsModel = global.mongodb.model('WCStateIncomeLimits');
+    const WCStateIncomeLimitsModel = global.mongoose.WCStateIncomeLimits;
     const wcStateIncomeLimitsData = require('./data/WCStateIncomeLimits.json');
 
     let successes = 0;
