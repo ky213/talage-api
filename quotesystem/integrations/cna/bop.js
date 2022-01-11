@@ -46,16 +46,24 @@ const specialCaseQuestions = [
     "cna.general.choiceEndorsementFull"
 ];
 
-const lossTypes = [
-    "Fire",
-    "Lightening",
-    "Vandalism",
-    "Theft",
-    "Wind",
-    "WindHail",
-    "Water",
-    "Other"
-];
+const lossTypes = {
+    "Fire": "Fire",
+    "Water": "Internal Water",
+    "Hail": "Weather/Winter",
+    "Vandalism": "Vandalism/Theft",
+    "Collapse": "Other-Property",
+    "Windstorm": "Weather/Winter",
+    "Theft/Burglary": "Vandalism/Theft",
+    "Food Spoilage": "Other-Liability",
+    "Inland Marine": "Other-Property",
+    "Slip/Fall - Inside": "Other-Liability",
+    "Slip/Fall - Outside": "Other-Liability",
+    "Products": "Other-Liability",
+    "Personal Injury": "Other-Liability",
+    "Property Damage": "Other-Property",
+    "Weather/Winter": "Weather/Winter",
+    "Other": "Other-Property"
+};
 
 const limitIneligibility = [
     "89990_50",
@@ -1273,7 +1281,7 @@ module.exports = class CnaBOP extends Integration {
                 }
 
                 let lossType = lossTypeQuestion ? lossTypeQuestion.answerValue : "Other";
-                lossType = lossTypes[lossType] ? lossTypes[lossType] : "Other";
+                lossType = lossTypes[lossType] ? lossTypes[lossType] : "Other-Property";
                 loss["com.cna_LossTypeCd"] = {value: lossType};
 
                 losses.push(loss);
