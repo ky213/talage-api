@@ -3,7 +3,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 // Mongoose Models
-const ApplicationNotesCollectionMongooseModel = require('mongoose').model('ApplicationNotesCollection');
+const ApplicationNotesCollectionMongooseModel = global.mongoose.ApplicationNotesCollection;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class ApplicationNotesCollectionBO{

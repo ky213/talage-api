@@ -6,7 +6,7 @@ const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const helper = global.requireShared('./helpers/helper.js');
 const log = global.log;
-const QuestionModel = require('mongoose').model('Question');
+const QuestionModel = global.mongoose.Question;
 const utility = global.requireShared('./helpers/utility.js');
 
 
@@ -159,7 +159,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     // let where = `q.state = 1
     //     ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
     // `;
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+    const InsurerQuestionModel = global.mongoose.InsurerQuestion;
     let questions = [];
     log.debug("Getting universal questions " + __location);
     // ============================================================
@@ -246,7 +246,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
     // if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
     // }
-    const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+    const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
     start = moment();
     for(const industryCodeId of industryCodeIdList){
         if(industryCodeId > 0){
@@ -359,7 +359,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     log.debug("Getting activity questions " + __location);
     // ============================================================
     // Get activity-based questions
-    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+    const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
     start = moment();
     const now = moment();
     // eslint-disable-next-line prefer-const

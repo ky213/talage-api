@@ -8,7 +8,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 
 
-var Application = require('mongoose').model('Application');
+var Application = global.mongoose.Application;
 
 async function processQuoteList(quoteJSONList,sendSlackMessage){
 
@@ -75,7 +75,7 @@ async function getQuotePolicy(quoteId, sendSlackMessage){
     try{
         log.debug(`Amtrust Policycheck checking quoteId ${quoteId} ` + __location)
         //get quote doc
-        var Quote = require('mongoose').model('Quote');
+        var Quote = global.mongoose.Quote;
         const query = {quoteId: quoteId}
 
         const queryProjection = {"__v": 0}

@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -50,7 +50,9 @@ QuestionSchema.virtual('id').
     });
 
 QuestionSchema.plugin(timestamps);
-QuestionSchema.plugin(mongooseHistory);
+QuestionSchema.plugin(mongooseHistory, {
+    historyConnection: global.insurerMongodb
+});
 
 
 QuestionSchema.pre('validate', function(next) {

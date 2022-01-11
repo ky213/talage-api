@@ -106,11 +106,6 @@ async function main() {
     log.info('Startup Redis Svc')
 
 
-    // MONGO
-
-    global.monogdb = mongoose();
-    //var mongoose = require('./mongoose');
-
     //Mongo connect event
     var hasMongoMadeInitialConnected = false;
     talageEvent.on('mongo-connected', function() {
@@ -131,7 +126,8 @@ async function main() {
         log.error('Mongoose database error ' + err);
     });
 
-
+    // MONGO
+    await mongoose.init();
 }
 
 function onErr(err) {
@@ -206,7 +202,7 @@ async function runFunction() {
     let appListText = fs.readFileSync(path);
     let appList = JSON.parse(appListText);
     const ApplicationBO = global.requireShared('models/Application-BO.js');
-    //var Application = require('mongoose').model('Application');
+    //var Application = global.mongoose.Application;
     const updateMysql = false;
     for(let run = 0; run < numOfRuns; run++){
 

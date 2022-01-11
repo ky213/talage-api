@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var AgencyEmail = require('mongoose').model('AgencyEmail');
+var AgencyEmail = global.mongoose.AgencyEmail;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const uuidValiditor = global.requireShared(`helpers/validators/uuid.js`);
 module.exports = class AgencyEmailBO{

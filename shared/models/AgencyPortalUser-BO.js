@@ -5,8 +5,8 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const moment = require('moment');
-var AgencyPortalUserModel = require('mongoose').model('AgencyPortalUser');
-var AgencyPortalUserGroup = require('mongoose').model('AgencyPortalUserGroup');
+var AgencyPortalUserModel = global.mongoose.AgencyPortalUser;
+var AgencyPortalUserGroup = global.mongoose.AgencyPortalUserGroup;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const collectionName = 'AgencyPortalUsers'

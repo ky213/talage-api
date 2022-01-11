@@ -9,7 +9,7 @@ const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
-var AgencyModel = require('mongoose').model('Agency');
+var AgencyModel = global.mongoose.Agency;
 
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
