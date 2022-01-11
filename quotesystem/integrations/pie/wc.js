@@ -85,10 +85,21 @@ module.exports = class PieWC extends Integration {
 
         let token_response = null;
         try {
-            const headers = {auth: {
-                username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
-                password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
-            }};
+            let headers = {}
+            //Insurer username is Talage API Key, that has been used for the Auth request.
+            //Insurer pasword is Talage AgencyCode, that has been used for the Auth request.
+            if(this.username){
+                headers = {
+                    "Authorization": 'Basic ' + Buffer.from(this.username).toString('base64'),
+                    "AgencyCode" : this.password
+                }
+            }
+            else {
+                headers = {auth: {
+                    username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                    password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
+                }};
+            }
             //token_response = await this.send_request(host, '/oauth2/token', "", headers);
             token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
         }
@@ -367,12 +378,23 @@ module.exports = class PieWC extends Integration {
 
         let token_response = null;
         try {
-            const headers = {auth: {
-                username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
-                password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
-            }};
+            let config = {};
+            //Insurer username is Talage API Key, that has been used for the Auth request.
+            //Insurer pasword is Talage AgencyCode, that has been used for the Auth request.
+            if(this.username){
+                config.headers = {
+                    "Authorization": 'Basic ' + Buffer.from(this.username).toString('base64'),
+                    "AgencyCode" : this.password
+                }
+            }
+            else {
+                config = {auth: {
+                    username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                    password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
+                }};
+            }
             //token_response = await this.send_request(host, '/oauth2/token', "", headers);
-            token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
+            token_response = await axios.post(`https://${host}/oauth2/token`, null, config);
         }
         catch (err) {
             log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error ${err}` + __location)
@@ -755,7 +777,16 @@ module.exports = class PieWC extends Integration {
         let res = null;
 
         try {
-            res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
+            let requestPath = '/api/v1/Quotes'
+            if(this.username && this.app.agencyLocation.insurers[this.insurer.id].agencyCred3 && appDoc.agencyId > 1){
+                //New Style with agencyCode
+                //agencyCred3 hold Agency Code
+                //Talage as the Parent agency does not send an Agency Code
+                requestPath += `?agencyCode=${this.app.agencyLocation.insurers[this.insurer.id].agencyCred3}`
+                log.debug(`Adding AGENCY CODE to url ${requestPath}`)
+            }
+
+            res = await this.send_json_request(host,requestPath , JSON.stringify(data), {Authorization: token});
         }
         catch (error) {
             if(error.httpStatusCode === 400 && error.response){
