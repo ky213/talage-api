@@ -176,7 +176,6 @@ allConnections.init = function init() {
         AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
         Application: global.mongodb.model('Application'),
         ApplicationNotesCollection: global.mongodb.model('ApplicationNotesCollection'),
-        CodeGroup: global.mongodb.model('CodeGroup'),
         ColorScheme: global.mongodb.model('ColorScheme'),
         IndustryCode: global.insurerMongodb.model('IndustryCode'),
         IndustryCodeCategory: global.insurerMongodb.model('IndustryCodeCategory'),
