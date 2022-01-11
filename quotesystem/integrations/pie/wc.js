@@ -292,6 +292,53 @@ module.exports = class PieWC extends Integration {
 
     }
 
+    /**
+     * Add payments plans array to the response of Pie Quote
+     * @param {Object} installments Payment plans object
+     * @returns {void}
+     */
+    addTalageInsurerPaymentPlansArray(installments) {
+        try {
+            const installmentsKeys = Object.keys(installments);
+            this.talageInsurerPaymentPlans = installmentsKeys.map((paymentPlanId, index) => {
+                const installmentPlanKeys = Object.keys(installments[paymentPlanId]);
+                const paymentPlans = installmentPlanKeys.map(installmentId => installments[paymentPlanId][installmentId]);
+                const totalCost = paymentPlans.reduce((prev, current) => {
+                    const amount = current.totalAmount ? current.totalAmount : 0;
+                    return prev + amount;
+                }, 0);
+                const totalFee = paymentPlans.reduce((prev, current) => {
+                    const fee = current.feeAmount ? current.feeAmount : 0;
+                    return prev + fee;
+                }, 0);
+                const paymentDescription = `Standard Payment in ${paymentPlanId}`;
+                return {
+                    IsDirectDebit: false,
+                    NumberPayments: paymentPlans.length,
+                    TotalCost: totalCost,
+                    TotalStateTaxes: 0,
+                    TotalBillingFees: totalFee,
+                    DepositPercent: 0,
+                    DownPayment: 0,
+                    paymentPlanId: index,
+                    insurerPaymentPlanId: `${paymentPlanId}`,
+                    insurerPaymentPlanDescription: paymentDescription,
+                    invoices: paymentPlans.map((plan, planIndex) => ({
+                        'Taxes': 0,
+                        'Fees': plan.feeAmount ? plan.feeAmount : 0,
+                        'IsDownPayment': false,
+                        'PremiumAmount': plan.premiumAmount,
+                        'TotalBillAmount': plan.totalAmount,
+                        'BillDate': '',
+                        'DueDate': new Date(installmentPlanKeys[planIndex]).toISOString()
+                    }))
+                }
+            });
+        }
+        catch(err) {
+            log.error(`Appid: ${this.app.id} Pie WC error getting payment plans ${err}` + __location);
+        }
+    }
 
     /**
 	 * Requests a quote from Pie and returns. This request is not intended to be called directly.
@@ -808,6 +855,13 @@ module.exports = class PieWC extends Integration {
                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find Premium from Quote.` + __location);
                 }
 
+                // Attempt to get insurer payment plans
+                if (res.installments) {
+                    this.addTalageInsurerPaymentPlansArray(res.installments);
+                }
+                else {
+                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find Payment Plans.` + __location);
+                }
 
                 // Attempt to grab the limits info
                 if(res.employersLiabilityLimits){
@@ -871,7 +925,6 @@ module.exports = class PieWC extends Integration {
                     catch(err){
                         log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
                     }
-
 
                     return this.return_result('quoted');
                 }
