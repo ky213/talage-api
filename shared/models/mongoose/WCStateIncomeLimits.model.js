@@ -9,7 +9,7 @@
 /*jshint esversion: 6 */
 'use strict';
 
-const mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 const timestamps = require('mongoose-timestamp');
 const uuid = require('uuid');
 const mongooseHistory = require('mongoose-history');
@@ -45,7 +45,9 @@ const WCStateIncomeLimitsSchema = new Schema({
 }, opts);
 
 WCStateIncomeLimitsSchema.plugin(timestamps);
-WCStateIncomeLimitsSchema.plugin(mongooseHistory);
+WCStateIncomeLimitsSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 WCStateIncomeLimitsSchema.pre('validate', function(next) {
     if (this.isNew) {

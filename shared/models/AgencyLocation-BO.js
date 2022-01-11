@@ -6,7 +6,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 
-var AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
+var AgencyLocationMongooseModel = global.mongoose.AgencyLocation;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 

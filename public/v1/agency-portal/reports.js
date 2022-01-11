@@ -4,14 +4,13 @@
 /* eslint-disable object-curly-spacing */
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
-const mongoose = require('mongoose');
 const _ = require('lodash');
 const moment = require('moment');
 
-const Application = mongoose.model('Application');
+const Application = global.mongoose.Application;
 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-//const Quote = mongoose.model('Quote');
+//const Quote = global.mongoose.Quote;
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 

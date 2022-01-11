@@ -654,7 +654,7 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     async _getLibertyIndustryCodes() {
-        const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+        const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
         const applicationDocData = this.applicationDocData;
 

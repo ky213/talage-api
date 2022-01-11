@@ -56,7 +56,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
     // can be used to filter InsurerActivityCode
 
     const start = moment();
-    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    const IndustryCodeModel = global.mongoose.IndustryCode;
     let icActivityCodeList = [];
     try{
         const icQuery = {
@@ -75,7 +75,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
     log.info(`Mongo IndustryCode Activity Code List processing ${territory} IndustryCode ${industryCodeId} count ${icActivityCodeList.length} duration: ${diff} milliseconds` + __location);
 
     //start = moment();
-    const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+    const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
     let insurerActivityCodeList = null;
     try{
         const pipeLine = [
@@ -105,7 +105,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
 
     if(activityIdList.length > 0){
         //start = moment();
-        const ActivityCodeModel = require('mongoose').model('ActivityCode');
+        const ActivityCodeModel = global.mongoose.ActivityCode;
         let codes = null;
         try{
             const icQuery = {
@@ -195,7 +195,7 @@ async function updateActivityCodeCacheByIndustryCode(industryCodeId, territoryLi
 
 async function updateActivityCodeCacheByActivityCode(activityCodeId){
     log.info(`Update ActivityCode Redis cache for ${activityCodeId}` + __location)
-    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    const IndustryCodeModel = global.mongoose.IndustryCode;
     let IndustryCodeList = null;
     try{
         const icQuery = {
@@ -222,7 +222,7 @@ async function updateActivityCodeCacheByActivityCode(activityCodeId){
 
 async function removeActivityCodeCacheByActivityCode(activityCodeId){
     log.info(`Removing ActivityCode Redis cache for ${activityCodeId}` + __location)
-    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    const IndustryCodeModel = global.mongoose.IndustryCode;
     let IndustryCodeList = null;
     try{
         const icQuery = {
@@ -265,7 +265,7 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
     if(!territoryList && territoryList.length === 0){
         return;
     }
-    const IndustryCodeModel = require('mongoose').model('IndustryCode');
+    const IndustryCodeModel = global.mongoose.IndustryCode;
     let IndustryCodeList = null;
     try{
         const icQuery = {
