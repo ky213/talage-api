@@ -86,7 +86,7 @@ async function policyCheck(taskBodyJSON){
             sendSlackMessage = taskBodyJSON.sendSlackMessage
         }
 
-        var Quote = global.mongodb.model('Quote');
+        var Quote = global.mongoose.Quote;
         const queryProjection = {
             quoteId:1,
             applicationId: 1,

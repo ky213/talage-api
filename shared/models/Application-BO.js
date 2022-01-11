@@ -23,8 +23,8 @@ const validator = global.requireShared('./helpers/validator.js');
 const utility = global.requireShared('./helpers/utility.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
-const ApplicationMongooseModel = global.mongodb.model('Application');
-const QuoteMongooseModel = global.mongodb.model('Quote');
+const ApplicationMongooseModel = global.mongoose.Application;
+const QuoteMongooseModel = global.mongoose.Quote;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
