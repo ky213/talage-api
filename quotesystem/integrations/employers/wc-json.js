@@ -165,6 +165,8 @@ module.exports = class EmployersWC extends Integration {
 
             try {
                 let primaryContact = null;
+                const agency = this.app.agencyLocation
+
                 if (appDoc.contacts.length === 1) {
                     primaryContact = appDoc.contacts[0];
                 }
@@ -177,13 +179,15 @@ module.exports = class EmployersWC extends Integration {
 
                 const applicantContact = {"email": primaryContact.email};
                 const billingContact = {"email": primaryContact.email};
-                const proposalContact = {"email": primaryContact.email};
+                const proposalContact = {"email": agency.agencyEmail};
 
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
+                const formattedAgencyPhone = this.formatPhoneForEmployers(agency.agencyPhone);
+
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
                     billingContact.phoneNumber = formattedPhone;
-                    proposalContact.phoneNumber = formattedPhone;
+                    proposalContact.phoneNumber = formattedAgencyPhone;
                 }
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
@@ -193,7 +197,7 @@ module.exports = class EmployersWC extends Integration {
                 else {
                     applicantContact.name = applicantName;
                     billingContact.name = applicantName;
-                    proposalContact.name = applicantName;
+                    proposalContact.name = `${agency.first_name} ${agency.last_name}`;
                 }
 
                 const address = {
@@ -204,6 +208,14 @@ module.exports = class EmployersWC extends Integration {
                     "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
                 };
 
+                const agencyAddress = {
+                    "streetAddress1": agency.quotingAgencyLocationDB.address,
+                    "streetAddress2": "",
+                    "city": agency.quotingAgencyLocationDB.city,
+                    "state": agency.quotingAgencyLocationDB.state,
+                    "zipCode": this.formatZipCodeForEmployers(agency.quotingAgencyLocationDB.zip)
+                };
+
                 if (!appDoc.mailingAddress || !appDoc.mailingCity || !appDoc.mailingState || !address.zipCode) {
                     log.warn(`${logPrefix}Cannot fully construct address information. Some fields missing:` + __location);
                     log.debug(`Address: "${JSON.stringify(address)}"`);
@@ -211,7 +223,7 @@ module.exports = class EmployersWC extends Integration {
                 else {
                     applicantContact.address = address;
                     billingContact.address = address;
-                    proposalContact.address = address;
+                    proposalContact.address = agencyAddress;
                 }
 
                 requestJSON.applicantContact = applicantContact;
