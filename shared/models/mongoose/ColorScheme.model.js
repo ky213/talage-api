@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -27,9 +27,7 @@ const ColorSchemeSchema = new Schema({
 
 
 ColorSchemeSchema.plugin(timestamps);
-ColorSchemeSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
-});
+ColorSchemeSchema.plugin(mongooseHistory);
 
 
 ColorSchemeSchema.pre('validate', function(next) {

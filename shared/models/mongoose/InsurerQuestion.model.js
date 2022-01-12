@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -40,9 +40,7 @@ InsurerQuestionSchema.index({insurerId: 1, policyTypeList: 1}); // Insure Index
 // //***** Virtuals old field names ****************** */
 
 InsurerQuestionSchema.plugin(timestamps);
-InsurerQuestionSchema.plugin(mongooseHistory, {
-    historyConnection: global.insurerMongodb
-});
+InsurerQuestionSchema.plugin(mongooseHistory);
 
 
 InsurerQuestionSchema.pre('validate', function(next) {
