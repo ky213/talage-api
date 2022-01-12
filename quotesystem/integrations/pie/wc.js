@@ -822,18 +822,20 @@ module.exports = class PieWC extends Integration {
 
         // Send JSON to the insurer
         let res = null;
-
+        const headers = {Authorization: token};
         try {
             let requestPath = '/api/v1/Quotes'
-            if(this.username && this.app.agencyLocation.insurers[this.insurer.id].agencyCred3 && appDoc.agencyId > 1){
+            //this.password is Talage's agency code.
+            if(this.username && this.app.agencyLocation.insurers[this.insurer.id].agencyCred3 && this.app.agencyLocation.insurers[this.insurer.id].agencyCred3 !== this.password){
                 //New Style with agencyCode
                 //agencyCred3 hold Agency Code
                 //Talage as the Parent agency does not send an Agency Code
                 requestPath += `?agencyCode=${this.app.agencyLocation.insurers[this.insurer.id].agencyCred3}`
+                headers.AgencyCode = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3
                 log.debug(`Adding AGENCY CODE to url ${requestPath}`)
             }
 
-            res = await this.send_json_request(host,requestPath , JSON.stringify(data), {Authorization: token});
+            res = await this.send_json_request(host,requestPath , JSON.stringify(data), headers);
         }
         catch (error) {
             if(error.httpStatusCode === 400 && error.response){
