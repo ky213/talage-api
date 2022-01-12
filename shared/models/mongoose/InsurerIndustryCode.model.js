@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -43,9 +43,7 @@ const InsurerIndustryCodeSchema = new Schema({
 // //***** Virtuals old field names ****************** */
 
 InsurerIndustryCodeSchema.plugin(timestamps);
-InsurerIndustryCodeSchema.plugin(mongooseHistory, {
-    historyConnection: global.insurerMongodb
-});
+InsurerIndustryCodeSchema.plugin(mongooseHistory);
 
 
 InsurerIndustryCodeSchema.pre('validate', function(next) {

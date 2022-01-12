@@ -114,7 +114,7 @@ function logErrorAndExit(message) {
     }
 
     // MONGO
-    await mongoose.init();
+    global.monogdb = mongoose();
     //var mongoose = require('./mongoose');
 
     //Mongo connect event

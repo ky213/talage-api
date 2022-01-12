@@ -8,7 +8,7 @@
 /*jshint esversion: 10 */
 
 
-const mongoose = global.insurerMongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 //var moment = require('moment');
 var uuid = require('uuid');
@@ -24,9 +24,7 @@ const CodeGroupSchema = new Schema({
 })
 
 CodeGroupSchema.plugin(timestamps);
-CodeGroupSchema.plugin(mongooseHistory, {
-    historyConnection: global.insurerMongodb
-});
+CodeGroupSchema.plugin(mongooseHistory);
 
 
 CodeGroupSchema.pre('validate', function(next) {

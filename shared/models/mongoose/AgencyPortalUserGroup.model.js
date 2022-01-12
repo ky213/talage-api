@@ -9,7 +9,7 @@
 /*jshint esversion: 6 */
 'use strict';
 
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -51,9 +51,7 @@ const AgencyPortalUserGroupSchema = new Schema({
 })
 
 AgencyPortalUserGroupSchema.plugin(timestamps);
-AgencyPortalUserGroupSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
-});
+AgencyPortalUserGroupSchema.plugin(mongooseHistory);
 
 
 AgencyPortalUserGroupSchema.pre('validate', function(next) {

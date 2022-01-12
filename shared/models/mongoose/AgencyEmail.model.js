@@ -9,7 +9,7 @@
 /*jshint esversion: 6 */
 'use strict';
 
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -42,9 +42,7 @@ const AgencyEmailSchema = new Schema({
 })
 
 AgencyEmailSchema.plugin(timestamps);
-AgencyEmailSchema.plugin(mongooseHistory, {
-    historyConnection: global.mongodb
-});
+AgencyEmailSchema.plugin(mongooseHistory);
 
 
 AgencyEmailSchema.pre('validate', function(next) {

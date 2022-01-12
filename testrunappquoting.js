@@ -106,6 +106,11 @@ async function main() {
     log.info('Startup Redis Svc')
 
 
+    // MONGO
+
+    global.monogdb = mongoose();
+    //var mongoose = require('./mongoose');
+
     //Mongo connect event
     var hasMongoMadeInitialConnected = false;
     talageEvent.on('mongo-connected', function() {
@@ -126,8 +131,7 @@ async function main() {
         log.error('Mongoose database error ' + err);
     });
 
-    // MONGO
-    await mongoose.init();
+
 }
 
 function onErr(err) {
