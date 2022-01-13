@@ -1735,11 +1735,13 @@ module.exports = class ApplicationModel {
                                 }
                             }
                             const agencyLocationBO = new AgencyLocationBO();
-                            const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
-                                log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
-                            });
-                            if (agencyLoc) {
-                                application.agencyState = agencyLoc.state;
+                            if(application.agencyLocationId){
+                                const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
+                                    log.error(`Agency Location load error appId ${application.applicationId} ` + err + __location);
+                                });
+                                if (agencyLoc) {
+                                    application.agencyState = agencyLoc.state;
+                                }
                             }
 
 
