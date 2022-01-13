@@ -91,6 +91,7 @@ const AgencyNetworkSchema = new Schema({
     agencyNetwork24HourLimit: {type: Number, default: 1200},
     agencyMonthLimit: {type: Number, default: 15000},
     agencyNetworkMonthLimit: {type: Number, default: 20000},
+    marketingChannel: {type: String, required: false},
     active: {type: Boolean, default: true}
 },opts)
 

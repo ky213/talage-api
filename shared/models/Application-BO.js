@@ -1752,6 +1752,7 @@ module.exports = class ApplicationModel {
                                 });
                                 if(industryCodeJson){
                                     application.industry = industryCodeJson.description;
+                                    application.naics = industryCodeJson.naics;
                                 }
                             }
                             //bring policyType to property on top level.
