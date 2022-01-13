@@ -1734,6 +1734,15 @@ module.exports = class ApplicationModel {
 
                                 }
                             }
+                            const agencyLocationBO = new AgencyLocationBO();
+                            const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
+                                log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
+                            });
+                            if (agencyLoc) {
+                                application.agencyState = agencyLoc.state;
+                            }
+
+
                             //industry desc
                             const industryCodeBO = new IndustryCodeBO();
                             // Load the request data into it
