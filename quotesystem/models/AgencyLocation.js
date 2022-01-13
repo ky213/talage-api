@@ -71,24 +71,36 @@ module.exports = class AgencyLocation {
             let agencyLocation = null;
             const agencyLocationBO = new AgencyLocationBO();
             const getChildren = true;
-
+            let agencyId = null;
             try{
                 const addAgencyPrimaryLocation = true;
                 agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation);
-                this.quotingAgencyLocationDB = agencyLocation;
-                if(agencyLocation.insurers){
-                    alInsurerList = agencyLocation.insurers;
+                agencyId = agencyLocation.agencyId
+                if(agencyLocation.useAgencyPrime){
+                    //Agency Network's prime agency's prime location
+                    const respAgencyObj = await this.getPrimaryAgencyAndLocation(agencyId)
+                    this.quotingAgencyLocationDB = respAgencyObj.agencyLocationJSON;
+                    agencyId = respAgencyObj.agencyJSON?.systemId;
+                }
+                else {
+                    this.quotingAgencyLocationDB = agencyLocation;
+                }
+                //Insurer are set at Agency Network Prime Agency, so we need the quoting location.
+                //Talage wholesale is set at the insurer level.  See below.
+                if(this.quotingAgencyLocationDB.insurers){
+                    alInsurerList = this.quotingAgencyLocationDB.insurers;
                 }
                 else {
                     log.error(`Agency location Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
+                //Territory has set at agency not Talage Wholesale or Agency Network Prime Agency.
                 if(agencyLocation.territories){
                     alTerritoyList = agencyLocation.territories;
                     this.territories = agencyLocation.territories;
                     //log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
                 }
                 else {
-                    log.error(`Agency territories Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
+                    log.error(`Agency territories Missing  Application Id ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
             }
             catch(err){
@@ -101,11 +113,13 @@ module.exports = class AgencyLocation {
             let agencyInfo = null;
             try{
                 const agencyBO = new AgencyBO();
-                agencyInfo = await agencyBO.getById(agencyLocation.agencyId);
-                agencyInfo.email = agencyLocation.email;
-                agencyInfo.fname = agencyLocation.firstName;
-                agencyInfo.lname = agencyLocation.lastName;
-                agencyInfo.additionalInfo = agencyLocation.additionalInfo;
+                agencyInfo = await agencyBO.getById(this.quotingAgencyLocationDB.agencyId);
+                agencyInfo.email = this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agencyInfo.email;
+                agencyInfo.fname = this.quotingAgencyLocationDB.firstName ? this.quotingAgencyLocationDB.firstName : agencyInfo.fname;
+                agencyInfo.lname = this.quotingAgencyLocationDB.lastName ? this.quotingAgencyLocationDB.lastName : agencyInfo.lname;
+                agencyInfo.additionalInfo = this.quotingAgencyLocationDB.additionalInfo ? this.quotingAgencyLocationDB.additionalInfo : agencyInfo.additionalInfo;
+                agencyInfo.phone = this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agencyInfo.phone;
+
             }
             catch(err){
                 log.error("Error Getting Agency error: " + err + __location);
@@ -127,7 +141,7 @@ module.exports = class AgencyLocation {
             this.agency = agencyInfo.name;
             this.agencyEmail = agencyInfo.email;
             this.agencyId = agencyInfo.systemId;
-            this.agencyNetwork = agencyInfo.agency_network;
+            this.agencyNetwork = agencyInfo.agencyNetworkId;
             this.agencyPhone = agencyInfo.phone;
             this.agencyWebsite = agencyInfo.website;
 
@@ -332,5 +346,54 @@ module.exports = class AgencyLocation {
             log.error("Quote Agency Location no insurers in shouldNotifyTalage " + __location);
         }
         return notifyTalage;
+    }
+
+    async getPrimaryAgencyAndLocation(agencyId){
+        const responseObj = {};
+        try{
+            const agencyBO = new AgencyBO();
+            let agencyNetworkId = 0;
+            const agencyJSON = await agencyBO.getById(agencyId);
+            if(agencyJSON){
+                responseObj.agencyJSON = agencyJSON
+                agencyNetworkId = agencyJSON.agencyNetworkId;
+            }
+            else {
+                log.error(`getPrimaryAgencyAndLocation: Could not find secondary agency ${agencyId}` + __location)
+            }
+            const agencyLocationBO = new AgencyLocationBO();
+            if(agencyNetworkId > 0){
+                //Get newtorks prime agency.
+                const queryAgency = {
+                    "agencyNetworkId": agencyNetworkId,
+                    "primaryAgency": true
+                }
+                const agencyList = await agencyBO.getList(queryAgency);
+                if(agencyList && agencyList.length > 0){
+                    const agencyPrime = agencyList[0];
+                    //get agency's prime location
+                    // return prime location's insurers.
+                    const returnChildren = true;
+                    const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                    if(agencyLocationPrime){
+                        responseObj.agencyLocationJSON = agencyLocationPrime
+                    }
+                    else {
+                        log.error(`Agency Prime id ${agencyPrime.systemId} as no insurers ` + __location)
+                    }
+                }
+                else {
+                    log.error(`No Agency Prime for secondary agency ${agencyId}  agencyNetworkId ${agencyNetworkId}` + __location)
+                }
+
+            }
+            else {
+                log.error(`getPrimaryAgencyAndLocation: No agency Network ${agencyNetworkId} for secondary agency ${agencyId}` + __location)
+            }
+        }
+        catch(err){
+            log.error(`Error getting AgencyPrime's insurers secondary agency ${agencyId} ` + err + __location);
+        }
+        return responseObj;
     }
 };
