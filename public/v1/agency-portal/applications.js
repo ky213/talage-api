@@ -241,8 +241,11 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'entityType': 'Entity Type',
                 'einClear': 'EIN',
                 'website': 'Website',
+                "industry": "Industry",
+                "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
+                'marketingChannel': "Marketing Channel",
                 'createdString' : 'Created (UTC)'
             };
 
@@ -271,6 +274,8 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'entityType': 'Entity Type',
                 'einClear': 'EIN',
                 'website': 'Website',
+                "industry": "Industry",
+                "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
                 'createdString' : 'Created (UTC)'
@@ -903,6 +908,7 @@ async function getApplications(req, res, next){
                 const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
                 if(agencyNetworkDoc){
                     application.agencyNetworkName = agencyNetworkDoc.name;
+                    application.marketingChannel = agencyNetworkDoc.marketingChannel
                 }
             }
             application.renewal = application.renewal === true ? "Yes" : "";
