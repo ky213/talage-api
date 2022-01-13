@@ -1682,7 +1682,6 @@ module.exports = class ApplicationModel {
                         appStatusId:1,
                         agencyId:1,
                         agencyNetworkId:1,
-                        agencyLocationId: 1,
                         createdAt: 1,
                         solepro: 1,
                         wholesale: 1,
@@ -1736,11 +1735,13 @@ module.exports = class ApplicationModel {
                                 }
                             }
                             const agencyLocationBO = new AgencyLocationBO();
-                            const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
-                                log.error(`Agency Location load error appId ${application.applicationId} ` + err + __location);
-                            });
-                            if (agencyLoc) {
-                                application.agencyState = agencyLoc.state;
+                            if(application.agencyLocationId){
+                                const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
+                                    log.error(`Agency Location load error appId ${application.applicationId} ` + err + __location);
+                                });
+                                if (agencyLoc) {
+                                    application.agencyState = agencyLoc.state;
+                                }
                             }
 
 
