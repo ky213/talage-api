@@ -9,7 +9,7 @@
 /*jshint esversion: 6 */
 'use strict';
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var mongooseHistory = require('mongoose-history');
 
@@ -23,7 +23,9 @@ const ApplicationNotesCollectionSchema = new Schema({
 });
 
 ApplicationNotesCollectionSchema.plugin(timestamps);
-ApplicationNotesCollectionSchema.plugin(mongooseHistory);
+ApplicationNotesCollectionSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('ApplicationNotesCollection', ApplicationNotesCollectionSchema);

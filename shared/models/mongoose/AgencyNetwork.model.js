@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -162,7 +162,9 @@ AgencyNetworkSchema.virtual('feature_json').
 
 
 AgencyNetworkSchema.plugin(timestamps);
-AgencyNetworkSchema.plugin(mongooseHistory);
+AgencyNetworkSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 
 AgencyNetworkSchema.pre('validate', function(next) {
