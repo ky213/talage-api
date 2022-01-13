@@ -384,6 +384,7 @@ async function getAgencyLandingPage(req, res, next) {
         heading: agency.heading,
         showIndustrySection: agency.showIndustrySection,
         showIntroText: agency.showIntroText,
+        donotShowPrimaryAddress: agency.donotShowPrimaryAddress,
         introHeading: agency.showIntroText ? agency.introHeading : null,
         introText: agency.showIntroText ? agency.introText : null,
         about: agency.about,
