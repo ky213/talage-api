@@ -200,6 +200,11 @@ function generateCSV(applicationList, isGlobalViewMode){
             const createdAtMoment = moment(applicationDoc.createdAt)
             applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
 
+            if(applicationDoc.policyEffectiveDate){
+                const policyEffectiveDateMoment = moment(applicationDoc.policyEffectiveDate)
+                applicationDoc.policyDateString = policyEffectiveDateMoment.format("YYYY-MM-DD");
+            }
+
             // get referrer information, if none then default to agency portal
             if(!applicationDoc.referrer){
                 applicationDoc.referrer = 'Agency Portal';
@@ -214,9 +219,13 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'businessName': 'Business Name',
                 'dba': 'DBA',
                 'status': 'Application Status',
+                'policyTypes': "Policy Types",
+                'policyDateString': "Effective Date (UTC)",
                 'appValue': 'Application Value',
                 'agencyNetworkName': 'Network',
                 'agencyName': 'Agency',
+                'agencyId': 'Agency ID',
+                'agencyState': 'Agency State',
                 'referrer': 'Source',
                 'mailingAddress': 'Mailing Address',
                 'mailingCity': 'Mailing City',
@@ -243,6 +252,8 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'businessName': 'Business Name',
                 'dba': 'DBA',
                 'status': 'Application Status',
+                'policyTypes': "Policy Types",
+                'policyEffectiveDate': "Effective Date",
                 'appValue': 'Application Value',
                 'agencyName': 'Agency',
                 'referrer': 'Source',
