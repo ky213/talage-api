@@ -1060,6 +1060,24 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns a location payroll associated with this application
+     *
+     * @param {object} location the location object of the application to have payroll calculated for
+     * @returns {int} - The the location's payroll as an integer
+     */
+    get_location_payroll(location) {
+        let total = 0;
+
+        location.activityPayrollList.forEach((activtyCodePayroll) => {
+            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                total += employeeType.employeeTypePayroll;
+            });
+        });
+
+        return total;
+    }
+
+    /**
      * Returns the total square footage of locations associated with this application
      *
      * @returns {int} - The total square footage as an integer
