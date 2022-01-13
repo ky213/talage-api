@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-var mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 var timestamps = require('mongoose-timestamp');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
@@ -166,8 +166,9 @@ AgencySchema.virtual('ca_license_number').
     });
 
 AgencySchema.plugin(timestamps);
-AgencySchema.plugin(mongooseHistory);
-
+AgencySchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 AgencySchema.pre('validate', function(next) {
     if (this.isNew) {

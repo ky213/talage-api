@@ -259,15 +259,20 @@ module.exports = class EmployersWC extends Integration {
             const businessName = appDoc.businessName.substring(0,60).replace('&', '');
 
             const locations = [];
-            //If there is only one location make sure it is marked as primary.  Old apps used in renewal may not have it marked.
-            if(appDoc.locations?.length === 1 && appDoc.locations[0].primary !== true){
-                appDoc.locations[0].primary = true;
-            }
+            const primaryLocationIndex = appDoc.locations.findIndex(({primary}) => primary);
 
-            for (const location of appDoc.locations) {
+            for (const index in appDoc.locations) {
+              if(index) {// eslint fix
+                const location = appDoc.locations[index]
                 const locationJSON = {};
 
-                locationJSON.primary = appDoc.locations[0].primary = true;
+                //make sure only one location is set to "primary"
+                if (primaryLocationIndex > -1) {
+                  locationJSON.primary = Number(index) === primaryLocationIndex
+                 }
+                else if (Number(index) === 0) {
+                    locationJSON.primary = true
+                  }
 
                 if (businessName) {
                     locationJSON.businessName = businessName;
@@ -376,7 +381,8 @@ module.exports = class EmployersWC extends Integration {
                     locationJSON.rateClasses.push(rateClass);
                 }
 
-                locations.push(locationJSON);
+                    locations.push(locationJSON);
+              }
             }
 
             requestJSON.namedInsureds = [{}];
@@ -497,6 +503,16 @@ module.exports = class EmployersWC extends Integration {
                             "value": question.get_answer_as_boolean() ? 'YES' : 'NO'
                         });
                     }
+            }
+
+            // set blanket-waiver
+            if(appDoc.policies[0]?.blanketWaiver){
+                const states = new Set(appDoc.locations.map(({state}) => state))
+
+                requestJSON.stateMods = [...states].map((state) => ({
+                    state: state,
+                    modType: "WAIVER-BLANKET"
+                }))
             }
 
             //call API

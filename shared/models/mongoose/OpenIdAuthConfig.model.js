@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 const uuid = require('uuid');
 
 global.requireShared('./helpers/tracker.js');
@@ -35,4 +35,5 @@ OpenIdAuthConfigSchema.pre('validate', (next) => {
     next();
 });
 
+mongoose.set('useCreateIndex', true);
 mongoose.model('OpenIdAuthConfig', OpenIdAuthConfigSchema);

@@ -5,7 +5,7 @@
 /* eslint-disable object-property-newline */
 /* eslint-disable one-var */
 
-const mongoose = require('mongoose'), Schema = mongoose.Schema;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 const timestamps = require('mongoose-timestamp');
 const uuid = require('uuid');
 const mongooseHistory = require('mongoose-history');
@@ -38,7 +38,9 @@ const ZipCodeSchema = new Schema({
 });
 
 ZipCodeSchema.plugin(timestamps);
-ZipCodeSchema.plugin(mongooseHistory);
+ZipCodeSchema.plugin(mongooseHistory, {
+    historyConnection: global.mongodb
+});
 
 ZipCodeSchema.pre('validate', function(next) {
     if (this.isNew) {
