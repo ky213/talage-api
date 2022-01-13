@@ -472,7 +472,6 @@ async function getAgencyLandingPage(req, res, next) {
         showHowItWorks: agency.hasOwnProperty('showHowItWorks') ? agency.showHowItWorks : true,
         showIntroText: agency.showIntroText,
         introHeading: agency.showIntroText ? agency.introHeading : null,
-        donotShowPrimaryAddress: agency.donotShowPrimaryAddress,
         introText: agency.showIntroText ? agency.introText : null,
         about: agency.about,
         wholesale: agency.wholesale,
