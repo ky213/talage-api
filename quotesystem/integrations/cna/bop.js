@@ -375,9 +375,15 @@ module.exports = class CnaBOP extends Integration {
             return this.client_autodeclined('Requested liability limits not supported.', {industryCode: this.industry_code.id});
         }
 
-        let phone = applicationDocData.contacts.find(c => c.primary).phone.toString();
-        // fall back to outside phone IFF we cannot find primary contact phone
-        phone = phone ? phone.replace(/[()]/g, '') : applicationDocData.phone.toString().replace(/[()]/g, '');
+        let primaryContact = applicationDocData.contacts.find(c => c.primary);
+        let phone = null;
+        if (primaryContact?.phone) {
+            phone = primaryContact.phone.toString().replace(/[()]/g, '');
+        }
+        else {
+            phone = applicationDocData.phone.toString().replace(/[()]/g, '');
+        }
+
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // =================================================================
