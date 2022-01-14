@@ -377,7 +377,7 @@ module.exports = class CnaBOP extends Integration {
 
         let phone = applicationDocData.contacts.find(c => c.primary).phone.toString();
         // fall back to outside phone IFF we cannot find primary contact phone
-        phone = phone ? phone : applicationDocData.phone.toString();
+        phone = phone ? phone.replace(/[()]/g, '') : applicationDocData.phone.toString().replace(/[()]/g, '');
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // =================================================================
