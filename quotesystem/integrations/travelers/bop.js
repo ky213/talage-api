@@ -157,7 +157,7 @@ module.exports = class AcuityWC extends Integration {
                     "addressLine2": location.address2 || "",
                     "city": location.city,
                     "state": location.state,
-                    "zipcode": location.zipcode
+                    "zipcode": location.zipcode.slice(0,5)
                     // "phone": "1" + location.phone ?Required?
                 },
                 "buildings": [
