@@ -11,7 +11,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const HiscoxGLJSON = require('./gl_v4_json');
-const HiscoxGLXML = require('./gl_v3_xml');
+const HiscoxGLXML = require('./gl_old');
 
 module.exports = class HiscoxGL extends Integration {
 
@@ -31,13 +31,15 @@ module.exports = class HiscoxGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     _insurer_quote() {
-        if (global.settings.HISCOX_GL_USE_JSON && global.settings.HISCOX_GL_USE_JSON === "YES") {
-            const GLJSON = new HiscoxGLJSON(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
-            return GLJSON.quote();
-        }
-        else {
+        const v4SwitchDate = new Date(2022, 3, 28);
+        const today = new Date();
+        if (global.settings.ENV && global.settings.ENV === "production" && today < v4SwitchDate) {
             const GLXML = new HiscoxGLXML(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
             return GLXML.quote();
+        }
+        else {
+            const GLJSON = new HiscoxGLJSON(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
+            return GLJSON.quote();
         }
     }
 };

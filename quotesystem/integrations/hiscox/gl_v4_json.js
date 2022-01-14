@@ -246,6 +246,7 @@ module.exports = class HiscoxGL extends Integration {
         };
         const fs = require('fs'); // zy debug remove
         fs.writeFileSync('/Users/talageuser/Downloads/hiscox_app.json', JSON.stringify(this.app, null, 4)); // zy debug remove
+
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.agencyEmail || !this.agencyPhone) {
             this.log_error(`AppId: ${this.app.id} Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote. Talage Wholesale ${this.app.agencyLocation.insurers[this.insurer.id].talageWholesale}`, __location);
