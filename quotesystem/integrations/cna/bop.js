@@ -378,10 +378,10 @@ module.exports = class CnaBOP extends Integration {
         let primaryContact = applicationDocData.contacts.find(c => c.primary);
         let phone = null;
         if (primaryContact?.phone) {
-            phone = primaryContact.phone.toString().replace(/[()]/g, '');
+            phone = primaryContact.phone.toString().replace(/[()-]/g, '');
         }
         else {
-            phone = applicationDocData.phone.toString().replace(/[()]/g, '');
+            phone = applicationDocData.phone.toString().replace(/[()-]/g, '');
         }
 
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
