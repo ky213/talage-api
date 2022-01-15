@@ -295,6 +295,12 @@ const ssnLegalEntities = [
     "IN"
 ];
 
+const medicalLimits = [
+    500,
+    1000,
+    10000
+];
+
 let logPrefix = null;
 
 module.exports = class CnaBOP extends Integration {
@@ -1831,9 +1837,27 @@ module.exports = class CnaBOP extends Integration {
         }
 
         if (medex) {
-            const value = parseInt(medex.answerValue, 10);
+            let value = parseInt(medex.answerValue, 10);
 
             if (!isNaN(value)) {
+                // if the provided option value is not a valid CNA option...
+                if (!medicalLimits.find(limit => limit === value)) {
+                    // find the next highest CNA-supported limit
+                    let set = false;
+                    for (const limit of medicalLimits) {
+                        if (limit > value) {
+                            value = limit;
+                            set = true;
+                            break;
+                        }
+                    }
+
+                    // if the provided option value was greater than any CNA allowed limit, set to the highest allowed CNA limit
+                    if (!set) {
+                        value = medicalLimits[medicalLimits.length - 1];
+                    }
+                }
+
                 coverages.push({
                     "CoverageCd": {
                         "value": "MEDEX"
