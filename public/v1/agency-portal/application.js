@@ -13,6 +13,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
@@ -31,6 +32,7 @@ const {applicationStatus} = global.requireShared('./models/status/applicationSta
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 const appLinkCreator = global.requireShared('./services/application-link-svc.js');
+//const requirementHelper = global.requireShared('./services/required-app-fields-svc.js');
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -1661,7 +1663,18 @@ async function GetAssociations(req, res, next){
         const AssociationSvc = global.requireShared('./services/associationsvc.js');
         responseObj['error'] = false;
         responseObj['message'] = '';
-        responseObj['associations'] = AssociationSvc.GetAssociationList(territoryList);
+        const associationList = AssociationSvc.GetAssociationList(territoryList);
+        //Agency Network Feature to Enable associations.
+        //get agency Network to check if associations should be returned
+        if(associationList.length > 0){
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(req.authentication.agencyNetworkId);
+            if(agencyNetworkJSON && agencyNetworkJSON.featureJson?.showAppAssociationsField !== false){
+                responseObj['associations'] = associationList;
+            }
+        }     
+        //TODO Software Hook
+
         res.send(200, responseObj);
         return next();        
     }
