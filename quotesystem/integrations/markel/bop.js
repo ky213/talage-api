@@ -645,6 +645,7 @@ module.exports = class MarkelWC extends Integration {
                         buildingObj.description = question.answerValue;
                         break;
                     case "markel.location.building.occupiedSquareFeet":
+                        //This should just use the application locations sqft.  NOT a new question.
                         const occupiedSquareFeetAnswer = parseInt(question.answerValue, 10);
 
                         if (!isNaN(occupiedSquareFeetAnswer)) {
