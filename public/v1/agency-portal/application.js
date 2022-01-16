@@ -1484,6 +1484,10 @@ async function GetPolicyLimits(agencyId){
             }
         ]
     };
+
+    //TODO Software Hook
+
+
     return limits;
 }
 
@@ -1584,6 +1588,8 @@ async function GetResources(req, res, next){
         'RI',
         'UT'
     ];
+    //TODO Software Hook
+
 
     res.send(200, responseObj);
     return next();
@@ -1731,6 +1737,8 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
         if(paymentOptions.length === 0){
             log.warn(`Not able to find any payment plans for insurerId ${id}. Please review and make sure not an issue.` + __location);
         }
+        //TODO Software Hook
+        
         res.send(200, paymentOptions);
         return next();
     }
