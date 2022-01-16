@@ -1427,7 +1427,7 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 }
             });
-
+            //This is a main Application Location field.   That should be used.
             const occupied = location.square_footage - (occupiedByOthers + unoccupied);
             AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
             AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
