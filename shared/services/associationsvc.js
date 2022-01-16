@@ -1,7 +1,7 @@
 
 /* eslint-disable require-jsdoc */
 
-async function GetAssociationList(territoryList){
+function GetAssociationList(territoryList){
     const returnList = [];
     const associationList = [{
         "id":"10",
@@ -65,7 +65,6 @@ async function GetAssociationList(territoryList){
         }
 
     }
-
     return returnList;
 }
 
