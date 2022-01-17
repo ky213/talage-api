@@ -165,6 +165,9 @@ async function createUser(req, res, next) {
         isAgencyNetworkUser: isAgencyNetworkUser,
         email: userObj.email,
         password: passwordHash,
+        name: userObj.name,
+        lastName: userObj.lastName,
+        phone: userObj.phone,
         canSign: data.canSign,
         agencyPortalUserGroupId: parseInt(data.group, 10)
     };
