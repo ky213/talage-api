@@ -82,6 +82,8 @@ const wcRequirements = {
         requirement: required,
         officerTitle: {requirement: optional},
         birthdate: {requirement: required}
+        // ownership: {requirement: hidden},
+        // payroll: {requirement: hidden}
     },
     location: {
         activityPayrollList: {requirement: required},
@@ -158,6 +160,9 @@ const cyberRequirements = {
             wiringImprovementYear: {requirement: hidden},
             heatingImprovementYear: {requirement: hidden},
             plumbingImprovementYear: {requirement: hidden}
+        },
+        owner: {
+            requirement: hidden
         }
     },
     grossSalesAmt: {requirement: hidden},
@@ -176,6 +181,9 @@ exports.requiredFields = async(appId) => {
     catch(err){
         log.error("Error getting application doc " + err + __location);
     }
+    // TODO Get insurer required fields by policytype.
+    // starting point is the minium carrier set.
+
 
     let requiredFields = null;
     if(applicationDB && applicationDB.hasOwnProperty('policies')){
@@ -249,10 +257,23 @@ exports.requiredFields = async(appId) => {
             overrideRequiredObject(agencyNetworkDB.appRequirementOverrides, requiredFields, newRequirements);
             requiredFields = newRequirements;
         }
+        // TODO: eventually we can make more determinations off the application to decide what is required (and not)
+
+        //TODO Software Hook to override optional fields per Agency Network.
+        const dataPackageJSON = {
+            appDoc: applicationDB,
+            agencyNetworkDB: agencyNetworkDB,
+            requiredFields: requiredFields
+        }
+        const hookName = 'app-requiredfields'
+        try{
+            await global.hookLoader.loadhook(hookName, applicationDB.agencyNetworkId, dataPackageJSON);
+            requiredFields = dataPackageJSON.requiredFields
+        }
+        catch(err){
+            log.error(`Error ${hookName} hook call error ${err}` + __location);
+        }
     }
-
-    // TODO: eventually we can make more determinations off the application to decide what is required (and not)
-
     return requiredFields;
 };
 // combine objects, this needs to merge both objects with higher values taking precedence
