@@ -32,7 +32,7 @@ const {applicationStatus} = global.requireShared('./models/status/applicationSta
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 const appLinkCreator = global.requireShared('./services/application-link-svc.js');
-//const requirementHelper = global.requireShared('./services/required-app-fields-svc.js');
+const requiredFieldSvc = global.requireShared('./services/required-app-fields-svc.js');
 
 // Application Messages Imports
 //const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -1744,6 +1744,65 @@ async function GetInsurerPaymentPlanOptions(req, res, next) {
     }
 }
 
+
+/**
+ * GET returns required field structure
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetRequiredFields(req, res, next){
+    let requireFieldJSON = {}
+    //
+
+    // Check for data
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    // Make sure basic elements are present
+    if (!req.query.id) {
+        log.error('Bad Request: Missing ID ' + __location);
+        return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+    }
+    const id = req.query.id
+    const applicationBO = new ApplicationBO();
+    let passedAgencyCheck = false;
+    let applicationJSON = null;
+    try{
+        const applicationDBDoc = await applicationBO.getById(id);
+        if(applicationDBDoc){
+            passedAgencyCheck = await auth.authorizedForAgency(req, applicationDBDoc.agencyId, applicationDBDoc.agencyNetworkId)
+        }
+        
+        if(applicationDBDoc && passedAgencyCheck){
+            applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
+        }
+       
+    }
+    catch(err){
+        log.error("Error Getting application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+    if(passedAgencyCheck === false){
+        log.info('Forbidden: User is not authorized for this application' + __location);
+        //Return not found so do not expose that the application exists
+        return next(serverHelper.notFoundError('Application Not Found'));
+    }
+
+    //call requiredField svc to get a required field structure.
+    requireFieldJSON = await requiredFieldSvc.requiredFields(applicationJSON.applicationId);
+
+    res.send(200, requireFieldJSON);
+    return next();
+
+}  
+
+
 async function GetQuoteLimits(req, res, next){
     if (!req.query || !req.query.quoteId) {
         log.warn(`Missing quote id. ${__location}`)
@@ -2377,6 +2436,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);
+    server.addGetAuth('GetAssociations', `${basePath}/application/getrequiredfields`, GetRequiredFields);
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
