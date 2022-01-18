@@ -17,7 +17,7 @@ module.exports = class SiuBopRules extends Hook {
         const hidden = 0;
 
         // if optional the property will show, and be OPTIONAL
-        const optional = 5;
+        //const optional = 5;
 
         // if required the property will show, and be REQUIRED
         const required = 10;
@@ -28,10 +28,9 @@ module.exports = class SiuBopRules extends Hook {
             const hasWC = Boolean(this.appDoc.policies.filter(policy => policy.policyType === "WC").length);
             if(hasBOP && hasWC === false){
                 log.debug(`SiuBopRules BOP only`)
-                this.dataPackageJSON.requiredFields.location.activityPayrollList.requirement = hidden;
-                this.dataPackageJSON.requiredFields.location.activityPayrollList.requirement = hidden;
-                this.dataPackageJSON.requiredFields.location.full_time_employees.requirement = optional;
-                this.dataPackageJSON.requiredFields.location.part_time_employees.requirement = optional;
+                this.dataPackageJSON.requiredFields.location.activityPayrollList.requirement = required;
+                this.dataPackageJSON.requiredFields.location.full_time_employees.requirement = hidden;
+                this.dataPackageJSON.requiredFields.location.part_time_employees.requirement = hidden;
                 this.dataPackageJSON.requiredFields.owner = {
                     requirement: required,
                     officerTitle: {requirement: hidden},

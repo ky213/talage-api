@@ -590,6 +590,7 @@ module.exports = class MarkelWC extends Integration {
                 buildings: []
             };
 
+            // should use integrations get_location_payroll(location) function.
             let locationTotalPayroll = 0;
             location.activityPayrollList.forEach(apl => {
                 locationTotalPayroll += apl.payroll;
