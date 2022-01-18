@@ -45,6 +45,9 @@ async function validate(user) {
     }
 
     data.email = user.email;
+    data.name = user.name;
+    data.lastName = user.lastName;
+    data.phone = user.phone;
 
     data.group = user.group;
 
@@ -501,6 +504,9 @@ async function updateUser(req, res, next) {
         id: userId,
         canSign: data.canSign,
         email: data.email,
+        name: data.name,
+        lastName: data.lastName,
+        phone: data.phone,
         agencyPortalUserGroupId: data.group,
         agencyNotificationList: data.agencyNotificationList
     }
