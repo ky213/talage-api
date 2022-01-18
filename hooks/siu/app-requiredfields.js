@@ -17,7 +17,7 @@ module.exports = class SiuBopRules extends Hook {
         const hidden = 0;
 
         // if optional the property will show, and be OPTIONAL
-        const optional = 5;
+        //const optional = 5;
 
         // if required the property will show, and be REQUIRED
         const required = 10;
