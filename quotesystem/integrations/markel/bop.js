@@ -821,7 +821,6 @@ module.exports = class MarkelWC extends Integration {
 
         try {
             if (response && (response[rquIdKey]?.underwritingDecisionCode === 'SUBMITTED' || response[rquIdKey]?.underwritingDecisionCode === 'QUOTED')) {
-
                 if (response[rquIdKey]?.premium?.totalPremium) {
                     this.amount = response[rquIdKey].premium.totalPremium;
                 }
@@ -832,115 +831,156 @@ module.exports = class MarkelWC extends Integration {
                 catch (e) {
                     log.error(`${logPrefix}Integration Error: Unable to find quote number. ${__location}`);
                 }
+
                 // null is a valid response. isBindable defaults to false.  null equals false.
                 if (response[rquIdKey]?.isBindAvailable) {
                     this.isBindable = response[rquIdKey].isBindAvailable;
                 }
+
                 // Get the quote limits
                 this.quoteCoverages = [];
                 let coverageSort = 0;
-
                 if (response[rquIdKey].coverage) {
                     const coverages = response[rquIdKey].coverage;
                     if (coverages.deductibles) {
                         coverages.deductibles.forEach(deductible => {
-                            this.quoteCoverages.push({
-                                description: deductible.appliesTo,
-                                value: convertToDollarFormat(deductible.deductible, true),
-                                sort: coverageSort++,
-                                category: 'Deductible'
-                            });
+                            let quoteCoverage = null;
+                            try {
+                                quoteCoverage = {
+                                    description: deductible.appliesTo,
+                                    value: convertToDollarFormat(deductible.deductible, true),
+                                    sort: coverageSort++,
+                                    category: 'Deductible'
+                                };
+                            }
+                            catch (e) {
+                                log.error(`${logPrefix}An error occurred parsing a quote coverage: ${e}. Skipping...` + __location);
+                            }
+
+                            if (quoteCoverage) {
+                                this.quoteCoverages.push(quoteCoverage);
+                            }
                         });
                     }
 
                     if (coverages.limits) {
                         coverages.limits.forEach(limit => {
-                            this.quoteCoverages.push({
-                                description: limit.appliesTo,
-                                value: convertToDollarFormat(limit.limit, true),
-                                sort: coverageSort++,
-                                category: 'Limit'
-                            });
+                            let quoteCoverage = null;
+                            try {
+                                quoteCoverage = {
+                                    description: limit.appliesTo,
+                                    value: convertToDollarFormat(limit.limit, true),
+                                    sort: coverageSort++,
+                                    category: 'Limit'
+                                };
+                            }
+                            catch (e) {
+                                log.error(`${logPrefix}An error occurred parsing a quote coverage: ${e}. Skipping...` + __location);
+                            }
+
+                            if (quoteCoverage) {
+                                this.quoteCoverages.push(quoteCoverage);
+                            }
                         });
                     }
                 }
 
-                if (response[rquIdKey]?.application && response[rquIdKey]?.application["Policy Info"] && response[rquIdKey]?.application["Policy Info"]?.optionalEndorsements?.contractorsInstallationToolsEquipment) {
-                    const cite = response[rquIdKey].application["Policy Info"].optionalEndorsements.contractorsInstallationToolsEquipment;
-                    const limitObjs = [];
-                    Object.keys(cite).forEach(citeKey => {
-                        switch (citeKey) {
-                            case "aggregateLimit": 
-                                limitObjs.push({
-                                    title: "Aggregate Limit",
-                                    value: cite[citeKey]
-                                });
-                                break;
-                            case "blanketLimit":
-                                limitObjs.push({
-                                    title: "Blanket Limit",
-                                    value: cite[citeKey]
-                                });
-                                break;
-                            case "blanketSubLimit":
-                                limitObjs.push({
-                                    title: "Blanket Sub Limit",
-                                    value: cite[citeKey]
-                                });
-                                break; 
-                            case "cleanupLimit":
-                                limitObjs.push({
-                                    title: "Cleanup Limit",
-                                    value: cite[citeKey]
-                                });
-                                break; 
-                            case "eachJobLimitAllJobLimit":
-                                if (cite[citeKey]) {
-                                    const jobLimits = cite[citeKey].trim().split("/");
-                                    limitObjs.push({
-                                        title: "Each Job Limit",
-                                        value: jobLimits[0]
-                                    });
-                                    limitObjs.push({
-                                        title: "All Jobs Limit",
-                                        value: jobLimits[1]
-                                    });
+                try {
+                    if (response[rquIdKey]?.application["Policy Info"]?.optionalEndorsements?.contractorsInstallationToolsEquipment) {
+                        const cite = response[rquIdKey].application["Policy Info"].optionalEndorsements.contractorsInstallationToolsEquipment;
+                        const limitObjs = [];
+                        Object.keys(cite).forEach(citeKey => {
+                            try {
+                                switch (citeKey) {
+                                    case "aggregateLimit": 
+                                        limitObjs.push({
+                                            title: "Aggregate Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break;
+                                    case "blanketLimit":
+                                        limitObjs.push({
+                                            title: "Blanket Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break;
+                                    case "blanketSubLimit":
+                                        limitObjs.push({
+                                            title: "Blanket Sub Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break; 
+                                    case "cleanupLimit":
+                                        limitObjs.push({
+                                            title: "Cleanup Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break; 
+                                    case "eachJobLimitAllJobLimit":
+                                        if (cite[citeKey]) {
+                                            const jobLimits = cite[citeKey].trim().split("/");
+                                            limitObjs.push({
+                                                title: "Each Job Limit",
+                                                value: jobLimits[0]
+                                            });
+                                            limitObjs.push({
+                                                title: "All Jobs Limit",
+                                                value: jobLimits[1]
+                                            });
+                                        }
+                                        break; 
+                                    case "emplToolsLimit":
+                                        limitObjs.push({
+                                            title: "Employee Tools Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break; 
+                                    case "jobSiteLimit":
+                                        limitObjs.push({
+                                            title: "Job Site Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break; 
+                                    case "nonOwnedToolsLimit":
+                                        limitObjs.push({
+                                            title: "Non-Owned Tools Limit",
+                                            value: cite[citeKey]
+                                        });
+                                        break; 
+                                    default:
+                                        log.warn(`${logPrefix}Encountered unknown key in CITE limit switch: ${citeKey}. ` + __location);
+                                        break;
                                 }
-                                break; 
-                            case "emplToolsLimit":
-                                limitObjs.push({
-                                    title: "Employee Tools Limit",
-                                    value: cite[citeKey]
-                                });
-                                break; 
-                            case "jobSiteLimit":
-                                limitObjs.push({
-                                    title: "Job Site Limit",
-                                    value: cite[citeKey]
-                                });
-                                break; 
-                            case "nonOwnedToolsLimit":
-                                limitObjs.push({
-                                    title: "Non-Owned Tools Limit",
-                                    value: cite[citeKey]
-                                });
-                                break; 
-                            default:
-                                log.warn(`${logPrefix}Encountered unknown key in CITE limit switch: ${citeKey}. ` + __location);
-                                break;
-                        }
-                    });
+                            }
+                            catch (e) {
+                                log.prefix(`${logPrefix}Failed to create a limit object for quote coverages: ${e}. Skipping...` + __location);
+                            }
+                        });
+    
+                        limitObjs.forEach(limit => {
+                            if (limit.value) {
+                                let quoteCoverage = null;
+                                try {
+                                    quoteCoverage = {
+                                        description: limit.title,
+                                        value: convertToDollarFormat(limit.value, true),
+                                        sort: coverageSort++,
+                                        category: 'Contractor Installation Tools Equipment'
+                                    };
+                                }
+                                catch (e) {
+                                    log.error(`${logPrefix}An error occurred parsing a quote coverage: ${e}. Skipping...` + __location);
+                                }
 
-                    limitObjs.forEach(limit => {
-                        if (limit.value) {
-                            this.quoteCoverages.push({
-                                description: limit.title,
-                                value: convertToDollarFormat(limit.value, true),
-                                sort: coverageSort++,
-                                category: 'Contractor Installation Tools Equipment'
-                            });
-                        }
-                    });
+                                if (quoteCoverage) {
+                                    this.quoteCoverages.push(quoteCoverage);
+                                }
+                            }
+                        });
+                    }
+                }
+                catch (e) {
+                    log.error(`${logPrefix}An error occurred parsing a portion of the response for quote coverages: ${e}. Skipping...` + __location);
                 }
 
                 // get quote link from request
@@ -949,7 +989,7 @@ module.exports = class MarkelWC extends Integration {
                 }
 
                 // Return with the quote
-                if(response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
+                if(response[rquIdKey]?.underwritingDecisionCode === 'SUBMITTED') {
                     if (response[rquIdKey]?.errors?.length > 0) {
                         const referralReasons = response[rquIdKey].errors.find(error => error.ReferralReasons);
                         if (referralReasons?.ReferralReasons?.length > 0) {
@@ -1016,10 +1056,10 @@ module.exports = class MarkelWC extends Integration {
         }
 
         //Check reasons for DECLINED
-        if (response[rquIdKey].underwritingDecisionCode === 'DECLINED') {
+        if (response[rquIdKey]?.underwritingDecisionCode === 'DECLINED') {
             if(response[rquIdKey]?.errors?.length > 0){
                 response[rquIdKey].errors.forEach((error) => {
-                    if(error.DeclineReasons?.length > 0){
+                    if(error?.DeclineReasons?.length > 0){
                         error.DeclineReasons.forEach((declineReason) => {
                             this.reasons.push(declineReason);
                         });
@@ -1028,7 +1068,7 @@ module.exports = class MarkelWC extends Integration {
             }
             return this.return_result('declined');
         }
-        else if (response[rquIdKey].errors) {
+        else if (response[rquIdKey]?.errors) {
             for (const error of response[rquIdKey].errors) {
                 if(typeof error === 'string'){
                     this.reasons.push(`${error}`);
