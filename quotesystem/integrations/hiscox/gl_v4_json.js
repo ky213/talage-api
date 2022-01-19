@@ -32,6 +32,19 @@ async function getHiscoxCOBFromDescription(cobDescription) {
     }
 }
 
+/**
+ * Capitalizes first letter
+ * @param {string} wordToCapitalize - The word which will be capitalized
+ * @returns {string} Word with the first letter capitalized
+ */
+function capitalizeFirstLetter(wordToCapitalize) {
+    if (!wordToCapitalize) {
+        log.error(`Cannot capitalize first letter as invalid string passed in: ${wordToCapitalize}. ${__location}`);
+    }
+    const firstLetter = wordToCapitalize.slice(0,1).toUpperCase();
+    return firstLetter + wordToCapitalize.slice(1);
+}
+
 module.exports = class HiscoxGL extends Integration {
 
     /**
@@ -173,12 +186,8 @@ module.exports = class HiscoxGL extends Integration {
         else {
             host = "api.hiscox.com";
         }
-        
-        const reqJSON = {
-            InsuranceSvcRq: {
-                QuoteRq: {}
-            }
-        };
+
+        const reqJSON = {InsuranceSvcRq: {QuoteRq: {}}};
 
         // console.log(JSON.stringify(this.app, null, 4));
 
@@ -196,11 +205,12 @@ module.exports = class HiscoxGL extends Integration {
         //Wholesale swap already done if necessary.
         this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
 
-        this.agencyId = this.app.agencyLocation.agencyId
+        this.agencyId = this.app.agencyLocation.agencyId;
         this.agency = this.app.agencyLocation.agency;
-        this.agencyPhone = this.app.agencyLocation.agencyPhone
-        this.first_name = this.app.agencyLocation.first_name
-        this.last_name = this.app.agencyLocation.last_name
+        this.agencyPhone = this.app.agencyLocation.agencyPhone;
+        this.agencyEmail = this.app.agencyLocation.agencyEmail;
+        this.first_name = this.app.agencyLocation.first_name;
+        this.last_name = this.app.agencyLocation.last_name;
         // If talageWholeSale
         if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
             //Use Talage Agency.
@@ -244,8 +254,6 @@ module.exports = class HiscoxGL extends Integration {
             PhoneInfo: {},
             EmailInfo: {}
         };
-        const fs = require('fs'); // zy debug remove
-        fs.writeFileSync('/Users/talageuser/Downloads/hiscox_app.json', JSON.stringify(this.app, null, 4)); // zy debug remove
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.agencyEmail || !this.agencyPhone) {
@@ -261,9 +269,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo = {};
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {};
-        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
-
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.CommercialName = this.app.business.name.substring(0, 100);
 
         // Ensure this entity type is in the entity matrix above
         if (!(this.app.business.entity_type in entityMatrix)) {
@@ -271,6 +277,38 @@ module.exports = class HiscoxGL extends Integration {
             return this.return_result("autodeclined");
         }
         this.entityType = entityMatrix[this.app.business.entity_type];
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.BusinessOwnershipStructure = this.entityType;
+
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.industry_code.hiscox;
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person = {
+            Name: {},
+            CommunicationsInfo: {
+                PhoneInfo: {},
+                EmailInfo: {}
+            }
+        };
+
+        const businessContactFirstName = this.app.business.contacts[0].first_name.substring(0, 75);
+        if (businessContactFirstName) {
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person.Name.FirstName = businessContactFirstName;
+        }
+        const businessContactLastName = this.app.business.contacts[0].last_name.substring(0, 75);
+        if (businessContactLastName) {
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person.Name.LastName = businessContactLastName;
+        }
+
+        const businessContactPhone = this.app.business.contacts[0].phone.toString().substring(0,10);
+        if (businessContactPhone) {
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person.CommunicationsInfo.PhoneInfo.PhoneNumber = businessContactPhone;
+        }
+
+        const businessContactEmail = this.app.business.contacts[0].email.substring(0,60);
+        if (businessContactEmail) {
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person.CommunicationsInfo.EmailInfo.EmailAddr = businessContactEmail;
+        }
+
+
+
 
         // Determine the best limits
         this.bestLimits = this.getBestLimits(carrierLimits);
@@ -279,12 +317,6 @@ module.exports = class HiscoxGL extends Integration {
             return this.return_result("autodeclined");
         }
 
-        // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
-        if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
-            this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
-            return this.return_result("autodeclined");
-        }
-        this.effectiveDate = this.policy.effective_date.format("YYYY-MM-DD");
 
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.app.business.locations];
@@ -370,6 +402,59 @@ module.exports = class HiscoxGL extends Integration {
         if(!this.secondaryLocationsCount){
             this.secondaryLocationsCount = 0;
         }
+
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress = {AddrInfo: {}};
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,40);
+        if (this.primaryLocation.address2){
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,40);
+        }
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.City = capitalizeFirstLetter(this.primaryLocation.city).substring(0,30);
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.PostalCode = this.primaryLocation.zip;
+        if (this.primaryLocation.county){
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.County = this.primaryLocation.county.substring(0,60);
+        }
+
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {
+            ApplicationRatingInfo: {},
+            GeneralLiabilityQuoteRq: {}
+        };
+
+        const appDoc = this.applicationDocData;
+        const experience = moment(appDoc.founded).format('YYYY-MM-DD');
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
+
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq = {};
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.QuoteID = "";
+
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.QuoteRqDt = moment().format('YYYY-MM-DD');
+
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.StateOrProvCd = this.primaryLocation.territory;
+
+        // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
+        if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
+            this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
+            return this.return_result("autodeclined");
+        }
+        this.effectiveDate = this.policy.effective_date.format("YYYY-MM-DD");
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.CoverageStartDate = this.effectiveDate;
+
+        // Set primary location
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations = {Primary: {AddrInfo: {}}};
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,40);
+        if (this.primaryLocation.address2){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,40);
+        }
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.City = capitalizeFirstLetter(this.primaryLocation.city).substring(0,30);
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
+
+        if (this.primaryLocation.county){
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.County = this.primaryLocation.county.substring(0,60);
+        }
+
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
+
         let questionDetails = null;
         try {
             questionDetails = await this.get_question_details();
@@ -397,6 +482,38 @@ module.exports = class HiscoxGL extends Integration {
             }
             delete this.questions[totalPayrollQuestionId];
         }
+
+        if (appDoc.grossSalesAmt && appDoc.grossSalesAmt > 0){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo = {};
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.EstimatedAnnualRevenue = appDoc.grossSalesAmt;
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.EstmtdPayrollExpense = this.totalPayroll;
+        }
+
+        // Set request secondary locations
+        if (this.secondaryLocationsCount > 0) {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Secondary = [];
+
+            for (const secondaryLocation of this.secondaryLocations) {
+                const location = {AddrInfo: {}};
+                location.AddrInfo.Addr1 = secondaryLocation.address.substring(0,40);
+                if (secondaryLocation.address2){
+                    location.AddrInfo.Addr2 = secondaryLocation.address2.substring(0,40);
+                }
+                location.City = capitalizeFirstLetter(secondaryLocation.city).substring(0,30);
+                location.StateOrProvCd = secondaryLocation.territory;
+                location.PostalCode = secondaryLocation.zip;
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Secondary.push(location);
+            }
+        }
+
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.CoverQuoteRq = {
+            RatingInfo: {
+                AggLOI: this.bestLimits[1],
+                LOI: this.bestLimits[0],
+                Deductible: 0
+            }
+        };
+
 
         // Add questions
         this.questionList = [];
@@ -478,6 +595,27 @@ module.exports = class HiscoxGL extends Integration {
                 });
             }
         }
+
+        // Add questions to JSON
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo = {};
+        for (const question of this.questionList) {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
+        }
+
+        // Add additional COBs to JSON if necessary
+        if (this.additionalCOBs?.length > 0) {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [];
+            for (const additionalCOB of this.additionalCOBs){
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors.push(additionalCOB);
+            }
+        }
+
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
+
+        const fs = require('fs'); // zy debug remove
+        fs.writeFileSync('/Users/talageuser/Downloads/hiscox_req.json', JSON.stringify(reqJSON, null, 4)); // zy debug remove
+
+
 
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
         let xml = null;
