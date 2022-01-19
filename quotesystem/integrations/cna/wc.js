@@ -657,7 +657,7 @@ module.exports = class CnaWC extends Integration {
         for (const [index, location] of Object.entries(this.app.business.locations)) {
             const wcrs = {
                 StateProvCd: {value: location.territory},
-                WorkCompLocInfo: this.getWorkCompLocInfo(location, index)
+                WorkCompLocInfo: this.getWorkCompLocInfo(location, parseInt(index, 10))
             }
             const firstNCCICode = location.activity_codes[0].ncciCode;
             wcrs.GoverningClassCd = {value: firstNCCICode.substring(0, firstNCCICode.length - 1)}
