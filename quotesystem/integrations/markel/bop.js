@@ -848,7 +848,7 @@ module.exports = class MarkelWC extends Integration {
                             try {
                                 quoteCoverage = {
                                     description: deductible.appliesTo,
-                                    value: convertToDollarFormat(deductible.deductible, true),
+                                    value: convertToDollarFormat(deductible.amount, true),
                                     sort: coverageSort++,
                                     category: 'Deductible'
                                 };
