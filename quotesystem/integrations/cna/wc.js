@@ -162,7 +162,7 @@ module.exports = class CnaWC extends Integration {
         const policy = this.app.policies[0]; // currently just ['WC']
 
         // NOTE: Right now this is hard-coded to the first reference
-        const nameInfoRefId = "N000";
+        const nameInfoRefId = "N001";
 
         let agencyId = null;
         try {
@@ -668,12 +668,13 @@ module.exports = class CnaWC extends Integration {
     }
 
     // generates the WorkCompLocInfo objects
+    // NOTE: NameInfoRef cannot start at 0, causes issues on CNA's side. First index will be N001
     getWorkCompLocInfo(location, index) {        
         const wcli = {
             NumEmployees: {value: location.full_time_employees + location.part_time_employees},
             WorkCompRateClass: [],
             LocationRef: `L${index}`,
-            NameInfoRef: this.getNameRef(index)
+            NameInfoRef: this.getNameRef(index + 1)
         }
 
         for (const activityCode of location.activity_codes) {
