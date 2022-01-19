@@ -124,7 +124,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 lastName: primaryContact.lastName,
                 DBA: applicationDocData.dba,
                 address: {
-                    zip: applicationDocData.mailingZipcode,
+                    zip: applicationDocData.mailingZipcode.slice(0,5),
                     address: applicationDocData.mailingAddress,
                     city: applicationDocData.mailingCity,
                     state: applicationDocData.mailingState
