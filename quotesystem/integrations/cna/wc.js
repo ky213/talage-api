@@ -654,7 +654,7 @@ module.exports = class CnaWC extends Integration {
     getWorkCompRateStates() {
         const workCompRateStates = [];
 
-        for (const [index, location] of Object.entries(this.app.business.locations)) {
+        for (const [index, location] of Object.entries(this.applicationDocData.locations)) {
             const wcrs = {
                 StateProvCd: {value: location.territory},
                 WorkCompLocInfo: this.getWorkCompLocInfo(location, index)
@@ -669,19 +669,20 @@ module.exports = class CnaWC extends Integration {
 
     // generates the WorkCompLocInfo objects
     // NOTE: NameInfoRef cannot start at 0, causes issues on CNA's side. First index will be N001
-    getWorkCompLocInfo(location, index) {        
+    getWorkCompLocInfo(location, index) {     
+        console.log(location);   
         const wcli = {
-            NumEmployees: {value: location.full_time_employees + location.part_time_employees},
+            NumEmployees: {value: this.get_total_location_employees(location)},
             WorkCompRateClass: [],
             LocationRef: `L${index}`,
             NameInfoRef: this.getNameRef(index + 1)
-        }
+        };
 
         for (const activityCode of location.activity_codes) {
             const wcrc = {
                 RatingClassificationCd: {value: activityCode.ncciCode}, 
                 Exposure: `${activityCode.payroll}`
-            }
+            };
 
             wcli.WorkCompRateClass.push(wcrc);
         }

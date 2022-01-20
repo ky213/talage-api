@@ -960,7 +960,7 @@ module.exports = class Integration {
      *
      * @returns {int} - The total number of employees as an integer
      */
-    get_total_lociation_employees(appLocation) {
+    get_total_location_employees(appLocation) {
         let total = 0;
         //New more detailed info in AppDoc.
         appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
