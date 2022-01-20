@@ -605,6 +605,13 @@ module.exports = class ArrowheadBOP extends Integration {
                 locationObj.buildingList[0].sprinklered = false;
             }
 
+            if (location.square_footage) {
+                locationObj.buildingList[0].occupiedSqFt = location.square_footage;
+            }
+            else {
+                locationObj.buildingList[0].occupiedSqFt = 0;
+            }
+
             const constructionTypes = {
                 "Frame": "Frame",
                 "Fire Resistive": "Fire Resistive",
@@ -1359,9 +1366,6 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                     case "occupancy":
                         building[id] = answer === 'Non-Owner Occupied Bldg' ? 'Non-Owner Occupied Bldg.' : answer; // Arrowhead needs the '.' on the end for this answer
-                        break;
-                    case "occupiedSqFt":
-                        building[id] = this.convertToInteger(answer);
                         break;
                     case "compf":
                         building.coverages[id] = {
