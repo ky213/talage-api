@@ -44,7 +44,8 @@ const specialCaseQuestions = [
     "cna.general.havePrevCarrier",
     "cna.general.yearsManagementExp",
     "cna.general.choiceEndorsementPartial",
-    "cna.general.choiceEndorsementFull"
+    "cna.general.choiceEndorsementFull",
+    "cna.general.medex"
 ];
 
 const lossTypes = {

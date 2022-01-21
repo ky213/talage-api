@@ -553,15 +553,18 @@ module.exports = class Application {
                             // Check that the agent supports this insurer for this policy type
                             let match_found = false;
                             //log.debug("this.agencyLocation.insurers " + JSON.stringify(this.agencyLocation.insurers))
-                            for (const agent_insurer in this.agencyLocation.insurers) {
-                                if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer)) {
+                            // eslint-disable-next-line guard-for-in
+                            for (const agent_insurer_index in this.agencyLocation.insurers) {
+                                if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer_index)) {
+                                    const agentInsurer = this.agencyLocation.insurers[agent_insurer_index];
                                     // Find the matching insurer
                                     //if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
                                     //log.debug("this.agencyLocation.insurers[agent_insurer] " + JSON.stringify(this.agencyLocation.insurers[agent_insurer]))
                                     //log.debug("insurer " + JSON.stringify(insurer) + __location)
-                                    if (this.agencyLocation.insurers[agent_insurer].id === insurer.id) {
+                                    if (agentInsurer.id === insurer.id) {
                                         // Check the policy type
-                                        if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()]) {
+                                        if (agentInsurer[policy.type.toLowerCase()]
+                                            && agentInsurer[policy.type.toLowerCase()].enabled === true) {
                                             match_found = true;
                                         }
                                     }
@@ -586,7 +589,7 @@ module.exports = class Application {
                 }
             });
 
-            // Limit insurers to those supported by the Agent
+            // Limit insurers to those supported by the Agent - is redundant see above.
             if (desired_insurers.length) {
                 // Make sure these match what the agent can support
                 const agent_insurers = Object.keys(this.agencyLocation.insurers);
@@ -1500,7 +1503,7 @@ module.exports = class Application {
             //validateBOPPolicies
             if(this.has_policy_type('BOP')){
                 try {
-                    validateBOPPolicies(this.applicationDocData, this.insurers, logValidationErrors);
+                    validateBOPPolicies(this.applicationDocData, this.agencyLocation.insurerList, logValidationErrors);
                 }
                 catch (e) {
                     return reject(new Error(`Failed validating BOP policy: ${e}`));

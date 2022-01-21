@@ -26,6 +26,7 @@ module.exports = class AgencyLocation {
         this.first_name = '';
         this.id = 0;
         this.insurers = {};
+        this.insurerList = [];
         this.last_name = '';
         this.territories = [];
         this.wholesale = false;
@@ -219,6 +220,7 @@ module.exports = class AgencyLocation {
                 }
                 if(addInsurer){
                     this.insurers[insurer.id] = insurer;
+                    this.insurerList.push(insurer)
                 }
             }
 

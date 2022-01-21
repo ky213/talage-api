@@ -291,6 +291,7 @@ const validateContacts = async(applicationDocData, logValidationErrors = true) =
                 throw new Error('Invalid characters in first name');
             }
 
+            //Why so short this is a insurer issue.  Talage should not limit it.
             if (contact.firstName.length > 30) {
                 throw new Error('First name exceeds maximum length of 30 characters');
             }
@@ -305,6 +306,7 @@ const validateContacts = async(applicationDocData, logValidationErrors = true) =
                 throw new Error('Invalid characters in last name');
             }
 
+            //Why so short this is a insurer issue.  Talage should not limit it.
             if (contact.lastName.length > 30) {
                 throw new Error('Last name exceeds maximum length of 30 characters');
             }
@@ -616,7 +618,7 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
 /**
  * Checks that BOP policy data
  * @param {string} applicationDocData - The applicationDocData
- * @param {string} insurerList - The list of possible insurers
+ * @param {string} insurerList - The list of possible insurers from Agencylocation Doc  (not Application model insurers JSON)
  * @returns {void}
  */
 const validateBOPPolicies = (applicationDocData,insurerList) => {
@@ -631,10 +633,10 @@ const validateBOPPolicies = (applicationDocData,insurerList) => {
     for(const insurer of insurerList){
         // TODO take into acount what policyTypes the agencylocation as activate for insurer.
         // Might only have Travelers or Markel WC activated not WC.
-        if(fullBOPInsurers.indexOf(insurer.insurerId) > -1){
+        if(fullBOPInsurers.indexOf(insurer.insurerId) > -1 && insurer.policyTypeInfo.BOP?.enabled === true){
             fullBOP = true;
         }
-        if(insurer.insurerId === coteireInsurerId){
+        if(insurer.insurerId === coteireInsurerId && insurer.policyTypeInfo.BOP?.enabled === true){
             hasCoterie = true;
         }
     }
