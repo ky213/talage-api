@@ -7,7 +7,7 @@ const ApplicationNotes = global.mongoose.ApplicationNotes;
 const AgencyPortalUser = global.mongoose.AgencyPortalUser;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-const validate = async (newObjectJSON, userId) => {
+const validate = async(newObjectJSON, userId) => {
     if(!newObjectJSON){
         throw new Error(`Empty applicationNotes object given`);
     }
@@ -20,10 +20,6 @@ const validate = async (newObjectJSON, userId) => {
 }
 module.exports = class ApplicationNotesBO{
 
-    constructor(){
-        this.id = 0;
-    }
-
     /**
 	 * Save Model
      *
@@ -34,16 +30,11 @@ module.exports = class ApplicationNotesBO{
     async saveModel(newObjectJSON, userId){
         await validate(newObjectJSON, userId);
         let applicationNotesDoc = null;
+        const dbDocJSON = await this.getById(newObjectJSON.applicationId);
 
         if(newObjectJSON.applicationId){
-            try {
-                const dbDocJSON = await this.getById(newObjectJSON.applicationId);
-            } catch (err) {
-                log.error(`Error getting applicationNotes from Database ` + err + __location);
-                throw err;
-            }
             if(!dbDocJSON){
-                log.error(`Cannot find note object to update ` + err + __location);
+                log.error(`Cannot find note object to update ` + __location);
             }
             log.debug('Update application notes.');
             newObjectJSON.agencyPortalModifiedUser = userId;
@@ -55,20 +46,22 @@ module.exports = class ApplicationNotesBO{
     /**
 	 * Insert Model
 	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
+	 * @param {object} userId - Agency portal user ID who created this object.
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with
+     *   saved application notes , or an Error if rejected
 	 */
     async insertMongo(newObjectJSON, userId){
         await validate(newObjectJSON, userId);
 
         const insertObj = Object.assign({}, newObjectJSON);
         insertObj.agencyPortalCreatedUser = userId;
-        console.log('hitz inserting user!!!!', userId);
 
         const applicationNotes = new ApplicationNotes(insertObj);
         //Insert a doc
         try {
             await applicationNotes.save();
-        } catch (err) {
+        }
+        catch (err) {
             log.error('Mongo Application Notes Save err ' + err + __location);
             throw err;
         }
@@ -118,7 +111,7 @@ module.exports = class ApplicationNotesBO{
 
     /**
      * Get Model By Application Id
-     * @param {id} -- applicationId
+     * @param {id} id - applicationId
      * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application notes , or an Error if rejected
      */
     async getByApplicationId(id) {
@@ -142,7 +135,8 @@ module.exports = class ApplicationNotesBO{
             const user = await AgencyPortalUser.findOne({agencyPortalUserId: note.agencyPortalCreatedUser});
             if (user) {
                 note.agencyPortalCreatedUser = user.email;
-            } else {
+            }
+            else {
                 note.agencyPortalCreatedUser = '';
             }
         }
