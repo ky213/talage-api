@@ -63,11 +63,10 @@ async function main() {
             updatedAt: r.updatedAt,
             createdAt: r.createdAt
         }));
-        console.log(out);
     })
     await Promise.all(p);
 
-    console.log('Done!', rows);
+    console.log('Done!');
     process.exit(0);
 }
 
