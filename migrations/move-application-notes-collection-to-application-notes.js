@@ -8,7 +8,6 @@ global.sharedPath = require('path').join(global.rootPath , '/shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
 global.requireShared('./helpers/tracker.js');
-const cliProgress = require('cli-progress');
 
 const logger = global.requireShared('/services/logger.js');
 const globalSettings = global.requireRootPath('./settings.js');
@@ -56,7 +55,7 @@ async function main() {
 
     const rows = await global.mongodb.collection('applicationnotescollections').find();
     const p = [];
-    await rows.forEach(async (r) => {
+    await rows.forEach(async(r) => {
         p.push(global.mongodb.collection('applicationnotes').insertOne({
             applicationId: r.applicationId,
             noteContents: r.applicationNotesJSON,
