@@ -13,7 +13,6 @@
 const axios = require('axios');
 const moment = require('moment');
 
-
 const Integration = require('../Integration.js');
 
 // import template WC request JSON object. Fields not set below are defaulted to values in the template
@@ -51,7 +50,7 @@ const carrierLimits = [
     '500000/500000/500000',
     '500000/1000000/500000',
     '1000000/1000000/1000000' // if state = CA, this is ONLY option
-]
+];
 
 const legalEntityCodes = {
     "Government Entity": "FG",
@@ -110,7 +109,9 @@ const stateDeductables = {
     "UT": [500, 1000, 1500, 2000, 2500, 5000],
     "VA": [100, 250, 500, 1000, 2500, 5000, 7500, 10000],
     "WV": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 7500, 10000]
-}
+};
+
+let primaryLocation = null;
 
 module.exports = class CnaWC extends Integration {
 
@@ -134,6 +135,8 @@ module.exports = class CnaWC extends Integration {
         // swap host and creds based off whether this is sandbox or prod
         let agentId = null;
         let branchProdCd = null;
+
+        primaryLocation = this.applicationDocData.locations.find(location => location.primary);
 
         const tomorrow = moment().add(1,'d').startOf('d');
         if(this.policy.effective_date < tomorrow){
@@ -387,15 +390,13 @@ module.exports = class CnaWC extends Integration {
             delete WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
             delete WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
 
-            WorkCompLineBusiness.WorkCompRateState = this.getWorkCompRateStates();
-
+            WorkCompLineBusiness.WorkCompRateState = await this.getWorkCompRateStates();
             // ====== Coverage Information ======
             WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value = "WCEL";
             WorkCompLineBusiness.CommlCoverage[0].Limit = this.getLimits(limits);
 
             // ====== Questions ======
             WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
-
         }
         catch (err) {
             log.error(`CNA WC JSON processing error: ${err} ` + __location);
@@ -645,22 +646,22 @@ module.exports = class CnaWC extends Integration {
         const taxIdentity = {
             TaxIdTypeCd: {value: "FEIN"},
             TaxId: {value: this.applicationDocData.ein}
-        }
+        };
     
         return [taxIdentity];
     }
 
     // generates the array of WorkCompRateState objects
-    getWorkCompRateStates() {
+    async getWorkCompRateStates() {
         const workCompRateStates = [];
 
-        for (const [index, location] of Object.entries(this.app.business.locations)) {
+        for (const [index, location] of Object.entries(this.applicationDocData.locations)) {
             const wcrs = {
                 StateProvCd: {value: location.territory},
-                WorkCompLocInfo: this.getWorkCompLocInfo(location, parseInt(index, 10))
-            }
-            const firstNCCICode = location.activity_codes[0].ncciCode;
-            wcrs.GoverningClassCd = {value: firstNCCICode.substring(0, firstNCCICode.length - 1)}
+                WorkCompLocInfo: await this.getWorkCompLocInfo(location, parseInt(index, 10))
+            };
+            const firstNCCICode = await this.get_insurer_code_for_activity_code(this.insurer.id, primaryLocation.state, primaryLocation.activityPayrollList[0].activityCodeId);
+            wcrs.GoverningClassCd = {value: firstNCCICode.code.substring(0, firstNCCICode.code.length - 1)}
             workCompRateStates.push(wcrs);
         }
 
@@ -669,19 +670,19 @@ module.exports = class CnaWC extends Integration {
 
     // generates the WorkCompLocInfo objects
     // NOTE: NameInfoRef cannot start at 0, causes issues on CNA's side. First index will be N001
-    getWorkCompLocInfo(location, index) {        
+    async getWorkCompLocInfo(location, index) {     
         const wcli = {
-            NumEmployees: {value: location.full_time_employees + location.part_time_employees},
+            NumEmployees: {value: this.get_total_location_employees(location)},
             WorkCompRateClass: [],
             LocationRef: `L${index}`,
             NameInfoRef: this.getNameRef(index + 1)
-        }
+        };
 
-        for (const activityCode of location.activity_codes) {
+        for (const activityCode of location.activityPayrollList) {
             const wcrc = {
-                RatingClassificationCd: {value: activityCode.ncciCode}, 
+                RatingClassificationCd: {value: (await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, location.activityPayrollList[0].activityCodeId)).code}, 
                 Exposure: `${activityCode.payroll}`
-            }
+            };
 
             wcli.WorkCompRateClass.push(wcrc);
         }
