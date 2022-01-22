@@ -2379,10 +2379,6 @@ module.exports = class ApplicationModel {
                 //NOTE if metric are displayed in AP applist Redis cache will have to update.
 
             }
-            else {
-                //should never happen.
-                log.error(`recalculateQuoteMetrics Application ${applicationId} had no quotes to calculate premium. ` + __location)
-            }
         }
         catch(err){
             log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
