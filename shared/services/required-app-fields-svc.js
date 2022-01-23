@@ -129,7 +129,7 @@ const wcRequirements = {
 const plRequirements = {
     location: {
         square_footage: {requirement: hidden},
-        activityPayrollList: {requirement: hidden},
+        activityPayrollList: {requirement: required},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
