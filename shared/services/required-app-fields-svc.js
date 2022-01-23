@@ -45,8 +45,16 @@ const bopRequirements = {
     },
     grossSalesAmt: {requirement: required},
     ein: {requirement: optional},
+    website: {requirement: optional},
     coverageLapseWC: {requirement: hidden},
-    yearsOfExp: {requirement: required}
+    yearsOfExp: {requirement: required},
+    owner: {
+        requirement: optional,
+        officerTitle: {requirement: hidden},
+        birthdate: {requirement: hidden},
+        ownership: {requirement: hidden},
+        payroll: {requirement: hidden}
+    }
 };
 
 const glRequirements = {
@@ -73,8 +81,13 @@ const glRequirements = {
         }
     },
     grossSalesAmt: {requirement: required},
+    ein: {requirement: optional},
     coverageLapseWC: {requirement: hidden},
-    yearsOfExp: {requirement: required}
+    website: {requirement: optional},
+    yearsOfExp: {requirement: required},
+    owner: {
+        requirement: hidden
+    }
 };
 
 const wcRequirements = {
@@ -109,12 +122,14 @@ const wcRequirements = {
     },
     grossSalesAmt: {requirement: hidden},
     ein: {requirement: required},
+    website: {requirement: optional},
     yearsOfExp: {requirement: required}
 };
 
 const plRequirements = {
     location: {
-        activityPayrollList: {requirement: optional},
+        square_footage: {requirement: hidden},
+        activityPayrollList: {requirement: hidden},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -134,14 +149,19 @@ const plRequirements = {
             plumbingImprovementYear: {requirement: hidden}
         }
     },
+    website: {requirement: hidden},
     grossSalesAmt: {requirement: required},
+    ein: {requirement: hidden},
     yearsOfExp: {requirement: required},
-    coverageLapseWC: {requirement: hidden}
+    coverageLapseWC: {requirement: hidden},
+    owner: {
+        requirement: hidden
+    }
 };
 
 const cyberRequirements = {
     location: {
-        activityPayrollList: {requirement: required},
+        activityPayrollList: {requirement: hidden},
         buildingLimit: {requirement: hidden},
         businessPersonalPropertyLimit: {requirement: hidden},
         own: {requirement: hidden},
@@ -149,8 +169,8 @@ const cyberRequirements = {
         constructionType: {requirement: hidden},
         yearBuilt: {requirement: hidden},
         unemployment_num: {requirement: hidden},
-        full_time_employees: {requirement: hidden},
-        part_time_employees: {requirement: hidden},
+        full_time_employees: {requirement: required},
+        part_time_employees: {requirement: optional},
         square_footage: {requirement: hidden},
         bop: {
             requirement: hidden,
@@ -160,16 +180,16 @@ const cyberRequirements = {
             wiringImprovementYear: {requirement: hidden},
             heatingImprovementYear: {requirement: hidden},
             plumbingImprovementYear: {requirement: hidden}
-        },
-        owner: {
-            requirement: hidden
         }
     },
     grossSalesAmt: {requirement: hidden},
     ein: {requirement: hidden},
     website: {requirement: hidden},
     yearsOfExp: {requirement: hidden},
-    coverageLapseWC: {requirement: hidden}
+    coverageLapseWC: {requirement: hidden},
+    owner: {
+        requirement: hidden
+    }
 };
 
 exports.requiredFields = async(appId) => {
@@ -241,6 +261,13 @@ exports.requiredFields = async(appId) => {
                     break;
             }
         }
+        //remove full_time_employees && part_time_employees if activityPayrollList is shown.
+        if(requiredFields.location && requiredFields.location.activityPayrollList.requirement > 0){
+            requiredFields.location.full_time_employees.requirement = 0
+            requiredFields.location.part_time_employees.requirement = 0
+        }
+        //TODO check for old app that does not have activityPayrollList, but does have full_time_employee or requires it.
+
 
         // apply agency network overrides
         let agencyNetworkDB = null;
@@ -257,6 +284,7 @@ exports.requiredFields = async(appId) => {
             overrideRequiredObject(agencyNetworkDB.appRequirementOverrides, requiredFields, newRequirements);
             requiredFields = newRequirements;
         }
+
         // TODO: eventually we can make more determinations off the application to decide what is required (and not)
 
         //TODO Software Hook to override optional fields per Agency Network.
