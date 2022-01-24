@@ -1,7 +1,10 @@
+/* eslint-disable require-jsdoc */
 /* eslint-disable object-curly-newline */
 /* eslint-disable default-case */
 const ApplicationBO = global.requireShared("models/Application-BO.js");
+const AgencyLcoationBO = global.requireShared("models/AgencyLocation-BO.js");
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 
 // higher values will override lower values
 // if one policy says hidden and another says required then (hidden < required): it will be required
@@ -20,177 +23,351 @@ const optional = 5;
 // if required the property will show, and be REQUIRED
 const required = 10;
 
-const bopRequirements = {
-    location: {
-        activityPayrollList: {requirement: optional},
-        buildingLimit: {requirement: optional},
-        businessPersonalPropertyLimit: {requirement: optional},
-        own: {requirement: optional},
-        numStories: {requirement: required},
-        constructionType: {requirement: required},
-        yearBuilt: {requirement: required},
-        unemployment_num: {requirement: hidden},
-        full_time_employees: {requirement: hidden},
-        part_time_employees: {requirement: hidden},
-        square_footage: {requirement: required},
-        bop: {
+
+const policyBasedRequiredFields = {
+    BOP:{
+        location: {
+            activityPayrollList: {requirement: optional},
+            buildingLimit: {requirement: optional},
+            businessPersonalPropertyLimit: {requirement: optional},
+            own: {requirement: optional},
+            numStories: {requirement: required},
+            constructionType: {requirement: required},
+            yearBuilt: {requirement: required},
+            unemployment_num: {requirement: hidden},
+            full_time_employees: {requirement: hidden},
+            part_time_employees: {requirement: hidden},
+            square_footage: {requirement: required},
+            bop: {
+                requirement: required,
+                sprinklerEquipped: {requirement: optional},
+                fireAlarmType: {requirement: required},
+                roofingImprovementYear: {requirement: required},
+                wiringImprovementYear: {requirement: required},
+                heatingImprovementYear: {requirement: required},
+                plumbingImprovementYear: {requirement: required}
+            }
+        },
+        grossSalesAmt: {requirement: required},
+        ein: {requirement: optional},
+        website: {requirement: optional},
+        coverageLapseWC: {requirement: hidden},
+        yearsOfExp: {requirement: required},
+        owner: {
+            requirement: optional,
+            officerTitle: {requirement: hidden},
+            birthdate: {requirement: hidden},
+            ownership: {requirement: hidden},
+            payroll: {requirement: hidden}
+        }
+    },
+    GL: {
+        location: {
+            activityPayrollList: {requirement: optional},
+            buildingLimit: {requirement: hidden},
+            businessPersonalPropertyLimit: {requirement: hidden},
+            own: {requirement: hidden},
+            numStories: {requirement: hidden},
+            constructionType: {requirement: hidden},
+            yearBuilt: {requirement: hidden},
+            unemployment_num: {requirement: hidden},
+            full_time_employees: {requirement: hidden},
+            part_time_employees: {requirement: hidden},
+            square_footage: {requirement: required},
+            bop: {
+                requirement: hidden,
+                sprinklerEquipped: {requirement: hidden},
+                fireAlarmType: {requirement: hidden},
+                roofingImprovementYear: {requirement: hidden},
+                wiringImprovementYear: {requirement: hidden},
+                heatingImprovementYear: {requirement: hidden},
+                plumbingImprovementYear: {requirement: hidden}
+            }
+        },
+        grossSalesAmt: {requirement: required},
+        ein: {requirement: optional},
+        coverageLapseWC: {requirement: hidden},
+        website: {requirement: optional},
+        yearsOfExp: {requirement: required},
+        owner: {
+            requirement: hidden
+        }
+    },
+    WC: {
+        owner: {
             requirement: required,
-            sprinklerEquipped: {requirement: optional},
-            fireAlarmType: {requirement: required},
-            roofingImprovementYear: {requirement: required},
-            wiringImprovementYear: {requirement: required},
-            heatingImprovementYear: {requirement: required},
-            plumbingImprovementYear: {requirement: required}
+            officerTitle: {requirement: optional},
+            birthdate: {requirement: required}
+            // ownership: {requirement: hidden},
+            // payroll: {requirement: hidden}
+        },
+        location: {
+            activityPayrollList: {requirement: required},
+            buildingLimit: {requirement: hidden},
+            businessPersonalPropertyLimit: {requirement: hidden},
+            own: {requirement: hidden},
+            numStories: {requirement: hidden},
+            constructionType: {requirement: hidden},
+            yearBuilt: {requirement: hidden},
+            unemployment_num: {requirement: required},
+            full_time_employees: {requirement: hidden},
+            part_time_employees: {requirement: hidden},
+            square_footage: {requirement: hidden},
+            bop: {
+                requirement: hidden,
+                sprinklerEquipped: {requirement: hidden},
+                fireAlarmType: {requirement: hidden},
+                roofingImprovementYear: {requirement: hidden},
+                wiringImprovementYear: {requirement: hidden},
+                heatingImprovementYear: {requirement: hidden},
+                plumbingImprovementYear: {requirement: hidden}
+            }
+        },
+        grossSalesAmt: {requirement: hidden},
+        ein: {requirement: required},
+        website: {requirement: optional},
+        yearsOfExp: {requirement: required}
+    },
+    PL: {
+        location: {
+            square_footage: {requirement: hidden},
+            activityPayrollList: {requirement: required},
+            buildingLimit: {requirement: hidden},
+            businessPersonalPropertyLimit: {requirement: hidden},
+            own: {requirement: hidden},
+            numStories: {requirement: hidden},
+            constructionType: {requirement: hidden},
+            yearBuilt: {requirement: hidden},
+            unemployment_num: {requirement: hidden},
+            full_time_employees: {requirement: hidden},
+            part_time_employees: {requirement: hidden},
+            bop: {
+                sprinklerEquipped: {requirement: hidden},
+                requirement: hidden,
+                fireAlarmType: {requirement: hidden},
+                roofingImprovementYear: {requirement: hidden},
+                wiringImprovementYear: {requirement: hidden},
+                heatingImprovementYear: {requirement: hidden},
+                plumbingImprovementYear: {requirement: hidden}
+            }
+        },
+        website: {requirement: hidden},
+        grossSalesAmt: {requirement: required},
+        ein: {requirement: hidden},
+        yearsOfExp: {requirement: required},
+        coverageLapseWC: {requirement: hidden},
+        owner: {
+            requirement: hidden
         }
     },
-    grossSalesAmt: {requirement: required},
-    ein: {requirement: optional},
-    website: {requirement: optional},
-    coverageLapseWC: {requirement: hidden},
-    yearsOfExp: {requirement: required},
-    owner: {
-        requirement: optional,
-        officerTitle: {requirement: hidden},
-        birthdate: {requirement: hidden},
-        ownership: {requirement: hidden},
-        payroll: {requirement: hidden}
+    CYBER: {
+        location: {
+            activityPayrollList: {requirement: hidden},
+            buildingLimit: {requirement: hidden},
+            businessPersonalPropertyLimit: {requirement: hidden},
+            own: {requirement: hidden},
+            numStories: {requirement: hidden},
+            constructionType: {requirement: hidden},
+            yearBuilt: {requirement: hidden},
+            unemployment_num: {requirement: hidden},
+            full_time_employees: {requirement: required},
+            part_time_employees: {requirement: optional},
+            square_footage: {requirement: hidden},
+            bop: {
+                requirement: hidden,
+                sprinklerEquipped: {requirement: hidden},
+                fireAlarmType: {requirement: hidden},
+                roofingImprovementYear: {requirement: hidden},
+                wiringImprovementYear: {requirement: hidden},
+                heatingImprovementYear: {requirement: hidden},
+                plumbingImprovementYear: {requirement: hidden}
+            }
+        },
+        grossSalesAmt: {requirement: hidden},
+        ein: {requirement: hidden},
+        website: {requirement: hidden},
+        yearsOfExp: {requirement: hidden},
+        coverageLapseWC: {requirement: hidden},
+        owner: {
+            requirement: hidden
+        }
     }
-};
 
-const glRequirements = {
-    location: {
-        activityPayrollList: {requirement: optional},
-        buildingLimit: {requirement: hidden},
-        businessPersonalPropertyLimit: {requirement: hidden},
-        own: {requirement: hidden},
-        numStories: {requirement: hidden},
-        constructionType: {requirement: hidden},
-        yearBuilt: {requirement: hidden},
-        unemployment_num: {requirement: hidden},
-        full_time_employees: {requirement: hidden},
-        part_time_employees: {requirement: hidden},
-        square_footage: {requirement: required},
-        bop: {
-            requirement: hidden,
-            sprinklerEquipped: {requirement: hidden},
-            fireAlarmType: {requirement: hidden},
-            roofingImprovementYear: {requirement: hidden},
-            wiringImprovementYear: {requirement: hidden},
-            heatingImprovementYear: {requirement: hidden},
-            plumbingImprovementYear: {requirement: hidden}
-        }
-    },
-    grossSalesAmt: {requirement: required},
-    ein: {requirement: optional},
-    coverageLapseWC: {requirement: hidden},
-    website: {requirement: optional},
-    yearsOfExp: {requirement: required},
-    owner: {
-        requirement: hidden
-    }
-};
 
-const wcRequirements = {
-    owner: {
-        requirement: required,
-        officerTitle: {requirement: optional},
-        birthdate: {requirement: required}
-        // ownership: {requirement: hidden},
-        // payroll: {requirement: hidden}
-    },
-    location: {
-        activityPayrollList: {requirement: required},
-        buildingLimit: {requirement: hidden},
-        businessPersonalPropertyLimit: {requirement: hidden},
-        own: {requirement: hidden},
-        numStories: {requirement: hidden},
-        constructionType: {requirement: hidden},
-        yearBuilt: {requirement: hidden},
-        unemployment_num: {requirement: required},
-        full_time_employees: {requirement: hidden},
-        part_time_employees: {requirement: hidden},
-        square_footage: {requirement: hidden},
-        bop: {
-            requirement: hidden,
-            sprinklerEquipped: {requirement: hidden},
-            fireAlarmType: {requirement: hidden},
-            roofingImprovementYear: {requirement: hidden},
-            wiringImprovementYear: {requirement: hidden},
-            heatingImprovementYear: {requirement: hidden},
-            plumbingImprovementYear: {requirement: hidden}
-        }
-    },
-    grossSalesAmt: {requirement: hidden},
-    ein: {requirement: required},
-    website: {requirement: optional},
-    yearsOfExp: {requirement: required}
-};
+}
 
-const plRequirements = {
-    location: {
-        square_footage: {requirement: hidden},
-        activityPayrollList: {requirement: required},
-        buildingLimit: {requirement: hidden},
-        businessPersonalPropertyLimit: {requirement: hidden},
-        own: {requirement: hidden},
-        numStories: {requirement: hidden},
-        constructionType: {requirement: hidden},
-        yearBuilt: {requirement: hidden},
-        unemployment_num: {requirement: hidden},
-        full_time_employees: {requirement: hidden},
-        part_time_employees: {requirement: hidden},
-        bop: {
-            sprinklerEquipped: {requirement: hidden},
-            requirement: hidden,
-            fireAlarmType: {requirement: hidden},
-            roofingImprovementYear: {requirement: hidden},
-            wiringImprovementYear: {requirement: hidden},
-            heatingImprovementYear: {requirement: hidden},
-            plumbingImprovementYear: {requirement: hidden}
-        }
-    },
-    website: {requirement: hidden},
-    grossSalesAmt: {requirement: required},
-    ein: {requirement: hidden},
-    yearsOfExp: {requirement: required},
-    coverageLapseWC: {requirement: hidden},
-    owner: {
-        requirement: hidden
-    }
-};
 
-const cyberRequirements = {
-    location: {
-        activityPayrollList: {requirement: hidden},
-        buildingLimit: {requirement: hidden},
-        businessPersonalPropertyLimit: {requirement: hidden},
-        own: {requirement: hidden},
-        numStories: {requirement: hidden},
-        constructionType: {requirement: hidden},
-        yearBuilt: {requirement: hidden},
-        unemployment_num: {requirement: hidden},
-        full_time_employees: {requirement: required},
-        part_time_employees: {requirement: optional},
-        square_footage: {requirement: hidden},
-        bop: {
-            requirement: hidden,
-            sprinklerEquipped: {requirement: hidden},
-            fireAlarmType: {requirement: hidden},
-            roofingImprovementYear: {requirement: hidden},
-            wiringImprovementYear: {requirement: hidden},
-            heatingImprovementYear: {requirement: hidden},
-            plumbingImprovementYear: {requirement: hidden}
-        }
-    },
-    grossSalesAmt: {requirement: hidden},
-    ein: {requirement: hidden},
-    website: {requirement: hidden},
-    yearsOfExp: {requirement: hidden},
-    coverageLapseWC: {requirement: hidden},
-    owner: {
-        requirement: hidden
-    }
-};
+// const bopRequirements = {
+//     location: {
+//         activityPayrollList: {requirement: optional},
+//         buildingLimit: {requirement: optional},
+//         businessPersonalPropertyLimit: {requirement: optional},
+//         own: {requirement: optional},
+//         numStories: {requirement: required},
+//         constructionType: {requirement: required},
+//         yearBuilt: {requirement: required},
+//         unemployment_num: {requirement: hidden},
+//         full_time_employees: {requirement: hidden},
+//         part_time_employees: {requirement: hidden},
+//         square_footage: {requirement: required},
+//         bop: {
+//             requirement: required,
+//             sprinklerEquipped: {requirement: optional},
+//             fireAlarmType: {requirement: required},
+//             roofingImprovementYear: {requirement: required},
+//             wiringImprovementYear: {requirement: required},
+//             heatingImprovementYear: {requirement: required},
+//             plumbingImprovementYear: {requirement: required}
+//         }
+//     },
+//     grossSalesAmt: {requirement: required},
+//     ein: {requirement: optional},
+//     website: {requirement: optional},
+//     coverageLapseWC: {requirement: hidden},
+//     yearsOfExp: {requirement: required},
+//     owner: {
+//         requirement: optional,
+//         officerTitle: {requirement: hidden},
+//         birthdate: {requirement: hidden},
+//         ownership: {requirement: hidden},
+//         payroll: {requirement: hidden}
+//     }
+// };
+
+// const glRequirements = {
+//     location: {
+//         activityPayrollList: {requirement: optional},
+//         buildingLimit: {requirement: hidden},
+//         businessPersonalPropertyLimit: {requirement: hidden},
+//         own: {requirement: hidden},
+//         numStories: {requirement: hidden},
+//         constructionType: {requirement: hidden},
+//         yearBuilt: {requirement: hidden},
+//         unemployment_num: {requirement: hidden},
+//         full_time_employees: {requirement: hidden},
+//         part_time_employees: {requirement: hidden},
+//         square_footage: {requirement: required},
+//         bop: {
+//             requirement: hidden,
+//             sprinklerEquipped: {requirement: hidden},
+//             fireAlarmType: {requirement: hidden},
+//             roofingImprovementYear: {requirement: hidden},
+//             wiringImprovementYear: {requirement: hidden},
+//             heatingImprovementYear: {requirement: hidden},
+//             plumbingImprovementYear: {requirement: hidden}
+//         }
+//     },
+//     grossSalesAmt: {requirement: required},
+//     ein: {requirement: optional},
+//     coverageLapseWC: {requirement: hidden},
+//     website: {requirement: optional},
+//     yearsOfExp: {requirement: required},
+//     owner: {
+//         requirement: hidden
+//     }
+// };
+
+// const wcRequirements = {
+//     owner: {
+//         requirement: required,
+//         officerTitle: {requirement: optional},
+//         birthdate: {requirement: required}
+//         // ownership: {requirement: hidden},
+//         // payroll: {requirement: hidden}
+//     },
+//     location: {
+//         activityPayrollList: {requirement: required},
+//         buildingLimit: {requirement: hidden},
+//         businessPersonalPropertyLimit: {requirement: hidden},
+//         own: {requirement: hidden},
+//         numStories: {requirement: hidden},
+//         constructionType: {requirement: hidden},
+//         yearBuilt: {requirement: hidden},
+//         unemployment_num: {requirement: required},
+//         full_time_employees: {requirement: hidden},
+//         part_time_employees: {requirement: hidden},
+//         square_footage: {requirement: hidden},
+//         bop: {
+//             requirement: hidden,
+//             sprinklerEquipped: {requirement: hidden},
+//             fireAlarmType: {requirement: hidden},
+//             roofingImprovementYear: {requirement: hidden},
+//             wiringImprovementYear: {requirement: hidden},
+//             heatingImprovementYear: {requirement: hidden},
+//             plumbingImprovementYear: {requirement: hidden}
+//         }
+//     },
+//     grossSalesAmt: {requirement: hidden},
+//     ein: {requirement: required},
+//     website: {requirement: optional},
+//     yearsOfExp: {requirement: required}
+// };
+
+// const plRequirements = {
+//     location: {
+//         square_footage: {requirement: hidden},
+//         activityPayrollList: {requirement: required},
+//         buildingLimit: {requirement: hidden},
+//         businessPersonalPropertyLimit: {requirement: hidden},
+//         own: {requirement: hidden},
+//         numStories: {requirement: hidden},
+//         constructionType: {requirement: hidden},
+//         yearBuilt: {requirement: hidden},
+//         unemployment_num: {requirement: hidden},
+//         full_time_employees: {requirement: hidden},
+//         part_time_employees: {requirement: hidden},
+//         bop: {
+//             sprinklerEquipped: {requirement: hidden},
+//             requirement: hidden,
+//             fireAlarmType: {requirement: hidden},
+//             roofingImprovementYear: {requirement: hidden},
+//             wiringImprovementYear: {requirement: hidden},
+//             heatingImprovementYear: {requirement: hidden},
+//             plumbingImprovementYear: {requirement: hidden}
+//         }
+//     },
+//     website: {requirement: hidden},
+//     grossSalesAmt: {requirement: required},
+//     ein: {requirement: hidden},
+//     yearsOfExp: {requirement: required},
+//     coverageLapseWC: {requirement: hidden},
+//     owner: {
+//         requirement: hidden
+//     }
+// };
+
+// const cyberRequirements = {
+//     location: {
+//         activityPayrollList: {requirement: hidden},
+//         buildingLimit: {requirement: hidden},
+//         businessPersonalPropertyLimit: {requirement: hidden},
+//         own: {requirement: hidden},
+//         numStories: {requirement: hidden},
+//         constructionType: {requirement: hidden},
+//         yearBuilt: {requirement: hidden},
+//         unemployment_num: {requirement: hidden},
+//         full_time_employees: {requirement: required},
+//         part_time_employees: {requirement: optional},
+//         square_footage: {requirement: hidden},
+//         bop: {
+//             requirement: hidden,
+//             sprinklerEquipped: {requirement: hidden},
+//             fireAlarmType: {requirement: hidden},
+//             roofingImprovementYear: {requirement: hidden},
+//             wiringImprovementYear: {requirement: hidden},
+//             heatingImprovementYear: {requirement: hidden},
+//             plumbingImprovementYear: {requirement: hidden}
+//         }
+//     },
+//     grossSalesAmt: {requirement: hidden},
+//     ein: {requirement: hidden},
+//     website: {requirement: hidden},
+//     yearsOfExp: {requirement: hidden},
+//     coverageLapseWC: {requirement: hidden},
+//     owner: {
+//         requirement: hidden
+//     }
+// };
 
 exports.requiredFields = async(appId) => {
     let applicationDB = null;
@@ -201,9 +378,47 @@ exports.requiredFields = async(appId) => {
     catch(err){
         log.error("Error getting application doc " + err + __location);
     }
-    // TODO Get insurer required fields by policytype.
-    // starting point is the minium carrier set.
 
+    let POLICY_TYPE_BASED = true
+
+    // Get AgencyLcoation Doc ot get insurer and policyType by insurer supported
+    // for this applications.
+    let agencyLocationDB = null;
+    let insurerList = [];
+    const agencyLcoationBO = new AgencyLcoationBO();
+    POLICY_TYPE_BASED = false
+    try{
+        log.debug(`Loading Agency Location Id ${applicationDB.agencyLocationId} ` + __location)
+        agencyLocationDB = await agencyLcoationBO.getById(applicationDB.agencyLocationId);
+        if(agencyLocationDB.useAgencyPrime){
+            //load AgencyPrime's location
+            log.debug(`USING PRIME Agency Location Id For ${applicationDB.agencyLocationId} ` + __location)
+            agencyLocationDB = await agencyLcoationBO.getAgencyPrimeLocation(agencyLocationDB.agencyId,agencyLocationDB.agencyNetworkId);
+        }
+    }
+    catch(err){
+        log.error("requiredFields - Error getting agencyLcoation doc " + err + __location);
+    }
+
+    if(!agencyLocationDB){
+        //no agencylocation fall back to policy_type based required Fields.
+        log.warn(`Failing back to  Default Required Fields b/c agency location appId  ${appId}` + __location)
+        POLICY_TYPE_BASED = true
+    }
+    else {
+        // load full insuers list so we only do 1 DB or Redis hit for the insurers.
+        const insurerBO = new InsurerBO();
+        try{
+            insurerList = await insurerBO.getList();
+        }
+        catch(err){
+            log.error("requiredFields -Error getting insurerList " + err + __location);
+            POLICY_TYPE_BASED = true
+        }
+    }
+
+
+    // Get insurer required fields by policytype.
 
     let requiredFields = null;
     if(applicationDB && applicationDB.hasOwnProperty('policies')){
@@ -212,53 +427,30 @@ exports.requiredFields = async(appId) => {
             if(!policyData.policyType){
                 continue;
             }
-            const newRequirements = {};
-            switch(policyData.policyType.toUpperCase()){
-                case "WC":
-                    if(requiredFields){
-                        combineRequiredObjects(requiredFields, wcRequirements, newRequirements);
+
+
+            const ptCode = policyData.policyType.toUpperCase()
+            if(POLICY_TYPE_BASED){
+                requiredFields = processPolicyTypeJson(policyBasedRequiredFields[ptCode], requiredFields);
+            }
+            else {
+                const ptInsurerList = getAgencyLocationsInsurerByPolicyType(agencyLocationDB, ptCode, insurerList);
+                if(ptInsurerList.length > 0){
+                    for(const ptInsurer of ptInsurerList){
+                        if(ptInsurer.requiredFields && ptInsurer.requiredFields[ptCode]) {
+                            log.debug(`Using Insurer Required Fields insurerId ${ptInsurer.insurerId} ${ptCode}` + __location)
+                            requiredFields = processPolicyTypeJson(ptInsurer.requiredFields[ptCode], requiredFields);
+                        }
+                        else {
+                            log.warn(`Failing back to  Default Required Fields for insurerId ${ptInsurer.insurerId} ${ptCode}` + __location)
+                            requiredFields = processPolicyTypeJson(policyBasedRequiredFields[ptCode], requiredFields);
+                        }
                     }
-                    else {
-                        populateSingleRequiredObject(wcRequirements, newRequirements);
-                    }
-                    requiredFields = newRequirements;
-                    break;
-                case "GL":
-                    if(requiredFields){
-                        combineRequiredObjects(requiredFields, glRequirements, newRequirements);
-                    }
-                    else {
-                        populateSingleRequiredObject(glRequirements, newRequirements);
-                    }
-                    requiredFields = newRequirements;
-                    break;
-                case "BOP":
-                    if(requiredFields){
-                        combineRequiredObjects(requiredFields, bopRequirements, newRequirements);
-                    }
-                    else {
-                        populateSingleRequiredObject(bopRequirements, newRequirements);
-                    }
-                    requiredFields = newRequirements;
-                    break;
-                case "CYBER":
-                    if(requiredFields){
-                        combineRequiredObjects(requiredFields, cyberRequirements, newRequirements);
-                    }
-                    else {
-                        populateSingleRequiredObject(cyberRequirements, newRequirements);
-                    }
-                    requiredFields = newRequirements;
-                    break;
-                case "PL":
-                    if(requiredFields){
-                        combineRequiredObjects(requiredFields, plRequirements, newRequirements);
-                    }
-                    else {
-                        populateSingleRequiredObject(plRequirements, newRequirements);
-                    }
-                    requiredFields = newRequirements;
-                    break;
+                }
+                else {
+                    log.warn(`Failing back to  Default Required Fields for NO insurers for  ${ptCode}` + __location)
+                    requiredFields = processPolicyTypeJson(policyBasedRequiredFields[ptCode], requiredFields);
+                }
             }
         }
         //remove full_time_employees && part_time_employees if activityPayrollList is shown.
@@ -285,9 +477,8 @@ exports.requiredFields = async(appId) => {
             requiredFields = newRequirements;
         }
 
-        // TODO: eventually we can make more determinations off the application to decide what is required (and not)
 
-        //TODO Software Hook to override optional fields per Agency Network.
+        //Software Hook to override optional fields per Agency Network.
         const dataPackageJSON = {
             appDoc: applicationDB,
             agencyNetworkDB: agencyNetworkDB,
@@ -304,6 +495,36 @@ exports.requiredFields = async(appId) => {
     }
     return requiredFields;
 };
+
+
+// process policytype base adding of PolicyType Required fields.
+function processPolicyTypeJson(policyTypeRequiredFieldJson, requiredFields){
+    const newRequirements = {};
+    if(requiredFields){
+        combineRequiredObjects(requiredFields, policyTypeRequiredFieldJson, newRequirements);
+    }
+    else {
+        populateSingleRequiredObject(policyTypeRequiredFieldJson, newRequirements);
+    }
+    return newRequirements;
+}
+
+function getAgencyLocationsInsurerByPolicyType(agencyLocationDB, policyType, insurerList){
+    const policyTypeInsurerList = []
+    //loop through AL.insurers.
+    for (const alInsurer of agencyLocationDB.insurers){
+        if(alInsurer.policyTypeInfo[policyType] && alInsurer.policyTypeInfo[policyType].enabled === true){
+            const insurerDoc = insurerList.find((i) => i.insurerId === alInsurer.insurerId);
+            if(insurerDoc){
+                policyTypeInsurerList.push(insurerDoc)
+            }
+
+        }
+    }
+    return policyTypeInsurerList;
+}
+
+
 // combine objects, this needs to merge both objects with higher values taking precedence
 const combineRequiredObjects = (obj1, obj2, newObj) => {
     const keysToSkip = ["requirement"];

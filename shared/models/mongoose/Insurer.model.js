@@ -68,6 +68,7 @@ const InsurerSchema = new Schema({
     credentialInfo: {type: Schema.Types.Mixed},
     additionalInfo: {type: Schema.Types.Mixed},
     paymentPlans: [PaymentPlanSchema],
+    requiredFields: {type: Object, required: false},
     active: {type: Boolean, default: true}
 },opts)
 
