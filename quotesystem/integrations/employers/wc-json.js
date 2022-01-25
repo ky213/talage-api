@@ -299,7 +299,7 @@ module.exports = class EmployersWC extends Integration {
                 else if (location.unemployment_num) {
                     locationJSON.unemploymentId = location.unemployment_num
                 }
-                const locationTotalEmployees = this.get_total_lociation_employees(location)
+                const locationTotalEmployees = this.get_total_location_employees(location)
                 locationJSON.numberOfEmployees = locationTotalEmployees;
                 locationJSON.shift1EmployeesCount = locationTotalEmployees;
                 locationJSON.shift2EmployeesCount = 0;

@@ -309,9 +309,20 @@ module.exports = class LibertySBOP extends Integration {
             log.error(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
+        // Use location BPP if available.  simple coverage as been decommissioned in UI - duplicate field to location bpp
+        if (!(BOPPolicy.coverage > 0)) {
+            let coverage = 0;
+            for (const {businessPersonalPropertyLimit} of applicationDocData.locations) {
+                if (typeof businessPersonalPropertyLimit === "number"){
+                    coverage += businessPersonalPropertyLimit
+                }
+            }
+            BOPPolicy.coverage = coverage;
+        }
+
 
         // if there's no coverage captured for this BOP policy
-        if (!(BOPPolicy.coverage > 0)) {
+        if (!(BOPPolicy.coverage > 0 || BOPPolicy)) {
             const errorMessage = `No BOP Coverage was supplied for the Commercial BOP Policy.`;
             log.error(`${logPrefix}${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
             return this.client_error(errorMessage, __location);
@@ -1427,7 +1438,7 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 }
             });
-
+            //This is a main Application Location field.   That should be used.
             const occupied = location.square_footage - (occupiedByOthers + unoccupied);
             AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
             AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');

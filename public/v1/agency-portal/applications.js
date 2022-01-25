@@ -143,71 +143,76 @@ function generateCSV(applicationList, isGlobalViewMode){
 
         // Process the returned data
         for(const applicationDoc of applicationList){
+            try{
 
-            /* --- Make the data pretty --- */
-            // Address and Primary Address - Combine the two address lines (if there is an address and an address line 2)
-            if(applicationDoc.mailingAddress && applicationDoc.mailingAddress2){
-                applicationDoc.mailingAddress += `, ${applicationDoc.mailingAddress2}`;
-            }
-
-            // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
-            applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
-            applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
-
-
-            //Get Primary Location
-            const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
-            if(primaryLocation){
-                applicationDoc.primaryAddress = primaryLocation.address;
-                if(applicationDoc.primaryAddress && primaryLocation.address2){
-                    applicationDoc.primaryAddress += `, ${primaryLocation.address2}`;
+                /* --- Make the data pretty --- */
+                // Address and Primary Address - Combine the two address lines (if there is an address and an address line 2)
+                if(applicationDoc.mailingAddress && applicationDoc.mailingAddress2){
+                    applicationDoc.mailingAddress += `, ${applicationDoc.mailingAddress2}`;
                 }
 
-                // City and Primary City - Proper capitalization
-                if(primaryLocation.city){
-                    applicationDoc.city = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
-                    applicationDoc.primaryCity = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
+                applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
+                applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
+
+
+                //Get Primary Location
+                const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
+                if(primaryLocation){
+                    applicationDoc.primaryAddress = primaryLocation.address;
+                    if(applicationDoc.primaryAddress && primaryLocation.address2){
+                        applicationDoc.primaryAddress += `, ${primaryLocation.address2}`;
+                    }
+
+                    // City and Primary City - Proper capitalization
+                    if(primaryLocation.city){
+                        applicationDoc.city = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                        applicationDoc.primaryCity = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                    }
+                    applicationDoc.primaryState = primaryLocation.state;
+                    applicationDoc.primaryZip = primaryLocation.zipcode;
                 }
-                applicationDoc.primaryState = primaryLocation.state;
-                applicationDoc.primaryZip = primaryLocation.zipcode;
-            }
 
 
-            //get Primary Contact
-            const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-            // Phone Number - Formatted
-            if(customerContact){
-                applicationDoc.email = customerContact.email;
-                applicationDoc.phone = customerContact.phone ? formatPhone(customerContact.phone) : null;
-                // Contact Name - Combine first and last
-                if(customerContact.firstName){
-                    applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
+                //get Primary Contact
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                // Phone Number - Formatted
+                if(customerContact){
+                    applicationDoc.email = customerContact.email;
+                    applicationDoc.phone = customerContact.phone ? formatPhone(customerContact.phone) : null;
+                    // Contact Name - Combine first and last
+                    if(customerContact.firstName){
+                        applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
+                    }
+                }
+
+                // Status
+                if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){
+                    applicationDoc.status = statusMap[applicationDoc.status];
+                }
+                else{
+                    applicationDoc.status = 'Unknown';
+                }
+                // if(applicationDoc.renewal === true){
+                //     applicationDoc.renewal = "Yes";
+                // }
+                // applicationDoc.appValue = getAppValueString(applicationDoc);
+
+                const createdAtMoment = moment(applicationDoc.createdAt)
+                applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
+
+                if(applicationDoc.policyEffectiveDate){
+                    const policyEffectiveDateMoment = moment(applicationDoc.policyEffectiveDate)
+                    applicationDoc.policyDateString = policyEffectiveDateMoment.format("YYYY-MM-DD");
+                }
+
+                // get referrer information, if none then default to agency portal
+                if(!applicationDoc.referrer){
+                    applicationDoc.referrer = 'Agency Portal';
                 }
             }
-
-            // Status
-            if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){
-                applicationDoc.status = statusMap[applicationDoc.status];
-            }
-            else{
-                applicationDoc.status = 'Unknown';
-            }
-            // if(applicationDoc.renewal === true){
-            //     applicationDoc.renewal = "Yes";
-            // }
-            // applicationDoc.appValue = getAppValueString(applicationDoc);
-
-            const createdAtMoment = moment(applicationDoc.createdAt)
-            applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
-
-            if(applicationDoc.policyEffectiveDate){
-                const policyEffectiveDateMoment = moment(applicationDoc.policyEffectiveDate)
-                applicationDoc.policyDateString = policyEffectiveDateMoment.format("YYYY-MM-DD");
-            }
-
-            // get referrer information, if none then default to agency portal
-            if(!applicationDoc.referrer){
-                applicationDoc.referrer = 'Agency Portal';
+            catch(err){
+                log.err(`CSV App row processing error ${err}` + __location)
             }
         }
 
@@ -296,7 +301,7 @@ function generateCSV(applicationList, isGlobalViewMode){
                 reject(serverHelper.internalError('Unable to generate CSV file'));
                 return;
             }
-
+            log.info(`Finishing CSV output ` + __location)
             // Send the CSV data
             fulfill(output);
         });
@@ -885,6 +890,9 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         log.debug(`Get applications query ${JSON.stringify(query)}` + __location)
+        if(returnCSV === true){
+            log.info(`CSV Get applications query ${JSON.stringify(query)}` + __location)
+        }
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
         applicationsSearchCount = applicationsSearchCountJSON.count;
@@ -923,25 +931,32 @@ async function getApplications(req, res, next){
     }
 
     if(returnCSV === true){
-        const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
-            error = e;
-        });
-        if(error){
-            return next(error);
+        try{
+            log.info(`Starting CSV output for ${applicationList.length} applications` + __location)
+            const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
+                error = e;
+            });
+            if(error){
+                return next(error);
+            }
+
+            // Set the headers so the browser knows we are sending a CSV file
+            res.writeHead(200, {
+                'Content-Disposition': 'attachment; filename=applications.csv',
+                'Content-Length': csvData.length,
+                'Content-Type': 'text-csv'
+            });
+
+            // Send the CSV data
+            res.end(csvData);
+            log.info(`Finished CSV response for ${applicationList.length} applications` + __location)
+            const endMongo = moment();
+            const diff = endMongo.diff(start, 'milliseconds', true);
+            log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
         }
-
-        // Set the headers so the browser knows we are sending a CSV file
-        res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
-            'Content-Length': csvData.length,
-            'Content-Type': 'text-csv'
-        });
-
-        // Send the CSV data
-        res.end(csvData);
-        const endMongo = moment();
-        const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
+        catch(err){
+            log.error(`AP App Export error ${err}` + __location);
+        }
         return next();
 
     }

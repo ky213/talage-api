@@ -90,7 +90,10 @@ async function main() {
         log.info(`Checking ${curCollection} at DEST`)
         const rowsInNewCollection = await global.insurerMongodb.collection(curCollection).find({});
         if (await rowsInNewCollection.count() > 0) {
-            throw new Error(`Row count in insurerDatabase.${curCollection} contains rows. So not sure if it's save to do import`);
+            //give us a rerun - pickup where we left off capability.
+            log.info(`${curCollection} already moved`)
+            continue;
+            //throw new Error(`Row count in insurerDatabase.${curCollection} contains rows. So not sure if it's save to do import`);
         }
         if(curCollection.indexOf("_history") === -1){
             log.info(`setting up indexes for ${curCollection}`)

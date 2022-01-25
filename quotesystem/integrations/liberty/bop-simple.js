@@ -89,6 +89,16 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         if (!(SBOPPolicy.coverage > 0)) {
+            let coverage = 0;
+            for (const {businessPersonalPropertyLimit} of applicationDocData.locations) {
+                if (typeof businessPersonalPropertyLimit === "number"){
+                    coverage += businessPersonalPropertyLimit
+                }
+            }
+            SBOPPolicy.coverage = coverage;
+        }
+
+        if (!(SBOPPolicy.coverage > 0)) {
             const errorMessage = `No BPP Coverage was supplied for the Simple BOP Policy.`;
             log.error(`${logPrefix}${errorMessage} ${JSON.stringify(SBOPPolicy)} ` + __location);
             return this.client_error(errorMessage, __location);

@@ -500,6 +500,57 @@ module.exports = class AgencyLocationBO{
         return agencyPrimeInsurers;
     }
 
+    async getAgencyPrimeLocation(agencyId, agencyNetworkId){
+        const AgencyBO = global.requireShared('./models/Agency-BO.js');
+        const agencyBO = new AgencyBO();
+
+        let agencyPrimeLocation = null;
+        try{
+            if(!agencyNetworkId){
+                const agencyJSON = await this.getAgencyJSON(agencyId);
+                if(agencyJSON){
+                    agencyNetworkId = agencyJSON.agencyNetworkId;
+                }
+                else {
+                    log.error(`getAgencyPrimeInsurers: Could not find secondary agency ${agencyId}` + __location)
+                }
+            }
+            if(agencyNetworkId > 0){
+                //Get newtorks prime agency.
+                const queryAgency = {
+                    "agencyNetworkId": agencyNetworkId,
+                    "primaryAgency": true
+                }
+                const agencyList = await agencyBO.getList(queryAgency);
+                if(agencyList && agencyList.length > 0){
+                    const agencyPrime = agencyList[0];
+                    //get agency's prime location
+                    // return prime location's insurers.
+                    const returnChildren = true;
+                    const agencyLocationPrime = await this.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                    if(agencyLocationPrime && agencyLocationPrime.insurers){
+                        agencyPrimeLocation = agencyLocationPrime
+                    }
+                    else {
+                        log.error(`Agency Prime id ${agencyPrime.systemId} as no insurers ` + __location)
+                    }
+                }
+                else {
+                    log.error(`No Agency Prime for secondary agency ${agencyId}  agencyNetworkId ${agencyNetworkId}` + __location)
+                }
+
+            }
+            else {
+                log.error(`getAgencyPrimeLocation: No agency Network ${agencyNetworkId} for secondary agency ${agencyId}` + __location)
+            }
+        }
+        catch(err){
+            log.error(`Error getting AgencyPrime's location agency  ${agencyId} agencyNetworkId ${agencyNetworkId} ` + err + __location);
+        }
+
+        return agencyPrimeLocation;
+    }
+
     async loadChildrenMongo(agencyLocationJSON){
         if(!agencyLocationJSON){
             return;

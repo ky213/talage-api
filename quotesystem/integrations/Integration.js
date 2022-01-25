@@ -960,22 +960,22 @@ module.exports = class Integration {
      *
      * @returns {int} - The total number of employees as an integer
      */
-    get_total_lociation_employees(appLocation) {
+    get_total_location_employees(appLocation) {
         let total = 0;
         //New more detailed info in AppDoc.
-        appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
-            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
-                total += employeeType.employeeTypeCount;
-            });
+        if(appLocation.activityPayrollList?.length > 0){
+            appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    total += employeeType.employeeTypeCount;
+                });
 
-        });
+            });
+        }
       
         //Old simpler storage.
-        if(total === 0){
-            this.app.business.locations.forEach(function(loc) {
-                total += loc.full_time_employees;
-                total += loc.part_time_employees;
-            });
+        if(total === 0 && appLocation){
+            total += appLocation.full_time_employees;
+            total += appLocation.part_time_employees;
         }
         return total;
     }
@@ -1007,6 +1007,60 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns the total number of employees associated with this location
+     * @param {object} appLocation - Application location
+     *
+     * @returns {int} - The total number of employees as an integer
+     */
+    get_total_location_full_time_employees(appLocation) {
+        let total = 0;
+        //New more detailed info in AppDoc.  
+        if(appLocation.activityPayrollList?.length > 0){
+            appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Full Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
+        }
+        //Old simpler storage.
+        if(total === 0 && appLocation){
+            total += appLocation.full_time_employees;
+        }
+        return total;
+    }
+
+
+    /**
+     * Returns the total number of employees associated with this location
+     * @param {object} appLocation - Application location
+     *
+     * @returns {int} - The total number of employees as an integer
+     */
+    get_total_location_part_time_employees(appLocation) {
+        let total = 0;
+        //New more detailed info in AppDoc.
+        if(appLocation.activityPayrollList?.length > 0){
+            appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Part Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
+        }
+      
+        //Old simpler storage.
+        if(total === 0 && appLocation){
+            total += appLocation.part_time_employees;
+        }
+        return total;
+    }
+
+    /**
      * Returns the total number of part-time employees associated with this application
      *
      * @returns {int} - The total number of part-time employees as an integer
@@ -1014,6 +1068,7 @@ module.exports = class Integration {
     get_total_part_time_employees() {
         let total = 0;
         let totalLocLevel = 0;
+        
         this.applicationDocData.locations.forEach(loc => {
             totalLocLevel += loc.part_time_employees;
             loc.activityPayrollList.forEach((activtyCodePayroll) => {
