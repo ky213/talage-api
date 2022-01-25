@@ -303,6 +303,7 @@ const medicalLimits = [
 ];
 
 let logPrefix = null;
+let BOPPolicy = null;
 
 module.exports = class CnaBOP extends Integration {
 
@@ -344,15 +345,15 @@ module.exports = class CnaBOP extends Integration {
             branchProdCd = "540085091";
         }
 
+        const business = this.app.business;
+        BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === 'BOP');
+
         industryCode = await this.getIndustryCode();
 
         if (!industryCode) {
             log.error(`${logPrefix}Unable to get Industry Code, applicantion Out of Market. ` + __location);
             return this.client_autodeclined_out_of_appetite();
         }
-
-        const business = this.app.business;
-        const BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === 'BOP');
 
         let agencyId = null;
         try {
@@ -384,14 +385,19 @@ module.exports = class CnaBOP extends Integration {
 
         let primaryContact = applicationDocData.contacts.find(c => c.primary);
         let phone = null;
-        if (primaryContact?.phone) {
+
+        if (primaryContact?.phone && primaryContact.phone.length > 0) {
             phone = primaryContact.phone.toString().replace(/[()-]/g, '');
         }
-        else {
+        else if (applicationDocData.phone && applicationDocData.phone.length > 0) {
             phone = applicationDocData.phone.toString().replace(/[()-]/g, '');
         }
+        else {
+            this.reasons.push(`A phone number was not supplied on the application and is required by CNA.`);
+            phone = "";
+        }
 
-        const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
+        let formattedPhone = phone.length > 0 ? `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}` : "";
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -1926,16 +1932,62 @@ module.exports = class CnaBOP extends Integration {
     }
 
     async getIndustryCode() {
-        const insurer = this.app.insurers.find(ins => ins.name === "CNA");
+        let bopIndustryCodeIds = null;
+        let bopCodeSupplied = false;
 
+        // if no BOP code was selected, try to find the best one by ranking
+        if (!BOPPolicy.bopIndustryCodeId) {
+            // find all bop codes for this parent talage industry code
+            bopIndustryCodeIds = await this.getBopCodes(this.applicationDocData.industryCode);
+
+            if (!bopIndustryCodeIds) {
+                return null;
+            }
+        }
+        else {
+            // otherwise use the selected one
+            bopCodeSupplied = true;
+            bopIndustryCodeIds = [BOPPolicy.bopIndustryCodeId];
+        }
+
+        // get insurer industry codes for the bop code(s)
+        let insurerIndustryCodes = await this.getCNAIndustryCodes(bopIndustryCodeIds);
+
+        // if no insurer industry codes found
+        if (!insurerIndustryCodes && bopCodeSupplied) {
+            // could be a bop code for a different insurer, find bop codes for talage industry code
+            bopIndustryCodeIds = await this.getBopCodes(this.applicationDocData.industryCode);
+
+            if (!bopIndustryCodeIds) {
+                return null;
+            }
+
+            // get the insurer industry codes for the bop code(s)
+            insurerIndustryCodes = await this.getCNAIndustryCodes(bopIndustryCodeIds);
+        }
+        
+        if (!insurerIndustryCodes) {
+            log.error(`Unable to find any insurer industry codes with the provided BOPPolicy and Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        // Return the highest ranking code
+        let industryCode = null;
+        insurerIndustryCodes.forEach(ic => {
+            if (!industryCode || ic.ranking < industryCode.ranking) {
+                industryCode = ic;
+            }
+        });
+
+        return industryCode;
+    }
+
+    async getBopCodes(talageIndustryCode) {
         const industryCodeBO = new IndustryCodeBO();
-        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
-
         const bopCodeQuery = {
-            parentIndustryCodeId: this.applicationDocData.industryCode
+            parentIndustryCodeId: talageIndustryCode
         };
 
-        // find all bop codes for this parent talage industry code
         let bopCodeRecords = null;
         try {
             bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
@@ -1956,11 +2008,16 @@ module.exports = class CnaBOP extends Integration {
         }
 
         // reduce array to code ids
-        const bopCodes = bopCodeRecords.map(code => code.industryCodeId);
+        return bopCodeRecords.map(code => code.industryCodeId);
+    }
+
+    async getCNAIndustryCodes(bopIndustryCodeIds) {
+        const insurer = this.app.insurers.find(ins => ins.name === "CNA");
+        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
         const insurerIndustryCodeQuery = {
             insurerId: insurer.id,
-            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopCodes}}}
+            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopIndustryCodeIds}}}
         };
 
         // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
@@ -1983,14 +2040,6 @@ module.exports = class CnaBOP extends Integration {
             return null;
         }
 
-        // Return the highest ranking code
-        let industryCode = null;
-        insurerIndustryCodes.forEach(ic => {
-            if (!industryCode || ic.ranking < industryCode.ranking) {
-                industryCode = ic;
-            }
-        });
-
-        return industryCode;
+        return insurerIndustryCodes;
     }
 };
