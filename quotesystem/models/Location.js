@@ -94,10 +94,24 @@ module.exports = class Location {
             locationDocJson.activityPayrollList.forEach((actvityPayroll) => {
                 // Check if we have already seen this activity code
                 let match = false;
-                if(!actvityPayroll.activityCodeId){
-                    actvityPayroll.activityCodeId = actvityPayroll.ncciCode
-                }
                 const tmp_id = parseInt(actvityPayroll.activityCodeId, 10);
+                if(actvityPayroll.employeeTypeList?.length > 0){
+                    let payroll = 0
+                    //Fix employee Count at the same time.
+                    this.full_time_employees = 0;
+                    this.part_time_employees = 0;
+                    for(const employeeTypePayroll of actvityPayroll.employeeTypeList){
+                        payroll += employeeTypePayroll.employeeTypePayroll
+                        if(employeeTypePayroll.employeeType === "Full Time"){
+                            this.full_time_employees += employeeTypePayroll.employeeTypeCount
+                        }
+                        if(employeeTypePayroll.employeeType === "Part Time"){
+                            this.part_time_employees += employeeTypePayroll.employeeTypeCount
+                        }
+                    }
+                    actvityPayroll.payroll = payroll
+                }
+                //old style or simple payroll
                 this.activity_codes.forEach(function(modelActivityCode) {
                     if (tmp_id === modelActivityCode.activityCodeId) {
                         match = true;

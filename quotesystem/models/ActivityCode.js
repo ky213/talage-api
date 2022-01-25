@@ -8,6 +8,7 @@ module.exports = class ActivityCode{
 
     constructor(){
         this.appPolicyTypeList = [];
+        this.employeeTypeList = [];
         this.description = '';
         this.id = 0;
 
@@ -26,14 +27,15 @@ module.exports = class ActivityCode{
         if(locationActiviyCodeDocJson.activityCodeId){
             this.id = locationActiviyCodeDocJson.activityCodeId;
         }
-        else{
-            this.id = locationActiviyCodeDocJson.ncciCode;
-        }
+
         if(locationActiviyCodeDocJson.payroll > 0){
             this.payroll += locationActiviyCodeDocJson.payroll;
         }
         if(locationActiviyCodeDocJson.ownerPayRoll > 0){
             this.payroll += locationActiviyCodeDocJson.ownerPayRoll;
+        }
+        if(locationActiviyCodeDocJson.employeeTypeList){
+            this.employeeTypeList = locationActiviyCodeDocJson.employeeTypeList;
         }
     }
 };
