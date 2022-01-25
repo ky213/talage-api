@@ -169,13 +169,13 @@ module.exports = class HiscoxGL extends Integration {
 
         // Define how legal entities are mapped for Hiscox
         const entityMatrix = {
-            Association: "Corporation or other organization (other than the above)",
-            Corporation: "Corporation or other organization (other than the above)",
-            "Limited Liability Company": "Limited liability company",
+            Association: "Professional Association",
+            Corporation: "Corporation",
+            "Limited Liability Company": "Limited Liability Company",
             "Limited Partnership": "Partnership",
-            Other: "Corporation or other organization (other than the above)",
+            Other: "Other",
             Partnership: "Partnership",
-            "Sole Proprietorship": "Individual/sole proprietor"
+            "Sole Proprietorship": "Sole Proprietor"
         };
 
         // Determine which URL to use
@@ -241,13 +241,13 @@ module.exports = class HiscoxGL extends Integration {
         if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
             reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.AgentID = this.app.agencyLocation.insurers[this.insurer.id].agentId;
         }
-        reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person = {};
+        reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person = {Name: {}};
 
         if (this.first_name){
-            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person.FirstName = this.first_name;
+            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person.Name.FirstName = this.first_name;
         }
         if (this.last_name){
-            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person.FirstName = this.last_name;
+            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person.Name.LastName = this.last_name;
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person.CommunicationsInfo = {
@@ -618,13 +618,13 @@ module.exports = class HiscoxGL extends Integration {
 
 
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
-        let xml = null;
-        try {
-            xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
-        }
-        catch (error) {
-            return this.client_error('An unexpected error occurred when creating the quote request.', __location, {error: "Could not render template file"});
-        }
+        // let xml = null;
+        // try {
+        //     xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
+        // }
+        // catch (error) {
+        //     return this.client_error('An unexpected error occurred when creating the quote request.', __location, {error: "Could not render template file"});
+        // }
 
         // Get a token from their auth server
         const tokenRequestData = {
@@ -647,20 +647,19 @@ module.exports = class HiscoxGL extends Integration {
         const token = responseObject.access_token;
 
         // Specify the path to the Quote endpoint
-        const path = "/partner/v3/quote";
+        // const path = "/partner/v3/quote";
+        const path = "/partner/v4/quote";
 
         this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
 
-        // console.log("request", xml);
-
-        // Send the XML to the insurer
+        // Send the JSON to the insurer
         let result = null;
         let requestError = null;
         try {
-            result = await this.send_xml_request(host, path, xml, {
+            result = await this.send_request(host, path, reqJSON, {
                 Authorization: `Bearer ${token}`,
                 Accept: "application/xml",
-                "Content-Type": "application/xml"
+                "Content-Type": "application/json"
             });
         }
         catch (error) {
