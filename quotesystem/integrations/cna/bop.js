@@ -1912,9 +1912,6 @@ module.exports = class CnaBOP extends Integration {
                 Exposure: {
                     value: this.applicationDocData.grossSalesAmt
                 },
-                PremiumBasisCd: {
-                    value: "GrSales"
-                },
                 id: `C${i}`,
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
