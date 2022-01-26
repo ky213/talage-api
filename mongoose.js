@@ -133,7 +133,7 @@ allConnections.init = function init() {
     require('./shared/models/mongoose/Agency.model');
     require('./shared/models/mongoose/AgencyLocation.model');
     require('./shared/models/mongoose/AgencyLandingPage.model');
-    require('./shared/models/mongoose/ApplicationNotesCollection.model');
+    require('./shared/models/mongoose/ApplicationNotes.model');
 
     require('./shared/models/mongoose/OpenIdAuthConfig.model');
 
@@ -175,7 +175,7 @@ allConnections.init = function init() {
         AgencyPortalUser: global.mongodb.model('AgencyPortalUser'),
         AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
         Application: global.mongodb.model('Application'),
-        ApplicationNotesCollection: global.mongodb.model('ApplicationNotesCollection'),
+        ApplicationNotes: global.mongodb.model('ApplicationNotes'),
         ColorScheme: global.mongodb.model('ColorScheme'),
         IndustryCode: global.insurerMongodb.model('IndustryCode'),
         IndustryCodeCategory: global.insurerMongodb.model('IndustryCodeCategory'),

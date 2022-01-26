@@ -22,7 +22,6 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const LimitsBO = global.requireShared('models/Limits-BO.js');
-const ApplicationNotesCollectionBO = global.requireShared('models/ApplicationNotesCollection-BO.js');
 const ApplicationQuoting = global.requireRootPath('quotesystem/models/Application.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const jwt = require('jsonwebtoken');
@@ -1849,124 +1848,6 @@ async function GetQuoteLimits(req, res, next){
 
 }
 
-async function getApplicationNotes(req, res, next){
-
-    // Check for data
-    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
-        log.error('Bad Request: No data received ' + __location);
-        return next(serverHelper.requestError('Bad Request: No data received'));
-    }
-
-    // Make sure basic elements are present
-    if (!req.query.applicationId) {
-        log.error('Bad Request: Missing application id ' + __location);
-        return next(serverHelper.requestError('Bad Request: You must supply an application id'));
-    }
-
-    const id = req.query.applicationId;
-
-    // Get the agents that we are permitted to view
-
-    const applicationBO = new ApplicationBO();
-    //get application and valid agency
-    try{   
-        const applicationDB = await applicationBO.getById(req.query.applicationId);
-        const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
-    
-        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-        if (!passedAgencyCheck) {
-            log.info('Forbidden: User is not authorized to access the requested application');
-            return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
-        }
-
-        if(!applicationDB){
-            return next(serverHelper.requestError('Not Found'));
-        }
-    }
-    catch(err){
-        log.error("Error checking application doc " + err + __location)
-        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
-    }
-
-
-    const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
-    let applicationNotesJSON = null;
-    try{
-        log.debug(`Getting app notes using app id  ${id} from mongo` + __location)
-        let applicationNotesDBDoc = null;
-        applicationNotesDBDoc = await applicationNotesCollectionBO.getById(id);
-        if(applicationNotesDBDoc){
-            applicationNotesJSON = JSON.parse(JSON.stringify(applicationNotesDBDoc))
-        }
-    }
-    catch(err){
-        log.error("Error Getting application notes doc " + err + __location)
-        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
-    }
-
-    // Return the response
-    res.send(200, {applicationNotesCollection: applicationNotesJSON});
-    return next();
-}
-
-async function saveApplicationNotes(req, res, next){
-    if (!req.body || typeof req.body !== 'object') {
-        log.error('Bad Request: No data received ' + __location);
-        return next(serverHelper.requestError('Bad Request: No data received'));
-    }
-
-    if (!req.body.applicationId) {
-        log.error('Bad Request: Missing applicationId ' + __location);
-        return next(serverHelper.requestError('Bad Request: Missing applicationId'));
-    }
-
-    const applicationBO = new ApplicationBO();
-    //get application and valid agency
-    let passedAgencyCheck = false;
-    try{
-        const applicationDB = await applicationBO.getById(req.body.applicationId);
-        passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
-        
-    }
-    catch(err){
-        log.error("Error checking application doc " + err + __location)
-        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
-    }
-
-    if(passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this agency' + __location);
-        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
-    }
-
-    let responseAppNotesDoc = null;
-    let userId = null;
-    try{
-        userId = req.authentication.userID;
-    }
-    catch(err){
-        log.error("Error gettign userID " + err + __location);
-    }
-    try{
-        const applicationNotesCollectionBO = new ApplicationNotesCollectionBO();
-        log.debug('Saving app notes doc');
-        responseAppNotesDoc = await applicationNotesCollectionBO.saveModel(req.body, userId);
-    }
-    catch(err){
-        //mongoose parse errors will end up there.
-        log.error("Error saving application notes " + err + __location)
-        return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
-    }
-
-    if(responseAppNotesDoc){
-        const resposeAppNotesJSON = JSON.parse(JSON.stringify(responseAppNotesDoc));
-        res.send(200, {applicationNotesCollection: resposeAppNotesJSON});
-        return next();
-    }
-    else{
-        // res.send(500, "No updated document");
-        return next(serverHelper.internalError(new Error('No updated document')));
-    }
-}
 async function markQuoteAsDead(req, res, next){
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
@@ -2440,9 +2321,6 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
-    server.addGetAuth('GET Application Notes', `${basePath}/application/notes`, getApplicationNotes, 'applications', 'view');
     server.addGetAuth('GET Appplication Hints', `${basePath}/application/:id/hints`, getHints, 'applications', 'manage');
-    server.addPostAuth('POST Create Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
-    server.addPutAuth('PUT Update Application Notes', `${basePath}/application/notes`, saveApplicationNotes, 'applications', 'manage');
     server.addPutAuth('PUT Mark Quote As Dead', `${basePath}/application/:id/mark-as-dead`, markQuoteAsDead, 'applications', 'manage');
 };
