@@ -18,6 +18,7 @@ const Quote = global.mongoose.Quote;
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
+const AgencyPortalUserBO = global.requireShared("./models/AgencyPortalUser-BO.js");
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 /**
@@ -231,6 +232,7 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'agencyName': 'Agency',
                 'agencyId': 'Agency ID',
                 'agencyState': 'Agency State',
+                'agencyPortalCreatedUser': 'Agency Portal User',
                 'referrer': 'Source',
                 'mailingAddress': 'Mailing Address',
                 'mailingCity': 'Mailing City',
@@ -264,6 +266,7 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'policyEffectiveDate': "Effective Date",
                 'appValue': 'Application Value',
                 'agencyName': 'Agency',
+                'agencyPortalCreatedUser': 'Agency Portal User',
                 'referrer': 'Source',
                 'mailingAddress': 'Mailing Address',
                 'mailingCity': 'Mailing City',
@@ -895,8 +898,12 @@ async function getApplications(req, res, next){
         }
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
+        const agencyPortalUserBO = new AgencyPortalUserBO()
+
         applicationsSearchCount = applicationsSearchCountJSON.count;
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
+
+
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
@@ -921,6 +928,18 @@ async function getApplications(req, res, next){
             }
             application.renewal = application.renewal === true ? "Yes" : "";
             application.appValue = getAppValueString(application);
+
+            // fill agency portal user data
+            if(returnCSV && application.agencyPortalCreated){
+                const agencyPortalUser = await agencyPortalUserBO.getById(application.agencyPortalCreatedUser)
+
+                if(agencyPortalUser?.firstName && agencyPortalUser?.lastName){
+                    application.agencyPortalCreatedUser = `${agencyPortalUser.firstName} ${agencyPortalUser.lastName}`
+                }
+                else{
+                    application.agencyPortalCreatedUser = agencyPortalUser?.email
+                }
+            }
 
         }
 
