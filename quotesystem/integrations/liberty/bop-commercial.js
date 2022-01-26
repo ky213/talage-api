@@ -604,8 +604,10 @@ module.exports = class LibertySBOP extends Integration {
         // Loss structure not provided in example
 
         // if there are no claims, this won't execute
+        let AnyLossesAccidentsConvictionsInd
+
         if (applicationDocData.claims.find(claim => claim.policyType === "BOP")) {
-            Policy.ele('AnyLossesAccidentsConvictionsInd', 1);
+            AnyLossesAccidentsConvictionsInd = 'YES'
 
             applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
                 // this should always be answered, but default to OTHER if it is not, or an option somehow doesn't match our matrix
@@ -635,8 +637,14 @@ module.exports = class LibertySBOP extends Integration {
             });
         }
         else {
-            Policy.ele('AnyLossesAccidentsConvictionsInd', 0);
+            AnyLossesAccidentsConvictionsInd = 'NO'
         }
+
+        const LossQuestionAnswer = Policy.ele('QuestionAnswer');
+
+        LossQuestionAnswer.ele('QuestionCd','LMGENRL649');
+        LossQuestionAnswer.ele('YesNoCd', AnyLossesAccidentsConvictionsInd);
+
 
         //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
         //                 <QuestionAnswer>
