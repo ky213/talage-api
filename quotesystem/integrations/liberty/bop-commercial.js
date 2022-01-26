@@ -604,7 +604,7 @@ module.exports = class LibertySBOP extends Integration {
         // Loss structure not provided in example
 
         // if there are no claims, this won't execute
-        let AnyLossesAccidentsConvictionsInd
+        let AnyLossesAccidentsConvictionsInd = ''
 
         if (applicationDocData.claims.find(claim => claim.policyType === "BOP")) {
             AnyLossesAccidentsConvictionsInd = 'YES'

@@ -441,8 +441,8 @@ module.exports = class LibertyGL extends Integration{
 
                         LossQuestionAnswer.ele('QuestionCd','LMGENRL649');
                         LossQuestionAnswer.ele('YesNoCd', 'NO');
-                
-                
+
+
                     // </Policy>
 
                     this.app.business.locations.forEach((loc, index) => {
