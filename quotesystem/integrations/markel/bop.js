@@ -372,6 +372,8 @@ const medicalLimits = [
     10000
 ];
 
+let BOPPolicy = null;
+
 module.exports = class MarkelWC extends Integration {
 
     /**
@@ -396,7 +398,7 @@ module.exports = class MarkelWC extends Integration {
     async _insurer_quote() {
         const applicationDocData = this.applicationDocData;
         const logPrefix = `Markel BOP (Appid: ${this.app.id}): `;
-        const BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === "BOP");
+        BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === "BOP");
 
         let host = '';
         let path = '';
@@ -734,9 +736,9 @@ module.exports = class MarkelWC extends Integration {
             let value = parseInt(medicalLimitQuestion.answerValue, 10);
 
             if (!isNaN(value)) {
-                // if the provided option value is not a valid CNA option...
+                // if the provided option value is not a valid Markel option...
                 if (!medicalLimits.find(limit => limit === value)) {
-                    // find the next highest CNA-supported limit
+                    // find the next highest Markel-supported limit
                     let set = false;
                     for (const limit of medicalLimits) {
                         if (limit > value) {
@@ -746,7 +748,7 @@ module.exports = class MarkelWC extends Integration {
                         }
                     }
 
-                    // if the provided option value was greater than any CNA allowed limit, set to the highest allowed CNA limit
+                    // if the provided option value was greater than any Markel allowed limit, set to the highest allowed Markel limit
                     if (!set) {
                         value = medicalLimits[medicalLimits.length - 1];
                     }
@@ -1150,16 +1152,62 @@ module.exports = class MarkelWC extends Integration {
     }
 
     async getIndustryCode() {
-        const insurer = this.app.insurers.find(ins => ins.name === "Markel");
+        let bopIndustryCodeIds = null;
+        let bopCodeSupplied = false;
 
+        // if no BOP code was selected, try to find the best one by ranking
+        if (!BOPPolicy.bopIndustryCodeId) {
+            // find all bop codes for this parent talage industry code
+            bopIndustryCodeIds = await this.getBopCodes(this.applicationDocData.industryCode);
+
+            if (!bopIndustryCodeIds) {
+                return null;
+            }
+        }
+        else {
+            // otherwise use the selected one
+            bopCodeSupplied = true;
+            bopIndustryCodeIds = [BOPPolicy.bopIndustryCodeId];
+        }
+
+        // get insurer industry codes for the bop code(s)
+        let insurerIndustryCodes = await this.getMarkelIndustryCodes(bopIndustryCodeIds);
+
+        // if no insurer industry codes found
+        if (!insurerIndustryCodes && bopCodeSupplied) {
+            // could be a bop code for a different insurer, find bop codes for talage industry code
+            bopIndustryCodeIds = await this.getBopCodes(this.applicationDocData.industryCode);
+
+            if (!bopIndustryCodeIds) {
+                return null;
+            }
+
+            // get the insurer industry codes for the bop code(s)
+            insurerIndustryCodes = await this.getMarkelIndustryCodes(bopIndustryCodeIds);
+        }
+        
+        if (!insurerIndustryCodes) {
+            log.error(`Unable to find any insurer industry codes with the provided BOPPolicy and Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        // Return the highest ranking code
+        let industryCode = null;
+        insurerIndustryCodes.forEach(ic => {
+            if (!industryCode || ic.ranking < industryCode.ranking) {
+                industryCode = ic;
+            }
+        });
+
+        return industryCode;
+    }
+
+    async getBopCodes(talageIndustryCode) {
         const industryCodeBO = new IndustryCodeBO();
-        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
-
         const bopCodeQuery = {
-            parentIndustryCodeId: this.applicationDocData.industryCode
+            parentIndustryCodeId: talageIndustryCode
         };
 
-        // find all bop codes for this parent talage industry code
         let bopCodeRecords = null;
         try {
             bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
@@ -1180,11 +1228,16 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // reduce array to code ids
-        const bopCodes = bopCodeRecords.map(code => code.industryCodeId);
+        return bopCodeRecords.map(code => code.industryCodeId);
+    }
+
+    async getMarkelIndustryCodes(bopIndustryCodeIds) {
+        const insurer = this.app.insurers.find(ins => ins.name === "Markel");
+        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
 
         const insurerIndustryCodeQuery = {
             insurerId: insurer.id,
-            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopCodes}}}
+            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopIndustryCodeIds}}}
         };
 
         // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
@@ -1207,16 +1260,6 @@ module.exports = class MarkelWC extends Integration {
             return null;
         }
 
-        // Return the highest ranking code
-        // NOTE: Currently not using NAICS/SIC/ISOGL, since w/ Markel, all the Insurer Codes are generally 1:1 to their BOP code, and they all have 
-        //       matching codes, the only difference being the NAICSReference ID, which is used for ranking
-        let industryCode = null;
-        insurerIndustryCodes.forEach(ic => {
-            if (!industryCode || ic.ranking < industryCode.ranking) {
-                industryCode = ic;
-            }
-        });
-
-        return industryCode;
+        return insurerIndustryCodes;
     }
 };
