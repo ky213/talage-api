@@ -132,7 +132,6 @@ async function createAgencyPortalApplicationLink(appId, options){
             catch (e) {
                 log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
             }
-
             // if we were able to find the person, create the auto-login hash/value and store in redis
             if (toAgencyPortalUser) {
                 hash = await crypt.hash(`${moment.now()}`);
@@ -288,6 +287,8 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
     const agentFullname = `${agency.firstName} ${agency.lastName}`;
     const agentName = options.agentName ? options.agentName : agentFullname;
 
+    const emailAgencyName = options.agencyName ? options.agencyName : agencyDisplayName;
+
     const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
@@ -334,6 +335,22 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
         catch(err){
             log.debug(`Error getting email content for quote_app_application_link} using hardcoded default ${err}` + __location);
         }
+
+
+        emailSubject = options.subject ? options.subject : emailSubject;
+        emailSubject = options.subject ? options.subject : emailSubject;
+
+        if(options.htmlBody){
+            message = options.htmlBody
+            //replacements.
+            message = message.replace(/{{link}}/g, link);
+            message = message.replace(/{{agentName}}/g, agentName);
+            message = message.replace(/{{emailAgencyName}}/g, emailAgencyName);
+            message = message.replace(/{{agentEmail}}/g, agentEmail);
+            message = message.replace(/{{agentEmail}}/g, agentEmail);
+        }
+
+
         if(message && emailSubject){
             //replacements.
             message = message.replace(/{{Agent Contact Name}}/g, agentName);
