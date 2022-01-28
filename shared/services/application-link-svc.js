@@ -132,7 +132,6 @@ async function createAgencyPortalApplicationLink(appId, options){
             catch (e) {
                 log.error(`An error occurred trying to get the agency portal user for auto login: ${e}.` + __location);
             }
-               
             // if we were able to find the person, create the auto-login hash/value and store in redis
             if (toAgencyPortalUser) {
                 hash = await crypt.hash(`${moment.now()}`);
