@@ -264,7 +264,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         branding: branding,
                         recipients: agencyLocationEmail
                     }
-                    const hookName = 'request-bind-email-agencynetwork'
+                    const hookName = 'request-bind-email-agency'
                     try{
                         await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
                         message = dataPackageJSON.htmlBody
