@@ -437,7 +437,12 @@ module.exports = class LibertyGL extends Integration{
                             }
                         }
 
-                        Policy.ele('AnyLossesAccidentsConvictionsInd', 0); // Per Liberty, they do not support losses, set to 0
+                        const LossQuestionAnswer = Policy.ele('QuestionAnswer');
+
+                        LossQuestionAnswer.ele('QuestionCd','LMGENRL649');
+                        LossQuestionAnswer.ele('YesNoCd', 'NO');
+
+
                     // </Policy>
 
                     this.app.business.locations.forEach((loc, index) => {
