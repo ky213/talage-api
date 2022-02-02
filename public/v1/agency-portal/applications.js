@@ -6,7 +6,7 @@
 const auth = require('./helpers/auth-agencyportal.js');
 const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
-const formatZipcode = global.requireShared('./helpers/formatZipcode.js');
+const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
 const moment = require('moment');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -910,7 +910,7 @@ async function getApplications(req, res, next){
             application.agency = application.agencyId;
             application.date = application.createdAt;
             if(application.mailingCity){
-                const zipcode = formatZipcode(application.mailingZipcode);
+                const zipcode = zipcodeHelper.formatZipcode(application.mailingZipcode);
                 application.location = `${application.mailingCity}, ${application.mailingState} ${zipcode} `
             }
             else {
