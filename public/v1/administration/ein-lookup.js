@@ -33,7 +33,7 @@ async function einLookup(req, res, next) {
         return next();
     }
     catch (err) {
-        return next(err);
+        return next(serverHelper.requestError("EIN lookup error: " + err.message));
     }
 }
 
