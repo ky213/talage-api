@@ -665,7 +665,7 @@ module.exports = class CnaBOP extends Integration {
                                 //     }
                                 // ],
                                 // TODO: Find out what questions should be in here, this might just be all general questions
-                                "com.cna_QuestionAnswer": this.getQuestions(applicationDocData.questions)
+                                "com.cna_QuestionAnswer": this.getQuestions()
                             },
                             CommlSubLocation: this.getBuildings()
                         }
@@ -821,9 +821,13 @@ module.exports = class CnaBOP extends Integration {
             case "general failure":
                 const error = response.MsgStatus;
                 log.error(`${logPrefix}response ${error.MsgStatusDesc.value} ` + __location);
+                if (error.MsgErrorCd && error.MsgErrorCd.value === "NotAvailable") {
+                    return this.client_error(`${error.MsgStatusDesc.value}`, __location);
+                }
+
                 if (error.ExtendedStatus && Array.isArray(error.ExtendedStatus)) {
                     error.ExtendedStatus.forEach(status => {
-                        if (status.ExtendedStatusCd !== "VerifyDataAbsence") {
+                        if (status.ExtendedStatusCd.value !== "VerifyDataAbsence") {
                             const prefix = status.ExtendedStatusCd ? status.ExtendedStatusCd.value : "";
                             const statusMsg = status.ExtendedStatusDesc ? `: ${status.ExtendedStatusDesc.value}` : "";
     
@@ -1108,7 +1112,7 @@ module.exports = class CnaBOP extends Integration {
                     // }
                 },
                 BldgFeatures: {},
-                "com.cna_QuestionAnswer": this.getQuestions(location.questions),
+                "com.cna_QuestionAnswer": [], // No location questions here, all are hydrated in the request for specific properties
                 "com.cna_CommonAreasMaintenanceCd": {},
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
@@ -1407,14 +1411,14 @@ module.exports = class CnaBOP extends Integration {
             };
 
             if (explanationQuestions.includes(question.insurerQuestionIdentifier)) {
-                questionObj["com.cna_QuestionCd"].YesNoCd = {value: "N/A"};
-                questionObj["com.cna_QuestionCd"].Explanation = {value: question.answerValue};
+                questionObj.YesNoCd = {value: "N/A"};
+                questionObj.Explanation = {value: question.answerValue};
             }
             else if (question.questionType === "Yes/No") {
-                questionObj["com.cna_QuestionCd"].YesNoCd = {value: question.answerValue.toUpperCase()};
+                questionObj.YesNoCd = {value: question.answerValue.toUpperCase()};
             }
             else {
-                questionObj["com.cna_QuestionCd"]["com.cna_OptionCd"] = {value: question.answerValue}
+                questionObj["com.cna_OptionCd"] = {value: question.answerValue}
             }
 
             return questionObj;
