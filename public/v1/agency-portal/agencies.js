@@ -155,6 +155,11 @@ async function getAgencies(req, res, next){
                         }
                     }
 
+                    if(req.authentication.permissions.talageStaff) {
+                        agencyInfo.rankId = retAgencies[i].rankId;
+                        agencyInfo.rankName = retAgencies[i].rankName;
+                    }
+
                     returnAgencyList.push(agencyInfo);
                 }
                 catch(err){

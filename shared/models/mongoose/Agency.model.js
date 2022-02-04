@@ -63,7 +63,9 @@ const AgencySchema = new Schema({
     deletedAt: {type: Date, required: false},
     deletedByUser: {type: String, required: false},
     socialMediaTags: [SocialMediaSchema],
-    active: {type: Boolean, default: true}
+    active: {type: Boolean, default: true},
+    rankId: {type: Number},
+    rankName: {type: String}
 }, opts);
 
 

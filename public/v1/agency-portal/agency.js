@@ -273,6 +273,15 @@ async function getAgency(req, res, next) {
         else {
             agency.canBeSetToPrimaryAgency = false;
         }
+
+        if(!req.authentication.permissions.talageStaff) {
+            if(agency.hasOwnProperty('rankId')) {
+                delete agency.rankId;
+            }
+            if(agency.hasOwnProperty('rankName')) {
+                delete agency.rankName;
+            }
+        }
     }
     catch (err) {
         log.error(`Agency Model findOne resulted in error for query ${query} error "  ${err}  ${__location}`);
@@ -472,6 +481,8 @@ async function postAgency(req, res, next) {
     const agentIds = req.body.agentIds;
     const cred3s = req.body.cred3s;
     const talageWholesaleJson = req.body.talageWholesale;
+    const rankId = req.body.rankId || null;
+    const rankName = req.body.rankName || '';
 
     // Make sure we don't already have an user tied to this email address
     const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
@@ -541,6 +552,8 @@ async function postAgency(req, res, next) {
         agencyNetworkId: agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
+        rankId: rankId,
+        rankName: rankName,
         slug: slug,
         wholesale: wholesale
     }
