@@ -529,18 +529,38 @@ module.exports = class AgencyBO {
 
 
             if (queryJSON) {
-                for (var key in queryJSON) {
-                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                        let clearString = queryJSON[key].replace("%", "");
-                        clearString = clearString.replace("%", "");
-                        query[key] = {
-                            "$regex": clearString,
-                            "$options": "i"
-                        };
+                const isJSONString = (str) => {
+                    try {
+                        JSON.parse(str);
                     }
-                    else {
-                        query[key] = queryJSON[key];
+                    catch (e) {
+                        return false;
                     }
+                    return true;
+                }
+                const convertToRegex = function(object) {
+                    for (var key in object) {
+                        if(typeof object[key] === 'object') {
+                            object[key] = convertToRegex(object[key]);
+                        }
+                        else if (typeof object[key] === 'string' && isJSONString(object[key])) {
+                            object[key] = JSON.parse(object[key]);
+                            object[key] = convertToRegex(object[key]);
+                        }
+                        else if (typeof object[key] === 'string' && object[key].includes('%')) {
+                            const clearString = object[key].replace(/%/g, '');
+                            object[key] = {
+                                $regex: clearString,
+                                $options:'i'
+                            };
+                        }
+                    }
+                    return object;
+                }
+                queryJSON = convertToRegex(queryJSON);
+                query = {
+                    ...query,
+                    ...queryJSON
                 }
             }
 
