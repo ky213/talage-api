@@ -156,8 +156,8 @@ async function getAgencies(req, res, next){
                     }
 
                     if(req.authentication.permissions.talageStaff) {
-                        agencyInfo.rankId = retAgencies[i].rankId;
-                        agencyInfo.rankName = retAgencies[i].rankName;
+                        agencyInfo.tierId = retAgencies[i].tierId;
+                        agencyInfo.tierName = retAgencies[i].tierName;
                     }
 
                     returnAgencyList.push(agencyInfo);
