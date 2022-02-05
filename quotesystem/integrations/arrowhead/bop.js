@@ -326,6 +326,7 @@ module.exports = class ArrowheadBOP extends Integration {
         const quoteLetter = null; // not provided by Arrowhead
         const quoteMIMEType = null; // not provided by Arrowhead
         let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
+        //Why are we using a local when integrations.js as this.quoteCoverages
         const quoteCoverages = [];
         let coverageSort = 1;
 
