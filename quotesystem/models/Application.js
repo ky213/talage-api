@@ -268,8 +268,6 @@ module.exports = class Application {
             }
         }
 
-
-
         // If website is invalid, clear it
         if (this.business && this.business.website) {
             // Check formatting
