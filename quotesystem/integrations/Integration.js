@@ -1911,10 +1911,17 @@ module.exports = class Integration {
      * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = null) {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
-        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
-
+        
+        
+        //There is a this.quoteCoverage that be updated directly in the insurer's integration code.
+        //Setting to null should should not happen here.
+        //only overwrite if a value is passed in. - BP
+        //this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+        if(quoteCoverages && quoteCoverages.length > 0){
+            this.quoteCoverages = quoteCoverages
+        }
         if (!this.limits && !this.quoteCoverages) {
             this.log_error('Received a quote but no limits or coverages were supplied.', __location);
             //BP - Do not error out the quote on lack of limits
