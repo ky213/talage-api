@@ -92,10 +92,10 @@ module.exports = class Application {
             //getById does uuid vs integer check...
 
             this.applicationDocData = await applicationBO.loadById(data.id);
-            log.debug("Quote Application added applicationData" + __location)
+            log.debug("Quote Application added applicationDocData" + __location)
         }
         catch(err){
-            log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+            log.error("Unable to get applicationDocData for quoting appId: " + data.id + __location);
             throw err;
         }
         if(!this.applicationDocData){
@@ -249,6 +249,9 @@ module.exports = class Application {
         if(this.business && this.business.phone){
             this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
         }
+        if(this.applicationDocData && this.applicationDocData.phone){
+            this.applicationDocData.phone = this.applicationDocData.phone.replace(/[^0-9]/ig, '');
+        }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
@@ -258,6 +261,14 @@ module.exports = class Application {
                 }
             }
         }
+        //also replace in AppDoc
+        for(const contact of this.applicationDocData.contacts){
+            if(contact.phone){
+                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+            }
+        }
+
+
 
         // If website is invalid, clear it
         if (this.business && this.business.website) {
