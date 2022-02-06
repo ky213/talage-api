@@ -25,9 +25,8 @@ module.exports = class AMTrustBOP extends Integration {
      */
     _insurer_init() {
 
-        // TODO Add back after importing codes.
-        // this.usePolciyBOPindustryCode = true;
-        // this.requiresInsurerIndustryCodes = true;
+        this.usePolciyBOPindustryCode = true;
+        this.requiresInsurerIndustryCodes = true;
 
 
     }
@@ -256,6 +255,10 @@ module.exports = class AMTrustBOP extends Integration {
         // };
 
         //requestJSON
+        let hasCentralStationFireAlarm = false
+        if(BOPPolicy.fireAlarmType === "Central Station Without Key" || BOPPolicy.fireAlarmType === "Police/Fire Connected"){
+            hasCentralStationFireAlarm = true;
+        }
 
         const requestJSON = {
             "businessName": applicationDocData.businessName,
@@ -281,7 +284,7 @@ module.exports = class AMTrustBOP extends Integration {
             "agentContactId": agentId,
             "legalEntity": amtrustLegalEntityMap.hasOwnProperty(appDoc.entityType) ? amtrustLegalEntityMap[appDoc.entityType] : "Other",
             "classCode": {
-                "classCodeId": 180,
+                "classCodeId": parseInt(this.insurerIndustryCode.code, 10),
                 "personalPropertyCoverage": {
                     "coverageLimit": primaryLocation.businessPersonalPropertyLimit,
                     "valuation": "Replacement Cost"
@@ -305,7 +308,7 @@ module.exports = class AMTrustBOP extends Integration {
                 "yearPlumbingUpdated": primaryLocation.bop.plumbingImprovementYear,
                 "yearHeatingUpdated": primaryLocation.bop.heatingImprovementYear
             },
-            "hasCentralStationFireAlarm": true, //TODO Need question
+            "hasCentralStationFireAlarm": hasCentralStationFireAlarm,
             "hasCentralStationBurglarAlarm": true, //TODO Need Question
             "isSprinkleredBuilding": primaryLocation.bop.sprinklerEquipped
         }
@@ -347,12 +350,12 @@ module.exports = class AMTrustBOP extends Integration {
                 }
 
                 const quoteLimits = {}
-                quoteLimits[6] = quoteResponse.data.medicalPayments;
+                quoteLimits[6] = quoteResponse.data.premiumDetails.medicalPayments;
                 let coverageSort = 0;
 
                 const glCoverage = {
                     description: 'General Liability Limits',
-                    value: quoteResponse.data.generalLiabilityLimits,
+                    value: quoteResponse.data.premiumDetails.generalLiabilityLimits,
                     sort: coverageSort++,
                     category: 'General Limits',
                     insurerIdentifier: "generalLiabilityLimits"
@@ -361,7 +364,7 @@ module.exports = class AMTrustBOP extends Integration {
 
                 const premiseCoverage = {
                     description: 'Damages To Premises Liability Limit',
-                    value: quoteResponse.data.damagesToPremisesLiabilityLimit,
+                    value: quoteResponse.data.premiumDetails.damagesToPremisesLiabilityLimit,
                     sort: coverageSort++,
                     category: 'Liability Coverages',
                     insurerIdentifier: "damagesToPremisesLiabilityLimit"
@@ -370,7 +373,7 @@ module.exports = class AMTrustBOP extends Integration {
 
                 const bppCoverage = {
                     description: 'Business Personal Property Liability Limit',
-                    value: quoteResponse.data.businessPersonalProperty,
+                    value: quoteResponse.data.premiumDetails.businessPersonalProperty,
                     sort: coverageSort++,
                     category: 'Liability Coverages',
                     insurerIdentifier: "bppCoverage"
@@ -379,7 +382,7 @@ module.exports = class AMTrustBOP extends Integration {
 
                 const medicalCoverage = {
                     description: 'Medical Payments',
-                    value: quoteResponse.data.medicalPayments,
+                    value: quoteResponse.data.premiumDetails.medicalPayments,
                     sort: coverageSort++,
                     category: 'Liability Coverages',
                     insurerIdentifier: "medicalPayments"
@@ -388,7 +391,7 @@ module.exports = class AMTrustBOP extends Integration {
 
                 const deductibleCoverage = {
                     description: 'Property Deductible',
-                    value: quoteResponse.data.propertyDeductible,
+                    value: quoteResponse.data.premiumDetails.propertyDeductible,
                     sort: coverageSort++,
                     category: 'Liability Coverages',
                     insurerIdentifier: "propertyDeductible"
