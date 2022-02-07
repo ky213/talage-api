@@ -212,6 +212,10 @@ function generateCSV(applicationList, isGlobalViewMode){
                 if(!applicationDoc.referrer){
                     applicationDoc.referrer = 'Agency Portal';
                 }
+
+                // Remove the EIN from the application doc.
+                // With this change, the EIN column is removed
+                delete applicationDoc.einClear;
             }
             catch(err){
                 log.err(`CSV App row processing error ${err}` + __location)
@@ -247,7 +251,6 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'email': 'Contact Email',
                 'phone': 'Contact Phone',
                 'entityType': 'Entity Type',
-                'einClear': 'EIN',
                 'website': 'Website',
                 "industry": "Industry",
                 "naics": "naics",
@@ -281,7 +284,6 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'email': 'Contact Email',
                 'phone': 'Contact Phone',
                 'entityType': 'Entity Type',
-                'einClear': 'EIN',
                 'website': 'Website',
                 "industry": "Industry",
                 "naics": "naics",
