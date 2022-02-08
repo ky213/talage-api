@@ -425,7 +425,7 @@ module.exports = class LibertyWC extends Integration {
                         });
                     }
                     else {
-                        log.error(`${logPrefix}No Activity Code questions for activityCodeId ${activity_code.id}. ${__location}`);
+                        log.warn(`${logPrefix}No Activity Code questions for activityCodeId ${activity_code.id}. ${__location}`);
                     }
 
                     // </WorkCompRateClass>
