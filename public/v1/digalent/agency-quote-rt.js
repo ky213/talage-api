@@ -137,7 +137,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     // digalent id is 2
     // TODO: do we want to only allow specific agencies here too?
     if(agencyWebInfo.agencyNetworkId !== 2){
-        log.error(`Non Digalent Agency called Digalent endpoint Network: ${agencyWebInfo.agencyNetworkId} Agency: ${agencyWebInfo.systemId} ${__location}`);
+        log.warn(`Non Digalent Agency called Digalent endpoint Network: ${agencyWebInfo.agencyNetworkId} Agency: ${agencyWebInfo.systemId} ${__location}`);
         return null;
     }
 

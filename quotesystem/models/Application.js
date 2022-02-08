@@ -195,7 +195,12 @@ module.exports = class Application {
             await this.translate();
         }
         catch (e) {
-            log.error(`Error translating application: ${e}` + __location);
+            if (e.message && e.message.includes('Agency does not cover application territory')){
+                log.warn(`Error translating application: ${e}` + __location);
+            }
+            else {
+                log.error(`Error translating application: ${e}` + __location);
+            }
             //throw e;
         }
     }

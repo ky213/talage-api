@@ -844,7 +844,12 @@ async function updateAgency(req, res, next) {
     const agencyBO = new AgencyBO();
     // Load the request data into it
     await agencyBO.saveModel(req.body).catch(function(err) {
-        log.error("agencyBO.save error " + err + __location);
+        if (err.message && err.message.includes('Please upload your favicon in png or ico')){
+            log.warn("agencyBO.save error " + err + __location);
+        }
+        else {
+            log.error("agencyBO.save error " + err + __location);
+        }
         error = err;
     });
     if(error){
