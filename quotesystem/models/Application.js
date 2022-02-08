@@ -889,8 +889,7 @@ module.exports = class Application {
 
             if (emailContentJSON && emailContentJSON.emailBrand) {
                 // Determine the branding to use for this email
-                let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
-
+                let brand = 'agency';
                 // If this is Talage, update the brand
                 if (this.agencyLocation.agencyId <= 2) {
                     brand = 'talage';

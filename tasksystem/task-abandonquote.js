@@ -347,7 +347,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                 //send email:
                 // Send the email
                 const keyData = {'applicationDoc': applicationDoc}
-                let emailResp = await emailSvc.send(customerEmail, subject, message, keyData, agencyNetworkId, "");
+                let emailResp = await emailSvc.send(customerEmail, subject, message, keyData, agencyNetworkId, "agency", applicationDoc.agencyId);
                 // log.debug("emailResp = " + emailResp);
                 if(emailResp === false){
                     slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationDoc.applicationId}. Please follow-up manually.`);

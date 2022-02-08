@@ -239,7 +239,7 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
                 //send email:
                 // Send the email
                 const keys = {'applicationDoc': applicationDoc};
-                const emailResp = await emailSvc.send(customerEmail, subject, message, keys ,agencyNetworkId, emailContentJSON.emailBrand, applicationDoc.agencyId);
+                const emailResp = await emailSvc.send(customerEmail, subject, message, keys ,agencyNetworkId, 'agency', applicationDoc.agencyId);
                 //log.debug("emailResp = " + emailResp);
                 if(emailResp === false){
                     log.error(`AbandonApp Error failed to send email for  appId ${applicationDoc.applicationId} ` + __location);
