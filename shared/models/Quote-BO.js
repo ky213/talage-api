@@ -9,7 +9,7 @@ const moment = require('moment');
 const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
-var Quote = global.mongodb.model('Quote');
+var Quote = global.mongoose.Quote;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 

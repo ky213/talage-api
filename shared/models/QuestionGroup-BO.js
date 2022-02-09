@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var QuestionGroup = global.insurerMongodb.model('QuestionGroup');
+var QuestionGroup = global.mongoose.QuestionGroup;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class CodeGroupBO{

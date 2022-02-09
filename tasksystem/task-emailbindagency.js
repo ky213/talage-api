@@ -264,7 +264,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         branding: branding,
                         recipients: agencyLocationEmail
                     }
-                    const hookName = 'request-bind-email-agencynetwork'
+                    const hookName = 'request-bind-email-agency'
                     try{
                         await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
                         message = dataPackageJSON.htmlBody
@@ -309,7 +309,7 @@ var emailbindagency = async function(applicationId, quoteId, noCustomerEmail = f
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
                         //log.debug("sending customer email " + __location);
-                        const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
+                        const brand = 'agency'
                         const emailResp2 = await emailSvc.send(customerContact.email, subject, message, keyData, agencyNetworkId, brand, applicationDoc.agencyId);
                         // log.debug("emailResp = " + emailResp);
                         if (emailResp2 === false) {

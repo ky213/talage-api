@@ -6,6 +6,7 @@
 const auth = require('./helpers/auth-agencyportal.js');
 const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
+const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
 const moment = require('moment');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -14,10 +15,11 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
-const Quote = global.mongodb.model('Quote');
+const Quote = global.mongoose.Quote;
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
+const AgencyPortalUserBO = global.requireShared("./models/AgencyPortalUser-BO.js");
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 /**
@@ -143,66 +145,80 @@ function generateCSV(applicationList, isGlobalViewMode){
 
         // Process the returned data
         for(const applicationDoc of applicationList){
+            try{
 
-            /* --- Make the data pretty --- */
-            // Address and Primary Address - Combine the two address lines (if there is an address and an address line 2)
-            if(applicationDoc.mailingAddress && applicationDoc.mailingAddress2){
-                applicationDoc.mailingAddress += `, ${applicationDoc.mailingAddress2}`;
-            }
-
-            // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
-            applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
-            applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
-
-
-            //Get Primary Location
-            const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
-            if(primaryLocation){
-                applicationDoc.primaryAddress = primaryLocation.address;
-                if(applicationDoc.primaryAddress && primaryLocation.address2){
-                    applicationDoc.primaryAddress += `, ${primaryLocation.address2}`;
+                /* --- Make the data pretty --- */
+                // Address and Primary Address - Combine the two address lines (if there is an address and an address line 2)
+                if(applicationDoc.mailingAddress && applicationDoc.mailingAddress2){
+                    applicationDoc.mailingAddress += `, ${applicationDoc.mailingAddress2}`;
                 }
 
-                // City and Primary City - Proper capitalization
-                if(primaryLocation.city){
-                    applicationDoc.city = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
-                    applicationDoc.primaryCity = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
+                applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
+                applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
+
+
+                //Get Primary Location
+                const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
+                if(primaryLocation){
+                    applicationDoc.primaryAddress = primaryLocation.address;
+                    if(applicationDoc.primaryAddress && primaryLocation.address2){
+                        applicationDoc.primaryAddress += `, ${primaryLocation.address2}`;
+                    }
+
+                    // City and Primary City - Proper capitalization
+                    if(primaryLocation.city){
+                        applicationDoc.city = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                        applicationDoc.primaryCity = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                    }
+                    applicationDoc.primaryState = primaryLocation.state;
+                    applicationDoc.primaryZip = primaryLocation.zipcode;
                 }
-                applicationDoc.primaryState = primaryLocation.state;
-                applicationDoc.primaryZip = primaryLocation.zipcode;
-            }
 
 
-            //get Primary Contact
-            const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-            // Phone Number - Formatted
-            if(customerContact){
-                applicationDoc.email = customerContact.email;
-                applicationDoc.phone = customerContact.phone ? formatPhone(customerContact.phone) : null;
-                // Contact Name - Combine first and last
-                if(customerContact.firstName){
-                    applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
+                //get Primary Contact
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                // Phone Number - Formatted
+                if(customerContact){
+                    applicationDoc.email = customerContact.email;
+                    applicationDoc.phone = customerContact.phone ? formatPhone(customerContact.phone) : null;
+                    // Contact Name - Combine first and last
+                    if(customerContact.firstName){
+                        applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
+                    }
                 }
-            }
 
-            // Status
-            if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){
-                applicationDoc.status = statusMap[applicationDoc.status];
-            }
-            else{
-                applicationDoc.status = 'Unknown';
-            }
-            // if(applicationDoc.renewal === true){
-            //     applicationDoc.renewal = "Yes";
-            // }
-            // applicationDoc.appValue = getAppValueString(applicationDoc);
+                // Status
+                if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){
+                    applicationDoc.status = statusMap[applicationDoc.status];
+                }
+                else{
+                    applicationDoc.status = 'Unknown';
+                }
+                // if(applicationDoc.renewal === true){
+                //     applicationDoc.renewal = "Yes";
+                // }
+                // applicationDoc.appValue = getAppValueString(applicationDoc);
 
-            const createdAtMoment = moment(applicationDoc.createdAt)
-            applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
+                const createdAtMoment = moment(applicationDoc.createdAt)
+                applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
 
-            // get referrer information, if none then default to agency portal
-            if(!applicationDoc.referrer){
-                applicationDoc.referrer = 'Agency Portal';
+                if(applicationDoc.policyEffectiveDate){
+                    const policyEffectiveDateMoment = moment(applicationDoc.policyEffectiveDate)
+                    applicationDoc.policyDateString = policyEffectiveDateMoment.format("YYYY-MM-DD");
+                }
+
+                // get referrer information, if none then default to agency portal
+                if(!applicationDoc.referrer){
+                    applicationDoc.referrer = 'Agency Portal';
+                }
+
+                // Remove the EIN from the application doc.
+                // With this change, the EIN column is removed
+                delete applicationDoc.einClear;
+            }
+            catch(err){
+                log.err(`CSV App row processing error ${err}` + __location)
             }
         }
 
@@ -214,9 +230,14 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'businessName': 'Business Name',
                 'dba': 'DBA',
                 'status': 'Application Status',
+                'policyTypes': "Policy Types",
+                'policyDateString': "Effective Date (UTC)",
                 'appValue': 'Application Value',
                 'agencyNetworkName': 'Network',
                 'agencyName': 'Agency',
+                'agencyId': 'Agency ID',
+                'agencyState': 'Agency State',
+                'agencyPortalCreatedUser': 'Agency Portal User',
                 'referrer': 'Source',
                 'mailingAddress': 'Mailing Address',
                 'mailingCity': 'Mailing City',
@@ -230,10 +251,12 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'email': 'Contact Email',
                 'phone': 'Contact Phone',
                 'entityType': 'Entity Type',
-                'einClear': 'EIN',
                 'website': 'Website',
+                "industry": "Industry",
+                "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
+                'marketingChannel': "Marketing Channel",
                 'createdString' : 'Created (UTC)'
             };
 
@@ -243,8 +266,11 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'businessName': 'Business Name',
                 'dba': 'DBA',
                 'status': 'Application Status',
+                'policyTypes': "Policy Types",
+                'policyEffectiveDate': "Effective Date",
                 'appValue': 'Application Value',
                 'agencyName': 'Agency',
+                'agencyPortalCreatedUser': 'Agency Portal User',
                 'referrer': 'Source',
                 'mailingAddress': 'Mailing Address',
                 'mailingCity': 'Mailing City',
@@ -258,8 +284,9 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'email': 'Contact Email',
                 'phone': 'Contact Phone',
                 'entityType': 'Entity Type',
-                'einClear': 'EIN',
                 'website': 'Website',
+                "industry": "Industry",
+                "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
                 'createdString' : 'Created (UTC)'
@@ -280,7 +307,7 @@ function generateCSV(applicationList, isGlobalViewMode){
                 reject(serverHelper.internalError('Unable to generate CSV file'));
                 return;
             }
-
+            log.info(`Finishing CSV output ` + __location)
             // Send the CSV data
             fulfill(output);
         });
@@ -869,16 +896,24 @@ async function getApplications(req, res, next){
 
         // query object is altered in getAppListForAgencyPortalSearch
         log.debug(`Get applications query ${JSON.stringify(query)}` + __location)
+        if(returnCSV === true){
+            log.info(`CSV Get applications query ${JSON.stringify(query)}` + __location)
+        }
         const countQuery = JSON.parse(JSON.stringify(query))
         const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1, page: requestParms.page}, applicationsTotalCount, noCacheUse)
+        const agencyPortalUserBO = new AgencyPortalUserBO()
+
         applicationsSearchCount = applicationsSearchCountJSON.count;
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms, applicationsSearchCount, noCacheUse);
+
+
         for (const application of applicationList) {
             application.business = application.businessName;
             application.agency = application.agencyId;
             application.date = application.createdAt;
             if(application.mailingCity){
-                application.location = `${application.mailingCity}, ${application.mailingState} ${application.mailingZipcode} `
+                const zipcode = zipcodeHelper.formatZipcode(application.mailingZipcode);
+                application.location = `${application.mailingCity}, ${application.mailingState} ${zipcode} `
             }
             else {
                 application.location = "";
@@ -892,10 +927,23 @@ async function getApplications(req, res, next){
                 const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
                 if(agencyNetworkDoc){
                     application.agencyNetworkName = agencyNetworkDoc.name;
+                    application.marketingChannel = agencyNetworkDoc.marketingChannel
                 }
             }
             application.renewal = application.renewal === true ? "Yes" : "";
             application.appValue = getAppValueString(application);
+
+            // fill agency portal user data
+            if(returnCSV && application.agencyPortalCreated && parseInt(application.agencyPortalCreatedUser,10)){
+                const agencyPortalUser = await agencyPortalUserBO.getById(parseInt(application.agencyPortalCreatedUser,10))
+
+                if(agencyPortalUser?.firstName && agencyPortalUser?.lastName){
+                    application.agencyPortalCreatedUser = `${agencyPortalUser.firstName} ${agencyPortalUser.lastName}`
+                }
+                else{
+                    application.agencyPortalCreatedUser = agencyPortalUser?.email
+                }
+            }
 
         }
 
@@ -906,25 +954,32 @@ async function getApplications(req, res, next){
     }
 
     if(returnCSV === true){
-        const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
-            error = e;
-        });
-        if(error){
-            return next(error);
+        try{
+            log.info(`Starting CSV output for ${applicationList.length} applications` + __location)
+            const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
+                error = e;
+            });
+            if(error){
+                return next(error);
+            }
+
+            // Set the headers so the browser knows we are sending a CSV file
+            res.writeHead(200, {
+                'Content-Disposition': 'attachment; filename=applications.csv',
+                'Content-Length': csvData.length,
+                'Content-Type': 'text-csv'
+            });
+
+            // Send the CSV data
+            res.end(csvData);
+            log.info(`Finished CSV response for ${applicationList.length} applications` + __location)
+            const endMongo = moment();
+            const diff = endMongo.diff(start, 'milliseconds', true);
+            log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
         }
-
-        // Set the headers so the browser knows we are sending a CSV file
-        res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
-            'Content-Length': csvData.length,
-            'Content-Type': 'text-csv'
-        });
-
-        // Send the CSV data
-        res.end(csvData);
-        const endMongo = moment();
-        const diff = endMongo.diff(start, 'milliseconds', true);
-        log.info(`AP Get Application List CSV duration: ${diff} milliseconds for query ${JSON.stringify(query)} noCacheUse ${noCacheUse} ` + __location);
+        catch(err){
+            log.error(`AP App Export error ${err}` + __location);
+        }
         return next();
 
     }

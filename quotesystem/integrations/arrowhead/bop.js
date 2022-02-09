@@ -124,7 +124,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 lastName: primaryContact.lastName,
                 DBA: applicationDocData.dba,
                 address: {
-                    zip: applicationDocData.mailingZipcode,
+                    zip: applicationDocData.mailingZipcode.slice(0,5),
                     address: applicationDocData.mailingAddress,
                     city: applicationDocData.mailingCity,
                     state: applicationDocData.mailingState
@@ -326,6 +326,7 @@ module.exports = class ArrowheadBOP extends Integration {
         const quoteLetter = null; // not provided by Arrowhead
         const quoteMIMEType = null; // not provided by Arrowhead
         let policyStatus = null; // not provided by Arrowhead, either rated (quoted) or failed (error)
+        //Why are we using a local when integrations.js as this.quoteCoverages
         const quoteCoverages = [];
         let coverageSort = 1;
 
@@ -603,6 +604,21 @@ module.exports = class ArrowheadBOP extends Integration {
             }
             else {
                 locationObj.buildingList[0].sprinklered = false;
+            }
+
+            if (location.square_footage) {
+                locationObj.buildingList[0].occupiedSqFt = location.square_footage;
+            }
+            else {
+                locationObj.buildingList[0].occupiedSqFt = 0;
+            }
+
+            // added description since its required in arrowhead quote
+            if (location.description) {
+                locationObj.buildingList[0].description = location.description;
+            }
+            else{
+                locationObj.buildingList[0].description = '';
             }
 
             const constructionTypes = {
@@ -1359,9 +1375,6 @@ module.exports = class ArrowheadBOP extends Integration {
                         break;
                     case "occupancy":
                         building[id] = answer === 'Non-Owner Occupied Bldg' ? 'Non-Owner Occupied Bldg.' : answer; // Arrowhead needs the '.' on the end for this answer
-                        break;
-                    case "occupiedSqFt":
-                        building[id] = this.convertToInteger(answer);
                         break;
                     case "compf":
                         building.coverages[id] = {

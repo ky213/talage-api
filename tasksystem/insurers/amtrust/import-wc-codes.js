@@ -110,9 +110,9 @@ const paDeStates = ["PA", "DE"];
 const logPrefix = "AmTrust Importing WC codes ";
 
 async function CodeImport() {
-    const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
-    const ActivityCode = global.insurerMongodb.model('ActivityCode');
-    const Insurer = global.insurerMongodb.model('Insurer');
+    const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
+    const ActivityCode = global.mongoose.ActivityCode;
+    const Insurer = global.mongoose.Insurer;
 
     const insurer = await Insurer.findOne({slug: 'amtrust'});
     if (!insurer) {
@@ -377,12 +377,12 @@ async function CodeImport() {
 
     if(updateRemoveTerritoryCount > 0){
         messageTable += `<tr>
-                <td><b>Updates Territory Removed Processed ${updateRemoveTerritoryCount}</b></td>
+                <td><b>Insurer Activty Codes Removed Territory Detected ${updateRemoveTerritoryCount}</b></td>
                 </tr>`
         for(const territoryCount in removedToExistingCodeArray) {
             if({}.hasOwnProperty.call(removedToExistingCodeArray, territoryCount)){
                 messageTable += `<tr>
-                        <td>${removedToExistingCodeArray[territoryCount].code}-${removedToExistingCodeArray[territoryCount].description}</td>
+                        <td>${removedToExistingCodeArray[territoryCount].code}-${removedToExistingCodeArray[territoryCount].sub}: ${removedToExistingCodeArray[territoryCount].removeTerritoryList}</td>
                         </tr>`
             }
         }
@@ -390,12 +390,12 @@ async function CodeImport() {
 
     if(iacExpiredCount > 0){
         messageTable += `<tr>
-                <td><b>IAC Straight Expored Processed ${iacExpiredCount}</b></td>
+                <td><b>Insurer Activty Codes Straight Expired Detected ${iacExpiredCount}</b></td>
                 </tr>`
         for(const exIAC in expiredIACArray){
             if({}.hasOwnProperty.call(expiredIACArray, exIAC)){
                 messageTable += `<tr>
-                        <td>${expiredIACArray[exIAC].code}-${expiredIACArray[exIAC].sub} ${expiredIACArray[exIAC].territoryList}</td>
+                        <td>${expiredIACArray[exIAC].code}-${expiredIACArray[exIAC].sub}: ${expiredIACArray[exIAC].description}</td>
                     </td>`
             }
         }

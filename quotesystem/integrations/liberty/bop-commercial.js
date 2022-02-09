@@ -309,9 +309,20 @@ module.exports = class LibertySBOP extends Integration {
             log.error(`${logPrefix}${errorMessage} ${__location}`);
             return this.client_error(errorMessage, __location);
         }
+        // Use location BPP if available.  simple coverage as been decommissioned in UI - duplicate field to location bpp
+        if (!(BOPPolicy.coverage > 0)) {
+            let coverage = 0;
+            for (const {businessPersonalPropertyLimit} of applicationDocData.locations) {
+                if (typeof businessPersonalPropertyLimit === "number"){
+                    coverage += businessPersonalPropertyLimit
+                }
+            }
+            BOPPolicy.coverage = coverage;
+        }
+
 
         // if there's no coverage captured for this BOP policy
-        if (!(BOPPolicy.coverage > 0)) {
+        if (!(BOPPolicy.coverage > 0 || BOPPolicy)) {
             const errorMessage = `No BOP Coverage was supplied for the Commercial BOP Policy.`;
             log.error(`${logPrefix}${errorMessage} ${JSON.stringify(BOPPolicy)} ${__location}`);
             return this.client_error(errorMessage, __location);
@@ -593,8 +604,10 @@ module.exports = class LibertySBOP extends Integration {
         // Loss structure not provided in example
 
         // if there are no claims, this won't execute
+        let AnyLossesAccidentsConvictionsInd = ''
+
         if (applicationDocData.claims.find(claim => claim.policyType === "BOP")) {
-            Policy.ele('AnyLossesAccidentsConvictionsInd', 1);
+            AnyLossesAccidentsConvictionsInd = 'YES'
 
             applicationDocData.claims.filter(claim => claim.policyType === "BOP").forEach(claim => {
                 // this should always be answered, but default to OTHER if it is not, or an option somehow doesn't match our matrix
@@ -624,8 +637,14 @@ module.exports = class LibertySBOP extends Integration {
             });
         }
         else {
-            Policy.ele('AnyLossesAccidentsConvictionsInd', 0);
+            AnyLossesAccidentsConvictionsInd = 'NO'
         }
+
+        const LossQuestionAnswer = Policy.ele('QuestionAnswer');
+
+        LossQuestionAnswer.ele('QuestionCd','LMGENRL649');
+        LossQuestionAnswer.ele('YesNoCd', AnyLossesAccidentsConvictionsInd);
+
 
         //                 <!-- Has the insured been involved in any EPLI claims regardless of whether any payment or not, or does the insured have knowledge of any situation(s) that could produce an EPLI claim? -->
         //                 <QuestionAnswer>
@@ -1427,7 +1446,7 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 }
             });
-
+            //This is a main Application Location field.   That should be used.
             const occupied = location.square_footage - (occupiedByOthers + unoccupied);
             AreaOccupied.ele('NumUnits', occupied >= 0 ? occupied : 0);
             AreaOccupied.ele('UnitMeasurementCd', 'SquareFeet');
@@ -1782,7 +1801,7 @@ module.exports = class LibertySBOP extends Integration {
 
     async _getLibertyIndustryCodes() {
 
-        const InsurerIndustryCodeModel = global.insurerMongodb.model('InsurerIndustryCode');
+        const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
         applicationDocData = this.applicationDocData;
 

@@ -16,10 +16,9 @@ var mongooseHistory = require('mongoose-history');
 // eslint-disable-next-line no-unused-vars
 
 const ApplicationNotesCollectionSchema = new Schema({
-    applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
-    applicationNotesJSON: {type: Schema.Types.Mixed, required: false},
-    agencyPortalCreatedUser: {type: String},
-    agencyPortalModifiedUser: {type: String}
+    applicationId: {type: String, required: [true, 'applicationId required']},
+    noteContents: {type: Schema.Types.Mixed, required: false},
+    agencyPortalCreatedUser: {type: String}
 });
 
 ApplicationNotesCollectionSchema.plugin(timestamps);
@@ -28,4 +27,4 @@ ApplicationNotesCollectionSchema.plugin(mongooseHistory, {
 });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('ApplicationNotesCollection', ApplicationNotesCollectionSchema);
+mongoose.model('ApplicationNotes', ApplicationNotesCollectionSchema);

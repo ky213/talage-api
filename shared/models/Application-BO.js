@@ -23,8 +23,8 @@ const validator = global.requireShared('./helpers/validator.js');
 const utility = global.requireShared('./helpers/utility.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 // Mongo Models
-const ApplicationMongooseModel = global.mongodb.model('Application');
-const QuoteMongooseModel = global.mongodb.model('Quote');
+const ApplicationMongooseModel = global.mongoose.Application;
+const QuoteMongooseModel = global.mongoose.Quote;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
@@ -1734,6 +1734,17 @@ module.exports = class ApplicationModel {
 
                                 }
                             }
+                            const agencyLocationBO = new AgencyLocationBO();
+                            if(application.agencyLocationId){
+                                const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
+                                    log.error(`Agency Location load error appId ${application.applicationId} ` + err + __location);
+                                });
+                                if (agencyLoc) {
+                                    application.agencyState = agencyLoc.state;
+                                }
+                            }
+
+
                             //industry desc
                             const industryCodeBO = new IndustryCodeBO();
                             // Load the request data into it
@@ -1743,6 +1754,7 @@ module.exports = class ApplicationModel {
                                 });
                                 if(industryCodeJson){
                                     application.industry = industryCodeJson.description;
+                                    application.naics = industryCodeJson.naics;
                                 }
                             }
                             //bring policyType to property on top level.
@@ -2367,13 +2379,14 @@ module.exports = class ApplicationModel {
                 //NOTE if metric are displayed in AP applist Redis cache will have to update.
 
             }
-            else {
-                //should never happen.
-                log.error(`recalculateQuoteMetrics Application ${applicationId} had no quotes to calculate premium. ` + __location)
-            }
         }
         catch(err){
-            log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            if (err.message && err.message.includes('had no quotes to calculate premium')){
+                log.warn(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            }
+            else {
+                log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            }
         }
     }
 

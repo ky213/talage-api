@@ -49,6 +49,8 @@ const featureSchema = new Schema({
     enableAgencyCodeField: {type: Boolean, required: true, default: false},
     quickQuoteOnly: {type: Boolean, required: true, default: false},
     enableAgencyLevelFaqEdit: {type: Boolean, required: true, default: true},
+    showAppAssociationsField: {type: Boolean, required: true, default: true},
+    enableApiAccess: {type: Boolean, required: true, default: true},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
@@ -91,6 +93,7 @@ const AgencyNetworkSchema = new Schema({
     agencyNetwork24HourLimit: {type: Number, default: 1200},
     agencyMonthLimit: {type: Number, default: 15000},
     agencyNetworkMonthLimit: {type: Number, default: 20000},
+    marketingChannel: {type: String, required: false},
     active: {type: Boolean, default: true}
 },opts)
 

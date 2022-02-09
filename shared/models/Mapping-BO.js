@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-var Mapping = global.mongodb.model('Mapping');
+var Mapping = global.mongoose.Mapping;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class MappingBO{

@@ -133,7 +133,7 @@ allConnections.init = function init() {
     require('./shared/models/mongoose/Agency.model');
     require('./shared/models/mongoose/AgencyLocation.model');
     require('./shared/models/mongoose/AgencyLandingPage.model');
-    require('./shared/models/mongoose/ApplicationNotesCollection.model');
+    require('./shared/models/mongoose/ApplicationNotes.model');
 
     require('./shared/models/mongoose/OpenIdAuthConfig.model');
 
@@ -166,32 +166,39 @@ allConnections.init = function init() {
     //Application DB
     //const Mapping = require('mongoose').model('Mapping');
 
-    //InsurerDB
-    // const ActivityCode = require('mongoose').model('ActivityCode');
-    // const IndustryCode = require('mongoose').model('IndustryCode');
-    // const IndustryCodeCategory = require('mongoose').model('IndustryCodeCategory');
-    // const Insurer = require('mongoose').model('Insurer');
-    // const InsurerActivityCode = require('mongoose').model('InsurerActivityCode');
-    // const InsurerIndustryCode = require('mongoose').model('InsurerIndustryCode');
-    // const InsurerPolicyType = require('mongoose').model('InsurerPolicyType');
-    // const InsurerQuestion = require('mongoose').model('InsurerQuestion');
-    // const Question = require('mongoose').model('Question');
-    // const CodeGroup = require('mongoose').model('CodeGroup');
-    // const QuestionGroup = require('mongoose').model('QuestionGroup');
+    global.mongoose = {
+        Agency: global.mongodb.model('Agency'),
+        AgencyEmail: global.mongodb.model('AgencyEmail'),
+        AgencyLandingPage: global.mongodb.model('AgencyLandingPage'),
+        AgencyLocation: global.mongodb.model('AgencyLocation'),
+        AgencyNetwork: global.mongodb.model('AgencyNetwork'),
+        AgencyPortalUser: global.mongodb.model('AgencyPortalUser'),
+        AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
+        Application: global.mongodb.model('Application'),
+        ApplicationNotes: global.mongodb.model('ApplicationNotes'),
+        ColorScheme: global.mongodb.model('ColorScheme'),
+        IndustryCode: global.insurerMongodb.model('IndustryCode'),
+        IndustryCodeCategory: global.insurerMongodb.model('IndustryCodeCategory'),
+        Mapping: global.mongodb.model('Mapping'),
+        Message: global.mongodb.model('Message'),
+        OpenIdAuthConfig: global.mongodb.model('OpenIdAuthConfig'),
+        PolicyType: global.mongodb.model('PolicyType'),
+        Quote: global.mongodb.model('Quote'),
+        Territory: global.mongodb.model('Territory'),
+        WCStateIncomeLimits: global.mongodb.model('WCStateIncomeLimits'),
+        ZipCode: global.mongodb.model('ZipCode'),
 
-
-    // global.mongoose = {
-    //     Insurer: require('mongoose').model('Insurer'),
-    //     InsurerPolicyType: require('mongoose').model('InsurerPolicyType'),
-    //     InsurerIndustryCode: require('mongoose').model('InsurerIndustryCode'),
-    //     InsurerActivityCode: require('mongoose').model('InsurerActivityCode'),
-    //     InsurerQuestion: require('mongoose').model('InsurerQuestion'),
-    //     Mapping: require('mongoose').model('Mapping'),
-    //     IndustryCode: require('mongoose').model('IndustryCode'),
-    //     IndustryCodeCategory: require('mongoose').model('IndustryCodeCategory'),
-    //     Question: require('mongoose').model('Question'),
-    //     ActivityCode: require('mongoose').model('ActivityCode')
-    // }
+        //InsurerDB
+        ActivityCode: global.insurerMongodb.model('ActivityCode'),
+        CodeGroup: global.insurerMongodb.model('CodeGroup'),
+        Insurer: global.insurerMongodb.model('Insurer'),
+        InsurerActivityCode: global.insurerMongodb.model('InsurerActivityCode'),
+        InsurerIndustryCode: global.insurerMongodb.model('InsurerIndustryCode'),
+        InsurerPolicyType: global.insurerMongodb.model('InsurerPolicyType'),
+        InsurerQuestion: global.insurerMongodb.model('InsurerQuestion'),
+        Question: global.insurerMongodb.model('Question'),
+        QuestionGroup: global.insurerMongodb.model('QuestionGroup')
+    }
 
 
     // Only emit the main connection

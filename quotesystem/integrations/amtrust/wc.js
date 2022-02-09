@@ -445,7 +445,7 @@ module.exports = class AMTrustWC extends Integration {
                 "Phone": this.formatPhoneNumber(contactPhone),
                 "AgentContactId": agentId
             },
-            "NatureOfBusiness": this.industry_code.description,
+            "NatureOfBusiness": this.industry_code?.description ? this.industry_code.description : "unknown",
             "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
             "YearsInBusiness": yearsInBusiness,
             "IsNonProfit": false,
@@ -769,7 +769,7 @@ module.exports = class AMTrustWC extends Integration {
                 "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
                 "AgentContactId": agentId
             },
-            "NatureOfBusiness": this.industry_code.description,
+            "NatureOfBusiness": this.industry_code?.description ? this.industry_code.description : "unknown",
             "LegalEntity": amtrustLegalEntityMap[appDoc.entityType],
             "YearsInBusiness": this.get_years_in_business() > 99 ? 99 : this.get_years_in_business(),
             "IsNonProfit": false,

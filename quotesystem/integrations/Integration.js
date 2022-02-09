@@ -249,7 +249,7 @@ module.exports = class Integration {
     async get_insurer_code_for_activity_code(insurerId, territory, activityCodeId) {
 
         const policyEffectiveDate = moment(this.policy.effective_date);
-        const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
+        const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
         const activityCodeQuery = {
             insurerId: insurerId,
             talageActivityCodeIdList: parseInt(activityCodeId,10),
@@ -264,7 +264,7 @@ module.exports = class Integration {
             //log.debug(`get_insurer_code_for_activity_code query ${JSON.stringify(activityCodeQuery)}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
-                log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
+                log.warn(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
                 insurerActivityCode = {attributes: {}};
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
@@ -722,7 +722,7 @@ module.exports = class Integration {
                 query.policyTypeList = {$in: policyTypes}
             }
 
-            const InsurerQuestionModel = global.insurerMongodb.model('InsurerQuestion');
+            const InsurerQuestionModel = global.mongoose.InsurerQuestion;
             let insurerQuestionListSA = null;
             try{
                 insurerQuestionListSA = await InsurerQuestionModel.find(query);
@@ -792,7 +792,7 @@ module.exports = class Integration {
         if (activityCodeArray.length > 0) {
             const territoryList = this.get_application_territorylist();
             //Find insurerActivityCode
-            const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
+            const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const activityCodeQuery = {
                 insurerId: this.insurer.id,
@@ -828,7 +828,7 @@ module.exports = class Integration {
                     "insurerId": this.insurer.id,
                     "insurerQuestionId": {$in: insurerQuestionIdList}
                 }
-                const InsurerQuestionModel = global.insurerMongodb.model('InsurerQuestion');
+                const InsurerQuestionModel = global.mongoose.InsurerQuestion;
                 try{
                     insurerQuestionList = await InsurerQuestionModel.find(query);
                 }
@@ -960,22 +960,22 @@ module.exports = class Integration {
      *
      * @returns {int} - The total number of employees as an integer
      */
-    get_total_lociation_employees(appLocation) {
+    get_total_location_employees(appLocation) {
         let total = 0;
         //New more detailed info in AppDoc.
-        appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
-            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
-                total += employeeType.employeeTypeCount;
-            });
+        if(appLocation.activityPayrollList?.length > 0){
+            appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    total += employeeType.employeeTypeCount;
+                });
 
-        });
+            });
+        }
       
         //Old simpler storage.
-        if(total === 0){
-            this.app.business.locations.forEach(function(loc) {
-                total += loc.full_time_employees;
-                total += loc.part_time_employees;
-            });
+        if(total === 0 && appLocation){
+            total += appLocation.full_time_employees;
+            total += appLocation.part_time_employees;
         }
         return total;
     }
@@ -1007,6 +1007,60 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns the total number of employees associated with this location
+     * @param {object} appLocation - Application location
+     *
+     * @returns {int} - The total number of employees as an integer
+     */
+    get_total_location_full_time_employees(appLocation) {
+        let total = 0;
+        //New more detailed info in AppDoc.  
+        if(appLocation.activityPayrollList?.length > 0){
+            appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Full Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
+        }
+        //Old simpler storage.
+        if(total === 0 && appLocation){
+            total += appLocation.full_time_employees;
+        }
+        return total;
+    }
+
+
+    /**
+     * Returns the total number of employees associated with this location
+     * @param {object} appLocation - Application location
+     *
+     * @returns {int} - The total number of employees as an integer
+     */
+    get_total_location_part_time_employees(appLocation) {
+        let total = 0;
+        //New more detailed info in AppDoc.
+        if(appLocation.activityPayrollList?.length > 0){
+            appLocation.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    if(employeeType.employeeType === "Part Time"){
+                        total += employeeType.employeeTypeCount;
+                    }
+                });
+
+            });
+        }
+      
+        //Old simpler storage.
+        if(total === 0 && appLocation){
+            total += appLocation.part_time_employees;
+        }
+        return total;
+    }
+
+    /**
      * Returns the total number of part-time employees associated with this application
      *
      * @returns {int} - The total number of part-time employees as an integer
@@ -1014,6 +1068,7 @@ module.exports = class Integration {
     get_total_part_time_employees() {
         let total = 0;
         let totalLocLevel = 0;
+        
         this.applicationDocData.locations.forEach(loc => {
             totalLocLevel += loc.part_time_employees;
             loc.activityPayrollList.forEach((activtyCodePayroll) => {
@@ -1056,6 +1111,24 @@ module.exports = class Integration {
                 });
             });
         }
+        return total;
+    }
+
+    /**
+     * Returns a location payroll associated with this application
+     *
+     * @param {object} location the location object of the application to have payroll calculated for
+     * @returns {int} - The the location's payroll as an integer
+     */
+    get_location_payroll(location) {
+        let total = 0;
+
+        location.activityPayrollList.forEach((activtyCodePayroll) => {
+            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                total += employeeType.employeeTypePayroll;
+            });
+        });
+
         return total;
     }
 
@@ -1298,7 +1371,7 @@ module.exports = class Integration {
                 active: true
             }
             log.debug(`InsurerQuestion query ${JSON.stringify(query)}` + __location)
-            const InsurerQuestionModel = global.insurerMongodb.model('InsurerQuestion');
+            const InsurerQuestionModel = global.mongoose.InsurerQuestion;
             try{
                 insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
             }
@@ -1838,10 +1911,17 @@ module.exports = class Integration {
      * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = null) {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
-        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
-
+        
+        
+        //There is a this.quoteCoverage that be updated directly in the insurer's integration code.
+        //Setting to null should should not happen here.
+        //only overwrite if a value is passed in. - BP
+        //this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+        if(quoteCoverages && quoteCoverages.length > 0){
+            this.quoteCoverages = quoteCoverages
+        }
         if (!this.limits && !this.quoteCoverages) {
             this.log_error('Received a quote but no limits or coverages were supplied.', __location);
             //BP - Do not error out the quote on lack of limits
@@ -2462,7 +2542,7 @@ module.exports = class Integration {
                 });
             });
             let fullFillValue = false;
-            const InsurerActivityCodeModel = global.insurerMongodb.model('InsurerActivityCode');
+            const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const activityCodeQuery = {
                 insurerId: this.insurer.id,
@@ -2521,7 +2601,7 @@ module.exports = class Integration {
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
-            const InsurerIndustryCodeModel = global.insurerMongodb.model('InsurerIndustryCode');
+            const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             
             let industryCodeId = parseInt(this.applicationDocData.industryCode,10);

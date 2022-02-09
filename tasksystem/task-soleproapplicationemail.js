@@ -137,7 +137,7 @@ var soleproApplicationEmailTask = async function(applicationId) {
         // Send the email
         const keyData2 = {'applicationDoc': applicationDoc};
         if (agencyLocationEmail) {
-            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, global.DIGALENT_AGENCYNETWORK_ID, 'NetworkDefault');
+            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applicationDoc.agencyNetworkId, 'NetworkDefault');
             if (emailResp === false) {
                 slack.send('#alerts', 'warning', `The system failed to inform an agency of the soleproApplicationEmailTask for application ${applicationId}. Please follow-up manually.`);
             }

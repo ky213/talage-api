@@ -302,7 +302,7 @@ module.exports = class LibertyGL extends Integration{
                             //         "policyType": this.policy.type,
                             //         "talageQuestionId": {$in: Object.keys(this.questions)}
                             // }
-                            // const InsurerQuestionModel = global.insurerMongodb.model('InsurerQuestion');
+                            // const InsurerQuestionModel = global.mongoose.InsurerQuestion;
                             // const insurerQuestionList = await InsurerQuestionModel.find(query).catch((error) => {
                             //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
                             //     this.reasons.push('System error - Unable to get question attributes');
@@ -437,7 +437,12 @@ module.exports = class LibertyGL extends Integration{
                             }
                         }
 
-                        Policy.ele('AnyLossesAccidentsConvictionsInd', 0); // Per Liberty, they do not support losses, set to 0
+                        const LossQuestionAnswer = Policy.ele('QuestionAnswer');
+
+                        LossQuestionAnswer.ele('QuestionCd','LMGENRL649');
+                        LossQuestionAnswer.ele('YesNoCd', 'NO');
+
+
                     // </Policy>
 
                     this.app.business.locations.forEach((loc, index) => {

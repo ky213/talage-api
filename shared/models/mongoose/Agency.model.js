@@ -52,6 +52,7 @@ const AgencySchema = new Schema({
     doNotReport: {type: Boolean, default: false},
     enabelOptOut: {type: Boolean, default: false},
     donotShowEmailAddress: {type: Boolean, default: false},
+    donotShowPrimaryAddress: {type: Boolean, default: false},
     additionalInfo: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},

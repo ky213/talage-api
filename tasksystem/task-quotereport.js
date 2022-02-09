@@ -18,7 +18,7 @@ const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
-const QuoteMongooseModel = global.mongodb.model('Quote');
+const QuoteMongooseModel = global.mongoose.Quote;
 //const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 
 
@@ -261,6 +261,12 @@ var quoteReportTask = async function(messageBody){
                 else if(newRow.policy_type === "WC") {
                     log.info(`no activtycodes for ${newRow.application} ` + __location)
                 }
+
+                //Quote premium (amount)
+                if(quoteDoc.amount){
+                    newRow.quotePremium = quoteDoc.amount
+                }
+
                 reportRows.push(newRow)
             }
             catch(err){
@@ -284,7 +290,8 @@ var quoteReportTask = async function(messageBody){
             "activitycode1": "Activity Code 2",
             "activitycodeId1": "Activity Code 2 Id",
             "activitycode2": "Activity Code 3",
-            "activitycodeId2": "Activity Code 3 Id"
+            "activitycodeId2": "Activity Code 3 Id",
+            "quotePremium": "Quoted Premium"
         };
         //Map Quote list to CSV.
         // eslint-disable-next-line object-property-newline

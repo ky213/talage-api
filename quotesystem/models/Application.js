@@ -92,10 +92,10 @@ module.exports = class Application {
             //getById does uuid vs integer check...
 
             this.applicationDocData = await applicationBO.loadById(data.id);
-            log.debug("Quote Application added applicationData" + __location)
+            log.debug("Quote Application added applicationDocData" + __location)
         }
         catch(err){
-            log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+            log.error("Unable to get applicationDocData for quoting appId: " + data.id + __location);
             throw err;
         }
         if(!this.applicationDocData){
@@ -195,7 +195,12 @@ module.exports = class Application {
             await this.translate();
         }
         catch (e) {
-            log.error(`Error translating application: ${e}` + __location);
+            if (e.message && e.message.includes('Agency does not cover application territory')){
+                log.warn(`Error translating application: ${e}` + __location);
+            }
+            else {
+                log.error(`Error translating application: ${e}` + __location);
+            }
             //throw e;
         }
     }
@@ -249,6 +254,9 @@ module.exports = class Application {
         if(this.business && this.business.phone){
             this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
         }
+        if(this.applicationDocData && this.applicationDocData.phone){
+            this.applicationDocData.phone = this.applicationDocData.phone.replace(/[^0-9]/ig, '');
+        }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
@@ -256,6 +264,12 @@ module.exports = class Application {
                 if(typeof contact.phone === 'string'){
                     contact.phone = contact.phone.replace(/[^0-9]/ig, '');
                 }
+            }
+        }
+        //also replace in AppDoc
+        for(const contact of this.applicationDocData.contacts){
+            if(contact.phone){
+                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
             }
         }
 
@@ -553,15 +567,18 @@ module.exports = class Application {
                             // Check that the agent supports this insurer for this policy type
                             let match_found = false;
                             //log.debug("this.agencyLocation.insurers " + JSON.stringify(this.agencyLocation.insurers))
-                            for (const agent_insurer in this.agencyLocation.insurers) {
-                                if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer)) {
+                            // eslint-disable-next-line guard-for-in
+                            for (const agent_insurer_index in this.agencyLocation.insurers) {
+                                if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer_index)) {
+                                    const agentInsurer = this.agencyLocation.insurers[agent_insurer_index];
                                     // Find the matching insurer
                                     //if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
                                     //log.debug("this.agencyLocation.insurers[agent_insurer] " + JSON.stringify(this.agencyLocation.insurers[agent_insurer]))
                                     //log.debug("insurer " + JSON.stringify(insurer) + __location)
-                                    if (this.agencyLocation.insurers[agent_insurer].id === insurer.id) {
+                                    if (agentInsurer.id === insurer.id) {
                                         // Check the policy type
-                                        if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()]) {
+                                        if (agentInsurer[policy.type.toLowerCase()]
+                                            && agentInsurer[policy.type.toLowerCase()].enabled === true) {
                                             match_found = true;
                                         }
                                     }
@@ -586,7 +603,7 @@ module.exports = class Application {
                 }
             });
 
-            // Limit insurers to those supported by the Agent
+            // Limit insurers to those supported by the Agent - is redundant see above.
             if (desired_insurers.length) {
                 // Make sure these match what the agent can support
                 const agent_insurers = Object.keys(this.agencyLocation.insurers);
@@ -877,8 +894,7 @@ module.exports = class Application {
 
             if (emailContentJSON && emailContentJSON.emailBrand) {
                 // Determine the branding to use for this email
-                let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
-
+                let brand = 'agency';
                 // If this is Talage, update the brand
                 if (this.agencyLocation.agencyId <= 2) {
                     brand = 'talage';
@@ -1500,7 +1516,7 @@ module.exports = class Application {
             //validateBOPPolicies
             if(this.has_policy_type('BOP')){
                 try {
-                    validateBOPPolicies(this.applicationDocData, this.insurers, logValidationErrors);
+                    validateBOPPolicies(this.applicationDocData, this.agencyLocation.insurerList, logValidationErrors);
                 }
                 catch (e) {
                     return reject(new Error(`Failed validating BOP policy: ${e}`));

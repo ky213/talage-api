@@ -202,7 +202,7 @@ async function runFunction() {
     let appListText = fs.readFileSync(path);
     let appList = JSON.parse(appListText);
     const ApplicationBO = global.requireShared('models/Application-BO.js');
-    //var Application = global.mongodb.model('Application');
+    //var Application = global.mongoose.Application;
     const updateMysql = false;
     for(let run = 0; run < numOfRuns; run++){
 

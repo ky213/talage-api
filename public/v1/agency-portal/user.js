@@ -45,6 +45,9 @@ async function validate(user) {
     }
 
     data.email = user.email;
+    data.firstName = user.firstName;
+    data.lastName = user.lastName;
+    data.phone = user.phone;
 
     data.group = user.group;
 
@@ -165,6 +168,9 @@ async function createUser(req, res, next) {
         isAgencyNetworkUser: isAgencyNetworkUser,
         email: userObj.email,
         password: passwordHash,
+        firstName: userObj.firstName,
+        lastName: userObj.lastName,
+        phone: userObj.phone,
         canSign: data.canSign,
         agencyPortalUserGroupId: parseInt(data.group, 10)
     };
@@ -498,6 +504,9 @@ async function updateUser(req, res, next) {
         id: userId,
         canSign: data.canSign,
         email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
         agencyPortalUserGroupId: data.group,
         agencyNotificationList: data.agencyNotificationList
     }

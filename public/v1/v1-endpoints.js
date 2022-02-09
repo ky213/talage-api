@@ -68,6 +68,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'agency-location');
     registerEndpoint(server, 'agency-portal', 'agency-user');
     registerEndpoint(server, 'agency-portal', 'application');
+    registerEndpoint(server, 'agency-portal', 'application-notes');
     registerEndpoint(server, 'agency-portal', 'applications');
     registerEndpoint(server, 'agency-portal', 'banners');
     registerEndpoint(server, 'agency-portal', 'change-password');
@@ -88,8 +89,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'user');
     registerEndpoint(server, 'agency-portal', 'user-groups');
     registerEndpoint(server, 'agency-portal', 'users');
-    // Application
-    registerEndpoint(server, 'application', 'application');
+
     // Auth
     registerEndpoint(server, 'auth', 'administration');
     registerEndpoint(server, 'auth', 'agency-portal');
@@ -113,6 +113,7 @@ exports.registerEndpoints = (server) => {
     // Administration
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
+    registerEndpoint(server, 'administration', 'ein-lookup');
     registerEndpoint(server, 'administration', 'insurer');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
