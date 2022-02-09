@@ -21,6 +21,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
 const AgencyPortalUserBO = global.requireShared("./models/AgencyPortalUser-BO.js");
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
+const TerritoryBO = global.requireShared('./models/Territory-BO.js');
 
 /**
  * Validates the parameters for the applications call
@@ -1069,6 +1070,70 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
 }
 
 /**
+ * Get the territories needed on the application filter resources
+ *
+ * @returns {array} List of all territories
+ */
+async function getTerritories(){
+    const territoryBO = new TerritoryBO();
+    try {
+        const allTerritories = await territoryBO.getAbbrNameList();
+        return allTerritories;
+    }
+    catch(error){
+        log.error('DB query for territories list failed: ' + error.message + __location);
+    }
+}
+
+/**
+ * Get the agency network list for talageStaff and for Global View
+ * @param {object} authentication - Authentication properties
+ * @returns {array} List of all territories
+ */
+async function getAgencyNetworkList(authentication) {
+    const agencyNetworkId = parseInt(authentication.agencyNetworkId, 10);
+    let agencyNetworkList = [];
+    if(authentication.isAgencyNetworkUser && agencyNetworkId === 1
+			&& authentication.permissions.talageStaff
+			&& authentication.enableGlobalView){
+        try{
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworks = await agencyNetworkBO.getList({});
+            agencyNetworkList = agencyNetworks.map(agencyNetwork => ({
+                'agencyNetworkId': agencyNetwork.agencyNetworkId,
+                'brandName': agencyNetwork.brandName
+            }));
+        }
+        catch(error){
+            log.error(`Get Agency Network List Error ${error}` + __location)
+        }
+    }
+    return agencyNetworkList;
+}
+
+/**
+ * Populates the resources object with states and agency networks
+ * @param {object} resources - Resources Object to be decorated
+ * @param {object} authentication - Authentication properties
+ * @returns {void}
+ */
+async function populateStatesAndAgencyNetwork(resources, authentication){
+    try {
+        resources.states = await getTerritories();
+    }
+    catch{
+        // Log of getTerritories shows up
+    }
+
+    try{
+        resources.agencyNetworkList = await getAgencyNetworkList(authentication);
+    }
+    catch {
+        // Log of agencyNetworkList shows up
+    }
+}
+
+/**
  * Responds to get requests for the get resources endpoint
  *
  * @param {object} req - HTTP request object
@@ -1301,6 +1366,12 @@ async function getApplicationsResources(req, res, next){
         if(wholesaleIndex > -1){
             appStatusIdSearchOptions.splice(wholesaleIndex, 1);
         }
+    }
+    try {
+        await populateStatesAndAgencyNetwork(resources, req.authentication);
+    }
+    catch {
+        log.error(`Error populting the states and agency networks ${error}` + __location)
     }
     resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources
