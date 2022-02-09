@@ -613,6 +613,14 @@ module.exports = class ArrowheadBOP extends Integration {
                 locationObj.buildingList[0].occupiedSqFt = 0;
             }
 
+            // added description since its required in arrowhead quote
+            if (location.description) {
+                locationObj.buildingList[0].description = location.description;
+            }
+            else{
+                locationObj.buildingList[0].description = '';
+            }
+
             const constructionTypes = {
                 "Frame": "Frame",
                 "Fire Resistive": "Fire Resistive",
