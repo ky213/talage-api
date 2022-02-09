@@ -21,6 +21,11 @@ const SocialMediaSchema = new Schema({
     tagType: {type: String, required:true}
 }, opts);
 
+const tierNameSchema = new Schema({
+    name: {type: String, required: false},
+    rank: {type: Number, required: false}
+}, opts);
+
 const faqSchema = new Schema({
     question: {type: String, required: false},
     answer: {type: String, required: false}
@@ -65,7 +70,7 @@ const AgencySchema = new Schema({
     socialMediaTags: [SocialMediaSchema],
     active: {type: Boolean, default: true},
     tierId: {type: Number},
-    tierName: {type: String}
+    tierName: tierNameSchema
 }, opts);
 
 

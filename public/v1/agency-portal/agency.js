@@ -482,7 +482,7 @@ async function postAgency(req, res, next) {
     const cred3s = req.body.cred3s;
     const talageWholesaleJson = req.body.talageWholesale;
     const tierId = req.body.tierId || null;
-    const tierName = req.body.tierName || '';
+    const tierName = req.body.tierName || {};
 
     // Make sure we don't already have an user tied to this email address
     const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
