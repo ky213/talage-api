@@ -351,8 +351,18 @@ module.exports = class CnaBOP extends Integration {
         industryCode = await this.getIndustryCode();
 
         if (!industryCode) {
-            log.error(`${logPrefix}Unable to get Industry Code, applicantion Out of Market. ` + __location);
+            log.error(`${logPrefix}Unable to get Industry Code, application Out of Market. ` + __location);
             return this.client_autodeclined_out_of_appetite();
+        }
+
+        if (typeof industryCode.attributes === "string") {
+            try {
+                industryCode.attributes = JSON.parse(industryCode.attributes);
+            }
+            catch (e) {
+                log.error(`${logPrefix}Unable to parse attributes of Industry Code, which are required. ${e}. attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
+                return this.client_error(`Could not parse required information from industry code.`);
+            }
         }
 
         let agencyId = null;
@@ -402,7 +412,7 @@ module.exports = class CnaBOP extends Integration {
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
         // =================================================================
-        
+
         const requestJSON = {
             SignonRq: {
                 SignonPswd: {
@@ -561,7 +571,7 @@ module.exports = class CnaBOP extends Integration {
                                         ],
                                         BusinessInfo: {
                                             SICCd: {
-                                                value: industryCode.attributes.SICCd // may need to be sic specific on attr?
+                                                value: industryCode.attributes.SICCd
                                             },
                                             NumEmployeesFullTime: {
                                                 value: this.get_total_full_time_employees()
@@ -665,7 +675,7 @@ module.exports = class CnaBOP extends Integration {
                                 //     }
                                 // ],
                                 // TODO: Find out what questions should be in here, this might just be all general questions
-                                "com.cna_QuestionAnswer": this.getQuestions(applicationDocData.questions)
+                                "com.cna_QuestionAnswer": this.getQuestions()
                             },
                             CommlSubLocation: this.getBuildings()
                         }
@@ -821,9 +831,13 @@ module.exports = class CnaBOP extends Integration {
             case "general failure":
                 const error = response.MsgStatus;
                 log.error(`${logPrefix}response ${error.MsgStatusDesc.value} ` + __location);
+                if (error.MsgErrorCd && error.MsgErrorCd.value === "NotAvailable") {
+                    return this.client_error(`${error.MsgStatusDesc.value}`, __location);
+                }
+
                 if (error.ExtendedStatus && Array.isArray(error.ExtendedStatus)) {
                     error.ExtendedStatus.forEach(status => {
-                        if (status.ExtendedStatusCd !== "VerifyDataAbsence") {
+                        if (status.ExtendedStatusCd.value !== "VerifyDataAbsence") {
                             const prefix = status.ExtendedStatusCd ? status.ExtendedStatusCd.value : "";
                             const statusMsg = status.ExtendedStatusDesc ? `: ${status.ExtendedStatusDesc.value}` : "";
     
@@ -1108,7 +1122,7 @@ module.exports = class CnaBOP extends Integration {
                     // }
                 },
                 BldgFeatures: {},
-                "com.cna_QuestionAnswer": this.getQuestions(location.questions),
+                "com.cna_QuestionAnswer": [], // No location questions here, all are hydrated in the request for specific properties
                 "com.cna_CommonAreasMaintenanceCd": {},
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
@@ -1117,52 +1131,7 @@ module.exports = class CnaBOP extends Integration {
             // -------- BldgFeature questions --------
             // NOTE: Daycare children is currently not handled 
 
-            // lawyers
-            const numLawyers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numLawyers");
-            if (numLawyers) {
-                buildingObj.BldgFeatures["com.cna_NumOfLawyers"] = {
-                    Amt: {
-                        value: numLawyers.answerValue
-                    }
-                }
-            }
-
-            // kennels
-            const numKennels = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numKennels");
-            if (numKennels) {
-                buildingObj.BldgFeatures["com.cna_NumOfKennels"] = {
-                    Amt: {
-                        value: numKennels.answerValue
-                    }
-                }
-            }
-
-            // members
-            const numMembers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numMembers");
-            if (numMembers) {
-                buildingObj.BldgFeatures["com.cna_NumChurchMembersOrStudents"] = {
-                    value: numMembers.answerValue
-                }
-            }
-
-            // pupils
-            const numPupils = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numPupils");
-            if (numPupils) {
-                buildingObj.BldgFeatures["com.cna_NumOfPupils"] = {
-                    value: numPupils.answerValue
-                }
-            }
-
-
-            // payroll type
-            const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
-            if (payrollType) {
-                buildingObj.FinancialInfo = {
-                    "com.cna_PayrollTypeCd": {
-                        value: payrollType.answerValue
-                    }
-                };
-            }
+            // NOTE: Moved number x questions from here
 
             // Construction question section
             const hasBasements = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.hasBasements");
@@ -1407,14 +1376,14 @@ module.exports = class CnaBOP extends Integration {
             };
 
             if (explanationQuestions.includes(question.insurerQuestionIdentifier)) {
-                questionObj["com.cna_QuestionCd"].YesNoCd = {value: "N/A"};
-                questionObj["com.cna_QuestionCd"].Explanation = {value: question.answerValue};
+                questionObj.YesNoCd = {value: "N/A"};
+                questionObj.Explanation = {value: question.answerValue};
             }
             else if (question.questionType === "Yes/No") {
-                questionObj["com.cna_QuestionCd"].YesNoCd = {value: question.answerValue.toUpperCase()};
+                questionObj.YesNoCd = {value: question.answerValue.toUpperCase()};
             }
             else {
-                questionObj["com.cna_QuestionCd"]["com.cna_OptionCd"] = {value: question.answerValue}
+                questionObj["com.cna_OptionCd"] = {value: question.answerValue}
             }
 
             return questionObj;
@@ -1906,12 +1875,12 @@ module.exports = class CnaBOP extends Integration {
                 ClassCdDesc: {
                     value: industryCode.description
                 },
-                AlternativeExposure: {
-                    value: this.get_location_payroll(location)
-                },
-                Exposure: {
-                    value: this.applicationDocData.grossSalesAmt
-                },
+                // AlternativeExposure: {
+                //     value: this.get_location_payroll(location)
+                // },
+                // Exposure: {
+                //     value: this.applicationDocData.grossSalesAmt
+                // },
                 id: `C${i}`,
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
@@ -1923,6 +1892,79 @@ module.exports = class CnaBOP extends Integration {
                     value: dynamicExposures[industryCode.attributes.SICCd]
                 };
             }
+
+            const additionalExposures = [];
+
+            // lawyers
+            const numLawyers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numLawyers");
+            if (numLawyers) {
+                const count = parseInt(numLawyers.answerValue, 10);
+                additionalExposures.push({
+                    "com.cna_AdditionalExposureCd": {
+                        value: "Court"
+                    },
+                    "com.cna_AdditionalExposureAmt": {
+                        value: isNaN(count) ? 0 : count
+                    }
+                });
+            }
+
+            // kennels
+            const numKennels = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numKennels");
+            if (numKennels) {
+                const count = parseInt(numKennels.answerValue, 10);
+                additionalExposures.push({
+                    "com.cna_AdditionalExposureCd": {
+                        value: "Kennel"
+                    },
+                    "com.cna_AdditionalExposureAmt": {
+                        value: isNaN(count) ? 0 : count
+                    }
+                });
+            }
+
+            // members
+            const numMembers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numMembers");
+            if (numMembers) {
+                const count = parseInt(numMembers.answerValue, 10);
+                additionalExposures.push({
+                    "com.cna_AdditionalExposureCd": {
+                        value: "Member"
+                    },
+                    "com.cna_AdditionalExposureAmt": {
+                        value: isNaN(count) ? 0 : count
+                    }
+                });
+            }
+
+            // pupils
+            const numPupils = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numPupils");
+            if (numPupils) {
+                const count = parseInt(numPupils.answerValue, 10);
+                additionalExposures.push({
+                    "com.cna_AdditionalExposureCd": {
+                        value: "NumStudents"
+                    },
+                    "com.cna_AdditionalExposureAmt": {
+                        value: isNaN(count) ? 0 : count
+                    }
+                });
+            }
+
+            // payroll type
+            const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
+            if (payrollType) {
+                additionalExposures.push({
+                    "com.cna_AdditionalExposureCd": {
+                        value: payrollType.answerValue
+                    },
+                    "com.cna_AdditionalExposureAmt": {
+                        value: this.get_location_payroll(location)
+                    }
+                });
+            }
+
+            glClassificationObj["com.cna_AdditionalExposure"] = additionalExposures;
 
             return glClassificationObj;
         });
