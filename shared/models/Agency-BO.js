@@ -621,9 +621,186 @@ module.exports = class AgencyBO {
     }
 
     getListAggregate(requestQueryJSON) {
+        // Sort Keys for non-case-sensitive sorting
+        const KEYS_INSENSITIVE_SORT = ['name'];
+        // Sort Keys that are nullable - to display sort properly via Front-end
+        const KEYS_NULLABLE_SORT = {
+            tierId: {
+                min: 0,
+                max: 100
+            },
+            'tierName.name': {
+                min: '',
+                max: '~'
+            }
+        }
+
+        // Variable placeholder for temporary keys for removal in final projection
+        // - e.g. Sort Keys used for sorting but not displayed in Front-end
+        const keysTemporaryProjection = [];
+
+        // Setup initial projection
+        // - Add sortable fields in the project and setup 'req.query.postProjection' for later removal
+        const projectBody = {$project: {
+            _id: 0,
+            id: '$systemId',
+            name: 1,
+            email: 1,
+            state: {$cond: [
+                '$active',
+                'Active',
+                'Inactive'
+            ]},
+            primaryAgency: {$ifNull:['$primaryAgency', false]},
+            slug: 1,
+            firstName: 1,
+            lastName: 1,
+            tierId: 1,
+            tierName: {
+                name: 1,
+                rank: 1
+            }
+        }};
+
+        // Initialize lookup
+        // - with first lookup for getting the Agency Network Name from Agency Network ID
+        const lookups = [{$lookup: {
+            from:"agencynetworks",
+            let: {"agencyNetworkId": "$agencyNetworkId"},
+            pipeline: [
+                {$match: {$expr: {$eq: ["$agencyNetworkId", "$$agencyNetworkId"]}}}
+            ],
+            as:"agencyNetwork"
+        }},{$unwind: {
+            path: "$agencyNetwork",
+            preserveNullAndEmptyArrays: true
+        }}];
+        projectBody.$project.agencyNetworkName = {$ifNull: ['$agencyNetwork.name', '']};
+
+        // Check if number of applications is skipped
+        if(!requestQueryJSON.skipappcount ||
+            requestQueryJSON.skipappcount.toLowerCase() !== 'y' ||
+            requestQueryJSON.skipappcount !== '1'){
+            // If not skipped - add look up to retrieve the number of Applications for the Agency
+            lookups.push({$lookup: {
+                from:"applications",
+                let: {"agencyId": "$systemId"},
+                pipeline: [
+                    {$match: {$expr: {$eq: ["$agencyId", "$$agencyId"]}}}, {$count: 'count'}
+                ],
+                as:"applications"
+            }},{$unwind: {
+                path: "$applications",
+                preserveNullAndEmptyArrays: true
+            }});
+            projectBody.$project.applications = {$ifNull: ['$applications.count', 0]};
+        }
+
+        // Initialize default sorting - [1 - asc || -1 - desc]
+        const sortBody = {$sort: {
+            tierId: -1,
+            'tierName.rank': -1,
+            name: 1
+        }};
+
+        // Check for custom sorting
+        if(requestQueryJSON.sort) {
+            sortBody.$sort = {};
+            const sortHandler = JSON.parse(requestQueryJSON.sort);
+            // Add a post sorting for name
+            if (!sortHandler.hasOwnProperty('name')) {
+                sortHandler.name = 1;
+            }
+            for (var key in sortHandler) {
+                if(sortHandler[`${key}`]) {
+                    let sortKey = key;
+                    // Checking for old sorting where the values are 'asc' or 'desc'
+                    if(typeof sortHandler[`${key}`] === 'string') {
+                        sortHandler[`${key}`] = sortHandler[`${key}`].toLowerCase() === 'asc' ? 1 : -1;
+                    }
+                    // Checking if the sort keys are nullable or case insensitive sorters
+                    if(KEYS_INSENSITIVE_SORT.includes(key) || KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
+                        sortKey = `${key}Sorter`;
+                        // If sort key is non case sensitive - create a sort projection with lower case of the value
+                        let sortKeyProjection = KEYS_INSENSITIVE_SORT.includes(key) ? {$toLower: `$${key}`} : `$${key}`;
+                        if (KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
+                            // If the sort key is nullable
+                            // and the fields are not existing in the document
+                            // use the max for ascending and min for descending as the fields' default values
+                            const minMax = sortHandler[`${key}`] === 1 ? 'max' : 'min';
+                            sortKeyProjection = {$cond: [
+                                {$not: [`$${key}`]},
+                                KEYS_NULLABLE_SORT[key][minMax],
+                                sortKeyProjection
+                            ]};
+                        }
+                        projectBody.$project[sortKey] = sortKeyProjection;
+                        // Add the sorter key for later removal in the final/post projection
+                        keysTemporaryProjection.push(sortKey);
+                    }
+                    sortBody.$sort[`${sortKey}`] = sortHandler[`${key}`];
+                }
+            }
+        }
+
+        // Compute and initialize $skip and $limit
+        const limitBody = {$limit: Number(`${requestQueryJSON.limit}`) || 5000};
+        const skipBody = {$skip: requestQueryJSON.page ? (Number(`${requestQueryJSON.page}`) - 1) * limitBody.$limit : 0};
+
+        // Initial setup of Aggregation Query Body
+        // - actual format for query without the count
+        // - inside a $facet if with count
+        const initialAggregation = [
+            ...lookups,
+            projectBody,
+            sortBody,
+            skipBody,
+            limitBody
+        ];
+
+        const postProjection = JSON.parse(requestQueryJSON.postProjection || '{}');
+        // Remove all temporary keys/vars in the post projection
+        keysTemporaryProjection.forEach((key) => {
+            postProjection[key] = 0;
+        });
+        const postProjectionBody = {$project: postProjection};
+        // Don't add if empty
+        if(postProjection && JSON.stringify(postProjection) !== JSON.stringify({})) {
+            initialAggregation.push(postProjectionBody);
+        }
+
+        // $match should always be at the start of the Aggregation
+        const aggregateBody = [];
+        const match = JSON.parse(requestQueryJSON.match || '{}');
+        const matchBody = {$match: match};
+        // Don't add if empty
+        if (match && JSON.stringify(match) !== JSON.stringify({})) {
+            aggregateBody.push(matchBody);
+        }
+
+        // Check if count of documents is requested
+        if(requestQueryJSON.getcount &&
+            (requestQueryJSON.getcount.toLowerCase() === 'y' ||
+            requestQueryJSON.getcount === '1')){
+            aggregateBody.push({$facet: {
+                count: [{$count: "value"}],
+                rows: [
+                    ...initialAggregation
+                ]
+            }},
+            {$unwind: "$count"},
+            {$set: {count: "$count.value"}});
+            // Return is in the first element of array
+            // [0]: { count: #, rows: [...]}
+        }
+        else {
+            aggregateBody.push(...initialAggregation);
+            // Returned list as an array
+            // [...agency1, ...agency2, ...]
+        }
         return new Promise(async(resolve, reject) => {
             try {
-                return resolve(mongoUtils.objListCleanup(await AgencyModel.aggregate(requestQueryJSON)));
+                return resolve(mongoUtils.objListCleanup(await AgencyModel.aggregate(aggregateBody)));
             }
             catch (err) {
                 log.error(err + __location);

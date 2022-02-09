@@ -214,9 +214,20 @@ async function getAgencies(req, res, next){
 }
 
 /**
- * Responds to get requests for the applications endpoint
- * - Add Locations - (Not Yet Included)
+ * Retrieves the list of agencies, but using aggregate mongodb function
+ * Enables:
+ * - Sorting for foriegn keys/values with proper pagination
+ * - Centralized or single query from the DB
+ * Future Development:
+ * - Location List - (Not Yet Included)
  * @param {object} req - HTTP request object
+ * @param {object} req.query - HTTP request object
+ * @param {object} req.query.match - $match format from mongodb aggregation (query)
+ * @param {object} req.query.sort - $sort format from mongodb aggregation (also caters 'asc' or 'desc')
+ * @param {number} req.query.page - page number (pagination)
+ * @param {number} req.query.limit - $limit format from mongodb aggregation (page limit - pagination)
+ * @param {string} req.query.getcount - return total number of docs (preferably 'y' or 'n', but better uninitialized if 'n' - pagination)
+ * @param {string} req.query.skipappcount - return number of applications per agency (preferably 'y' or 'n', but better uninitialized if 'n')
  * @param {object} res - HTTP response object
  * @param {function} next - The next function to execute
  *
@@ -224,119 +235,27 @@ async function getAgencies(req, res, next){
  */
 async function getAgenciesAggregate(req, res, next){
     try{
-        const KEYS_INSENSITIVE_SORT = ['name'];
-        const KEYS_NULLABLE_SORT = {
-            tierId: {
-                min: 0,
-                max: 100
-            },
-            'tierName.name': {
-                min: '',
-                max: '~'
+        // If non talage super user, remove these fields from final projection
+        if (!req.authentication.permissions.talageStaff) {
+            req.query.postProjection = {};
+            req.query.postProjection.tierId = 0;
+            req.query.postProjection.tierName = {
+                rank: 0,
+                name: 0
             }
+            req.query.postProjection = JSON.stringify(req.query.postProjection);
         }
 
-        const projectBody = {$project: {
-            _id: 0,
-            id: '$systemId',
-            name: 1,
-            email: 1,
-            state: {$cond: [
-                '$active',
-                'Active',
-                'Inactive'
-            ]},
-            primaryAgency: {$ifNull:['$primaryAgency', false]},
-            slug: 1,
-            firstName: 1,
-            lastName: 1
-        }};
-
-        const lookups = [{$lookup: {
-            from:"agencynetworks",
-            let: {"agencyNetworkId": "$agencyNetworkId"},
-            pipeline: [
-                {$match: {$expr: {$eq: ["$agencyNetworkId", "$$agencyNetworkId"]}}}
-            ],
-            as:"agencyNetwork"
-        }},{$unwind: {
-            path: "$agencyNetwork",
-            preserveNullAndEmptyArrays: true
-        }}];
-        projectBody.$project.agencyNetworkName = {$ifNull: ['$agencyNetwork.name', '']};
-
-        if(!req.query.skipappcount || req.query.skipappcount.toLowerCase() !== 'n'){
-            lookups.push({$lookup: {
-                from:"applications",
-                let: {"agencyId": "$systemId"},
-                pipeline: [
-                    {$match: {$expr: {$eq: ["$agencyId", "$$agencyId"]}}}, {$count: 'count'}
-                ],
-                as:"applications"
-            }},{$unwind: {
-                path: "$applications",
-                preserveNullAndEmptyArrays: true
-            }});
-            projectBody.$project.applications = {$ifNull: ['$applications.count', 0]};
-        }
-
-        if(req.authentication.permissions.talageStaff) {
-            projectBody.$project.tierId = 1;
-            projectBody.$project.tierName = {
-                rank: 1,
-                name: 1
-            }
-        }
-
-        const sortBody = {$sort: {
-            tierId: -1,
-            'tierName.rank': -1,
-            name: 1
-        }};
-        if(req.query.sort) {
-            sortBody.$sort = {};
-            const sortHandler = JSON.parse(req.query.sort);
-            if (!sortHandler.hasOwnProperty('name')) {
-                sortHandler.name = 1;
-            }
-            for (var key in sortHandler) {
-                if(sortHandler[`${key}`]) {
-                    let sortKey = key;
-                    if(typeof sortHandler[`${key}`] === 'string') {
-                        sortHandler[`${key}`] = sortHandler[`${key}`].toLowerCase() === 'asc' ? 1 : -1;
-                    }
-                    if(KEYS_INSENSITIVE_SORT.includes(key) || KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
-                        sortKey = `${key}Sorter`;
-                        let sortKeyProjection = KEYS_INSENSITIVE_SORT.includes(key) ? {$toLower: `$${key}`} : `$${key}`;
-                        if (KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
-                            const minMax = sortHandler[`${key}`] === 1 ? 'max' : 'min';
-                            sortKeyProjection = {$cond: [
-                                {$not: [`$${key}`]},
-                                KEYS_NULLABLE_SORT[key][minMax],
-                                sortKeyProjection
-                            ]};
-                        }
-                        projectBody.$project[sortKey] = sortKeyProjection;
-                    }
-                    sortBody.$sort[`${sortKey}`] = sortHandler[`${key}`];
-                }
-            }
-        }
-
-        const limitBody = {$limit: Number(`${req.query.limit}`) || 5000};
-        const skipBody = {$skip: req.query.page ? (Number(`${req.query.page}`) - 1) * limitBody.$limit : 0};
-
-
-        const matchBody = {$match: JSON.parse(req.query.match || '{}')};
-
+        req.query.match = JSON.parse(req.query.match || '{}');
+        // Check agency view permission
         if(req.authentication.isAgencyNetworkUser){
-            matchBody.$match.agencyNetworkId = req.authentication.agencyNetworkId;
+            req.query.match.agencyNetworkId = req.authentication.agencyNetworkId;
             //Not Global View Check
             if(req.authentication.isAgencyNetworkUser &&
                 req.authentication.agencyNetworkId === 1 &&
                 req.authentication.permissions.talageStaff === true &&
                 req.authentication.enableGlobalView === true){
-                delete matchBody.$match.agencyNetworkId;
+                delete req.query.match.agencyNetworkId;
             }
         }
         else {
@@ -353,49 +272,30 @@ async function getAgenciesAggregate(req, res, next){
                 return next(serverHelper.requestError('Bad Request: No agencies permitted'));
             }
 
-            matchBody.$match.systemId = agents.includes(',') ? {$in: agents.split(',')} : agents;
+            req.query.match.systemId = agents.includes(',') ? {$in: agents.split(',')} : agents;
         }
 
-        let aggregateBody = [];
-        if(req.query.getcount){
-            aggregateBody = [
-                matchBody,
-                {$facet: {
-                    count: [{$count: "value"}],
-                    rows: [
-                        ...lookups,
-                        projectBody,
-                        sortBody,
-                        skipBody,
-                        limitBody
-                    ]
-                }},
-                {$unwind: "$count"},
-                {$set: {count: "$count.value"}}
-            ];
-        }
-        else {
-            aggregateBody = [
-                ...lookups,
-                projectBody,
-                sortBody,
-                skipBody,
-                limitBody
-            ];
-        }
+        req.query.match = JSON.stringify(req.query.match);
 
+        // Query Get List aggregation
         const agencyBO = new AgencyBO();
         let agencies = {};
         try {
-            agencies = await agencyBO.getListAggregate(aggregateBody);
+            agencies = await agencyBO.getListAggregate(req.query);
         }
         catch (error) {
             return next(error);
         }
 
-
-        if (agencies && agencies[0] && agencies[0].count && agencies[0].count > 0) {
+        // Validate return value
+        if (agencies && agencies[0] && agencies[0].hasOwnProperty('count') && agencies[0].count > 0) {
+            // With count
             res.send(200, agencies[0]);
+            return next();
+        }
+        else if(agencies && agencies.length > 0 && !agencies[0].hasOwnProperty('count')) {
+            // Without count
+            res.send(200, agencies);
             return next();
         }
         else {
