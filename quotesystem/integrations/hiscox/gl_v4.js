@@ -16,35 +16,6 @@ const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 // Read the template into memory at load
 const hiscoxGLTemplate = require("jsrender").templates("./quotesystem/integrations/hiscox/gl.xmlt");
 
-/**
- * Gets the Hiscox COB code based on the COB description
- * @param  {string} cobDescription - description of the COB
- * @returns {string} COB code
- */
-async function getHiscoxCOBFromDescription(cobDescription) {
-    const hiscoxCodeSvc = require('./hiscoxcodesvc.js');
-    const result = hiscoxCodeSvc.getByDesc(cobDescription);
-    if (result) {
-        return result.code;
-    }
-    else {
-        return null;
-    }
-}
-
-/**
- * Capitalizes first letter
- * @param {string} wordToCapitalize - The word which will be capitalized
- * @returns {string} Word with the first letter capitalized
- */
-function capitalizeFirstLetter(wordToCapitalize) {
-    if (!wordToCapitalize) {
-        log.error(`Cannot capitalize first letter as invalid string passed in: ${wordToCapitalize}. ${__location}`);
-    }
-    const firstLetter = wordToCapitalize.slice(0,1).toUpperCase();
-    return firstLetter + wordToCapitalize.slice(1);
-}
-
 module.exports = class HiscoxGL extends Integration {
 
     /**
@@ -54,6 +25,7 @@ module.exports = class HiscoxGL extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+        // Do not require BOP field as the BOP connection may come from industry code
     }
 
 
@@ -167,15 +139,25 @@ module.exports = class HiscoxGL extends Integration {
             carrierLimits = ["300000/300000", "500000/500000", "1000000/2000000", "2000000/2000000"];
         }
 
+        // Look up the insurer industry code, make sure we got a hit. //zy
+        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`);
+        // If it's BOP, check that the link is made at industry code, 
+        // if not lookup the policy.bopCode
+        // Set the code that we're using here. No longer using industry_code.hiscox
+
         // Define how legal entities are mapped for Hiscox
         const entityMatrix = {
-            Association: "Professional Association",
-            Corporation: "Corporation",
-            "Limited Liability Company": "Limited Liability Company",
-            "Limited Partnership": "Partnership",
-            Other: "Other",
-            Partnership: "Partnership",
-            "Sole Proprietorship": "Sole Proprietor"
+            'Association': 'Professional Association',
+            'Corporation': 'Corporation',
+            'Corporation (C-Corp)': 'Corporation',
+            'Corporation (S-Corp)': 'Corporation',
+            'Limited Liability Company': 'Limited Liability Company',
+            'Limited Partnership': 'Partnership',
+            'Limited Liability Company (Member Managed)': 'Limited Liability Company',
+            'Limited Liability Company (Manager Managed)': 'Limited Liability Company',
+            'Partnership': 'Partnership',
+            'Sole Proprietorship': 'Sole Proprietor',
+            'Other': 'Other'
         };
 
         // Determine which URL to use
@@ -191,7 +173,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // console.log(JSON.stringify(this.app, null, 4));
 
-        // Hiscox has us define our own Request ID
+        // Hiscox has us define our own Request ID. Try application ID
         this.request_id = this.generate_uuid();
         reqJSON.InsuranceSvcRq.QuoteRq.RqUID = this.request_id;
 
@@ -234,7 +216,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo = {};
-        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency; // zy Should this be something else?
+        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency;
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.EmailInfo = {EmailAddr: this.agencyEmail};
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo = {AgencyName: this.agency};
@@ -269,17 +251,18 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo = {};
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.CommercialName = this.app.business.name.substring(0, 100);
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.CommercialName = this.app.business.name.substring(0, 250);
 
         // Ensure this entity type is in the entity matrix above
+        // Set to other if we don't find in matrix. Log an error and set to 'other'
         if (!(this.app.business.entity_type in entityMatrix)) {
             this.reasons.push(`${this.insurer.name} does not support the entity type selected by the user`);
             return this.return_result("autodeclined");
         }
         this.entityType = entityMatrix[this.app.business.entity_type];
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.BusinessOwnershipStructure = this.entityType;
-
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.industry_code.hiscox;
+        // Use the IIC set above
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.insurerIndustryCode.attributes.v4Code; // zy Use the code that we find at the top. Revisit this
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person = {
             Name: {},
             CommunicationsInfo: {
@@ -288,11 +271,11 @@ module.exports = class HiscoxGL extends Integration {
             }
         };
 
-        const businessContactFirstName = this.app.business.contacts[0].first_name.substring(0, 75);
+        const businessContactFirstName = this.app.business.contacts[0].first_name.substring(0, 250);
         if (businessContactFirstName) {
             reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person.Name.FirstName = businessContactFirstName;
         }
-        const businessContactLastName = this.app.business.contacts[0].last_name.substring(0, 75);
+        const businessContactLastName = this.app.business.contacts[0].last_name.substring(0, 250);
         if (businessContactLastName) {
             reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person.Name.LastName = businessContactLastName;
         }
@@ -311,11 +294,15 @@ module.exports = class HiscoxGL extends Integration {
 
 
         // Determine the best limits
-        this.bestLimits = this.getBestLimits(carrierLimits);
-        if (!this.bestLimits) {
-            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
-            return this.return_result("autodeclined");
-        }
+        // ***** HACK TODO ****** Temporarily hard-coded limits to 1000000/1000000 for testing. 
+        // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits 
+        // ***** V3 request with 250000/250000 was fine but V4 doesn't like it. Not sure how bestLimits even resulted in 250000/250000
+        this.bestLimits = ['1000000', '1000000'];
+        // this.bestLimits = this.getBestLimits(carrierLimits);
+        // if (!this.bestLimits) {
+        //     this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+        //     return this.return_result("autodeclined");
+        // }
 
 
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
@@ -404,15 +391,15 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress = {AddrInfo: {}};
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,40);
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
         if (this.primaryLocation.address2){
-            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,40);
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
         }
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.City = capitalizeFirstLetter(this.primaryLocation.city).substring(0,30);
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.PostalCode = this.primaryLocation.zip;
         if (this.primaryLocation.county){
-            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.County = this.primaryLocation.county.substring(0,60);
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.County = this.primaryLocation.county.substring(0,250);
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {
@@ -441,19 +428,24 @@ module.exports = class HiscoxGL extends Integration {
 
         // Set primary location
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations = {Primary: {AddrInfo: {}}};
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,40);
+        
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
         if (this.primaryLocation.address2){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,40);
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
         }
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.City = capitalizeFirstLetter(this.primaryLocation.city).substring(0,30);
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
 
         if (this.primaryLocation.county){
-            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.County = this.primaryLocation.county.substring(0,60);
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.County = this.primaryLocation.county.substring(0,250);
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
+
+        if (this.primaryLocation.square_footage){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.SquareFeetOccupiedByYou = this.primaryLocation.square_footage;
+        }
 
         let questionDetails = null;
         try {
@@ -495,11 +487,11 @@ module.exports = class HiscoxGL extends Integration {
 
             for (const secondaryLocation of this.secondaryLocations) {
                 const location = {AddrInfo: {}};
-                location.AddrInfo.Addr1 = secondaryLocation.address.substring(0,40);
+                location.AddrInfo.Addr1 = secondaryLocation.address.substring(0,250);
                 if (secondaryLocation.address2){
-                    location.AddrInfo.Addr2 = secondaryLocation.address2.substring(0,40);
+                    location.AddrInfo.Addr2 = secondaryLocation.address2.substring(0,250);
                 }
-                location.City = capitalizeFirstLetter(secondaryLocation.city).substring(0,30);
+                location.City = stringFunctions.capitalizeName(secondaryLocation.city).substring(0,250);
                 location.StateOrProvCd = secondaryLocation.territory;
                 location.PostalCode = secondaryLocation.zip;
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Secondary.push(location);
@@ -602,7 +594,7 @@ module.exports = class HiscoxGL extends Integration {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
         }
 
-        // Add additional COBs to JSON if necessary
+        // Add additional COBs to JSON if necessary  // zy Validate that this is still necessary in request
         if (this.additionalCOBs?.length > 0) {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [];
             for (const additionalCOB of this.additionalCOBs){
@@ -611,11 +603,6 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
-
-        const fs = require('fs'); // zy debug remove
-        fs.writeFileSync('/Users/talageuser/Downloads/hiscox_req.json', JSON.stringify(reqJSON, null, 4)); // zy debug remove
-
-
 
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
         // let xml = null;
@@ -647,18 +634,18 @@ module.exports = class HiscoxGL extends Integration {
         const token = responseObject.access_token;
 
         // Specify the path to the Quote endpoint
-        // const path = "/partner/v3/quote";
         const path = "/partner/v4/quote";
 
         this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
 
+        this.log_debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location);
         // Send the JSON to the insurer
         let result = null;
         let requestError = null;
         try {
-            result = await this.send_request(host, path, reqJSON, {
+            result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
                 Authorization: `Bearer ${token}`,
-                Accept: "application/xml",
+                Accept: "application/json",
                 "Content-Type": "application/json"
             });
         }
@@ -782,5 +769,21 @@ module.exports = class HiscoxGL extends Integration {
 
         // That we are quoted
         return this.return_result('quoted');
+    }
+
+    /**
+     * Gets the Hiscox COB code based on the COB description
+     * @param  {string} cobDescription - description of the COB
+     * @returns {string} COB code
+     */
+    async getHiscoxCOBFromDescription(cobDescription) {
+        const hiscoxCodeSvc = require('./hiscoxcodesvc.js');
+        const result = hiscoxCodeSvc.getByDesc(cobDescription);
+        if (result) {
+            return result.code;
+        }
+        else {
+            return null;
+        }
     }
 };

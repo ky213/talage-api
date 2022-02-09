@@ -10,8 +10,8 @@
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const HiscoxGLJSON = require('./gl_v4_json');
 const HiscoxGLXML = require('./gl_old');
+const HiscoxGLJSON = require('./gl_v4');
 
 module.exports = class HiscoxGL extends Integration {
 
