@@ -140,7 +140,6 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // Look up the insurer industry code, make sure we got a hit. //zy
-        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`);
         // If it's BOP, check that the link is made at industry code, 
         // if not lookup the policy.bopCode
         // Set the code that we're using here. No longer using industry_code.hiscox
@@ -171,11 +170,10 @@ module.exports = class HiscoxGL extends Integration {
 
         const reqJSON = {InsuranceSvcRq: {QuoteRq: {}}};
 
-        // console.log(JSON.stringify(this.app, null, 4));
-
         // Hiscox has us define our own Request ID. Try application ID
         this.request_id = this.generate_uuid();
         reqJSON.InsuranceSvcRq.QuoteRq.RqUID = this.request_id;
+        reqJSON.InsuranceSvcRq.QuoteRq.ReferenceNumberID = "";
 
         // Fill in calculated fields
         this.requestDate = momentTimezone.tz("America/Los_Angeles").format("YYYY-MM-DD");
@@ -216,7 +214,9 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo = {};
-        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency;
+        // zy TODO HACK Nothing I try is a valid ProducerClient. Hard-codign to their example for now
+        // reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency;
+        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'APIQA'; // zy debug fix
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.EmailInfo = {EmailAddr: this.agencyEmail};
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo = {AgencyName: this.agency};
@@ -428,7 +428,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Set primary location
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations = {Primary: {AddrInfo: {}}};
-        
+
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
         if (this.primaryLocation.address2){
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
@@ -442,10 +442,6 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
-
-        if (this.primaryLocation.square_footage){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.SquareFeetOccupiedByYou = this.primaryLocation.square_footage;
-        }
 
         let questionDetails = null;
         try {
@@ -475,10 +471,15 @@ module.exports = class HiscoxGL extends Integration {
             delete this.questions[totalPayrollQuestionId];
         }
 
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo = {};
+
         if (appDoc.grossSalesAmt && appDoc.grossSalesAmt > 0){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo = {};
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.EstimatedAnnualRevenue = appDoc.grossSalesAmt;
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.EstmtdPayrollExpense = this.totalPayroll;
+        }
+
+        if (this.primaryLocation.square_footage){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.SquareFeetOccupiedByYou = this.primaryLocation.square_footage;
         }
 
         // Set request secondary locations
@@ -506,6 +507,9 @@ module.exports = class HiscoxGL extends Integration {
             }
         };
 
+        if (this.policy.type === 'GL') {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo = {};
+        }
 
         // Add questions
         this.questionList = [];
@@ -534,7 +538,7 @@ module.exports = class HiscoxGL extends Integration {
                 else if (elementName === 'ClassOfBusinessCd') {
                     const cobDescriptionList = questionAnswer.split(", ");
                     for (const cobDescription of cobDescriptionList) {
-                        const cob = await getHiscoxCOBFromDescription(cobDescription);
+                        const cob = await this.getHiscoxCOBFromDescription(cobDescription);
                         if (!cob) {
                             this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
                             continue;
@@ -589,20 +593,176 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // Add questions to JSON
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo = {};
-        for (const question of this.questionList) {
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
-        }
+        const applicationRatingInfoQuestions = [
+            'AnEConstructionSrvcs',
+            'AnEForbiddenProjects1',
+            'ChiroPhysicalTherapy',
+            'ConsultantEligibilitySafety',
+            'EventPlanningSrvcs',
+            'ForbiddenProjects3',
+            'ForbiddenProjects5',
+            'ForbiddenProjectsMSR',
+            'MSRBranchesOPS',
+            'MSRIndpntCtrctr',
+            'MSRInvntry',
+            'PMRealEstateServices',
+            'ProfessionalExperience',
+            'ProfessLicensesHealthSrvcs',
+            'PrptyMgrHotelHealthcare',
+            'PrptyMgrRenovation',
+            'PrptyMgrServices1',
+            'PrptyMgrServices2',
+            'PrsnlTrnYogaInstrc',
+            'RealEstateServices1',
+            'RealEstateServices2',
+            'REPropManServices',
+            'SafetyForbiddenProjects',
+            'SimilarInsurance',
+            'SpaOwnership',
+            'SubcontractDesign',
+            'SubcontractInsurance',
+            'SubcontractOtherSrvcs',
+            'SubcontractProfSrvcs',
+            'SubcontractRepair',
+            'SubcontractSrvcsDescribe',
+            'SupplyManufactDistbtGoodsOrProductsPercent3',
+            'SupplyManufactDistbtGoodsOrProductsWebsite2',
+            'SupplyManufactDistbtGoodsOrProductsWebsite4',
+            'TangibleGoodWork',
+            'TangibleGoodWorkDescribe',
+            'TangibleGoodWorkTradesmen',
+            'TrainingEligibility' ,
+            'TrainingEligibility1'
+        ];
 
-        // Add additional COBs to JSON if necessary  // zy Validate that this is still necessary in request
-        if (this.additionalCOBs?.length > 0) {
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [];
-            for (const additionalCOB of this.additionalCOBs){
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors.push(additionalCOB);
+        const generalLiabilityRatingInfoQuestions = [
+            'BeautyServices2GL',
+            'ConsultantEligibilityConGLBOP',
+            'ConsultantEligibilityEDUGLBOP',
+            'ConsultantEligibilityHRGLBOP',
+            'EstmtdPayrollSC',
+            'ForbiddenProjectsJanitorial',
+            'ForbiddenProjectsJanitorial1',
+            'ForbiddenProjectsLandscapers',
+            'ForbiddenProjectsRetail',
+            'HomeHealthForbiddenSrvcs',
+            'MarketingEligibilityGLBOP',
+            'MFSForbiddenProducts',
+            'MFSForbiddenServices',
+            'MobileEquipExcludedSnowBlowing',
+            'OperatedFromHome',
+            'PCEligibilityGLBOP',
+            'ResearchConsultingEligibilityGLBOP',
+            'SCForbiddenProjects',
+            'SecondaryCOBSmallContractors',
+            'SpaOwnership2',
+            'SpaOwnership3',
+            'SupplyManufactDistbtGoodsOrProducts',
+            'SupplyManufactDistbtGoodsOrProducts2',
+            'SupplyManufactDistbtGoodsOrProductsAandE',
+            'SupplyManufactDistbtGoodsOrProductsActivity1',
+            'SupplyManufactDistbtGoodsOrProductsActivity2',
+            'SupplyManufactDistbtGoodsOrProductsAssocWebsite',
+            'SupplyManufactDistbtGoodsOrProductsDescribe',
+            'SupplyManufactDistbtGoodsOrProductsDescribe1',
+            'SupplyManufactDistbtGoodsOrProductsDescribeAandE',
+            'SupplyManufactDistbtGoodsOrProductsDetailProcedures',
+            'SupplyManufactDistbtGoodsOrProductsDetailProcedures1',
+            'SupplyManufactDistbtGoodsOrProductsDetailRecalls',
+            'SupplyManufactDistbtGoodsOrProductsDetailRecalls1',
+            'SupplyManufactDistbtGoodsOrProductsDetailRecallsDescribe',
+            'SupplyManufactDistbtGoodsOrProductsDetailRecallsDescribe1',
+            'SupplyManufactDistbtGoodsOrProductsLimited',
+            'SupplyManufactDistbtGoodsOrProductsLimitedPhoto',
+            'SupplyManufactDistbtGoodsOrProductsManOthers',
+            'SupplyManufactDistbtGoodsOrProductsManufactured',
+            'SupplyManufactDistbtGoodsOrProductsManufacturedDescribe',
+            'SupplyManufactDistbtGoodsOrProductsManWhere',
+            'SupplyManufactDistbtGoodsOrProductsManWhere1',
+            'SupplyManufactDistbtGoodsOrProductsOwnership',
+            'SupplyManufactDistbtGoodsOrProductsPercent',
+            'SupplyManufactDistbtGoodsOrProductsPercent1',
+            'SupplyManufactDistbtGoodsOrProductsPercent2',
+            'SupplyManufactDistbtGoodsOrProductsPercent4',
+            'SupplyManufactDistbtGoodsOrProductsProceduresDescribe',
+            'SupplyManufactDistbtGoodsOrProductsProceduresDescribe1',
+            'SupplyManufactDistbtGoodsOrProductsUsed',
+            'SupplyManufactDistbtGoodsOrProductsUsed1',
+            'SupplyManufactDistbtGoodsOrProductsUsed2',
+            'SupplyManufactDistbtGoodsOrProductsWebsite',
+            'SupplyManufactDistbtGoodsOrProductsWebsite1',
+            'SupplyManufactDistbtGoodsOrProductsWebsite5',
+            'SupplyManufactDistbtGoodsOrProductsWhoManu',
+            'SupplyManufactDistbtGoodsOrProductsWhoManu1',
+            'TangibleGoodWork1',
+            'TangibleGoodWorkDescribe1',
+            'TangibleGoodWorkIT',
+            'TangibleGoodWorkTradesmen1',
+            'TechSpclstActvty'
+        ];
+        for (const question of this.questionList) {
+            if (applicationRatingInfoQuestions.includes(question.nodeName)) {
+                this.log_debug(`Application Rating Info Question: ${JSON.stringify(question, null, 4)}`);
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+            }
+            if (this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName)) {
+                this.log_debug(`General Liability Rating Info Question: ${JSON.stringify(question, null, 4)}`);
+                switch (question.nodeName) {
+                    case 'BeautyServices2GL':
+                        // zy TODO HACK - Hardcoding this just to get a quote through. This needs to change to use the actual question answers
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = {NoneOfTheAbove: "Yes"};
+                        break;
+                    default:
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
+                        break;
+                }
             }
         }
 
-        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
+        this.log_debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
+        if (this.policy.type === 'GL') {
+            const triaQuestion = this.questionList.find(question => question.nodeName === 'GeneralLiabilityTriaAgreeContent');
+            if (triaQuestion && triaQuestion.answer === 'Yes') {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'};
+            }
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy debug remove
+
+            // zy TODO Put only questions in each element that actually belong there. Base on list of element names from the XSD
+            // for (const question of this.questionList) {
+            //     reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
+            // }
+
+            // Add additional COBs to JSON if necessary  // zy Validate that this is still necessary in request
+            if (this.additionalCOBs?.length > 0) {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [];
+                for (const additionalCOB of this.additionalCOBs){
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors.push(additionalCOB);
+                }
+            }
+
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.ProductAcknowledgements = {
+                "CGLStatement1": "Agree",
+                "ExcludedActivities": "Agree"
+            };
+        }
+
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {
+            "BusinessOwnership": {"BusinessOwnership": "Agree"},
+            "InsuranceDecline": {"InsuranceDecline": "Agree"},
+            "MergerAcquisitions": {"MergerAcquisition": "Agree"},
+            "AgreeDisagreeStatements": "Agree",
+            "ApplicationAgreementStatement": "Agree",
+            "ApplicantAuthorized": "Agree",
+            "ClaimsAgainstYou": {"ClaimsAgainstYou": "Agree"},
+            "DeductibleStatement": "Agree",
+            "EmailConsent": "Agree",
+            "EmailConsent2": "Agree",
+            "EmailDeliveryStatement": "Agree",
+            "FraudWarning": "Agree",
+            "HiscoxStatement": "Agree",
+            "InformationConfirmAgreement": "Agree",
+            "StateSpcfcFraudWarning": "Agree"
+        }
 
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
         // let xml = null;
