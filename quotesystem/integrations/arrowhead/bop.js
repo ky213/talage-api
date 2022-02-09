@@ -206,9 +206,9 @@ module.exports = class ArrowheadBOP extends Integration {
 
         // send the JSON request
 
-        log.info("=================== QUOTE REQUEST ===================");
-        log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
-        log.info("=================== QUOTE REQUEST ===================");
+        // log.info("=================== QUOTE REQUEST ===================");
+        // log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
+        // log.info("=================== QUOTE REQUEST ===================");
         this.log += `--------======= QUOTE REQUEST =======--------<br><br>`;
         this.log += `--------======= Sending to Arrowhead =======--------<br><br>`;
         this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
