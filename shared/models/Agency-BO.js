@@ -283,7 +283,7 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
-                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && returnMongooseModel === false){
                         await this.updateRedisCache(docDB);
                     }
                     if(docDB && getAgencyNetwork === true){
