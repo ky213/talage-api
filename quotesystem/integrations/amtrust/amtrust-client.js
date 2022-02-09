@@ -1,7 +1,6 @@
 // AmTrust Client
 const axios = require('axios');
 const queryString = require("querystring");
-
 const tokenURLTest = "https://uatauth.amtrustgroup.com/AuthServer_UserTest/OpenIdConnect/Token";
 const tokenURLProduction = "https://auth.amtrustgroup.com/AuthServer/OpenIdConnect/Token";
 
@@ -63,21 +62,25 @@ async function authorize(clientId, clientSecret, username, password, mulesoftSub
         username: username,
         password: password,
         scope: "openid profile legacy_info legacy_id",
-        response_type: "token id_token",
-        undefined: ""
+        response_type: "token id_token"
+        // ,
+        // undefined: ""
     };
     const requestDataString = queryString.stringify(requestData);
 
     const requestOptions = {headers: {"Content-type": "application/x-www-form-urlencoded"}}
-
+    log.debug(`Amtrust Auth at ${useTestServers ? tokenURLTest : tokenURLProduction}` + __location)
     const response = await httpRequest("POST", useTestServers ? tokenURLTest : tokenURLProduction, null, requestDataString, requestOptions);
     if (response.error) {
+        log.error(`Amtrust Auth error ${response.error}` + __location)
         return null;
     }
     if (response.data.error) {
+        log.error(`Amtrust Auth error ${response.data.error}` + __location)
         return null;
     }
     if (!response.data.access_token) {
+        log.error(`Amtrust Auth no token in response ` + __location)
         return null;
     }
     return response.data.access_token;

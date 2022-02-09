@@ -205,6 +205,12 @@ var quoteReportTask = async function(){
                         log.error(`Error creating Quote Date ${quoteDoc.createdAt} error: ` + e + __location)
                     }
                 }
+
+                //Quote premium (amount)
+                if(quoteDoc.amount){
+                    newRow.quotePremium = quoteDoc.amount
+                }
+
                 reportRows.push(newRow)
             }
             catch(err){
@@ -226,7 +232,8 @@ var quoteReportTask = async function(){
             "seconds": "Seconds",
             "activitycode1": "Activity Code 1",
             "activitycode2": "Activity Code 2",
-            "activitycode3": "Activity Code 3"
+            "activitycode3": "Activity Code 3",
+            "quotePremium": "Quoted Premium"
         };
         //Map Quote list to CSV.
         // eslint-disable-next-line object-property-newline

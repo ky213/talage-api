@@ -2381,7 +2381,12 @@ module.exports = class ApplicationModel {
             }
         }
         catch(err){
-            log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            if (err.message && err.message.includes('had no quotes to calculate premium')){
+                log.warn(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            }
+            else {
+                log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            }
         }
     }
 

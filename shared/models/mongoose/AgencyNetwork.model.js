@@ -50,6 +50,7 @@ const featureSchema = new Schema({
     quickQuoteOnly: {type: Boolean, required: true, default: false},
     enableAgencyLevelFaqEdit: {type: Boolean, required: true, default: true},
     showAppAssociationsField: {type: Boolean, required: true, default: true},
+    enableApiAccess: {type: Boolean, required: true, default: true},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,

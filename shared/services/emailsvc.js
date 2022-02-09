@@ -84,6 +84,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     //     talage: 'info@talageins.com',
     //     wheelhouse: 'info@insurancewheelhouse.com'
     // };
+    if(brandOverride === '' || brandOverride === 'Networkdefault'){
+        brandOverride = agencyNetworkJSON.email_brand;
+    }
 
     if(agencyId === 1 && brandOverride === 'wheelhouse'){
         brandOverride = 'talage';
@@ -128,8 +131,10 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
 
     // If the brand is 'agency' or 'digalent-agency', make sure an agency was supplied
     if ((brandOverride === 'agency' || brandOverride === 'digalent-agency') && (typeof agencyId !== 'number' || !agencyId)) {
+        //load agency network and brand at agencynetwork level.
+        brandOverride = agencyNetworkJSON.email_brand
         log.warn('Email Service Send: When using a brand of "agency" or "digalent-agency" an agency must be supplied to send()');
-        return false;
+        //return false;
     }
 
     // ******* Begin building out the data that will be sent into the email service ****************************************

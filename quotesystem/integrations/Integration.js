@@ -264,7 +264,7 @@ module.exports = class Integration {
             //log.debug(`get_insurer_code_for_activity_code query ${JSON.stringify(activityCodeQuery)}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
-                log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
+                log.warn(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
                 insurerActivityCode = {attributes: {}};
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
@@ -1911,10 +1911,17 @@ module.exports = class Integration {
      * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = null) {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
-        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
-
+        
+        
+        //There is a this.quoteCoverage that be updated directly in the insurer's integration code.
+        //Setting to null should should not happen here.
+        //only overwrite if a value is passed in. - BP
+        //this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+        if(quoteCoverages && quoteCoverages.length > 0){
+            this.quoteCoverages = quoteCoverages
+        }
         if (!this.limits && !this.quoteCoverages) {
             this.log_error('Received a quote but no limits or coverages were supplied.', __location);
             //BP - Do not error out the quote on lack of limits

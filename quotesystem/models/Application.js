@@ -92,10 +92,10 @@ module.exports = class Application {
             //getById does uuid vs integer check...
 
             this.applicationDocData = await applicationBO.loadById(data.id);
-            log.debug("Quote Application added applicationData" + __location)
+            log.debug("Quote Application added applicationDocData" + __location)
         }
         catch(err){
-            log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+            log.error("Unable to get applicationDocData for quoting appId: " + data.id + __location);
             throw err;
         }
         if(!this.applicationDocData){
@@ -195,7 +195,12 @@ module.exports = class Application {
             await this.translate();
         }
         catch (e) {
-            log.error(`Error translating application: ${e}` + __location);
+            if (e.message && e.message.includes('Agency does not cover application territory')){
+                log.warn(`Error translating application: ${e}` + __location);
+            }
+            else {
+                log.error(`Error translating application: ${e}` + __location);
+            }
             //throw e;
         }
     }
@@ -249,6 +254,9 @@ module.exports = class Application {
         if(this.business && this.business.phone){
             this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
         }
+        if(this.applicationDocData && this.applicationDocData.phone){
+            this.applicationDocData.phone = this.applicationDocData.phone.replace(/[^0-9]/ig, '');
+        }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
@@ -256,6 +264,12 @@ module.exports = class Application {
                 if(typeof contact.phone === 'string'){
                     contact.phone = contact.phone.replace(/[^0-9]/ig, '');
                 }
+            }
+        }
+        //also replace in AppDoc
+        for(const contact of this.applicationDocData.contacts){
+            if(contact.phone){
+                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
             }
         }
 
@@ -880,8 +894,7 @@ module.exports = class Application {
 
             if (emailContentJSON && emailContentJSON.emailBrand) {
                 // Determine the branding to use for this email
-                let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
-
+                let brand = 'agency';
                 // If this is Talage, update the brand
                 if (this.agencyLocation.agencyId <= 2) {
                     brand = 'talage';

@@ -475,13 +475,7 @@ async function updateAgencyLocation(req, res, next) {
     }
 
     //convert legacy property Name
-    if(req.body.fname){
-        req.body.firstName = req.body.fname
-    }
-
-    if(req.body.lname){
-        req.body.lastName = req.body.lname
-    }
+    // removed 0207220 causing agent location name to revert back to old name when edited
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
