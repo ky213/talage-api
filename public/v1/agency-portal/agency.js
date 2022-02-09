@@ -1021,6 +1021,23 @@ async function postSocialMediaInfo(req, res, next) {
     }
     return next();
 }
+
+/**
+ * Retrieves agency tier list
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyTierList(req, res, next) {
+    const PaymentPlanSvc = global.requireShared('services/agencytiersvc.js');
+    const paymentPlanList = PaymentPlanSvc.getList();
+    res.send(200, paymentPlanList);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
@@ -1029,4 +1046,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
     server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
     server.addPostAuth('Post Social Media Tags', `${basePath}/agency/socialMediaInfo`, postSocialMediaInfo, 'agencies', 'manage');
+    server.addGetAuth('Get Agency Tier List', `${basePath}/agency/tiers`, getAgencyTierList, 'agencies', 'view');
 };

@@ -235,27 +235,25 @@ async function getAgencies(req, res, next){
  */
 async function getAgenciesAggregate(req, res, next){
     try{
+        const queryJSON = req.query;
         // If non talage super user, remove these fields from final projection
         if (!req.authentication.permissions.talageStaff) {
-            req.query.postProjection = {};
-            req.query.postProjection.tierId = 0;
-            req.query.postProjection.tierName = {
-                rank: 0,
-                name: 0
-            }
-            req.query.postProjection = JSON.stringify(req.query.postProjection);
+            queryJSON.postProjection = {};
+            queryJSON.postProjection.tierId = 0;
+            queryJSON.postProjection.tierName = 0;
+            queryJSON.postProjection = JSON.stringify(queryJSON.postProjection);
         }
 
-        req.query.match = JSON.parse(req.query.match || '{}');
+        queryJSON.match = JSON.parse(queryJSON.match || '{}');
         // Check agency view permission
         if(req.authentication.isAgencyNetworkUser){
-            req.query.match.agencyNetworkId = req.authentication.agencyNetworkId;
+            queryJSON.match.agencyNetworkId = req.authentication.agencyNetworkId;
             //Not Global View Check
             if(req.authentication.isAgencyNetworkUser &&
                 req.authentication.agencyNetworkId === 1 &&
                 req.authentication.permissions.talageStaff === true &&
                 req.authentication.enableGlobalView === true){
-                delete req.query.match.agencyNetworkId;
+                delete queryJSON.match.agencyNetworkId;
             }
         }
         else {
@@ -272,16 +270,16 @@ async function getAgenciesAggregate(req, res, next){
                 return next(serverHelper.requestError('Bad Request: No agencies permitted'));
             }
 
-            req.query.match.systemId = agents.includes(',') ? {$in: agents.split(',')} : agents;
+            queryJSON.match.systemId = agents.includes(',') ? {$in: agents.split(',')} : agents;
         }
 
-        req.query.match = JSON.stringify(req.query.match);
+        queryJSON.match = JSON.stringify(queryJSON.match);
 
         // Query Get List aggregation
         const agencyBO = new AgencyBO();
         let agencies = {};
         try {
-            agencies = await agencyBO.getListAggregate(req.query);
+            agencies = await agencyBO.getListAggregate(queryJSON);
         }
         catch (error) {
             return next(error);

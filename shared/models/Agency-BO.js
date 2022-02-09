@@ -624,16 +624,10 @@ module.exports = class AgencyBO {
         // Sort Keys for non-case-sensitive sorting
         const KEYS_INSENSITIVE_SORT = ['name'];
         // Sort Keys that are nullable - to display sort properly via Front-end
-        const KEYS_NULLABLE_SORT = {
-            tierId: {
-                min: 0,
-                max: 100
-            },
-            'tierName.name': {
-                min: '',
-                max: '~'
-            }
-        }
+        const KEYS_NULLABLE_SORT = {tierId: {
+            min: 0,
+            max: 100
+        }}
 
         // Variable placeholder for temporary keys for removal in final projection
         // - e.g. Sort Keys used for sorting but not displayed in Front-end
@@ -656,10 +650,7 @@ module.exports = class AgencyBO {
             firstName: 1,
             lastName: 1,
             tierId: 1,
-            tierName: {
-                name: 1,
-                rank: 1
-            }
+            tierName: 1
         }};
 
         // Initialize lookup
@@ -696,50 +687,50 @@ module.exports = class AgencyBO {
             projectBody.$project.applications = {$ifNull: ['$applications.count', 0]};
         }
 
-        // Initialize default sorting - [1 - asc || -1 - desc]
-        const sortBody = {$sort: {
+        // Initialize default sorting - [1 - asc || -1 - desc] if no sort from request
+        const sortHandler = JSON.parse(requestQueryJSON.sort || JSON.stringify({
             tierId: -1,
-            'tierName.rank': -1,
             name: 1
-        }};
+        }));
 
-        // Check for custom sorting
-        if(requestQueryJSON.sort) {
-            sortBody.$sort = {};
-            const sortHandler = JSON.parse(requestQueryJSON.sort);
-            // Add a post sorting for name
-            if (!sortHandler.hasOwnProperty('name')) {
-                sortHandler.name = 1;
-            }
-            for (var key in sortHandler) {
-                if(sortHandler[`${key}`]) {
-                    let sortKey = key;
-                    // Checking for old sorting where the values are 'asc' or 'desc'
-                    if(typeof sortHandler[`${key}`] === 'string') {
-                        sortHandler[`${key}`] = sortHandler[`${key}`].toLowerCase() === 'asc' ? 1 : -1;
-                    }
-                    // Checking if the sort keys are nullable or case insensitive sorters
-                    if(KEYS_INSENSITIVE_SORT.includes(key) || KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
-                        sortKey = `${key}Sorter`;
-                        // If sort key is non case sensitive - create a sort projection with lower case of the value
-                        let sortKeyProjection = KEYS_INSENSITIVE_SORT.includes(key) ? {$toLower: `$${key}`} : `$${key}`;
-                        if (KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
-                            // If the sort key is nullable
-                            // and the fields are not existing in the document
-                            // use the max for ascending and min for descending as the fields' default values
-                            const minMax = sortHandler[`${key}`] === 1 ? 'max' : 'min';
-                            sortKeyProjection = {$cond: [
-                                {$not: [`$${key}`]},
-                                KEYS_NULLABLE_SORT[key][minMax],
-                                sortKeyProjection
-                            ]};
-                        }
-                        projectBody.$project[sortKey] = sortKeyProjection;
-                        // Add the sorter key for later removal in the final/post projection
-                        keysTemporaryProjection.push(sortKey);
-                    }
-                    sortBody.$sort[`${sortKey}`] = sortHandler[`${key}`];
+        if(sortHandler.hasOwnProperty('tierName')) {
+            sortHandler.tierId = sortHandler.tierName;
+            delete sortHandler.tierName;
+        }
+
+        const sortBody = {$sort: {}};
+        // Add a post sorting for name
+        if (!sortHandler.hasOwnProperty('name')) {
+            sortHandler.name = 1;
+        }
+        for (var key in sortHandler) {
+            if(sortHandler[`${key}`]) {
+                let sortKey = key;
+                // Checking for old sorting where the values are 'asc' or 'desc'
+                if(typeof sortHandler[`${key}`] === 'string') {
+                    sortHandler[`${key}`] = sortHandler[`${key}`].toLowerCase() === 'asc' ? 1 : -1;
                 }
+                // Checking if the sort keys are nullable or case insensitive sorters
+                if(KEYS_INSENSITIVE_SORT.includes(key) || KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
+                    sortKey = `${key}Sorter`;
+                    // If sort key is non case sensitive - create a sort projection with lower case of the value
+                    let sortKeyProjection = KEYS_INSENSITIVE_SORT.includes(key) ? {$toLower: `$${key}`} : `$${key}`;
+                    if (KEYS_NULLABLE_SORT.hasOwnProperty(key)) {
+                        // If the sort key is nullable
+                        // and the fields are not existing in the document
+                        // use the max for ascending and min for descending as the fields' default values
+                        const minMax = sortHandler[`${key}`] === 1 ? 'max' : 'min';
+                        sortKeyProjection = {$cond: [
+                            {$not: [`$${key}`]},
+                            KEYS_NULLABLE_SORT[key][minMax],
+                            sortKeyProjection
+                        ]};
+                    }
+                    projectBody.$project[sortKey] = sortKeyProjection;
+                    // Add the sorter key for later removal in the final/post projection
+                    keysTemporaryProjection.push(sortKey);
+                }
+                sortBody.$sort[`${sortKey}`] = sortHandler[`${key}`];
             }
         }
 
