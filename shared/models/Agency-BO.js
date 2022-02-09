@@ -620,6 +620,18 @@ module.exports = class AgencyBO {
         });
     }
 
+    getListAggregate(requestQueryJSON) {
+        return new Promise(async(resolve, reject) => {
+            try {
+                return resolve(mongoUtils.objListCleanup(await AgencyModel.aggregate(requestQueryJSON)));
+            }
+            catch (err) {
+                log.error(err + __location);
+                return reject(err);
+            }
+        });
+    }
+
 
     // ***************************
     //    Copied same as getList, except removed network list and hardcoded query projection
