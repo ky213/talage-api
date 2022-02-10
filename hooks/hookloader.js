@@ -30,7 +30,7 @@ async function loadhook(hookName, agencyNetworkId, dataPackageJSON){
             if (hookName.length > 0 && fs.existsSync(hookFileName)) {
                 log.debug(`Found hook for agencyNetworkId ${agencyNetworkId} - ${hookName}` + __location)
                 const hookClass = require(hookFileName);
-                const hookObj = new hookClass(hookName, agencyNetworkId, dataPackageJSON);
+                const hookObj = new hookClass(hookName, agencyNetworkDoc, dataPackageJSON);
                 log.debug(`Running  hook for agencyNetworkId ${agencyNetworkId} - ${hookName}` + __location)
                 hookObj.run_hook();
 
