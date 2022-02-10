@@ -339,7 +339,6 @@ async function getApplications(req, res, next){
     if(req.params && Object.prototype.hasOwnProperty.call(req.params, 'format') && req.params.format === 'csv'){
         returnCSV = true;
     }
-
     const expectedParameters = [
         {
             "name": 'page',
@@ -678,6 +677,33 @@ async function getApplications(req, res, next){
         noCacheUse = true;
         query.renewal = {$ne: true};
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
+    }
+
+    if(req.params.searchText && req.params.searchText.indexOf("a:") !== -1){
+        noCacheUse = true;
+        modifiedSearch = true;
+        const searchWords = req.params.searchText.split(" ");
+        const agencyId = searchWords[0].substring(2);
+        query.agency = agencyId
+        req.params.searchText = req.params.searchText.replace(`a:${agencyId}`, "").trim()
+    }
+
+    if(req.params.searchText && req.params.searchText.indexOf("an:") !== -1){
+        noCacheUse = true;
+        modifiedSearch = true;
+        const searchWords = req.params.searchText.split(" ");
+        const agencyNetwork = searchWords[0].substring(3);
+        query.agencyNetwork = agencyNetwork
+        req.params.searchText = req.params.searchText.replace(`an:${agencyNetwork}`, "").trim()
+    }
+
+    if(req.params.searchText && req.params.searchText.indexOf("s:") !== -1){
+        noCacheUse = true;
+        modifiedSearch = true;
+        const searchWords = req.params.searchText.split(" ");
+        const stateAbbr = searchWords[0].substring(2);
+        query.state = stateAbbr;
+        req.params.searchText = req.params.searchText.replace(`s:${stateAbbr}`, "").trim()
     }
 
     if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){

@@ -1586,7 +1586,18 @@ module.exports = class ApplicationModel {
                 query.renewal = queryJSON.renewal
                 delete queryJSON.renewal
             }
-
+            if(queryJSON.agency){
+                query.agency = queryJSON.agency
+                delete queryJSON.agency
+            }
+            if(queryJSON.agencyNetwork){
+                query.agencyNetwork = queryJSON.agencyNetwork
+                delete queryJSON.agencyNetwork
+            }
+            if(queryJSON.state){
+                query.state = queryJSON.state
+                delete queryJSON.state
+            }
 
             if (queryJSON) {
                 for (var key in queryJSON) {
