@@ -10,7 +10,7 @@ module.exports = class siuHook extends Hook {
         if(!this.dataPackageJSON.recipients){
             return;
         }
-        this.dataPackageJSON.recipients = await siuPolicyEmailRouter.GetRecipients(this.appDoc, this.dataPackageJSON.recipients);
+        this.dataPackageJSON.recipients = await siuPolicyEmailRouter.GetRecipients(this.appDoc, this.dataPackageJSON.recipients, this.agencyNetworkJSON);
 
     }
 }
