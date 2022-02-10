@@ -51,6 +51,7 @@ const featureSchema = new Schema({
     enableAgencyLevelFaqEdit: {type: Boolean, required: true, default: true},
     showAppAssociationsField: {type: Boolean, required: true, default: true},
     enableApiAccess: {type: Boolean, required: true, default: true},
+    showAgencyTierFields: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
