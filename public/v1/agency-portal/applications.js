@@ -339,6 +339,7 @@ async function getApplications(req, res, next){
     if(req.params && Object.prototype.hasOwnProperty.call(req.params, 'format') && req.params.format === 'csv'){
         returnCSV = true;
     }
+
     const expectedParameters = [
         {
             "name": 'page',
