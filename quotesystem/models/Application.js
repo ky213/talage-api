@@ -1413,7 +1413,7 @@ module.exports = class Application {
              * - <= 99999999999
              * - Must existin our database
              */
-            if (this.applicationDocData.industryCode) {
+            if (this.applicationDocData.industryCode && parseInt(this.applicationDocData.industryCode, 10) > 0) {
                 //this is now loaded from database.
                 //industry code should already be validated.
                 // this.applicationDocData.industryCode_description = await validator.industry_code(this.applicationDocData.industryCode);
@@ -1457,6 +1457,11 @@ module.exports = class Application {
             catch (e) {
                 return reject(new Error(`Failed validating claims: ${e}`));
             }
+
+            if(!(this.applicationDocData.policies?.length > 0)){
+                return reject(new Error(`Must have at least 1 policy`));
+            }
+
 
             // Activity Codes (required)
             if (this.has_policy_type("WC")) {
