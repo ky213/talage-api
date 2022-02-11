@@ -13,9 +13,6 @@ const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); //
 const xmlToObj = require("xml2js").parseString;
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
-// Read the template into memory at load
-const hiscoxGLTemplate = require("jsrender").templates("./quotesystem/integrations/hiscox/gl.xmlt");
-
 module.exports = class HiscoxGL extends Integration {
 
     /**
@@ -306,7 +303,7 @@ module.exports = class HiscoxGL extends Integration {
 
 
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
-        const locations = [...this.app.business.locations];
+        const locations = [...this.applicationDocData.locations];
 
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
@@ -314,9 +311,9 @@ module.exports = class HiscoxGL extends Integration {
                 // Hiscox requires a county in these states
                 if (location.county) {
                     const addressInfoResponse = await smartystreetSvc.checkAddress(this.app.business.locations[0].address,
-                        this.app.business.locations[0].city,
-                        this.app.business.locations[0].state_abbr,
-                        this.app.business.locations[0].zip);
+                        location.city,
+                        location.state,
+                        location.zipcode);
                     // If the responsee has an error property, or doesn't have addressInformation.county_name, we can't determine
                     // a county so return an error.
                     if(addressInfoResponse.county){
@@ -397,51 +394,24 @@ module.exports = class HiscoxGL extends Integration {
         }
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.PostalCode = this.primaryLocation.zip;
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.PostalCode = this.primaryLocation.zipcode;
         if (this.primaryLocation.county){
             reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.County = this.primaryLocation.county.substring(0,250);
         }
 
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {
-            ApplicationRatingInfo: {},
-            GeneralLiabilityQuoteRq: {}
-        };
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {ApplicationRatingInfo: {}};
 
         const appDoc = this.applicationDocData;
         const experience = moment(appDoc.founded).format('YYYY-MM-DD');
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
-
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq = {};
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.QuoteID = "";
-
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.QuoteRqDt = moment().format('YYYY-MM-DD');
-
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.StateOrProvCd = this.primaryLocation.territory;
 
         // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
         if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
             this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
             return this.return_result("autodeclined");
         }
+
         this.effectiveDate = this.policy.effective_date.format("YYYY-MM-DD");
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.CoverageStartDate = this.effectiveDate;
-
-        // Set primary location
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations = {Primary: {AddrInfo: {}}};
-
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
-        if (this.primaryLocation.address2){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
-        }
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
-
-        if (this.primaryLocation.county){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.County = this.primaryLocation.county.substring(0,250);
-        }
-
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zip;
 
         let questionDetails = null;
         try {
@@ -471,20 +441,46 @@ module.exports = class HiscoxGL extends Integration {
             delete this.questions[totalPayrollQuestionId];
         }
 
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo = {};
+        const sharedQuoteRqStructure = {};
+        sharedQuoteRqStructure.QuoteID = "";
+
+        sharedQuoteRqStructure.QuoteRqDt = moment().format('YYYY-MM-DD');
+
+        sharedQuoteRqStructure.StateOrProvCd = this.primaryLocation.territory;
+
+        sharedQuoteRqStructure.CoverageStartDate = this.effectiveDate;
+
+        // Set primary location
+        sharedQuoteRqStructure.Locations = {Primary: {AddrInfo: {}}};
+
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
+        if (this.primaryLocation.address2){
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
+        }
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.StateOrProvCd = this.primaryLocation.territory;
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zipcode;
+
+        if (this.primaryLocation.county){
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.County = this.primaryLocation.county.substring(0,250);
+        }
+
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.PostalCode = this.primaryLocation.zipcode;
+
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo = {};
 
         if (appDoc.grossSalesAmt && appDoc.grossSalesAmt > 0){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.EstimatedAnnualRevenue = appDoc.grossSalesAmt;
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.EstmtdPayrollExpense = this.totalPayroll;
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.EstimatedAnnualRevenue = appDoc.grossSalesAmt;
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.EstmtdPayrollExpense = this.totalPayroll;
         }
 
         if (this.primaryLocation.square_footage){
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Primary.AddrInfo.RatingInfo.SquareFeetOccupiedByYou = this.primaryLocation.square_footage;
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.SquareFeetOccupiedByYou = this.primaryLocation.square_footage;
         }
 
         // Set request secondary locations
         if (this.secondaryLocationsCount > 0) {
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Secondary = [];
+            sharedQuoteRqStructure.Locations.Secondary = [];
 
             for (const secondaryLocation of this.secondaryLocations) {
                 const location = {AddrInfo: {}};
@@ -494,23 +490,67 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 location.City = stringFunctions.capitalizeName(secondaryLocation.city).substring(0,250);
                 location.StateOrProvCd = secondaryLocation.territory;
-                location.PostalCode = secondaryLocation.zip;
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.Locations.Secondary.push(location);
+                location.PostalCode = secondaryLocation.zipcode;
+                sharedQuoteRqStructure.Locations.Secondary.push(location);
             }
         }
 
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.CoverQuoteRq = {
-            RatingInfo: {
-                AggLOI: this.bestLimits[1],
-                LOI: this.bestLimits[0],
-                Deductible: 0
-            }
-        };
+        sharedQuoteRqStructure.CoverQuoteRq = {RatingInfo: {
+            AggLOI: this.bestLimits[1],
+            LOI: this.bestLimits[0],
+            Deductible: 0
+        }};
 
         if (this.policy.type === 'GL') {
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo = {};
+            const generalLiabilityQuoteRq = sharedQuoteRqStructure;
+
+
+            generalLiabilityQuoteRq.RatingInfo = {};
+
+            generalLiabilityQuoteRq.ProductAcknowledgements = {
+                "CGLStatement1": "Agree",
+                "ExcludedActivities": "Agree"
+            };
+
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq = generalLiabilityQuoteRq;
         }
 
+        if (this.policy.type === 'BOP') {
+            const bopQuoteRq = sharedQuoteRqStructure
+
+            this.log_debug(`Primary Location: ${JSON.stringify(this.primaryLocation, null, 4)}`);
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories;
+
+            // zy HACK Fix these hard-coded values
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.StrctrlAlterationsPlan = 'No'; // zy debug fix hard-coded value
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.MultipleOccupants = 'No'; // zy debug fix hard-coded value
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Basement = 'None'; // zy debug fix hard-coded value
+
+            bopQuoteRq.RatingInfo = {};
+            // bopQuoteRq.RatingInfo.SupplyManufactDistbtGoodsOrProducts2 = 'No'; // zy debug fix hard-coded value
+            bopQuoteRq.RatingInfo.BeautyServices2BOP = {NoneOfTheAbove: 'Yes'}; // zy debug fix hard-coded value
+
+            bopQuoteRq.ProductAcknowledgements = {
+                BOPStatement1: 'Agree',
+                ExcludedActivities: 'Agree',
+                Flood: 'Agree',
+                DisciplinaryActionAcknowledgements: null,
+                PropertyLossIncurredAcknowledgements: {
+                    PropertyLossIncurred: "Agree",
+                    PropertyLossIncurredDate: `${this.requestDate}`
+                }
+            };
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq = bopQuoteRq;
+        }
+
+
+        this.log_debug(`This.questions: ${JSON.stringify(this.questions, null, 4)}`);
+        this.log_debug(`Dump Locations: ${JSON.stringify(this.applicationDocData.locations, null, 4)}`);
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
@@ -700,6 +740,82 @@ module.exports = class HiscoxGL extends Integration {
             'TangibleGoodWorkTradesmen1',
             'TechSpclstActvty'
         ];
+
+        const BOPRatingInfoQuestions = [
+            "BeautyServices2BOP",
+            "CargoLimitOfLiability",
+            "ConsultantEligibilityEnvBOP",
+            "ConsultantEligibilityConGLBOP",
+            "ConsultantEligibilityEDUGLBOP",
+            "ConsultantEligibilityHRGLBOP",
+            "EstmtdPayrollSC",
+            "ForbiddenProjects",
+            "ForbiddenProjects2",
+            "ForbiddenProjects4",
+            "ForbiddenProjectsJanitorial1",
+            "ForbiddenProjectsJanitorial2",
+            "ForbiddenProjectsLandscapers",
+            "ForbiddenProjectsRetail",
+            "HomeHealthForbiddenSrvcs",
+            "MarketingEligibilityGLBOP",
+            "MFSForbiddenProducts",
+            "MFSForbiddenProductsBOP",
+            "MFSForbiddenServices",
+            "MFSForbiddenServices1",
+            "MobileEquipExcludedSnowBlowing",
+            "NumofCargoVehicles",
+            "PCEligibilityGLBOP",
+            "PetSrvs",
+            "PrinterSrvs",
+            "ResearchConsultingEligibilityGLBOP",
+            "RetailSrvs",
+            "SCForbiddenProjects",
+            "SpaOwnership2",
+            "SpaOwnership3",
+            "SupplyManufactDistbtGoodsOrProducts",
+            "SupplyManufactDistbtGoodsOrProducts2",
+            "SupplyManufactDistbtGoodsOrProductsAandE",
+            "SupplyManufactDistbtGoodsOrProductsActivity1",
+            "SupplyManufactDistbtGoodsOrProductsActivity2",
+            "SupplyManufactDistbtGoodsOrProductsAssocWebsite",
+            "SupplyManufactDistbtGoodsOrProductsDescribe",
+            "SupplyManufactDistbtGoodsOrProductsDescribe1",
+            "SupplyManufactDistbtGoodsOrProductsDescribeAandE",
+            "SupplyManufactDistbtGoodsOrProductsDetailProcedures",
+            "SupplyManufactDistbtGoodsOrProductsDetailProcedures1",
+            "SupplyManufactDistbtGoodsOrProductsDetailRecalls",
+            "SupplyManufactDistbtGoodsOrProductsDetailRecalls1",
+            "SupplyManufactDistbtGoodsOrProductsDetailRecallsDescribe",
+            "SupplyManufactDistbtGoodsOrProductsDetailRecallsDescribe1",
+            "SupplyManufactDistbtGoodsOrProductsLimited",
+            "SupplyManufactDistbtGoodsOrProductsLimitedPhoto",
+            "SupplyManufactDistbtGoodsOrProductsManOthers",
+            "SupplyManufactDistbtGoodsOrProductsManufactured",
+            "SupplyManufactDistbtGoodsOrProductsManufacturedDescribe",
+            "SupplyManufactDistbtGoodsOrProductsManWhere",
+            "SupplyManufactDistbtGoodsOrProductsManWhere1",
+            "SupplyManufactDistbtGoodsOrProductsOwnership",
+            "SupplyManufactDistbtGoodsOrProductsPercent",
+            "SupplyManufactDistbtGoodsOrProductsPercent1",
+            "SupplyManufactDistbtGoodsOrProductsPercent2",
+            "SupplyManufactDistbtGoodsOrProductsProceduresDescribe",
+            "SupplyManufactDistbtGoodsOrProductsProceduresDescribe1",
+            "SupplyManufactDistbtGoodsOrProductsUsed",
+            "SupplyManufactDistbtGoodsOrProductsUsed1",
+            "SupplyManufactDistbtGoodsOrProductsUsed2",
+            "SupplyManufactDistbtGoodsOrProductsWebsite",
+            "SupplyManufactDistbtGoodsOrProductsWebsite1",
+            "SupplyManufactDistbtGoodsOrProductsWebsite3",
+            "SupplyManufactDistbtGoodsOrProductsWhoManu",
+            "SupplyManufactDistbtGoodsOrProductsWhoManu1",
+            "TangibleGoodPctCustService",
+            "TangibleGoodWork1",
+            "TangibleGoodWorkDescribe1",
+            "TangibleGoodWorkIT",
+            "TangibleGoodWorkTradesmen1",
+            "TechSpclstActvty"
+        ];
+
         for (const question of this.questionList) {
             if (applicationRatingInfoQuestions.includes(question.nodeName)) {
                 this.log_debug(`Application Rating Info Question: ${JSON.stringify(question, null, 4)}`);
@@ -717,21 +833,38 @@ module.exports = class HiscoxGL extends Integration {
                         break;
                 }
             }
+            if (this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName)) {
+                // zy TODO Fill this in
+                switch (question.nodeName) {
+                    case '':
+                        break;
+                    default:
+                        reqJSON.InsuranceSvcRq.QuoteRq.BusinessOwnersPolicyQuoteRq.RatingInfo[question.nodeName] = question.answer;
+                        break;
+                }
+            }
+
+
+            if (question.nodeName === 'TriaAgreeContent' && question.answer === 'Yes') {
+                if (this.policy.type === 'GL') {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'};
+                }
+                else if (this.policy.type === 'BOP'){
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'};
+                }
+            }
+        }
+        // zy HACKS Remove this assignment of TRIACoverQuoteRq. Handle it in the question loop above
+        if (this.policy.type === 'GL') {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy debug remove
+        }
+        if (this.policy.type === 'BOP') {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy HACK debug remove
         }
 
         this.log_debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
-        if (this.policy.type === 'GL') {
-            const triaQuestion = this.questionList.find(question => question.nodeName === 'GeneralLiabilityTriaAgreeContent');
-            if (triaQuestion && triaQuestion.answer === 'Yes') {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'};
-            }
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy debug remove
 
-            // zy TODO Put only questions in each element that actually belong there. Base on list of element names from the XSD
-            // for (const question of this.questionList) {
-            //     reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
-            // }
-
+        if (this.policy.type === 'GL'){
             // Add additional COBs to JSON if necessary  // zy Validate that this is still necessary in request
             if (this.additionalCOBs?.length > 0) {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [];
@@ -740,10 +873,6 @@ module.exports = class HiscoxGL extends Integration {
                 }
             }
 
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.ProductAcknowledgements = {
-                "CGLStatement1": "Agree",
-                "ExcludedActivities": "Agree"
-            };
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {
@@ -945,5 +1074,41 @@ module.exports = class HiscoxGL extends Integration {
         else {
             return null;
         }
+    }
+
+    /**
+     * Fits the entered business personal property limit to the next highest Hiscox supported value
+     * @param {number} appLimit - Limit from the application location
+     * @returns {number} Hiscox Supported Limit in String Format
+     */
+    getHiscoxBusinessPersonalPropertyLimit(appLimit) {
+        const hiscoxLimits = [
+            10000,
+            15000,
+            20000,
+            25000,
+            30000,
+            35000,
+            40000,
+            45000,
+            50000,
+            60000,
+            70000,
+            80000,
+            90000,
+            100000,
+            125000,
+            150000,
+            175000,
+            200000,
+            250000,
+            300000,
+            350000,
+            400000,
+            450000,
+            500000
+        ];
+        const higherLimits = hiscoxLimits.filter(limit => limit > appLimit);
+        return Math.min(...higherLimits);
     }
 };
