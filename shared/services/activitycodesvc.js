@@ -294,9 +294,55 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
 
 }
 
+async function getActivityCodesByNCCICode(ncciCode, territory) {
+    log.info(`Finding activity code for NCCI code : ${ncciCode} ${__location}`);
+
+    try {
+        const {
+            ActivityCode, InsurerActivityCode
+        } = global.mongoose;
+
+        const [insurerActivityCodes] = await InsurerActivityCode.aggregate([
+            {$match: {
+                insurerId: 9,
+                active: true,
+                territoryList: [territory]
+            }},
+            {$addFields: {fullCode: {$concat: ["$code", "$sub"]}}},
+            {$match: {fullCode: {$regex: `^${ncciCode}`}}},
+            {$unwind: "$talageActivityCodeIdList"},
+            {$group: {
+                _id: null,
+                uniqueTalageActivityCodes: {$addToSet: "$talageActivityCodeIdList"}
+            }}
+        ]);
+
+        const codes = await ActivityCode.find({
+            activityCodeId: {$in: insurerActivityCodes.uniqueTalageActivityCodes},
+            active: true
+        },
+        {
+            __v: 0,
+            _id: 0,
+            id: 0,
+            talageStandard: 0,
+            codeGroupList: 0,
+            active: 0,
+            talageActivityCodeUuid: 0,
+            updatedAt: 0,
+            createdAt: 0
+        }).lean();
+
+        return codes
+    }
+    catch (error) {
+        log.warn(`findActivityCodesByNCCICode: ${ncciCode} Error ${error} ` + __location);
+    }
+}
 
 module.exports = {
     GetActivityCodes: GetActivityCodes,
+    getActivityCodesByNCCICode: getActivityCodesByNCCICode,
     updateActivityCodeCacheByIndustryCode: updateActivityCodeCacheByIndustryCode,
     updateActivityCodeCacheByActivityCode: updateActivityCodeCacheByActivityCode,
     updateActivityCodeCacheByActivityCodeTerritoryList: updateActivityCodeCacheByActivityCodeTerritoryList,
