@@ -506,6 +506,9 @@ module.exports = class HiscoxGL extends Integration {
 
 
             generalLiabilityQuoteRq.RatingInfo = {};
+            // zy debug fix hard-coded values
+            generalLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = {ClassOfBusinessCd: 'None of the above'}; // zy debug fix hard-coded value
+            generalLiabilityQuoteRq.RatingInfo.SCForbiddenProjects = {NoneOfTheAbove: 'Yes'}; // zy debug fix hard-coded value
 
             generalLiabilityQuoteRq.ProductAcknowledgements = {
                 "CGLStatement1": "Agree",
@@ -554,6 +557,7 @@ module.exports = class HiscoxGL extends Integration {
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
+        this.log_debug(`Questions: ${JSON.stringify(this.questions, null, 4)}`);
         for (const question of Object.values(this.questions)) {
             let questionAnswer = this.determine_question_answer(question, question.required);
             if (questionAnswer !== false) {
@@ -576,6 +580,7 @@ module.exports = class HiscoxGL extends Integration {
                     continue;
                 }
                 else if (elementName === 'ClassOfBusinessCd') {
+                    this.log_debug(`Handling Class of Business Code Question: ${JSON.stringify(question, null, 4)}`) // zy debug 
                     const cobDescriptionList = questionAnswer.split(", ");
                     for (const cobDescription of cobDescriptionList) {
                         const cob = await this.getHiscoxCOBFromDescription(cobDescription);
@@ -839,7 +844,7 @@ module.exports = class HiscoxGL extends Integration {
                     case '':
                         break;
                     default:
-                        reqJSON.InsuranceSvcRq.QuoteRq.BusinessOwnersPolicyQuoteRq.RatingInfo[question.nodeName] = question.answer;
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.RatingInfo[question.nodeName] = question.answer;
                         break;
                 }
             }
@@ -942,6 +947,14 @@ module.exports = class HiscoxGL extends Integration {
             requestError = error;
         }
 
+        let policyResponseType = null;
+        if (this.policy.type === 'GL') {
+            policyResponseType = 'GeneralLiabilityQuoteRs';
+        }
+        if (this.policy.type === 'BOP') {
+            policyResponseType = 'BusinessOwnersPolicyQuoteRs';
+        }
+
         // Check if we have an HTTP status code to give us more information about the error encountered
         if (requestError) {
             if (!requestError.httpStatusCode) {
@@ -953,34 +966,30 @@ module.exports = class HiscoxGL extends Integration {
                 return this.client_error(`Unable to connect to the Hiscox server. The Hiscox API returned HTTP status code ${requestError.httpStatusCode}`, __location, {requestError: requestError});
             }
 
-            // console.log("error", requestError.response);
-
-            // Convert the response to XML
-            let e = null;
-            let xmlResponse = null;
-            xmlToObj(requestError.response, (eCallback, xmlResponseCallback) => {
-                e = eCallback;
-                xmlResponse = xmlResponseCallback;
-            });
-
-            // console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
-            // Check if there was an error parsing the XML
-            if (e) {
-                return this.client_error(`The Hiscox API returned an error: ${requestError.response}`, __location, {requestError: requestError});
-            }
+            const response = JSON.parse(requestError.response);
             // Check for errors
-            const errorResponseList = this.get_xml_child(xmlResponse, "InsuranceSvcRq.Errors.Error", true);
+            const responseErrors = response?.ProductQuoteRs?.[policyResponseType]?.Errors;
+            this.log_debug(`Response Errors: ${responseErrors}`);
+            let errorResponseList = null;
+            if (responseErrors && !responseErrors.length) {
+                // If responseErrors is just an object, make it an array
+                errorResponseList = [responseErrors];
+            }
+            else {
+                errorResponseList = responseErrors;
+            }
+
             if (errorResponseList) {
                 let errors = "";
                 for (const errorResponse of errorResponseList) {
                     if (errorResponse.Code && errorResponse.Description) {
-                        if (errorResponse.Code[0].startsWith("DECLINE")) {
+                        if (errorResponse === "Declination") {
                             // Return an error result
-                            return this.client_declined(`${errorResponse.Code[0]}: ${errorResponse.Description}`);
+                            return this.client_declined(`${errorResponse.Code}: ${errorResponse.Description}`);
                         }
                         else {
                             // Non-decline error
-                            const reason = `${errorResponse.Description[0]} (${errorResponse.Code[0]})`;
+                            const reason = `${errorResponse.Description} (${errorResponse.Code})`;
                             errors += (errors.length ? ", " : "") + reason;
                         }
                     }
@@ -988,8 +997,17 @@ module.exports = class HiscoxGL extends Integration {
                 return this.client_error(`The Hiscox server returned the following errors: ${errors}`, __location);
             }
             // Check for validation errors
-            const validationErrorList = this.get_xml_child(xmlResponse, "InsuranceSvcRq.Validations.Validation", true);
-            if (validationErrorList) {
+            let validationErrorList = null;
+            const validations = response.InsuranceSvcRq?.Validations?.Validation;
+            if (validations && !validations.length) {
+                // if validation is just an object, make it an array
+                validationErrorList = [validations];
+            }
+            else {
+                validationErrorList = validations;
+            }
+
+            if (validationErrorList && validationErrorList.length > 0) {
                 // Loop through and capture each validation message
                 let validationMessage = "Validation errors: ";
                 for (const validationError of validationErrorList) {
@@ -998,7 +1016,7 @@ module.exports = class HiscoxGL extends Integration {
                 return this.client_error(validationMessage, __location, {validationErrorList: validationErrorList});
             }
             // Check for a fault string (unknown node name)
-            const faultString = this.get_xml_child(xmlResponse, "fault.faultstring");
+            const faultString = response?.fault?.faultString;
             if (faultString) {
                 // Check for a system fault
                 return this.client_error(`The Hiscox API returned a fault string: ${faultString}`, __location, {requestError: requestError});
@@ -1011,35 +1029,36 @@ module.exports = class HiscoxGL extends Integration {
         // console.log("response", JSON.stringify(result, null, 4));
 
         // Get the limits (required)
-        const loi = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.LOI");
+        const loi = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.RatingResult?.LOI;
         if (!loi) {
             return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
         }
         this.limits[4] = parseInt(loi, 10);
-        const aggLOI = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.AggLOI");
+
+        const aggLOI = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.RatingResult?.AggLOI;
         if (!aggLOI) {
             return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
         }
         this.limits[8] = parseInt(aggLOI, 10);
 
         // Get the premium amount (required)
-        const premium = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.Premium.Annual");
+        const premium = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.Premium?.Annual;
         if (!premium) {
             return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, {result: result});
         }
         this.amount = premium;
 
         // Get the quote link
-        const retrieveURL = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RetrieveURL");
+        const retrieveURL = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberRetrieveURL;
         if (retrieveURL) {
             this.quoteLink = retrieveURL;
         }
 
         // Always a $0 deductible
-        this.deductible = 0;
+        this.deductible = 0
         this.limits[12] = 0;
         // Get the request ID (optional)
-        const requestId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RqUID");
+        const requestId = result?.InsuranceSvcRs?.QuoteRs?.RqUID;
         if (!requestId) {
             this.log_error('Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.');
         }
@@ -1048,7 +1067,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // Get the quote ID (optional)
-        const quoteId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.QuoteID");
+        const quoteId = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberID;
         if (!quoteId) {
             this.log_error('Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.');
         }
