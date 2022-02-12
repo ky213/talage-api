@@ -483,7 +483,7 @@ module.exports = class QuoteBO {
                     newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
                 }
                 catch (err) {
-                    log.error("Updating Application error " + err + __location);
+                    log.error("Updating Quote error " + err + __location);
                     throw err;
                 }
                 //
@@ -517,7 +517,7 @@ module.exports = class QuoteBO {
         //log.debug("insert application: " + JSON.stringify(application))
         //Insert a doc
         await quote.save().catch(function(err) {
-            log.error('Mongo Application Save err ' + err + __location);
+            log.error('Mongo Quote Save err ' + err + __location);
             throw err;
         });
 

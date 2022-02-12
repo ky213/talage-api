@@ -413,7 +413,7 @@ module.exports = class AgencyPortalUserBO{
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency Portal User error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
