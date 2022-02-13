@@ -831,7 +831,7 @@ module.exports = class AgencyBO {
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //

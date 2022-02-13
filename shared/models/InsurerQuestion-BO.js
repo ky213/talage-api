@@ -279,7 +279,7 @@ module.exports = class InsurerQuestionBO{
                     newInsurerQuestionJSON = mongoUtils.objCleanup(newInsurerQuestion);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating insurerQuestion error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
@@ -312,7 +312,7 @@ module.exports = class InsurerQuestionBO{
         const insurerQuestion = new InsurerQuestion(newObjectJSON);
         //Insert a doc
         await insurerQuestion.save().catch(function(err) {
-            log.error('Mongo insurer Save err ' + err + __location);
+            log.error('Mongo insurerQuestion Save err ' + err + __location);
             throw err;
         });
         return mongoUtils.objCleanup(insurerQuestion);
