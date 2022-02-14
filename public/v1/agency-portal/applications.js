@@ -684,7 +684,8 @@ async function getApplications(req, res, next){
         noCacheUse = true;
         modifiedSearch = true;
         const searchWords = req.params.searchText.split(" ");
-        const agencyId = searchWords[0].substring(2);
+        const pos = searchWords.findIndex(item => item.includes('a:'));
+        const agencyId = searchWords[pos].substring(2);
         query.agency = agencyId
         req.params.searchText = req.params.searchText.replace(`a:${agencyId}`, "").trim()
     }
@@ -693,7 +694,8 @@ async function getApplications(req, res, next){
         noCacheUse = true;
         modifiedSearch = true;
         const searchWords = req.params.searchText.split(" ");
-        const agencyNetwork = searchWords[0].substring(3);
+        const pos = searchWords.findIndex(item => item.includes('an:'));
+        const agencyNetwork = searchWords[pos].substring(3);
         query.agencyNetwork = agencyNetwork
         req.params.searchText = req.params.searchText.replace(`an:${agencyNetwork}`, "").trim()
     }
@@ -702,7 +704,8 @@ async function getApplications(req, res, next){
         noCacheUse = true;
         modifiedSearch = true;
         const searchWords = req.params.searchText.split(" ");
-        const stateAbbr = searchWords[0].substring(2);
+        const pos = searchWords.findIndex(item => item.includes('s:'));
+        const stateAbbr = searchWords[pos].substring(2);
         query.state = stateAbbr;
         req.params.searchText = req.params.searchText.replace(`s:${stateAbbr}`, "").trim()
     }
