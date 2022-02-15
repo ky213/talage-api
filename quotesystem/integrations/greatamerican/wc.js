@@ -187,6 +187,13 @@ module.exports = class GreatAmericanWC extends Integration {
         questions['generalEligibilityTotalPartTime'] = this.get_total_part_time_employees();
         questions['generalEligibilityTotalEmployees'] = this.get_total_employees();
 
+        //Emod
+        questions['generalEligibilityExprienceMod'] = 1.0
+        if(this.applicationDocData.experienceModifier > 0){
+            questions['generalEligibilityExprienceMod'] = this.applicationDocData.experienceModifier
+        }
+
+
         //Claims
         questions['claimsLossesMoreThan50K'] = "No, I have not had a single loss more than $50,000";
         questions['claimsLosses4years'] = "Less than 2 losses";

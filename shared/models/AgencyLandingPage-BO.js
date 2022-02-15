@@ -71,7 +71,7 @@ module.exports = class AgencyLandingPageBO {
                     newAgencyLocationJSON = mongoUtils.objCleanup(newAgencyLandingPageDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating AgencyLanding error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //

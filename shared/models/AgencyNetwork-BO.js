@@ -304,7 +304,7 @@ module.exports = class AgencyNetworkBO{
                     newAgencyNetworkJSON = mongoUtils.objCleanup(newAgencyNetworkDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency Network error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
@@ -340,7 +340,7 @@ module.exports = class AgencyNetworkBO{
         const agencyNetwork = new AgencyNetworkModel(newObjectJSON);
         //Insert a doc
         await agencyNetwork.save().catch(function(err) {
-            log.error('Mongo agencyNetwork Save err ' + err + __location);
+            log.error('Mongo Agency Network Save err ' + err + __location);
             throw err;
         });
         newObjectJSON.id = newSystemId;

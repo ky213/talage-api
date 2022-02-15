@@ -532,7 +532,12 @@ module.exports = class Application {
         let applicationBO = new ApplicationBO();
         const resp = await applicationBO.setAgencyLocation(this.applicationDocData.applicationId)
         if(resp !== true){
-            log.error(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            if (resp && resp.includes('Agency does not cover application territory')){
+                log.warn(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            }
+            else {
+                log.error(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            }
             throw new Error(`Data Error: setAgencyLocation: ${resp}`);
         }
     }
@@ -1413,7 +1418,7 @@ module.exports = class Application {
              * - <= 99999999999
              * - Must existin our database
              */
-            if (this.applicationDocData.industryCode) {
+            if (this.applicationDocData.industryCode && parseInt(this.applicationDocData.industryCode, 10) > 0) {
                 //this is now loaded from database.
                 //industry code should already be validated.
                 // this.applicationDocData.industryCode_description = await validator.industry_code(this.applicationDocData.industryCode);
@@ -1457,6 +1462,11 @@ module.exports = class Application {
             catch (e) {
                 return reject(new Error(`Failed validating claims: ${e}`));
             }
+
+            if(!(this.applicationDocData.policies?.length > 0)){
+                return reject(new Error(`Must have at least 1 policy`));
+            }
+
 
             // Activity Codes (required)
             if (this.has_policy_type("WC")) {

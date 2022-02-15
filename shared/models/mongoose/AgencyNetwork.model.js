@@ -51,6 +51,7 @@ const featureSchema = new Schema({
     enableAgencyLevelFaqEdit: {type: Boolean, required: true, default: true},
     showAppAssociationsField: {type: Boolean, required: true, default: true},
     enableApiAccess: {type: Boolean, required: true, default: true},
+    requestToBindButtonText: {type: String, required: true, default: 'Submit to UW'},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,

@@ -103,7 +103,7 @@ module.exports = class AgencyLocationBO{
                     newAgencyLocationJSON = mongoUtils.objCleanup(newAgencyLocationDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating AgencyLocation error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
@@ -139,7 +139,7 @@ module.exports = class AgencyLocationBO{
         const agencyLocation = new AgencyLocationMongooseModel(newObjectJSON);
         //Insert a doc
         await agencyLocation.save().catch(function(err) {
-            log.error('Mongo Application Save err ' + err + __location);
+            log.error('Mongo AgencyLocation Save err ' + err + __location);
             throw err;
         });
         this.id = newSystemId;
