@@ -726,7 +726,7 @@ module.exports = class LibertyGL extends Integration{
               ...rest
             })
           )
-        log.info('insurer payment plans result --> '+insurerPaymentPlans[0])
+
         if (insurerPaymentPlans?.length > 0) {
           const [
             Annual,
