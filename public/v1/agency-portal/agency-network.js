@@ -87,7 +87,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
         // check request matches rights.
         if (authAgencyNetwork !== agencyNetworkId) {
             res.send(403);
-            log.error(`Error, the agency network id passed and one retrieved from auth do not match.`);
+            log.error(`Error, the agency network id passed and one retrieved from auth do not match. passed: ${agencyNetworkId} auth: ${authAgencyNetwork}`);
             return next(serverHelper.forbiddenError('Do Not have Permissions'));
         }
     }

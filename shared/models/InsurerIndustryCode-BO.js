@@ -294,7 +294,7 @@ module.exports = class InsurerIndustryCodeBO{
                     newinsurerIndustryCodeJSON = mongoUtils.objCleanup(newinsurerIndustryCode);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating insurerIndustryCode error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
@@ -328,7 +328,7 @@ module.exports = class InsurerIndustryCodeBO{
         const insurerIndustryCode = new InsurerIndustryCode(newObjectJSON);
         //Insert a doc
         await insurerIndustryCode.save().catch(function(err) {
-            log.error('Mongo insurer Save err ' + err + __location);
+            log.error('Mongo insurerIndustryCode Save err ' + err + __location);
             throw err;
         });
         return mongoUtils.objCleanup(insurerIndustryCode);

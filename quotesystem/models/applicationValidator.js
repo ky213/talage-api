@@ -352,7 +352,7 @@ const validateContacts = async(applicationDocData, logValidationErrors = true) =
  * @returns {void}
  */
 const validateLocations = (applicationDocData, logValidationErrors = true) => {
-    if (applicationDocData.locations.length === 0) {
+    if (!(applicationDocData.locations?.length > 0)) {
         throw new Error('At least 1 location must be provided');
     }
 

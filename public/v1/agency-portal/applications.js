@@ -934,8 +934,8 @@ async function getApplications(req, res, next){
             application.appValue = getAppValueString(application);
 
             // fill agency portal user data
-            if(returnCSV && application.agencyPortalCreated){
-                const agencyPortalUser = await agencyPortalUserBO.getById(application.agencyPortalCreatedUser)
+            if(returnCSV && application.agencyPortalCreated && parseInt(application.agencyPortalCreatedUser,10)){
+                const agencyPortalUser = await agencyPortalUserBO.getById(parseInt(application.agencyPortalCreatedUser,10))
 
                 if(agencyPortalUser?.firstName && agencyPortalUser?.lastName){
                     application.agencyPortalCreatedUser = `${agencyPortalUser.firstName} ${agencyPortalUser.lastName}`

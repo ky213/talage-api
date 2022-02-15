@@ -354,7 +354,7 @@ module.exports = class ColorSchemeBO{
                     newDocSON = mongoUtils.objCleanup(newDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Color Scheme error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //

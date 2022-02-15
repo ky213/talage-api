@@ -289,7 +289,7 @@ module.exports = class InsurerBO{
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Insurer error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
