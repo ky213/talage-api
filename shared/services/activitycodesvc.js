@@ -302,7 +302,7 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
             ActivityCode, InsurerActivityCode
         } = global.mongoose;
 
-        const [insurerActivityCodes] = await InsurerActivityCode.aggregate([
+        const insurerActivityCodes = await InsurerActivityCode.aggregate([
             {$match: {
                 insurerId: 9,
                 active: true,
@@ -310,30 +310,43 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
             }},
             {$addFields: {fullCode: {$concat: ["$code", "$sub"]}}},
             {$match: {fullCode: {$regex: `^${ncciCode}`}}},
-            {$unwind: "$talageActivityCodeIdList"},
-            {$group: {
-                _id: null,
-                uniqueTalageActivityCodes: {$addToSet: "$talageActivityCodeIdList"}
-            }}
+            {$unwind: "$talageActivityCodeIdList"}
         ]);
 
-        const codes = await ActivityCode.find({
-            activityCodeId: {$in: insurerActivityCodes.uniqueTalageActivityCodes},
-            active: true
-        },
-        {
-            __v: 0,
-            _id: 0,
-            id: 0,
-            talageStandard: 0,
-            codeGroupList: 0,
-            active: 0,
-            talageActivityCodeUuid: 0,
-            updatedAt: 0,
-            createdAt: 0
-        }).lean();
+        const codeList = [];
+        const alreadyProcessedCodeIDs = new Set();
 
-        return codes
+        for (const insurerActivityCode of insurerActivityCodes) {
+
+            alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeIdList);
+
+            if (alreadyProcessedCodeIDs.has(insurerActivityCodes.talageActivityCodeIdList)) {
+                continue;
+            }
+
+            const code = await ActivityCode.findOne({
+                activityCodeId: insurerActivityCode.talageActivityCodeIdList,
+                active: true
+            },
+            {
+                __v: 0,
+                _id: 0,
+                id: 0,
+                talageStandard: 0,
+                codeGroupList: 0,
+                active: 0,
+                talageActivityCodeUuid: 0,
+                updatedAt: 0,
+                createdAt: 0
+            }).lean();
+
+            if (code) {
+                code.ncciCode = insurerActivityCode.fullCode;
+                codeList.push(code);
+            }
+        }
+
+        return codeList;
     }
     catch (error) {
         log.warn(`findActivityCodesByNCCICode: ${ncciCode} Error ${error} ` + __location);
