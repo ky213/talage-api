@@ -155,6 +155,12 @@ async function getAgencies(req, res, next){
                         }
                     }
 
+                    // If Talage Super User, shoe agency tier fields
+                    if(req.authentication.permissions.talageStaff) {
+                        agencyInfo.tierId = retAgencies[i].tierId;
+                        agencyInfo.tierName = retAgencies[i].tierName;
+                    }
+
                     returnAgencyList.push(agencyInfo);
                 }
                 catch(err){
