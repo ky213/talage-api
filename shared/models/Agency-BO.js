@@ -105,7 +105,12 @@ module.exports = class AgencyBO {
                             log.debug("new favicon file name " + newObjectJSON.favicon);
                         }
                         catch(e) {
-                            log.error("Agency SaveModel error processing favicon " + e + __location);
+                            if (e.message && e.message.includes('Please upload your favicon in png or ico')){
+                                log.warn("Agency SaveModel error processing favicon " + e + __location);
+                            }
+                            else {
+                                log.error("Agency SaveModel error processing favicon " + e + __location);
+                            }
                             delete newObjectJSON.favicon;
                             reject(e);
                         }
