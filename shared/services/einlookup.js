@@ -15,7 +15,7 @@ const axios = require('axios');
  * @returns {void}
  */
 async function performCompanyLookup(companyInfoJSON) {
-    const hipaaEinUrl = `https://www.hipaaspace.com/api/ein/search?token=${global.settings.HIPAA_TOKEN}&rt=json`
+    const hipaaEinUrl = `https://www.hipaaspace.com/api/ein/search?token=522322F9F8B14101B719E129F7025811AA2D9661E9B04FC5B9AB0E92A1C5C31E&rt=json`
     if(!companyInfoJSON || !companyInfoJSON.name || !companyInfoJSON.state){
         throw new Error("You must enter at least a company name and state");
     }
