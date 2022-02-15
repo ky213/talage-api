@@ -274,7 +274,8 @@ async function getAgency(req, res, next) {
             agency.canBeSetToPrimaryAgency = false;
         }
 
-        if(!req.authentication.permissions.talageStaff) {
+        // If non-Talage Super User, hide the agency tier fields from the return object
+        if (!req.authentication.permissions.talageStaff) {
             if(agency.hasOwnProperty('tierId')) {
                 delete agency.tierId;
             }
@@ -482,7 +483,7 @@ async function postAgency(req, res, next) {
     const cred3s = req.body.cred3s;
     const talageWholesaleJson = req.body.talageWholesale;
     const tierId = req.body.tierId || null;
-    const tierName = req.body.tierName || {};
+    const tierName = req.body.tierName || null;
 
     // Make sure we don't already have an user tied to this email address
     const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
@@ -552,11 +553,17 @@ async function postAgency(req, res, next) {
         agencyNetworkId: agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
-        tierId: tierId,
         tierName: tierName,
         slug: slug,
         wholesale: wholesale
     }
+
+    // If Talage Super User, add the agency tier fields to the create object
+    if (!req.authentication.permissions.talageStaff) {
+        newAgencyJSON.tierId = tierId;
+        newAgencyJSON.tierName = tierName;
+    }
+
     if(req.body.displayName){
         newAgencyJSON.displayName = req.body.displayName
     }
@@ -851,6 +858,17 @@ async function updateAgency(req, res, next) {
             return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
         }
     }
+
+    // If non-Talage Super User, remove the agency tier fields from the update object
+    if (!req.authentication.permissions.talageStaff) {
+        if(req.body.hasOwnProperty('tierId')) {
+            delete req.body.tierId;
+        }
+        if(req.body.hasOwnProperty('tierName')) {
+            delete req.body.tierName;
+        }
+    }
+
     // Initialize an agency object
     error = null;
     log.debug("saving agency")

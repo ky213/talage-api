@@ -1,6 +1,5 @@
 'use strict';
 
-const AgencyNetworkBO = require('../../../shared/models/AgencyNetwork-BO.js');
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
@@ -106,17 +105,6 @@ async function getAgencies(req, res, next){
         if(retAgencies){
             //Get app count.
             returnAgencyList = [];
-
-            // Check if agency tier fields should be shown (Agency Network Feature JSON)
-            const agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetworkJSON = await agencyNetworkBO.getById(req.authentication.agencyNetworkId).catch(function(err){
-                log.error("Get AgencyNetwork Error " + err + __location);
-            });
-            let showAgencyTierFields = agencyNetworkJSON && agencyNetworkJSON.feature_json && agencyNetworkJSON.feature_json.showAgencyTierFields === true;
-
-            // Add checking if the user is Talage Super User
-            showAgencyTierFields = showAgencyTierFields && req.authentication.permissions.talageStaff;
-
             const applicationBO = new ApplicationBO();
             const agencyLocationBO = new AgencyLocationBO();
             for(let i = 0; i < retAgencies.length; i++){
@@ -167,7 +155,8 @@ async function getAgencies(req, res, next){
                         }
                     }
 
-                    if(showAgencyTierFields) {
+                    // If Talage Super User, shoe agency tier fields
+                    if(req.authentication.permissions.talageStaff) {
                         agencyInfo.tierId = retAgencies[i].tierId;
                         agencyInfo.tierName = retAgencies[i].tierName;
                     }
