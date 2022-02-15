@@ -187,7 +187,7 @@ module.exports = class AgencyPortalUserBO{
                 // eslint-disable-next-line prefer-const
                 try {
                     // log.debug("AgencyPortalUserModel GetList query " + JSON.stringify(query) + __location)
-                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions);
+                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions).lean();
                 }
                 catch (err) {
                     log.error(err + __location);
