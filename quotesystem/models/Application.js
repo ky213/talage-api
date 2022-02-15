@@ -532,7 +532,12 @@ module.exports = class Application {
         let applicationBO = new ApplicationBO();
         const resp = await applicationBO.setAgencyLocation(this.applicationDocData.applicationId)
         if(resp !== true){
-            log.error(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            if (resp && resp.includes('Agency does not cover application territory')){
+                log.warn(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            }
+            else {
+                log.error(`Translation Error: setAgencyLocation: ${resp}. ` + __location);
+            }
             throw new Error(`Data Error: setAgencyLocation: ${resp}`);
         }
     }
