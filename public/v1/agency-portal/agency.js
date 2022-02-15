@@ -553,7 +553,6 @@ async function postAgency(req, res, next) {
         agencyNetworkId: agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
-        tierName: tierName,
         slug: slug,
         wholesale: wholesale
     }
@@ -1050,9 +1049,9 @@ async function postSocialMediaInfo(req, res, next) {
  * @returns {void}
  */
 async function getAgencyTierList(req, res, next) {
-    const PaymentPlanSvc = global.requireShared('services/agencytiersvc.js');
-    const paymentPlanList = PaymentPlanSvc.getList();
-    res.send(200, paymentPlanList);
+    const AgencyTierSvc = global.requireShared('services/agencytiersvc.js');
+    const agencyTierList = AgencyTierSvc.getList();
+    res.send(200, agencyTierList);
     return next();
 }
 
