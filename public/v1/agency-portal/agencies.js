@@ -20,10 +20,6 @@ async function getAgencies(req, res, next){
     let error = false;
     let retAgencies = null;
 
-    if(req.query.isAggregate) {
-        return getAgenciesAggregate(req, res, next);
-    }
-
     try{
         error = null;
 
@@ -110,6 +106,17 @@ async function getAgencies(req, res, next){
         if(retAgencies){
             //Get app count.
             returnAgencyList = [];
+
+            // Check if agency tier fields should be shown (Agency Network Feature JSON)
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(req.authentication.agencyNetworkId).catch(function(err){
+                log.error("Get AgencyNetwork Error " + err + __location);
+            });
+            let showAgencyTierFields = agencyNetworkJSON && agencyNetworkJSON.feature_json && agencyNetworkJSON.feature_json.showAgencyTierFields === true;
+
+            // Add checking if the user is Talage Super User
+            showAgencyTierFields = showAgencyTierFields && req.authentication.permissions.talageStaff;
+
             const applicationBO = new ApplicationBO();
             const agencyLocationBO = new AgencyLocationBO();
             for(let i = 0; i < retAgencies.length; i++){
@@ -160,7 +167,7 @@ async function getAgencies(req, res, next){
                         }
                     }
 
-                    if(req.authentication.permissions.talageStaff) {
+                    if(showAgencyTierFields) {
                         agencyInfo.tierId = retAgencies[i].tierId;
                         agencyInfo.tierName = retAgencies[i].tierName;
                     }
@@ -201,115 +208,6 @@ async function getAgencies(req, res, next){
                 // Old pattern keep in Jan 1st, 2022
                 res.send(200, returnAgencyList);
             }
-            return next();
-        }
-        else {
-            res.send(404);
-            return next(serverHelper.notFoundError('agencies not found'));
-        }
-    }
-    catch(err){
-        log.error("getAgencies load error " + err + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    }
-}
-
-/**
- * Retrieves the list of agencies, but using aggregate mongodb function
- * Enables:
- * - Sorting for foriegn keys/values with proper pagination
- * - Centralized or single query from the DB
- * Future Development:
- * - Location List - (Not Yet Included)
- * @param {object} req - HTTP request object
- * @param {object} req.query - HTTP request object
- * @param {object} req.query.match - $match format from mongodb aggregation (query)
- * @param {object} req.query.sort - $sort format from mongodb aggregation (also caters 'asc' or 'desc')
- * @param {number} req.query.page - page number (pagination)
- * @param {number} req.query.limit - $limit format from mongodb aggregation (page limit - pagination)
- * @param {string} req.query.getcount - return total number of docs (preferably 'y' or 'n', but better uninitialized if 'n' - pagination)
- * @param {string} req.query.skipappcount - return number of applications per agency (preferably 'y' or 'n', but better uninitialized if 'n')
- * @param {object} res - HTTP response object
- * @param {function} next - The next function to execute
- *
- * @returns {void}
- */
-async function getAgenciesAggregate(req, res, next){
-    try{
-        const queryJSON = req.query;
-
-        // Check if agency tier fields should be shown (Agency Network Feature JSON)
-        const agencyNetworkBO = new AgencyNetworkBO();
-        const agencyNetworkJSON = await agencyNetworkBO.getById(req.authentication.agencyNetworkId).catch(function(err){
-            log.error("Get AgencyNetwork Error " + err + __location);
-        });
-        const showAgencyTierFields = agencyNetworkJSON && agencyNetworkJSON.feature_json && agencyNetworkJSON.feature_json.showAgencyTierFields === true;
-
-        // If non talage super user, remove these fields from final projection
-        if (!req.authentication.permissions.talageStaff || !showAgencyTierFields) {
-            queryJSON.postProjection = {};
-            queryJSON.postProjection.tierId = 0;
-            queryJSON.postProjection.tierName = 0;
-            queryJSON.postProjection = JSON.stringify(queryJSON.postProjection);
-        }
-        else {
-            queryJSON.sort = JSON.parse(queryJSON.sort || '{}');
-            if(!queryJSON.sort.hasOwnProperty('tierName') && !queryJSON.sort.hasOwnProperty('tierId')) {
-                queryJSON.sort.tierId = -1;
-            }
-            queryJSON.sort = JSON.stringify(queryJSON.sort);
-        }
-
-        queryJSON.match = JSON.parse(queryJSON.match || '{}');
-        // Check agency view permission
-        if(req.authentication.isAgencyNetworkUser){
-            queryJSON.match.agencyNetworkId = req.authentication.agencyNetworkId;
-            //Not Global View Check
-            if(req.authentication.isAgencyNetworkUser &&
-                req.authentication.agencyNetworkId === 1 &&
-                req.authentication.permissions.talageStaff === true &&
-                req.authentication.enableGlobalView === true){
-                delete queryJSON.match.agencyNetworkId;
-            }
-        }
-        else {
-            let agents = '';
-            try {
-                agents = await auth.getAgents(req);
-            }
-            catch (e) {
-                return next(e);
-            }
-
-            if (!agents.length){
-                log.info('Bad Request: No agencies permitted');
-                return next(serverHelper.requestError('Bad Request: No agencies permitted'));
-            }
-
-            queryJSON.match.systemId = agents.includes(',') ? {$in: agents.split(',')} : agents;
-        }
-
-        queryJSON.match = JSON.stringify(queryJSON.match);
-
-        // Query Get List aggregation
-        const agencyBO = new AgencyBO();
-        let agencies = {};
-        try {
-            agencies = await agencyBO.getListAggregate(queryJSON);
-        }
-        catch (error) {
-            return next(error);
-        }
-
-        // Validate return value
-        if (agencies && agencies[0] && agencies[0].hasOwnProperty('count') && agencies[0].count > 0) {
-            // With count
-            res.send(200, agencies[0]);
-            return next();
-        }
-        else if(agencies && agencies.length > 0 && !agencies[0].hasOwnProperty('count')) {
-            // Without count
-            res.send(200, agencies);
             return next();
         }
         else {
