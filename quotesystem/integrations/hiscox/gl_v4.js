@@ -11,6 +11,7 @@ const momentTimezone = require("moment-timezone");
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
+const InsurerQuestionBO = global.requireShared('./models/InsurerQuestion-BO.js');
 
 module.exports = class HiscoxGL extends Integration {
 
@@ -638,15 +639,47 @@ module.exports = class HiscoxGL extends Integration {
                     // Don't add more to the question list
                     continue;
                 }
+                let attributes = null;
+                if (question.type === 'Checkboxes') {
+                    // Checkbox questions require that each checked answer turns into another object property underneath the main question property
+                    // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
+                    const insurerQuestionBO = new InsurerQuestionBO();
+                    const insurerQuestionQuery = {
+                        active: true,
+                        talageQuestionId: question.id
+                    };
+                    let insurerQuestionList = null;
+                    try {
+                        insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
+                    }
+                    catch (err) {
+                        this.log_error(`Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
+                    }
+                    this.log_debug(`Insurer Question for Checkboxes: ${JSON.stringify(insurerQuestionList[0])}`)
+                    if (!insurerQuestionList || insurerQuestionList.length === 0) {
+                        this.log_error(`Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
+                        continue;
+                    }
+                    if (!insurerQuestionList[0].attributes) {
+                        this.log_error(`No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
+                        continue;
+                    }
+                    attributes = insurerQuestionList[0].attributes;
+                }
                 this.questionList.push({
                     nodeName: elementName,
-                    answer: questionAnswer
+                    answer: questionAnswer,
+                    attributes: attributes,
+                    type: question.type
                 });
             }
             else if (question.type === 'Checkboxes' && !questionAnswer) {
+                this.log_debug(`Checkbox Question: ${JSON.stringify(question)}`); // zy debug remove
                 this.questionList.push({
                     nodeName: elementName,
-                    answer: ''
+                    answer: '',
+                    attributes: null,
+                    type: question.type
                 })
             }
         }
@@ -835,59 +868,51 @@ module.exports = class HiscoxGL extends Integration {
             "TechSpclstActvty"
         ];
 
+        let policyRequestType = null;
+        if (this.policy.type === 'GL') {
+            policyRequestType = 'GeneralLiabilityQuoteRq';
+        }
+        else if (this.policy.type === 'BOP'){
+            policyRequestType = 'BusinessOwnersPolicyQuoteRq';
+        }
+
         for (const question of this.questionList) {
             if (applicationRatingInfoQuestions.includes(question.nodeName)) {
                 this.log_debug(`Application Rating Info Question: ${JSON.stringify(question, null, 4)}`);
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
             }
-            if (this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName)) {
+            const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
+            const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
+            if (glRatingQuestion || bopRatingQuestion) {
                 this.log_debug(`General Liability Rating Info Question: ${JSON.stringify(question, null, 4)}`);
-                switch (question.nodeName) {
-                    case 'BeautyServices2GL':
-                        const beautyServicesObj = {};
-                        if (!question.answer) {
-                            beautyServicesObj.NoneOfTheAbove = "Yes";
+                if (question.type === 'Checkboxes') {
+                    // Get the element names from the attributes for each answer that was checked and build the object
+                    // with each element as an object property under the parent property
+                    const questionElementObj = {};
+                    if (!question.answer) {
+                        questionElementObj.NoneOfTheAbove = "Yes";
+                    }
+                    else {
+                        const answers = question.answer.split(', ');
+                        const possibleAnswers = question.attributes.answersToElements;
+                        for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                            if (answers.includes(possibleAnswer)){
+                                questionElementObj[subElementName] = 'Yes';
+                            }
+                            else {
+                                questionElementObj[subElementName] = 'No';
+                            }
                         }
-                        else {
-                            beautyServicesObj.OperateSaunasOrSteamRooms = /Saunas or Steam Rooms/.test(question.answer) ? 'Yes' : 'No';
-                            beautyServicesObj.OperateTanningBedsOrBooths = /Tanning Beds or Booths/.test(question.answer) ? 'Yes' : 'No';
-                        }
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = beautyServicesObj;
-                        break;
-                    default:
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
-                        break;
+                    }
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = questionElementObj;
+                }
+                else {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer;
                 }
             }
-            if (this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName)) {
-                // zy TODO Fill this in
-                switch (question.nodeName) {
-                    case 'BeautyServices2BOP':
-                        const beautyServicesObj = {};
-                        if (!question.answer) {
-                            beautyServicesObj.NoneOfTheAbove = 'Yes';
-                        }
-                        else {
-                            beautyServicesObj.OperateSaunasOrSteamRooms = /Saunas or Steam Rooms/.test(question.answer) ? 'Yes' : 'No';
-                            beautyServicesObj.OperateTanningBedsOrBooths = /Tanning Beds or Booths/.test(question.answer) ? 'Yes' : 'No';
-                            beautyServicesObj.SemiPermanentOrPermanentMakeupServices = /Semi-permanent or Permanent Makeup Services/.test(question.answer) ? 'Yes' : 'No';
-                            beautyServicesObj.TattooServices = /Tattoo Services/.test(question.answer) ? 'Yes' : 'No';
-                        }
-                        break;
-                    default:
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.RatingInfo[question.nodeName] = question.answer;
-                        break;
-                }
-            }
-
 
             if (question.nodeName === 'TriaAgreeContent' && question.answer === 'Yes') {
-                if (this.policy.type === 'GL') {
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'};
-                }
-                else if (this.policy.type === 'BOP'){
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'};
-                }
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].TRIACoverQuoteRq = {CoverId: 'TRIA'};
             }
         }
         // zy HACKS Remove this assignment of TRIACoverQuoteRq. Handle it in the question loop above
@@ -931,15 +956,6 @@ module.exports = class HiscoxGL extends Integration {
             "InformationConfirmAgreement": "Agree",
             "StateSpcfcFraudWarning": "Agree"
         }
-
-        // Render the template into XML and remove any empty lines (artifacts of control blocks)
-        // let xml = null;
-        // try {
-        //     xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
-        // }
-        // catch (error) {
-        //     return this.client_error('An unexpected error occurred when creating the quote request.', __location, {error: "Could not render template file"});
-        // }
 
         // Get a token from their auth server
         const tokenRequestData = {
