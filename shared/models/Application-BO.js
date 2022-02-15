@@ -1595,7 +1595,7 @@ module.exports = class ApplicationModel {
                 delete queryJSON.agencyNetwork
             }
             if(queryJSON.state){
-                query.primaryState = queryJSON.state
+                query.mailingState = queryJSON.state
                 delete queryJSON.state
             }
 

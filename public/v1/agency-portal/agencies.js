@@ -61,13 +61,15 @@ async function getAgencies(req, res, next){
         }
 
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = req.authentication.agencyNetworkId
-            //Global View Check
-            if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
-                && req.authentication.permissions.talageStaff === true
-                && req.authentication.enableGlobalView === true){
+            if (!query.agencyNetworkId){
+                query.agencyNetworkId = req.authentication.agencyNetworkId
+                //Global View Check
+                if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+					&& req.authentication.permissions.talageStaff === true
+					&& req.authentication.enableGlobalView === true){
 
-                delete query.agencyNetworkId
+                    delete query.agencyNetworkId
+                }
             }
 
         }
