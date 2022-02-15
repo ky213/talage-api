@@ -9,9 +9,8 @@ const Integration = require("../Integration.js");
 const moment = require("moment");
 const momentTimezone = require("moment-timezone");
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
-// const util = require('util');
-const xmlToObj = require("xml2js").parseString;
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
+const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
 
 module.exports = class HiscoxGL extends Integration {
 
@@ -137,6 +136,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // Look up the insurer industry code, make sure we got a hit. //zy
+        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`);
         // If it's BOP, check that the link is made at industry code, 
         // if not lookup the policy.bopCode
         // Set the code that we're using here. No longer using industry_code.hiscox
@@ -507,7 +507,7 @@ module.exports = class HiscoxGL extends Integration {
 
             generalLiabilityQuoteRq.RatingInfo = {};
             // zy debug fix hard-coded values
-            generalLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = {ClassOfBusinessCd: 'None of the above'}; // zy debug fix hard-coded value
+            // generalLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [{ClassOfBusinessCd: 'None of the above'}]; // zy debug fix hard-coded value
             generalLiabilityQuoteRq.RatingInfo.SCForbiddenProjects = {NoneOfTheAbove: 'Yes'}; // zy debug fix hard-coded value
 
             generalLiabilityQuoteRq.ProductAcknowledgements = {
@@ -535,8 +535,6 @@ module.exports = class HiscoxGL extends Integration {
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Basement = 'None'; // zy debug fix hard-coded value
 
             bopQuoteRq.RatingInfo = {};
-            // bopQuoteRq.RatingInfo.SupplyManufactDistbtGoodsOrProducts2 = 'No'; // zy debug fix hard-coded value
-            bopQuoteRq.RatingInfo.BeautyServices2BOP = {NoneOfTheAbove: 'Yes'}; // zy debug fix hard-coded value
 
             bopQuoteRq.ProductAcknowledgements = {
                 BOPStatement1: 'Agree',
@@ -552,16 +550,15 @@ module.exports = class HiscoxGL extends Integration {
         }
 
 
-        this.log_debug(`This.questions: ${JSON.stringify(this.questions, null, 4)}`);
-        this.log_debug(`Dump Locations: ${JSON.stringify(this.applicationDocData.locations, null, 4)}`);
+        this.log_debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`);
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
-        this.log_debug(`Questions: ${JSON.stringify(this.questions, null, 4)}`);
         for (const question of Object.values(this.questions)) {
             let questionAnswer = this.determine_question_answer(question, question.required);
+            let elementName = questionDetails[question.id].attributes.elementName;
+            this.log_debug(`Question answer: ${JSON.stringify(questionAnswer, null, 4)}`);
             if (questionAnswer !== false) {
-                let elementName = questionDetails[question.id].attributes.elementName;
                 if (elementName === 'GLHireNonOwnVehicleUse') {
                     elementName = 'HireNonOwnVehclUse';
                 }
@@ -580,15 +577,26 @@ module.exports = class HiscoxGL extends Integration {
                     continue;
                 }
                 else if (elementName === 'ClassOfBusinessCd') {
-                    this.log_debug(`Handling Class of Business Code Question: ${JSON.stringify(question, null, 4)}`) // zy debug 
                     const cobDescriptionList = questionAnswer.split(", ");
+                    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
                     for (const cobDescription of cobDescriptionList) {
-                        const cob = await this.getHiscoxCOBFromDescription(cobDescription);
-                        if (!cob) {
+                        const cobDescQuery = {
+                            active: true,
+                            insurerId: this.insurer.id,
+                            description: cobDescription
+                        }
+                        let cob = null;
+                        try {
+                            cob = await insurerIndustryCodeBO.getList(cobDescQuery);
+                        }
+                        catch (err) {
+                            this.log_error(`Problem getting insurer industry code: ${err} ${__location}`);
+                        }
+                        if (!cob || cob.length === 0) {
                             this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
                             continue;
                         }
-                        this.additionalCOBs.push(cob);
+                        this.additionalCOBs.push(cob[0].attributes.v4Code);
                     }
                     // Don't add this to the question list
                     continue;
@@ -634,6 +642,12 @@ module.exports = class HiscoxGL extends Integration {
                     nodeName: elementName,
                     answer: questionAnswer
                 });
+            }
+            else if (question.type === 'Checkboxes' && !questionAnswer) {
+                this.questionList.push({
+                    nodeName: elementName,
+                    answer: ''
+                })
             }
         }
 
@@ -830,8 +844,15 @@ module.exports = class HiscoxGL extends Integration {
                 this.log_debug(`General Liability Rating Info Question: ${JSON.stringify(question, null, 4)}`);
                 switch (question.nodeName) {
                     case 'BeautyServices2GL':
-                        // zy TODO HACK - Hardcoding this just to get a quote through. This needs to change to use the actual question answers
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = {NoneOfTheAbove: "Yes"};
+                        const beautyServicesObj = {};
+                        if (!question.answer) {
+                            beautyServicesObj.NoneOfTheAbove = "Yes";
+                        }
+                        else {
+                            beautyServicesObj.OperateSaunasOrSteamRooms = /Saunas or Steam Rooms/.test(question.answer) ? 'Yes' : 'No';
+                            beautyServicesObj.OperateTanningBedsOrBooths = /Tanning Beds or Booths/.test(question.answer) ? 'Yes' : 'No';
+                        }
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = beautyServicesObj;
                         break;
                     default:
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo[question.nodeName] = question.answer;
@@ -841,7 +862,17 @@ module.exports = class HiscoxGL extends Integration {
             if (this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName)) {
                 // zy TODO Fill this in
                 switch (question.nodeName) {
-                    case '':
+                    case 'BeautyServices2BOP':
+                        const beautyServicesObj = {};
+                        if (!question.answer) {
+                            beautyServicesObj.NoneOfTheAbove = 'Yes';
+                        }
+                        else {
+                            beautyServicesObj.OperateSaunasOrSteamRooms = /Saunas or Steam Rooms/.test(question.answer) ? 'Yes' : 'No';
+                            beautyServicesObj.OperateTanningBedsOrBooths = /Tanning Beds or Booths/.test(question.answer) ? 'Yes' : 'No';
+                            beautyServicesObj.SemiPermanentOrPermanentMakeupServices = /Semi-permanent or Permanent Makeup Services/.test(question.answer) ? 'Yes' : 'No';
+                            beautyServicesObj.TattooServices = /Tattoo Services/.test(question.answer) ? 'Yes' : 'No';
+                        }
                         break;
                     default:
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.RatingInfo[question.nodeName] = question.answer;
@@ -870,12 +901,15 @@ module.exports = class HiscoxGL extends Integration {
         this.log_debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
 
         if (this.policy.type === 'GL'){
-            // Add additional COBs to JSON if necessary  // zy Validate that this is still necessary in request
+            // Add additional COBs to JSON if necessary
             if (this.additionalCOBs?.length > 0) {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [];
                 for (const additionalCOB of this.additionalCOBs){
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors.push(additionalCOB);
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors.push({'ClassOfBusinessCd': additionalCOB});
                 }
+            }
+            else {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = {ClassOfBusinessCd: 'None of the above'};
             }
 
         }
@@ -998,7 +1032,8 @@ module.exports = class HiscoxGL extends Integration {
             }
             // Check for validation errors
             let validationErrorList = null;
-            const validations = response.InsuranceSvcRq?.Validations?.Validation;
+            const validations = response.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
+            this.log_debug(`Validations: ${JSON.stringify(validations, null, 4)}`);
             if (validations && !validations.length) {
                 // if validation is just an object, make it an array
                 validationErrorList = [validations];
@@ -1006,6 +1041,7 @@ module.exports = class HiscoxGL extends Integration {
             else {
                 validationErrorList = validations;
             }
+            this.log_debug(`Validations Error List: ${JSON.stringify(validationErrorList, null, 4)}`);
 
             if (validationErrorList && validationErrorList.length > 0) {
                 // Loop through and capture each validation message
@@ -1016,7 +1052,8 @@ module.exports = class HiscoxGL extends Integration {
                 return this.client_error(validationMessage, __location, {validationErrorList: validationErrorList});
             }
             // Check for a fault string (unknown node name)
-            const faultString = response?.fault?.faultString;
+            const faultString = response?.fault?.faultstring;
+            this.log_debug(`Fault String: ${JSON.stringify(response, null, 4)}`);
             if (faultString) {
                 // Check for a system fault
                 return this.client_error(`The Hiscox API returned a fault string: ${faultString}`, __location, {requestError: requestError});
