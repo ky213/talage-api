@@ -529,6 +529,7 @@ module.exports = class AgencyBO {
 
 
             if (queryJSON) {
+                // Deep JSON Checking for strings with '%'
                 const isJSONString = (str) => {
                     try {
                         JSON.parse(str);
@@ -688,10 +689,7 @@ module.exports = class AgencyBO {
         }
 
         // Initialize default sorting - [1 - asc || -1 - desc] if no sort from request
-        const sortHandler = JSON.parse(requestQueryJSON.sort || JSON.stringify({
-            tierId: -1,
-            name: 1
-        }));
+        const sortHandler = JSON.parse(requestQueryJSON.sort || JSON.stringify({name: 1}));
 
         if(sortHandler.hasOwnProperty('tierName')) {
             sortHandler.tierId = sortHandler.tierName;

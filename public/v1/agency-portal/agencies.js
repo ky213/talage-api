@@ -1,5 +1,6 @@
 'use strict';
 
+const AgencyNetworkBO = require('../../../shared/models/AgencyNetwork-BO.js');
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
@@ -236,12 +237,27 @@ async function getAgencies(req, res, next){
 async function getAgenciesAggregate(req, res, next){
     try{
         const queryJSON = req.query;
+
+        // Check if agency tier fields should be shown (Agency Network Feature JSON)
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetworkJSON = await agencyNetworkBO.getById(req.authentication.agencyNetworkId).catch(function(err){
+            log.error("Get AgencyNetwork Error " + err + __location);
+        });
+        const showAgencyTierFields = agencyNetworkJSON && agencyNetworkJSON.feature_json && agencyNetworkJSON.feature_json.showAgencyTierFields === true;
+
         // If non talage super user, remove these fields from final projection
-        if (!req.authentication.permissions.talageStaff) {
+        if (!req.authentication.permissions.talageStaff || !showAgencyTierFields) {
             queryJSON.postProjection = {};
             queryJSON.postProjection.tierId = 0;
             queryJSON.postProjection.tierName = 0;
             queryJSON.postProjection = JSON.stringify(queryJSON.postProjection);
+        }
+        else {
+            queryJSON.sort = JSON.parse(queryJSON.sort || '{}');
+            if(!queryJSON.sort.hasOwnProperty('tierName') && !queryJSON.sort.hasOwnProperty('tierId')) {
+                queryJSON.sort.tierId = -1;
+            }
+            queryJSON.sort = JSON.stringify(queryJSON.sort);
         }
 
         queryJSON.match = JSON.parse(queryJSON.match || '{}');
