@@ -586,7 +586,7 @@ module.exports = class MarkelWC extends Integration {
         for (const location of applicationDocData.locations) {
             const locationObj = {
                 "Location Address1": removeDiacritics(location.address),
-                "Location Zip": location.zipcode,
+                "Location Zip": location.zipcode.slice(0,5),
                 "Location City": location.city,
                 "Location State": location.state,
                 buildings: []
