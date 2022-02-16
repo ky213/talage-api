@@ -137,8 +137,9 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // Look up the insurer industry code, make sure we got a hit. //zy
-        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`);
-        // If it's BOP, check that the link is made at industry code, 
+        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+        this.log_debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
+        // If it's BOP, check that the link is made at industry code,
         // if not lookup the policy.bopCode
         // Set the code that we're using here. No longer using industry_code.hiscox
 
@@ -508,7 +509,6 @@ module.exports = class HiscoxGL extends Integration {
 
             generalLiabilityQuoteRq.RatingInfo = {};
             // zy debug fix hard-coded values
-            // generalLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = [{ClassOfBusinessCd: 'None of the above'}]; // zy debug fix hard-coded value
             generalLiabilityQuoteRq.RatingInfo.SCForbiddenProjects = {NoneOfTheAbove: 'Yes'}; // zy debug fix hard-coded value
 
             generalLiabilityQuoteRq.ProductAcknowledgements = {
@@ -522,7 +522,6 @@ module.exports = class HiscoxGL extends Integration {
         if (this.policy.type === 'BOP') {
             const bopQuoteRq = sharedQuoteRqStructure
 
-            this.log_debug(`Primary Location: ${JSON.stringify(this.primaryLocation, null, 4)}`);
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
@@ -558,7 +557,6 @@ module.exports = class HiscoxGL extends Integration {
         for (const question of Object.values(this.questions)) {
             let questionAnswer = this.determine_question_answer(question, question.required);
             let elementName = questionDetails[question.id].attributes.elementName;
-            this.log_debug(`Question answer: ${JSON.stringify(questionAnswer, null, 4)}`);
             if (questionAnswer !== false) {
                 if (elementName === 'GLHireNonOwnVehicleUse') {
                     elementName = 'HireNonOwnVehclUse';
@@ -655,7 +653,6 @@ module.exports = class HiscoxGL extends Integration {
                     catch (err) {
                         this.log_error(`Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
                     }
-                    this.log_debug(`Insurer Question for Checkboxes: ${JSON.stringify(insurerQuestionList[0])}`)
                     if (!insurerQuestionList || insurerQuestionList.length === 0) {
                         this.log_error(`Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
                         continue;
@@ -674,7 +671,6 @@ module.exports = class HiscoxGL extends Integration {
                 });
             }
             else if (question.type === 'Checkboxes' && !questionAnswer) {
-                this.log_debug(`Checkbox Question: ${JSON.stringify(question)}`); // zy debug remove
                 this.questionList.push({
                     nodeName: elementName,
                     answer: '',
@@ -878,13 +874,11 @@ module.exports = class HiscoxGL extends Integration {
 
         for (const question of this.questionList) {
             if (applicationRatingInfoQuestions.includes(question.nodeName)) {
-                this.log_debug(`Application Rating Info Question: ${JSON.stringify(question, null, 4)}`);
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
             }
             const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
             const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
             if (glRatingQuestion || bopRatingQuestion) {
-                this.log_debug(`General Liability Rating Info Question: ${JSON.stringify(question, null, 4)}`);
                 if (question.type === 'Checkboxes') {
                     // Get the element names from the attributes for each answer that was checked and build the object
                     // with each element as an object property under the parent property
@@ -982,7 +976,7 @@ module.exports = class HiscoxGL extends Integration {
 
         this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
 
-        this.log_debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location);
+        this.log_debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location); // zy debug remove
         // Send the JSON to the insurer
         let result = null;
         let requestError = null;
