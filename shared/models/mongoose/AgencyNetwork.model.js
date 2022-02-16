@@ -36,6 +36,7 @@ const featureSchema = new Schema({
     notifyTalage: {type: Boolean, required: true, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
     agencyNetworkQuoteEmails: {type: Boolean, required: true, default: false},
+    agencyNetworkAbandonQuoteEmails: {type: Boolean, required: true, default: false},
     agencyNetworkQuoteEmailsNoWaitOnQuote: {type: Boolean, required: true, default: false},
     agencyQuoteEmailsNoWaitOnQuote: {type: Boolean, required: true, default: false},
     quoteEmailsCustomer: {type: Boolean, required: true, default: true},
