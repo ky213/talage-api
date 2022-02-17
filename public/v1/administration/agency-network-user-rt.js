@@ -107,14 +107,14 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     if(agencyList.length > 0){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         for(let i = 0; i < agencyList.length; i++){
-            let agencyUserList = await agencyPortalUserBO.getList({agencyId: parseInt(agencyList[i].systemId, 10)}).catch(function(err) {
+            let agencyUserListDB = await agencyPortalUserBO.getList({agencyId: parseInt(agencyList[i].systemId, 10)}).catch(function(err) {
                 error = err;
             })
             if (error) {
                 log.error(`Error retrieving list of users for agency id ${agencyList[i].systemId}: ` + error + __location);
                 break;
             }
-            //let agencyUserList = JSON.parse(JSON.stringify(agencyUserListDB))
+            let agencyUserList = JSON.parse(JSON.stringify(agencyUserListDB))
             for(let j = 0; j < agencyUserList.length; j++){
                 let user = agencyUserList[j];
 

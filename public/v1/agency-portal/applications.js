@@ -113,24 +113,24 @@ function generateCSV(applicationList, isGlobalViewMode){
 
 
         // Define the different statuses and their user-friendly values
-        const statusMap = {
-            'acord_sent': 'ACORD form sent',
-            'bound': 'Bound',
-            'declined': 'Declined',
-            'error': 'Error',
-            'incomplete': 'Incomplete',
-            'acord_emailed': 'Acord Emailed',
-            'quoting': 'Quoting',
-            'quoted': 'Quoted',
-            'quoted_referred': 'Quoted (referred)',
-            'questions_done': 'Questions Done',
-            'referred': 'Referred',
-            'request_to_bind': 'Request to bind',
-            'request_to_bind_referred': 'Request to bind (referred)',
-            'wholesale': 'Wholesale',
-            'out_of_market': 'Out Of Market',
-            'dead': 'Dead'
-        };
+        // const statusMap = {
+        //     'acord_sent': 'ACORD form sent',
+        //     'bound': 'Bound',
+        //     'declined': 'Declined',
+        //     'error': 'Error',
+        //     'incomplete': 'Incomplete',
+        //     'acord_emailed': 'Acord Emailed',
+        //     'quoting': 'Quoting',
+        //     'quoted': 'Quoted',
+        //     'quoted_referred': 'Quoted (referred)',
+        //     'questions_done': 'Questions Done',
+        //     'referred': 'Referred',
+        //     'request_to_bind': 'Request to bind',
+        //     'request_to_bind_referred': 'Request to bind (referred)',
+        //     'wholesale': 'Wholesale',
+        //     'out_of_market': 'Out Of Market',
+        //     'dead': 'Dead'
+        // };
 
         // If no data was returned, stop and alert the user
         if(!applicationList){
@@ -190,12 +190,14 @@ function generateCSV(applicationList, isGlobalViewMode){
                 }
 
                 // Status
-                if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){
-                    applicationDoc.status = statusMap[applicationDoc.status];
+                for(const appStatusProp in applicationStatus){
+                    if(applicationDoc.status === applicationStatus[appStatusProp].appStatusDesc){
+                        applicationDoc.status = applicationStatus[appStatusProp].appStatusText;
+                    }
                 }
-                else{
-                    applicationDoc.status = 'Unknown';
-                }
+                // else{
+                //     applicationDoc.status = 'Unknown';
+                // }
                 // if(applicationDoc.renewal === true){
                 //     applicationDoc.renewal = "Yes";
                 // }
@@ -216,10 +218,12 @@ function generateCSV(applicationList, isGlobalViewMode){
 
                 // Remove the EIN from the application doc.
                 // With this change, the EIN column is removed
-                delete applicationDoc.einClear;
+                if(applicationDoc.einClear){
+                    delete applicationDoc.einClear;
+                }
             }
             catch(err){
-                log.err(`CSV App row processing error ${err}` + __location)
+                log.error(`CSV App row processing error ${err}` + __location)
             }
         }
 
@@ -268,7 +272,7 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'dba': 'DBA',
                 'status': 'Application Status',
                 'policyTypes': "Policy Types",
-                'policyEffectiveDate': "Effective Date",
+                'policyDateString': "Effective Date",
                 'appValue': 'Application Value',
                 'agencyName': 'Agency',
                 'agencyPortalCreatedUser': 'Agency Portal User',

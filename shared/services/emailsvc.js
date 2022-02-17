@@ -272,7 +272,7 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
                 emailJSON.to = global.settings.TEST_EMAIL;
             }
             else {
-                const overrideEmail = 'brian@talageins.com';
+                const overrideEmail = 'brian@talageins.com,pdimaria@talageins.com';
                 emailJSON.to = overrideEmail;
             }
         }
