@@ -1410,7 +1410,7 @@ async function getApplicationsResources(req, res, next){
         await populateStatesAndAgencyNetwork(resources, req.authentication);
     }
     catch {
-        log.error(`Error populting the states and agency networks ${error}` + __location)
+        log.error(`Error populating the states and agency networks ${error}` + __location)
     }
     resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources

@@ -1587,6 +1587,7 @@ module.exports = class ApplicationModel {
                 delete queryJSON.renewal
             }
 
+
             if (queryJSON) {
                 for (var key in queryJSON) {
                     if(key !== 'searchbegindate' && key !== 'searchenddate'){
