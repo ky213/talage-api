@@ -28,9 +28,7 @@ async function performCompanyLookup(companyInfoJSON) {
         hipaaResponse = await axios.get(requestUrl);
         //hipaaResponse needs to be filter to the state.
         if(hipaaResponse.data?.EIN){
-            responseHits = hipaaResponse.data?.EIN.filter(obj => {
-                return obj.BUSINESS_ADDRESS_STATE === companyInfoJSON.state;
-            });
+            responseHits = hipaaResponse.data?.EIN.filter(obj => obj.BUSINESS_ADDRESS_STATE === companyInfoJSON.state);
         }
     }
     catch (error) {
