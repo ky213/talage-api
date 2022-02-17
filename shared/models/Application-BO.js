@@ -1586,18 +1586,6 @@ module.exports = class ApplicationModel {
                 query.renewal = queryJSON.renewal
                 delete queryJSON.renewal
             }
-            if(queryJSON.agency){
-                query.agencyId = queryJSON.agency
-                delete queryJSON.agency
-            }
-            if(queryJSON.agencyNetwork){
-                query.agencyNetworkId = queryJSON.agencyNetwork
-                delete queryJSON.agencyNetwork
-            }
-            if(queryJSON.state){
-                query.mailingState = queryJSON.state
-                delete queryJSON.state
-            }
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -1610,10 +1598,6 @@ module.exports = class ApplicationModel {
                                 "$regex": clearString,
                                 "$options": "i"
                             };
-                        }
-                        else if (key === 'agencyId' && query.agencyId) {
-                            queryJSON[key]['$eq'] = query.agencyId;
-                            query[key] = queryJSON[key];
                         }
                         else {
                             query[key] = queryJSON[key];

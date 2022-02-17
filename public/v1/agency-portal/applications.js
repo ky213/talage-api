@@ -412,6 +412,21 @@ async function getApplications(req, res, next){
             "name": 'appValue',
             "type": 'number',
             "optional": true
+        },
+        {
+            "name": 'agencyId',
+            "type": 'number',
+            "optional": true
+        },
+        {
+            "name": 'agencyNetworkId',
+            "type": 'number',
+            "optional": true
+        },
+        {
+            "name": 'mailingState',
+            "type": 'string',
+            "optional": true
         }
     ];
 
@@ -680,34 +695,22 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
 
-    if(req.params.searchText && req.params.searchText.indexOf("a:") !== -1){
+    if(req.body.agencyId){
         noCacheUse = true;
         modifiedSearch = true;
-        const searchWords = req.params.searchText.split(" ");
-        const pos = searchWords.findIndex(item => item.includes('a:'));
-        const agencyId = searchWords[pos].substring(2);
-        query.agency = agencyId
-        req.params.searchText = req.params.searchText.replace(`a:${agencyId}`, "").trim()
+        query.agencyId = req.body.agencyId;
     }
 
-    if(req.params.searchText && req.params.searchText.indexOf("an:") !== -1){
+    if(req.body.agencyNetworkId){
         noCacheUse = true;
         modifiedSearch = true;
-        const searchWords = req.params.searchText.split(" ");
-        const pos = searchWords.findIndex(item => item.includes('an:'));
-        const agencyNetwork = searchWords[pos].substring(3);
-        query.agencyNetwork = agencyNetwork
-        req.params.searchText = req.params.searchText.replace(`an:${agencyNetwork}`, "").trim()
+        query.agencyNetworkId = req.body.agencyNetworkId;
     }
 
-    if(req.params.searchText && req.params.searchText.indexOf("s:") !== -1){
+    if(req.body.mailingState){
         noCacheUse = true;
         modifiedSearch = true;
-        const searchWords = req.params.searchText.split(" ");
-        const pos = searchWords.findIndex(item => item.includes('s:'));
-        const stateAbbr = searchWords[pos].substring(2);
-        query.state = stateAbbr;
-        req.params.searchText = req.params.searchText.replace(`s:${stateAbbr}`, "").trim()
+        query.mailingState = req.body.mailingState;
     }
 
     if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){
@@ -835,7 +838,13 @@ async function getApplications(req, res, next){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
-                    query.agencyId = {$nin: donotReportAgencyIdArray};
+                    // If there is already an agencyId on the request body it will add it as $eq
+                    if(query.agencyId){
+                        query.agencyId = {$nin: donotReportAgencyIdArray, $eq: query.agencyId}
+                    }
+                    else {
+                        query.agencyId = {$nin: donotReportAgencyIdArray};
+                    }
                 }
             }
             if(req.params.searchText.length > 2){
