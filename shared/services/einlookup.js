@@ -20,12 +20,16 @@ async function performCompanyLookup(companyInfoJSON) {
         throw new Error("You must enter at least a company name and state");
     }
     let requestUrl = hipaaEinUrl;
-
+    let responseHits = [];
     requestUrl += "&q=" + encodeURI(companyInfoJSON.name);
 
     let hipaaResponse = null;
     try {
         hipaaResponse = await axios.get(requestUrl);
+        //hipaaResponse needs to be filter to the state.
+        if(hipaaResponse.data?.EIN){
+            responseHits = hipaaResponse.data?.EIN.filter(obj => obj.BUSINESS_ADDRESS_STATE === companyInfoJSON.state);
+        }
     }
     catch (error) {
         // Return a connection error
@@ -35,8 +39,8 @@ async function performCompanyLookup(companyInfoJSON) {
     if (hipaaResponse.status !== 200) {
         throw new Error(`Hipaa returned error status ${hipaaResponse.status}`);
     }
-    if (hipaaResponse.data?.EIN) {
-        return hipaaResponse.data.EIN;
+    if (hipaaResponse.data?.EIN && responseHits) {
+        return responseHits;
     }
     else {
         throw new Error(`Unexpected Hipaa response ${hipaaResponse}  ${JSON.stringify(hipaaResponse.data)}`);
