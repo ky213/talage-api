@@ -454,7 +454,7 @@ exports.requiredFields = async(appId) => {
             }
         }
         //remove full_time_employees && part_time_employees if activityPayrollList is shown.
-        if(requiredFields.location && requiredFields.location.activityPayrollList.requirement > 0){
+        if(requiredFields?.location && requiredFields?.location.activityPayrollList.requirement > 0){
             requiredFields.location.full_time_employees.requirement = 0
             requiredFields.location.part_time_employees.requirement = 0
         }

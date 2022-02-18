@@ -43,7 +43,7 @@ const getApplicationFromHash = async(req, res, next) => {
         }
     }
     else{
-        log.error(`getApplicationFromHash Could not find Hash redis value for key: ${redisKey}` + __location);
+        log.warn(`getApplicationFromHash Could not find Hash redis value for key: ${redisKey}` + __location);
         res.send(404, {error: "Not Found"});
         return next();
     }

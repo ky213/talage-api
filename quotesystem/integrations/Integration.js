@@ -264,7 +264,7 @@ module.exports = class Integration {
             //log.debug(`get_insurer_code_for_activity_code query ${JSON.stringify(activityCodeQuery)}` + __location);
             insurerActivityCode = await InsurerActivityCodeModel.findOne(activityCodeQuery).lean()
             if(!insurerActivityCode){
-                log.error(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
+                log.warn(`Appid: ${this.app.id} get_insurer_code_for_activity_code Did not Find iac for InsurerId: ${insurerId}, ${this.insurer.name}:${this.insurer.id},  ${this.applicationDocData.mailingState} TalageActivtyCodeId ${activityCodeId}  query ${JSON.stringify(activityCodeQuery)}` + __location);
                 insurerActivityCode = {attributes: {}};
             }
             if(typeof insurerActivityCode.attributes === 'string' && insurerActivityCode.attributes.length > 0){
@@ -1255,7 +1255,7 @@ module.exports = class Integration {
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_price === 'undefined') {
                 const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
-                log.error(error_message + __location);
+                log.info(error_message + __location);
                 this.reasons.push(error_message);
                 fulfill(false);
                 return;
@@ -1381,6 +1381,7 @@ module.exports = class Integration {
             if(!insurerPolicyTypeQuestionList){
                 log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: No Insurer Questions ${JSON.stringify(query)}` + __location)
             }
+            //log.debug(`InsurerQuestion insurerPolicyTypeQuestionList ${JSON.stringify(insurerPolicyTypeQuestionList)}` + __location)
             if(insurerPolicyTypeQuestionList){
                 //for (const question_id in this.app.questions) {
                 //loop on Insurer Questions so we can get double mappings to talageQuestionId to build this.insurerQuestionList
@@ -1911,10 +1912,17 @@ module.exports = class Integration {
      * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
      * @returns {object} - An object containing the quote information
      */
-    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = []) {
+    async client_quoted(quoteNumber, limits = {}, premiumAmount, quoteLetter = null, quoteLetterMimeType = null, quoteCoverages = null) {
         this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
-        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
-
+        
+        
+        //There is a this.quoteCoverage that be updated directly in the insurer's integration code.
+        //Setting to null should should not happen here.
+        //only overwrite if a value is passed in. - BP
+        //this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+        if(quoteCoverages && quoteCoverages.length > 0){
+            this.quoteCoverages = quoteCoverages
+        }
         if (!this.limits && !this.quoteCoverages) {
             this.log_error('Received a quote but no limits or coverages were supplied.', __location);
             //BP - Do not error out the quote on lack of limits
@@ -2388,7 +2396,7 @@ module.exports = class Integration {
             });
 
             req.on('error', (err) => {
-                log.error(`Connection to ${this.insurer.name} timedout. error ${err}` + __location);
+                log.error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout. error ${err}` + __location);
                 this.log += `Connection to ${this.insurer.name} timedout. error ${err} `;
                 reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timeout. Reason: ${err.code}`));
             });
@@ -2436,7 +2444,7 @@ module.exports = class Integration {
                     }
                     catch(err){
                         error = err;
-                        log.error(`send_json_request ${host}${path} error processing JSON  Response "${result}" Error: ${err} ` + __location)
+                        log.error(`Appid: ${this.app.id} send_json_request ${host}${path} error processing JSON  Response "${result}" Error: ${err} ` + __location)
                     }
                     if(error){
                         const throwError = new Error(`${error} response  ${result}`)
@@ -2669,7 +2677,7 @@ module.exports = class Integration {
                     }
                 }
                 catch(err){
-                    log.error("Error getting industryCodeBO " + err + __location);
+                    log.error(`Appid: ${this.app.id} Error getting industryCodeBO ` + err + __location);
                 }
                 fulfill(true);
             }

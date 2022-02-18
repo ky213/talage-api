@@ -187,7 +187,7 @@ module.exports = class AgencyPortalUserBO{
                 // eslint-disable-next-line prefer-const
                 try {
                     // log.debug("AgencyPortalUserModel GetList query " + JSON.stringify(query) + __location)
-                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions);
+                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions)
                 }
                 catch (err) {
                     log.error(err + __location);
@@ -413,7 +413,7 @@ module.exports = class AgencyPortalUserBO{
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency Portal User error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //

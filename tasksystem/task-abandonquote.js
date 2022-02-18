@@ -88,6 +88,7 @@ async function abandonquotetask(){
     // eslint-disable-next-line prefer-const
     let queryAgencyNetwork = {};
     queryAgencyNetwork["featureJson.agencyNetworkQuoteEmails"] = true;
+    queryAgencyNetwork["featureJson.agencyNetworkAbandonQuoteEmails"] = true;
     const agencyNetworkBO = new AgencyNetworkBO();
     const agencyNetworkList = await agencyNetworkBO.getList(queryAgencyNetwork).catch(function(err){
         log.error(`Error get Agency Network list from DB. error:  ${err}` + __location);
@@ -100,7 +101,7 @@ async function abandonquotetask(){
         }
     }
 
-
+    log.debug(`abandon Quote Task agencyNetworkIdList  ${JSON.stringify(agencyNetworkIdList)}`)
     //appstatusId == 50 is quoted_referred 60 = quoted
 
     // eslint-disable-next-line prefer-const
@@ -245,7 +246,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
         if(error){
             return false;
         }
-
+        //Small business owner/customer.
         if(emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject){
 
             let agencyLocationEmail = null;
@@ -347,7 +348,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                 //send email:
                 // Send the email
                 const keyData = {'applicationDoc': applicationDoc}
-                let emailResp = await emailSvc.send(customerEmail, subject, message, keyData, agencyNetworkId, "");
+                let emailResp = await emailSvc.send(customerEmail, subject, message, keyData, agencyNetworkId, "agency", applicationDoc.agencyId);
                 // log.debug("emailResp = " + emailResp);
                 if(emailResp === false){
                     slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationDoc.applicationId}. Please follow-up manually.`);
@@ -460,6 +461,7 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
             if(agencyNetworkDB
                 && agencyNetworkDB.featureJson
                 && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
+                && agencyNetworkDB.featureJson.agencyNetworkAbandonQuoteEmails
                 && agencyNetworkDB.email
                 && sendAgencyNetwork){
                 try{

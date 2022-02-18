@@ -13,7 +13,7 @@ module.exports = class siuHook extends Hook {
             log.error(`siu-policy-email-router hook no recipients. ${JSON.stringify(this.dataPackageJSON)} ` + __location)
             return;
         }
-        this.dataPackageJSON.recipients = await siuPolicyEmailRouter.GetRecipients(this.appDoc, this.dataPackageJSON.recipients);
+        this.dataPackageJSON.recipients = await siuPolicyEmailRouter.GetRecipients(this.appDoc, this.dataPackageJSON.recipients, this.agencyNetworkJSON);
 
     }
 }

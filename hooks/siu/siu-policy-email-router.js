@@ -15,6 +15,9 @@ async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
     if(!recipients){
         recipients = '';
     }
+
+    log.debug(`in siu-policy-email-router.GetRecipients hook agencyNetworkJSON?.additionalInfo ${JSON.stringify(agencyNetworkJSON?.additionalInfo)}` + __location)
+
     //Determine if GL or BOP, if so make sure quote@siunis.com is in recipients
     let bopEmail = 'quote@siuins.com'
     if(agencyNetworkJSON?.additionalInfo?.bopEmail){

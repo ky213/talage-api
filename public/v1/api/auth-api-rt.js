@@ -45,14 +45,33 @@ async function getToken(req, res, next) {
             res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
             return next();
         }
+        //Check AgencyNetwork has API Access.
+        let agencyNetworkHasApiAccess = false;
+        const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+        const agencyNetworkBO = new AgencyNetworkBO()
+        try{
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyPortalUserJSON.agencyNetworkId);
+            if(agencyNetworkJSON?.featureJson?.enableApiAccess === true){
+                agencyNetworkHasApiAccess = true;
+            }
+        }
+        catch(err){
+            log.error(`API Auth GetToken agencyNetworkBO DB access error ${error}` + __location);
+        }
 
+        if(agencyNetworkHasApiAccess !== true){
+            log.error(`Authentication failed - No API Access AGencyNetwork ${agencyPortalUserJSON.agencyNetworkId} agencyPortalUserId ${agencyPortalUserJSON.agencyPortalUserId}  `);
+            res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
+            return next();
+
+        }
         // Check the key
         if (!crypt.verifyPassword(agencyPortalUserJSON.password, req.body.password)) {
             log.info('Authentication failed');
             res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
             return next();
         }
-        // TODO check API access and Application manage rights
+        // TODO Application manage rights
 
         payload.userId = agencyPortalUserJSON.agencyPortalUserId;
     }

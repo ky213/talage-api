@@ -11,6 +11,7 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+const paymentPlanSVC = global.requireShared('./services/paymentplansvc');
 global.requireShared('./helpers/tracker.js');
 const {getLibertyOAuthToken, getLibertyQuoteProposal} = require('./api');
 
@@ -715,6 +716,90 @@ module.exports = class LibertyGL extends Integration{
         }
         catch(e){
             // This is handled in return_result()
+        }
+
+        //find payment plans
+        const insurerPaymentPlans =
+          res.Policy[0]?.QuoteInfo[0]?.QuoteInfoExt[0]?.PaymentOption?.map(
+            ({$, ...rest}) => ({
+              PaymentRule: $['com.libertymutual.ci_PaymentRuleInfoRefs'],
+              ...rest
+            })
+          )
+
+        if (insurerPaymentPlans?.length > 0) {
+          const [
+            Annual,
+            ,
+            Quarterly,
+            TenPay,
+            Monthly
+        ] = paymentPlanSVC.getList()
+          const talageInsurerPaymentPlans = []
+          const paymentPlansMap = {
+              'FL':Annual,
+              'QT': Quarterly,
+              'MO': Monthly,
+              '10': TenPay,
+              '9E': TenPay
+          }
+
+          const numberOfPayments = {
+            'FL': 1, // Full
+            'QT': 4, // Quarterly
+            'MO': 12, // Monthly
+            '10': 11, // 2 months down + 10 installments
+            '9E': 10 // 10% down + 9 equal payments.
+          }
+          const costFactor = {
+              ...numberOfPayments,
+              '10': 6
+          }
+
+          // Raw insurer payment plans
+        this.insurerPaymentPlans = insurerPaymentPlans
+
+          // Talage payment plans
+          for (const insurerPaymentPlan of insurerPaymentPlans) {
+            const code = insurerPaymentPlan.PaymentPlanCd[0]
+            const amount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+            const mode = insurerPaymentPlan.PaymentRule
+            const talagePaymentPlan = paymentPlansMap[code]
+            const total = amount * costFactor[code]
+            let installmentPayment = null
+
+            switch (code) {
+                case 'FL':
+                    installmentPayment = 0
+                    break;
+                case '10':
+                    installmentPayment = amount / 2
+                    break;
+                default:
+                    installmentPayment = amount
+            }
+
+            if (talagePaymentPlan) {
+              talageInsurerPaymentPlans.push({
+                paymentPlanId: talagePaymentPlan.id,
+                insurerPaymentPlanId: code,
+                insurerPaymentPlanDescription: mode,
+                NumberPayments: numberOfPayments[code],
+                TotalCost: total,
+                TotalPremium: total,
+                DownPayment: code === 'FL' ? 0 : amount,
+                TotalStateTaxes: 0,
+                TotalBillingFees: 0,
+                DepositPercent: Number((100 * amount / total).toFixed(2)),
+                IsDirectDebit: true,
+                installmentPayment: installmentPayment
+              })
+            }
+          }
+
+
+          this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
+
         }
 
         let quoteResult = null;

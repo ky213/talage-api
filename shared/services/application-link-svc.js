@@ -433,7 +433,6 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
     // const referringAgentName = `${agency.firstName} ${agency.lastName}`;
     // const agentEmail = options.agentEmail ? options.agentEmail : agency.email;
 
-    const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
     const toName = options.toName ? capitalizeName(options.toName).trim() : null;
     const agencyNetworkBO = new AgencyNetworkBO();
@@ -471,10 +470,13 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
             Thanks!
             </p>
         `;
+
+        let branding = '';
         try{
             const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"agency_portal_application_link");
             message = emailContentAgencyNetworkJSON.message ? emailContentAgencyNetworkJSON.message : message;
             emailSubject = emailContentAgencyNetworkJSON.subject ? emailContentAgencyNetworkJSON.subject : emailSubject;
+            branding = emailContentAgencyNetworkJSON.emailBrand;
         }
         catch(err){
             log.debug(`Error getting email content for agency_portal_application_link using hardcoded default ${err}` + __location);
@@ -490,7 +492,6 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
             emailSubject = emailSubject.replace(/{{Business Name}}/g, applicationJSON.businessName);
             emailSubject = emailSubject.replace(/{{Brand}}/g, brandName);
         }
-        let branding = agencyNetworkBranding ? '' : 'agency';
 
         const keys = {
             agencyLocationId: applicationJSON.agencyLocationId,

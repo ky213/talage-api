@@ -1723,9 +1723,9 @@ module.exports = class ApplicationModel {
                                 application.agencyName = agencyMap[application.agencyId];
                             }
                             else {
-                                const returnDoc = false;
+                                const returnReturnAgencyNetwork = false;
                                 const returnDeleted = true
-                                const agency = await agencyBO.getById(application.agencyId, returnDoc, returnDeleted).catch(function(err) {
+                                const agency = await agencyBO.getById(application.agencyId, returnReturnAgencyNetwork, returnDeleted).catch(function(err) {
                                     log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
                                 });
                                 if (agency) {
@@ -2381,7 +2381,12 @@ module.exports = class ApplicationModel {
             }
         }
         catch(err){
-            log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            if (err.message && err.message.includes('had no quotes to calculate premium')){
+                log.warn(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            }
+            else {
+                log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
+            }
         }
     }
 

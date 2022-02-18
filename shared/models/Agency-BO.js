@@ -105,7 +105,12 @@ module.exports = class AgencyBO {
                             log.debug("new favicon file name " + newObjectJSON.favicon);
                         }
                         catch(e) {
-                            log.error("Agency SaveModel error processing favicon " + e + __location);
+                            if (e.message && e.message.includes('Please upload your favicon in png or ico')){
+                                log.warn("Agency SaveModel error processing favicon " + e + __location);
+                            }
+                            else {
+                                log.error("Agency SaveModel error processing favicon " + e + __location);
+                            }
                             delete newObjectJSON.favicon;
                             reject(e);
                         }
@@ -283,7 +288,7 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
-                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && returnMongooseModel === false){
                         await this.updateRedisCache(docDB);
                     }
                     if(docDB && getAgencyNetwork === true){
@@ -831,7 +836,7 @@ module.exports = class AgencyBO {
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
