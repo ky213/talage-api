@@ -465,6 +465,11 @@ module.exports = class ApplicationModel {
         }
         this.#applicationMongooseDB = application;
         await this.updateRedisForAppInsert(application);
+        const agencyBO = new AgencyBO();
+        await agencyBO.saveModel({
+            id: application.agencyId,
+            $inc: {applications: 1}
+        })
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
             await this.updateRedisForAppAddDelete(application.applicationId, application, 1);

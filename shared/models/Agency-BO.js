@@ -825,7 +825,15 @@ module.exports = class AgencyBO {
                         }
                     }
                     // Add updatedAt
-                    newObjectJSON.updatedAt = new Date();
+                    if(newObjectJSON.hasOwnProperty('$inc') || newObjectJSON.hasOwnProperty('$set')){
+                        if(!newObjectJSON.hasOwnProperty('$set')) {
+                            newObjectJSON.$set = {};
+                        }
+                        newObjectJSON.$set.updatedAt = new Date();
+                    }
+                    else {
+                        newObjectJSON.updatedAt = new Date();
+                    }
 
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);

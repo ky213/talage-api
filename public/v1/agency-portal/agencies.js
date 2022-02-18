@@ -2,7 +2,6 @@
 
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
-const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
@@ -105,7 +104,6 @@ async function getAgencies(req, res, next){
         if(retAgencies){
             //Get app count.
             returnAgencyList = [];
-            const applicationBO = new ApplicationBO();
             const agencyLocationBO = new AgencyLocationBO();
             for(let i = 0; i < retAgencies.length; i++){
                 try{
@@ -131,12 +129,8 @@ async function getAgencies(req, res, next){
                     if(retAgencies[i].lastName){
                         agencyInfo.lastName = retAgencies[i].lastName;
                     }
-                    const _query = {"agencyId": retAgencies[i].systemId};
-                    //use getAppListForAgencyPortalSearch get hit redis cache
-                    //const appCount = await applicationBO.getAppListForAgencyPortalSearch(query);
                     if(addAppCount === true){
-                        const appCount = await applicationBO.getAppListForAgencyPortalSearch(_query, [], {count: 1});
-                        agencyInfo.applications = appCount.count;
+                        agencyInfo.applications = retAgencies[i].applications;
                     }
                     if(addLocations === true){
                         const queryLoc = {"agencyId": retAgencies[i].systemId}

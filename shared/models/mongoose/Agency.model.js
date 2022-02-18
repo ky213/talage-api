@@ -65,7 +65,8 @@ const AgencySchema = new Schema({
     socialMediaTags: [SocialMediaSchema],
     active: {type: Boolean, default: true},
     tierId: {type: Number},
-    tierName: {type: String}
+    tierName: {type: String},
+    applications: {type: Number, default: 0}
 }, opts);
 
 
