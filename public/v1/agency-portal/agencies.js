@@ -91,6 +91,20 @@ async function getAgencies(req, res, next){
             query.systemId = query.systemId.split(',');
         }
 
+        // Check permission before sorting
+        if (query.sort && (query.sort === 'tierId' || query.sort === 'tierName')) {
+            if(req.authentication.permissions.talageStaff) {
+                query.sortByTier = true;
+                query.sort = 'tierId';
+            }
+            else {
+                delete query.sort;
+                if (query.desc) {
+                    delete query.desc;
+                }
+            }
+        }
+
         const agencyBO = new AgencyBO();
         const GET_AGENCY_NETWORK = true;
         retAgencies = await agencyBO.getList(query, GET_AGENCY_NETWORK).catch(function(err) {

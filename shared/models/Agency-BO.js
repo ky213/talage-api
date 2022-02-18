@@ -451,13 +451,18 @@ module.exports = class AgencyBO {
             queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
-                if (queryJSON.desc) {
+                if (queryJSON.desc && queryJSON.desc !== 'false') {
                     acs = -1;
-                    delete queryJSON.desc;
+                }
+                delete queryJSON.desc;
+                if (queryJSON.sortByTier) {
+                    queryOptions.sort.tierSpecified = -1;
+                    delete queryJSON.sortByTier;
                 }
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
             }
+
             if(!queryOptions.sort.hasOwnProperty('name')) {
                 queryOptions.sort.name = 1;
             }
@@ -558,7 +563,9 @@ module.exports = class AgencyBO {
                 // eslint-disable-next-line prefer-const
                 try {
                     //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    docList = await AgencyModel.find(query, queryProjection, queryOptions).collation({locale: "en"}).lean();
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).
+                        collation({locale: "en"}). // Collation for case insensitive sorting
+                        lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
@@ -827,7 +834,7 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-                    // Add updatedAt
+                    // Check for atomic operators before adding updatedAt
                     if(newObjectJSON.hasOwnProperty('$inc') || newObjectJSON.hasOwnProperty('$set')){
                         if(!newObjectJSON.hasOwnProperty('$set')) {
                             newObjectJSON.$set = {};

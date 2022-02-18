@@ -282,6 +282,9 @@ async function getAgency(req, res, next) {
             if(agency.hasOwnProperty('tierName')) {
                 delete agency.tierName;
             }
+            if(agency.hasOwnProperty('tierSpecified')) {
+                delete agency.tierSpecified;
+            }
         }
     }
     catch (err) {
@@ -484,6 +487,7 @@ async function postAgency(req, res, next) {
     const talageWholesaleJson = req.body.talageWholesale;
     const tierId = req.body.tierId || null;
     const tierName = req.body.tierName || null;
+    const tierSpecified = Boolean(tierId);
 
     // Make sure we don't already have an user tied to this email address
     const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
@@ -558,7 +562,8 @@ async function postAgency(req, res, next) {
     }
 
     // If Talage Super User, add the agency tier fields to the create object
-    if (!req.authentication.permissions.talageStaff) {
+    if (req.authentication.permissions.talageStaff) {
+        newAgencyJSON.tierSpecified = tierSpecified;
         newAgencyJSON.tierId = tierId;
         newAgencyJSON.tierName = tierName;
     }
@@ -858,6 +863,8 @@ async function updateAgency(req, res, next) {
         }
     }
 
+    req.body.tierSpecified = Boolean(req.body.tierId);
+
     // If non-Talage Super User, remove the agency tier fields from the update object
     if (!req.authentication.permissions.talageStaff) {
         if(req.body.hasOwnProperty('tierId')) {
@@ -865,6 +872,9 @@ async function updateAgency(req, res, next) {
         }
         if(req.body.hasOwnProperty('tierName')) {
             delete req.body.tierName;
+        }
+        if(req.body.hasOwnProperty('tierSpecified')) {
+            delete req.body.tierSpecified;
         }
     }
 
