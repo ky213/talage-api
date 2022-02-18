@@ -185,6 +185,12 @@ const professionalLiabilityPolicySchema = new Schema({
     yearsOfProfessionalExperience: {type: Number, required: false}
 });
 
+const fireCodeSchema = new Schema({
+    fireCode: {type: Number, required: true},
+    description: {type: String, required: false},
+    attributes: {type: Schema.Types.Mixed, required: false}
+});
+
 const WaiverSubrogationSchema = new Schema({
     entityName: {type: String, required: true},
     address: {type: String, required: false},
@@ -214,7 +220,8 @@ const PolicySchema = new Schema({
     yearsWithCurrentInsurance: {type: Number, required: false},
     cyber: cyberPolicySchema,
     profLiability: professionalLiabilityPolicySchema,
-    bopIndustryCodeId: {type: Number, required: false}
+    bopIndustryCodeId: {type: Number, required: false},
+    fireCodes: [fireCodeSchema]
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
