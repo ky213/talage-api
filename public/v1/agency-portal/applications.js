@@ -705,16 +705,21 @@ async function getApplications(req, res, next){
         query.agencyId = req.body.agencyId;
     }
 
-    if(req.body.agencyNetworkId){
-        noCacheUse = true;
-        modifiedSearch = true;
-        query.agencyNetworkId = req.body.agencyNetworkId;
+    //Global View Check for AgencyNetworkId
+    if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+        && req.authentication.permissions.talageStaff === true
+        && req.authentication.enableGlobalView === true){
+        if(req.body.agencyNetworkId){
+            noCacheUse = true;
+            modifiedSearch = true;
+            query.agencyNetworkId = req.body.agencyNetworkId;
+        }
     }
 
-    if(req.body.mailingState){
+    if(req.body.state){
         noCacheUse = true;
         modifiedSearch = true;
-        query.mailingState = req.body.mailingState;
+        query.primaryState = req.body.state;
     }
 
     if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){
