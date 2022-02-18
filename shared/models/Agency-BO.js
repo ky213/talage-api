@@ -558,7 +558,7 @@ module.exports = class AgencyBO {
                 // eslint-disable-next-line prefer-const
                 try {
                     //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).collation({locale: "en"}).lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
