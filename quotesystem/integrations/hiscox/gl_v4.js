@@ -135,13 +135,52 @@ module.exports = class HiscoxGL extends Integration {
         ) {
             carrierLimits = ["300000/300000", "500000/500000", "1000000/2000000", "2000000/2000000"];
         }
+        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
         // Look up the insurer industry code, make sure we got a hit. //zy
-        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
-        this.log_debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
-        // If it's BOP, check that the link is made at industry code,
+        // If it's BOP, check if the code we have is used for BOP,
         // if not lookup the policy.bopCode
-        // Set the code that we're using here. No longer using industry_code.hiscox
+        if (this.policy.type === 'BOP') {
+            if (!this.insurerIndustryCode.attributes.codeIsUsedForBOP) {
+                const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
+                const bopCodeQuery = {
+                    active: true,
+                    territoryList: this.applicationDocData.mailingState,
+                    policyTypeList: 'BOP',
+                    effectiveDate: {$lte: policyEffectiveDate},
+                    expirationDate: {$gte: policyEffectiveDate}
+                }
+                const bopPolicy = this.applicationDocData.policies.find((p) => p.policyType === "BOP")
+                if(bopPolicy && bopPolicy.bopIndustryCodeId){
+                    bopCodeQuery.talageIndustryCodeIdList = bopPolicy.bopIndustryCodeId;
+                }
+                try {
+                    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+                    const insurerIndustryCodeList = await insurerIndustryCodeBO.getList(bopCodeQuery);
+                    if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
+                        const insurerIndustryCode = insurerIndustryCodeList[0];
+                        this.insurerIndustryCode = insurerIndustryCode;
+                        this.industry_code = JSON.parse(JSON.stringify(insurerIndustryCode));
+                        this.log_debug(`Insurer Industry Code used for BOP: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+                    }
+                    else {
+                        this.industry_code = null;
+                        if (this.requiresInsurerIndustryCodes) {
+                            this.reasons.push("An insurer industry class code was not found for the given industry and territory.");
+                            log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query ${JSON.stringify(bopCodeQuery)} ` + __location);
+                            return this.client_error(`An insurer industry class code was not found for the given industry and territory.`);
+                        }
+                    }
+
+                }
+                catch (err) {
+                    this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
+                    return this.client_error(`Trouble retrieving insurer industry class code.`)
+                }
+            }
+
+        }
+        this.log_debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
 
         // Define how legal entities are mapped for Hiscox
         const entityMatrix = {
@@ -420,7 +459,7 @@ module.exports = class HiscoxGL extends Integration {
             questionDetails = await this.get_question_details();
         }
         catch (error) {
-            this.log_error(`Unable to get question identifiers or details: ${error}`, __location);
+            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Unable to get question identifiers or details: ${error}`, __location);
             return this.return_result('error', "Could not retrieve the Hiscox question identifiers");
         }
 
@@ -589,7 +628,7 @@ module.exports = class HiscoxGL extends Integration {
                             cob = await insurerIndustryCodeBO.getList(cobDescQuery);
                         }
                         catch (err) {
-                            this.log_error(`Problem getting insurer industry code: ${err} ${__location}`);
+                            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
                         }
                         if (!cob || cob.length === 0) {
                             this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
@@ -651,14 +690,14 @@ module.exports = class HiscoxGL extends Integration {
                         insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
                     }
                     catch (err) {
-                        this.log_error(`Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
+                        this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
                     }
                     if (!insurerQuestionList || insurerQuestionList.length === 0) {
-                        this.log_error(`Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
+                        this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
                         continue;
                     }
                     if (!insurerQuestionList[0].attributes) {
-                        this.log_error(`No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
+                        this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
                         continue;
                     }
                     attributes = insurerQuestionList[0].attributes;
@@ -1107,7 +1146,7 @@ module.exports = class HiscoxGL extends Integration {
         // Get the request ID (optional)
         const requestId = result?.InsuranceSvcRs?.QuoteRs?.RqUID;
         if (!requestId) {
-            this.log_error('Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.');
+            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.`);
         }
         else {
             this.request_id = requestId;
@@ -1116,7 +1155,7 @@ module.exports = class HiscoxGL extends Integration {
         // Get the quote ID (optional)
         const quoteId = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberID;
         if (!quoteId) {
-            this.log_error('Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.');
+            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.`);
         }
         else {
             this.number = quoteId;
