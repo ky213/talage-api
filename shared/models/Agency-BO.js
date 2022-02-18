@@ -448,7 +448,7 @@ module.exports = class AgencyBO {
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {"name": 1};
+            queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
                 if (queryJSON.desc) {
@@ -457,6 +457,9 @@ module.exports = class AgencyBO {
                 }
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
+            }
+            if(!queryOptions.sort.hasOwnProperty('name')) {
+                queryOptions.sort.name = 1;
             }
             // else {
             //     queryOptions.sort.name = 1;
