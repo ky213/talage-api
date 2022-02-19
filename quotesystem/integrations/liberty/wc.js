@@ -92,7 +92,7 @@ module.exports = class LibertyWC extends Integration {
 
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
-        if (!limits) {
+        if (!limits || !(limits.length > 2)){
             log.error(`${logPrefix}Autodeclined: no limits. Insurer does not support the requested liability limits. ${__location}`);
             this.reasons.push(`Insurer does not support the requested liability limits`);
             return this.return_result('autodeclined');
@@ -542,33 +542,61 @@ module.exports = class LibertyWC extends Integration {
         }
 
         // Refine our selector
-        res = res.InsuranceSvcRs[0].PolicyRs[0];
+        try{
+            res = res.InsuranceSvcRs[0].PolicyRs[0];
+        }
+        catch(err){
+            log.error(`${logPrefix} InsuranceSvcRs[0].PolicyRs[0] not present ${err}` + __location);
+        }
+
+        let MsgStatusCd = '';
+        try{
+            MsgStatusCd = res.MsgStatus[0].MsgStatusCd[0];
+        }
+        catch(err){
+            log.error(`${logPrefix} unable to get MsgStatusCd ${err}` + __location);
+        }
 
         // If the status wasn't success, stop here
-        if (res.MsgStatus[0].MsgStatusCd[0] !== 'SuccessWithInfo') {
+        if (MsgStatusCd !== 'SuccessWithInfo') {
 
+            let ExtendedStatusDesc = '';
+            let ExtendedStatusCd = ''
+            try{
+                ExtendedStatusDesc = res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
+                ExtendedStatusCd = res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]
+            }
+            catch(err){
+                log.error(`${logPrefix}Integration Error: unable to get ExtendedStatusDesc or ExtendedStatusCd. ${__location}`);
+            }
             // Check if this was an outage
-            if (res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].indexOf('services being unavailable') >= 0) {
-                log.error(`${logPrefix}Insurer's API Responded With services being unavailable ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ${__location}`);
-                this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            if (ExtendedStatusDesc.indexOf('services being unavailable') >= 0) {
+                log.error(`${logPrefix}Insurer's API Responded With services being unavailable ${ExtendedStatusDesc} ${__location}`);
+                this.reasons.push(`${ExtendedStatusDesc}`);
                 return this.return_result('outage');
             }
 
             // Check if quote was declined because there was a pre-existing application for this customer
             const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
-            if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
-                this.reasons.push(`blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            if(ExtendedStatusDesc.toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
+                this.reasons.push(`blocked - ${ExtendedStatusDesc}`);
                 return this.return_result('declined');
             }
 
             // This was some other sort of error
-            log.error(`${logPrefix}Insurer's API Responded With ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ${__location}`);
-            this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            log.error(`${logPrefix}Insurer's API Responded With ${ExtendedStatusCd}: ${ExtendedStatusDesc} ${__location}`);
+            this.reasons.push(`${ExtendedStatusCd}: ${ExtendedStatusDesc}`);
             return this.return_result('error');
         }
 
         // Get the status from the insurer
-        const status = res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
+        let status = '';
+        try{
+            status = res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
+        }
+        catch(err){
+            log.error(`${logPrefix}Integration Error: unable to get status. ${__location}`);
+        }
         if (status !== 'Accept') {
             this.indication = true;
         }
@@ -691,88 +719,104 @@ module.exports = class LibertyWC extends Integration {
             log.error(`${logPrefix}Error getting limits. Error: ${e} ` + __location);
         }
 
-        //find payment plans
-        const insurerPaymentPlans =
-          res.Policy[0]?.QuoteInfo[0]?.QuoteInfoExt[0]?.PaymentOption?.map(
-            ({$, ...rest}) => ({
-              PaymentRule: $['com.libertymutual.ci_PaymentRuleInfoRefs'],
-              ...rest
-            })
-          )
-
-        if (insurerPaymentPlans?.length > 0) {
-          const [
-            Annual,
-            ,
-            Quarterly,
-            TenPay,
-            Monthly
-        ] = paymentPlanSVC.getList()
-          const talageInsurerPaymentPlans = []
-          const paymentPlansMap = {
-              'FL':Annual,
-              'QT': Quarterly,
-              'MO': Monthly,
-              '10': TenPay,
-              '9E': TenPay
-          }
-
-          const numberOfPayments = {
-            'FL': 1, // Full
-            'QT': 4, // Quarterly
-            'MO': 12, // Monthly
-            '10': 11, // 2 months down + 10 installments
-            '9E': 10 // 10% down + 9 equal payments.
-          }
-          const costFactor = {
-              ...numberOfPayments,
-              '10': 6
-          }
-
-          // Raw insurer payment plans
-        this.insurerPaymentPlans = insurerPaymentPlans
-
-          // Talage payment plans
-          for (const insurerPaymentPlan of insurerPaymentPlans) {
-            const code = insurerPaymentPlan.PaymentPlanCd[0]
-            const amount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
-            const mode = insurerPaymentPlan.PaymentRule
-            const talagePaymentPlan = paymentPlansMap[code]
-            const total = amount * costFactor[code]
-            let installmentPayment = null
-
-            switch (code) {
-                case 'FL':
-                    installmentPayment = 0
-                    break;
-                case '10':
-                    installmentPayment = amount / 2
-                    break;
-                default:
-                    installmentPayment = amount
+        try{
+            //find payment plans
+            let insurerPaymentPlans = [];
+            try{
+                insurerPaymentPlans =
+                res.Policy[0]?.QuoteInfo[0]?.QuoteInfoExt[0]?.PaymentOption?.map(
+                    ({$, ...rest}) => ({
+                    PaymentRule: $['com.libertymutual.ci_PaymentRuleInfoRefs'],
+                    ...rest
+                    })
+                )
+            }
+            catch(err){
+                log.error(`${logPrefix}Integration Error: unable to get PaymentOption ${err}. ${__location}`);
             }
 
-            if (talagePaymentPlan) {
-              talageInsurerPaymentPlans.push({
-                paymentPlanId: talagePaymentPlan.id,
-                insurerPaymentPlanId: code,
-                insurerPaymentPlanDescription: mode,
-                NumberPayments: numberOfPayments[code],
-                TotalCost: total,
-                TotalPremium: total,
-                DownPayment: code === 'FL' ? 0 : amount,
-                TotalStateTaxes: 0,
-                TotalBillingFees: 0,
-                DepositPercent: Number((100 * amount / total).toFixed(2)),
-                IsDirectDebit: true,
-                installmentPayment: installmentPayment
-              })
+            if (insurerPaymentPlans?.length > 0) {
+                const [
+                    Annual,
+                    ,
+                    Quarterly,
+                    TenPay,
+                    Monthly
+                ] = paymentPlanSVC.getList()
+                const talageInsurerPaymentPlans = []
+                const paymentPlansMap = {
+                    'FL':Annual,
+                    'QT': Quarterly,
+                    'MO': Monthly,
+                    '10': TenPay,
+                    '9E': TenPay
+                }
+
+                const numberOfPayments = {
+                    'FL': 1, // Full
+                    'QT': 4, // Quarterly
+                    'MO': 12, // Monthly
+                    '10': 11, // 2 months down + 10 installments
+                    '9E': 10 // 10% down + 9 equal payments.
+                }
+                const costFactor = {
+                    ...numberOfPayments,
+                    '10': 6
+                }
+
+                // Raw insurer payment plans
+                this.insurerPaymentPlans = insurerPaymentPlans
+
+                // Talage payment plans
+                for (const insurerPaymentPlan of insurerPaymentPlans) {
+                    try{
+                        const code = insurerPaymentPlan.PaymentPlanCd[0]
+                        const amount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+                        const mode = insurerPaymentPlan.PaymentRule
+                        const talagePaymentPlan = paymentPlansMap[code]
+                        const total = amount * costFactor[code]
+                        let installmentPayment = null
+
+                        switch (code) {
+                            case 'FL':
+                                installmentPayment = 0
+                                break;
+                            case '10':
+                                installmentPayment = amount / 2
+                                break;
+                            default:
+                                installmentPayment = amount
+                        }
+
+                        if (talagePaymentPlan) {
+                        talageInsurerPaymentPlans.push({
+                            paymentPlanId: talagePaymentPlan.id,
+                            insurerPaymentPlanId: code,
+                            insurerPaymentPlanDescription: mode,
+                            NumberPayments: numberOfPayments[code],
+                            TotalCost: total,
+                            TotalPremium: total,
+                            DownPayment: code === 'FL' ? 0 : amount,
+                            TotalStateTaxes: 0,
+                            TotalBillingFees: 0,
+                            DepositPercent: Number((100 * amount / total).toFixed(2)),
+                            IsDirectDebit: true,
+                            installmentPayment: installmentPayment
+                        })
+                        }
+                    }
+                    catch(err){
+                        log.error(`${logPrefix}Integration Error: unable to get to process insurerPaymentPlan ${JSON.stringify(insurerPaymentPlan)}  ${err}. ${__location}`);
+                    }
+                }
+
+
+                this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
+
             }
-          }
-
-
-          this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
-
+        }
+        catch(err){
+            log.error(`${logPrefix}Integration Error: unable to process paymentplans ${err}. ${__location}`);
         }
 
 
