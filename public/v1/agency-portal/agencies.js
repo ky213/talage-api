@@ -91,18 +91,26 @@ async function getAgencies(req, res, next){
             query.systemId = query.systemId.split(',');
         }
 
-        // Check permission before sorting
-        if (query.sort && (query.sort === 'tierId' || query.sort === 'tierName')) {
-            if(req.authentication.permissions.talageStaff) {
-                query.sortByTier = true;
-                query.sort = 'tierId';
-            }
-            else {
-                delete query.sort;
-                if (query.desc) {
-                    delete query.desc;
+        switch(query.sort) {
+            case 'tierId':
+            case 'tierName':
+                // Check permission for agency tier before sorting
+                if(req.authentication.permissions.talageStaff) {
+                    query.sortByTier = true;
+                    query.sort = 'tierId';
                 }
-            }
+                else {
+                    delete query.sort;
+                    if (query.desc) {
+                        delete query.desc;
+                    }
+                }
+                break;
+            case 'state':
+                query.sort = 'active';
+                break;
+            default:
+                break;
         }
 
         const agencyBO = new AgencyBO();
