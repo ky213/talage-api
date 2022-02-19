@@ -524,10 +524,11 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 
     //add industry description
-    if(applicationJSON.industryCode){
+    if(applicationJSON.industryCode && parseInt(applicationJSON.industryCode, 10) > 0){
         const industryCodeBO = new IndustryCodeBO();
         try{
-            const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+            const industryCodeId = parseInt(applicationJSON.industryCode, 10);
+            const industryCodeJson = await industryCodeBO.getById(industryCodeId);
             if(industryCodeJson){
                 applicationJSON.industryCodeName = industryCodeJson.description;
                 const industryCodeCategoryBO = new IndustryCodeCategoryBO()
@@ -538,7 +539,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
             }
         }
         catch(err){
-            log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
+            log.warn(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
         }
     }
     else {
