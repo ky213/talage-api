@@ -428,7 +428,7 @@ async function getApplications(req, res, next){
             "optional": true
         },
         {
-            "name": 'mailingState',
+            "name": 'state',
             "type": 'string',
             "optional": true
         }
@@ -440,14 +440,11 @@ async function getApplications(req, res, next){
     }
     // All parameters and their values have been validated at this point -SFv
 
-
-    // Create MySQL date strings
     let startDateMoment = null;
     let endDateMoment = null;
 
     //Fix bad dates coming in.
     if(req.params.startDate){
-        //req.params.startDate = moment('2017-01-01').toISOString();
         startDateMoment = moment(req.params.startDate).utc();
     }
 
@@ -705,17 +702,6 @@ async function getApplications(req, res, next){
         query.agencyId = req.body.agencyId;
     }
 
-    //Global View Check for AgencyNetworkId
-    if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
-        && req.authentication.permissions.talageStaff === true
-        && req.authentication.enableGlobalView === true){
-        if(req.body.agencyNetworkId){
-            noCacheUse = true;
-            modifiedSearch = true;
-            query.agencyNetworkId = req.body.agencyNetworkId;
-        }
-    }
-
     if(req.body.state){
         noCacheUse = true;
         modifiedSearch = true;
@@ -825,7 +811,13 @@ async function getApplications(req, res, next){
                     log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
                 }
 
-
+                //Global View Check for filtering on agencyNetwork
+                if(req.body.agencyNetworkId){
+                    noCacheUse = true;
+                    modifiedSearch = true;
+                    //make sure it is an integer or set it to -1 so there are no matches.
+                    query.agencyNetworkId = parseInt(req.params.agencyNetworkId,10) ? parseInt(req.params.agencyNetworkId,10) : -1;
+                }
             }
             if(isGlobalViewMode === false){
                 query.agencyNetworkId = agencyNetworkId;
