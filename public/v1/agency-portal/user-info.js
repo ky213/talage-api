@@ -32,7 +32,7 @@ async function GetUserInfo(req, res, next){
     catch(err){
         log.error(`Could not convert userID ${req.authentication.userID} to int. error ${err} ` + __location);
     }
-    if(userId === 0){
+    if(!userId && userId === 0){
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
     let error = null;
@@ -58,7 +58,7 @@ async function GetUserInfo(req, res, next){
     if(isAgencyNetworkUser){
         agencyNetworkId = userInfo.agencyNetworkId;
     }
-    else {
+    else if (userInfo.agencyId > 0){
         //load AgencyBO
         try{
             // Load the request data into it
@@ -82,36 +82,44 @@ async function GetUserInfo(req, res, next){
 
 
     }
+    else {
+        log.error(`AP user misconfigured agencyPortalUserId ${userId}  ` + __location);
+    }
 
     //agencynetworkBO
     //let error = null;
-    const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
-        //error = err;
-        log.error("Get AgencyNetwork Error " + err + __location);
-    })
-    if(agencyNetworkJSON){
-        userInfo.feature_json = agencyNetworkJSON.featureJson;
-        if(!agencyNetworkJSON.additionalInfo){
-            log.error("additionalInfo was not present on agencyNetwork: " + agencyNetworkJSON.id);
-        }
-        else if(!agencyNetworkJSON.additionalInfo.contactEmailAddress){
-            log.error("contactEmailAddress was not present on additionalInfo for agencyNetwork: " + agencyNetworkJSON.id);
-        }
-        else {
-            userInfo.contactEmailAddress = agencyNetworkJSON.additionalInfo.contactEmailAddress;
-        }
-        if(agencyNetwork){
-            if(agencyNetworkJSON.hasOwnProperty('logo')){
-                logoName = agencyNetworkJSON.logo;
+    if(agencyNetworkId > 0){
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
+            //error = err;
+            log.error("Get AgencyNetwork Error " + err + __location);
+        })
+        if(agencyNetworkJSON){
+            userInfo.feature_json = agencyNetworkJSON.featureJson;
+            if(!agencyNetworkJSON.additionalInfo){
+                log.error("additionalInfo was not present on agencyNetworkId: " + agencyNetworkJSON.id + __location);
             }
-            userInfo.logo = logoName; // TODO: DELETE -- keep for backward compat till next sprint
-            userInfo.logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
-            userInfo.name = agencyNetworkJSON.name;
+            else if(!agencyNetworkJSON.additionalInfo.contactEmailAddress){
+                log.error("contactEmailAddress was not present on additionalInfo for agencyNetworkId: " + agencyNetworkJSON.id + __location);
+            }
+            else {
+                userInfo.contactEmailAddress = agencyNetworkJSON.additionalInfo.contactEmailAddress;
+            }
+            if(agencyNetwork){
+                if(agencyNetworkJSON.hasOwnProperty('logo')){
+                    logoName = agencyNetworkJSON.logo;
+                }
+                userInfo.logo = logoName; // TODO: DELETE -- keep for backward compat till next sprint
+                userInfo.logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
+                userInfo.name = agencyNetworkJSON.name;
+            }
+            else {
+                userInfo.helpText = agencyNetworkJSON.help_text
+            }
         }
-        else {
-            userInfo.helpText = agencyNetworkJSON.help_text
-        }
+    }
+    else {
+        log.error(`AP user misconfigured agencyPortalUserId ${userId} missing agencyNetworkId ` + __location);
     }
 
     // Check that the user has accepted the latest Terms of Service version
