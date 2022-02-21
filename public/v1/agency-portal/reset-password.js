@@ -97,6 +97,9 @@ async function PostResetPassword(req, res, next){
             log.info('Reset Password Request Complete');
         }
     }
+    else {
+        log.info(`Reset Password did not find user ${req.body.email} for agencyNetwork ${req.body.agencyNetowrkId}`)
+    }
     // Always send a success response. This prevents leaking information about valid email addresses in our database.
     res.send(200, {
         'code': 'Success',
