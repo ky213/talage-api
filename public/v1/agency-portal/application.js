@@ -2246,20 +2246,19 @@ async function accesscheckEmail(email, applicationJSON){
     try{
         const agencyPortalUserBO = new AgencyPortalUserBO();
         const toUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, applicationJSON.agencyNetworkId);
-        if(toUser.isAgencyNetworkUser){
+        if(toUser?.isAgencyNetworkUser){
             if(toUser.agencyNetworkId === applicationJSON.agencyNetworkId){
                 hasAccess = true;
             }
 
         }
-        else if(toUser.agencyId === applicationJSON.agencyId){
+        else if(toUser?.agencyId === applicationJSON.agencyId){
             hasAccess = true;
         }
        
     }
     catch(err){
-        log.error("Error accesscheckEmail " + err + __location)
-        throw err;
+        log.error(`Error accesscheckEmail ${email} appId ${applicationJSON.applicationId} ` + err + __location)
     }
 
     return hasAccess;
