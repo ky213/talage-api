@@ -226,7 +226,9 @@ async function getAgency(req, res, next) {
     // Validate parameters
     if (!await validator.integer(agent)) {
         log.info('Bad Request: Invalid agent selected');
-        return next(serverHelper.requestError('The agent you selected is invalid'));
+        // return next(serverHelper.requestError('The agent you selected is invalid'));
+        //Just return not found
+        return next(serverHelper.notFoundError('Agency not found'));
     }
     error = null;
     const agencyBO = new AgencyBO();
@@ -244,10 +246,10 @@ async function getAgency(req, res, next) {
         return next(serverHelper.notFoundError('Agency not found'));
     }
 
-    // Make sure we got back the expected data
+    // Make sure we found the agency
     if (!agency) {
-        log.error(`Agency not found after having passed request validation agencyId ${agent} ` + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+        log.info(`Agency not found agencyId ${agent} ` + __location);
+        return next(serverHelper.notFoundError('Agency not found'));
     }
     agency.state = agency.active ? "Active" : "Inactive";
     //remove old property names.
