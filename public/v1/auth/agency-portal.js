@@ -100,7 +100,8 @@ async function createTokenEndpoint(req, res, next){
         const token = `Bearer ${jwtToken}`;
 
         const redisKey = "apusermfacode-" + agencyPortalUserDBJson.agencyPortalUserId + "-" + mfaCode;
-        await global.redisSvc.storeKeyValue(redisKey, mfaCode);
+        const ttlSeconds = 900; //15 minutes
+        await global.redisSvc.storeKeyValue(redisKey, mfaCode, ttlSeconds);
 
         // Send Email
         //just so getEmailContent works.
