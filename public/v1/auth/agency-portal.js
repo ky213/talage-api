@@ -13,7 +13,7 @@ const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js')
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AuthHelper = require('./auth-helper');
 const emailsvc = global.requireShared('./services/emailsvc.js');
-const mfaCodesvc = global.requireShared('./services/mfaCodesvc.js');
+const mfaCodesvc = global.requireShared('./services/mfaCodeSvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
 /**
