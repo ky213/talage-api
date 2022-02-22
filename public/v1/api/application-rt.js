@@ -154,7 +154,7 @@ async function applicationSave(req, res, next) {
     log.debug("Application Post: " + JSON.stringify(req.body));
 
     //Does user have rights to manage applications
-    if(!(req.userTokenData?.apiToken && req.userTokenData?.permissions?.applications?.manage === true)){
+    if(!req.userTokenData.quoteApp && !(req.userTokenData?.apiToken && req.userTokenData?.permissions?.applications?.manage === true)){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
@@ -181,7 +181,7 @@ async function applicationSave(req, res, next) {
         log.debug(`API Saving new application`);
 
         // Auto added agencyId for agency level user. (or overwrite)
-        if(req.userTokenData?.apiToken && !req.userTokenData.isAgencyNetworkUser){
+        if(!req.userTokenData.quoteApp && req.userTokenData?.apiToken && !req.userTokenData.isAgencyNetworkUser){
             if(req.userTokenData.agencyId){
                 req.body.agencyId = req.userTokenData.agencyId
             }
