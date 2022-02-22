@@ -309,6 +309,9 @@ async function mfacheck(req, res, next) {
         return next(serverHelper.notAuthorizedError('Not Authorized'));
     }
     else {
+        // for security, we delete the key. Auto-login is one-time use only
+        await global.redisSvc.deleteKey(redisKey);
+
         //load Agency Portal BO
         const agencyPortalUserBO = new AgencyPortalUserBO();
         const agencyPortalUserDBJson = await agencyPortalUserBO.getById(req.authentication.userId).catch(function(e) {
