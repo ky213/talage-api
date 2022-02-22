@@ -524,6 +524,13 @@ module.exports = class AgencyBO {
                 query.agencyId = queryJSON.agencyId;
                 delete queryJSON.agencyId;
             }
+            //agencyNetworkId
+            if(queryJSON.agencyNetworkId){
+                query.agencyNetworkId = queryJSON.agencyNetworkId;
+                delete queryJSON.agencyNetworkId;
+            }
+
+
             //doNotReport false - So we can search on false
             if(queryJSON.doNotReport === false){
                 query.doNotReport = false;
@@ -562,7 +569,7 @@ module.exports = class AgencyBO {
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
+                    log.debug("AgencyBO GetList query " + JSON.stringify(query) + __location);
                     docList = await AgencyModel.find(query, queryProjection, queryOptions).
                         collation({locale: "en"}). // Collation for case insensitive sorting
                         lean();
@@ -834,14 +841,8 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-                    // Check for atomic operators before adding updatedAt
-                    if(newObjectJSON.hasOwnProperty('$inc') || newObjectJSON.hasOwnProperty('$set')){
-                        if(!newObjectJSON.hasOwnProperty('$set')) {
-                            newObjectJSON.$set = {};
-                        }
-                        newObjectJSON.$set.updatedAt = new Date();
-                    }
-                    else {
+                    // Check for $inc atomic operator before adding updatedAt
+                    if(!newObjectJSON.hasOwnProperty('$inc')) {
                         newObjectJSON.updatedAt = new Date();
                     }
 

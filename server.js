@@ -60,6 +60,28 @@ function validateJWT(options) {
     };
 }
 
+/**
+ * Middlware for authenticated endpoints which validates the JWT for AgencyPortal MFA
+ *
+ * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
+ * @returns {void}
+ */
+function validateJWTforMFA(options) {
+    return async(req, res, next) => {
+        if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
+            log.info('MFA Forbidden: User is not authenticated' + __location);
+            return next(new RestifyError.ForbiddenError('User is not authenticated'));
+        }
+        log.debug(`validateJWTforMFA ${JSON.stringify(req.authentication)}`)
+        if (req.authentication.mfaCheck === true && req.authentication.userId && parseInt(req.authentication.userId,10) > 0){
+            return options.handler(req, res, next)
+        }
+        else {
+            log.info('MFA Forbidden: User is not authenticated' + __location);
+            return next(new RestifyError.ForbiddenError('User is not authenticated'));
+        }
+    };
+}
 
 /**
  * Middlware for authenticated endpoints which validates the JWT for Administration site
@@ -283,50 +305,21 @@ class AbstractedHTTPServer {
         }));
     }
 
-    addPostAuthAppWF(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
+    addPostMFA(name, path, handler, permission = null, permissionType = null) {
+        name += ' (auth)';
         this.server.post({
             name: name,
             path: path
         },
         processJWT(),
-        validateJWT({
+        validateJWTforMFA({
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
-            agencyPortal: false
+            agencyPortal: true
         }));
     }
 
-    addPutAuthAppWF(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
-        this.server.put({
-            name: name,
-            path: path
-        },
-        processJWT(),
-        validateJWT({
-            handler: handlerWrapper(path, handler),
-            permission: permission,
-            permissionType: permissionType,
-            agencyPortal: false
-        }));
-    }
-
-    addGetAuthAppWF(name, path, handler, permission = null, permissionType = null) {
-        name += ' (authAppWF)';
-        this.server.get({
-            name: name,
-            path: path
-        },
-        processJWT(),
-        validateJWT({
-            handler: handlerWrapper(path, handler),
-            permission: permission,
-            permissionType: permissionType,
-            agencyPortal: false
-        }));
-    }
 
     addPostAuthAppApi(name, path, handler, permission = null, permissionType = null) {
         name += ' (authAPI)';

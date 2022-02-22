@@ -1255,7 +1255,7 @@ module.exports = class Integration {
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_price === 'undefined') {
                 const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the _insurer_price() function`;
-                log.error(error_message + __location);
+                log.info(error_message + __location);
                 this.reasons.push(error_message);
                 fulfill(false);
                 return;

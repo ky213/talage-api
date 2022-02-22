@@ -524,10 +524,11 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 
     //add industry description
-    if(applicationJSON.industryCode){
+    if(applicationJSON.industryCode && parseInt(applicationJSON.industryCode, 10) > 0){
         const industryCodeBO = new IndustryCodeBO();
         try{
-            const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+            const industryCodeId = parseInt(applicationJSON.industryCode, 10);
+            const industryCodeJson = await industryCodeBO.getById(industryCodeId);
             if(industryCodeJson){
                 applicationJSON.industryCodeName = industryCodeJson.description;
                 const industryCodeCategoryBO = new IndustryCodeCategoryBO()
@@ -538,7 +539,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
             }
         }
         catch(err){
-            log.error(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
+            log.warn(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
         }
     }
     else {
@@ -2245,20 +2246,19 @@ async function accesscheckEmail(email, applicationJSON){
     try{
         const agencyPortalUserBO = new AgencyPortalUserBO();
         const toUser = await agencyPortalUserBO.getByEmailAndAgencyNetworkId(email, true, applicationJSON.agencyNetworkId);
-        if(toUser.isAgencyNetworkUser){
+        if(toUser?.isAgencyNetworkUser){
             if(toUser.agencyNetworkId === applicationJSON.agencyNetworkId){
                 hasAccess = true;
             }
 
         }
-        else if(toUser.agencyId === applicationJSON.agencyId){
+        else if(toUser?.agencyId === applicationJSON.agencyId){
             hasAccess = true;
         }
        
     }
     catch(err){
-        log.error("Error accesscheckEmail " + err + __location)
-        throw err;
+        log.error(`Error accesscheckEmail ${email} appId ${applicationJSON.applicationId} ` + err + __location)
     }
 
     return hasAccess;

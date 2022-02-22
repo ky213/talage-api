@@ -469,7 +469,7 @@ module.exports = class ApplicationModel {
         await agencyBO.saveModel({
             id: application.agencyId,
             $inc: {applications: 1}
-        })
+        });
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
             await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
@@ -2023,14 +2023,14 @@ module.exports = class ApplicationModel {
             }
         }
         catch(err){
-            log.error("Error checking application doc " + err + __location)
+            log.error("AppBO GetQuestions Error checking application doc " + err + __location)
             throw new Error("Error checking application doc ");
         }
         if(passedAgencyCheck === false){
-            throw new Error("permission denied");
+            throw new Error("AppBO GetQuestions permission denied" + __location);
         }
         if(!applicationDocDB){
-            throw new Error("not found");
+            throw new Error("AppBO GetQuestions not found" + __location);
         }
 
         // check SAQ to populate the answeredList with location answers if they are there
@@ -2057,12 +2057,12 @@ module.exports = class ApplicationModel {
 
         //industrycode
         let industryCodeStringArray = [];
-        if(applicationDocDB.industryCode){
+        if(applicationDocDB.industryCode && parseInt(applicationDocDB.industryCode, 10) > 0){
             industryCodeStringArray.push(applicationDocDB.industryCode);
         }
         else {
-            log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
-            throw new Error("Incomplete Application: Application Industry Code")
+            log.warn(`AppBO GetQuestions - no Application Industry Code for ${applicationDocDB.applicationId}.` + __location)
+            return {};
         }
         const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
         if(bopPolicy && bopPolicy.bopIndustryCodeId){
@@ -2093,11 +2093,18 @@ module.exports = class ApplicationModel {
                     effectiveDate: moment()
                 });
             }
+            if(policyTypeArray.length === 0){
+                log.warn(`AppBO GetQuestions no policy Types got selected for ${applicationDocDB.applicationId}j.` + __location)
+                return {};
+            }
         }
         else {
-            log.error(`Data problem prevented getting Application Policy Types for ${applicationDocDB.uuid} . throwing error` + __location)
-            throw new Error("Incomplete Application: Application Policy Types")
+            log.warn(`AppBO GetQuestions - No Policy Types for ${applicationDocDB.applicationId} . throwing error` + __location)
+            return {};
         }
+        //
+
+
         // get activitycodes.
         // activity codes are not required for For most GL or BOP. only WC.
         // Future Enhance is to take insurers into account. For Example: Acuity mixes GL and WC concepts.
@@ -2148,8 +2155,8 @@ module.exports = class ApplicationModel {
         }
         else if(requireActivityCodes) {
             if(questionSubjectArea === 'general'){
-                log.error(`Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
-                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+                log.warn(`AppBO GetQuestions - Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
+                return {};
             }
         }
         //zipCodes
@@ -2168,7 +2175,7 @@ module.exports = class ApplicationModel {
                 stateList.push(location.state)
             }
             else {
-                log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. using mailing` + __location)
+                log.error(`AppBO GetQuestions - Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. using mailing` + __location)
                 zipCodeArray.push(applicationDocDB.mailingZipcode);
                 stateList.push(applicationDocDB.mailingState)
             }
@@ -2199,8 +2206,8 @@ module.exports = class ApplicationModel {
             // do nothing.
         }
         else {
-            log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
-            throw new Error("Incomplete Application: Application locations")
+            log.warn(`AppBO GetQuestions - Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}.` + __location)
+            return {};
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));
@@ -2215,7 +2222,7 @@ module.exports = class ApplicationModel {
             }
         }
         else {
-            log.error(`Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
+            log.error(`AppBO GetQuestions - Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
@@ -2228,11 +2235,11 @@ module.exports = class ApplicationModel {
             getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`AppBO GetQuestions - No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
-            log.error("Error call in question service " + err + __location);
+            log.error("AppBO GetQuestions - Error call in question service " + err + __location);
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
         questionsObject.questionList = getQuestionsResult
