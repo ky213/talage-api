@@ -1060,7 +1060,19 @@ async function postSocialMediaInfo(req, res, next) {
  */
 async function getAgencyTierList(req, res, next) {
     const AgencyTierSvc = global.requireShared('services/agencytiersvc.js');
-    const agencyTierList = AgencyTierSvc.getList();
+    let agencyTierList = AgencyTierSvc.getList();
+    if(req.query.asSearchOptions) {
+        agencyTierList = [
+            {
+                text: 'All Agency Tiers',
+                value: -1
+            },
+            ...agencyTierList.map((agencyTier) => ({
+                text: agencyTier.name,
+                value: agencyTier.id
+            }))
+        ];
+    }
     res.send(200, agencyTierList);
     return next();
 }
