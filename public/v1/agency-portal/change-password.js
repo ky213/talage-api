@@ -30,7 +30,7 @@ async function putChangePassword(req, res, next){
 
     // Check for data
     if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-        log.warn('No data was received');
+        log.warn('No data was received' + __location);
         return next(serverHelper.requestError('No data was received'));
     }
 
@@ -44,26 +44,31 @@ async function putChangePassword(req, res, next){
             password = await crypt.hashPassword(req.body.password);
         }
         else{
-            log.warn('Password does not meet requirements');
+            log.warn('Password does not meet requirements' + __location);
             return next(serverHelper.requestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
         }
     }
 
     // Do we have something to update?
     if(!password){
-        log.warn('There is nothing to update');
+        log.warn('There is nothing to update' + __location);
         return next(serverHelper.requestError('There is nothing to update. Please check the documentation.'));
     }
 
     // Create and run the UPDATE query
-
-    const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
-    const agencyPortalUserBO = new AgencyPortalUserBO();
-    await agencyPortalUserBO.setPasword(parseInt(req.authentication.userID, 10), password).catch(function(err){
-        log.error(err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-    });
-
+    if(parseInt(req.authentication.userID, 10) > 0){
+        const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        await agencyPortalUserBO.setPasword(parseInt(req.authentication.userID, 10), password).catch(function(err){
+            log.warn(err.message + __location);
+            return next(serverHelper.internalError('Unable to set new password'));
+        });
+    }
+    else {
+        //bad request.
+        log.warn('Change password bad user id' + __location);
+        return next(serverHelper.requestError("bad id"));
+    }
 
     // Everything went okay, send a success response
     res.send(200, 'Account Updated');

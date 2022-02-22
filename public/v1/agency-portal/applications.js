@@ -21,6 +21,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
 const AgencyPortalUserBO = global.requireShared("./models/AgencyPortalUser-BO.js");
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
+const TerritoryBO = global.requireShared('./models/Territory-BO.js');
 
 /**
  * Validates the parameters for the applications call
@@ -415,6 +416,21 @@ async function getApplications(req, res, next){
             "name": 'appValue',
             "type": 'number',
             "optional": true
+        },
+        {
+            "name": 'agencyId',
+            "type": 'number',
+            "optional": true
+        },
+        {
+            "name": 'agencyNetworkId',
+            "type": 'number',
+            "optional": true
+        },
+        {
+            "name": 'state',
+            "type": 'string',
+            "optional": true
         }
     ];
 
@@ -424,14 +440,11 @@ async function getApplications(req, res, next){
     }
     // All parameters and their values have been validated at this point -SFv
 
-
-    // Create MySQL date strings
     let startDateMoment = null;
     let endDateMoment = null;
 
     //Fix bad dates coming in.
     if(req.params.startDate){
-        //req.params.startDate = moment('2017-01-01').toISOString();
         startDateMoment = moment(req.params.startDate).utc();
     }
 
@@ -683,6 +696,18 @@ async function getApplications(req, res, next){
         req.params.searchText = req.params.searchText.replace("skiprenewals", "").trim()
     }
 
+    if(req.body.agencyId){
+        noCacheUse = true;
+        modifiedSearch = true;
+        query.agencyId = req.body.agencyId;
+    }
+
+    if(req.body.state){
+        noCacheUse = true;
+        modifiedSearch = true;
+        query.primaryState = req.body.state;
+    }
+
     if(req.params.searchText.length === 1 && req.params.searchText.search(/\W/) > -1){
         req.params.searchText = '';
     }
@@ -786,7 +811,13 @@ async function getApplications(req, res, next){
                     log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
                 }
 
-
+                //Global View Check for filtering on agencyNetwork
+                if(req.body.agencyNetworkId){
+                    noCacheUse = true;
+                    modifiedSearch = true;
+                    //make sure it is an integer or set it to -1 so there are no matches.
+                    query.agencyNetworkId = parseInt(req.params.agencyNetworkId,10) ? parseInt(req.params.agencyNetworkId,10) : -1;
+                }
             }
             if(isGlobalViewMode === false){
                 query.agencyNetworkId = agencyNetworkId;
@@ -808,7 +839,13 @@ async function getApplications(req, res, next){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
-                    query.agencyId = {$nin: donotReportAgencyIdArray};
+                    // If there is already an agencyId on the request body it will add it as $eq
+                    if(query.agencyId){
+                        query.agencyId = {$nin: donotReportAgencyIdArray, $eq: query.agencyId}
+                    }
+                    else {
+                        query.agencyId = {$nin: donotReportAgencyIdArray};
+                    }
                 }
             }
             if(req.params.searchText.length > 2){
@@ -1073,6 +1110,70 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
 }
 
 /**
+ * Get the territories needed on the application filter resources
+ *
+ * @returns {array} List of all territories
+ */
+async function getTerritories(){
+    const territoryBO = new TerritoryBO();
+    try {
+        const allTerritories = await territoryBO.getAbbrNameList();
+        return allTerritories;
+    }
+    catch(error){
+        log.error('DB query for territories list failed: ' + error.message + __location);
+    }
+}
+
+/**
+ * Get the agency network list for talageStaff and for Global View
+ * @param {object} authentication - Authentication properties
+ * @returns {array} List of all territories
+ */
+async function getAgencyNetworkList(authentication) {
+    const agencyNetworkId = parseInt(authentication.agencyNetworkId, 10);
+    let agencyNetworkList = [];
+    if(authentication.isAgencyNetworkUser && agencyNetworkId === 1
+			&& authentication.permissions.talageStaff
+			&& authentication.enableGlobalView){
+        try{
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworks = await agencyNetworkBO.getList({});
+            agencyNetworkList = agencyNetworks.map(agencyNetwork => ({
+                'agencyNetworkId': agencyNetwork.agencyNetworkId,
+                'brandName': agencyNetwork.brandName
+            }));
+        }
+        catch(error){
+            log.error(`Get Agency Network List Error ${error}` + __location)
+        }
+    }
+    return agencyNetworkList;
+}
+
+/**
+ * Populates the resources object with states and agency networks
+ * @param {object} resources - Resources Object to be decorated
+ * @param {object} authentication - Authentication properties
+ * @returns {void}
+ */
+async function populateStatesAndAgencyNetwork(resources, authentication){
+    try {
+        resources.states = await getTerritories();
+    }
+    catch{
+        // Log of getTerritories shows up
+    }
+
+    try{
+        resources.agencyNetworkList = await getAgencyNetworkList(authentication);
+    }
+    catch {
+        // Log of agencyNetworkList shows up
+    }
+}
+
+/**
  * Responds to get requests for the get resources endpoint
  *
  * @param {object} req - HTTP request object
@@ -1305,6 +1406,12 @@ async function getApplicationsResources(req, res, next){
         if(wholesaleIndex > -1){
             appStatusIdSearchOptions.splice(wholesaleIndex, 1);
         }
+    }
+    try {
+        await populateStatesAndAgencyNetwork(resources, req.authentication);
+    }
+    catch {
+        log.error(`Error populating the states and agency networks ${error}` + __location)
     }
     resources.appStatusIdSearchOptions = appStatusIdSearchOptions;
     // return the resources

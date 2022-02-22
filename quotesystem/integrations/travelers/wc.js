@@ -611,7 +611,7 @@ module.exports = class AcuityWC extends Integration {
         // in the submissions.
         //Look up Talage industry Code to get Sic
         let sicCode = null;
-        if(appDoc.industryCode){
+        if(appDoc.industryCode && parseInt(appDoc.industryCode,10) > 0){
             const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
             const industryCodeBO = new IndustryCodeBO();
             const industryCodeJson = await industryCodeBO.getById(appDoc.industryCode);
@@ -619,15 +619,14 @@ module.exports = class AcuityWC extends Integration {
                 sicCode = industryCodeJson.sic
             }
         }
-
+        else if (this.industry_code?.sic) {
+            sicCode = this.industry_code.sic.toString().padStart(4, '0');
+        }
 
         // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
         // to "0000" to continue trying to quote since Travelers allows the agent to correct the application in the DeepLink.
-        if (this.industry_code.sic) {
-            sicCode = this.industry_code.sic.toString().padStart(4, '0');
-        }
-        else {
-            this.log_warn(`Appid: ${this.app.id} Travelers WC: Industry Code ${this.industry_code.id} ("${this.industry_code.description}") does not have an associated SIC code`);
+        if(!sicCode) {
+            log.warn(`Appid: ${this.app.id} Travelers WC: Industry Code ${appDoc.industryCode} ("${this.industry_code?.description}") does not have an associated SIC code` + __location);
             sicCode = "0000";
         }
 

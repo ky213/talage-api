@@ -18,6 +18,8 @@ async function getToken(req, res, next) {
 
     // Query parameters user, key, and joomla_user are all optional now since the quoting engine was broken out
     const payload = {};
+    // Add Redis only payload properties here, will not be used when signing jwt.
+    const additionalPayload = {};
 
     // TOOD basic Auth for apikey and apiSecret.
 
@@ -74,15 +76,27 @@ async function getToken(req, res, next) {
         // TODO Application manage rights
 
         payload.userId = agencyPortalUserJSON.agencyPortalUserId;
+
+        additionalPayload.agencyId = agencyPortalUserJSON.agencyId
+        additionalPayload.agencyNetworkId = agencyPortalUserJSON.agencyNetworkId
+        additionalPayload.isAgencyNetworkUser = agencyPortalUserJSON.isAgencyNetworkUser
+        additionalPayload.agencyPortalUserGroupId = agencyPortalUserJSON.agencyPortalUserGroupId
+        // Rights/permissions
+        try{
+            const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
+            const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
+            const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserJSON.agencyPortalUserGroupId);
+            additionalPayload.permissions = agencyPortalUserGroupDB.permissions;
+        }
+        catch(err){
+            log.error("Error get permissions from Mongo " + err + __location);
+        }
     }
     else {
         log.info('Authentication failed - Bad Request ' + __location);
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
     }
-
-    // Add Redis only payload properties here, will not be used when signing jwt.
-    const additionalPayload = {};
 
     payload.apiToken = true;
     const rawJwt = await tokenSvc.createNewToken(payload, additionalPayload);

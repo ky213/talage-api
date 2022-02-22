@@ -626,17 +626,23 @@ module.exports = class AgencyPortalUserBO{
     setPasword(id, newHashedPassword) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if (id) {
+            if (id && id > 0) {
                 let agencyPortalUserDoc = null;
                 try {
                     const getDoc = true;
                     agencyPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
-                    agencyPortalUserDoc.password = newHashedPassword;
-                    agencyPortalUserDoc.resetRequired = false;
-                    await agencyPortalUserDoc.save();
+                    if(agencyPortalUserDoc){
+                        agencyPortalUserDoc.password = newHashedPassword;
+                        agencyPortalUserDoc.resetRequired = false;
+                        await agencyPortalUserDoc.save();
+                    }
+                    else {
+                        log.info(`Set Password user not found ${id}` + __location);
+                        reject(new Error(`User not found ${id}`))
+                    }
                 }
                 catch (err) {
-                    log.error(`Error marking agencyPortalUserDoc from id ${id} ` + err + __location);
+                    log.warn(`Error setting password agencyPortalUserDoc from id ${id} ` + err + __location);
                     reject(err);
                 }
                 resolve(true);

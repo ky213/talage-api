@@ -60,13 +60,22 @@ async function getAgencies(req, res, next){
         }
 
         if(req.authentication.isAgencyNetworkUser){
-            query.agencyNetworkId = req.authentication.agencyNetworkId
             //Global View Check
-            if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            if(req.authentication.agencyNetworkId === 1
                 && req.authentication.permissions.talageStaff === true
                 && req.authentication.enableGlobalView === true){
-
-                delete query.agencyNetworkId
+                log.debug(`AGencyList Get global view mode`)
+                if (req.query.agencyNetworkId > 0){
+                    const agencyNetworkId = parseInt(req.query.agencyNetworkId,10);
+                    query.agencyNetworkId = agencyNetworkId;
+                }
+                else if(query.agencyNetworkId){
+                    delete query.agencyNetworkId
+                }
+            }
+            else {
+                // Standard AgencyNetwork User.
+                query.agencyNetworkId = req.authentication.agencyNetworkId;
             }
 
         }
@@ -115,6 +124,7 @@ async function getAgencies(req, res, next){
 
         const agencyBO = new AgencyBO();
         const GET_AGENCY_NETWORK = true;
+        log.debug(`AP get Agencies ${JSON.stringify(query)}` + __location)
         retAgencies = await agencyBO.getList(query, GET_AGENCY_NETWORK).catch(function(err) {
             error = err;
         });

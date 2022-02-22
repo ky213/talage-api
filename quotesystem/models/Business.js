@@ -160,21 +160,24 @@ module.exports = class Business {
             this.mailing_state_abbr = applicationDocJSON.mailingState;
         }
         catch (e) {
-            log.error('populating business from db error: ' + e + __location)
+            log.error('Qouting Business Model - populating business from db error: ' + e + __location)
         }
         this.name = applicationDocJSON.businessName;
         this.founded = moment(applicationDocJSON.founded);
         this.owners = applicationDocJSON.owners;
         this.industry_code = applicationDocJSON.industryCode.toString();
-        try{
-            const industryCodeBO = new IndustryCodeBO();
-            const industryCodeJson = await industryCodeBO.getById(applicationDocJSON.industryCode);
-            if(industryCodeJson){
-                this.industry_code_description = industryCodeJson.description;
+        if(applicationDocJSON.industryCode && parseInt(applicationDocJSON.industryCode, 10) > 0){
+            try{
+                const industryCodeId = parseInt(applicationDocJSON.industryCode, 10)
+                const industryCodeBO = new IndustryCodeBO();
+                const industryCodeJson = await industryCodeBO.getById(industryCodeId);
+                if(industryCodeJson){
+                    this.industry_code_description = industryCodeJson.description;
+                }
             }
-        }
-        catch(err){
-            log.error("Error getting industryCodeBO " + err + __location);
+            catch(err){
+                log.error("Qouting Business Model - Error getting industryCodeBO for Description " + err + __location);
+            }
         }
 
         //this.owners_included = applicationDocJSON.ownersCovered;
@@ -217,7 +220,7 @@ module.exports = class Business {
                     await location.load(appDocLocation);
                 }
                 catch (err) {
-                    log.error(`Unable to load location ${JSON.stringify(appDocLocation)}: ${err} ${__location}`);
+                    log.error(`Qouting Business Model - Unable to load location ${JSON.stringify(appDocLocation)}: ${err} ${__location}`);
                     throw err;
                 }
                 location.business_entity_type = applicationDocJSON.entityType;
@@ -226,7 +229,7 @@ module.exports = class Business {
             }
         }
         else {
-            log.warn("Missing locations application  " + applicationDocJSON.applicationId + __location);
+            log.warn("Qouting Business Model - Missing locations application  " + applicationDocJSON.applicationId + __location);
         }
     }
 }

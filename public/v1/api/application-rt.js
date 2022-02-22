@@ -81,6 +81,7 @@ async function isAuthForApplication(req, applicationId){
     return canAccessApp;
 }
 
+
 async function isAuthForAgency(req, agencyId, agencyJSON = null){
     let canAccessAgency = false;
     if(!req.userTokenData){
@@ -151,6 +152,12 @@ async function isAuthForAgency(req, agencyId, agencyJSON = null){
 
 async function applicationSave(req, res, next) {
     log.debug("Application Post: " + JSON.stringify(req.body));
+
+    //Does user have rights to manage applications
+    if(!(req.userTokenData?.apiToken && req.userTokenData?.permissions?.applications?.manage === true)){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
     if (!req.body || typeof req.body !== "object") {
         log.error("Bad Request: No data received " + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
@@ -172,6 +179,16 @@ async function applicationSave(req, res, next) {
     //Insert checks
     if (!req.body.applicationId) {
         log.debug(`API Saving new application`);
+
+        // Auto added agencyId for agency level user. (or overwrite)
+        if(req.userTokenData?.apiToken && !req.userTokenData.isAgencyNetworkUser){
+            if(req.userTokenData.agencyId){
+                req.body.agencyId = req.userTokenData.agencyId
+            }
+            else {
+                return next(serverHelper.forbiddenError(`Not Authorized`));
+            }
+        }
         //Required fields for an insert.
         // eslint-disable-next-line array-element-newline
         const requiredPropertyList = ["agencyId", "businessName"];
@@ -200,6 +217,9 @@ async function applicationSave(req, res, next) {
             if(hasAccessToAgency){
                 if (!req.body.agencyNetworkId) {
                     req.body.agencyNetworkId = agencyDB.agencyNetworkId;
+                }
+                else if(req.body.agencyNetworkId !== agencyDB.agencyNetworkId){
+                    return next(serverHelper.requestError(`Bad Request: agency network`));
                 }
             }
             else {

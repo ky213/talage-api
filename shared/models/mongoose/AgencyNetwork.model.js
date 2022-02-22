@@ -54,6 +54,7 @@ const featureSchema = new Schema({
     enableApiAccess: {type: Boolean, required: true, default: true},
     showAgencyTierFields: {type: Boolean, required: true, default: false},
     requestToBindButtonText: {type: String, required: true, default: 'Submit to UW'},
+    requireMFA: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
