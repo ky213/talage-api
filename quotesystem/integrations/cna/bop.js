@@ -642,40 +642,7 @@ module.exports = class CnaBOP extends Integration {
                                     CommlCoverage: this.getCoverages(limits),
                                     GeneralLiabilityClassification: this.getGLClassifications()
                                 },
-                                // TODO: These are convoluted to fill out, and is tied to area leased. Leaving out for now unless CNA kicks back
-                                // "com.cna_ProductInfo":[
-                                //     {
-                                //         "ProductDesignedDesc":{
-                                //             "value":"test 1390"
-                                //         },
-                                //         "ProductMfgDesc":{
-                                            
-                                //         },
-                                //         "com.cna_IntendedUse":{
-                                //             "value":"test 1390"
-                                //         },
-                                //         "com.cna_grossSales":{
-                                //             "Amt":{
-                                //                 "value":0
-                                //             }
-                                //         },
-                                //         "com.cna_NumAnnualUnitsSold":{
-                                //             "value":0
-                                //         },
-                                //         "com.cna_YearProductFirstMade":{
-                                //             "value":0
-                                //         },
-                                //         "com.cna_YearProductDiscontinued":{
-                                //             "value":2020
-                                //         },
-                                //         "com.cna_ExpectedLife":{
-                                //             "value":0
-                                //         },
-                                //         "com.cna_ProductSelfInsuredInd":{
-                                //             "value":"0"
-                                //         }
-                                //     }
-                                // ],
+                                "com.cna_ProductInfo": this.getProductInfo(),
                                 // TODO: Find out what questions should be in here, this might just be all general questions
                                 "com.cna_QuestionAnswer": this.getQuestions()
                             },
@@ -1130,6 +1097,14 @@ module.exports = class CnaBOP extends Integration {
                 SubLocationRef: `L${i + 1}S1`
             };
 
+            // if BLDG limit > 250k, add defaulted OccupancyCd to BldgOccupancy[0]
+            if (location.buildingLimit !== null && location.buildingLimit > 250000) {
+                buildingObj.BldgOccupancy[0]["com.cna_OccupancyCd"] = [{value: "OF1"}];
+            }
+
+            // TODO: if hasRackStorageAboveTwelveFeet question exists, add it to "com.cna_QuestionAnswer" array
+            // QuestionCd.value='com.cna_hasRackStorageAboveTwelveFeet'.YesNoCd.value='YES' or 'NO'
+
             const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
             if (payrollType) {
                 buildingObj.FinancialInfo = {
@@ -1361,6 +1336,47 @@ module.exports = class CnaBOP extends Integration {
         else {
             return `N00${index}`;
         }
+    }
+
+    getProductInfo() {
+        const productInfo = {
+            // "ProductMfgDesc":{
+            // },
+            // "com.cna_grossSales":{
+            //     "Amt":{
+            //         "value":0
+            //     }
+            // },
+            // "com.cna_NumAnnualUnitsSold":{
+            //     "value":0
+            // },
+            // "com.cna_YearProductFirstMade":{
+            //     "value":0
+            // },
+            // "com.cna_YearProductDiscontinued":{
+            //     "value":2020
+            // },
+            // "com.cna_ExpectedLife":{
+            //     "value":0
+            // }
+        }
+
+        // product designed description here
+        // ProductDesignedDesc: {
+        //     value:"test 1390"
+        // }
+
+        // intended use here
+        // "com.cna_IntendedUse": {
+        //     value: ""
+        // },
+
+        // product self insured here
+        // "com.cna_ProductSelfInsuredInd":{
+        //     "value":"0"
+        // },
+
+        return [productInfo];
     }
 
     // transform our questions into question objects array to be inserted into the BOP Request Object
