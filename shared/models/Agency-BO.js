@@ -834,14 +834,8 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-                    // Check for atomic operators before adding updatedAt
-                    if(newObjectJSON.hasOwnProperty('$inc') || newObjectJSON.hasOwnProperty('$set')){
-                        if(!newObjectJSON.hasOwnProperty('$set')) {
-                            newObjectJSON.$set = {};
-                        }
-                        newObjectJSON.$set.updatedAt = new Date();
-                    }
-                    else {
+                    // Check for $inc atomic operator before adding updatedAt
+                    if(!newObjectJSON.hasOwnProperty('$inc')) {
                         newObjectJSON.updatedAt = new Date();
                     }
 

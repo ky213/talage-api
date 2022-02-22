@@ -469,7 +469,7 @@ module.exports = class ApplicationModel {
         await agencyBO.saveModel({
             id: application.agencyId,
             $inc: {applications: 1}
-        })
+        });
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
             await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
