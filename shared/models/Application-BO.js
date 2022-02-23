@@ -1729,7 +1729,7 @@ module.exports = class ApplicationModel {
 
                             // Load the request data into it
                             if(agencyMap[application.agencyId]){
-                                // If Agency ID is stored in agencyMap, get name and tierName
+                                // If Agency exists in agencyMap, get name and tierName
                                 application.agencyName = agencyMap[application.agencyId].name;
                                 application.agencyTierName = agencyMap[application.agencyId].tierName;
                             }
@@ -1742,7 +1742,7 @@ module.exports = class ApplicationModel {
                                 if (agency) {
                                     application.agencyName = agency.name;
                                     application.agencyTierName = agency.tierName;
-                                    // Store both the Name and the Tier Name of the Agency in agencyMap from Agency Document
+                                    // Store both the Name and the Tier Name of the Agency in agencyMap
                                     agencyMap[application.agencyId] = {};
                                     agencyMap[application.agencyId].name = agency.name;
                                     agencyMap[application.agencyId].tierName = agency.tierName;

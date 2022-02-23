@@ -996,13 +996,12 @@ async function getApplications(req, res, next){
                     application.marketingChannel = agencyNetworkDoc.marketingChannel;
                     showAgencyTierFields = agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.showAgencyTierFields === true;
                 }
-                // IF no AgencyNetworkDoc nor the showAgencyTierFields was set to false, THEN remove AgencyTierFields from the list
+                // If no AgencyNetworkDoc or the showAgencyTierFields is false, then remove AgencyTierFields from the list
                 if(!showAgencyTierFields && application.hasOwnProperty('agencyTierName')) {
                     delete application.agencyTierName;
                 }
             }
-            // IF not GlobalViewMode AND hide AgencyTierColumns (not TalageSuperUser OR TalageSuperUser's Agency Network showAgencyTierFields from feature_json is false)
-            // THEN remove AgencyTierFields from the list
+            // If not GlobalViewMode AND hide AgencyTierColumns (not TalageSuperUser OR TalageSuperUser's Agency Network showAgencyTierFields from feature_json is false), then remove AgencyTierFields from the list
             else if(!showAgencyTierColumns && application.hasOwnProperty('agencyTierName')){
                 delete application.agencyTierName;
             }
