@@ -15,6 +15,7 @@ const AuthHelper = require('./auth-helper');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const mfaCodesvc = global.requireShared('./services/mfaCodeSvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+var uuid = require('uuid');
 
 /**
  * Responds to get requests for an authorization token
@@ -95,13 +96,13 @@ async function createTokenEndpoint(req, res, next){
     if(requireMFA){
         // Create MFA Code
         const mfaCode = mfaCodesvc.generateRandomMFACode().toString();
-
-        const jwtToken = await AuthHelper.createMFAToken(agencyPortalUserDBJson);
+        const sessionUuid = uuid.v4().toString();
+        const jwtToken = await AuthHelper.createMFAToken(agencyPortalUserDBJson, sessionUuid);
         const token = `Bearer ${jwtToken}`;
 
         const redisKey = "apusermfacode-" + agencyPortalUserDBJson.agencyPortalUserId + "-" + mfaCode;
         const ttlSeconds = 900; //15 minutes
-        await global.redisSvc.storeKeyValue(redisKey, mfaCode, ttlSeconds);
+        await global.redisSvc.storeKeyValue(redisKey, sessionUuid, ttlSeconds);
 
         // Send Email
         //just so getEmailContent works.
@@ -304,12 +305,11 @@ async function mfacheck(req, res, next) {
     //check code versus Redis.
     const redisKey = "apusermfacode-" + req.authentication.userId + "-" + req.body.mfaCode;
     const redisValueRaw = await global.redisSvc.getKeyValue(redisKey);
-
     if (!redisValueRaw.found) {
         log.info('Unable to find user MFA key - Data may of expired.' + __location);
         return next(serverHelper.notAuthorizedError('Not Authorized'));
     }
-    else {
+    else if(req.authentication.tokenId === redisValueRaw.value){
         // for security, we delete the key. Auto-login is one-time use only
         await global.redisSvc.deleteKey(redisKey);
 
@@ -347,6 +347,10 @@ async function mfacheck(req, res, next) {
         }
 
 
+    }
+    else {
+        log.info('Missmatch on MFA tokenId' + __location);
+        return next(serverHelper.notAuthorizedError('Not Authorized'));
     }
 }
 

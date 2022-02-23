@@ -161,13 +161,15 @@ async function createToken(email, agencyNetworkId) {
  * Creates a JWT token for MFA validation
  *
  * @param {*} agencyPortalUserDBJson user's agencyPortalUser Doc
+ * @param {*} sessionUuid tracks user's sesssion to accessCode
  *    for.
  * @returns {JWT} Newly generated JWT token for MFA validation
  */
-async function createMFAToken(agencyPortalUserDBJson) {
+async function createMFAToken(agencyPortalUserDBJson, sessionUuid) {
     const payload = {
         userId: agencyPortalUserDBJson.agencyPortalUserId,
-        mfaCheck: true
+        mfaCheck: true,
+        tokenId: sessionUuid
     };
 
     return jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: 900});

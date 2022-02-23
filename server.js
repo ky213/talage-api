@@ -72,7 +72,7 @@ function validateJWTforMFA(options) {
             log.info('MFA Forbidden: User is not authenticated' + __location);
             return next(new RestifyError.ForbiddenError('User is not authenticated'));
         }
-        log.debug(`validateJWTforMFA ${JSON.stringify(req.authentication)}`)
+        log.debug(`validateJWTforMFA ${JSON.stringify(req.authentication)}` + __location);
         if (req.authentication.mfaCheck === true && req.authentication.userId && parseInt(req.authentication.userId,10) > 0){
             return options.handler(req, res, next)
         }
