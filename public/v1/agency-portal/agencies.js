@@ -105,7 +105,6 @@ async function getAgencies(req, res, next){
             case 'tierName':
                 // Check permission for agency tier before sorting
                 if(req.authentication.permissions.talageStaff) {
-                    query.sortByTier = true;
                     query.sort = 'tierId';
                 }
                 else {

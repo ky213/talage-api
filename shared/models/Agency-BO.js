@@ -455,10 +455,6 @@ module.exports = class AgencyBO {
                     acs = -1;
                 }
                 delete queryJSON.desc;
-                if (queryJSON.sortByTier) {
-                    queryOptions.sort.tierSpecified = -1;
-                    delete queryJSON.sortByTier;
-                }
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
             }
