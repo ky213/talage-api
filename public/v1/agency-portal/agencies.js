@@ -43,11 +43,12 @@ async function getAgencies(req, res, next){
         }
 
         const query = req.query;
-        let addAppCount = true;
+        if(query.sort === "applications"){
+            query.sort = "appCount"
+        }
+
+        //no longer needed
         if(query.hasOwnProperty("skipappcount")){
-            if(query.skipappcount === "y"){
-                addAppCount = false
-            }
             delete query.skipappcount
         }
 
@@ -160,9 +161,9 @@ async function getAgencies(req, res, next){
                     if(retAgencies[i].lastName){
                         agencyInfo.lastName = retAgencies[i].lastName;
                     }
-                    if(addAppCount === true){
-                        agencyInfo.applications = retAgencies[i].applications || 0;
-                    }
+
+                    agencyInfo.applications = retAgencies[i].appCount || 0;
+
                     if(addLocations === true){
                         const queryLoc = {"agencyId": retAgencies[i].systemId}
                         const getAgencyName = false;

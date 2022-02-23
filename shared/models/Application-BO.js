@@ -470,7 +470,7 @@ module.exports = class ApplicationModel {
         const agencyBO = new AgencyBO();
         const dbDocJSON = await agencyBO.getById(application.agencyId);
         await agencyBO.updateMongo(dbDocJSON.agencyId, {
-            $inc: {applications: 1},
+            $inc: {appCount: 1},
             $set: {} // $inc atomic operator does not work without $set (set to blank object for no changes)
         });
 
@@ -1902,7 +1902,7 @@ module.exports = class ApplicationModel {
                     const agencyBO = new AgencyBO();
                     const dbDocJSON = await agencyBO.getById(application.agencyId);
                     await agencyBO.updateMongo(dbDocJSON.agencyId, {
-                        $inc: {applications: -1},
+                        $inc: {appCount: -1},
                         $set: {} // $inc atomic operator does not work without $set (set to blank object for no changes)
                     });
 

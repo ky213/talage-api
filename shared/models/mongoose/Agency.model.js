@@ -66,7 +66,7 @@ const AgencySchema = new Schema({
     active: {type: Boolean, default: true},
     tierId: {type: Number},
     tierName: {type: String},
-    applications: {type: Number, default: 0}
+    appCount: {type: Number, default: 0}
 }, opts);
 
 
