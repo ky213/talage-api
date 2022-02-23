@@ -1729,7 +1729,9 @@ module.exports = class ApplicationModel {
 
                             // Load the request data into it
                             if(agencyMap[application.agencyId]){
-                                application.agencyName = agencyMap[application.agencyId];
+                                // If Agency ID is stored in agencyMap, get name and tierName
+                                application.agencyName = agencyMap[application.agencyId].name;
+                                application.agencyTierName = agencyMap[application.agencyId].tierName;
                             }
                             else {
                                 const returnReturnAgencyNetwork = false;
@@ -1739,7 +1741,11 @@ module.exports = class ApplicationModel {
                                 });
                                 if (agency) {
                                     application.agencyName = agency.name;
-                                    agencyMap[application.agencyId] = agency.name;
+                                    application.agencyTierName = agency.tierName;
+                                    // Store both the Name and the Tier Name of the Agency in agencyMap from Agency Document
+                                    agencyMap[application.agencyId] = {};
+                                    agencyMap[application.agencyId].name = agency.name;
+                                    agencyMap[application.agencyId].tierName = agency.tierName;
 
                                 }
                             }
