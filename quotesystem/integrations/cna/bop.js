@@ -43,7 +43,10 @@ const specialCaseQuestions = [
     "cna.general.yearsManagementExp",
     "cna.general.choiceEndorsementPartial",
     "cna.general.choiceEndorsementFull",
-    "cna.general.medex"
+    "cna.general.medex",
+    "cna.general.mfgProductDesc",
+    "cna.general.mfgProductIntendedUse",
+    "cna.general.mfgProductSelfInsured"
 ];
 
 const lossTypes = {
@@ -1102,7 +1105,18 @@ module.exports = class CnaBOP extends Integration {
                 buildingObj.BldgOccupancy[0]["com.cna_OccupancyCd"] = [{value: "OF1"}];
             }
 
-            // TODO: if hasRackStorageAboveTwelveFeet question exists, add it to "com.cna_QuestionAnswer" array
+            // if hasRackStorageAboveTwelveFeet question exists, add it to "com.cna_QuestionAnswer" array
+            const rackStorageQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.rackStorageAbove12Feet");
+            if (rackStorageQuestion) {
+                buildingObj["com.cna_QuestionAnswer"].push({
+                    "com.cna_QuestionCd": {
+                        value: "com.cna_hasRackStorageAboveTwelveFeet"
+                      },
+                      YesNoCd: {
+                        value: rackStorageQuestion.answerValue.toUpperCase()
+                      }
+                });
+            }
             // QuestionCd.value='com.cna_hasRackStorageAboveTwelveFeet'.YesNoCd.value='YES' or 'NO'
 
             const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
@@ -1361,20 +1375,29 @@ module.exports = class CnaBOP extends Integration {
             // }
         }
 
-        // product designed description here
-        // ProductDesignedDesc: {
-        //     value:"test 1390"
-        // }
+        // product designed description
+        const productDesignDescQuestion = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.mfgProductDesc");
+        if (productDesignDescQuestion) {
+            productInfo.ProductDesignedDesc = {
+                value: productDesignDescQuestion.answerValue
+            }
+        }
 
-        // intended use here
-        // "com.cna_IntendedUse": {
-        //     value: ""
-        // },
+        // intended use 
+        const productIntendedUseQuestion = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.mfgProductIntendedUse");
+        if (productIntendedUseQuestion) {
+            productInfo["com.cna_IntendedUse"] = {
+                value: productIntendedUseQuestion.answerValue
+            }
+        }
 
-        // product self insured here
-        // "com.cna_ProductSelfInsuredInd":{
-        //     "value":"0"
-        // },
+        // product self insured
+        const productSelfInsuredQuestion = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.mfgProductSelfInsured");
+        if (productSelfInsuredQuestion) {
+            productInfo["com.cna_ProductSelfInsuredInd"] = {
+                value: productSelfInsuredQuestion.answerValue.toUpperCase() === "YES" ? 1 : 0
+            }
+        }
 
         return [productInfo];
     }
@@ -1738,6 +1761,8 @@ module.exports = class CnaBOP extends Integration {
         for (const deductible of supportedDeductibles) {
             if (appDeductible >= deductible) {
                 closestDeductible = deductible;
+            }
+            else {
                 break;
             }
         }
