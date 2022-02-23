@@ -1399,7 +1399,12 @@ module.exports = class CnaBOP extends Integration {
             }
         }
 
-        return [productInfo];
+        if (Object.keys(productInfo).length > 0) {
+            return [productInfo];
+        }
+        else {
+            return [];
+        }
     }
 
     // transform our questions into question objects array to be inserted into the BOP Request Object
