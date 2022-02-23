@@ -560,7 +560,7 @@ async function postAgency(req, res, next) {
     }
 
     // If Talage Super User, add the agency tier fields to the create object
-    if (req.authentication.permissions.talageStaff) {
+    if (!req.authentication.permissions.talageStaff) {
         newAgencyJSON.tierId = tierId;
         newAgencyJSON.tierName = tierName;
     }
