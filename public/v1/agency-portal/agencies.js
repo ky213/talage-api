@@ -161,7 +161,7 @@ async function getAgencies(req, res, next){
                         agencyInfo.lastName = retAgencies[i].lastName;
                     }
                     if(addAppCount === true){
-                        agencyInfo.applications = retAgencies[i].applications;
+                        agencyInfo.applications = retAgencies[i].applications || 0;
                     }
                     if(addLocations === true){
                         const queryLoc = {"agencyId": retAgencies[i].systemId}
