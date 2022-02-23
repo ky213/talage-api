@@ -448,15 +448,19 @@ module.exports = class AgencyBO {
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {"name": 1};
+            queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
-                if (queryJSON.desc) {
+                if (queryJSON.desc && queryJSON.desc !== 'false') {
                     acs = -1;
-                    delete queryJSON.desc;
                 }
+                delete queryJSON.desc;
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
+            }
+
+            if(!queryOptions.sort.hasOwnProperty('name')) {
+                queryOptions.sort.name = 1;
             }
             // else {
             //     queryOptions.sort.name = 1;
@@ -562,7 +566,9 @@ module.exports = class AgencyBO {
                 // eslint-disable-next-line prefer-const
                 try {
                     log.debug("AgencyBO GetList query " + JSON.stringify(query) + __location);
-                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).
+                        collation({locale: "en"}). // Collation for case insensitive sorting
+                        lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
@@ -831,8 +837,10 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-                    // Add updatedAt
-                    newObjectJSON.updatedAt = new Date();
+                    // Check for $inc atomic operator before adding updatedAt
+                    if(!newObjectJSON.hasOwnProperty('$inc')) {
+                        newObjectJSON.updatedAt = new Date();
+                    }
 
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);

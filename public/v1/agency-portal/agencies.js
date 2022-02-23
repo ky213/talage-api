@@ -2,7 +2,6 @@
 
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
-const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
@@ -44,11 +43,12 @@ async function getAgencies(req, res, next){
         }
 
         const query = req.query;
-        let addAppCount = true;
+        if(query.sort === "applications"){
+            query.sort = "appCount"
+        }
+
+        //no longer needed
         if(query.hasOwnProperty("skipappcount")){
-            if(query.skipappcount === "y"){
-                addAppCount = false
-            }
             delete query.skipappcount
         }
 
@@ -101,6 +101,27 @@ async function getAgencies(req, res, next){
             query.systemId = query.systemId.split(',');
         }
 
+        switch(query.sort) {
+            case 'tierId':
+            case 'tierName':
+                // Check permission for agency tier before sorting
+                if(req.authentication.permissions.talageStaff) {
+                    query.sort = 'tierId';
+                }
+                else {
+                    delete query.sort;
+                    if (query.desc) {
+                        delete query.desc;
+                    }
+                }
+                break;
+            case 'state':
+                query.sort = 'active';
+                break;
+            default:
+                break;
+        }
+
         const agencyBO = new AgencyBO();
         const GET_AGENCY_NETWORK = true;
         log.debug(`AP get Agencies ${JSON.stringify(query)}` + __location)
@@ -115,7 +136,6 @@ async function getAgencies(req, res, next){
         if(retAgencies){
             //Get app count.
             returnAgencyList = [];
-            const applicationBO = new ApplicationBO();
             const agencyLocationBO = new AgencyLocationBO();
             for(let i = 0; i < retAgencies.length; i++){
                 try{
@@ -141,13 +161,9 @@ async function getAgencies(req, res, next){
                     if(retAgencies[i].lastName){
                         agencyInfo.lastName = retAgencies[i].lastName;
                     }
-                    const _query = {"agencyId": retAgencies[i].systemId};
-                    //use getAppListForAgencyPortalSearch get hit redis cache
-                    //const appCount = await applicationBO.getAppListForAgencyPortalSearch(query);
-                    if(addAppCount === true){
-                        const appCount = await applicationBO.getAppListForAgencyPortalSearch(_query, [], {count: 1});
-                        agencyInfo.applications = appCount.count;
-                    }
+
+                    agencyInfo.applications = retAgencies[i].appCount || 0;
+
                     if(addLocations === true){
                         const queryLoc = {"agencyId": retAgencies[i].systemId}
                         const getAgencyName = false;

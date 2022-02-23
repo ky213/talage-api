@@ -465,6 +465,15 @@ module.exports = class ApplicationModel {
         }
         this.#applicationMongooseDB = application;
         await this.updateRedisForAppInsert(application);
+
+        // Increment Agency Application Count
+        const agencyBO = new AgencyBO();
+        const dbDocJSON = await agencyBO.getById(application.agencyId);
+        await agencyBO.updateMongo(dbDocJSON.agencyId, {
+            $inc: {appCount: 1},
+            $set: {} // $inc atomic operator does not work without $set (set to blank object for no changes)
+        });
+
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
             await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
@@ -1882,11 +1891,21 @@ module.exports = class ApplicationModel {
             //validate
             if (id) {
                 try {
+                    const application = await this.loadById(id);
                     const query = {"applicationId": id};
                     const newObjectJSON = {active: false}
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
+
+                    // Decrement Agency Application Count
+                    const agencyBO = new AgencyBO();
+                    const dbDocJSON = await agencyBO.getById(application.agencyId);
+                    await agencyBO.updateMongo(dbDocJSON.agencyId, {
+                        $inc: {appCount: -1},
+                        $set: {} // $inc atomic operator does not work without $set (set to blank object for no changes)
+                    });
+
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
                         await this.updateRedisForAppUpdatebyAppId(id);
                         await this.updateRedisForAppAddDelete(id,null , -1);
