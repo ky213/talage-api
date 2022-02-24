@@ -34,50 +34,73 @@ async function main() {
 
     try {
         log.info(colors.green("Init."));
-        await mongoose.init();
-        const InsurerActivityCode = global.mongoose.InsurerActivityCode;
 
-        const previousNCCIActivityCodes = await InsurerActivityCode.find({insurerId: 9}); // NCCI fake insurer
-        const existingFullCodes = previousNCCIActivityCodes.map(({
-            code, sub
-        }) => code + sub);
-        const allActivityCodes = await InsurerActivityCode.aggregate([
-            //eslint-disable-next-line
-            {$match: {insurerId: {$in: [3, 14, 19]}}},//Markel, Liberty Mutual, AmTrust
-            {$addFields: {totalTerritories: {$size: "$territoryList"}}}, // Activity code that cover most territories come first.
-            {$sort: {totalTerritories: -1}},
-            {$project: {
-                _id: 0,
-                totalTerritories: 0
-            }}
-        ]);
+        await mongoose.init();
+
+        const InsurerActivityCode = global.mongoose.InsurerActivityCode;
 
         log.info(colors.green("Processing..."));
 
-        //Remove duplicates
-        const uniqueActivityCodes = [];
-        const alreadyProcessedCodes = [];
+        const existingNCCIActivityCodes = (await InsurerActivityCode.find({
+            insurerId: 9, // NCCI insurer (fake)
+            active: true
+        })).map(({code}) => code);
 
-        allActivityCodes.forEach((activityCode) => {
-            const fullCode = activityCode.code + activityCode.sub;
+        const libertyMutualCodes = await InsurerActivityCode.find({
+            insurerId: 14,
+            active: true
+        }, {_id: 0}).lean()
 
-            if (!existingFullCodes.includes(fullCode) && !alreadyProcessedCodes.includes(fullCode)) {
-                activityCode.insurerId = 9; // NCCI fake insurer
-                activityCode.insurerActivityCodeId = null; // for mongoose hook to generate new uuid
-                uniqueActivityCodes.push(activityCode);
-                alreadyProcessedCodes.push(fullCode);
+        const markelCodes = await InsurerActivityCode.find({
+            insurerId: 3,
+            active: true
+        }, {_id: 0}).lean()
+
+        const amtrustCodes = await InsurerActivityCode.find({
+            insurerId: 19,
+            active: true
+        }, {_id: 0}).lean()
+
+        const finalCodes = []
+        const processedCodes = []
+
+        //Process Codes: we use Liberty Mututal as a main source and then fill the missing ones from Markel and AmTrust
+
+        libertyMutualCodes.forEach((activityCode) => {
+            if(!existingNCCIActivityCodes.includes(activityCode.code) && !processedCodes.includes(activityCode.code)){
+                finalCodes.push(activityCode)
+                processedCodes.push(activityCode.code)
             }
+        })
+
+        markelCodes.forEach((activityCode) => {
+            if(!existingNCCIActivityCodes.includes(activityCode.code) && !processedCodes.includes(activityCode.code)){
+                finalCodes.push(activityCode)
+                processedCodes.push(activityCode.code)
+            }
+        })
+
+        amtrustCodes.forEach((activityCode) => {
+            if(!existingNCCIActivityCodes.includes(activityCode.code) && !processedCodes.includes(activityCode.code)){
+                finalCodes.push(activityCode)
+                processedCodes.push(activityCode.code)
+            }
+        })
+
+
+        finalCodes.forEach((activityCode) => {
+            activityCode.insurerId = 9; // NCCI insurer (fake)
+            activityCode.insurerActivityCodeId = null; // for mongoose hook to generate new uuid (unique constraint)
         });
 
-        await InsurerActivityCode.insertMany(uniqueActivityCodes);
+        await InsurerActivityCode.insertMany(finalCodes);
 
         log.info(colors.green("Done"));
-        log.info(colors.green(`Total migrated: ${uniqueActivityCodes.length} code(s)`));
+        log.info(colors.green(`Total migrated: ${finalCodes.length} code(s)`));
         process.exit(0);
     }
     catch (error) {
-        log.error(colors.red("Error migrating NCCI code"));
-        log.error(error);
+        log.error(colors.red("Error migrating NCCI code: ", error.message, ",", __location));
         process.exit(1);
     }
 }
