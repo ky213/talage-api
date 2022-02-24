@@ -560,7 +560,7 @@ async function postAgency(req, res, next) {
     }
 
     // If Talage Super User, add the agency tier fields to the create object
-    if (!req.authentication.permissions.talageStaff) {
+    if (req.authentication.permissions.talageStaff) {
         newAgencyJSON.tierId = tierId;
         newAgencyJSON.tierName = tierName;
     }
@@ -1052,7 +1052,16 @@ async function postSocialMediaInfo(req, res, next) {
  */
 async function getAgencyTierList(req, res, next) {
     const AgencyTierSvc = global.requireShared('services/agencytiersvc.js');
-    const agencyTierList = AgencyTierSvc.getList();
+    const agencyTierList = [
+        {
+            text: 'All Agency Tiers',
+            value: -1
+        },
+        ...AgencyTierSvc.getList().map((agencyTier) => ({
+            text: agencyTier.name,
+            value: agencyTier.id
+        }))
+    ];
     res.send(200, agencyTierList);
     return next();
 }

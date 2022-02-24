@@ -106,9 +106,10 @@ function getAppValueString(applicationDoc){
  *
  * @param {array} applicationList - The list of appplication to put in CSV
  * @param {boolean} isGlobalViewMode - true if in GlobalViewMode
+ * @param {boolean} showAgencyTierColumns - show/hide AgencyTierColumns
  * @returns {Promise.<String, Error>} A promise that returns a string of CSV data on success, or an Error object if rejected
  */
-function generateCSV(applicationList, isGlobalViewMode){
+function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
     return new Promise(async(fulfill, reject) => {
 
 
@@ -296,6 +297,11 @@ function generateCSV(applicationList, isGlobalViewMode){
                 'tagString': "tag",
                 'createdString' : 'Created (UTC)'
             };
+        }
+
+        // Add the AgencyTierFields in the columns
+        if(showAgencyTierColumns) {
+            columns.agencyTierName = 'Agency Tier Name';
         }
 
         // Establish the headers for the CSV file
@@ -796,12 +802,18 @@ async function getApplications(req, res, next){
     // Filter out any agencies with do_not_report value set to true
     let agencyNetworkList = [];
     let isGlobalViewMode = false;
+    // show/hide AgencyTierFields (User Permission)
+    let showAgencyTierColumns = false;
     try{
         if(req.authentication.isAgencyNetworkUser){
             if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                 && req.authentication.permissions.talageStaff === true
                 && req.authentication.enableGlobalView === true){
                 isGlobalViewMode = true;
+
+                // Show AgencyTierColumns by default for GlobalViewMode
+                showAgencyTierColumns = true;
+
                 //get list of agencyNetworks
                 try{
                     const agencyNetworkBO = new AgencyNetworkBO();
@@ -810,7 +822,6 @@ async function getApplications(req, res, next){
                 catch(err){
                     log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
                 }
-
                 //Global View Check for filtering on agencyNetwork
                 if(req.body.agencyNetworkId){
                     noCacheUse = true;
@@ -819,8 +830,21 @@ async function getApplications(req, res, next){
                     query.agencyNetworkId = parseInt(req.params.agencyNetworkId,10) ? parseInt(req.params.agencyNetworkId,10) : -1;
                 }
             }
+
             if(isGlobalViewMode === false){
                 query.agencyNetworkId = agencyNetworkId;
+                if(req.authentication.permissions.talageStaff === true) {
+                    // If not GlobalViewMode but is TalageSuperUser
+                    try{
+                        const agencyNetworkBO = new AgencyNetworkBO();
+                        const agencyNetworkDoc = await agencyNetworkBO.getById(agencyNetworkId);
+                        // Determine if the AgencyTierFields should be displayed based on the TalageSuperUser's Agency Network feature_json
+                        showAgencyTierColumns = agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.showAgencyTierFields === true;
+                    }
+                    catch(err){
+                        log.error(`Get Applications getting agency network document error ${err}` + __location)
+                    }
+                }
             }
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
@@ -964,13 +988,24 @@ async function getApplications(req, res, next){
                 application.status = "submitted_to_uw";
             }
             if(isGlobalViewMode){
-                //add agency Network name.
+                // Add AgencyNetworkName AND Show/Hide AgencyTierFields based on the Application's AgencyNetwork feature_json config of showAgencyTierFields
+                let showAgencyTierFields = false;
                 const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
                 if(agencyNetworkDoc){
                     application.agencyNetworkName = agencyNetworkDoc.name;
-                    application.marketingChannel = agencyNetworkDoc.marketingChannel
+                    application.marketingChannel = agencyNetworkDoc.marketingChannel;
+                    showAgencyTierFields = agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.showAgencyTierFields === true;
+                }
+                // If no AgencyNetworkDoc or the showAgencyTierFields is false, then remove AgencyTierFields from the list
+                if(!showAgencyTierFields && application.hasOwnProperty('agencyTierName')) {
+                    delete application.agencyTierName;
                 }
             }
+            // If not GlobalViewMode AND hide AgencyTierColumns (not TalageSuperUser OR TalageSuperUser's Agency Network showAgencyTierFields from feature_json is false), then remove AgencyTierFields from the list
+            else if(!showAgencyTierColumns && application.hasOwnProperty('agencyTierName')){
+                delete application.agencyTierName;
+            }
+
             application.renewal = application.renewal === true ? "Yes" : "";
             application.appValue = getAppValueString(application);
 
@@ -997,7 +1032,7 @@ async function getApplications(req, res, next){
     if(returnCSV === true){
         try{
             log.info(`Starting CSV output for ${applicationList.length} applications` + __location)
-            const csvData = await generateCSV(applicationList, isGlobalViewMode).catch(function(e){
+            const csvData = await generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns).catch(function(e){
                 error = e;
             });
             if(error){
