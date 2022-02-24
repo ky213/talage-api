@@ -304,28 +304,29 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
 
         const insurerActivityCodes = await InsurerActivityCode.aggregate([
             {$match: {
-                insurerId: 9,
+                insurerId: 9, // NCCI insurer (fake)
                 active: true,
-                territoryList: [territory]
+                talageActivityCodeIdList: {$ne:null},
+                territoryList: [territory],
+                code: {$regex: `^${ncciCode}`}
             }},
-            {$addFields: {fullCode: {$concat: ["$code", "$sub"]}}},
-            {$match: {fullCode: {$regex: `^${ncciCode}`}}},
-            {$unwind: "$talageActivityCodeIdList"}
+            {$unwind: "$talageActivityCodeIdList"},
+            {$addFields: {talageActivityCodeId: "$talageActivityCodeIdList"}},
+            {$project: {talageActivityCodeIdList: 0}}
         ]);
 
         const codeList = [];
         const alreadyProcessedCodeIDs = new Set();
 
         for (const insurerActivityCode of insurerActivityCodes) {
-
-            alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeIdList);
-
-            if (alreadyProcessedCodeIDs.has(insurerActivityCodes.talageActivityCodeIdList)) {
+            if (alreadyProcessedCodeIDs.has(insurerActivityCode.talageActivityCodeId)) {
                 continue;
             }
 
+            alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeId);
+
             const code = await ActivityCode.findOne({
-                activityCodeId: insurerActivityCode.talageActivityCodeIdList,
+                activityCodeId: insurerActivityCode.talageActivityCodeId,
                 active: true
             },
             {
@@ -341,7 +342,8 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
             }).lean();
 
             if (code) {
-                code.ncciCode = insurerActivityCode.fullCode;
+                code.ncciCode = insurerActivityCode.code;
+                code.ncciSubCode = insurerActivityCode.sub;
                 codeList.push(code);
             }
         }
