@@ -123,7 +123,7 @@ async function createTokenEndpoint(req, res, next){
         }
 
         const emailData = {
-            'html': `<p style="text-align:center;">Your login code.  It expires 15 minutes.</p><br><p style="text-align: center;"><STRONG>${mfaCode}</STRONG></p>`,
+            'html': `<p style="text-align:center;">Your login code.  It expires in 15 minutes.</p><br><p style="text-align: center;"><STRONG>${mfaCode}</STRONG></p>`,
             'subject': `Your ${brand} Login Code `,
             'to': agencyPortalUserDBJson.email
         };
