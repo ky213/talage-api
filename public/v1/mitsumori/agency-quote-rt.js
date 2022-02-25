@@ -293,6 +293,9 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             agencyWebInfo.enabelOptOut = false;
         }
 
+        if(agencyNetworkJSON && agencyNetworkJSON.quoteAppPageOptions){
+            agencyWebInfo.quoteAppPageOptions = agencyNetworkJSON.quoteAppPageOptions;
+        }
         if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
             agencyWebInfo.footer_logo = agencyNetworkJSON.footer_logo
         }
@@ -645,6 +648,7 @@ async function getAgencyMetadata(req, res, next) {
     }
 
     const metaObject = {
+        quoteAppPageOptions: agencyJson.quoteAppPageOptions,
         wholesale: agencyJson.wholesale,
         metaAgencyId: agencyJson.agencyId,
         metaName: agencyName,

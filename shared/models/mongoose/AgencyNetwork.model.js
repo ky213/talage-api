@@ -29,6 +29,11 @@ const policyEffectiveDateThresholdsSchema = new Schema({
     PL: {type: startAndEndThresholdsSchema, required: true}
 }, optsNoId);
 
+const quoteAppPageOptionsSchema = new Schema({
+    congratsPageHeader: {type: String, required: false},
+    hideCongratsPageImages: {type: Boolean, required: false}
+});
+
 const featureSchema = new Schema({
     applicationOptOut: {type: Boolean, required: true, default: false},
     enablePrimeAgency: {type: Boolean, required: true, default: false},
@@ -98,6 +103,7 @@ const AgencyNetworkSchema = new Schema({
     agencyMonthLimit: {type: Number, default: 15000},
     agencyNetworkMonthLimit: {type: Number, default: 20000},
     marketingChannel: {type: String, required: false},
+    quoteAppPageOptions: quoteAppPageOptionsSchema,
     active: {type: Boolean, default: true}
 },opts)
 
