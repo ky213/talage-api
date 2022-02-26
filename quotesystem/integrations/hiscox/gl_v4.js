@@ -614,7 +614,7 @@ module.exports = class HiscoxGL extends Integration {
                     // Don't add this to the question list
                     continue;
                 }
-                else if (elementName === 'ClassOfBusinessCd') {
+                else if (elementName === 'SecondaryCOBSmallContractors') {
                     const cobDescriptionList = questionAnswer.split(", ");
                     const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
                     for (const cobDescription of cobDescriptionList) {
