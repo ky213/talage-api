@@ -124,6 +124,7 @@ allConnections.init = function init() {
 
 
     require('./shared/models/mongoose/message.model');
+    require('./shared/models/mongoose/ApiKey.model');
     require('./shared/models/mongoose/Application.model');
     require('./shared/models/mongoose/AgencyPortalUserGroup.model');
     require('./shared/models/mongoose/Mapping.model');
@@ -167,6 +168,7 @@ allConnections.init = function init() {
     //const Mapping = require('mongoose').model('Mapping');
 
     global.mongoose = {
+        ApiKey: global.mongodb.model('ApiKey'),
         Agency: global.mongodb.model('Agency'),
         AgencyEmail: global.mongodb.model('AgencyEmail'),
         AgencyLandingPage: global.mongodb.model('AgencyLandingPage'),
