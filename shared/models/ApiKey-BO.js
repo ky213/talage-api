@@ -3,6 +3,7 @@ const ApiKey = global.mongoose.ApiKey;
 const uuid = require('uuid');
 const crypto = require('crypto');
 const moment = require('moment');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class ApiKeyBO{
 
@@ -29,8 +30,11 @@ module.exports = class ApiKeyBO{
     }
 
     async getApiKeysForUser(agencyPortalUser) {
-        return ApiKey.find({
+        return mongoUtils.objListCleanup(await ApiKey.find({
             agencyPortalUser: agencyPortalUser
+        })).map(t => {
+            delete t.keySecret;
+            return t;
         });
     }
 
