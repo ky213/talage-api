@@ -79,7 +79,8 @@ var abandonAppTask = async function(){
         "optedOutOnline": false,
         "ltAppStatusId": 11,
         "searchenddate": oneHourAgo,
-        "searchbegindate": twoHourAgo
+        "searchbegindate": twoHourAgo,
+        "agencyPortalCreated": false
     };
     let appList = null;
     const applicationBO = new ApplicationBO();
@@ -254,7 +255,7 @@ var processAbandonApp = async function(applicationDoc,agencyNetworkList){
 
         }
 
-        if(agencyNetworkJSON.featureJson.abandonAppEmailsAgency === true){
+        if(agencyNetworkJSON.featureJson.abandonAppEmailsAgency === true && applicationDoc.agencyPortalCreated !== true){
             if(!emailContentJSON){
                 emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "abandoned_applications_agency", "abandoned_applications_customer").catch(function(err){
                     log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
