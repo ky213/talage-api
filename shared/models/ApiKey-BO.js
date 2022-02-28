@@ -7,6 +7,11 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class ApiKeyBO{
 
+    /**
+     * Creates a new API key and secret for the specified user.
+     * @param {*} agencyPortalUser 
+     * @returns 
+     */
     async createApiKeySet(agencyPortalUser) {
         const keyId = uuid.v4();
         const keySecret = crypto.randomBytes(256).toString('base64');
@@ -29,6 +34,11 @@ module.exports = class ApiKeyBO{
         };
     }
 
+    /**
+     * Return all API keys for the specified Agency Portal user.
+     * @param {*} agencyPortalUser 
+     * @returns 
+     */
     async getApiKeysForUser(agencyPortalUser) {
         return mongoUtils.objListCleanup(await ApiKey.find({
             agencyPortalUser: agencyPortalUser
@@ -42,6 +52,13 @@ module.exports = class ApiKeyBO{
         await ApiKey.deleteOne({keyId: keyId});
     }
 
+    /**
+     * Verify that the specified API secret corresponds to the API key passed in. Returns false if
+     * the secret does not belong to the API key passed in.
+     * @param {*} keyId 
+     * @param {*} keySecret 
+     * @returns 
+     */
     async authenticate(keyId, keySecret) {
         const curApiKey = await ApiKey.findOne({
             keyId: keyId
