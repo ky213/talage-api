@@ -4,6 +4,7 @@ const uuid = require('uuid');
 const crypto = require('crypto');
 const moment = require('moment');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const jwt = require('jsonwebtoken');
 
 module.exports = class ApiKeyBO{
 
@@ -53,8 +54,8 @@ module.exports = class ApiKeyBO{
     }
 
     /**
-     * Verify that the specified API secret corresponds to the API key passed in. Returns false if
-     * the secret does not belong to the API key passed in.
+     * Verify that the specified API secret corresponds to the API key passed in. If authentication
+     * is successful, also returns a JWT login for that user.
      * @param {*} keyId 
      * @param {*} keySecret 
      * @returns 
@@ -67,7 +68,14 @@ module.exports = class ApiKeyBO{
         const salt = secretFields[0];
 
         const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
+        if (hash !== secretFields[1]) {
+            return {isSuccess: false};
+        }
 
-        return hash === secretFields[1];
+        const token = `Bearer ${jwt.sign({userID: curApiKey.agencyPortalUser}, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
+        return {
+            token: token,
+            isSuccess: true
+        };
     }
 }
