@@ -18,7 +18,7 @@ module.exports = class ApiKeyBO{
             agencyPortalUser: agencyPortalUser,
             keyId: keyId,
             keySecret: salt + '$' + hash,
-            expirationDate: moment().add(5, 'days').toDate()
+            expirationDate: moment().add(90, 'days').toDate()
         });
 
         return {
