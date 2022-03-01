@@ -1732,6 +1732,7 @@ module.exports = class ApplicationModel {
                                 // If Agency exists in agencyMap, get name and tierName
                                 application.agencyName = agencyMap[application.agencyId].name;
                                 application.agencyTierName = agencyMap[application.agencyId].tierName;
+                                application.agencyCreatedAt = agencyMap[application.agencyId].createdAt;
                             }
                             else {
                                 const returnReturnAgencyNetwork = false;
@@ -1742,10 +1743,12 @@ module.exports = class ApplicationModel {
                                 if (agency) {
                                     application.agencyName = agency.name;
                                     application.agencyTierName = agency.tierName;
+                                    application.agencyCreatedAt = agency.createdAt;
                                     // Store both the Name and the Tier Name of the Agency in agencyMap
                                     agencyMap[application.agencyId] = {};
                                     agencyMap[application.agencyId].name = agency.name;
                                     agencyMap[application.agencyId].tierName = agency.tierName;
+                                    agencyMap[application.agencyId].createdAt = agency.createdAt;
 
                                 }
                             }

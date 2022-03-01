@@ -263,7 +263,8 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
                 'renewal': 'renewal',
                 'tagString': "tag",
                 'marketingChannel': "Marketing Channel",
-                'createdString' : 'Created (UTC)'
+                'createdString' : 'Created (UTC)',
+                'agencyCreatedAt' : 'Agency Added (UTC)'
             };
 
         }
@@ -295,7 +296,8 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
                 "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
-                'createdString' : 'Created (UTC)'
+                'createdString' : 'Created (UTC)',
+                'agencyCreatedAt' : 'Agency Added (UTC)'
             };
         }
 
