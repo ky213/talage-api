@@ -69,7 +69,7 @@ function getAppValueString(applicationDoc){
             //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
         });
 
-        if(applicationDoc.metrics.appValue > 0){
+        if(applicationDoc.metrics?.appValue > 0){
             return formatter.format(applicationDoc.metrics.appValue);
         }
         else{
@@ -77,13 +77,18 @@ function getAppValueString(applicationDoc){
             //update record so it is searchable.
             // eslint-disable-next-line no-unused-vars
             const productTypeList = ["WC", "GL", "BOP", "CYBER", "PL"];
-            for(let i = 0; i < productTypeList.length; i++){
-                if(applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]){
-                    appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
+            try{
+                for(let i = 0; i < productTypeList.length; i++){
+                    if(applicationDoc.metrics?.lowestBoundQuoteAmount[productTypeList[i]]){
+                        appValueDollars += applicationDoc.metrics.lowestBoundQuoteAmount[productTypeList[i]]
+                    }
+                    else if (applicationDoc.metrics?.lowestQuoteAmount[productTypeList[i]]){
+                        appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
+                    }
                 }
-                else if (applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]){
-                    appValueDollars += applicationDoc.metrics.lowestQuoteAmount[productTypeList[i]]
-                }
+            }
+            catch(err){
+                log.error(`getAppValueString error AppId ${applicationDoc.applicationId} error: ${err}` + __location);
             }
             if(appValueDollars > 0){
                 //do not await - write can take place in background.
@@ -139,7 +144,7 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
             reject(serverHelper.requestError('There are no applications to export. Please try again when there are some applications in your account.'));
             return;
         }
-        if(applicationList.length === 0){
+        if(!applicationList || applicationList?.length === 0){
             log.info('There are no applications to export');
             reject(serverHelper.requestError('There are no applications to export. Please try again when there are some applications in your account.'));
             return;
@@ -886,11 +891,11 @@ async function getApplications(req, res, next){
             let donotReportAgencyIdArray = []
             //use agencybo method that does redis caching.
             const noReportAgencyList = await agencyBO.getByAgencyNetworkDoNotReport(agencyNetworkId);
-            if(noReportAgencyList && noReportAgencyList.length > 0){
+            if(noReportAgencyList && noReportAgencyList?.length > 0){
                 for(const agencyJSON of noReportAgencyList){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
-                if (donotReportAgencyIdArray.length > 0) {
+                if (donotReportAgencyIdArray?.length > 0) {
                     // If there is already an agencyId on the request body it will add it as $eq
                     if(query.agencyId){
                         query.agencyId = {$nin: donotReportAgencyIdArray, $eq: query.agencyId}
@@ -900,7 +905,7 @@ async function getApplications(req, res, next){
                     }
                 }
             }
-            if(req.params.searchText.length > 2){
+            if(req.params.searchText?.length > 2){
                 agencyQuery.name = req.params.searchText + "%"
                 agencyQuery.doNotReport = false;
                 const noActiveCheck = true;
@@ -909,13 +914,13 @@ async function getApplications(req, res, next){
                     log.error("Agency List load error " + err + __location);
                     error = err;
                 });
-                if (agencyList && agencyList.length > 0) {
+                if (agencyList && agencyList?.length > 0) {
                     // eslint-disable-next-line prefer-const
                     let agencyIdArray = [];
                     for (const agency of agencyList) {
                         agencyIdArray.push(agency.systemId);
                         //prevent in from being too big.
-                        if(agencyIdArray.length > 100){
+                        if(agencyIdArray?.length > 100){
                             log.debug(`Get Agency maxed out agency filter` + __location)
                             break;
                         }
@@ -1001,56 +1006,64 @@ async function getApplications(req, res, next){
 
 
         for (const application of applicationList) {
-            application.business = application.businessName;
-            application.agency = application.agencyId;
-            application.date = application.createdAt;
-            if(application.mailingCity){
-                const zipcode = zipcodeHelper.formatZipcode(application.mailingZipcode);
-                application.location = `${application.mailingCity}, ${application.mailingState} ${zipcode} `
-            }
-            else {
-                application.location = "";
-            }
-            //TODO update when customizeable status description are done.
-            if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
-                application.status = "submitted_to_uw";
-            }
-            if(isGlobalViewMode){
-                // Add AgencyNetworkName AND Show/Hide AgencyTierFields based on the Application's AgencyNetwork feature_json config of showAgencyTierFields
-                let showAgencyTierFields = false;
-                const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
-                if(agencyNetworkDoc){
-                    application.agencyNetworkName = agencyNetworkDoc.name;
-                    application.marketingChannel = agencyNetworkDoc.marketingChannel;
-                    showAgencyTierFields = agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.showAgencyTierFields === true;
+            try{
+                application.business = application.businessName;
+                application.agency = application.agencyId;
+                application.date = application.createdAt;
+                if(application.mailingCity && application.mailingZipcode?.length > 4){
+
+                    const zipcode = zipcodeHelper.formatZipcode(application.mailingZipcode);
+                    application.location = `${application.mailingCity}, ${application.mailingState} ${zipcode} `
                 }
-                // If no AgencyNetworkDoc or the showAgencyTierFields is false, then remove AgencyTierFields from the list
-                if(!showAgencyTierFields && application.hasOwnProperty('agencyTierName')) {
+                else if(application.mailingCity){
+                    application.location = `${application.mailingCity}, ${application.mailingState} `
+                }
+                else {
+                    application.location = "";
+                }
+                //TODO update when customizeable status description are done.
+                if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+                    application.status = "submitted_to_uw";
+                }
+                if(isGlobalViewMode){
+                    // Add AgencyNetworkName AND Show/Hide AgencyTierFields based on the Application's AgencyNetwork feature_json config of showAgencyTierFields
+                    let showAgencyTierFields = false;
+                    const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
+                    if(agencyNetworkDoc){
+                        application.agencyNetworkName = agencyNetworkDoc.name;
+                        application.marketingChannel = agencyNetworkDoc.marketingChannel;
+                        showAgencyTierFields = agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.showAgencyTierFields === true;
+                    }
+                    // If no AgencyNetworkDoc or the showAgencyTierFields is false, then remove AgencyTierFields from the list
+                    if(!showAgencyTierFields && application.hasOwnProperty('agencyTierName')) {
+                        delete application.agencyTierName;
+                    }
+                }
+                // If not GlobalViewMode AND hide AgencyTierColumns (not TalageSuperUser OR TalageSuperUser's Agency Network showAgencyTierFields from feature_json is false), then remove AgencyTierFields from the list
+                else if(!showAgencyTierColumns && application.hasOwnProperty('agencyTierName')){
                     delete application.agencyTierName;
                 }
-            }
-            // If not GlobalViewMode AND hide AgencyTierColumns (not TalageSuperUser OR TalageSuperUser's Agency Network showAgencyTierFields from feature_json is false), then remove AgencyTierFields from the list
-            else if(!showAgencyTierColumns && application.hasOwnProperty('agencyTierName')){
-                delete application.agencyTierName;
-            }
 
-            application.renewal = application.renewal === true ? "Yes" : "";
-            application.appValue = getAppValueString(application);
+                application.renewal = application.renewal === true ? "Yes" : "";
+                application.appValue = getAppValueString(application);
 
-            // fill agency portal user data
-            if(returnCSV && application.agencyPortalCreated && parseInt(application.agencyPortalCreatedUser,10)){
-                const agencyPortalUser = await agencyPortalUserBO.getById(parseInt(application.agencyPortalCreatedUser,10))
+                // fill agency portal user data
+                if(returnCSV && application.agencyPortalCreated && parseInt(application.agencyPortalCreatedUser,10)){
+                    const agencyPortalUser = await agencyPortalUserBO.getById(parseInt(application.agencyPortalCreatedUser,10))
 
-                if(agencyPortalUser?.firstName && agencyPortalUser?.lastName){
-                    application.agencyPortalCreatedUser = `${agencyPortalUser.firstName} ${agencyPortalUser.lastName}`
-                }
-                else{
-                    application.agencyPortalCreatedUser = agencyPortalUser?.email
+                    if(agencyPortalUser?.firstName && agencyPortalUser?.lastName){
+                        application.agencyPortalCreatedUser = `${agencyPortalUser.firstName} ${agencyPortalUser.lastName}`
+                    }
+                    else{
+                        application.agencyPortalCreatedUser = agencyPortalUser?.email
+                    }
                 }
             }
-
+            catch(err){
+                log.error(`Error Processing application doc ${application.applicationId} requestParms: ${JSON.stringify(requestParms)} query: ${JSON.stringify(query)} error:` + err + __location)
+                return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+            }
         }
-
     }
     catch(err){
         log.error(`Error Getting application doc requestParms: ${JSON.stringify(requestParms)} query: ${JSON.stringify(query)} error:` + err + __location)
@@ -1070,7 +1083,7 @@ async function getApplications(req, res, next){
             // Set the headers so the browser knows we are sending a CSV file
             res.writeHead(200, {
                 'Content-Disposition': 'attachment; filename=applications.csv',
-                'Content-Length': csvData.length,
+                'Content-Length': csvData?.length,
                 'Content-Type': 'text-csv'
             });
 
@@ -1089,7 +1102,7 @@ async function getApplications(req, res, next){
     }
     else {
         // Exit with default values if no applications were received
-        if (!applicationList || !applicationList.length){
+        if (!applicationList || !applicationList?.length){
             // Removed applicationsTotalCount after Sept 1st, 2021
             res.send(200, {
                 "applications": [],
@@ -1129,7 +1142,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
     const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
     const query = {"insurerId": insurerIdArray};
     const insurerDBJSONList = await insurerBO.getList(query);
-    if(insurerDBJSONList.length > 0){
+    if(insurerDBJSONList?.length > 0){
         const insurerList = insurerDBJSONList.map(insurerObj => ({name: insurerObj.name, insurerId: insurerObj.insurerId, slug: insurerObj.slug}));
         // sort list by name
         const sortFunction = function(firstInsurerObj, secondInsurerObj){
@@ -1156,7 +1169,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
             listOfPolicies = insurerPtDBList.map(insurerPolicyType => insurerPolicyType.policy_type);
         }
         // lets go ahead and grab the unique values for policy types and store in the policy type selections list
-        if(listOfPolicies.length > 0){
+        if(listOfPolicies?.length > 0){
             const productTypeSelections = [];
             // push policy type to the productTypeSelections if it isn't in the list, ensures no duplicate values
             for(let i = 0; i < listOfPolicies.length; i++){
@@ -1165,7 +1178,7 @@ async function populateInsurersAndPolicies(resources, insurerIdArray){
                     productTypeSelections.push(policyType);
                 }
             }
-            if(productTypeSelections.length > 0){
+            if(productTypeSelections?.length > 0){
                 resources.productTypeSelections = productTypeSelections;
             }
         }
@@ -1279,7 +1292,7 @@ async function getApplicationsResources(req, res, next){
             // grab all the insurers for this agency network
             const insurerIdArray = agencyNetworkJSON.insurerIds;
             // add insurers and policies to the resources
-            if(insurerIdArray.length > 0){
+            if(insurerIdArray?.length > 0){
                 await populateInsurersAndPolicies(resources, insurerIdArray);
             }
         }
@@ -1311,18 +1324,20 @@ async function getApplicationsResources(req, res, next){
                 if (error) {
                     return next(error);
                 }
-                // iterate through each location and grab the insurerId
-                for(let i = 0; i < locationList.length; i++){
-                    const locationObj = locationList[i];
-                    if(locationObj?.insurers && locationObj?.insurers?.length > 0){
-                        // grab all the insurers
-                        const locationInsurers = locationObj.insurers;
-                        // for each insurer grab their id and push into insurerId Array
-                        for(let j = 0; j < locationInsurers.length; j++){
-                            const insurer = locationInsurers[j];
-                            // if the id doesn't exist in the isnurerIdArray then add it to the list
-                            if(insurerIdArray.indexOf(insurer.insurerId) === -1){
-                                insurerIdArray.push(insurer.insurerId);
+                if(locationList?.length){
+                    // iterate through each location and grab the insurerId
+                    for(let i = 0; i < locationList?.length; i++){
+                        const locationObj = locationList[i];
+                        if(locationObj?.insurers && locationObj?.insurers?.length > 0){
+                            // grab all the insurers
+                            const locationInsurers = locationObj.insurers;
+                            // for each insurer grab their id and push into insurerId Array
+                            for(let j = 0; j < locationInsurers.length; j++){
+                                const insurer = locationInsurers[j];
+                                // if the id doesn't exist in the isnurerIdArray then add it to the list
+                                if(insurerIdArray.indexOf(insurer.insurerId) === -1){
+                                    insurerIdArray.push(insurer.insurerId);
+                                }
                             }
                         }
                     }
