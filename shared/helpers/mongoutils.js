@@ -1,7 +1,6 @@
 'use strict';
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const _ = require('lodash');
 
 exports.objCleanup = function(dbObj) {
     if(!dbObj){
@@ -46,13 +45,6 @@ var internalObjCleanup = function(dbJson, extraFields) {
             }
         }
 
-        // Also clear out properties from sub-objects. Sometimes these sub-objects have their own
-        // _id depending on how they were set up in Mongoose.
-        for (const key of Object.keys(dbJsonClean)) {
-            if (_.isObject(dbJsonClean[key])) {
-                dbJsonClean[key] = internalObjCleanup(dbJsonClean[key], extraFields);
-            }
-        }
     }
     else {
         log.error("Unable clean up response line: " + __location);
