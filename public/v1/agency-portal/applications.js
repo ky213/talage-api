@@ -439,6 +439,21 @@ async function getApplications(req, res, next){
             "name": 'state',
             "type": 'string',
             "optional": true
+        },
+        {
+            "name": 'policyTypeCd',
+            "type": 'string',
+            "optional": true
+        },
+        {
+            "name": 'insurerSlug',
+            "type": 'string',
+            "optional": true
+        },
+        {
+            "name": 'insurerQuoteStatusId',
+            "type": 'number',
+            "optional": true
         }
     ];
 
@@ -528,25 +543,29 @@ async function getApplications(req, res, next){
 
     const orClauseArray = [];
 
-    if(req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:")){
+    if((req.params.insurerSlug && req.params.insurerSlug.length > 1) || (req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:"))){
         noCacheUse = true;
         log.debug("Insurer Search")
         try{
-            //insurer search
-            const searchWords = req.params.searchText.split(" ");
-            const insurerText = searchWords[0].substring(2);
-            req.params.searchText = '';
-            if(searchWords.length > 1){
-                //reset searchtext to remove insurer
+            let insurerText = req.params.insurerSlug
+            if(!req.params.insurerSlug){
+                // Removed After March 20, 2022
+                //insurer search
+                const searchWords = req.params.searchText.split(" ");
+                insurerText = searchWords[0].substring(2);
+                req.params.searchText = '';
+                if(searchWords.length > 1){
+                    //reset searchtext to remove insurer
 
-                searchWords.forEach((searchWord,index) => {
-                    if(index > 0){
-                        req.params.searchText += ' ' + searchWord;
-                    }
-                })
-                req.params.searchText = req.params.searchText.trim();
+                    searchWords.forEach((searchWord,index) => {
+                        if(index > 0){
+                            req.params.searchText += ' ' + searchWord;
+                        }
+                    })
+                    req.params.searchText = req.params.searchText.trim();
+                }
+                log.debug("New searchText " + req.params.searchText + __location)
             }
-            log.debug("New searchText " + req.params.searchText + __location)
             let insurerId = 0;
             //if string (insure name)
             if(isNaN(insurerText)){
@@ -623,19 +642,22 @@ async function getApplications(req, res, next){
                 // let modifiedSearch = false;
 
 
-                if(req.params.searchText.toLowerCase().startsWith("iq:")){
-                    const searchWords2 = req.params.searchText.split(" ");
-                    const insurerStatusIdText = searchWords2[0].substring(3);
-                    req.params.searchText = '';
-                    if(searchWords2.length > 1){
-                        //reset searchtext to remove insurer
+                if(req.params.insurerQuoteStatusId > -1 || req.params.searchText.toLowerCase().startsWith("iq:")){
+                    let insurerStatusIdText = req.params.insurerQuoteStatusId
+                    if(!req.params.insurerQuoteStatusId){
+                        const searchWords2 = req.params.searchText.split(" ");
+                        insurerStatusIdText = searchWords2[0].substring(3);
+                        req.params.searchText = '';
+                        if(searchWords2.length > 1){
+                            //reset searchtext to remove insurer
 
-                        searchWords2.forEach((searchWord,index) => {
-                            if(index > 0){
-                                req.params.searchText += ' ' + searchWord;
-                            }
-                        })
-                        req.params.searchText = req.params.searchText.trim();
+                            searchWords2.forEach((searchWord,index) => {
+                                if(index > 0){
+                                    req.params.searchText += ' ' + searchWord;
+                                }
+                            })
+                            req.params.searchText = req.params.searchText.trim();
+                        }
                     }
 
                     try{
@@ -723,13 +745,17 @@ async function getApplications(req, res, next){
     // ================================================================================
     // Build the Mongo $OR array
     // eslint-disable-next-line array-element-newline
+    if(req.params.policyTypeCd && req.params.policyTypeCd.length > 1){
+        query.policies = {};
+        query.policies.policyType = req.params.policyTypeCd.toUpperCase();
+    }
+
     const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 1){
         noCacheUse = true;
-        if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
+        if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1 && !req.params.policyTypeCd){
             orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
-
             //remove ProductType code if it is a standalone word.
         }
         const industryCodeBO = new IndustryCodeBO();
@@ -1340,16 +1366,16 @@ async function getApplicationsResources(req, res, next){
     // Add quoteStatusSelections
     const quoteStatusSelections =
     [
-        {label: "Errored", value:"iq:10"},
-        {label: "Auto Declined", value:"iq:15"},
-        {label: "Declined", value:"iq:20"},
-        {label: "Acord Emailed", value:"iq:30"},
-        {label: "Referred", value:"iq:40"},
-        {label: "Quoted", value:"iq:50"},
-        {label: "Referred Quoted", value:"iq:55"},
-        {label: "Bind Requested", value:"iq:60"},
-        {label: "Bind Requested For Referral", value:"iq:65"},
-        {label: "Bound", value:"iq:100"}
+        {label: "Errored", value:"10"},
+        {label: "Auto Declined", value:"15"},
+        {label: "Declined", value:"20"},
+        {label: "Acord Emailed", value:"30"},
+        {label: "Referred", value:"40"},
+        {label: "Quoted", value:"50"},
+        {label: "Referred Quoted", value:"55"},
+        {label: "Bind Requested", value:"60"},
+        {label: "Bind Requested For Referral", value:"65"},
+        {label: "Bound", value:"100"}
     ]
     resources.quoteStatusSelections = quoteStatusSelections;
     const appStatusIdSearchOptions = [
