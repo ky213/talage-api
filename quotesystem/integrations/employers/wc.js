@@ -14,7 +14,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const EmployersWCJSON = require('./wc-json');
-const EmployersWCXML = require('./wc-xml');
+
 
 module.exports = class EmployersWC extends Integration {
 
@@ -34,13 +34,8 @@ module.exports = class EmployersWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     _insurer_quote() {
-        if (global.settings.EMPLOYERS_WC_USE_XML && global.settings.EMPLOYERS_WC_USE_XML === "YES") {
-            const WCXML = new EmployersWCXML(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
-            return WCXML.quote();
-        }
-        else {
-            const WCJSON = new EmployersWCJSON(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
-            return WCJSON.quote();
-        }
+        const WCJSON = new EmployersWCJSON(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
+        return WCJSON.quote();
+
     }
 };
