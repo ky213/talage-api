@@ -1616,7 +1616,7 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(orParamList && orParamList.length > 0){
+            if(orParamList && orParamList?.length > 0){
                 for (let i = 0; i < orParamList.length; i++){
                     let orItem = orParamList[i];
                     if(orItem.policies && queryJSON.orItem.policyType){
@@ -1714,8 +1714,8 @@ module.exports = class ApplicationModel {
                     log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
-                    log.debug(`docList.length ${docList.length}`)
-                    if(docList.length > 0){
+                    log.debug(`docList.length ${docList?.length}`)
+                    if(docList?.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
                         let agencyMap = {};
@@ -1732,6 +1732,7 @@ module.exports = class ApplicationModel {
                                 // If Agency exists in agencyMap, get name and tierName
                                 application.agencyName = agencyMap[application.agencyId].name;
                                 application.agencyTierName = agencyMap[application.agencyId].tierName;
+                                application.agencyCreatedAt = agencyMap[application.agencyId].createdAt;
                             }
                             else {
                                 const returnReturnAgencyNetwork = false;
@@ -1742,10 +1743,12 @@ module.exports = class ApplicationModel {
                                 if (agency) {
                                     application.agencyName = agency.name;
                                     application.agencyTierName = agency.tierName;
+                                    application.agencyCreatedAt = agency.createdAt;
                                     // Store both the Name and the Tier Name of the Agency in agencyMap
                                     agencyMap[application.agencyId] = {};
                                     agencyMap[application.agencyId].name = agency.name;
                                     agencyMap[application.agencyId].tierName = agency.tierName;
+                                    agencyMap[application.agencyId].createdAt = agency.createdAt;
 
                                 }
                             }
@@ -1773,11 +1776,11 @@ module.exports = class ApplicationModel {
                                 }
                             }
                             //bring policyType to property on top level.
-                            if(application.policies.length > 0){
+                            if(application.policies?.length > 0){
                                 let policyTypesString = "";
                                 let effectiveDate = moment("2100-12-31")
                                 application.policies.forEach((policy) => {
-                                    if(policyTypesString.length > 0){
+                                    if(policyTypesString && policyTypesString.length > 0){
                                         policyTypesString += ","
                                     }
                                     policyTypesString += policy.policyType;
