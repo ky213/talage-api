@@ -795,7 +795,8 @@ module.exports = class CnaBOP extends Integration {
         let policyStatus = null;
 
         const response = result.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0];
-        switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {                
+        policyStatus = response.MsgStatus.MsgStatusCd.value.toLowerCase();
+        switch (policyStatus) {                
             case "dataerror":
             case "datainvalid":
             case "error":
@@ -845,10 +846,10 @@ module.exports = class CnaBOP extends Integration {
             case "successwithchanges":
             case "resultpendingoutofband":
                 const policySummary = response.PolicySummaryInfo;
-                policyStatus = policySummary.PolicyStatusCd.value;
                 switch (policySummary.PolicyStatusCd.value.toLowerCase()) {
-                    case "quotednotbound":
-                    case "issued":
+                    case "notquotednotbound":
+                        return this.client_declined(`Application was not quoted or bound.`);
+                    default:
                         // get quote number (optional)
                         try {
                             quoteNumber = response.CommlPolicy.QuoteInfo.CompanysQuoteNumber.value;
@@ -872,8 +873,15 @@ module.exports = class CnaBOP extends Integration {
                         try {
                             // general limits
                             response.BOPLineBusiness.LiabilityInfo.CommlCoverage.forEach(genLim => {
+                                let description = genLim.Limit[0]?.LimitAppliesToCd ? genLim.Limit[0].LimitAppliesToCd[0].value : genLim.CoverageCd.value;
+
+                                // special cases:
+                                if (description === "MEDEX") {
+                                    description = "Medical Expenses";
+                                }
+
                                 const newCoverage = {
-                                    description: genLim.Limit[0].LimitAppliesToCd[0].value,
+                                    description: description,
                                     value: convertToDollarFormat(genLim.Limit[0].FormatInteger.value, true),
                                     sort: coverageSort++,
                                     category: 'General Limits',
@@ -974,11 +982,6 @@ module.exports = class CnaBOP extends Integration {
                             log.error(`${logPrefix}Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
                         }
                         break;
-                    case "notquotednotbound":
-                        return this.client_declined(`Application was not quoted or bound.`);
-                    default: 
-                        log.error(`${logPrefix}Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}` + __location);
-                        return this.client_error(`Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}`, __location);
                 } // end inner switch
                 break;
             default: 
@@ -988,16 +991,16 @@ module.exports = class CnaBOP extends Integration {
 
         if (policyStatus) {
             // will either be issued or quotednotbound
-            if (policyStatus === "issued") { 
-                return this.client_quoted(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
+            if (policyStatus === "ResultPendingOutOfBand") { 
+                return this.client_referred(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
             }
             else {
-                return this.client_referred(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
+                return this.client_quoted(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
             }
         }
         else {
-            log.error(`${logPrefix}Response doesn't include a policy status code.` + __location);
-            return this.client_error(`Response doesn't include a policy status code.`, __location);
+            log.error(`${logPrefix}Response doesn't include a policy status code, or an unexpected code was encountered.` + __location);
+            return this.client_error(`Response doesn't include a policy status code, or an unexpected code was encountered.`, __location);
         }
     }
 
