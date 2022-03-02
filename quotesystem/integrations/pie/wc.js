@@ -85,23 +85,23 @@ module.exports = class PieWC extends Integration {
 
         let token_response = null;
         try {
-            let headers = {}
+            let config = {};
             //Insurer username is Talage API Key, that has been used for the Auth request.
             //Insurer pasword is Talage AgencyCode, that has been used for the Auth request.
             if(this.username){
-                headers = {
+                config.headers = {
                     "Authorization": 'Basic ' + Buffer.from(this.username).toString('base64'),
                     "AgencyCode" : this.password
                 }
             }
             else {
-                headers = {auth: {
+                config = {auth: {
                     username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
                     password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
                 }};
             }
             //token_response = await this.send_request(host, '/oauth2/token', "", headers);
-            token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
+            token_response = await axios.post(`https://${host}/oauth2/token`, null, config);
         }
         catch (err) {
             log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error ${err}` + __location)
@@ -171,7 +171,15 @@ module.exports = class PieWC extends Integration {
         let res = null;
 
         try {
-            res = await this.send_json_request(host, '/api/v1/PriceIndication', JSON.stringify(data), {Authorization: token});
+            const headers = {Authorization: token};
+            let requestPath = '/api/v1/PriceIndication'
+            //this.password is Talage's agency code.
+            if(this.username && this.app.agencyLocation.insurers[this.insurer.id].agencyCred3 && this.app.agencyLocation.insurers[this.insurer.id].agencyCred3 !== this.password){
+                requestPath += `?agencyCode=${this.app.agencyLocation.insurers[this.insurer.id].agencyCred3}`
+                headers.AgencyCode = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3
+
+            }
+            res = await this.send_json_request(host, requestPath, JSON.stringify(data), headers);
         }
         catch (error) {
             if(error.httpStatusCode === 400 && error.response){
