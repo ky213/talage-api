@@ -307,7 +307,7 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
                 insurerId: 9, // NCCI insurer (fake)
                 active: true,
                 talageActivityCodeIdList: {$ne:null},
-                territoryList: [territory],
+                territoryList: territory,
                 code: {$regex: `^${ncciCode}`}
             }},
             {$unwind: "$talageActivityCodeIdList"},

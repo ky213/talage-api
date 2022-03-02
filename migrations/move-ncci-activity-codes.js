@@ -43,21 +43,25 @@ async function main() {
 
         const existingNCCIActivityCodes = (await InsurerActivityCode.find({
             insurerId: 9, // NCCI insurer (fake)
+            talageActivityCodeIdList: {$ne:null},
             active: true
         })).map(({code}) => code);
 
         const libertyMutualCodes = await InsurerActivityCode.find({
             insurerId: 14,
+            talageActivityCodeIdList: {$ne:null},
             active: true
         }, {_id: 0}).lean()
 
         const markelCodes = await InsurerActivityCode.find({
             insurerId: 3,
+            talageActivityCodeIdList: {$ne:null},
             active: true
         }, {_id: 0}).lean()
 
         const amtrustCodes = await InsurerActivityCode.find({
             insurerId: 19,
+            talageActivityCodeIdList: {$ne:null},
             active: true
         }, {_id: 0}).lean()
 
