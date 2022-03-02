@@ -35,7 +35,6 @@ const wrapper = (func) => async(req, res, next) => {
         res.send(200, out);
     }
     catch (ex) {
-        console.log(ex);
         log.error("API server error: " + ex + __location);
         res.send(500, ex);
     }

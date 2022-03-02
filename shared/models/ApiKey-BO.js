@@ -24,7 +24,7 @@ module.exports = class ApiKeyBO{
             agencyPortalUser: agencyPortalUser,
             keyId: keyId,
             keySecret: salt + '$' + hash,
-            expirationDate: moment().add(90, 'days').toDate()
+            expirationDate: moment().add(90, 'days')
         });
 
         return {
@@ -69,6 +69,11 @@ module.exports = class ApiKeyBO{
 
         const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
         if (hash !== secretFields[1]) {
+            return {isSuccess: false};
+        }
+
+        // Make sure API key is not expired.
+        if (moment().isAfter(moment(curApiKey.expirationDate))) {
             return {isSuccess: false};
         }
 

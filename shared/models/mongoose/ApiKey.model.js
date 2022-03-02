@@ -18,7 +18,7 @@ const opts = {toJSON: {virtuals: true}};
 const ApiKey = new Schema({
     keyId: {type: String, required: true},
     keySecret: {type: String, required: true},
-    expirationDate: {type: String, required: true},
+    expirationDate: {type: Date, required: true},
     agencyPortalUser: {type: String, required: true}
 }, opts);
 
