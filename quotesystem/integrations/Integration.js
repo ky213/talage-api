@@ -2159,11 +2159,6 @@ module.exports = class Integration {
                 return this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time');
 
             case 'declined':
-                if (this.reasons) {
-                    this.reasons.forEach(function(reason) {
-                        log.verbose(reason);
-                    });
-                }
                 this.reasons.push('Declined by insurer');
                 return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
 

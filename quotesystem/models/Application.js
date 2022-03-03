@@ -79,8 +79,9 @@ module.exports = class Application {
             this.quoteInsurerId = parseInt(data.insurerId,10);
         }
         // data.agencyPortalQuote = true
-        // for quoting trigger by AgencyPortal.
-        // Emails are not send for AgencyPortal trigger quotes.
+        // for quoting trigger by AgencyPortal or API .
+        // QuoteApp agencyPortalQuote = false;
+        // Emails are not send for AgencyPortal or API product trigger quotes.
         // Slack message are sent.
         this.agencyPortalQuote = data.agencyPortalQuote ? data.agencyPortalQuote : false;
 
@@ -92,6 +93,10 @@ module.exports = class Application {
             //getById does uuid vs integer check...
 
             this.applicationDocData = await applicationBO.loadById(data.id);
+            // Behavior for No Quote notifications.
+            if(this.applicationDocData.agencyPortalCreated && this.applicationDocData.apiCreated){
+                this.agencyPortalQuote = true;
+            }
             log.debug("Quote Application added applicationDocData" + __location)
         }
         catch(err){
@@ -1017,6 +1022,9 @@ module.exports = class Application {
                             this.agencyLocation.agencyId);
                     }
                 }
+                else {
+                    log.debug(`agencyNetworkDB.featureJson.quoteEmailsAgency ${agencyNetworkDB.featureJson.quoteEmailsAgency}  this.agencyPortalQuote  ${this.agencyPortalQuote}   emailContentJSON.agencyMessage ${emailContentJSON.agencyMessage?.length} `)
+                }
                 //AgencyNetwork
                 if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true){
                     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"no_quotes_agency_network");
@@ -1129,6 +1137,7 @@ module.exports = class Application {
                 log.error(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
             }
         }
+        // NO WAIT GOT QUOTES
         else if(agencyNetworkDB?.featureJson?.agencyQuoteEmailsNoWaitOnQuote === true && agencyNetworkDB.featureJson.quoteEmailsAgency === true
                 || agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true){
             //call abanddonQuotetask to send agency and agencynetwork emails.
@@ -1153,129 +1162,26 @@ module.exports = class Application {
                 log.error("Error get policyTypeList " + err + __location)
             }
 
-
+            // NO WAIT GOT QUOTES AGENCY
             // eslint-disable-next-line no-lonely-if
             if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && agencyNetworkDB?.featureJson?.agencyQuoteEmailsNoWaitOnQuote === true){
-                ////&& this.agencyPortalQuote === false
                 try{
                     const SEND_AGENCY = true
-                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, SEND_AGENCY, !SEND_AGENCY)
+                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, SEND_AGENCY, !SEND_AGENCY, !SEND_AGENCY)
                 }
                 catch(err){
                     log.debug('catch error from await ' + err);
                 }
             }
-
+            // NO WAIT GOT QUOTES Agency Network
             if(agencyNetworkDB.featureJson.agencyNetworkQuoteEmails === true && agencyNetworkDB?.featureJson?.agencyNetworkQuoteEmailsNoWaitOnQuote === true){
                 try{
                     const SEND_AGENCYNETWORK = true
-                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, !SEND_AGENCYNETWORK, SEND_AGENCYNETWORK)
+                    await taskAbandonQuote.processAbandonQuote(this.applicationDocData, insurerList, policyTypeList, !SEND_AGENCYNETWORK, SEND_AGENCYNETWORK, !SEND_AGENCYNETWORK)
                 }
                 catch(err){
                     log.debug('catch error from await ' + err);
                 }
-                //     // immediately notify agency network of quote
-                //     const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(this.applicationDocData.agencyNetworkId,"abandoned_quotes_agency_network");
-                //     if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
-                //         log.error(`AgencyNetwork ${agencyNetworkDB.name} missing abandoned_quotes_agency_network email template` + __location)
-                //     }
-                //     else {
-                //         let portalLink = emailContentAgencyNetworkJSON.PORTAL_URL;
-
-                //         let message = emailContentAgencyNetworkJSON.message;
-                //         let subject = emailContentAgencyNetworkJSON.subject;
-
-                //         // Perform content replacements
-                //         const capitalizedBrand = emailContentAgencyNetworkJSON.emailBrand.charAt(0).toUpperCase() + emailContentAgencyNetworkJSON.emailBrand.substring(1);
-                //         message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
-
-                //         message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                //         message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
-                //         message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
-
-                //         message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
-
-                //         message = message.replace(/{{Brand}}/g, capitalizedBrand);
-                //         message = message.replace(/{{Business Name}}/g, this.business.name);
-                //         message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
-                //         message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
-                //         message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
-                //         message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
-
-                //         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                //         subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
-                //         subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
-                //         if (quoteList[0].status) {
-                //             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
-                //         }
-
-                //         //TODO Applink processing
-                //         const messageUpdate = await emailTemplateProceSvc.applinkProcessor(this.applicationDocData, agencyNetworkDB, message)
-                //         if(messageUpdate){
-                //             message = messageUpdate
-                //         }
-                //         const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(this.applicationDocData, agencyNetworkDB, message, subject)
-                //         if(updatedEmailObject.message){
-                //             message = updatedEmailObject.message
-                //         }
-                //         if(updatedEmailObject.subject){
-                //             subject = updatedEmailObject.subject
-                //         }
-
-                //         log.info(`AppId ${this.id} sending agency network QUOTE email`);
-                //         // Send the email message - development should email. change local config to get the email.
-                //         let recipientsString = agencyNetworkDB.email
-                //         //Check for AgencyNetwork users are suppose to get notifications for this agency.
-                //         if(this.applicationDocData.agencyId){
-                //             // look up agencyportal users by agencyNotificationList
-                //             try{
-                //                 const agencynotificationsvc = global.requireShared('services/agencynotificationsvc.js');
-                //                 const anRecipents = await agencynotificationsvc.getUsersByAgency(this.applicationDocData.agencyId,this.appPolicyTypeList)
-
-                //                 if(anRecipents.length > 2){
-                //                     recipientsString += `,${anRecipents}`
-                //                 }
-                //             }
-                //             catch(err){
-                //                 log.error(`AppId: ${this.applicationDocData.applicationId} agencyId ${this.applicationDocData.agencyId} agencynotificationsvc.getUsersByAgency error: ${err}` + __location)
-                //             }
-                //         }
-
-                //         let branding = "Networkdefault";
-                //         // Sofware Hook
-                //         const dataPackageJSON = {
-                //             appDoc: this.applicationDocData,
-                //             agencyNetworkDB: agencyNetworkDB,
-                //             htmlBody: message,
-                //             emailSubject: subject,
-                //             branding: branding,
-                //             recipients: recipientsString
-                //         }
-                //         const hookName = 'got-qoute-email-agencynetwork'
-                //         try{
-                //             await global.hookLoader.loadhook(hookName, this.applicationDocData.agencyNetworkId, dataPackageJSON);
-                //             message = dataPackageJSON.htmlBody
-                //             subject = dataPackageJSON.emailSubject
-                //             branding = dataPackageJSON.branding
-                //             recipientsString = dataPackageJSON.recipients
-                //         }
-                //         catch(err){
-                //             log.error(`Error ${hookName} hook call error ${err}` + __location);
-                //         }
-
-                //         await emailSvc.send(recipientsString,
-                //             subject,
-                //             message,
-                //             {
-                //                 agencyLocationId: this.agencyLocation.id,
-                //                 applicationId: this.applicationDocData.applicationId,
-                //                 applicationDoc: this.applicationDocData
-
-            //             },
-            //             this.applicationDocData.agencyNetworkId,
-            //             branding,
-            //             this.applicationDocData.agencyId);
-            //     }
             }
         }
 

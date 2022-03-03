@@ -936,7 +936,7 @@ async function startQuoting(req, res, next) {
         const forceQuoting = true;
         const loadJson = {
             "id": applicationId,
-            agencyPortalQuote: true
+            agencyPortalQuote: false
         };
         if(applicationDB.insurerId && validator.is_valid_id(applicationDB.insurerId)){
             loadJson.insurerId = parseInt(applicationDB.insurerId, 10);
@@ -1761,7 +1761,7 @@ async function getPricing(req, res, next){
         const forceQuoting = true;
         const loadJson = {
             "id": applicationId,
-            agencyPortalQuote: true
+            agencyPortalQuote: false
         };
         if(applicationDB.insurerId && validator.is_valid_id(applicationDB.insurerId)){
             loadJson.insurerId = parseInt(applicationDB.insurerId, 10);
