@@ -19,6 +19,7 @@ const ApiKey = new Schema({
     keyId: {type: String, required: true},
     keySecret: {type: String, required: true},
     expirationDate: {type: Date, required: true},
+    lastUsedDate: {type: Date, required: false},
     agencyPortalUser: {type: String, required: true}
 }, opts);
 

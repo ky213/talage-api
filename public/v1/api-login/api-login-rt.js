@@ -14,7 +14,8 @@ async function getApiKeysForUser(req) {
 }
 
 async function deleteApiKey(req) {
-    return ApiKey.deleteApiKey(req.body.apiKey);
+    const userId = parseInt(req.authentication.userID, 10);
+    return ApiKey.deleteApiKey(userId, req.query.apiKey);
 }
 
 async function authenticateUser(req) {
@@ -35,6 +36,7 @@ const wrapper = (func) => async(req, res, next) => {
         res.send(200, out);
     }
     catch (ex) {
+        console.log(ex);
         log.error("API server error: " + ex + __location);
         res.send(500, ex);
     }
@@ -45,5 +47,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPost('API Key Login', `${basePath}/authenticate`, wrapper(authenticateUser));
     server.addPostAuth('Create API Key List', basePath, wrapper(createApiKeySet));
     server.addGetAuth('API Key List', basePath, wrapper(getApiKeysForUser));
-    server.addDeleteAuth('Delete API Key', `${basePath}/list`, wrapper(deleteApiKey));
+    server.addDeleteAuth('Delete API Key', basePath, wrapper(deleteApiKey));
 };

@@ -44,13 +44,14 @@ module.exports = class ApiKeyBO{
         return mongoUtils.objListCleanup(await ApiKey.find({
             agencyPortalUser: agencyPortalUser
         })).map(t => {
+            delete t.id;
             delete t.keySecret;
             return t;
         });
     }
 
-    async deleteApiKey(keyId) {
-        await ApiKey.deleteOne({keyId: keyId});
+    async deleteApiKey(userId, keyId) {
+        await ApiKey.deleteOne({agencyPortalUser: userId, keyId: keyId});
     }
 
     /**
@@ -76,6 +77,10 @@ module.exports = class ApiKeyBO{
         if (moment().isAfter(moment(curApiKey.expirationDate))) {
             return {isSuccess: false};
         }
+
+        // Update the Last Used date
+        curApiKey.lastUsedDate = moment();
+        curApiKey.save();
 
         const token = `Bearer ${jwt.sign({userID: curApiKey.agencyPortalUser}, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
         return {
