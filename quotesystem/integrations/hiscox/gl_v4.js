@@ -137,7 +137,7 @@ module.exports = class HiscoxGL extends Integration {
         }
         this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
-        // Look up the insurer industry code, make sure we got a hit. //zy
+        // Look up the insurer industry code, make sure we got a hit.
         // If it's BOP, check if the code we have is used for BOP,
         // if not lookup the policy.bopCode
         if (this.policy.type === 'BOP') {
@@ -972,6 +972,7 @@ module.exports = class HiscoxGL extends Integration {
 
         }
 
+        // zy HACK Get these from questions
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {
             "BusinessOwnership": {"BusinessOwnership": "Agree"},
             "InsuranceDecline": {"InsuranceDecline": "Agree"},
