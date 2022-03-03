@@ -89,6 +89,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'user');
     registerEndpoint(server, 'agency-portal', 'user-groups');
     registerEndpoint(server, 'agency-portal', 'users');
+    registerEndpoint(server, 'agency-portal', 'accord-ocr');
 
     // Auth
     registerEndpoint(server, 'auth', 'administration');
