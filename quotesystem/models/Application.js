@@ -40,6 +40,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 module.exports = class Application {
     constructor() {
@@ -909,6 +910,15 @@ module.exports = class Application {
                 if (this.agencyLocation.agencyId <= 2) {
                     brand = 'talage';
                 }
+
+                // Update when configure Application Statuses are implemented
+                let appStatus = this.applicationDocData.status
+                for(const appStatusProp in applicationStatus){
+                    if(this.applicationDocData.status === applicationStatus[appStatusProp].appStatusDesc){
+                        appStatus = applicationStatus[appStatusProp].appStatusText;
+                    }
+                }
+
                 let message = '';
                 let subject = '';
 
@@ -922,6 +932,8 @@ module.exports = class Application {
                     message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
                     message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
                     message = message.replace(/{{Agency Website}}/g, this.agencyLocation.agencyWebsite ? `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>` : '');
+                    message = message.replace(/{{AppStatus}}/g, appStatus);
+                    subject = subject.replace(/{{AppStatus}}/g, appStatus);
                     subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
                     // Send the email message
@@ -943,6 +955,7 @@ module.exports = class Application {
                 if(agencyNetworkDB.featureJson.quoteEmailsAgency === true && this.agencyPortalQuote === false && emailContentJSON.agencyMessage){
                     // Do not send if this is Talage
                     if (this.agencyLocation.agencyId > 2) {
+                        log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                         // Determine the portal login link
                         let portalLink = emailContentJSON.PORTAL_URL;
 
@@ -964,9 +977,10 @@ module.exports = class Application {
                         if (quoteList[0] && quoteList[0].status) {
                             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                         }
-                        log.info(`AppId ${this.id} sending agency NO QUOTE email`);
-                        // Send the email message - development should email. change local config to get the email.
 
+                        // Send the email message - development should email. change local config to get the email.
+                        message = message.replace(/{{AppStatus}}/g, appStatus);
+                        subject = subject.replace(/{{AppStatus}}/g, appStatus);
                         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
                         subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
                         subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
@@ -1052,7 +1066,9 @@ module.exports = class Application {
                         message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
                         message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
                         message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
+                        message = message.replace(/{{AppStatus}}/g, appStatus);
 
+                        subject = subject.replace(/{{AppStatus}}/g, appStatus);
                         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
                         subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
                         subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
