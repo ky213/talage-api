@@ -7,7 +7,6 @@
 
 const mongoose = global.mongodb, Schema = require('mongoose').Schema;
 const timestamps = require('mongoose-timestamp');
-const uuid = require('uuid');
 const mongooseHistory = require('mongoose-history');
 
 // eslint-disable-next-line no-unused-vars
