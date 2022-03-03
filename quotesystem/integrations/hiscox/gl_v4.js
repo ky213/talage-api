@@ -44,7 +44,7 @@ module.exports = class HiscoxGL extends Integration {
         // CHECK SUPPORTED DEDUCTIBLES
 
         // Define the limits supported by this carrier
-        let carrierLimits = ["300000/600000", "500000/1000000", "1000000/2000000", "2000000/2000000"];
+        // let carrierLimits = ["300000/600000", "500000/1000000", "1000000/2000000", "2000000/2000000"]; // zy debug determine whether this is still needed
 
         const validCounties = [
             "Broward county",
@@ -133,7 +133,7 @@ module.exports = class HiscoxGL extends Integration {
                 "DSV" // Mobile food services
             ].includes(this.industry_code.hiscox)
         ) {
-            carrierLimits = ["300000/300000", "500000/500000", "1000000/2000000", "2000000/2000000"];
+            // carrierLimits = ["300000/300000", "500000/500000", "1000000/2000000", "2000000/2000000"]; // zy determine if this is still needed
         }
         this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
@@ -329,12 +329,11 @@ module.exports = class HiscoxGL extends Integration {
         }
 
 
-
-
         // Determine the best limits
-        // ***** HACK TODO ****** Temporarily hard-coded limits to 1000000/1000000 for testing. 
-        // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits 
+        // ***** HACK TODO ****** Temporarily hard-coded limits to 1000000/1000000 for testing.
+        // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits
         // ***** V3 request with 250000/250000 was fine but V4 doesn't like it. Not sure how bestLimits even resulted in 250000/250000
+        // ***** Anyway, limits needs to be revisited and set correctly
         this.bestLimits = ['1000000', '1000000'];
         // this.bestLimits = this.getBestLimits(carrierLimits);
         // if (!this.bestLimits) {
