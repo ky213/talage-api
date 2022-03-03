@@ -924,6 +924,14 @@ module.exports = class AMTrustWC extends Integration {
                 return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
             }
             else if(typeof quoteResponse === 'string'){
+                if(quoteResponse.indexOf('creating quote.ClassCode') > 0){
+                    let declineMessage = quoteResponse;
+                    const messageParts = quoteResponse.split(':');
+                    if(messageParts?.length > 1){
+                        declineMessage = messageParts[1];
+                    }
+                    return this.client_declined(`The insurer reports ${declineMessage}`);
+                }
                 log.error(`Amtrust WC Application ${this.app.id} returned unexpected response of ${quoteResponse} on Quote Post` + __location)
                 return this.client_error(`The AmTrust's server returned: ${quoteResponse}.`, __location, {statusCode: statusCode});
             }
@@ -945,7 +953,11 @@ module.exports = class AMTrustWC extends Integration {
         let quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
         if (quoteEligibility === "Decline") {
             // A decline at this stage is based on the class codes; they are out of appetite.
+            if(quoteResponse.Data.AdditionalMessages?.length > 0){
+                return this.client_declined(`The insurer reports ${quoteResponse.Data.AdditionalMessages[0]}`);
+            }
             return this.client_declined(`The insurer reports that they will not write a policy with the selected state and one of class codes`);
+
         }
 
 
@@ -978,14 +990,25 @@ module.exports = class AMTrustWC extends Integration {
         }
         //If quickQuote were are done.
         if(quickQuote){
-            //get price_indication
-            if(quoteEligibility === "Refer") {
+            if(!useQuotePut_OldQuoteId){
+                //get price_indication
+                if(quoteEligibility === "Refer") {
+                    return this.client_referred(quoteId, {}, priceIndicationAmount);
+                }
+                else if (quoteEligibility === 'BindEligible'){
+                    return this.client_quoted(quoteId, {}, priceIndicationAmount);
+                }
+                else {
+                    if(quoteResponse.Data.AdditionalMessages?.length > 0){
+                        log.error(`Amtrust WC Application ${this.app.id} The insurer reports ${quoteResponse.Data.AdditionalMessages[0]}` + __location);
+                        return this.client_declined(`The insurer reports ${quoteResponse.Data.AdditionalMessages[0]}`);
+                    }
+                    return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`, __location);
+                }
+            }
+            else if (isPriceIndicated) {
                 return this.client_referred(quoteId, {}, priceIndicationAmount);
             }
-            else {
-                return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`);
-            }
-
         }
 
         // ************ SEND LIMITS - Must use the quoteReponse.data to send limits.
