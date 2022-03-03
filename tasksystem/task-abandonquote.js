@@ -185,7 +185,7 @@ async function abandonquotetask(){
 }
 
 // eslint-disable-next-line require-jsdoc
-async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, sendAgency = true, sendAgencyNetwork = true){
+async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, sendAgency = true, sendAgencyNetwork = true, sendCustomer = true){
     if(!applicationDoc){
         return;
     }
@@ -331,7 +331,8 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
 
             let message = emailContentJSON.customerMessage;
             let subject = emailContentJSON.customerSubject;
-            if(agencyNetworkDB.featureJson.quoteEmailsCustomer && applicationDoc.agencyPortalCreated === false){
+            // CUSTOMER  EMAIL
+            if(sendCustomer && agencyNetworkDB.featureJson.quoteEmailsCustomer && applicationDoc.agencyPortalCreated === false){
                 // Perform content replacements
                 message = message.replace(/{{Agency}}/g, agencyName);
                 message = message.replace(/{{Agency Email}}/g, agencyLocationEmail);
