@@ -1,8 +1,9 @@
 "use strict";
-const serverHelper = global.requireRootPath('server.js');
+const serverHelper = global.requireRootPath("server.js");
+const axios = require("axios");
 
 /**
- * Receives a list of scanned accord files, parse them with an OCR api and then send back the json format version.
+ * Validates data
  *
  * @param {object[]} files - arrary of accord files
  *
@@ -44,10 +45,37 @@ function validateFiles(files) {
 
       continue;
     } else {
-      file.data = buffer.toString('binary')
+      file.data = buffer.toString("binary");
     }
 
-    file.valid = true
+    file.valid = true;
+  }
+
+  return files;
+}
+/**
+ * Sneds the valid accords list to aws OCR endpoint
+ *
+ * @param {object[]} files - arrary of accord files
+ *
+ * @returns {object[]}
+ */
+async function sendForRecognition(files) {
+  for await (const file of files) {
+    try {
+      const response = await axios.request({
+        method: "POST",
+        url: "https://ufg7wet2m3.execute-api.us-east-1.amazonaws.com/production/ocr/queue/pdf/accord130/201705",
+        data: file.data,
+        headers: {
+          "Content-Type": "application/pdf"
+        }
+      });
+      file.data = response.data;
+    } catch (error) {
+      file.data = null;
+      file.error = error.message;
+    }
   }
 
   return files;
@@ -77,13 +105,18 @@ async function getAccordOCR(req, res, next) {
 
   //validateFiles
   const accords = validateFiles(req.body.files);
+  const validFiles = accords.filter(({ valid }) => valid);
 
-  if (accords.filter(({ valid }) => valid).length === 0) {
+  if (validFiles.length === 0) {
     log.info("Bad Request: No valid files received" + __location);
     return next(serverHelper.requestError("Bad Request: No valid files received"));
   }
 
-  res.send(accords);
+  // send accords for OCR recognition
+  const result = await sendForRecognition(validFiles);
+
+  res.send(result);
+
   next();
 }
 
