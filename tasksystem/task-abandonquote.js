@@ -16,6 +16,7 @@ const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 
 const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
+const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 
 const log = global.log;
 
@@ -209,6 +210,14 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
 
     if(quoteList && quoteList.length > 0){
 
+        // Update when configure Application Statuses are implemented
+        let appStatus = applicationDoc.status
+        for(const appStatusProp in applicationStatus){
+            if(applicationDoc.status === applicationStatus[appStatusProp].appStatusDesc){
+                appStatus = applicationStatus[appStatusProp].appStatusText;
+            }
+        }
+
         let error = null;
         const agencyNetworkId = applicationDoc.agencyNetworkId;
 
@@ -342,6 +351,9 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                 message = message.replace(/{{is\/are}}/g, quoteList.length === 1 ? 'is' : 'are');
                 message = message.replace(/{{s}}/g, quoteList.length === 1 ? '' : 's');
                 message = message.replace(/{{Quotes}}/g, quotesHTML);
+                message = message.replace(/{{AppStatus}}/g, appStatus);
+
+                subject = subject.replace(/{{AppStatus}}/g, appStatus);
                 subject = subject.replace(/{{is\/are}}/g, quoteList.length === 1 ? 'is' : 'are');
                 subject = subject.replace(/{{s}}/g, quoteList.length === 1 ? '' : 's');
 
@@ -402,7 +414,9 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                     message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
                     message = message.replace(/{{Agency Phone}}/g, agencyPhone);
                     message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+                    message = message.replace(/{{AppStatus}}/g, appStatus);
 
+                    subject = subject.replace(/{{AppStatus}}/g, appStatus);
                     subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
                     subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                     subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
@@ -498,8 +512,9 @@ async function processAbandonQuote(applicationDoc, insurerList, policyTypeList, 
                         message = message.replace(/{{Contact Phone}}/g, phone);
                         message = message.replace(/{{Industry}}/g, industryCodeDesc);
                         message = message.replace(/{{Quotes}}/g, quotesHTML);
+                        message = message.replace(/{{AppStatus}}/g, appStatus);
 
-
+                        subject = subject.replace(/{{AppStatus}}/g, appStatus);
                         subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
                         subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
                         subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);

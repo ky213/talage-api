@@ -326,7 +326,11 @@ async function runQuoting(app) {
     }
 
     // Update the application status
-    await applicationStatus.updateApplicationStatus(app.applicationDocData.applicationId);
+    // response {appStatusId: applicationDocJson.appStatusId, appStatusDesc: applicationDocJson.status};
+    const statusReponse = await applicationStatus.updateApplicationStatus(app.applicationDocData.applicationId);
+    //update for notifications.
+    app.applicationDocData.status = statusReponse.appStatusDesc;
+    app.applicationDocData.appStatusId = statusReponse.appStatusId;
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO();
