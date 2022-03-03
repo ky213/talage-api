@@ -294,9 +294,70 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
 
 }
 
+async function getActivityCodesByNCCICode(ncciCode, territory) {
+    log.info(`Finding activity code for NCCI code : ${ncciCode} ${__location}`);
+
+    try {
+        const {
+            ActivityCode, InsurerActivityCode
+        } = global.mongoose;
+
+        const insurerActivityCodes = await InsurerActivityCode.aggregate([
+            {$match: {
+                insurerId: 9, // NCCI insurer (fake)
+                active: true,
+                talageActivityCodeIdList: {$ne:null},
+                territoryList: territory,
+                code: {$regex: `^${ncciCode}`}
+            }},
+            {$unwind: "$talageActivityCodeIdList"},
+            {$addFields: {talageActivityCodeId: "$talageActivityCodeIdList"}},
+            {$project: {talageActivityCodeIdList: 0}}
+        ]);
+
+        const codeList = [];
+        const alreadyProcessedCodeIDs = new Set();
+
+        for (const insurerActivityCode of insurerActivityCodes) {
+            if (alreadyProcessedCodeIDs.has(insurerActivityCode.talageActivityCodeId)) {
+                continue;
+            }
+
+            alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeId);
+
+            const code = await ActivityCode.findOne({
+                activityCodeId: insurerActivityCode.talageActivityCodeId,
+                active: true
+            },
+            {
+                __v: 0,
+                _id: 0,
+                id: 0,
+                talageStandard: 0,
+                codeGroupList: 0,
+                active: 0,
+                talageActivityCodeUuid: 0,
+                updatedAt: 0,
+                createdAt: 0
+            }).lean();
+
+            if (code) {
+                code.ncciCode = insurerActivityCode.code;
+                code.ncciSubCode = insurerActivityCode.sub;
+                codeList.push(code);
+            }
+        }
+
+        return codeList;
+    }
+    catch (error) {
+        log.warn(`findActivityCodesByNCCICode: ${ncciCode} Error ${error} ` + __location);
+    }
+}
 
 module.exports = {
     GetActivityCodes: GetActivityCodes,
+    getActivityCodesByNCCICode: getActivityCodesByNCCICode,
     updateActivityCodeCacheByIndustryCode: updateActivityCodeCacheByIndustryCode,
     updateActivityCodeCacheByActivityCode: updateActivityCodeCacheByActivityCode,
     updateActivityCodeCacheByActivityCodeTerritoryList: updateActivityCodeCacheByActivityCodeTerritoryList,

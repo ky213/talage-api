@@ -187,7 +187,7 @@ module.exports = class AgencyPortalUserBO{
                 // eslint-disable-next-line prefer-const
                 try {
                     // log.debug("AgencyPortalUserModel GetList query " + JSON.stringify(query) + __location)
-                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions);
+                    docList = await AgencyPortalUserModel.find(query,queryProjection, queryOptions)
                 }
                 catch (err) {
                     log.error(err + __location);
@@ -413,7 +413,7 @@ module.exports = class AgencyPortalUserBO{
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency Portal User error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //
@@ -626,17 +626,23 @@ module.exports = class AgencyPortalUserBO{
     setPasword(id, newHashedPassword) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if (id) {
+            if (id && id > 0) {
                 let agencyPortalUserDoc = null;
                 try {
                     const getDoc = true;
                     agencyPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
-                    agencyPortalUserDoc.password = newHashedPassword;
-                    agencyPortalUserDoc.resetRequired = false;
-                    await agencyPortalUserDoc.save();
+                    if(agencyPortalUserDoc){
+                        agencyPortalUserDoc.password = newHashedPassword;
+                        agencyPortalUserDoc.resetRequired = false;
+                        await agencyPortalUserDoc.save();
+                    }
+                    else {
+                        log.info(`Set Password user not found ${id}` + __location);
+                        reject(new Error(`User not found ${id}`))
+                    }
                 }
                 catch (err) {
-                    log.error(`Error marking agencyPortalUserDoc from id ${id} ` + err + __location);
+                    log.warn(`Error setting password agencyPortalUserDoc from id ${id} ` + err + __location);
                     reject(err);
                 }
                 resolve(true);

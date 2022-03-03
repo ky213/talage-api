@@ -25,7 +25,9 @@ exports.createNewToken = async function(payload, additionalPayload) {
     const jwt = require('jsonwebtoken');
     const userJwt = jwt.sign(jwtPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'});
 
-    let redisPayload = jwtPayload;
+    let redisPayload = JSON.parse(JSON.stringify(jwtPayload));
+    //For Refreshing token. Next to know exactly what was the JWT payload.
+    redisPayload.jwtPayload = jwtPayload;
     // add the additional payload after generating the token
     if(additionalPayload){
         redisPayload = Object.assign(jwtPayload, additionalPayload);
@@ -127,14 +129,16 @@ exports.addApplicationToToken = async function(req, applicationId) {
 exports.refreshToken = async function(req) {
     const redisResponse = await global.redisSvc.getKeyValue(req.jwtToken);
     if(redisResponse && redisResponse.found && redisResponse.value){
-        const userTokenData = JSON.parse(redisResponse.value);
+        //TODO  Leaks info into JWT.
+        const redisData = JSON.parse(redisResponse.value);
+        const userTokenData = redisData.jwtPayload
         const duration = moment.duration(moment().diff(moment(userTokenData.createdAt)));
         const seconds = duration.asSeconds();
 
         // check created date and make sure we exceed the threshold
         if(seconds > refreshThresholdSeconds){
             // TODO: the optional data needs to be separated from the token data, for now use all the data to generate the token
-            const userToken = await this.createNewToken(userTokenData);
+            const userToken = await this.createNewToken(userTokenData, redisData);
             return `Bearer ${userToken}`;
         }
     }

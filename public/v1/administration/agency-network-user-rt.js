@@ -18,6 +18,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 //const moment = require("moment")
 
+const AgencyNetworkBO = global.requireShared(`./models/AgencyNetwork-BO.js`)
 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 
 async function findAll(req, res, next) {
@@ -81,6 +82,15 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
         return next(new Error("bad parameter"));
     }
     let error = null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
+        log.error(`Error retrieving list of agencies for agency network id ${agencyNetworkId}: ` + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
     // get list of all agencies for this network
     const agencyBO = new AgencyBO();
     const agencyList = await agencyBO.getByAgencyNetwork(agencyNetworkId).catch(function(err){
@@ -90,20 +100,32 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     if (error) {
         return next(error);
     }
+    // eslint-disable-next-line array-element-newline
+    const removeProps = ["legalAcceptance","tableOptions","notificationPolicyTypeList","enableGlobalView","openidAuthConfigId","password"]
     // for each agency grab the agency users
     const allAgencyUserList = [];
     if(agencyList.length > 0){
-        const agencyIdList = agencyList.map(function(agency) {
-            return agency.systemId;
-        })
         const agencyPortalUserBO = new AgencyPortalUserBO();
-        for(let i = 0; i < agencyIdList.length; i++){
-            const agencyUserList = await agencyPortalUserBO.getList({agencyId: parseInt(agencyIdList[i], 10)}).catch(function(err) {
+        for(let i = 0; i < agencyList.length; i++){
+            let agencyUserListDB = await agencyPortalUserBO.getList({agencyId: parseInt(agencyList[i].systemId, 10)}).catch(function(err) {
                 error = err;
             })
             if (error) {
-                log.error(`Error retrieving list of users for agency id ${agencyIdList[i]}: ` + error + __location);
+                log.error(`Error retrieving list of users for agency id ${agencyList[i].systemId}: ` + error + __location);
                 break;
+            }
+            let agencyUserList = JSON.parse(JSON.stringify(agencyUserListDB))
+            for(let j = 0; j < agencyUserList.length; j++){
+                let user = agencyUserList[j];
+
+                for(const prop of removeProps){
+                    if(user[prop]){
+                        delete user[prop]
+                    }
+                }
+                user.agencyName = agencyList[i].name.replace(/,/g,"");
+                user.agencyNetwork = agencyNetworkJSON.name
+                user.marketingChannel = agencyNetworkJSON.marketingChannel;
             }
             if(agencyUserList && agencyUserList.length > 0){
                 allAgencyUserList.push(agencyUserList);

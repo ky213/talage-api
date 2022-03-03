@@ -36,8 +36,6 @@ let host = "";
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
 
-let industryCode = null;
-
 const specialCaseQuestions = [
     "cna.general.prevCarrier",
     "cna.general.yearsWithCarrier",
@@ -45,7 +43,10 @@ const specialCaseQuestions = [
     "cna.general.yearsManagementExp",
     "cna.general.choiceEndorsementPartial",
     "cna.general.choiceEndorsementFull",
-    "cna.general.medex"
+    "cna.general.medex",
+    "cna.general.mfgProductDesc",
+    "cna.general.mfgProductIntendedUse",
+    "cna.general.mfgProductSelfInsured"
 ];
 
 const lossTypes = {
@@ -106,14 +107,17 @@ const limitIneligibility = [
     "27541_50",
     "27410_50",
     "27112_50"
-]
+];
 
+// We don't ask a question for payroll, we have that information already, so these are the SIC we include it for.
+// All others are handled as location questions and have the appropriate industry code mappings
 const dynamicExposures = {
     "07420_50": "PAYRL",
-    "07522_50": "Kennel",
-    "07522_51": "Kennel",
+    // "07522_50": "Kennel",
+    // "07522_51": "Kennel",
     "07821_50": "PAYRL",
     "07821_51": "PAYRL",
+    "16115_50": "PAYRL",
     "17112_52": "PAYRL",
     "17113_50": "PAYRL",
     "17114_50": "PAYRL",
@@ -181,20 +185,20 @@ const dynamicExposures = {
     "76993_50": "PAYRL",
     "78922_50": "PAYRL",
     "79220_50": "PAYRL",
-    "81111_50": "Court",
-    "82431_50": "NumStudents",
-    "82491_50": "NumStudents",
-    "82491_51": "NumStudents",
-    "82491_53": "NumStudents",
-    "82491_54": "NumStudents",
-    "86110_50": "Member",
-    "86110_51": "Member",
-    "86110_52": "Member",
-    "86110_53": "Member",
-    "86110_54": "Member",
-    "86110_55": "Member",
+    // "81111_50": "Court",
+    // "82431_50": "NumStudents",
+    // "82491_50": "NumStudents",
+    // "82491_51": "NumStudents",
+    // "82491_53": "NumStudents",
+    // "82491_54": "NumStudents",
+    // "86110_50": "Member",
+    // "86110_51": "Member",
+    // "86110_52": "Member",
+    // "86110_53": "Member",
+    // "86110_54": "Member",
+    // "86110_55": "Member",
     "86110_56": "PAYRL",
-    "86415_50": "Member",
+    // "86415_50": "Member",
     "87110_51": "PAYRL",
     "87110_52": "PAYRL",
     "87120_50": "PAYRL",
@@ -302,6 +306,7 @@ const medicalLimits = [
     10000
 ];
 
+let industryCode = null; // 212, 213
 let logPrefix = null;
 let BOPPolicy = null;
 
@@ -640,40 +645,7 @@ module.exports = class CnaBOP extends Integration {
                                     CommlCoverage: this.getCoverages(limits),
                                     GeneralLiabilityClassification: this.getGLClassifications()
                                 },
-                                // TODO: These are convoluted to fill out, and is tied to area leased. Leaving out for now unless CNA kicks back
-                                // "com.cna_ProductInfo":[
-                                //     {
-                                //         "ProductDesignedDesc":{
-                                //             "value":"test 1390"
-                                //         },
-                                //         "ProductMfgDesc":{
-                                            
-                                //         },
-                                //         "com.cna_IntendedUse":{
-                                //             "value":"test 1390"
-                                //         },
-                                //         "com.cna_grossSales":{
-                                //             "Amt":{
-                                //                 "value":0
-                                //             }
-                                //         },
-                                //         "com.cna_NumAnnualUnitsSold":{
-                                //             "value":0
-                                //         },
-                                //         "com.cna_YearProductFirstMade":{
-                                //             "value":0
-                                //         },
-                                //         "com.cna_YearProductDiscontinued":{
-                                //             "value":2020
-                                //         },
-                                //         "com.cna_ExpectedLife":{
-                                //             "value":0
-                                //         },
-                                //         "com.cna_ProductSelfInsuredInd":{
-                                //             "value":"0"
-                                //         }
-                                //     }
-                                // ],
+                                "com.cna_ProductInfo": this.getProductInfo(),
                                 // TODO: Find out what questions should be in here, this might just be all general questions
                                 "com.cna_QuestionAnswer": this.getQuestions()
                             },
@@ -823,7 +795,8 @@ module.exports = class CnaBOP extends Integration {
         let policyStatus = null;
 
         const response = result.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0];
-        switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {                
+        policyStatus = response.MsgStatus.MsgStatusCd.value.toLowerCase();
+        switch (policyStatus) {                
             case "dataerror":
             case "datainvalid":
             case "error":
@@ -873,10 +846,10 @@ module.exports = class CnaBOP extends Integration {
             case "successwithchanges":
             case "resultpendingoutofband":
                 const policySummary = response.PolicySummaryInfo;
-                policyStatus = policySummary.PolicyStatusCd.value;
                 switch (policySummary.PolicyStatusCd.value.toLowerCase()) {
-                    case "quotednotbound":
-                    case "issued":
+                    case "notquotednotbound":
+                        return this.client_declined(`Application was not quoted or bound.`);
+                    default:
                         // get quote number (optional)
                         try {
                             quoteNumber = response.CommlPolicy.QuoteInfo.CompanysQuoteNumber.value;
@@ -900,8 +873,15 @@ module.exports = class CnaBOP extends Integration {
                         try {
                             // general limits
                             response.BOPLineBusiness.LiabilityInfo.CommlCoverage.forEach(genLim => {
+                                let description = genLim.Limit[0]?.LimitAppliesToCd ? genLim.Limit[0].LimitAppliesToCd[0].value : genLim.CoverageCd.value;
+
+                                // special cases:
+                                if (description === "MEDEX") {
+                                    description = "Medical Expenses";
+                                }
+
                                 const newCoverage = {
-                                    description: genLim.Limit[0].LimitAppliesToCd[0].value,
+                                    description: description,
                                     value: convertToDollarFormat(genLim.Limit[0].FormatInteger.value, true),
                                     sort: coverageSort++,
                                     category: 'General Limits',
@@ -1002,11 +982,6 @@ module.exports = class CnaBOP extends Integration {
                             log.error(`${logPrefix}Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
                         }
                         break;
-                    case "notquotednotbound":
-                        return this.client_declined(`Application was not quoted or bound.`);
-                    default: 
-                        log.error(`${logPrefix}Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}` + __location);
-                        return this.client_error(`Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}`, __location);
                 } // end inner switch
                 break;
             default: 
@@ -1016,16 +991,16 @@ module.exports = class CnaBOP extends Integration {
 
         if (policyStatus) {
             // will either be issued or quotednotbound
-            if (policyStatus === "issued") { 
-                return this.client_quoted(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
+            if (policyStatus === "ResultPendingOutOfBand") { 
+                return this.client_referred(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
             }
             else {
-                return this.client_referred(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
+                return this.client_quoted(quoteNumber, [], premium, quoteLetter, quoteMIMEType, quoteCoverages);
             }
         }
         else {
-            log.error(`${logPrefix}Response doesn't include a policy status code.` + __location);
-            return this.client_error(`Response doesn't include a policy status code.`, __location);
+            log.error(`${logPrefix}Response doesn't include a policy status code, or an unexpected code was encountered.` + __location);
+            return this.client_error(`Response doesn't include a policy status code, or an unexpected code was encountered.`, __location);
         }
     }
 
@@ -1127,6 +1102,34 @@ module.exports = class CnaBOP extends Integration {
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
             };
+
+            // if BLDG limit > 250k, add defaulted OccupancyCd to BldgOccupancy[0]
+            if (location.buildingLimit !== null && location.buildingLimit > 250000) {
+                buildingObj.BldgOccupancy[0]["com.cna_OccupancyCd"] = [{value: "OF1"}];
+            }
+
+            // if hasRackStorageAboveTwelveFeet question exists, add it to "com.cna_QuestionAnswer" array
+            const rackStorageQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.rackStorageAbove12Feet");
+            if (rackStorageQuestion) {
+                buildingObj["com.cna_QuestionAnswer"].push({
+                    "com.cna_QuestionCd": {
+                        value: "com.cna_hasRackStorageAboveTwelveFeet"
+                      },
+                      YesNoCd: {
+                        value: rackStorageQuestion.answerValue.toUpperCase()
+                      }
+                });
+            }
+            // QuestionCd.value='com.cna_hasRackStorageAboveTwelveFeet'.YesNoCd.value='YES' or 'NO'
+
+            const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
+            if (payrollType) {
+                buildingObj.FinancialInfo = {
+                    "com.cna_PayrollTypeCd": {
+                        value: payrollType.answerValue
+                    }
+                }
+            }
 
             // -------- BldgFeature questions --------
             // NOTE: Daycare children is currently not handled 
@@ -1349,6 +1352,61 @@ module.exports = class CnaBOP extends Integration {
         }
         else {
             return `N00${index}`;
+        }
+    }
+
+    getProductInfo() {
+        const productInfo = {
+            // "ProductMfgDesc":{
+            // },
+            // "com.cna_grossSales":{
+            //     "Amt":{
+            //         "value":0
+            //     }
+            // },
+            // "com.cna_NumAnnualUnitsSold":{
+            //     "value":0
+            // },
+            // "com.cna_YearProductFirstMade":{
+            //     "value":0
+            // },
+            // "com.cna_YearProductDiscontinued":{
+            //     "value":2020
+            // },
+            // "com.cna_ExpectedLife":{
+            //     "value":0
+            // }
+        }
+
+        // product designed description
+        const productDesignDescQuestion = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.mfgProductDesc");
+        if (productDesignDescQuestion) {
+            productInfo.ProductDesignedDesc = {
+                value: productDesignDescQuestion.answerValue
+            }
+        }
+
+        // intended use 
+        const productIntendedUseQuestion = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.mfgProductIntendedUse");
+        if (productIntendedUseQuestion) {
+            productInfo["com.cna_IntendedUse"] = {
+                value: productIntendedUseQuestion.answerValue
+            }
+        }
+
+        // product self insured
+        const productSelfInsuredQuestion = this.applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "cna.general.mfgProductSelfInsured");
+        if (productSelfInsuredQuestion) {
+            productInfo["com.cna_ProductSelfInsuredInd"] = {
+                value: productSelfInsuredQuestion.answerValue.toUpperCase() === "YES" ? 1 : 0
+            }
+        }
+
+        if (Object.keys(productInfo).length > 0) {
+            return [productInfo];
+        }
+        else {
+            return [];
         }
     }
 
@@ -1711,6 +1769,8 @@ module.exports = class CnaBOP extends Integration {
         for (const deductible of supportedDeductibles) {
             if (appDeductible >= deductible) {
                 closestDeductible = deductible;
+            }
+            else {
                 break;
             }
         }
@@ -1886,14 +1946,19 @@ module.exports = class CnaBOP extends Integration {
                 SubLocationRef: `L${i + 1}S1`
             };
 
-            // add dynamic exposure if applicable (only applicable for certain SIC)
-            if (Object.keys(dynamicExposures).includes(industryCode.attributes.SICCd)) {
-                glClassificationObj.AlternativePremiumBasisCd = {
-                    value: dynamicExposures[industryCode.attributes.SICCd]
-                };
-            }
-
             const additionalExposures = [];
+
+            // Payroll
+            if (Object.keys(dynamicExposures).includes(industryCode.attributes.SICCd)) {
+                additionalExposures.push({
+                    "com.cna_AdditionalExposureCd": {
+                        value: "PAYRL"
+                    },
+                    "com.cna_AdditionalExposureAmt": {
+                        value: this.get_location_payroll(location)
+                    }
+                });
+            }
 
             // lawyers
             const numLawyers = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.numLawyers");
@@ -1947,19 +2012,6 @@ module.exports = class CnaBOP extends Integration {
                     },
                     "com.cna_AdditionalExposureAmt": {
                         value: isNaN(count) ? 0 : count
-                    }
-                });
-            }
-
-            // payroll type
-            const payrollType = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.payrollType");
-            if (payrollType) {
-                additionalExposures.push({
-                    "com.cna_AdditionalExposureCd": {
-                        value: payrollType.answerValue
-                    },
-                    "com.cna_AdditionalExposureAmt": {
-                        value: this.get_location_payroll(location)
                     }
                 });
             }

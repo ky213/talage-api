@@ -465,6 +465,15 @@ module.exports = class ApplicationModel {
         }
         this.#applicationMongooseDB = application;
         await this.updateRedisForAppInsert(application);
+
+        // Increment Agency Application Count
+        const agencyBO = new AgencyBO();
+        const dbDocJSON = await agencyBO.getById(application.agencyId);
+        await agencyBO.updateMongo(dbDocJSON.agencyId, {
+            $inc: {appCount: 1},
+            $set: {} // $inc atomic operator does not work without $set (set to blank object for no changes)
+        });
+
         if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
             await this.updateRedisForAppUpdate(application)
             await this.updateRedisForAppAddDelete(application.applicationId, application, 1);
@@ -1607,7 +1616,7 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            if(orParamList && orParamList.length > 0){
+            if(orParamList && orParamList?.length > 0){
                 for (let i = 0; i < orParamList.length; i++){
                     let orItem = orParamList[i];
                     if(orItem.policies && queryJSON.orItem.policyType){
@@ -1705,8 +1714,8 @@ module.exports = class ApplicationModel {
                     log.debug("ApplicationList options " + JSON.stringify(queryOptions) + __location)
                     log.debug("queryProjection: " + JSON.stringify(queryProjection) + __location)
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions).lean();
-                    log.debug(`docList.length ${docList.length}`)
-                    if(docList.length > 0){
+                    log.debug(`docList.length ${docList?.length}`)
+                    if(docList?.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
                         let agencyMap = {};
@@ -1720,17 +1729,26 @@ module.exports = class ApplicationModel {
 
                             // Load the request data into it
                             if(agencyMap[application.agencyId]){
-                                application.agencyName = agencyMap[application.agencyId];
+                                // If Agency exists in agencyMap, get name and tierName
+                                application.agencyName = agencyMap[application.agencyId].name;
+                                application.agencyTierName = agencyMap[application.agencyId].tierName;
+                                application.agencyCreatedAt = agencyMap[application.agencyId].createdAt;
                             }
                             else {
-                                const returnDoc = false;
+                                const returnReturnAgencyNetwork = false;
                                 const returnDeleted = true
-                                const agency = await agencyBO.getById(application.agencyId, returnDoc, returnDeleted).catch(function(err) {
+                                const agency = await agencyBO.getById(application.agencyId, returnReturnAgencyNetwork, returnDeleted).catch(function(err) {
                                     log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
                                 });
                                 if (agency) {
                                     application.agencyName = agency.name;
-                                    agencyMap[application.agencyId] = agency.name;
+                                    application.agencyTierName = agency.tierName;
+                                    application.agencyCreatedAt = agency.createdAt;
+                                    // Store both the Name and the Tier Name of the Agency in agencyMap
+                                    agencyMap[application.agencyId] = {};
+                                    agencyMap[application.agencyId].name = agency.name;
+                                    agencyMap[application.agencyId].tierName = agency.tierName;
+                                    agencyMap[application.agencyId].createdAt = agency.createdAt;
 
                                 }
                             }
@@ -1758,11 +1776,11 @@ module.exports = class ApplicationModel {
                                 }
                             }
                             //bring policyType to property on top level.
-                            if(application.policies.length > 0){
+                            if(application.policies?.length > 0){
                                 let policyTypesString = "";
                                 let effectiveDate = moment("2100-12-31")
                                 application.policies.forEach((policy) => {
-                                    if(policyTypesString.length > 0){
+                                    if(policyTypesString && policyTypesString.length > 0){
                                         policyTypesString += ","
                                     }
                                     policyTypesString += policy.policyType;
@@ -1882,11 +1900,21 @@ module.exports = class ApplicationModel {
             //validate
             if (id) {
                 try {
+                    const application = await this.loadById(id);
                     const query = {"applicationId": id};
                     const newObjectJSON = {active: false}
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
+
+                    // Decrement Agency Application Count
+                    const agencyBO = new AgencyBO();
+                    const dbDocJSON = await agencyBO.getById(application.agencyId);
+                    await agencyBO.updateMongo(dbDocJSON.agencyId, {
+                        $inc: {appCount: -1},
+                        $set: {} // $inc atomic operator does not work without $set (set to blank object for no changes)
+                    });
+
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
                         await this.updateRedisForAppUpdatebyAppId(id);
                         await this.updateRedisForAppAddDelete(id,null , -1);
@@ -2018,14 +2046,14 @@ module.exports = class ApplicationModel {
             }
         }
         catch(err){
-            log.error("Error checking application doc " + err + __location)
+            log.error("AppBO GetQuestions Error checking application doc " + err + __location)
             throw new Error("Error checking application doc ");
         }
         if(passedAgencyCheck === false){
-            throw new Error("permission denied");
+            throw new Error("AppBO GetQuestions permission denied" + __location);
         }
         if(!applicationDocDB){
-            throw new Error("not found");
+            throw new Error("AppBO GetQuestions not found" + __location);
         }
 
         // check SAQ to populate the answeredList with location answers if they are there
@@ -2052,12 +2080,12 @@ module.exports = class ApplicationModel {
 
         //industrycode
         let industryCodeStringArray = [];
-        if(applicationDocDB.industryCode){
+        if(applicationDocDB.industryCode && parseInt(applicationDocDB.industryCode, 10) > 0){
             industryCodeStringArray.push(applicationDocDB.industryCode);
         }
         else {
-            log.error(`Data problem prevented getting Application Industry Code for ${applicationDocDB.uuid} . throwing error` + __location)
-            throw new Error("Incomplete Application: Application Industry Code")
+            log.warn(`AppBO GetQuestions - no Application Industry Code for ${applicationDocDB.applicationId}.` + __location)
+            return {};
         }
         const bopPolicy = applicationDocDB.policies.find((p) => p.policyType === "BOP")
         if(bopPolicy && bopPolicy.bopIndustryCodeId){
@@ -2088,11 +2116,18 @@ module.exports = class ApplicationModel {
                     effectiveDate: moment()
                 });
             }
+            if(policyTypeArray.length === 0){
+                log.warn(`AppBO GetQuestions no policy Types got selected for ${applicationDocDB.applicationId}j.` + __location)
+                return {};
+            }
         }
         else {
-            log.error(`Data problem prevented getting Application Policy Types for ${applicationDocDB.uuid} . throwing error` + __location)
-            throw new Error("Incomplete Application: Application Policy Types")
+            log.warn(`AppBO GetQuestions - No Policy Types for ${applicationDocDB.applicationId} . throwing error` + __location)
+            return {};
         }
+        //
+
+
         // get activitycodes.
         // activity codes are not required for For most GL or BOP. only WC.
         // Future Enhance is to take insurers into account. For Example: Acuity mixes GL and WC concepts.
@@ -2143,8 +2178,8 @@ module.exports = class ApplicationModel {
         }
         else if(requireActivityCodes) {
             if(questionSubjectArea === 'general'){
-                log.error(`Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
-                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+                log.warn(`AppBO GetQuestions - Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
+                return {};
             }
         }
         //zipCodes
@@ -2163,7 +2198,7 @@ module.exports = class ApplicationModel {
                 stateList.push(location.state)
             }
             else {
-                log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. using mailing` + __location)
+                log.error(`AppBO GetQuestions - Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. using mailing` + __location)
                 zipCodeArray.push(applicationDocDB.mailingZipcode);
                 stateList.push(applicationDocDB.mailingState)
             }
@@ -2194,8 +2229,8 @@ module.exports = class ApplicationModel {
             // do nothing.
         }
         else {
-            log.error(`Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
-            throw new Error("Incomplete Application: Application locations")
+            log.warn(`AppBO GetQuestions - Data problem prevented getting App location for ${applicationDocDB.uuid} locationId ${locationId}.` + __location)
+            return {};
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));
@@ -2210,7 +2245,7 @@ module.exports = class ApplicationModel {
             }
         }
         else {
-            log.error(`Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
+            log.error(`AppBO GetQuestions - Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
@@ -2223,11 +2258,11 @@ module.exports = class ApplicationModel {
             getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`AppBO GetQuestions - No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
             }
         }
         catch (err) {
-            log.error("Error call in question service " + err + __location);
+            log.error("AppBO GetQuestions - Error call in question service " + err + __location);
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
         questionsObject.questionList = getQuestionsResult

@@ -63,7 +63,10 @@ const AgencySchema = new Schema({
     deletedAt: {type: Date, required: false},
     deletedByUser: {type: String, required: false},
     socialMediaTags: [SocialMediaSchema],
-    active: {type: Boolean, default: true}
+    active: {type: Boolean, default: true},
+    tierId: {type: Number},
+    tierName: {type: String},
+    appCount: {type: Number, default: 0}
 }, opts);
 
 

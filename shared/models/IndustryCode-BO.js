@@ -270,7 +270,8 @@ module.exports = class IndustryCodeBO{
                 }
             }
             else {
-                reject(new Error('no or invalid id supplied'))
+                resolve(null);
+                //reject(new Error('no or invalid id supplied'))
             }
         });
     }

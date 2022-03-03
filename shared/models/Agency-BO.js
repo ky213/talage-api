@@ -105,7 +105,12 @@ module.exports = class AgencyBO {
                             log.debug("new favicon file name " + newObjectJSON.favicon);
                         }
                         catch(e) {
-                            log.error("Agency SaveModel error processing favicon " + e + __location);
+                            if (e.message && e.message.includes('Please upload your favicon in png or ico')){
+                                log.warn("Agency SaveModel error processing favicon " + e + __location);
+                            }
+                            else {
+                                log.error("Agency SaveModel error processing favicon " + e + __location);
+                            }
                             delete newObjectJSON.favicon;
                             reject(e);
                         }
@@ -283,7 +288,7 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
-                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES" && returnMongooseModel === false){
                         await this.updateRedisCache(docDB);
                     }
                     if(docDB && getAgencyNetwork === true){
@@ -443,15 +448,19 @@ module.exports = class AgencyBO {
             let error = null;
 
             var queryOptions = {};
-            queryOptions.sort = {"name": 1};
+            queryOptions.sort = {};
             if (queryJSON.sort) {
                 var acs = 1;
-                if (queryJSON.desc) {
+                if (queryJSON.desc && queryJSON.desc !== 'false') {
                     acs = -1;
-                    delete queryJSON.desc;
                 }
+                delete queryJSON.desc;
                 queryOptions.sort[queryJSON.sort] = acs;
                 delete queryJSON.sort;
+            }
+
+            if(!queryOptions.sort.hasOwnProperty('name')) {
+                queryOptions.sort.name = 1;
             }
             // else {
             //     queryOptions.sort.name = 1;
@@ -511,6 +520,13 @@ module.exports = class AgencyBO {
                 query.agencyId = queryJSON.agencyId;
                 delete queryJSON.agencyId;
             }
+            //agencyNetworkId
+            if(queryJSON.agencyNetworkId){
+                query.agencyNetworkId = queryJSON.agencyNetworkId;
+                delete queryJSON.agencyNetworkId;
+            }
+
+
             //doNotReport false - So we can search on false
             if(queryJSON.doNotReport === false){
                 query.doNotReport = false;
@@ -549,8 +565,10 @@ module.exports = class AgencyBO {
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    //log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location);
-                    docList = await AgencyModel.find(query, queryProjection, queryOptions).lean();
+                    log.debug("AgencyBO GetList query " + JSON.stringify(query) + __location);
+                    docList = await AgencyModel.find(query, queryProjection, queryOptions).
+                        collation({locale: "en"}). // Collation for case insensitive sorting
+                        lean();
                     if(getAgencyNetwork === true){
                         // eslint-disable-next-line prefer-const
                         for(let agencyDoc of docList){
@@ -819,8 +837,10 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-                    // Add updatedAt
-                    newObjectJSON.updatedAt = new Date();
+                    // Check for $inc atomic operator before adding updatedAt
+                    if(!newObjectJSON.hasOwnProperty('$inc')) {
+                        newObjectJSON.updatedAt = new Date();
+                    }
 
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);
@@ -831,7 +851,7 @@ module.exports = class AgencyBO {
                     newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
                 }
                 catch (err) {
-                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    log.error(`Updating Agency error appId: ${docId}` + err + __location);
                     throw err;
                 }
                 //

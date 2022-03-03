@@ -226,7 +226,9 @@ async function getAgency(req, res, next) {
     // Validate parameters
     if (!await validator.integer(agent)) {
         log.info('Bad Request: Invalid agent selected');
-        return next(serverHelper.requestError('The agent you selected is invalid'));
+        // return next(serverHelper.requestError('The agent you selected is invalid'));
+        //Just return not found
+        return next(serverHelper.notFoundError('Agency not found'));
     }
     error = null;
     const agencyBO = new AgencyBO();
@@ -244,10 +246,10 @@ async function getAgency(req, res, next) {
         return next(serverHelper.notFoundError('Agency not found'));
     }
 
-    // Make sure we got back the expected data
+    // Make sure we found the agency
     if (!agency) {
-        log.error(`Agency not found after having passed request validation agencyId ${agent} ` + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+        log.info(`Agency not found agencyId ${agent} ` + __location);
+        return next(serverHelper.notFoundError('Agency not found'));
     }
     agency.state = agency.active ? "Active" : "Inactive";
     //remove old property names.
@@ -272,6 +274,16 @@ async function getAgency(req, res, next) {
         }
         else {
             agency.canBeSetToPrimaryAgency = false;
+        }
+
+        // If non-Talage Super User, hide the agency tier fields from the return object
+        if (!req.authentication.permissions.talageStaff) {
+            if(agency.hasOwnProperty('tierId')) {
+                delete agency.tierId;
+            }
+            if(agency.hasOwnProperty('tierName')) {
+                delete agency.tierName;
+            }
         }
     }
     catch (err) {
@@ -472,6 +484,8 @@ async function postAgency(req, res, next) {
     const agentIds = req.body.agentIds;
     const cred3s = req.body.cred3s;
     const talageWholesaleJson = req.body.talageWholesale;
+    const tierId = req.body.tierId || null;
+    const tierName = req.body.tierName || null;
 
     // Make sure we don't already have an user tied to this email address
     const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
@@ -544,6 +558,13 @@ async function postAgency(req, res, next) {
         slug: slug,
         wholesale: wholesale
     }
+
+    // If Talage Super User, add the agency tier fields to the create object
+    if (req.authentication.permissions.talageStaff) {
+        newAgencyJSON.tierId = tierId;
+        newAgencyJSON.tierName = tierName;
+    }
+
     if(req.body.displayName){
         newAgencyJSON.displayName = req.body.displayName
     }
@@ -838,6 +859,17 @@ async function updateAgency(req, res, next) {
             return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
         }
     }
+
+    // If non-Talage Super User, remove the agency tier fields from the update object
+    if (!req.authentication.permissions.talageStaff) {
+        if(req.body.hasOwnProperty('tierId')) {
+            delete req.body.tierId;
+        }
+        if(req.body.hasOwnProperty('tierName')) {
+            delete req.body.tierName;
+        }
+    }
+
     // Initialize an agency object
     error = null;
     log.debug("saving agency")
@@ -1008,6 +1040,32 @@ async function postSocialMediaInfo(req, res, next) {
     }
     return next();
 }
+
+/**
+ * Retrieves agency tier list
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyTierList(req, res, next) {
+    const AgencyTierSvc = global.requireShared('services/agencytiersvc.js');
+    const agencyTierList = [
+        {
+            text: 'All Agency Tiers',
+            value: -1
+        },
+        ...AgencyTierSvc.getList().map((agencyTier) => ({
+            text: agencyTier.name,
+            value: agencyTier.id
+        }))
+    ];
+    res.send(200, agencyTierList);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
@@ -1016,4 +1074,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
     server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
     server.addPostAuth('Post Social Media Tags', `${basePath}/agency/socialMediaInfo`, postSocialMediaInfo, 'agencies', 'manage');
+    server.addGetAuth('Get Agency Tier List', `${basePath}/agency/tiers`, getAgencyTierList, 'agencies', 'view');
 };
