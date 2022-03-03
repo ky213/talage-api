@@ -10,8 +10,8 @@ module.exports = class ApiKeyBO{
 
     /**
      * Creates a new API key and secret for the specified user.
-     * @param {*} agencyPortalUser 
-     * @returns 
+     * @param {*} agencyPortalUser Agency portal user ID
+     * @returns {*} New key
      */
     async createApiKeySet(agencyPortalUser) {
         const keyId = uuid.v4();
@@ -37,34 +37,39 @@ module.exports = class ApiKeyBO{
 
     /**
      * Return all API keys for the specified Agency Portal user.
-     * @param {*} agencyPortalUser 
-     * @returns 
+     * @param {*} agencyPortalUser Agency portal user ID
+     * @returns {*} List of API keys
      */
     async getApiKeysForUser(agencyPortalUser) {
-        return mongoUtils.objListCleanup(await ApiKey.find({
-            agencyPortalUser: agencyPortalUser
-        })).map(t => {
+        return mongoUtils.objListCleanup(await ApiKey.find({agencyPortalUser: agencyPortalUser})).map(t => {
             delete t.id;
             delete t.keySecret;
             return t;
         });
     }
 
+    /**
+     * Deletes the specified API key
+     * @param {*} userId User ID
+     * @param {*} keyId Key ID
+     * @return {void}
+     */
     async deleteApiKey(userId, keyId) {
-        await ApiKey.deleteOne({agencyPortalUser: userId, keyId: keyId});
+        await ApiKey.deleteOne({
+            agencyPortalUser: userId,
+            keyId: keyId
+        });
     }
 
     /**
      * Verify that the specified API secret corresponds to the API key passed in. If authentication
      * is successful, also returns a JWT login for that user.
-     * @param {*} keyId 
-     * @param {*} keySecret 
-     * @returns 
+     * @param {*} keyId Key ID
+     * @param {*} keySecret Key Secret
+     * @returns {*} Token and whether or not the attempt was successful
      */
     async authenticate(keyId, keySecret) {
-        const curApiKey = await ApiKey.findOne({
-            keyId: keyId
-        });
+        const curApiKey = await ApiKey.findOne({keyId: keyId});
         const secretFields = curApiKey.keySecret.split('$');
         const salt = secretFields[0];
 
