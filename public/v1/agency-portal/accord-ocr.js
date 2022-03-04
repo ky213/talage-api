@@ -54,13 +54,13 @@ function validateFiles(files) {
   return files;
 }
 /**
- * Sneds the valid accords list to aws OCR endpoint
+ * Sends the valid accords list to aws OCR endpoint
  *
  * @param {object[]} files - arrary of accord files
  *
  * @returns {object[]}
  */
-async function sendForRecognition(files) {
+async function submitAccordsForRecognition(files) {
   for await (const file of files) {
     try {
       const response = await axios.request({
@@ -68,17 +68,51 @@ async function sendForRecognition(files) {
         url: "https://ufg7wet2m3.execute-api.us-east-1.amazonaws.com/production/ocr/queue/pdf/accord130/201705",
         data: file.data,
         headers: {
-          "Content-Type": "application/pdf"
-        }
+          "Content-Type": "application/pdf",
+        },
       });
-      file.data = response.data;
+      file.requestId = response.data?.requestId;
+    } catch (error) {
+      file.error = error.message;
+    }
+    
+    file.data = null;
+  }
+
+  return files;
+}
+
+/**
+ * Get the accord status and data after OCR request submission
+ *
+ * @param {object[]} files - arrary of accord files already submitted to the OCR endpoint
+ *
+ * @returns {object[]}
+ */
+async function getAccordsStatuses(req, res, next) {
+  const files = req.body.accords;
+  // Check for data
+  if (!files?.length) {
+    log.info("Bad Request: No data received" + __location);
+    return next(serverHelper.requestError("Bad Request: No data received"));
+  }
+
+  for (const file of files) {
+    try {
+      const response = await axios.request({
+        method: "GET",
+        url: `https://ufg7wet2m3.execute-api.us-east-1.amazonaws.com/production/ocr/status/${file.requestId}`,
+      });
+
+      file.data = response?.data;
     } catch (error) {
       file.data = null;
       file.error = error.message;
     }
   }
 
-  return files;
+  res.send(files);
+  next();
 }
 
 /**
@@ -112,8 +146,8 @@ async function getAccordOCR(req, res, next) {
     return next(serverHelper.requestError("Bad Request: No valid files received"));
   }
 
-  // send accords for OCR recognition
-  const result = await sendForRecognition(validFiles);
+  // submit accords for OCR recognition
+  const result = await submitAccordsForRecognition(validFiles);
 
   res.send(result);
 
@@ -121,5 +155,6 @@ async function getAccordOCR(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-  server.addPostAuth("POST scanned accord files for OCR", `${basePath}/accord-ocr`, getAccordOCR);
+  server.addPostAuth("POST accord files for OCR", `${basePath}/accord-ocr`, getAccordOCR);
+  server.addPostAuth("GET accord files statuses", `${basePath}/accord-ocr/status`, getAccordsStatuses);
 };
