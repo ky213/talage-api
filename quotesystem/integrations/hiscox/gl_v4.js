@@ -444,6 +444,7 @@ module.exports = class HiscoxGL extends Integration {
         const appDoc = this.applicationDocData;
         const experience = moment(appDoc.founded).format('YYYY-MM-DD');
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
+        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
         // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
         if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
@@ -588,7 +589,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
 
-        this.log_debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`);
+        this.log_debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`); // zy debug remove
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
@@ -612,6 +613,21 @@ module.exports = class HiscoxGL extends Integration {
                     }
                     // Don't add this to the question list
                     continue;
+                }
+                else if (this.policy.type === 'BOP' && (elementName === 'TangibleGoodWork1' || elementName === 'TangibleGoodWork')) {
+                    // These are essentially the same thing for BOP (but both have different children) so add both whenever we see one but only once
+                    if (!this.questionList.find(element => element.nodeName === 'TangibleGoodWork')) {
+                        this.questionList.push({
+                            nodeName: 'TangibleGoodWork',
+                            answer: questionAnswer
+                        });
+                    }
+                    if (!this.questionList.find(element => element.nodeName === 'TangibleGoodWork1')) {
+                        this.questionList.push({
+                            nodeName: 'TangibleGoodWork1',
+                            answer: questionAnswer
+                        });
+                    }
                 }
                 else if (elementName === 'SecondaryCOBSmallContractors') {
                     const cobDescriptionList = questionAnswer.split(", ");
