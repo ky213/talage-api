@@ -84,16 +84,26 @@ async function getbyId(req, res, next) {
         location.id = location.systemId;
         if(location.agencyId){
             try{
-                let agencyNetworkId = location.agencyNetworkId
-                if(!location.agencyNetworkId){
+                let agencyNetworkId = null;
+                // Check if Agency Network Id is defined in location
+                if(location && location.agencyNetworkId) {
+                    agencyNetworkId = location.agencyNetworkId;
+                }
+                else{
                     const agencyBO = new AgencyBO();
                     const agency = await agencyBO.getById(location.agencyId);
-                    agencyNetworkId = agency.agencyNetworkId;
+                    // Get Agency Network Id if Agency was retrieved successfully
+                    if(agency && agency.agencyNetworkId) {
+                        agencyNetworkId = agency.agencyNetworkId;
+                    }
                 }
-                const agencyNetworkBO = new AgencyNetworkBO();
-                const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
-                if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
-                    location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
+                // Get Agency Network if Agency Network is Properly Defined
+                if(agencyNetworkId) {
+                    const agencyNetworkBO = new AgencyNetworkBO();
+                    const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
+                    if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
+                        location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
+                    }
                 }
             }
             catch(err){
@@ -570,16 +580,26 @@ async function getSelectionList(req, res, next) {
         location.id = location.systemId;
         if(location.agencyId){
             try{
-                let agencyNetworkId = location.agencyNetworkId
-                if(!location.agencyNetworkId){
+                let agencyNetworkId = null;
+                // Check if Agency Network Id is defined in location
+                if(location && location.agencyNetworkId) {
+                    agencyNetworkId = location.agencyNetworkId;
+                }
+                else{
                     const agencyBO = new AgencyBO();
                     const agency = await agencyBO.getById(location.agencyId);
-                    agencyNetworkId = agency.agencyNetworkId;
+                    // Get Agency Network Id if Agency was retrieved successfully
+                    if(agency && agency.agencyNetworkId) {
+                        agencyNetworkId = agency.agencyNetworkId;
+                    }
                 }
-                const agencyNetworkBO = new AgencyNetworkBO();
-                const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
-                if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
-                    location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
+                // Get Agency Network if Agency Network is Properly Defined
+                if(agencyNetworkId) {
+                    const agencyNetworkBO = new AgencyNetworkBO();
+                    const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
+                    if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
+                        location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
+                    }
                 }
             }
             catch(err){
