@@ -928,7 +928,30 @@ module.exports = class HiscoxGL extends Integration {
 
         for (const question of this.questionList) {
             if (applicationRatingInfoQuestions.includes(question.nodeName)) {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                if (question.type === 'Checkboxes') {
+                    // Get the element names from the attributes for each answer that was checked and build the object
+                    // with each element as an object property under the parent property
+                    const questionElementObj = {};
+                    if (!question.answer) {
+                        questionElementObj.NoneOfTheAbove = "Yes";
+                    }
+                    else {
+                        const answers = question.answer.split(', ');
+                        const possibleAnswers = question.attributes.answersToElements;
+                        for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                            if (answers.includes(possibleAnswer)){
+                                questionElementObj[subElementName] = 'Yes';
+                            }
+                            else {
+                                questionElementObj[subElementName] = 'No';
+                            }
+                        }
+                    }
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
+                }
+                else {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                }
             }
             const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
             const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
@@ -963,6 +986,7 @@ module.exports = class HiscoxGL extends Integration {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].TRIACoverQuoteRq = {CoverId: 'TRIA'};
             }
         }
+
         // zy HACKS Remove this assignment of TRIACoverQuoteRq. Handle it in the question loop above
         if (this.policy.type === 'GL') {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy debug remove
