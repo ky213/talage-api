@@ -264,7 +264,7 @@ module.exports = class AMTrustBOP extends Integration {
             "businessName": applicationDocData.businessName,
             "fein": applicationDocData.ein,
             "primaryContactInformation": {
-                "name": `${primaryContact.firstName} ${primaryContact.firstName}` ,
+                "name": `${primaryContact.firstName} ${primaryContact.LastName}` ,
                 "phoneNumber": primaryContact.phone,
                 "email": primaryContact.email
             },
