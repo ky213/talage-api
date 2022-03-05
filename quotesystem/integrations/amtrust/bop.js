@@ -398,8 +398,8 @@ module.exports = class AMTrustBOP extends Integration {
                 };
                 this.quoteCoverages.push(deductibleCoverage);
 
-
-                return this.client_quoted(quoteId, quoteLimits, quotePremium);
+                //Per AMTRUST referred Only until Amtrust implements Questions in the API.
+                return this.client_referred(quoteId, quoteLimits, quotePremium);
 
             }
             else {
@@ -414,7 +414,7 @@ module.exports = class AMTrustBOP extends Integration {
         }
 
 
-        //TODO underwriting Questions
+        //TODO underwriting Questions Per Amtrust On Hold for now (March 4, 2022)
 
 
     }
