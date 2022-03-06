@@ -4,7 +4,6 @@
 /* eslint-disable no-catch-shadow */
 /* eslint-disable dot-notation */
 /* eslint-disable require-jsdoc */
-'use strict';
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
@@ -537,6 +536,21 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
                 }
             }
+            const bopPolicy = applicationJSON.policies.find((p) => p.policyType === "BOP")
+            if(bopPolicy && bopPolicy.bopIndustryCodeId){
+                const bopIcJson = await industryCodeBO.getById(bopPolicy.bopIndustryCodeId);
+                if(bopIcJson){
+                    log.debug(`setting bopCodeIndustryCodeName ${bopIcJson.description}` + __location)
+                    applicationJSON.bopCodeIndustryCodeName = bopIcJson.description
+                }
+                else {
+                    applicationJSON.bopCodeIndustryCodeName = "";
+                }   
+            }
+            else {
+                log.debug(`NO BOP Policy` + __location)
+                applicationJSON.bopCodeIndustryCodeName = "";
+            }
         }
         catch(err){
             log.warn(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
@@ -545,6 +559,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
     else {
         applicationJSON.industryCodeName = "";
         applicationJSON.industryCodeCategory = "";
+        applicationJSON.bopCodeIndustryCodeName = "";
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
