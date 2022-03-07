@@ -446,6 +446,8 @@ module.exports = class HiscoxGL extends Integration {
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
+
         // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
         if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
             this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
@@ -565,7 +567,7 @@ module.exports = class HiscoxGL extends Integration {
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories;
+            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
 
             // zy HACK Fix these hard-coded values
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
@@ -574,17 +576,8 @@ module.exports = class HiscoxGL extends Integration {
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Basement = 'None'; // zy debug fix hard-coded value
 
             bopQuoteRq.RatingInfo = {};
+            bopQuoteRq.ProductAcknowledgements = {};
 
-            bopQuoteRq.ProductAcknowledgements = {
-                BOPStatement1: 'Agree',
-                ExcludedActivities: 'Agree',
-                Flood: 'Agree',
-                DisciplinaryActionAcknowledgements: null,
-                PropertyLossIncurredAcknowledgements: {
-                    PropertyLossIncurred: "Agree",
-                    PropertyLossIncurredDate: `${this.requestDate}`
-                }
-            };
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq = bopQuoteRq;
         }
 
@@ -613,21 +606,6 @@ module.exports = class HiscoxGL extends Integration {
                     }
                     // Don't add this to the question list
                     continue;
-                }
-                else if (this.policy.type === 'BOP' && (elementName === 'TangibleGoodWork1' || elementName === 'TangibleGoodWork')) {
-                    // These are essentially the same thing for BOP (but both have different children) so add both whenever we see one but only once
-                    if (!this.questionList.find(element => element.nodeName === 'TangibleGoodWork')) {
-                        this.questionList.push({
-                            nodeName: 'TangibleGoodWork',
-                            answer: questionAnswer
-                        });
-                    }
-                    if (!this.questionList.find(element => element.nodeName === 'TangibleGoodWork1')) {
-                        this.questionList.push({
-                            nodeName: 'TangibleGoodWork1',
-                            answer: questionAnswer
-                        });
-                    }
                 }
                 else if (elementName === 'SecondaryCOBSmallContractors') {
                     const cobDescriptionList = questionAnswer.split(", ");
@@ -918,6 +896,36 @@ module.exports = class HiscoxGL extends Integration {
             "TechSpclstActvty"
         ];
 
+        const acknowledgementElements = [
+            "BusinessOwnership",
+            "InsuranceDecline",
+            "MergerAcquisitions",
+            "AgreeDisagreeStatements",
+            "ApplicationAgreementStatement",
+            "ApplicantAuthorized",
+            "ClaimsAgainstYou",
+            "DeductibleStatement",
+            "EmailConsent",
+            "EmailConsent2",
+            "EmailDeliveryStatement",
+            "FraudWarning",
+            "HiscoxStatement",
+            "InformationConfirmAgreement",
+            "StateSpcfcFraudWarning"
+        ];
+
+        const glProductAcknowledgementElements = [
+            "CGLStatement1",
+            "ExcludedActivities"
+        ];
+
+        const bopProductAcknowledgementElements = [
+            "BOPStatement1",
+            "ExcludedActivities",
+            "Flood",
+            "DisciplinaryActionAcknowledgements"
+        ];
+
         let policyRequestType = null;
         if (this.policy.type === 'GL') {
             policyRequestType = 'GeneralLiabilityQuoteRq';
@@ -928,7 +936,35 @@ module.exports = class HiscoxGL extends Integration {
 
         for (const question of this.questionList) {
             if (applicationRatingInfoQuestions.includes(question.nodeName)) {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                if (question.type === 'Checkboxes') {
+                    // Get the element names from the attributes for each answer that was checked and build the object
+                    // with each element as an object property under the parent property
+                    const questionElementObj = {};
+                    if (!question.answer) {
+                        questionElementObj.NoneOfTheAbove = "Yes";
+                    }
+                    else {
+                        const answers = question.answer.split(', ');
+                        const possibleAnswers = question.attributes.answersToElements;
+                        for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                            if (answers.includes(possibleAnswer)){
+                                questionElementObj[subElementName] = 'Yes';
+                            }
+                            else {
+                                questionElementObj[subElementName] = 'No';
+                            }
+                        }
+                    }
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
+                }
+                else {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                }
+                if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+                    // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
+                    // we only get one answer. This fixes that issue
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application
+                }
             }
             const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
             const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
@@ -962,7 +998,69 @@ module.exports = class HiscoxGL extends Integration {
             if (question.nodeName === 'TriaAgreeContent' && question.answer === 'Yes') {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].TRIACoverQuoteRq = {CoverId: 'TRIA'};
             }
+
+            // Acknowledgements
+            if (acknowledgementElements.includes(question.nodeName)) {
+                if (['BusinessOwnership','InsuranceDecline','ClaimsAgainstYou'].includes(question.nodeName)) {
+                    // Some acknowledgements elements have a structure like this -> "BusinessOwnership": {"BusinessOwnership": "Agree"},
+                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {};
+                    if (question.nodeName === 'InsuranceDecline') {
+                        // Need to 'No' for 'Disagree' on this one
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                    }
+                    else {
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                    }
+                }
+                else if (question.nodeName === 'MergerAcquisitions') {
+                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {'MergerAcquisition': question.answer === 'No' ? 'Agree' : 'Disagree'};
+                }
+                else {
+                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                }
+            }
+
+            // Product Acknowledgements
+            if (this.policy.type === 'BOP' && bopProductAcknowledgementElements.includes(question.nodeName)) {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+            }
+            if (this.policy.type === 'GL' && glProductAcknowledgementElements.includes(question.nodeName)) {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+            }
+
+            // Product Acknowledgements that require sub-elements
+            if (this.policy.type === 'BOP' && question.nodeName === 'PropertyLossIncurred') {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.PropertyLossIncurredAcknowledgements = {
+                    PropertyLossIncurred: question.answer === 'Yes' ? 'Agree' : 'Disagree',
+                    PropertyLossIncurredDate: `${this.requestDate}`
+                }
+            }
+
         }
+        // // zy HACK Get these from questions
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.AgreeDisagreeStatements = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.ApplicationAgreementStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.DeductibleStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.EmailDeliveryStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.FraudWarning = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.HiscoxStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.InformationConfirmAgreement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.StateSpcfcFraudWarning = "Agree";
+
+        // zy HACK get these from questions
+        if (this.policy.type === 'BOP') {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.ProductAcknowledgements = {
+                BOPStatement1: 'Agree',
+                ExcludedActivities: 'Agree',
+                Flood: 'Agree',
+                DisciplinaryActionAcknowledgements: null,
+                PropertyLossIncurredAcknowledgements: {
+                    PropertyLossIncurred: "Agree",
+                    PropertyLossIncurredDate: `${this.requestDate}`
+                }
+            };
+        }
+
         // zy HACKS Remove this assignment of TRIACoverQuoteRq. Handle it in the question loop above
         if (this.policy.type === 'GL') {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy debug remove
@@ -985,25 +1083,6 @@ module.exports = class HiscoxGL extends Integration {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = {ClassOfBusinessCd: 'None of the above'};
             }
 
-        }
-
-        // zy HACK Get these from questions
-        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {
-            "BusinessOwnership": {"BusinessOwnership": "Agree"},
-            "InsuranceDecline": {"InsuranceDecline": "Agree"},
-            "MergerAcquisitions": {"MergerAcquisition": "Agree"},
-            "AgreeDisagreeStatements": "Agree",
-            "ApplicationAgreementStatement": "Agree",
-            "ApplicantAuthorized": "Agree",
-            "ClaimsAgainstYou": {"ClaimsAgainstYou": "Agree"},
-            "DeductibleStatement": "Agree",
-            "EmailConsent": "Agree",
-            "EmailConsent2": "Agree",
-            "EmailDeliveryStatement": "Agree",
-            "FraudWarning": "Agree",
-            "HiscoxStatement": "Agree",
-            "InformationConfirmAgreement": "Agree",
-            "StateSpcfcFraudWarning": "Agree"
         }
 
         // Get a token from their auth server
