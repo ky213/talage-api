@@ -614,21 +614,6 @@ module.exports = class HiscoxGL extends Integration {
                     // Don't add this to the question list
                     continue;
                 }
-                else if (this.policy.type === 'BOP' && (elementName === 'TangibleGoodWork1' || elementName === 'TangibleGoodWork')) {
-                    // These are essentially the same thing for BOP (but both have different children) so add both whenever we see one but only once
-                    if (!this.questionList.find(element => element.nodeName === 'TangibleGoodWork')) {
-                        this.questionList.push({
-                            nodeName: 'TangibleGoodWork',
-                            answer: questionAnswer
-                        });
-                    }
-                    if (!this.questionList.find(element => element.nodeName === 'TangibleGoodWork1')) {
-                        this.questionList.push({
-                            nodeName: 'TangibleGoodWork1',
-                            answer: questionAnswer
-                        });
-                    }
-                }
                 else if (elementName === 'SecondaryCOBSmallContractors') {
                     const cobDescriptionList = questionAnswer.split(", ");
                     const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
@@ -951,6 +936,11 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 else {
                     reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                }
+                if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+                    // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
+                    // we only get one answer. This fixes that issue
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application
                 }
             }
             const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
