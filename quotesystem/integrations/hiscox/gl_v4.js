@@ -446,6 +446,8 @@ module.exports = class HiscoxGL extends Integration {
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
+
         // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
         if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
             this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
@@ -574,17 +576,8 @@ module.exports = class HiscoxGL extends Integration {
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Basement = 'None'; // zy debug fix hard-coded value
 
             bopQuoteRq.RatingInfo = {};
+            bopQuoteRq.ProductAcknowledgements = {};
 
-            bopQuoteRq.ProductAcknowledgements = {
-                BOPStatement1: 'Agree',
-                ExcludedActivities: 'Agree',
-                Flood: 'Agree',
-                DisciplinaryActionAcknowledgements: null,
-                PropertyLossIncurredAcknowledgements: {
-                    PropertyLossIncurred: "Agree",
-                    PropertyLossIncurredDate: `${this.requestDate}`
-                }
-            };
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq = bopQuoteRq;
         }
 
@@ -903,6 +896,36 @@ module.exports = class HiscoxGL extends Integration {
             "TechSpclstActvty"
         ];
 
+        const acknowledgementElements = [
+            "BusinessOwnership",
+            "InsuranceDecline",
+            "MergerAcquisitions",
+            "AgreeDisagreeStatements",
+            "ApplicationAgreementStatement",
+            "ApplicantAuthorized",
+            "ClaimsAgainstYou",
+            "DeductibleStatement",
+            "EmailConsent",
+            "EmailConsent2",
+            "EmailDeliveryStatement",
+            "FraudWarning",
+            "HiscoxStatement",
+            "InformationConfirmAgreement",
+            "StateSpcfcFraudWarning"
+        ];
+
+        const glProductAcknowledgementElements = [
+            "CGLStatement1",
+            "ExcludedActivities"
+        ];
+
+        const bopProductAcknowledgementElements = [
+            "BOPStatement1",
+            "ExcludedActivities",
+            "Flood",
+            "DisciplinaryActionAcknowledgements"
+        ];
+
         let policyRequestType = null;
         if (this.policy.type === 'GL') {
             policyRequestType = 'GeneralLiabilityQuoteRq';
@@ -975,6 +998,67 @@ module.exports = class HiscoxGL extends Integration {
             if (question.nodeName === 'TriaAgreeContent' && question.answer === 'Yes') {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].TRIACoverQuoteRq = {CoverId: 'TRIA'};
             }
+
+            // Acknowledgements
+            if (acknowledgementElements.includes(question.nodeName)) {
+                if (['BusinessOwnership','InsuranceDecline','ClaimsAgainstYou'].includes(question.nodeName)) {
+                    // Some acknowledgements elements have a structure like this -> "BusinessOwnership": {"BusinessOwnership": "Agree"},
+                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {};
+                    if (question.nodeName === 'InsuranceDecline') {
+                        // Need to 'No' for 'Disagree' on this one
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                    }
+                    else {
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                    }
+                }
+                else if (question.nodeName === 'MergerAcquisitions') {
+                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {'MergerAcquisition': question.answer === 'No' ? 'Agree' : 'Disagree'};
+                }
+                else {
+                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                }
+            }
+
+            // Product Acknowledgements
+            if (this.policy.type === 'BOP' && bopProductAcknowledgementElements.includes(question.nodeName)) {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+            }
+            if (this.policy.type === 'GL' && glProductAcknowledgementElements.includes(question.nodeName)) {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+            }
+
+            // Product Acknowledgements that require sub-elements
+            if (this.policy.type === 'BOP' && question.nodeName === 'PropertyLossIncurred') {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.PropertyLossIncurredAcknowledgements = {
+                    PropertyLossIncurred: question.answer === 'Yes' ? 'Agree' : 'Disagree',
+                    PropertyLossIncurredDate: `${this.requestDate}`
+                }
+            }
+
+        }
+        // // zy HACK Get these from questions
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.AgreeDisagreeStatements = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.ApplicationAgreementStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.DeductibleStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.EmailDeliveryStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.FraudWarning = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.HiscoxStatement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.InformationConfirmAgreement = "Agree";
+        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.StateSpcfcFraudWarning = "Agree";
+
+        // zy HACK get these from questions
+        if (this.policy.type === 'BOP') {
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.ProductAcknowledgements = {
+                BOPStatement1: 'Agree',
+                ExcludedActivities: 'Agree',
+                Flood: 'Agree',
+                DisciplinaryActionAcknowledgements: null,
+                PropertyLossIncurredAcknowledgements: {
+                    PropertyLossIncurred: "Agree",
+                    PropertyLossIncurredDate: `${this.requestDate}`
+                }
+            };
         }
 
         // zy HACKS Remove this assignment of TRIACoverQuoteRq. Handle it in the question loop above
@@ -999,25 +1083,6 @@ module.exports = class HiscoxGL extends Integration {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = {ClassOfBusinessCd: 'None of the above'};
             }
 
-        }
-
-        // zy HACK Get these from questions
-        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {
-            "BusinessOwnership": {"BusinessOwnership": "Agree"},
-            "InsuranceDecline": {"InsuranceDecline": "Agree"},
-            "MergerAcquisitions": {"MergerAcquisition": "Agree"},
-            "AgreeDisagreeStatements": "Agree",
-            "ApplicationAgreementStatement": "Agree",
-            "ApplicantAuthorized": "Agree",
-            "ClaimsAgainstYou": {"ClaimsAgainstYou": "Agree"},
-            "DeductibleStatement": "Agree",
-            "EmailConsent": "Agree",
-            "EmailConsent2": "Agree",
-            "EmailDeliveryStatement": "Agree",
-            "FraudWarning": "Agree",
-            "HiscoxStatement": "Agree",
-            "InformationConfirmAgreement": "Agree",
-            "StateSpcfcFraudWarning": "Agree"
         }
 
         // Get a token from their auth server
