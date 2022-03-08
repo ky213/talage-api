@@ -679,7 +679,8 @@ module.exports = class Integration {
                         insurerQuestionId: result.id,
                         attributes: result.attributes ? result.attributes : '',
                         identifier: result.identifier,
-                        universal: result.universal
+                        universal: result.universal,
+                        insurerText: result.text
                     };
                     if (result.universal) {
                         this.universal_questions.push(result.question);
@@ -1630,6 +1631,7 @@ module.exports = class Integration {
                 //TODO This needs to be eliminated to remove One Talage Quesetion to One Insurer Questions.
                 applicationQuestion.insurerQuestionIdentifier = insurerQuestion.identifier;
                 applicationQuestion.insurerQuestionAttributes = insurerQuestionAttributes;
+                applicationQuestion.insurerText = insurerQuestion.text;
                 notHiddenInsurerApplicationQuestionList.push(applicationQuestion);
             }
         }
