@@ -969,7 +969,10 @@ module.exports = class HiscoxGL extends Integration {
             const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
             const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
             if (glRatingQuestion || bopRatingQuestion) {
-                if (question.type === 'Checkboxes') {
+                if (question.nodeName === "SupplyManufactDistbtGoodsOrProductsOwnership") {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer === 'No' ? 'My business does this' : 'A third-party does this';
+                }
+                else if (question.type === 'Checkboxes') {
                     // Get the element names from the attributes for each answer that was checked and build the object
                     // with each element as an object property under the parent property
                     const questionElementObj = {};
