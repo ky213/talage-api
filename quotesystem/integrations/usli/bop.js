@@ -10,7 +10,7 @@
 /* eslint multiline-comment-style: 0 */
 
 /**
- * Simple BOP Policy Integration for Liberty Mutual
+ * BOP Policy Integration for USLI
  */
 
 'use strict';
@@ -38,7 +38,7 @@ let industryCode = null;
 // let policyStatus = null;
 // const quoteCoverages = [];
 
-module.exports = class LibertySBOP extends Integration {
+module.exports = class USLIBOP extends Integration {
 
     /**
      * Initializes this integration.
@@ -60,8 +60,6 @@ module.exports = class LibertySBOP extends Integration {
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         logPrefix = `USLI Commercial Package (BOP) (Appid: ${applicationDocData.applicationId}): `;
 
-        // liberty can have multiple insurer industry codes tied to a single talage industry code
-        // this will set this.industry_code to a list that will be handled in each Liberty BOP integration
         industryCode = await this.getUSLIIndustryCodes();
 
         if (!industryCode) {
