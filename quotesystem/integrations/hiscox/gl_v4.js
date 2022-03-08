@@ -576,7 +576,10 @@ module.exports = class HiscoxGL extends Integration {
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Basement = 'None'; // zy debug fix hard-coded value
 
             bopQuoteRq.RatingInfo = {};
-            bopQuoteRq.ProductAcknowledgements = {};
+            bopQuoteRq.ProductAcknowledgements = {
+                DisciplinaryActionAcknowledgements: {},
+                PropertyLossIncurredAcknowledgements: {}
+            };
 
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq = bopQuoteRq;
         }
@@ -922,9 +925,21 @@ module.exports = class HiscoxGL extends Integration {
         const bopProductAcknowledgementElements = [
             "BOPStatement1",
             "ExcludedActivities",
-            "Flood",
-            "DisciplinaryActionAcknowledgements"
+            "Flood"
         ];
+        const bopDisciplinaryActionAcknowledgements = [
+            "DisciplinaryActionCrime",
+            "DisciplinaryActionBankruptcy",
+            "DisciplinaryActionForeclosure"
+        ];
+        const bopPropertyLossIncurredAcknowledgements = [
+            "PropertyLossIncurred",
+            "PropertyLossIncurredDesc",
+            "PropertyLossIncurredDate",
+            "PropertyLossIncurredAmount",
+            "PropertyLossIncurredResolved",
+            "PropertyLossIncurredAvoid"
+        ]
 
         let policyRequestType = null;
         if (this.policy.type === 'GL') {
@@ -1024,21 +1039,26 @@ module.exports = class HiscoxGL extends Integration {
             }
 
             // Product Acknowledgements
-            if (this.policy.type === 'BOP' && bopProductAcknowledgementElements.includes(question.nodeName)) {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
-            }
-            if (this.policy.type === 'GL' && glProductAcknowledgementElements.includes(question.nodeName)) {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
-            }
-
-            // Product Acknowledgements that require sub-elements
-            if (this.policy.type === 'BOP' && question.nodeName === 'PropertyLossIncurred') {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.PropertyLossIncurredAcknowledgements = {
-                    PropertyLossIncurred: question.answer === 'Yes' ? 'Agree' : 'Disagree',
-                    PropertyLossIncurredDate: `${this.requestDate}`
+            if (this.policy.type === 'BOP') {
+                if (bopDisciplinaryActionAcknowledgements.includes(question.nodeName)) {
+                    if (question.nodeName === 'DisciplinaryActionBankruptcy' || question.nodeName === 'DisciplinaryActionCrime') {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.DisciplinaryActionAcknowledgements[question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                    }
+                    else {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.DisciplinaryActionAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                    }
+                }
+                else if (bopPropertyLossIncurredAcknowledgements.includes(question.nodeName)) {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.PropertyLossIncurredAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                }
+                else if (bopProductAcknowledgementElements.includes(question.nodeName)) {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
                 }
             }
 
+            if (this.policy.type === 'GL' && glProductAcknowledgementElements.includes(question.nodeName)) {
+                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+            }
         }
         // // zy HACK Get these from questions
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements.AgreeDisagreeStatements = "Agree";
@@ -1052,16 +1072,8 @@ module.exports = class HiscoxGL extends Integration {
 
         // zy HACK get these from questions
         if (this.policy.type === 'BOP') {
-            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.ProductAcknowledgements = {
-                BOPStatement1: 'Agree',
-                ExcludedActivities: 'Agree',
-                Flood: 'Agree',
-                DisciplinaryActionAcknowledgements: null,
-                PropertyLossIncurredAcknowledgements: {
-                    PropertyLossIncurred: "Agree",
-                    PropertyLossIncurredDate: `${this.requestDate}`
-                }
-            };
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.ProductAcknowledgements.BOPStatement1 = 'Agree';
+            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.ProductAcknowledgements.ExcludedActivities = 'Agree';
         }
 
         // zy HACKS Remove this assignment of TRIACoverQuoteRq. Handle it in the question loop above
