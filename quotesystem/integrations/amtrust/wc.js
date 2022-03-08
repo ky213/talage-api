@@ -1072,12 +1072,14 @@ module.exports = class AMTrustWC extends Integration {
                     log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${questionId} answer: ${error} ${__location}`);
                     //return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
+                //this.question_details - contains some the insurerQuestion details.
                 // This question was not answered
-                if (!answer) {
+                if (!answer || !this.question_details[questionId]) {
                     continue;
                 }
+
                 for (const requiredQuestion of requiredQuestionList.Data) {
-                    if (requiredQuestion.Question.trim() === question.text) {
+                    if (requiredQuestion.Question.toLowerCase().trim() === this.question_details[questionId].insurerText.toLowerCase().trim()) {
                         questionRequestData.push({
                             QuestionId: requiredQuestion.Id,
                             AnswerValue: answer
