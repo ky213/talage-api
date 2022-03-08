@@ -5,9 +5,9 @@ const axios = require("axios");
 /**
  * Validates data
  *
- * @param {object[]} files - arrary of accord files
+ * @param {object[]} files - arrary of acord files
  *
- * @returns {object[]}   arrary of accord files
+ * @returns {object[]}   arrary of acord files
  */
 function validateFiles(files) {
     for (const file of files) {
@@ -45,9 +45,9 @@ function validateFiles(files) {
 
             continue;
         }
-        else {
-            file.data = buffer.toString("binary");
-        }
+        // else {
+        //     file.data = buffer.toString("binary");
+        // }
 
         file.valid = true;
     }
@@ -56,19 +56,19 @@ function validateFiles(files) {
 }
 
 /**
- * Sends the valid accords list to aws OCR endpoint
+ * Sends the valid acords list to aws OCR endpoint
  *
- * @param {object[]} files - arrary of accord files
+ * @param {object[]} files - arrary of acord files
  *
- * @returns {object[]} - arrary of accord files meta data with requestId
+ * @returns {object[]} - arrary of acord files meta data with requestId
  */
-async function submitAccordsForRecognition(files) {
+async function submitacordsForRecognition(files) {
     for await (const file of files) {
         try {
             const response = await axios.request({
                 method: "POST",
-                url: "https://ufg7wet2m3.execute-api.us-east-1.amazonaws.com/production/ocr/queue/pdf/accord130/201705",
-                data: file.data,
+                url: "https://ufg7wet2m3.execute-api.us-east-1.amazonaws.com/production/ocr/queue/pdf/acord130/201705",
+                data: Buffer.from(file.data, 'base64'),
                 headers: {"Content-Type": "application/pdf"}
             });
             file.requestId = response.data?.requestId;
@@ -84,7 +84,7 @@ async function submitAccordsForRecognition(files) {
 }
 
 /**
- * Get the accord status and data after OCR request submission
+ * Get the acord status and data after OCR request submission
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -92,8 +92,8 @@ async function submitAccordsForRecognition(files) {
  *
  * @returns {void}
  */
-async function getAccordsStatuses(req, res, next) {
-    const files = req.body.accords;
+async function getacordsStatuses(req, res, next) {
+    const files = req.body.acords;
     // Check for data
     if (!files?.length) {
         log.info("Bad Request: No data received" + __location);
@@ -120,7 +120,7 @@ async function getAccordsStatuses(req, res, next) {
 }
 
 /**
- * Receives a list of scanned accord files, parse them with an OCR api and then send back the json format version.
+ * Receives a list of scanned acord files, parse them with an OCR api and then send back the json format version.
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -128,7 +128,7 @@ async function getAccordsStatuses(req, res, next) {
  *
  * @returns {void}
  */
-async function getAccordOCR(req, res, next) {
+async function getacordOCR(req, res, next) {
     // Check for data
     if (!req.body.files?.length) {
         log.info("Bad Request: No data received" + __location);
@@ -142,16 +142,16 @@ async function getAccordOCR(req, res, next) {
     }
 
     //validateFiles
-    const accords = validateFiles(req.body.files);
-    const validFiles = accords.filter(({valid}) => valid);
+    const acords = validateFiles(req.body.files);
+    const validFiles = acords.filter(({valid}) => valid);
 
     if (validFiles.length === 0) {
         log.info("Bad Request: No valid files received" + __location);
         return next(serverHelper.requestError("Bad Request: No valid files received"));
     }
 
-    // submit accords for OCR recognition
-    const result = await submitAccordsForRecognition(validFiles);
+    // submit acords for OCR recognition
+    const result = await submitacordsForRecognition(validFiles);
 
     res.send(result);
 
@@ -159,6 +159,6 @@ async function getAccordOCR(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addPostAuth("POST accord files for OCR", `${basePath}/accord-ocr`, getAccordOCR);
-    server.addPostAuth("GET accord files statuses", `${basePath}/accord-ocr/status`, getAccordsStatuses);
+    server.addPostAuth("POST acord files for OCR", `${basePath}/acord-ocr`, getacordOCR);
+    server.addPostAuth("GET acord files statuses", `${basePath}/acord-ocr/status`, getacordsStatuses);
 };
