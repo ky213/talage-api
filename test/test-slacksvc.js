@@ -135,6 +135,28 @@ describe("Slacksvc Send, ", function (){
         assert.equal(resp, true);
     });
 
+    it('SlackSvc.send - with attachment', async function(){
+
+        let error = null;
+        const attachment = {
+            title: 'Test Attachment Title',
+            text: 'Test Attachment Text',
+            fields: [{
+                title: 'Field 1 Test Title',
+                value: 'Field 1 Test Value',
+                short: 'true'
+            },{
+                title: 'Field 2 Test Title',
+                value: 'Field 2 Test Value',
+                short: 'false'
+            }],
+            footer: 'Test Attachment Footer'
+        }
+        const resp = await taskSlackSvc.send("debug", "celebrate", "Test Celebratory Message", attachment).catch(err => error = err);
+        should.not.exist(error);
+        assert.equal(resp, true);
+    });
+
 });
 
 
@@ -180,5 +202,33 @@ describe("Slacksvc send2SlackJSON, ", function (){
         const resp = await taskSlackSvc.send2SlackJSON({}).catch(err => error = err);
         should.exist(error);
         assert.equal(resp, "Error: No data was received");
+    });
+
+    it('SlackSvc.send2SlackJSON - with attachment', async function(){
+
+        let error = null;
+
+        const slackData = {
+            'attachment': {
+                title: 'Test Attachment Title',
+                text: 'Test Attachment Text',
+                fields: [{
+                    title: 'Field 1 Test Title',
+                    value: 'Field 1 Test Value',
+                    short: 'true'
+                },{
+                    title: 'Field 2 Test Title',
+                    value: 'Field 2 Test Value',
+                    short: 'false'
+                }],
+                footer: 'Test Attachment Footer'
+            },
+            'channel': 'debug',
+            'message': 'Test Celebratory Message',
+            'message_type': 'celebrate'
+        };
+        const resp = await taskSlackSvc.send2SlackJSON(slackData).catch(err => error = err);
+        should.not.exist(error);
+        assert.equal(resp, true);
     });
 });
