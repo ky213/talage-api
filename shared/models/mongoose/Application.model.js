@@ -440,3 +440,8 @@ function populateActivityCodePayroll(schema) {
         schema.set({ activityCodes: activityCodesPayrollSumList });
     }
 }
+
+
+module.exports = {
+     ApplicationSchema: ApplicationSchema
+}

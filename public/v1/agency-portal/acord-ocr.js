@@ -75,12 +75,49 @@ async function submitacordsForRecognition(files) {
         }
         catch (error) {
             file.error = error.message;
+            log.error(`Error processing file: ${file.fileName}`, __location);
         }
 
         file.data = null;
     }
 
     return files;
+}
+
+/**
+ * Sends the valid acords list to aws OCR endpoint
+ *
+ * @param {object} ocrResult -  OCR result object
+ *
+ * @returns {object} - application object 
+ */
+async function mapResultToApplicationObject(ocrResult) {
+    // extract required application fields
+
+    // create application object
+
+    //return result
+
+}
+
+/**
+ * Sends the valid acords list to aws OCR endpoint
+ *
+ * @param {object[]} resultObjects - arrary of OCR acord files objects
+ *
+ * @returns {void} 
+ */
+async function saveApplications(resultObjects) {
+   // map result to application object
+   const applicationObjects = []
+
+    for (const object of resultObjects) {
+        if(object.data?.status === "SUCCESS" && object.data?.ocrResponse?.length !== 0){
+            applicationObjects.push(mapResultToApplicationObject(object))
+        }
+        
+    }
+   // save application 
 }
 
 /**
@@ -112,6 +149,7 @@ async function getacordsStatuses(req, res, next) {
         catch (error) {
             file.data = null;
             file.error = error.message;
+            log.error(`Error getting file status: ${file.fileName}`, __location);
         }
     }
 
@@ -152,6 +190,9 @@ async function getacordOCR(req, res, next) {
 
     // submit acords for OCR recognition
     const result = await submitacordsForRecognition(validFiles);
+
+    //save application
+    await saveApplications(result)
 
     res.send(result);
 

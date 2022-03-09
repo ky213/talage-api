@@ -125,6 +125,7 @@ allConnections.init = function init() {
 
     require('./shared/models/mongoose/message.model');
     require('./shared/models/mongoose/Application.model');
+    require('./shared/models/mongoose/ApplicationUpload.model');
     require('./shared/models/mongoose/AgencyPortalUserGroup.model');
     require('./shared/models/mongoose/Mapping.model');
     require('./shared/models/mongoose/AgencyEmail.model');
@@ -175,6 +176,7 @@ allConnections.init = function init() {
         AgencyPortalUser: global.mongodb.model('AgencyPortalUser'),
         AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
         Application: global.mongodb.model('Application'),
+        ApplicationUpload: global.mongodb.model('ApplicationUpload'),
         ApplicationNotes: global.mongodb.model('ApplicationNotes'),
         ColorScheme: global.mongodb.model('ColorScheme'),
         IndustryCode: global.insurerMongodb.model('IndustryCode'),
