@@ -44,7 +44,257 @@ module.exports = class HiscoxGL extends Integration {
         // CHECK SUPPORTED DEDUCTIBLES
 
         // Define the limits supported by this carrier
-        // let carrierLimits = ["300000/600000", "500000/1000000", "1000000/2000000", "2000000/2000000"]; // zy debug determine whether this is still needed
+        const bopCarrierLimits = ['300000/300000', '500000/500000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000', '2000000/4000000'];
+
+        // GL: Land Surveyor
+        const landSurveyorCOBs = ['54137000_17102200_00000000'];
+
+        // GL: Landscape/Janitorial/Retail COBs, Mobile Food Services, Small Contractor COBs
+        const cobGroup1 = [
+            "23814000_47205100_00000000",
+            "23815000_47212100_01000000",
+            "23821000_47211100_01000100",
+            "23822000_47215200_00010000",
+            "23822000_47215200_00020000",
+            "23822000_49902100_01000000",
+            "23822000_49902100_02000000",
+            "23831000_47208100_01000000",
+            "23831000_47208100_02000000",
+            "23832000_47214100_00000100",
+            "23833000_47204200_01000000",
+            "23834000_47204400_00000100",
+            "23835000_47203100_01000100",
+            "23835000_47203100_02000300",
+            "23835000_47203100_03000100",
+            "23839000_49907100_01000000",
+            "23899000_47403100_00000000",
+            "23899000_47409100_00000000",
+            "42349000_11101100_00000000",
+            "44131000_11101100_00000000",
+            "44211000_11101100_00000001",
+            "44211000_11101100_00000002",
+            "44221000_11101100_00000000",
+            "44229100_11101100_00000001",
+            "44229100_11101100_00000002",
+            "44229900_11101100_00000001",
+            "44229900_11101100_00000002",
+            "44229900_11101100_00000003",
+            "44229900_11101100_00000004",
+            "44229900_11101100_00000005",
+            "44229900_11101100_00000006",
+            "44229900_11101100_00000007",
+            "44229900_11101100_00000008",
+            "44229900_11101100_00000009",
+            "44229900_11101100_00000010",
+            "44311100_11101100_00000000",
+            "44314100_11101100_00000002",
+            "44314100_11101100_00000003",
+            "44314200_11101100_00000001",
+            "44314200_11101100_00000002",
+            "44314200_11101100_00000003",
+            "44314200_11101100_00000004",
+            "44314200_11101100_00000005",
+            "44314200_11101100_00000006",
+            "44411000_11101100_00000000",
+            "44412000_11101100_00000000",
+            "44413000_11101100_00000000",
+            "44422000_11101100_00000001",
+            "44422000_11101100_00000002",
+            "44511000_11101100_00000000",
+            "44521000_11101100_00000001",
+            "44521000_11101100_00000002",
+            "44521000_51302200_00000000",
+            "44522000_11101100_00000000",
+            "44529200_11101100_00000001",
+            "44529200_11101100_00000002",
+            "44529900_11101100_00000001",
+            "44529900_11101100_00000002",
+            "44529900_11101100_00000003",
+            "44529900_11101100_00000004",
+            "44529900_11101100_00000005",
+            "44529900_11101100_00000006",
+            "44529900_11101100_00000007",
+            "44531000_11101100_00000000",
+            "44611000_11101100_00000000",
+            "44612000_11101100_00000000",
+            "44613000_11101100_00000000",
+            "44619100_11101100_00000000",
+            "44811000_11101100_00000000",
+            "44812000_11101100_00000001",
+            "44812000_11101100_00000002",
+            "44813000_11101100_00000000",
+            "44814000_11101100_00000001",
+            "44814000_11101100_00000002",
+            "44814000_11101100_00000003",
+            "44815000_11101100_00000001",
+            "44815000_11101100_00000002",
+            "44815000_11101100_00000003",
+            "44815000_11101100_00000004",
+            "44819000_11101100_00000001",
+            "44819000_11101100_00000002",
+            "44819000_11101100_00000003",
+            "44819000_11101100_00000004",
+            "44819000_11101100_00000005",
+            "44819000_11101100_00000006",
+            "44821000_11101100_00000000",
+            "44831000_11101100_00000001",
+            "44831000_11101100_00000002",
+            "44831000_11101100_00000003",
+            "44832000_11101100_00000001",
+            "44832000_11101100_00000002",
+            "45111000_11101100_00000000",
+            "45113000_11101100_00000001",
+            "45113000_11101100_00000002",
+            "45113000_11101100_00000003",
+            "45114000_11101100_00000001",
+            "45114000_11101100_00000002",
+            "45121100_11101100_00000000",
+            "45231900_11101100_00000001",
+            "45231900_11101100_00000002",
+            "45231900_11101100_00000003",
+            "45231900_11101100_00000004",
+            "45231900_11101100_00000005",
+            "45231900_11101100_00000006",
+            "45231900_11101100_00000007",
+            "45311000_27102300_00000000",
+            "45321000_11101100_00000001",
+            "45321000_11101100_00000002",
+            "45321000_11101100_00000003",
+            "45322000_11101100_00000001",
+            "45322000_11101100_00000002",
+            "45322000_11101100_00000003",
+            "45322000_11101100_00000004",
+            "45322000_11101100_00000005",
+            "45331000_11101100_00000000",
+            "45392000_11101100_00000000",
+            "45399800_11101100_00000001",
+            "45399800_11101100_00000002",
+            "45399800_11101100_00000003",
+            "45399800_11101100_00000004",
+            "45399800_11101100_00000005",
+            "45399800_11101100_00000006",
+            "45399800_11101100_00000007",
+            "45399800_11101100_00000008",
+            "53228100_11101100_00000000",
+            "53228200_11101100_00000000",
+            "53242000_11101100_00000000",
+            "54189000_51912300_00000100",
+            "54189000_51912300_00000200",
+            "56162200_49909400_00000000",
+            "56172000_37201100_01000000",
+            "56172000_37201100_02000000",
+            "56173000_37301100_01000000",
+            "56173000_37301100_02000000",
+            "56174000_51601100_00010000",
+            "56179000_37201900_02000200",
+            "56179000_37301100_01000000",
+            "72233000_11101100_01000000",
+            "72233000_11101100_02000000",
+            "72233000_11101100_03000000",
+            "72233000_11101100_04000000",
+            "72233000_11101100_05000000",
+            "72233000_11101100_06000000",
+            "72233000_11101100_07000000",
+            "72233000_11101100_08000000",
+            "72233000_11101100_09000000",
+            "72233000_11101100_10000000",
+            "72233000_11101100_11000000",
+            "72233000_11101100_12000000",
+            "72233000_11101100_13000000",
+            "72233000_11101100_14000000",
+            "72251500_11101100_04000000",
+            "72251500_11101100_09000000",
+            "72251500_11101100_10000000",
+            "81141200_49909900_00000000",
+            "81142000_51609300_00000000",
+            "81149000_49906400_00000000"
+        ];
+
+        // GL: ARCHITECTS & ENGINEERS COBs Except Land Surveyor, Home health aide, Insurance inspector, Manufacturer sales representative, Personal care aide, Safety consultant
+        const cobGroup2 = [
+            "42512000_41401200_00000000",
+            "52429800_13103100_02000000",
+            "54131000_17101100_00000000",
+            "54132000_17101200_00000000",
+            "54133000_11902100_01000000",
+            "54133000_13111100_00000000",
+            "54133000_17201100_00000000",
+            "54133000_17202100_00000000",
+            "54133000_17203100_00000000",
+            "54133000_17204100_00000000",
+            "54133000_17205100_00000000",
+            "54133000_17206100_00000000",
+            "54133000_17207100_00000000",
+            "54133000_17208100_00000000",
+            "54133000_17211100_00000000",
+            "54133000_17211200_00000000",
+            "54133000_17212100_00000000",
+            "54133000_17213100_00000000",
+            "54133000_17214100_00000000",
+            "54133000_17215100_00000000",
+            "54133000_17216100_00000000",
+            "54133000_17217100_00000000",
+            "54133000_17219900_01000000",
+            "54133000_17219900_02000000",
+            "54134000_17301100_00000000",
+            "54134000_17301200_00000000",
+            "54134000_17301300_00000000",
+            "54134000_17301900_01000000",
+            "54135000_47401100_00000000",
+            "54137000_17102000_00000000",
+            "54141000_27102500_01000100",
+            "54141000_27102500_02000100",
+            "54151200_51916200_00000000",
+            "54169000_11912100_02000000",
+            "62161000_31112100_01000000",
+            "62161000_31112100_02000000"
+        ]
+
+        let glCarrierLimits = null;
+        if (landSurveyorCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: Land Surveyor
+            glCarrierLimits = ['300000/300000','300000/500000', '500000/500000', '500000/1000000', '1000000/1000000'];
+        }
+        else if (cobGroup1.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: Landscape/Janitorial/Retail COBs, Mobile Food Services, Small Contractor COBs
+            glCarrierLimits = ['300000/300000', '300000/500000', '500000/500000', '500000/1000000', '1000000/1000000', '1000000/2000000'];
+        }
+        else if (cobGroup2.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: ARCHITECTS & ENGINEERS COBs Except Land Surveyor, Home health aide, Insurance inspector, Manufacturer sales representative, Personal care aide, Safety consultant
+            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
+        }
+        else {
+            // Gl: All other COBs have
+            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
+        }
+
+
+        // GL Deductible
+        let glDeductible = 0;
+        const propMgmtRealEstateAgentCOBs = [
+            "53121000_41902100_00000000",
+            "53131100_11914100_00000000"
+        ];
+        if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            glDeductible = 1000;
+        }
+
+        // BOP Deductible
+        const bopDeductibles = [0, 500, 1000];
+
+        // Choose Carrier Limits based on Policy Type
+        let carrierLimits = null;
+        if (this.policy.type === 'GL') {
+            carrierLimits = glCarrierLimits;
+            this.deductible = glDeductible;
+        }
+        else if (this.policy.type === 'BOP') {
+            carrierLimits = bopCarrierLimits;
+            this.deductible = this.getBestDeductible(this.policy.deductible, bopDeductibles);
+        }
+        else {
+            this.log_error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
+        }
 
         const validCounties = [
             "Broward county",
@@ -78,63 +328,6 @@ module.exports = class HiscoxGL extends Integration {
             "Saint Louis county"
         ];
 
-        /**
-         * All classes of business mapped to Hiscox's Small Contractor, Landscape/Janitorial/Retail, and Mobile Food Classes use different limits.
-         * These categories are not returned by their API, but can be found in the Development Guidelines for Quote API on the Reference Data tab.
-         * The following list is in the order in which items  \appear in that spreadsheet.
-         */
-        if (
-            [
-                // Small Contractors (SC)
-
-                "DS3", // Air conditioning systems installation/repair
-                "DS4", // Appliance and accessories installation/repair
-                "DS5", // Carpentry (interior only)
-                "DS9", // Carpet/furniture/upholstery cleaning(offsite only)
-                "DS2", // Clock making/repair
-                "DS6", // Door or window installation/repair
-                "DSC", // Driveway or sidewalk paving/repaving
-                "DSN", // Drywall or wallboard installation/repair
-                "DSD", // Electrical work (interior only)
-                "DSE", // Fence installation/repair
-                "DSF", // Floor covering installation(no ceramic tile/stone)
-                "DS7", // Glass installation/repair (no auto work)
-                "DSG", // Handyperson (no roof work)
-                "DSH", // Heating/air conditioning install/repair(no LPG)
-                "DS8", // Interior finishing work
-                "DS1", // Locksmiths
-                "DSL", // Masonry work
-                "DSM", // Painting (interior only)
-                "DSO", // Plastering or stucco work
-                "DSP", // Plumbing (commercial/industrial)
-                "DSQ", // Plumbing (residential/domestic)
-                "DSS", // Sign painting/lettering (exterior only)
-                "DSR", // Sign painting/lettering (interior only)
-                "DST", // Tile/stone/marble/mosaic/terrazzo work(int. only)
-                "DSA", // Upholstery work
-                "DSU", // Window cleaning (nothing above 15 feet)
-
-                // Landscapers, Janitors and Retailers (LJR)
-
-                "DT1", // Appliance/electronic stores (Retail)
-                "DT2", // Clothing/apparel stores (Retail)
-                "DSB", // Exterior cleaning services
-                "DT3", // Florists (Retail)
-                "DT4", // Home furnishing stores (Retail)
-                "DSI", // Janitorial/cleaning services
-                "DT5", // Jewelry stores (Retail)
-                "DSJ", // Landscaping/gardening services
-                "DSK", // Lawn care services
-                "DT7", // Other stores (with food/drinks) (Retail)
-                "DT6", // Other stores (without food/drinks) (Retail)
-                "DT8", // Snow blowing and removal (no auto coverage)
-
-                // Mobile Food Services
-                "DSV" // Mobile food services
-            ].includes(this.industry_code.hiscox)
-        ) {
-            // carrierLimits = ["300000/300000", "500000/500000", "1000000/2000000", "2000000/2000000"]; // zy determine if this is still needed
-        }
         this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
         // Look up the insurer industry code, make sure we got a hit.
@@ -300,7 +493,7 @@ module.exports = class HiscoxGL extends Integration {
         this.entityType = entityMatrix[this.app.business.entity_type];
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.BusinessOwnershipStructure = this.entityType;
         // Use the IIC set above
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.insurerIndustryCode.attributes.v4Code; // zy Use the code that we find at the top. Revisit this
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.insurerIndustryCode.attributes.v4Code;
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person = {
             Name: {},
             CommunicationsInfo: {
@@ -334,12 +527,12 @@ module.exports = class HiscoxGL extends Integration {
         // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits
         // ***** V3 request with 250000/250000 was fine but V4 doesn't like it. Not sure how bestLimits even resulted in 250000/250000
         // ***** Anyway, limits needs to be revisited and set correctly
-        this.bestLimits = ['1000000', '1000000'];
-        // this.bestLimits = this.getBestLimits(carrierLimits);
-        // if (!this.bestLimits) {
-        //     this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
-        //     return this.return_result("autodeclined");
-        // }
+        this.log_debug(`Carrier Limits: ${carrierLimits}`);
+        this.bestLimits = this.getBestLimits(carrierLimits);
+        if (!this.bestLimits) {
+            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            return this.return_result("autodeclined");
+        }
 
 
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
@@ -541,7 +734,7 @@ module.exports = class HiscoxGL extends Integration {
         sharedQuoteRqStructure.CoverQuoteRq = {RatingInfo: {
             AggLOI: this.bestLimits[1],
             LOI: this.bestLimits[0],
-            Deductible: 0
+            Deductible: this.deductible
         }};
 
         if (this.policy.type === 'GL') {
@@ -1280,6 +1473,17 @@ module.exports = class HiscoxGL extends Integration {
         else {
             return null;
         }
+    }
+
+    /**
+     * Gets the supported hiscox limit less than or equal to the one provided
+     * @param {number} deductible - deductible from this.policy.deductible
+     * @param {array} validDeductibles - array of supported deductibles for the given policy type
+     * @returns {number} Higher valid deductible equal to or lower than provided deductible
+     */
+    getBestDeductible(deductible, validDeductibles) {
+        const equalLessThanDeductibles = validDeductibles.filter(val => val <= deductible);
+        return Math.max(...equalLessThanDeductibles);
     }
 
     /**
