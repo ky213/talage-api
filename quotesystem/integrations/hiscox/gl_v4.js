@@ -857,7 +857,7 @@ module.exports = class HiscoxGL extends Integration {
                     continue;
                 }
                 let attributes = null;
-                if (question.type === 'Checkboxes') {
+                if (question.type === 'Checkboxes' || question.type === 'Select List') {
                     // Checkbox questions require that each checked answer turns into another object property underneath the main question property
                     // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
                     const insurerQuestionBO = new InsurerQuestionBO();
@@ -877,7 +877,9 @@ module.exports = class HiscoxGL extends Integration {
                         continue;
                     }
                     if (!insurerQuestionList[0].attributes) {
-                        this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
+                        if (question.type === 'Checkboxes') {
+                            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
+                        }
                         continue;
                     }
                     attributes = insurerQuestionList[0].attributes;
@@ -1155,6 +1157,15 @@ module.exports = class HiscoxGL extends Integration {
                         }
                     }
                     reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
+                }
+                else if (question.type === 'Select List' && question?.attributes?.answersToElements) {
+                    const answer = question.attributes.answersToElements[question.answer];
+                    if (answer) {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = answer;
+                    }
+                    else {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                    }
                 }
                 else {
                     reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
