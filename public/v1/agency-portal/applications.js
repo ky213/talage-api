@@ -1384,6 +1384,7 @@ async function getApplicationsResources(req, res, next){
         {label: "Errored", value:"10"},
         {label: "Auto Declined", value:"15"},
         {label: "Declined", value:"20"},
+        {label: "Price Indication", value:"25"},
         {label: "Acord Emailed", value:"30"},
         {label: "Referred", value:"40"},
         {label: "Quoted", value:"50"},
