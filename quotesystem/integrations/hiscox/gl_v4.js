@@ -1356,8 +1356,7 @@ module.exports = class HiscoxGL extends Integration {
 
             const response = JSON.parse(requestError.response);
             // Check for errors
-            const responseErrors = response?.ProductQuoteRs?.[policyResponseType]?.Errors;
-            this.log_debug(`Response Errors: ${responseErrors}`);
+            const responseErrors = response?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.Errors.Error;
             let errorResponseList = null;
             if (responseErrors && !responseErrors.length) {
                 // If responseErrors is just an object, make it an array
@@ -1371,7 +1370,7 @@ module.exports = class HiscoxGL extends Integration {
                 let errors = "";
                 for (const errorResponse of errorResponseList) {
                     if (errorResponse.Code && errorResponse.Description) {
-                        if (errorResponse === "Declination") {
+                        if (errorResponse.Code === "Declination") {
                             // Return an error result
                             return this.client_declined(`${errorResponse.Code}: ${errorResponse.Description}`);
                         }
