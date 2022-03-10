@@ -36,10 +36,10 @@ async function processtask(queueMessage){
 
         //DO STUFF
 
-        await abandonquotetask().catch(err => error = err);
-        if(error){
-            log.error("Error abandonquotetask " + error + __location);
-        }
+        abandonquotetask().catch(function(err){
+            log.error("Error abandonquotetask " + err + __location);
+        });
+
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
