@@ -32,6 +32,9 @@ module.exports = class HiscoxGL extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+
+
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_quote ` + __location)
         // These are the statuses returned by the insurer and how they map to our Talage statuses
 
         // this.possible_api_responses.DECLINE = 'declined';
@@ -275,7 +278,7 @@ module.exports = class HiscoxGL extends Integration {
             "53121000_41902100_00000000",
             "53131100_11914100_00000000"
         ];
-        if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
+        if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
             glDeductible = 1000;
         }
 
@@ -293,7 +296,7 @@ module.exports = class HiscoxGL extends Integration {
             this.deductible = this.getBestDeductible(this.policy.deductible, bopDeductibles);
         }
         else {
-            this.log_error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
+            log.error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
         }
 
         const validCounties = [
@@ -328,7 +331,7 @@ module.exports = class HiscoxGL extends Integration {
             "Saint Louis county"
         ];
 
-        this.log_debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+        // log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
         // Look up the insurer industry code, make sure we got a hit.
         // If it's BOP, check if the code we have is used for BOP,
@@ -354,7 +357,7 @@ module.exports = class HiscoxGL extends Integration {
                         const insurerIndustryCode = insurerIndustryCodeList[0];
                         this.insurerIndustryCode = insurerIndustryCode;
                         this.industry_code = JSON.parse(JSON.stringify(insurerIndustryCode));
-                        this.log_debug(`Insurer Industry Code used for BOP: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+                        log.debug(`Insurer Industry Code used for BOP: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
                     }
                     else {
                         this.industry_code = null;
@@ -367,13 +370,13 @@ module.exports = class HiscoxGL extends Integration {
 
                 }
                 catch (err) {
-                    this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
                     return this.client_error(`Trouble retrieving insurer industry class code.`)
                 }
             }
 
         }
-        this.log_debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
+        //log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
 
         // Define how legal entities are mapped for Hiscox
         const entityMatrix = {
@@ -470,7 +473,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.agencyEmail || !this.agencyPhone) {
-            this.log_error(`AppId: ${this.app.id} Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote. Talage Wholesale ${this.app.agencyLocation.insurers[this.insurer.id].talageWholesale}`, __location);
+            log.error(`AppId: ${this.app.id} Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote. Talage Wholesale ${this.app.agencyLocation.insurers[this.insurer.id].talageWholesale}`, __location);
             this.reasons.push(`Hiscox requires an agency to provide both a phone number and email address`);
             return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
@@ -527,17 +530,15 @@ module.exports = class HiscoxGL extends Integration {
         // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits
         // ***** V3 request with 250000/250000 was fine but V4 doesn't like it. Not sure how bestLimits even resulted in 250000/250000
         // ***** Anyway, limits needs to be revisited and set correctly
-        this.log_debug(`Carrier Limits: ${carrierLimits}`);
+        //log.debug(`Carrier Limits: ${carrierLimits}`);
         this.bestLimits = this.getBestLimits(carrierLimits);
         if (!this.bestLimits) {
             this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
             return this.return_result("autodeclined");
         }
 
-
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.applicationDocData.locations];
-
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
             if (["FL", "MO", "TX"].includes(location.territory)) {
@@ -640,7 +641,7 @@ module.exports = class HiscoxGL extends Integration {
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
-
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} effective date ` + __location)
         // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
         if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
             this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
@@ -648,15 +649,17 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         this.effectiveDate = this.policy.effective_date.format("YYYY-MM-DD");
-
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question detail 1 ` + __location)
         let questionDetails = null;
         try {
             questionDetails = await this.get_question_details();
         }
         catch (error) {
-            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Unable to get question identifiers or details: ${error}`, __location);
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Unable to get question identifiers or details: ${error}`, __location);
             return this.return_result('error', "Could not retrieve the Hiscox question identifiers");
         }
+
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} payroll ` + __location)
 
         // Determine total payroll
         this.totalPayroll = this.get_total_payroll();
@@ -778,126 +781,132 @@ module.exports = class HiscoxGL extends Integration {
         }
 
 
-        this.log_debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`); // zy debug remove
+        //log.debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`); // zy debug remove
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Questton setup 1 ` + __location)
         for (const question of Object.values(this.questions)) {
-            let questionAnswer = this.determine_question_answer(question, question.required);
-            let elementName = questionDetails[question.id].attributes.elementName;
-            if (questionAnswer !== false) {
-                if (elementName === 'GLHireNonOwnVehicleUse') {
-                    elementName = 'HireNonOwnVehclUse';
-                }
-                else if (elementName === 'SCForbiddenProjects') {
-                    elementName = 'ForbiddenProjectsSmallContractors';
-                }
-                else if (elementName === 'HNOACoverQuoteRq') {
-                    if (questionAnswer !== 'No') {
-                        this.hnoaAmount = questionAnswer;
-                        // this.questionList.push({
-                        //     nodeName: 'HireNonOwnVehclCoverage',
-                        //     answer: 'Yes'
-                        // });
+            try{
+                let questionAnswer = this.determine_question_answer(question, question.required);
+                let elementName = questionDetails[question.id].attributes.elementName;
+                if (questionAnswer !== false) {
+                    if (elementName === 'GLHireNonOwnVehicleUse') {
+                        elementName = 'HireNonOwnVehclUse';
                     }
-                    // Don't add this to the question list
-                    continue;
-                }
-                else if (elementName === 'SecondaryCOBSmallContractors') {
-                    const cobDescriptionList = questionAnswer.split(", ");
-                    const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
-                    for (const cobDescription of cobDescriptionList) {
-                        const cobDescQuery = {
-                            active: true,
-                            insurerId: this.insurer.id,
-                            description: cobDescription
-                        }
-                        let cob = null;
-                        try {
-                            cob = await insurerIndustryCodeBO.getList(cobDescQuery);
-                        }
-                        catch (err) {
-                            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
-                        }
-                        if (!cob || cob.length === 0) {
-                            this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
-                            continue;
-                        }
-                        this.additionalCOBs.push(cob[0].attributes.v4Code);
+                    else if (elementName === 'SCForbiddenProjects') {
+                        elementName = 'ForbiddenProjectsSmallContractors';
                     }
-                    // Don't add this to the question list
-                    continue;
-                }
-                else if (elementName === 'EstmtdPayrollSC') {
-                    if (questionAnswer === null) {
-                        questionAnswer = 0;
+                    else if (elementName === 'HNOACoverQuoteRq') {
+                        if (questionAnswer !== 'No') {
+                            this.hnoaAmount = questionAnswer;
+                            // this.questionList.push({
+                            //     nodeName: 'HireNonOwnVehclCoverage',
+                            //     answer: 'Yes'
+                            // });
+                        }
+                        // Don't add this to the question list
+                        continue;
                     }
-                    else {
-                        try {
-                            //parseInt does not throw error with parse a non-number.
-                            questionAnswer = parseInt(questionAnswer, 10);
-                            if(questionAnswer === "NaN"){
-                                throw new Error("Not an integer");
+                    else if (elementName === 'SecondaryCOBSmallContractors') {
+                        const cobDescriptionList = questionAnswer.split(", ");
+                        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+                        for (const cobDescription of cobDescriptionList) {
+                            const cobDescQuery = {
+                                active: true,
+                                insurerId: this.insurer.id,
+                                description: cobDescription
                             }
+                            let cob = null;
+                            try {
+                                cob = await insurerIndustryCodeBO.getList(cobDescQuery);
+                            }
+                            catch (err) {
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
+                            }
+                            if (!cob || cob.length === 0) {
+                                this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
+                                continue;
+                            }
+                            this.additionalCOBs.push(cob[0].attributes.v4Code);
                         }
-                        catch (error) {
-                            this.log_warn(`Could not convert contractor payroll '${questionAnswer}' to a number.`, __location);
+                        // Don't add this to the question list
+                        continue;
+                    }
+                    else if (elementName === 'EstmtdPayrollSC') {
+                        if (questionAnswer === null) {
                             questionAnswer = 0;
                         }
+                        else {
+                            try {
+                                //parseInt does not throw error with parse a non-number.
+                                questionAnswer = parseInt(questionAnswer, 10);
+                                if(questionAnswer === "NaN"){
+                                    throw new Error("Not an integer");
+                                }
+                            }
+                            catch (error) {
+                                this.log_warn(`Could not convert contractor payroll '${questionAnswer}' to a number.`, __location);
+                                questionAnswer = 0;
+                            }
+                        }
+                        // Add contractor payroll
+                        if(!(questionAnswer > 0)){
+                            questionAnswer = 0
+                        }
+                        this.questionList.push({
+                            nodeName: 'EstmtdPayrollSC',
+                            answer: questionAnswer
+                        });
+                        // Don't add more to the question list
+                        continue;
                     }
-                    // Add contractor payroll
-                    if(!(questionAnswer > 0)){
-                        questionAnswer = 0
+                    let attributes = null;
+                    if (question.type === 'Checkboxes' || question.type === 'Select List') {
+                        // Checkbox questions require that each checked answer turns into another object property underneath the main question property
+                        // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
+                        const insurerQuestionBO = new InsurerQuestionBO();
+                        const insurerQuestionQuery = {
+                            active: true,
+                            talageQuestionId: question.id
+                        };
+                        let insurerQuestionList = null;
+                        try {
+                            insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
+                        }
+                        catch (err) {
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
+                        }
+                        if (!insurerQuestionList || insurerQuestionList.length === 0) {
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
+                            continue;
+                        }
+                        if (!insurerQuestionList[0].attributes) {
+                            if (question.type === 'Checkboxes') {
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
+                            }
+                            continue;
+                        }
+                        attributes = insurerQuestionList[0].attributes;
                     }
                     this.questionList.push({
-                        nodeName: 'EstmtdPayrollSC',
-                        answer: questionAnswer
+                        nodeName: elementName,
+                        answer: questionAnswer,
+                        attributes: attributes,
+                        type: question.type
                     });
-                    // Don't add more to the question list
-                    continue;
                 }
-                let attributes = null;
-                if (question.type === 'Checkboxes' || question.type === 'Select List') {
-                    // Checkbox questions require that each checked answer turns into another object property underneath the main question property
-                    // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
-                    const insurerQuestionBO = new InsurerQuestionBO();
-                    const insurerQuestionQuery = {
-                        active: true,
-                        talageQuestionId: question.id
-                    };
-                    let insurerQuestionList = null;
-                    try {
-                        insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
-                    }
-                    catch (err) {
-                        this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
-                    }
-                    if (!insurerQuestionList || insurerQuestionList.length === 0) {
-                        this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
-                        continue;
-                    }
-                    if (!insurerQuestionList[0].attributes) {
-                        if (question.type === 'Checkboxes') {
-                            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
-                        }
-                        continue;
-                    }
-                    attributes = insurerQuestionList[0].attributes;
+                else if (question.type === 'Checkboxes' && !questionAnswer) {
+                    this.questionList.push({
+                        nodeName: elementName,
+                        answer: '',
+                        attributes: null,
+                        type: question.type
+                    })
                 }
-                this.questionList.push({
-                    nodeName: elementName,
-                    answer: questionAnswer,
-                    attributes: attributes,
-                    type: question.type
-                });
             }
-            else if (question.type === 'Checkboxes' && !questionAnswer) {
-                this.questionList.push({
-                    nodeName: elementName,
-                    answer: '',
-                    attributes: null,
-                    type: question.type
-                })
+            catch(err){
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
             }
         }
 
@@ -1134,7 +1143,7 @@ module.exports = class HiscoxGL extends Integration {
         else if (this.policy.type === 'BOP'){
             policyRequestType = 'BusinessOwnersPolicyQuoteRq';
         }
-
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 2` + __location)
         for (const question of this.questionList) {
             if (applicationRatingInfoQuestions.includes(question.nodeName)) {
                 if (question.type === 'Checkboxes') {
@@ -1279,7 +1288,7 @@ module.exports = class HiscoxGL extends Integration {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy HACK debug remove
         }
 
-        this.log_debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
+        log.debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
 
         if (this.policy.type === 'GL'){
             // Add additional COBs to JSON if necessary
@@ -1294,33 +1303,44 @@ module.exports = class HiscoxGL extends Integration {
             }
 
         }
-
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse` + __location)
         // Get a token from their auth server
         const tokenRequestData = {
             client_id: this.username,
             client_secret: this.password
         };
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse 2 ` + __location)
         let tokenResponse = null;
         try {
             tokenResponse = await this.send_request(host, "/toolbox/auth/accesstoken", tokenRequestData, {"Content-Type": "application/x-www-form-urlencoded"});
         }
         catch (error) {
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} error getting tokenResponse ${error}` + __location)
             return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {error: error});
         }
-        const responseObject = JSON.parse(tokenResponse);
-
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse 3 ` + __location)
+        let responseObject = null;
+        try{
+            responseObject = JSON.parse(tokenResponse);
+        }
+        catch(err){
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} tokenResponse parse error ${err}` + __location);
+        }
+        if(!responseObject){
+            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location);
+        }
         // Verify that we got back what we expected
-        if (responseObject.status !== "approved" || !responseObject.access_token) {
-            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {responseObject: responseObject});
+        if (responseObject?.status !== "approved" || !responseObject?.access_token) {
+            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location);
         }
         const token = responseObject.access_token;
-
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse 4 ` + __location)
         // Specify the path to the Quote endpoint
         const path = "/partner/v4/quote";
 
-        this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
+        log.info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
 
-        this.log_debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location); // zy debug remove
+        log.debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location); // zy debug remove
         // Send the JSON to the insurer
         let result = null;
         let requestError = null;
@@ -1414,7 +1434,7 @@ module.exports = class HiscoxGL extends Integration {
             // Check for validation errors
             let validationErrorList = null;
             const validations = errorResponse.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
-            this.log_debug(`Validations: ${JSON.stringify(validations, null, 4)}`);
+            log.debug(`Validations: ${JSON.stringify(validations, null, 4)}`);
             if (validations && !validations.length) {
                 // if validation is just an object, make it an array
                 validationErrorList = [validations];
@@ -1434,7 +1454,7 @@ module.exports = class HiscoxGL extends Integration {
             }
             // Check for a fault string (unknown node name)
             const faultString = errorResponse?.fault?.faultstring;
-            this.log_debug(`Fault String: ${JSON.stringify(errorResponse, null, 4)}`);
+            log.debug(`Fault String: ${JSON.stringify(errorResponse, null, 4)}`);
             if (faultString) {
                 // Check for a system fault
                 return this.client_error(`The Hiscox API returned a fault string: ${faultString}`, __location, {requestError: requestError});
@@ -1447,7 +1467,7 @@ module.exports = class HiscoxGL extends Integration {
         //Check status reported By Hiscox
         const QuoteRs = result?.InsuranceSvcRs?.QuoteRs
         if(!QuoteRs){
-            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned unexpect JSON structure. ${JSON.stringify(result)}` + __location);
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned unexpect JSON structure. ${JSON.stringify(result)}` + __location);
             return this.client_error("Hiscox returned unexpect JSON structure.", __location);
         }
         const prolicyTypeRs = QuoteRs?.ProductQuoteRs[policyResponseTypeTag];
@@ -1501,7 +1521,7 @@ module.exports = class HiscoxGL extends Integration {
             // Get the request ID (optional)
             const requestId = result?.InsuranceSvcRs?.QuoteRs?.RqUID;
             if (!requestId) {
-                this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.`);
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.`);
             }
             else {
                 this.request_id = requestId;
@@ -1510,7 +1530,7 @@ module.exports = class HiscoxGL extends Integration {
             // Get the quote ID (optional)
             const quoteId = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberID;
             if (!quoteId) {
-                this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.`);
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.`);
             }
             else {
                 this.number = quoteId;

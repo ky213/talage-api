@@ -164,16 +164,22 @@ module.exports = class Integration {
      * @returns {string} - the standard formatted string
      */
     log_message(message, location, extraData = null) {
-        let logMessage = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message}`;
-        // Append extra data
-        if (extraData) {
-            Object.keys(extraData).forEach((key) => {
-                logMessage += `, ${key}=${extraData[key]}`;
-            });
+        let logMessage = '';
+        try{
+            logMessage = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message}`;
+            // Append extra data
+            if (extraData) {
+                Object.keys(extraData).forEach((key) => {
+                    logMessage += `, ${key}=${extraData[key]}`;
+                });
+            }
+            // Append the location
+            if (location) {
+                logMessage += ' ' + location;
+            }
         }
-        // Append the location
-        if (location) {
-            logMessage += ' ' + location;
+        catch(err){
+            log.error(`log_message error ${err}` + __location);
         }
         return logMessage;
     }
@@ -2295,9 +2301,14 @@ module.exports = class Integration {
                             }
                             else {
                                 // Attempt to format it if it is a JSON string
-                                const formattedJSONString = this.get_formatted_json_string(data);
-                                if (formattedJSONString) {
-                                    formattedString = formattedJSONString;
+                                try{
+                                    const formattedJSONString = this.get_formatted_json_string(data);
+                                    if (formattedJSONString) {
+                                        formattedString = formattedJSONString;
+                                    }
+                                }
+                                catch(err){
+                                    log.error(`Appid: ${this.app.id} calling ${this.insurer.name} send_request() error JSON parsing ${err}` + __location);
                                 }
                             }
                             // Log the request
@@ -2354,9 +2365,14 @@ module.exports = class Integration {
                     }
                     else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
                         // Format JSON to be readable
-                        const formattedJSONData = this.get_formatted_json_string(rawData);
-                        if (formattedJSONData) {
-                            formattedData = formattedJSONData;
+                        try{
+                            const formattedJSONData = this.get_formatted_json_string(rawData);
+                            if (formattedJSONData) {
+                                formattedData = formattedJSONData;
+                            }
+                        }
+                        catch(err){
+                            log.error(`Appid: ${this.app.id} calling ${this.insurer.name} send_request() error JSON parsing ${err}` + __location);
                         }
                     }
                     if (res.statusCode >= 200 && res.statusCode <= 299 || returnResponseOnAllStatusCodes) {
