@@ -30,10 +30,10 @@ exports.processtask = async function(queueMessage){
     if(messageAge < 1800){
         // DO STUFF
 
-        await emailIncompleteTask().catch(err => error = err);
-        if(error){
-            log.error("Error emailIncompleteTask " + error + __location);
-        }
+        emailIncompleteTask().catch(function(err){
+            log.error("Error emailIncompleteTask " + err + __location);
+        });
+
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

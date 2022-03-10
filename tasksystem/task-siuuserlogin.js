@@ -25,10 +25,10 @@ exports.processtask = async function(queueMessage){
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 1800){
 
-        await siuUserLoginReportTask().catch(err => error = err);
-        if(error){
-            log.error("Error Task " + error + __location);
-        }
+        siuUserLoginReportTask().catch(err => error = err);
+        // if(error){
+        //     log.error("Error Task " + error + __location);
+        // }
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

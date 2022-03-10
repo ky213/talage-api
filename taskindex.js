@@ -68,6 +68,8 @@ async function processQueue(){
                     const message = messages[i];
                     taskDistributor.distributeTask(message);
                 }
+                //pause before checking queue again
+                await utility.Sleep(50);
             }
         }
         else if(status === responseObject.errorQueueWaitTimeout){
@@ -76,7 +78,8 @@ async function processQueue(){
         }
         else {
             // We had an error waiting for a message. Add log entry
-            log.error(`ERROR: ${status.error}`);
+            log.error(`Task Queue Check ERROR: ${status.error}` + __location);
+            await utility.Sleep(200);
         }
     }
 }

@@ -32,7 +32,6 @@ async function processtask(queueMessage){
         if(error){
             log.error("Error Quote Report deleteTaskQueueItem " + error + __location);
         }
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }

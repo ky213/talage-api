@@ -29,11 +29,6 @@ exports.processtask = async function(queueMessage){
 
     if(messageAge < 30){
 
-        // DO STUFF
-        await abandonAppTask().catch(err => error = err);
-        if(error){
-            log.error("Error abandonAppTask " + error + __location);
-        }
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
@@ -41,6 +36,10 @@ exports.processtask = async function(queueMessage){
         if(error){
             log.error("Error abandonAppTask deleteTaskQueueItem " + error + __location);
         }
+        // DO STUFF
+        abandonAppTask().catch(function(err){
+            log.error("Error abandonAppTask " + err + __location);
+        });
         return;
     }
     else {

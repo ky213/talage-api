@@ -30,9 +30,8 @@ async function processtask(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error Quote Report deleteTaskQueueItem " + error + __location);
+            log.error("Error Employers policy check deleteTaskQueueItem " + error + __location);
         }
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }
