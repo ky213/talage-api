@@ -1166,13 +1166,18 @@ module.exports = class HiscoxGL extends Integration {
                         else {
                             const answers = question.answer.split(', ');
                             const possibleAnswers = question.attributes.answersToElements;
-                            for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
-                                if (answers.includes(possibleAnswer)){
-                                    questionElementObj[subElementName] = 'Yes';
+                            if(possibleAnswers){
+                                for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                                    if (answers.includes(possibleAnswer)){
+                                        questionElementObj[subElementName] = 'Yes';
+                                    }
+                                    else {
+                                        questionElementObj[subElementName] = 'No';
+                                    }
                                 }
-                                else {
-                                    questionElementObj[subElementName] = 'No';
-                                }
+                            }
+                            else {
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error Checkboxes question processing ${JSON.stringify(question)} missing question.attributes?.answersToElements` + __location);
                             }
                         }
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
