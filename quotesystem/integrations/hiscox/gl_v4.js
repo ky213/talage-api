@@ -278,6 +278,7 @@ module.exports = class HiscoxGL extends Integration {
             "53121000_41902100_00000000",
             "53131100_11914100_00000000"
         ];
+        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
         if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
             glDeductible = 1000;
         }
@@ -331,7 +332,7 @@ module.exports = class HiscoxGL extends Integration {
             "Saint Louis county"
         ];
 
-        // log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+        log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
         // Look up the insurer industry code, make sure we got a hit.
         // If it's BOP, check if the code we have is used for BOP,
@@ -356,7 +357,14 @@ module.exports = class HiscoxGL extends Integration {
                     if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
                         const insurerIndustryCode = insurerIndustryCodeList[0];
                         this.insurerIndustryCode = insurerIndustryCode;
-                        this.industry_code = JSON.parse(JSON.stringify(insurerIndustryCode));
+                        if(insurerIndustryCode){
+                            try{
+                                this.industry_code = JSON.parse(JSON.stringify(insurerIndustryCode));
+                            }
+                            catch(err){
+                                this.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} cannot parse insurerIndustryCode: ${err}` + __location);
+                            }
+                        }
                         log.debug(`Insurer Industry Code used for BOP: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
                     }
                     else {
@@ -376,7 +384,7 @@ module.exports = class HiscoxGL extends Integration {
             }
 
         }
-        //log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
+        log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
 
         // Define how legal entities are mapped for Hiscox
         const entityMatrix = {
@@ -539,6 +547,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.applicationDocData.locations];
+
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
             if (["FL", "MO", "TX"].includes(location.territory)) {
@@ -675,7 +684,7 @@ module.exports = class HiscoxGL extends Integration {
                 }
             }
             catch (error) {
-                this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
+                log.warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.` + __location);
             }
             delete this.questions[totalPayrollQuestionId];
         }
@@ -825,7 +834,7 @@ module.exports = class HiscoxGL extends Integration {
                                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
                             }
                             if (!cob || cob.length === 0) {
-                                this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
+                                this.log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
                                 continue;
                             }
                             this.additionalCOBs.push(cob[0].attributes.v4Code);
@@ -846,7 +855,7 @@ module.exports = class HiscoxGL extends Integration {
                                 }
                             }
                             catch (error) {
-                                this.log_warn(`Could not convert contractor payroll '${questionAnswer}' to a number.`, __location);
+                                this.log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
                                 questionAnswer = 0;
                             }
                         }
@@ -1145,123 +1154,128 @@ module.exports = class HiscoxGL extends Integration {
         }
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 2` + __location)
         for (const question of this.questionList) {
-            if (applicationRatingInfoQuestions.includes(question.nodeName)) {
-                if (question.type === 'Checkboxes') {
-                    // Get the element names from the attributes for each answer that was checked and build the object
-                    // with each element as an object property under the parent property
-                    const questionElementObj = {};
-                    if (!question.answer) {
-                        questionElementObj.NoneOfTheAbove = "Yes";
-                    }
-                    else {
-                        const answers = question.answer.split(', ');
-                        const possibleAnswers = question.attributes.answersToElements;
-                        for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
-                            if (answers.includes(possibleAnswer)){
-                                questionElementObj[subElementName] = 'Yes';
-                            }
-                            else {
-                                questionElementObj[subElementName] = 'No';
+            try{
+                if (applicationRatingInfoQuestions.includes(question.nodeName)) {
+                    if (question.type === 'Checkboxes') {
+                        // Get the element names from the attributes for each answer that was checked and build the object
+                        // with each element as an object property under the parent property
+                        const questionElementObj = {};
+                        if (!question.answer) {
+                            questionElementObj.NoneOfTheAbove = "Yes";
+                        }
+                        else {
+                            const answers = question.answer.split(', ');
+                            const possibleAnswers = question.attributes.answersToElements;
+                            for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                                if (answers.includes(possibleAnswer)){
+                                    questionElementObj[subElementName] = 'Yes';
+                                }
+                                else {
+                                    questionElementObj[subElementName] = 'No';
+                                }
                             }
                         }
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
                     }
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
-                }
-                else if (question.type === 'Select List' && question?.attributes?.answersToElements) {
-                    const answer = question.attributes.answersToElements[question.answer];
-                    if (answer) {
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = answer;
+                    else if (question.type === 'Select List' && question?.attributes?.answersToElements) {
+                        const answer = question.attributes.answersToElements[question.answer];
+                        if (answer) {
+                            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = answer;
+                        }
+                        else {
+                            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
+                        }
                     }
                     else {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
                     }
-                }
-                else {
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
-                }
-                if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
-                    // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
-                    // we only get one answer. This fixes that issue
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application
-                }
-            }
-            const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
-            const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
-            if (glRatingQuestion || bopRatingQuestion) {
-                if (question.nodeName === "SupplyManufactDistbtGoodsOrProductsOwnership") {
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer === 'No' ? 'My business does this' : 'A third-party does this';
-                }
-                else if (question.type === 'Checkboxes') {
-                    // Get the element names from the attributes for each answer that was checked and build the object
-                    // with each element as an object property under the parent property
-                    const questionElementObj = {};
-                    if (!question.answer) {
-                        questionElementObj.NoneOfTheAbove = "Yes";
+                    if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+                        // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
+                        // we only get one answer. This fixes that issue
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application
                     }
-                    else {
-                        const answers = question.answer.split(', ');
-                        const possibleAnswers = question.attributes.answersToElements;
-                        for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
-                            if (answers.includes(possibleAnswer)){
-                                questionElementObj[subElementName] = 'Yes';
-                            }
-                            else {
-                                questionElementObj[subElementName] = 'No';
+                }
+                const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
+                const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
+                if (glRatingQuestion || bopRatingQuestion) {
+                    if (question.nodeName === "SupplyManufactDistbtGoodsOrProductsOwnership") {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer === 'No' ? 'My business does this' : 'A third-party does this';
+                    }
+                    else if (question.type === 'Checkboxes') {
+                        // Get the element names from the attributes for each answer that was checked and build the object
+                        // with each element as an object property under the parent property
+                        const questionElementObj = {};
+                        if (!question.answer) {
+                            questionElementObj.NoneOfTheAbove = "Yes";
+                        }
+                        else {
+                            const answers = question.answer.split(', ');
+                            const possibleAnswers = question.attributes.answersToElements;
+                            for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                                if (answers.includes(possibleAnswer)){
+                                    questionElementObj[subElementName] = 'Yes';
+                                }
+                                else {
+                                    questionElementObj[subElementName] = 'No';
+                                }
                             }
                         }
-                    }
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = questionElementObj;
-                }
-                else {
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer;
-                }
-            }
-
-            if (question.nodeName === 'TriaAgreeContent' && question.answer === 'Yes') {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].TRIACoverQuoteRq = {CoverId: 'TRIA'};
-            }
-
-            // Acknowledgements
-            if (acknowledgementElements.includes(question.nodeName)) {
-                if (['BusinessOwnership','InsuranceDecline','ClaimsAgainstYou'].includes(question.nodeName)) {
-                    // Some acknowledgements elements have a structure like this -> "BusinessOwnership": {"BusinessOwnership": "Agree"},
-                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {};
-                    if (question.nodeName === 'InsuranceDecline') {
-                        // Need to 'No' for 'Disagree' on this one
-                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = questionElementObj;
                     }
                     else {
-                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer;
                     }
                 }
-                else if (question.nodeName === 'MergerAcquisitions') {
-                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {'MergerAcquisition': question.answer === 'No' ? 'Agree' : 'Disagree'};
-                }
-                else {
-                    reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
-                }
-            }
 
-            // Product Acknowledgements
-            if (this.policy.type === 'BOP') {
-                if (bopDisciplinaryActionAcknowledgements.includes(question.nodeName)) {
-                    if (question.nodeName === 'DisciplinaryActionBankruptcy' || question.nodeName === 'DisciplinaryActionCrime') {
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.DisciplinaryActionAcknowledgements[question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                if (question.nodeName === 'TriaAgreeContent' && question.answer === 'Yes') {
+                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].TRIACoverQuoteRq = {CoverId: 'TRIA'};
+                }
+
+                // Acknowledgements
+                if (acknowledgementElements.includes(question.nodeName)) {
+                    if (['BusinessOwnership','InsuranceDecline','ClaimsAgainstYou'].includes(question.nodeName)) {
+                        // Some acknowledgements elements have a structure like this -> "BusinessOwnership": {"BusinessOwnership": "Agree"},
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {};
+                        if (question.nodeName === 'InsuranceDecline') {
+                            // Need to 'No' for 'Disagree' on this one
+                            reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                        }
+                        else {
+                            reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                        }
+                    }
+                    else if (question.nodeName === 'MergerAcquisitions') {
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {'MergerAcquisition': question.answer === 'No' ? 'Agree' : 'Disagree'};
                     }
                     else {
-                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.DisciplinaryActionAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                        reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
                     }
                 }
-                else if (bopPropertyLossIncurredAcknowledgements.includes(question.nodeName)) {
-                    reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.PropertyLossIncurredAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+
+                // Product Acknowledgements
+                if (this.policy.type === 'BOP') {
+                    if (bopDisciplinaryActionAcknowledgements.includes(question.nodeName)) {
+                        if (question.nodeName === 'DisciplinaryActionBankruptcy' || question.nodeName === 'DisciplinaryActionCrime') {
+                            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.DisciplinaryActionAcknowledgements[question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
+                        }
+                        else {
+                            reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.DisciplinaryActionAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                        }
+                    }
+                    else if (bopPropertyLossIncurredAcknowledgements.includes(question.nodeName)) {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements.PropertyLossIncurredAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                    }
+                    else if (bopProductAcknowledgementElements.includes(question.nodeName)) {
+                        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+                    }
                 }
-                else if (bopProductAcknowledgementElements.includes(question.nodeName)) {
+
+                if (this.policy.type === 'GL' && glProductAcknowledgementElements.includes(question.nodeName)) {
                     reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
                 }
             }
-
-            if (this.policy.type === 'GL' && glProductAcknowledgementElements.includes(question.nodeName)) {
-                reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].ProductAcknowledgements[question.nodeName] = question.answer === 'Yes' ? 'Agree' : 'Disagree';
+            catch(err){
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
             }
         }
         // // zy HACK Get these from questions
