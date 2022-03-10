@@ -1335,12 +1335,12 @@ module.exports = class HiscoxGL extends Integration {
             requestError = error;
         }
 
-        let policyResponseType = null;
+        let policyResponseTypeTag = null;
         if (this.policy.type === 'GL') {
-            policyResponseType = 'GeneralLiabilityQuoteRs';
+            policyResponseTypeTag = 'GeneralLiabilityQuoteRs';
         }
         if (this.policy.type === 'BOP') {
-            policyResponseType = 'BusinessOwnersPolicyQuoteRs';
+            policyResponseTypeTag = 'BusinessOwnersPolicyQuoteRs';
         }
 
         // Check if we have an HTTP status code to give us more information about the error encountered
@@ -1355,8 +1355,17 @@ module.exports = class HiscoxGL extends Integration {
             }
 
             const response = JSON.parse(requestError.response);
+            //Look for incomplete
+            const respProductStatus = response?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Status
+            if(respProductStatus === "Incomplete"){
+                this.reasons.push("Hiscox return an Incomplete status for the submission..");
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
+                return this.return_result('error');
+            }
+
+
             // Check for errors
-            const responseErrors = response?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.Errors.Error;
+            const responseErrors = response?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
             let errorResponseList = null;
             if (responseErrors && !responseErrors.length) {
                 // If responseErrors is just an object, make it an array
@@ -1383,6 +1392,7 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 return this.client_error(`The Hiscox server returned the following errors: ${errors}`, __location);
             }
+
             // Check for validation errors
             let validationErrorList = null;
             const validations = response.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
@@ -1413,60 +1423,94 @@ module.exports = class HiscoxGL extends Integration {
             }
             // Return an error result
             return this.client_error(`The Hiscox API returned an error of ${requestError.httpStatusCode} without explanation`, __location, {requestError: requestError});
+        } // End of Response Error Processing
+
+        //check if it qouted.
+        //Check status reported By Hiscox
+        const QuoteRs = result?.InsuranceSvcRs?.QuoteRs
+        if(!QuoteRs){
+            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned unexpect JSON structure. ${JSON.stringify(result)}` + __location);
+            return this.client_error("Hiscox returned unexpect JSON structure.", __location);
         }
+        const prolicyTypeRs = QuoteRs?.ProductQuoteRs[policyResponseTypeTag];
+        const submissionStatus = prolicyTypeRs?.Status
+        // referred with price status??
+        if(submissionStatus === "Quoted"){
+            // We have received a quote. Parse it.
+            // console.log("response", JSON.stringify(result, null, 4));
 
-        // We have received a quote. Parse it.
-        // console.log("response", JSON.stringify(result, null, 4));
+            // Limit should be filled in with what was submitted.
+            // in case the insurer does not return limits.
+            // This is using the old structure.   New structure put into place for BOPs.
+            // Get the limits (required)
+            const loi = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.RatingResult?.LOI;
+            if(loi){
+                this.limits[4] = parseInt(loi, 10);
+            }
+            else {
+                //no donot error out a submission on lack of limits being returned. Log as an error.
+                // submission status does not change
+                //return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox quoted the application, but the limits could not be found in the response`)
+            }
 
-        // Get the limits (required)
-        const loi = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.RatingResult?.LOI;
-        if (!loi) {
-            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
+            const aggLOI = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.RatingResult?.AggLOI;
+            if (aggLOI){
+                this.limits[8] = parseInt(aggLOI, 10);
+            }
+            else {
+                // Do not error out Quote on this.  log it as an error
+                //return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox quoted the application, but the limits could not be found in the response`)
+            }
+
+            // Get the premium amount (required)
+            const premium = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Premium?.Annual;
+            if (!premium) {
+                return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, {result: result});
+            }
+            this.amount = premium;
+
+            // Get the quote link
+            const retrieveURL = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberRetrieveURL;
+            if (retrieveURL) {
+                this.quoteLink = retrieveURL;
+            }
+
+            // Always a $0 deductible
+            this.deductible = 0
+            this.limits[12] = 0;
+            // Get the request ID (optional)
+            const requestId = result?.InsuranceSvcRs?.QuoteRs?.RqUID;
+            if (!requestId) {
+                this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.`);
+            }
+            else {
+                this.request_id = requestId;
+            }
+
+            // Get the quote ID (optional)
+            const quoteId = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberID;
+            if (!quoteId) {
+                this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.`);
+            }
+            else {
+                this.number = quoteId;
+            }
+
+            // That we are quoted
+            return this.return_result('quoted');
         }
-        this.limits[4] = parseInt(loi, 10);
-
-        const aggLOI = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.RatingResult?.AggLOI;
-        if (!aggLOI) {
-            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
-        }
-        this.limits[8] = parseInt(aggLOI, 10);
-
-        // Get the premium amount (required)
-        const premium = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseType]?.Premium?.Annual;
-        if (!premium) {
-            return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, {result: result});
-        }
-        this.amount = premium;
-
-        // Get the quote link
-        const retrieveURL = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberRetrieveURL;
-        if (retrieveURL) {
-            this.quoteLink = retrieveURL;
-        }
-
-        // Always a $0 deductible
-        this.deductible = 0
-        this.limits[12] = 0;
-        // Get the request ID (optional)
-        const requestId = result?.InsuranceSvcRs?.QuoteRs?.RqUID;
-        if (!requestId) {
-            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.`);
+        else if (submissionStatus === "Incomplete") {
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
+            this.reasons.push("Hiscox return an Incomplete status for the submission.");
+            return this.return_result('error');
         }
         else {
-            this.request_id = requestId;
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned unexpected status - ${submissionStatus}` + __location);
+            this.reasons.push(`Hiscox return an ${submissionStatus} status for the submission.`);
+            return this.return_result('error');
         }
-
-        // Get the quote ID (optional)
-        const quoteId = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberID;
-        if (!quoteId) {
-            this.log_error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.`);
-        }
-        else {
-            this.number = quoteId;
-        }
-
-        // That we are quoted
-        return this.return_result('quoted');
     }
 
     /**
