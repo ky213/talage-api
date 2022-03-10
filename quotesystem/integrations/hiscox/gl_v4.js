@@ -1210,14 +1210,19 @@ module.exports = class HiscoxGL extends Integration {
                         }
                         else {
                             const answers = question.answer.split(', ');
-                            const possibleAnswers = question.attributes.answersToElements;
-                            for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
-                                if (answers.includes(possibleAnswer)){
-                                    questionElementObj[subElementName] = 'Yes';
+                            if(question.attributes?.answersToElements){
+                                const possibleAnswers = question.attributes.answersToElements;
+                                for (const [possibleAnswer, subElementName] of Object.entries(possibleAnswers)){
+                                    if (answers.includes(possibleAnswer)){
+                                        questionElementObj[subElementName] = 'Yes';
+                                    }
+                                    else {
+                                        questionElementObj[subElementName] = 'No';
+                                    }
                                 }
-                                else {
-                                    questionElementObj[subElementName] = 'No';
-                                }
+                            }
+                            else {
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error Checkboxes question processing ${JSON.stringify(question)} missing question.attributes?.answersToElements` + __location);
                             }
                         }
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = questionElementObj;
@@ -1302,7 +1307,7 @@ module.exports = class HiscoxGL extends Integration {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy HACK debug remove
         }
 
-        log.debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
+        //log.debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
 
         if (this.policy.type === 'GL'){
             // Add additional COBs to JSON if necessary
