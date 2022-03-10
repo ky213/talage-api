@@ -790,7 +790,8 @@ module.exports = class HiscoxGL extends Integration {
         }
 
 
-        //log.debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`); // zy debug remove
+        // log.debug(`Begin this.questions: ${JSON.stringify(this.questions, null, 4)} End this.questions`); // zy debug remove
+        // log.debug(`Question Details: ${JSON.stringify(questionDetails, null, 4)}`) // zy debug remove
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
@@ -799,12 +800,39 @@ module.exports = class HiscoxGL extends Integration {
             try{
                 let questionAnswer = this.determine_question_answer(question, question.required);
                 let elementName = questionDetails[question.id].attributes.elementName;
+
+                let attributes = null;
+                if (question.type === 'Checkboxes' || question.type === 'Select List') {
+                    // Checkbox questions require that each checked answer turns into another object property underneath the main question property
+                    // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
+                    const insurerQuestionBO = new InsurerQuestionBO();
+                    const insurerQuestionQuery = {
+                        active: true,
+                        talageQuestionId: question.id
+                    };
+                    let insurerQuestionList = null;
+                    try {
+                        insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
+                    }
+                    catch (err) {
+                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
+                    }
+                    if (!insurerQuestionList || insurerQuestionList.length === 0) {
+                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
+                        continue;
+                    }
+                    if (!insurerQuestionList[0].attributes) {
+                        if (question.type === 'Checkboxes') {
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
+                        }
+                        continue;
+                    }
+                    attributes = insurerQuestionList[0].attributes;
+                }
+
                 if (questionAnswer !== false) {
                     if (elementName === 'GLHireNonOwnVehicleUse') {
                         elementName = 'HireNonOwnVehclUse';
-                    }
-                    else if (elementName === 'SCForbiddenProjects') {
-                        elementName = 'ForbiddenProjectsSmallContractors';
                     }
                     else if (elementName === 'HNOACoverQuoteRq') {
                         if (questionAnswer !== 'No') {
@@ -834,7 +862,7 @@ module.exports = class HiscoxGL extends Integration {
                                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
                             }
                             if (!cob || cob.length === 0) {
-                                this.log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
+                                log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
                                 continue;
                             }
                             this.additionalCOBs.push(cob[0].attributes.v4Code);
@@ -855,7 +883,7 @@ module.exports = class HiscoxGL extends Integration {
                                 }
                             }
                             catch (error) {
-                                this.log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
+                                log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
                                 questionAnswer = 0;
                             }
                         }
@@ -870,34 +898,6 @@ module.exports = class HiscoxGL extends Integration {
                         // Don't add more to the question list
                         continue;
                     }
-                    let attributes = null;
-                    if (question.type === 'Checkboxes' || question.type === 'Select List') {
-                        // Checkbox questions require that each checked answer turns into another object property underneath the main question property
-                        // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
-                        const insurerQuestionBO = new InsurerQuestionBO();
-                        const insurerQuestionQuery = {
-                            active: true,
-                            talageQuestionId: question.id
-                        };
-                        let insurerQuestionList = null;
-                        try {
-                            insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
-                        }
-                        catch (err) {
-                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
-                        }
-                        if (!insurerQuestionList || insurerQuestionList.length === 0) {
-                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
-                            continue;
-                        }
-                        if (!insurerQuestionList[0].attributes) {
-                            if (question.type === 'Checkboxes') {
-                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
-                            }
-                            continue;
-                        }
-                        attributes = insurerQuestionList[0].attributes;
-                    }
                     this.questionList.push({
                         nodeName: elementName,
                         answer: questionAnswer,
@@ -909,7 +909,7 @@ module.exports = class HiscoxGL extends Integration {
                     this.questionList.push({
                         nodeName: elementName,
                         answer: '',
-                        attributes: null,
+                        attributes: attributes,
                         type: question.type
                     })
                 }
@@ -1322,7 +1322,7 @@ module.exports = class HiscoxGL extends Integration {
             reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.BusinessOwnersPolicyQuoteRq.TRIACoverQuoteRq = {CoverId: 'TRIA'}; // zy HACK debug remove
         }
 
-        //log.debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`);
+        // log.debug(`Question List ${JSON.stringify(this.questionList, null, 4)}`); // zy debug remove
 
         if (this.policy.type === 'GL'){
             // Add additional COBs to JSON if necessary
