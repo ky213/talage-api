@@ -1353,10 +1353,28 @@ module.exports = class HiscoxGL extends Integration {
                 // An HTTP error was encountered other than a 422 error
                 return this.client_error(`Unable to connect to the Hiscox server. The Hiscox API returned HTTP status code ${requestError.httpStatusCode}`, __location, {requestError: requestError});
             }
+            let errorResponse = null;
+            try{
+                errorResponse = JSON.parse(requestError.response);
+            }
+            catch(err){
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} unable to parse error response.` + __location);
+                if(typeof requestError.response === 'string'){
+                    this.reasons.push(`Hiscox return error ${requestError.response}`);
+                }
+                else {
+                    this.reasons.push(`Hiscox return unknown error`);
+                }
+                return this.return_result('error');
+            }
+            if(!errorResponse){
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} empty error response.` + __location);
+                this.reasons.push(`Hiscox return unknown error`);
+                return this.return_result('error');
+            }
 
-            const response = JSON.parse(requestError.response);
             //Look for incomplete
-            const respProductStatus = response?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Status
+            const respProductStatus = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Status
             if(respProductStatus === "Incomplete"){
                 this.reasons.push("Hiscox return an Incomplete status for the submission..");
                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
@@ -1365,7 +1383,7 @@ module.exports = class HiscoxGL extends Integration {
 
 
             // Check for errors
-            const responseErrors = response?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
+            const responseErrors = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
             let errorResponseList = null;
             if (responseErrors && !responseErrors.length) {
                 // If responseErrors is just an object, make it an array
@@ -1377,15 +1395,15 @@ module.exports = class HiscoxGL extends Integration {
 
             if (errorResponseList) {
                 let errors = "";
-                for (const errorResponse of errorResponseList) {
-                    if (errorResponse.Code && errorResponse.Description) {
-                        if (errorResponse.Code === "Declination") {
+                for (const errorResponseItem of errorResponseList) {
+                    if (errorResponseItem.Code && errorResponseItem.Description) {
+                        if (errorResponseItem.Code === "Declination") {
                             // Return an error result
-                            return this.client_declined(`${errorResponse.Code}: ${errorResponse.Description}`);
+                            return this.client_declined(`${errorResponseItem.Code}: ${errorResponseItem.Description}`);
                         }
                         else {
                             // Non-decline error
-                            const reason = `${errorResponse.Description} (${errorResponse.Code})`;
+                            const reason = `${errorResponseItem.Description} (${errorResponseItem.Code})`;
                             errors += (errors.length ? ", " : "") + reason;
                         }
                     }
@@ -1395,7 +1413,7 @@ module.exports = class HiscoxGL extends Integration {
 
             // Check for validation errors
             let validationErrorList = null;
-            const validations = response.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
+            const validations = errorResponse.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
             this.log_debug(`Validations: ${JSON.stringify(validations, null, 4)}`);
             if (validations && !validations.length) {
                 // if validation is just an object, make it an array
@@ -1404,7 +1422,7 @@ module.exports = class HiscoxGL extends Integration {
             else {
                 validationErrorList = validations;
             }
-            this.log_debug(`Validations Error List: ${JSON.stringify(validationErrorList, null, 4)}`);
+            log.debug(`Validations Error List: ${JSON.stringify(validationErrorList, null, 4)}` + __location);
 
             if (validationErrorList && validationErrorList.length > 0) {
                 // Loop through and capture each validation message
@@ -1415,8 +1433,8 @@ module.exports = class HiscoxGL extends Integration {
                 return this.client_error(validationMessage, __location, {validationErrorList: validationErrorList});
             }
             // Check for a fault string (unknown node name)
-            const faultString = response?.fault?.faultstring;
-            this.log_debug(`Fault String: ${JSON.stringify(response, null, 4)}`);
+            const faultString = errorResponse?.fault?.faultstring;
+            this.log_debug(`Fault String: ${JSON.stringify(errorResponse, null, 4)}`);
             if (faultString) {
                 // Check for a system fault
                 return this.client_error(`The Hiscox API returned a fault string: ${faultString}`, __location, {requestError: requestError});
