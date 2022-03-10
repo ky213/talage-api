@@ -1157,6 +1157,11 @@ module.exports = class HiscoxGL extends Integration {
             try{
                 if (applicationRatingInfoQuestions.includes(question.nodeName)) {
                     if (question.type === 'Checkboxes') {
+                        if (!question?.attributes?.answersToElements) {
+                            // Don't add to request if we don't have answersToElements
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error Checkboxes question processing ${JSON.stringify(question)} missing question.attributes.answersToElements` + __location);
+                            continue;
+                        }
                         // Get the element names from the attributes for each answer that was checked and build the object
                         // with each element as an object property under the parent property
                         const questionElementObj = {};
@@ -1177,7 +1182,7 @@ module.exports = class HiscoxGL extends Integration {
                                 }
                             }
                             else {
-                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error Checkboxes question processing ${JSON.stringify(question)} missing question.attributes?.answersToElements` + __location);
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error Checkboxes question processing ${JSON.stringify(question)} missing question.attributes.answersToElements` + __location);
                             }
                         }
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = questionElementObj;
@@ -1207,6 +1212,11 @@ module.exports = class HiscoxGL extends Integration {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer === 'No' ? 'My business does this' : 'A third-party does this';
                     }
                     else if (question.type === 'Checkboxes') {
+                        if (!question?.attributes?.answersToElements) {
+                            // Don't add to request if we don't have answersToElements
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error Checkboxes question processing ${JSON.stringify(question)} missing question.attributes.answersToElements` + __location);
+                            continue;
+                        }
                         // Get the element names from the attributes for each answer that was checked and build the object
                         // with each element as an object property under the parent property
                         const questionElementObj = {};
@@ -1247,7 +1257,7 @@ module.exports = class HiscoxGL extends Integration {
                         // Some acknowledgements elements have a structure like this -> "BusinessOwnership": {"BusinessOwnership": "Agree"},
                         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName] = {};
                         if (question.nodeName === 'InsuranceDecline') {
-                            // Need to 'No' for 'Disagree' on this one
+                            // Need to 'No' for 'Agree' on this one
                             reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements[question.nodeName][question.nodeName] = question.answer === 'No' ? 'Agree' : 'Disagree';
                         }
                         else {
