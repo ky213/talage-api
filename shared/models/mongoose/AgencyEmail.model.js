@@ -38,6 +38,8 @@ const AgencyEmailSchema = new Schema({
     policy_purchase_agency: EmailContentSchema,
     policy_purchase_customer: EmailContentSchema,
     talage_wholesale: EmailContentSchema,
+    quote_app_application_link: EmailContentSchema,
+    agency_portal_application_link: EmailContentSchema,
     active: {type: Boolean, default: true}
 })
 
