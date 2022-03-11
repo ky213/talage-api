@@ -731,19 +731,93 @@ module.exports = class HiscoxGL extends Integration {
             sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.SquareFeetOccupiedByYou = this.primaryLocation.square_footage;
         }
 
+        if (this.policy.type === 'BOP'){
+            if (isNaN(this.primaryLocation.businessPersonalPropertyLimit)) {
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Business Personal Property Limit missing ${__location}`);
+            }
+            else {
+                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
+            }
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingOwnership = this.primaryLocation.own ? 'Yes' : 'No';
+            if (this.primaryLocation.own) {
+                if (isNaN(this.primaryLocation.buildingLimit)) {
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Building Limit missing ${__location}`);
+                }
+                else {
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
+                }
+                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
+                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
+                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
+                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+            }
+
+        }
+        // Handle Primary Location Questions
+        const ownershipQuestions = [
+            'Basement',
+            'MultipleOccupants',
+            'BuildingConstruction',
+            'NumOfStoriesInBldng',
+            'Roof',
+            'AgeOfBldng',
+            'ReplacementCost',
+            'StrctrlAlterationsPlan'
+        ];
+        for (const question of this.primaryLocation.questions) {
+            if (ownershipQuestions.includes(question.insurerQuestionAttributes.elementName) && !this.primaryLocation.own) {
+                // Don't add ownership questions if applicant doesn't own the building
+                continue;
+            }
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo[question.insurerQuestionAttributes.elementName] = question.answerValue;
+        }
+
         // Set request secondary locations
         if (this.secondaryLocationsCount > 0) {
             sharedQuoteRqStructure.Locations.Secondary = [];
 
             for (const secondaryLocation of this.secondaryLocations) {
-                const location = {AddrInfo: {}};
+                const location = {AddrInfo: {RatingInfo: {}}};
                 location.AddrInfo.Addr1 = secondaryLocation.address.substring(0,250);
                 if (secondaryLocation.address2){
                     location.AddrInfo.Addr2 = secondaryLocation.address2.substring(0,250);
                 }
-                location.City = stringFunctions.capitalizeName(secondaryLocation.city).substring(0,250);
-                location.StateOrProvCd = secondaryLocation.territory;
-                location.PostalCode = secondaryLocation.zipcode;
+                location.AddrInfo.City = stringFunctions.capitalizeName(secondaryLocation.city).substring(0,250);
+                location.AddrInfo.StateOrProvCd = secondaryLocation.territory;
+                location.AddrInfo.PostalCode = secondaryLocation.zipcode;
+
+                if (isNaN(secondaryLocation.businessPersonalPropertyLimit)) {
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Secondary Location Business Personal Property Limit missing ${__location}`);
+                }
+                else {
+                    location.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
+                }
+                if (this.policy.type === 'BOP'){
+                    location.AddrInfo.RatingInfo.BuildingOwnership = secondaryLocation.own ? 'Yes' : 'No';
+                    if (secondaryLocation.own) {
+                        if (isNaN(secondaryLocation.buildingLimit)) {
+                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Secondary Location Building Limit missing ${__location}`);
+                        }
+                        else {
+                            location.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
+                        }
+                        location.AddrInfo.RatingInfo.AgeOfBldng = secondaryLocation.yearBuilt;
+                        location.AddrInfo.RatingInfo.BuildingConstruction = secondaryLocation.constructionType;
+                        location.AddrInfo.RatingInfo.NumOfStoriesInBldng = secondaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
+                        location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                    }
+
+                }
+
+                // Handle Secondary Location Questions
+                for (const question of secondaryLocation.questions) {
+                    if (ownershipQuestions.includes(question.insurerQuestionAttributes.elementName) && !secondaryLocation.own) {
+                        // Don't add ownership questions if applicant doesn't own the building
+                        continue;
+                    }
+                    location.AddrInfo.RatingInfo[question.insurerQuestionAttributes.elementName] = question.answerValue;
+                }
+
                 sharedQuoteRqStructure.Locations.Secondary.push(location);
             }
         }
@@ -759,7 +833,6 @@ module.exports = class HiscoxGL extends Integration {
 
 
             generalLiabilityQuoteRq.RatingInfo = {};
-            // zy debug fix hard-coded values
             generalLiabilityQuoteRq.RatingInfo.SCForbiddenProjects = {NoneOfTheAbove: 'Yes'}; // zy debug fix hard-coded value
 
             generalLiabilityQuoteRq.ProductAcknowledgements = {
@@ -772,28 +845,6 @@ module.exports = class HiscoxGL extends Integration {
 
         if (this.policy.type === 'BOP') {
             const bopQuoteRq = sharedQuoteRqStructure
-
-            if (isNaN(this.primaryLocation.buildingLimit)) {
-                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Building Limit missing ${__location}`);
-            }
-            else {
-                bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
-            }
-            if (isNaN(this.primaryLocation.businessPersonalPropertyLimit)) {
-                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Business Personal Property Limit missing ${__location}`);
-            }
-            else {
-                bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
-            }
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-
-            // zy HACK Fix these hard-coded values
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.StrctrlAlterationsPlan = 'No'; // zy debug fix hard-coded value
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.MultipleOccupants = 'No'; // zy debug fix hard-coded value
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.Basement = 'None'; // zy debug fix hard-coded value
 
             bopQuoteRq.RatingInfo = {};
             bopQuoteRq.ProductAcknowledgements = {
