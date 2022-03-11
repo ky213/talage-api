@@ -376,10 +376,13 @@ module.exports = class LibertySBOP extends Integration {
 
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
         applicationDocData.locations.forEach((location, index) => {
-            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
-            const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
-            innerCoverage.ele('CoverageCd', 'CGL');
-            GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
+            if(index === 0){
+                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
+                const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
+                innerCoverage.ele('CoverageCd', 'CGL');
+                // Per Liberty Only Included on 1st location
+                GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
+            }
         });
 
         // -------------- SEND XML REQUEST ----------------
