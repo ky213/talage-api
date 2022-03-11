@@ -93,7 +93,9 @@ module.exports = class Application {
         try {
             //getById does uuid vs integer check...
 
-            this.applicationDocData = await applicationBO.loadById(data.id);
+            const applicationDocDataDB = await applicationBO.loadById(data.id);
+            //get copy and pure JSON.  also prevent accident saves.
+            this.applicationDocData = JSON.parse(JSON.stringify(applicationDocDataDB))
             // Behavior for No Quote notifications.
             if(this.applicationDocData.agencyPortalCreated && this.applicationDocData.apiCreated){
                 this.agencyPortalQuote = true;
@@ -108,6 +110,28 @@ module.exports = class Application {
             throw new Error(`Failed to load application ${data.id} `)
         }
         this.id = this.applicationDocData.applicationId;
+
+        //Fix all ZipCode to 5 digits before anything is loaded from the data
+        try{
+            this.applicationDocData.mailingZipcode = this.applicationDocData.mailingZipcode.slice(0,5);
+            for(const location of this.applicationDocData.locations){
+                if(location.zipcode){
+                    location.zipcode = location.zipcode.slice(0,5)
+                }
+            }
+            for(const policy of this.applicationDocData.policies){
+                if(policy.waiverSubrogationList.length > 0){
+                    for(const waiverSub of policy.waiverSubrogationList){
+                        if(waiverSub.zipcode){
+                            waiverSub.zipcode = waiverSub.zipcode.slice(0,5)
+                        }
+                    }
+                }
+            }
+        }
+        catch(err){
+            log.error(`appId: ${this.id} Error processing zipcodes for 5 digits ` + err + __location);
+        }
 
 
         const agencyNetworkBO = new AgencyNetworkBO();
