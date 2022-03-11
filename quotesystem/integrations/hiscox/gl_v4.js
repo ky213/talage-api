@@ -768,8 +768,18 @@ module.exports = class HiscoxGL extends Integration {
         if (this.policy.type === 'BOP') {
             const bopQuoteRq = sharedQuoteRqStructure
 
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
-            bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
+            if (isNaN(this.primaryLocation.buildingLimit)) {
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Building Limit missing ${__location}`);
+            }
+            else {
+                bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.ReplacementCost = this.primaryLocation.buildingLimit;
+            }
+            if (isNaN(this.primaryLocation.businessPersonalPropertyLimit)) {
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Business Personal Property Limit missing ${__location}`);
+            }
+            else {
+                bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
+            }
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
             bopQuoteRq.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
