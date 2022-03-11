@@ -504,7 +504,12 @@ module.exports = class HiscoxGL extends Integration {
         this.entityType = entityMatrix[this.app.business.entity_type];
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.BusinessOwnershipStructure = this.entityType;
         // Use the IIC set above
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.insurerIndustryCode.attributes.v4Code;
+        if (this.insurerIndustryCode?.attributes?.v4Code) {
+            reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.ClassOfBusinessCd = this.insurerIndustryCode.attributes.v4Code;
+        }
+        else {
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Missing Hiscox industry code on insurerIndustryCodeId ${this.insurerIndustryCode.insurerIndustryCodeId}` + __location);
+        }
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.Person = {
             Name: {},
             CommunicationsInfo: {
