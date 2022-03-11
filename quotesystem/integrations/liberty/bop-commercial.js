@@ -1198,11 +1198,13 @@ module.exports = class LibertySBOP extends Integration {
             const BldgArea = Construction.ele('BldgArea');
 
             // total receipts (only required if more than 1 location, but including anyways)
-            const totalReceipts = location.activityPayrollList.map(activity => activity.payroll).reduce((sum, payroll) => sum + payroll);
-            const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
-            TotalGrossReceipts.ele('OperationsCd', "TOTAL");
-            const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
-            TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
+            // if(applicationDocData.locations.length > 1){
+            //     const totalReceipts = NEED LOCATION QUESTION FOR LOCATION Gross receipts.
+            //     const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
+            //     TotalGrossReceipts.ele('OperationsCd', "TOTAL");
+            //     const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
+            //     TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
+            // }
 
             // Bldg Area (autofill)
             BldgArea.ele('NumUnits', location.square_footage);
