@@ -577,7 +577,8 @@ module.exports = class LibertyWC extends Integration {
             }
 
             // Check if quote was declined because there was a pre-existing application for this customer
-            const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
+            //const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
+            const existingAppErrorMsg = "existing application for this customer.";
             if(ExtendedStatusDesc.toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
                 this.reasons.push(`blocked - ${ExtendedStatusDesc}`);
                 return this.return_result('declined');
