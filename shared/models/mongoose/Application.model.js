@@ -443,5 +443,5 @@ function populateActivityCodePayroll(schema) {
 
 
 module.exports = {
-     ApplicationSchema: ApplicationSchema
+    ApplicationSchema: ApplicationSchema
 }
