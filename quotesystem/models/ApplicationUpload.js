@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const applicationUploadModel = global.requireShared("./models/ApplicationUpload-BO");
+const ApplicationUploadBO = global.requireShared("./models/ApplicationUpload-BO");
 
 class ApplicationUpload {
   constructor(agency, acordFile = {}) {
@@ -16,11 +16,11 @@ class ApplicationUpload {
 
       if (this.acordFile.valid) {
         await this.submitAcordToOCR();
-        const applicationId = await applicationUploadModel.createOne(this.agency.agencyId, this.acordFile.requestId);
-        this.acordFile.applicationId = applicationId;
+        await this.saveApplication();
       }
     } catch (error) {
-      log.error(`Error initializing  file: ${this.acordFile.fileName}`, error.message, __location);
+      log.error(`Error initializing  file ${this.acordFile.fileName} ${error.message} ${__location}`);
+      this.acordFile.error = "Error initializing file";
     }
 
     return this.acordFile;
@@ -72,11 +72,27 @@ class ApplicationUpload {
       });
       this.acordFile.requestId = response.data?.requestId;
     } catch (error) {
-      this.acordFile.error = error.message;
-      log.error(`Error processing file: ${file.fileName}`, error.message, __location);
+      this.acordFile.error = "OCR Error submiting file";
+      log.error(`OCR Error submiting file: ${this.acordFile.fileName} ${error.message} ${__location}`);
     }
 
     this.acordFile.data = null;
+  }
+
+  async saveApplication() {
+    try {
+      const applicationUploadBO = new ApplicationUploadBO();
+      const applicationId = await applicationUploadBO.createOne(this.agency, this.acordFile.requestId);
+
+      if (applicationId) {
+        this.acordFile.applicationId = applicationId;
+      } else {
+        this.acordFile.error = "Error saving application";
+      }
+    } catch (error) {
+      this.acordFile.error = "Error saving application";
+      log.error(`Error saving application ${this.acordFile.fileName} ${error.message} ${__location}`);
+    }
   }
 
   normalizeData() {
@@ -252,7 +268,6 @@ class ApplicationUpload {
         applicationObject.questions.push(question);
       }
     }
-
   }
 }
 
