@@ -189,6 +189,9 @@ module.exports = class ApplicationModel {
                     updateAppJSON.status = 'request_to_bind_referred';
                     updateAppJSON.appStatusId = 80;
                 }
+                if(quoteJSON.lastPage){
+                    updateAppJSON.lastPage = quoteJSON.lastPage
+                }
                 await this.updateMongo(applicationId, updateAppJSON);
             }
             //updatemetrics
@@ -243,6 +246,7 @@ module.exports = class ApplicationModel {
                 status: "quoting",
                 "appStatusId": 15,
                 progress: "quoting",
+                lastPage: "quoting",
                 quotingStartedDate: moment.utc()
 
             }
