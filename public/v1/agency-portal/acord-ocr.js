@@ -111,6 +111,7 @@ async function mapResultToApplicationObject(ocrResult) {
     }
   }
 
+  //find agency
   const applicationUpload = new ApplicationUpload();
   const address = data["Agency Name And Address"];
   const [agencyName, addressLine1, addressLine2] = address?.split("\n");
@@ -270,7 +271,7 @@ async function mapResultToApplicationObject(ocrResult) {
     }
   }
 
-  return agency;
+  return applicationUpload;
 }
 
 /**
