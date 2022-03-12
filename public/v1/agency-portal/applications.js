@@ -267,6 +267,7 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
                 "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
+                'lastPage': "Last Page Saved",
                 'marketingChannel': "Marketing Channel",
                 'createdString' : 'Created (UTC)',
                 'agencyCreatedAt' : 'Agency Added (UTC)'
@@ -301,6 +302,7 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
                 "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
+                'lastPage': "Last Page Saved",
                 'createdString' : 'Created (UTC)',
                 'agencyCreatedAt' : 'Agency Added (UTC)'
             };
