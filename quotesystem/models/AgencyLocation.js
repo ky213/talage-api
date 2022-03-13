@@ -19,7 +19,7 @@ module.exports = class AgencyLocation {
         this.agency = '';
         this.agencyEmail = '';
         this.agencyId = 0;
-        this.agencyNetwork = '';
+        this.agencyNetwork = 0;
         this.agencyPhone = '';
         this.agencyWebsite = '';
         this.emailBrand = '';
@@ -29,9 +29,11 @@ module.exports = class AgencyLocation {
         this.insurerList = [];
         this.last_name = '';
         this.territories = [];
-        this.wholesale = false;
+        this.wholesale = false; // Flag for the talage wholesale agency (id=2) used for SolePro/AF
         this.additionalInfo = {};
+        this.wholesaleAgencyId = 0;
         this.quotingAgencyLocationDB = {};
+        this.agencyPrimeAgencyLocationDB = {};
     }
 
     /**
@@ -77,10 +79,12 @@ module.exports = class AgencyLocation {
                 const addAgencyPrimaryLocation = true;
                 agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation);
                 agencyId = agencyLocation.agencyId
+                //this is for using all of Agency Prime's appointments
                 if(agencyLocation.useAgencyPrime){
                     //Agency Network's prime agency's prime location
                     const respAgencyObj = await this.getPrimaryAgencyAndLocation(agencyId)
                     this.quotingAgencyLocationDB = respAgencyObj.agencyLocationJSON;
+                    this.agencyPrimeAgencyLocationDB = respAgencyObj.agencyLocationJSON;
                     agencyId = respAgencyObj.agencyJSON?.systemId;
                 }
                 else {
@@ -128,11 +132,11 @@ module.exports = class AgencyLocation {
                 hadError = true;
             }
 
-            const agency_network = agencyInfo.agency_network;
+            const agencyNetworkId = agencyInfo.agency_network;
             const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetworkJSON = await agencyNetworkBO.getById(agencyInfo.agency_network).catch(function(err){
                 //error = err;
-                log.error(`Get AgencyNetwork ${agency_network} AgencyLocation ${agencyLocationId} Error ` + err + __location);
+                log.error(`Get AgencyNetwork ${agencyNetworkId} AgencyLocation ${agencyLocationId} Error ` + err + __location);
             })
             if(agencyNetworkJSON){
                 this.emailBrand = agencyNetworkJSON.email_brand;
@@ -151,21 +155,28 @@ module.exports = class AgencyLocation {
             this.wholesale = Boolean(agencyInfo.wholesale);
 
             // Extract the insurer info
-            let talageAgencyLocation = null
+            let agencyPrimeAgencyLocation = null
             for (const insurer of alInsurerList) {
                 //if agency is using talageWholeSale with the insurer.
                 //user talage's main location (agencyLocation systemId: 1)
                 //Tracks if there is a wholesale miss.
                 let addInsurer = true;
-                if(insurer.talageWholesale){
-                    if(!talageAgencyLocation){
-                        const talageAgencyLocationSystemId = 1;
-                        talageAgencyLocation = await agencyLocationBO.getById(talageAgencyLocationSystemId, getChildren);
-                        insurer.talageAgencyLocation = talageAgencyLocation;
-                        this.quotingAgencyLocationDB = talageAgencyLocation;
+                if(insurer.talageWholesale || insurer.useAgencyPrime){
+                    if(!agencyPrimeAgencyLocation){
+                        //Default to talageWholesale
+                        let talageAgencyLocationSystemId = 1;
+                        if(!insurer.talageWholesale){
+                            //get agency network's Agency Prime and its primary location
+                            const agencyPrimeLocationDB = await agencyLocationBO.getAgencyPrimeLocation(this.agencyId,agencyNetworkId);
+                            talageAgencyLocationSystemId = agencyPrimeLocationDB.systemId;
+                        }
+                        agencyPrimeAgencyLocation = await agencyLocationBO.getById(talageAgencyLocationSystemId, getChildren);
+                        insurer.talageAgencyLocation = agencyPrimeAgencyLocation;
+                        this.quotingAgencyLocationDB = agencyPrimeAgencyLocation; // Remove once refactored for agencyPrimeAgencyLocationDB use.
+                        this.agencyPrimeAgencyLocationDB = agencyPrimeAgencyLocation;
                     }
                     //Find correct insurer
-                    const talageInsurer = talageAgencyLocation.insurers.find((ti) => ti.insurerId === insurer.insurerId);
+                    const talageInsurer = agencyPrimeAgencyLocation.insurers.find((ti) => ti.insurerId === insurer.insurerId);
                     if(talageInsurer){
                         if(talageInsurer.agencyId){
                             insurer.agency_id = talageInsurer.agencyId;
@@ -180,10 +191,10 @@ module.exports = class AgencyLocation {
                             insurer.agentId = talageInsurer.agentId;
                             insurer.agencyCred3 = talageInsurer.agencyCred3;
                         }
-                        log.info(`Agency ${agencyLocation.agencyId} using Talage Wholesale for insurerId ${insurer.insurerId}`);
+                        log.info(`Agency ${agencyLocation.agencyId} using Talage Wholesale for insurerId ${insurer.insurerId}` + __location);
                     }
                     else {
-                        log.warn(`Agency ${agencyLocation.agencyId} could not retrieve Talage Wholesale for insurerId ${insurer.insurerId}`);
+                        log.warn(`Agency ${agencyLocation.agencyId} could not retrieve Talage Wholesale for insurerId ${insurer.insurerId}` + __location);
                         addInsurer = false;
                     }
                 }
