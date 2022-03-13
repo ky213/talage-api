@@ -37,6 +37,9 @@ const quoteAppPageOptionsSchema = new Schema({
 const featureSchema = new Schema({
     applicationOptOut: {type: Boolean, required: true, default: false},
     enablePrimeAgency: {type: Boolean, required: true, default: false},
+    agencyPrimePerInsurer: {type: Boolean, required: true, default: false},
+    agencyPrimeDefaultUse: {type: Boolean, required: true, default: true},
+    agencyPrimeUseAppointmentText: {type: String, required: true, default: 'Use Agency Prime Appointment'},
     donotShowEmailAddress: {type: Boolean, required: true, default: false},
     notifyTalage: {type: Boolean, required: true, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},

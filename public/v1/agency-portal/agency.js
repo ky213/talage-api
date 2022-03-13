@@ -379,6 +379,8 @@ async function postAgency(req, res, next) {
     }
 
     let insurers = [];
+    //useAgencyPrime means All the AgencyPrime's appointments, not be insurer.
+    //TODO  - Client use TalageWhole, back must flip to useAgencyPrime if agency network does not use talageWholesale.
     if(useAgencyPrime === false){
         if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1){
             log.warn('agencyId or Talage Wholesale are required');
