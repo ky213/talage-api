@@ -295,6 +295,8 @@ async function CodeImport() {
         const queryIAC = {
             insurerId: insurer.insurerId,
             createdAt: {$lt: startImportDate},
+            effectiveDate: {$lte: startImportDate},
+            expirationDate: {$gte: startImportDate},
             active: true
         }
         const insurerAcDocList = await InsurerActivityCodeModel.find(queryIAC, queryProjection).catch((err) => {
