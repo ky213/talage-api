@@ -249,6 +249,10 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
             emailJSON.subject = `[DEV TEST] ${emailJSON.subject}`;
         }
     }
+
+    // Remove duplicates from recipients
+    recipients = [...new Set(recipients.toLowerCase().split(','))].join(',');
+
     emailJSON.to = recipients;
 
     // DO NOT send non talageins.com email in development (local) or awsdev
@@ -277,9 +281,6 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
             }
         }
     }
-
-    // Remove duplicate .to emails
-    emailJSON.to = [...new Set(emailJSON.to.toLowerCase().split(','))].join(',');
 
     //save any overrides for DB Save
     recipients = emailJSON.to;
