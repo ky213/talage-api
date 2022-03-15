@@ -293,9 +293,9 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
 
     const agencyNetworkBranding = options.useAgencyNetworkBrand ? options.useAgencyNetworkBrand : false;
 
-    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyBO = new AgencyBO();
     try {
-        const agencyNetworkId = agency.agencyNetworkId;
+        const agencyId = agency.id;
         let emailSubject = 'A portal to your application';
         const displayToName = toName ? toName : "";
         let message = `
@@ -328,7 +328,7 @@ const sendQuoteEmail = async(agency, link, options, applicationJSON) => {
         `;
 
         try{
-            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"quote_app_application_link");
+            const emailContentAgencyNetworkJSON = await agencyBO.getEmailContent(agencyId,"quote_app_application_link");
             message = emailContentAgencyNetworkJSON.message ? emailContentAgencyNetworkJSON.message : message;
             emailSubject = emailContentAgencyNetworkJSON.subject ? emailContentAgencyNetworkJSON.subject : emailSubject;
         }
@@ -435,10 +435,10 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
 
 
     const toName = options.toName ? capitalizeName(options.toName).trim() : null;
-    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyBO = new AgencyBO();
     try{
         const brandName = agencyNetwork.email_brand ? capitalizeName(agencyNetwork.email_brand).trim() : agencyNetwork.name;
-        const agencyNetworkId = agency.agencyNetworkId;
+        const agencyId = agency.id;
         let emailSubject = 'A Link to {{Business Name}}';
         const displayToName = toName ? " " + toName : "";
         let message = `
@@ -473,7 +473,7 @@ const sendAgencyPortalEmail = async(agency, link, options, applicationJSON, agen
 
         let branding = '';
         try{
-            const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"agency_portal_application_link");
+            const emailContentAgencyNetworkJSON = await agencyBO.getEmailContent(agencyId,"agency_portal_application_link");
             message = emailContentAgencyNetworkJSON.message ? emailContentAgencyNetworkJSON.message : message;
             emailSubject = emailContentAgencyNetworkJSON.subject ? emailContentAgencyNetworkJSON.subject : emailSubject;
             branding = emailContentAgencyNetworkJSON.emailBrand;
