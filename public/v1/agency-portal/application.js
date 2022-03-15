@@ -795,7 +795,7 @@ async function applicationCopy(req, res, next) {
                         if(!gotHit){
                             log.warn(`Application copy Agency Location does not cover -  ${req.body.policyType} AppId ${req.body.applicationId} ` + __location)
                             res.send(400, `Application agency location does not cover -  ${req.body.policyType}`);
-                            return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+                            return next(serverHelper.requestError(`Bad Request: check error `));
                         }
                     }
                     else {
