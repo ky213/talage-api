@@ -2,13 +2,14 @@
 const axios = require("axios");
 const colors = require("colors");
 const ApplicationUploadBO = global.requireShared("./models/ApplicationUpload-BO");
+const emailsvc = global.requireShared("./services/emailsvc");
 
 
 /**
  * Poll OCR API for applications statuses
  * @returns {void}
  */
-exports.processtask = async function () {
+exports.processtask = async function() {
 
     const appBO = new ApplicationUploadBO();
 
@@ -30,6 +31,8 @@ exports.processtask = async function () {
             if (response?.data?.ocrResponse?.length > 0) {
                 const applicationObject = await mapResultToApplicationObject(response.data.ocrResponse, app);
                 await appBO.updateOne(app.applicationId, applicationObject);
+
+                sendEmail(applicationObject, response?.data?.fileName)
             }
         }
         catch (error) {
@@ -254,3 +257,14 @@ async function mapResultToApplicationObject(ocrResult, applicationObject) {
     return applicationObject;
 }
 
+
+/**
+ * Send email to agent after process completes
+ * @param {object} application // ApplicationUpload instance
+ * @param {string} fileName // application file name
+ * @returns {void}
+ */
+function sendEmail(application, fileName) {
+    const primaryContact = application?.contacts.find(({primary}) => primary === true)
+    emailsvc.send(primaryContact?.email, "OCR process completed", `<strong>Hello ${primaryContact.firstName}</strong>,<p> This is to inform you that the OCR process for file<strong> ${fileName} </strong> is complete. Please check in the agency portal for more details.</p>`)
+}
