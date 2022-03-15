@@ -801,11 +801,13 @@ async function applicationCopy(req, res, next) {
                     else {
                         log.warn(`Application copy Agency Location is no longer available  -  ${req.body.applicationId}  ` + __location)
                         res.send(500, `Application agency location is no longer available`);
+                        return next(serverHelper.internalError(`Application agency location is no longer available `));
                     }
                 }   
                 else {
                     log.error("Error Copying application doc no Agency Location " + __location)
                     res.send(500, `Application corrupted no agency location`);
+                    return next(serverHelper.internalError(`Application corrupted no agency location`));
                 }
 
                 newApplicationDoc.policies = [{
