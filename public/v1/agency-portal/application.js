@@ -778,6 +778,36 @@ async function applicationCopy(req, res, next) {
         // for cross sell, change the policy and effective date to the ones passed through
         if(req.body.crossSellCopy === true || req.body.crossSellCopy === "true"){
             if(req.body.policyType && req.body.effectiveDate){
+                //Validate Agency location Support policyType
+                if(applicationDocDB.agencyLocationId){
+                    const agencyLocationBO = new AgencyLocationBO();
+                    const agencyLocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+                        log.error(`Error Copying application doc getting Agency Location ${applicationDocDB.agencyLocationId} ${err}` + __location)
+                    });
+                    if(agencyLocationJSON){
+                        let gotHit = false;
+                        for(const insurer of agencyLocationJSON.insurers){
+                            if(insurer.policyTypeInfo[req.body.policyType.toUpperCase()] && insurer.policyTypeInfo[req.body.policyType.toUpperCase()].enabled === true){
+                                gotHit = true;
+                                break;
+                            }
+                        }
+                        if(!gotHit){
+                            log.warn(`Application copy Agency Location does not cover -  ${req.body.policyType} AppId ${req.body.applicationId} ` + __location)
+                            res.send(400, `Application agency location does not cover -  ${req.body.policyType}`);
+                            return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+                        }
+                    }
+                    else {
+                        log.warn(`Application copy Agency Location is no longer available  -  ${req.body.applicationId}  ` + __location)
+                        res.send(500, `Application agency location is no longer available`);
+                    }
+                }   
+                else {
+                    log.error("Error Copying application doc no Agency Location " + __location)
+                    res.send(500, `Application corrupted no agency location`);
+                }
+
                 newApplicationDoc.policies = [{
                     policyType: req.body.policyType,
                     effectiveDate: req.body.effectiveDate
