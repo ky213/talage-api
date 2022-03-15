@@ -476,6 +476,9 @@ module.exports = class Integration {
      */
     determine_question_answer(question, required) {
         let answer = false;
+        if(!question){
+            return answer;
+        }
 
         // Default required
         required = required ? required : false;
@@ -1581,7 +1584,7 @@ module.exports = class Integration {
             let childTalageQuestion = talageQuestionList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
            
             // While the question has a parent (not top-level)
-            while (childTalageQuestion.parent) {
+            while (childTalageQuestion?.parent) {
                 // Find the parent application question for this child
                 // eslint-disable-next-line no-loop-func
                 const parentApplicationQuestion = applicationQuestionList.find((aq) => aq.questionId === childTalageQuestion.parent);

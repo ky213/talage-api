@@ -779,10 +779,16 @@ module.exports = class PieWC extends Integration {
         data.description = this.get_operation_description();
         data.customerKey = this.app.id;
         data.partnerAgentIsAdmin = false;
-        data.partnerAgentFirstName = 'Adam';
-        data.partnerAgentLastName = 'Kiefer';
-        data.partnerAgentEmail = 'customersuccess@talageins.com';
-
+        if(this.app.agencyLocation.id === 1 || this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
+            data.partnerAgentFirstName = 'Adam';
+            data.partnerAgentLastName = 'Kiefer';
+            data.partnerAgentEmail = 'customersuccess@talageins.com';
+        }
+        else {
+            data.partnerAgentFirstName = this.app.agencyLocation.last_name;
+            data.partnerAgentLastName = this.app.agencyLocation.first_name;
+            data.partnerAgentEmail = this.app.agencyLocation.agencyEmail;
+        }
         // Prior carriers
         if (isNewCompany === false) {
             data.workersCompensation.priorCarriers = [];
