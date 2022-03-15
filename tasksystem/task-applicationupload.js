@@ -1,18 +1,6 @@
-/* eslint-disable no-console */
-/* eslint-disable no-process-exit */
-
-// Add global helpers to load shared modules
-global.rootPath = require("path").join(__dirname, "..");
-global.sharedPath = require("path").join(global.rootPath, "/shared");
-global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
-global.requireShared("./helpers/tracker.js");
-
+'use-strict'
 const axios = require("axios");
 const colors = require("colors");
-const logger = global.requireShared("/services/logger.js");
-const globalSettings = global.requireRootPath("./settings.js");
-const mongoose = require("../mongoose");
 const ApplicationUploadBO = global.requireShared("./models/ApplicationUpload-BO");
 
 
@@ -20,22 +8,7 @@ const ApplicationUploadBO = global.requireShared("./models/ApplicationUpload-BO"
  * Poll OCR API for applications statuses
  * @returns {void}
  */
-async function checkAppOCRstatus() {
-    // Load the settings from a .env file - Settings are loaded first
-    if (!globalSettings.load()) {
-        log.error(colors.red("Error loading variables. Stopping."));
-        return;
-    }
-
-    // Connect to the logger
-    if (!logger.connect()) {
-        log.error(colors.red("Error connecting to log. Stopping."));
-        return;
-    }
-
-    log.info(colors.green("Init."));
-
-    await mongoose.init();
+exports.processtask = async function () {
 
     const appBO = new ApplicationUploadBO();
 
