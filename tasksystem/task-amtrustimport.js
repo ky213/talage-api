@@ -19,15 +19,16 @@ async function processtask(queueMessage){
     if(messageAge < 1800){
         // DO STUFF
         //run aync  - delete task immediately.
-        amtrustImport().catch(err => error = err);
+        amtrustImport().catch(function(err){
+            log.error("Error Amtrust Import Error" + err + __location);
+        });
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
         if(error){
-            log.error("Error Quote Report deleteTaskQueueItem " + error + __location);
+            log.error("Error  Amtrust Import deleteTaskQueueItem " + error + __location);
         }
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }

@@ -55,10 +55,10 @@ const policyBasedRequiredFields = {
         yearsOfExp: {requirement: required},
         owner: {
             requirement: optional,
-            officerTitle: {requirement: hidden},
-            birthdate: {requirement: hidden},
-            ownership: {requirement: hidden},
-            payroll: {requirement: hidden}
+            officerTitle: {requirement: optional},
+            birthdate: {requirement: optional},
+            ownership: {requirement: optional},
+            payroll: {requirement: optional}
         }
     },
     GL: {

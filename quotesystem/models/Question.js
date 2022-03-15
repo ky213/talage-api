@@ -138,7 +138,7 @@ module.exports = class Question{
             let answerArray = [];
             if (typeof answer === 'string' && answer.indexOf("|") > -1) {
                 if (answer.indexOf("|") === 0) {
-                    answer = answer.substr(1);
+                    answer = answer.substring(1);
                 }
                 answerArray = answer.split('|');
                 try {

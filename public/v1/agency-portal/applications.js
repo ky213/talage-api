@@ -267,6 +267,7 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
                 "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
+                'lastPage': "Last Page Saved",
                 'marketingChannel': "Marketing Channel",
                 'createdString' : 'Created (UTC)',
                 'agencyCreatedAt' : 'Agency Added (UTC)'
@@ -301,6 +302,7 @@ function generateCSV(applicationList, isGlobalViewMode, showAgencyTierColumns){
                 "naics": "naics",
                 'renewal': 'renewal',
                 'tagString': "tag",
+                'lastPage': "Last Page Saved",
                 'createdString' : 'Created (UTC)',
                 'agencyCreatedAt' : 'Agency Added (UTC)'
             };
@@ -1384,6 +1386,7 @@ async function getApplicationsResources(req, res, next){
         {label: "Errored", value:"10"},
         {label: "Auto Declined", value:"15"},
         {label: "Declined", value:"20"},
+        {label: "Price Indication", value:"25"},
         {label: "Acord Emailed", value:"30"},
         {label: "Referred", value:"40"},
         {label: "Quoted", value:"50"},

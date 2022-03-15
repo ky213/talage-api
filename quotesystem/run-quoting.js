@@ -182,7 +182,10 @@ async function runPricing(app) {
     // else {
     //     //LOOP result for creating range.
     // }
-    const appUpdateJSON = {pricingInfo: appPricingResultJSON}
+    const appUpdateJSON = {
+        pricingInfo: appPricingResultJSON,
+        lastPage: "Pricing"
+    };
     const applicationBO = new ApplicationBO();
     await applicationBO.updateMongo(app.applicationDocData.applicationId, appUpdateJSON);
     if(appPricingResultJSON.gotPricing === true){

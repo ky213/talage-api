@@ -4,7 +4,6 @@
 /* eslint-disable no-catch-shadow */
 /* eslint-disable dot-notation */
 /* eslint-disable require-jsdoc */
-'use strict';
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
@@ -537,6 +536,21 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
                 }
             }
+            const bopPolicy = applicationJSON.policies.find((p) => p.policyType === "BOP")
+            if(bopPolicy && bopPolicy.bopIndustryCodeId){
+                const bopIcJson = await industryCodeBO.getById(bopPolicy.bopIndustryCodeId);
+                if(bopIcJson){
+                    log.debug(`setting bopCodeIndustryCodeName ${bopIcJson.description}` + __location)
+                    applicationJSON.bopCodeIndustryCodeName = bopIcJson.description
+                }
+                else {
+                    applicationJSON.bopCodeIndustryCodeName = "";
+                }   
+            }
+            else {
+                log.debug(`NO BOP Policy` + __location)
+                applicationJSON.bopCodeIndustryCodeName = "";
+            }
         }
         catch(err){
             log.warn(`Error getting industryCodeBO for appId ${applicationJSON.applicationId} ` + err + __location);
@@ -545,6 +559,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
     else {
         applicationJSON.industryCodeName = "";
         applicationJSON.industryCodeCategory = "";
+        applicationJSON.bopCodeIndustryCodeName = "";
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
@@ -763,6 +778,38 @@ async function applicationCopy(req, res, next) {
         // for cross sell, change the policy and effective date to the ones passed through
         if(req.body.crossSellCopy === true || req.body.crossSellCopy === "true"){
             if(req.body.policyType && req.body.effectiveDate){
+                //Validate Agency location Support policyType
+                if(applicationDocDB.agencyLocationId){
+                    const agencyLocationBO = new AgencyLocationBO();
+                    const agencyLocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+                        log.error(`Error Copying application doc getting Agency Location ${applicationDocDB.agencyLocationId} ${err}` + __location)
+                    });
+                    if(agencyLocationJSON){
+                        let gotHit = false;
+                        for(const insurer of agencyLocationJSON.insurers){
+                            if(insurer.policyTypeInfo[req.body.policyType.toUpperCase()] && insurer.policyTypeInfo[req.body.policyType.toUpperCase()].enabled === true){
+                                gotHit = true;
+                                break;
+                            }
+                        }
+                        if(!gotHit){
+                            log.warn(`Application copy Agency Location does not cover -  ${req.body.policyType} AppId ${req.body.applicationId} ` + __location)
+                            res.send(400, `Application agency location does not cover -  ${req.body.policyType}`);
+                            return next(serverHelper.requestError(`Bad Request: check error `));
+                        }
+                    }
+                    else {
+                        log.warn(`Application copy Agency Location is no longer available  -  ${req.body.applicationId}  ` + __location)
+                        res.send(500, `Application agency location is no longer available`);
+                        return next(serverHelper.internalError(`Application agency location is no longer available `));
+                    }
+                }   
+                else {
+                    log.error("Error Copying application doc no Agency Location " + __location)
+                    res.send(500, `Application corrupted no agency location`);
+                    return next(serverHelper.internalError(`Application corrupted no agency location`));
+                }
+
                 newApplicationDoc.policies = [{
                     policyType: req.body.policyType,
                     effectiveDate: req.body.effectiveDate

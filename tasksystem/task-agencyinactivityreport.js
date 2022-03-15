@@ -31,10 +31,10 @@ exports.processtask = async function(queueMessage){
             messageBody = JSON.parse(queueMessage.Body)
         }
 
-        await agencyReportTask(messageBody).catch(err => error = err);
-        if(error){
-            log.error("Error agencyReportTask " + error + __location);
-        }
+        agencyReportTask(messageBody).catch(function(err){
+            log.error("Error agencyReportTask " + err + __location);
+        });
+
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

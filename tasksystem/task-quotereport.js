@@ -40,10 +40,7 @@ exports.processtask = async function(queueMessage){
         if(typeof queueMessage.Body === 'string'){
             messageBody = JSON.parse(queueMessage.Body)
         }
-        await quoteReportTask(messageBody).catch(err => error = err);
-        if(error){
-            log.error("Error Quote Report " + error + __location);
-        }
+        quoteReportTask(messageBody).catch(err => error = err);
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

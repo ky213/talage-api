@@ -65,7 +65,7 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
 
     const agencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: agencyLocationId}, '-__v');
     if(!agencyLocDoc){
-        log.error(`Amtrust WC Importing Could not load Talage Agency Location` + __location);
+        log.error(`Amtrust WC Importing Could not load Talage Agency Location ${agencyLocationId}` + __location);
         throw new Error(`Amtrust WC Importing Could not load Talage Agency Location`)
     }
     credentials = JSON.parse(insurer.password);

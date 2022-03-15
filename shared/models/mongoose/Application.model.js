@@ -337,6 +337,7 @@ const ApplicationSchema = new Schema({
     pricingInfo: {type:PricingInfoSchema, required: false},
     agencyCode: {type: String, required: false},
     tagString: {type: String, required: false},
+    lastPage: {type: String, required: false},
     active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.

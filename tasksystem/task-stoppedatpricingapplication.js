@@ -23,10 +23,10 @@ exports.processtask = async function(queueMessage) {
     var now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
     if (messageAge < 30) {
-        await stoppedAfterPricingTask().catch(err => error = err);
-        if(error){
-            log.error("Error stoppedAfterPricingTask " + error + __location);
-        }
+        stoppedAfterPricingTask().catch(err => error = err);
+        // if(error){
+        //     log.error("Error stoppedAfterPricingTask " + error + __location);
+        // }
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err) {
             error = err;

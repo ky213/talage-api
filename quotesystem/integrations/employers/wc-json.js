@@ -408,7 +408,7 @@ module.exports = class EmployersWC extends Integration {
                 requestJSON.namedInsureds[0].legalEntity = {"code": entityCode}
             }
             else {
-               log.error(`${logPrefix}Could not find entity code ${appDoc.entityType} in Entity Matrix ` + __location);
+               log.warn(`${logPrefix}Could not find entity code ${appDoc.entityType} in Entity Matrix ` + __location);
             }
 
             requestJSON.namedInsureds[0].locations = locations;

@@ -34,10 +34,10 @@ exports.processtask = async function(queueMessage){
     if(messageAge < 1800){
         // DO STUFF
 
-        await quoteReportTask().catch(err => error = err);
-        if(error){
-            log.error("Error quoteReportTask " + error + __location);
-        }
+        quoteReportTask().catch(err => error = err);
+        // if(error){
+        //     log.error("Error quoteReportTask " + error + __location);
+        // }
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

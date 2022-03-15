@@ -15,18 +15,25 @@ async function GetRecipients(appDoc, recipients, agencyNetworkJSON){
     if(!recipients){
         recipients = '';
     }
+    if(!agencyNetworkJSON || !agencyNetworkJSON.additionalInfo){
+        log.info(`in siu-policy-email-router.GetRecipients hook. Missing agencyNetworkJSON?.additionalInfo ${JSON.stringify(agencyNetworkJSON?.additionalInfo)} - ${agencyNetworkJSON?.additionalInfo} ` + __location)
+    }
 
-    log.debug(`in siu-policy-email-router.GetRecipients hook agencyNetworkJSON?.additionalInfo ${JSON.stringify(agencyNetworkJSON?.additionalInfo)}` + __location)
+    //log.debug(`in siu-policy-email-router.GetRecipients hook agencyNetworkJSON?.additionalInfo ${JSON.stringify(agencyNetworkJSON?.additionalInfo)}` + __location)
 
     //Determine if GL or BOP, if so make sure quote@siunis.com is in recipients
-    let bopEmail = 'quote@siuins.com'
+    let bopEmail = 'agentrequest@siuins.com'
     if(agencyNetworkJSON?.additionalInfo?.bopEmail){
+        log.info(`update SIU BOP email to ${agencyNetworkJSON?.additionalInfo.bopEmail} ` + __location)
         bopEmail = agencyNetworkJSON?.additionalInfo.bopEmail
+    }
+    else {
+        log.info(`in siu-policy-email-router.GetRecipients hook. Missing agencyNetworkJSON?.additionalInfo.bopEmail ${JSON.stringify(agencyNetworkJSON?.additionalInfo)}` + __location)
     }
     const bopPolicy = appDoc.policies.find((p) => p.policyType === "BOP")
     const glPolicy = appDoc.policies.find((p) => p.policyType === "GL")
     if(bopPolicy || glPolicy){
-        log.debug(`in siu-policy-email-router.GetRecipients has bopPolicy ${bopPolicy}  or glPolicy ${glPolicy}` + __location)
+        // log.debug(`in siu-policy-email-router.GetRecipients has bopPolicy ${bopPolicy}  or glPolicy ${glPolicy}` + __location)
         if(!recipients.includes(bopEmail)){
             if(recipients.length > 0){
                 recipients += ","

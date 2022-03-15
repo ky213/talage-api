@@ -26,10 +26,9 @@ exports.processtask = async function(queueMessage){
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 1800){
 
-        activityCodeCacheUpdate().catch(err => error = err);
-        if(error){
-            log.error("Error ActivityCode Cache Task " + error + __location);
-        }
+        activityCodeCacheUpdate().catch(function(err){
+            log.error("Error ActivityCode Cache Task " + err + __location);
+        });
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

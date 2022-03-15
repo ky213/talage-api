@@ -175,12 +175,12 @@ async function runFunction() {
 
     //get app auth token
     // eslint-disable-next-line object-curly-newline
-    const postBody = {"email": userEmail, "password": userPwd};
-    let apiAuthApUrl = "http://localhost:3000/v1/auth/agency-portal"
-    let apiApRequoteUrlBase = "http://localhost:3000/v1/agency-portal/application"
+    const postBody = {"user": userEmail, "password": userPwd};
+    let apiAuthApUrl = "http://localhost:3000/v1/api/auth"
+    let apiApRequoteUrlBase = "http://localhost:3000/v1/api/application"
     if(userRemote === 'Y'){
-        apiAuthApUrl = "https://devapi.talageins.com/v1/auth/agency-portal"
-        apiApRequoteUrlBase = "https://devapi.talageins.com/v1/agency-portal/application"
+        apiAuthApUrl = "https://devapi.talageins.com/v1/api/auth"
+        apiApRequoteUrlBase = "https://devapi.talageins.com/v1/api/application"
     }
 
     let authResponse = null;
@@ -263,14 +263,14 @@ async function runFunction() {
                     log.debug("Saved new sourceAppId " + sourceAppId + " applicationId " + newApplicationJSON.applicationId);
 
                     //run quote process
-                    const requoteURL = `${apiApRequoteUrlBase}/${newApplicationJSON.applicationId}/requote`;
-                    const putBody = {"id": newApplicationJSON.applicationId};
+                    const quoteURL = `${apiApRequoteUrlBase}/quote`;
+                    const putBody = {"applicationId": newApplicationJSON.applicationId};
                     try{
                         const instance = axios.create();
                         instance.defaults.timeout = 4500;
                         // eslint-disable-next-line dot-notation
                         instance.defaults.headers.common["Authorization"] = authResponse.data.token;
-                        await instance.put(requoteURL, JSON.stringify(putBody),{headers: {'Content-Type': 'application/json'}});
+                        await instance.put(quoteURL, JSON.stringify(putBody),{headers: {'Content-Type': 'application/json'}});
                     }
                     catch(err){
                         log.error('API AP Requote error ' + err + __location);
