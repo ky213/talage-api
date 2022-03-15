@@ -265,6 +265,15 @@ async function mapResultToApplicationObject(ocrResult, applicationObject) {
  * @returns {void}
  */
 function sendEmail(application, fileName) {
-    const primaryContact = application?.contacts.find(({primary}) => primary === true)
-    emailsvc.send(primaryContact?.email, "OCR process completed", `<strong>Hello ${primaryContact.firstName}</strong>,<p> This is to inform you that the OCR process for file<strong> ${fileName} </strong> is complete. Please check in the agency portal for more details.</p>`)
+  const primaryContact = application?.contacts.find(({ primary }) => primary === true);
+  emailsvc.send(
+    primaryContact?.email, //recipient
+    "OCR process completed", //subject
+    `<strong>Hello ${primaryContact.firstName}</strong>,
+         <p> This is to inform you that the OCR process for file<strong> ${fileName} </strong> is complete. Please check in the agency portal for more details.</p>`, //content
+    {applicationDoc: application}, //keys
+    application?.agencyNetworkId, // networkId
+    null, //brand override
+    application?.agencyId // agency Id
+  );
 }
