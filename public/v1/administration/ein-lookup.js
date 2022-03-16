@@ -21,16 +21,16 @@ async function einLookup(req, res, next) {
             streetAddress: req.query.address,
             city: req.query.city,
             state: req.query.state,
-            zipCode: req.query.zipCode 
+            zipCode: req.query.zipCode
         });
-        console.info(einData);
         res.send(200, einData.map(t => ({
             ein: `${t.IRS_NUMBER.substr(0,2)}-${t.IRS_NUMBER.substr(2)}`,
             businessName: t.CONFORMED_NAME,
             address: `${t.BUSINESS_ADDRESS_STREET1 || t.MAIL_ADDRESS_STREET1 || ''} ${t.BUSINESS_ADDRESS_STREET2 || t.MAIL_ADDRESS_STREET2 || ''}`,
             city: t.BUSINESS_ADDRESS_CITY || t.MAIL_ADDRESS_CITY || '',
             state: t.BUSINESS_ADDRESS_STATE || t.MAIL_ADDRESS_STATE || '',
-            zipCode: t.BUSINESS_ADDRESS_ZIP || t.MAIL_ADDRESS_ZIP || ''
+            zipCode: t.BUSINESS_ADDRESS_ZIP || t.MAIL_ADDRESS_ZIP || '',
+            founded: ''
         })));
         return next();
     }
