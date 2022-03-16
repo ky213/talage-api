@@ -1,4 +1,4 @@
-const EinLookupService = global.requireShared('./services/einlookup.js')
+const EinLookupService = global.requireShared('./services/businessdatalookupsvc.js')
 const serverHelper = global.requireRootPath('server.js');
 
 /**
@@ -15,13 +15,15 @@ async function einLookup(req, res, next) {
     }
 
     try {
+        log.warn('The data can only be used by Talage Staff and cannot be given or sold to anyone outside of Talage');
         const einData = await EinLookupService.performCompanyLookup({
             name: req.query.businessName,
             streetAddress: req.query.address,
             city: req.query.city,
             state: req.query.state,
-            zipCode: req.query.zipCode
+            zipCode: req.query.zipCode 
         });
+        console.info(einData);
         res.send(200, einData.map(t => ({
             ein: `${t.IRS_NUMBER.substr(0,2)}-${t.IRS_NUMBER.substr(2)}`,
             businessName: t.CONFORMED_NAME,
