@@ -164,16 +164,22 @@ module.exports = class Integration {
      * @returns {string} - the standard formatted string
      */
     log_message(message, location, extraData = null) {
-        let logMessage = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message}`;
-        // Append extra data
-        if (extraData) {
-            Object.keys(extraData).forEach((key) => {
-                logMessage += `, ${key}=${extraData[key]}`;
-            });
+        let logMessage = '';
+        try{
+            logMessage = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message}`;
+            // Append extra data
+            if (extraData) {
+                Object.keys(extraData).forEach((key) => {
+                    logMessage += `, ${key}=${extraData[key]}`;
+                });
+            }
+            // Append the location
+            if (location) {
+                logMessage += ' ' + location;
+            }
         }
-        // Append the location
-        if (location) {
-            logMessage += ' ' + location;
+        catch(err){
+            log.error(`log_message error ${err}` + __location);
         }
         return logMessage;
     }
@@ -470,6 +476,9 @@ module.exports = class Integration {
      */
     determine_question_answer(question, required) {
         let answer = false;
+        if(!question){
+            return answer;
+        }
 
         // Default required
         required = required ? required : false;
@@ -679,7 +688,8 @@ module.exports = class Integration {
                         insurerQuestionId: result.id,
                         attributes: result.attributes ? result.attributes : '',
                         identifier: result.identifier,
-                        universal: result.universal
+                        universal: result.universal,
+                        insurerText: result.text
                     };
                     if (result.universal) {
                         this.universal_questions.push(result.question);
@@ -1574,7 +1584,7 @@ module.exports = class Integration {
             let childTalageQuestion = talageQuestionList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
            
             // While the question has a parent (not top-level)
-            while (childTalageQuestion.parent) {
+            while (childTalageQuestion?.parent) {
                 // Find the parent application question for this child
                 // eslint-disable-next-line no-loop-func
                 const parentApplicationQuestion = applicationQuestionList.find((aq) => aq.questionId === childTalageQuestion.parent);
@@ -1630,6 +1640,7 @@ module.exports = class Integration {
                 //TODO This needs to be eliminated to remove One Talage Quesetion to One Insurer Questions.
                 applicationQuestion.insurerQuestionIdentifier = insurerQuestion.identifier;
                 applicationQuestion.insurerQuestionAttributes = insurerQuestionAttributes;
+                applicationQuestion.insurerText = insurerQuestion.text;
                 notHiddenInsurerApplicationQuestionList.push(applicationQuestion);
             }
         }
@@ -2295,9 +2306,14 @@ module.exports = class Integration {
                             }
                             else {
                                 // Attempt to format it if it is a JSON string
-                                const formattedJSONString = this.get_formatted_json_string(data);
-                                if (formattedJSONString) {
-                                    formattedString = formattedJSONString;
+                                try{
+                                    const formattedJSONString = this.get_formatted_json_string(data);
+                                    if (formattedJSONString) {
+                                        formattedString = formattedJSONString;
+                                    }
+                                }
+                                catch(err){
+                                    log.error(`Appid: ${this.app.id} calling ${this.insurer.name} send_request() error JSON parsing ${err}` + __location);
                                 }
                             }
                             // Log the request
@@ -2354,9 +2370,14 @@ module.exports = class Integration {
                     }
                     else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
                         // Format JSON to be readable
-                        const formattedJSONData = this.get_formatted_json_string(rawData);
-                        if (formattedJSONData) {
-                            formattedData = formattedJSONData;
+                        try{
+                            const formattedJSONData = this.get_formatted_json_string(rawData);
+                            if (formattedJSONData) {
+                                formattedData = formattedJSONData;
+                            }
+                        }
+                        catch(err){
+                            log.error(`Appid: ${this.app.id} calling ${this.insurer.name} send_request() error JSON parsing ${err}` + __location);
                         }
                     }
                     if (res.statusCode >= 200 && res.statusCode <= 299 || returnResponseOnAllStatusCodes) {

@@ -971,112 +971,118 @@ module.exports = class LibertySBOP extends Integration {
         this.setCommlCoverageElements(LiabilityInfo);
 
         applicationDocData.locations.forEach((location, index) => {
-            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
-            GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
-            // NOTE: Commercial BOP does not require PT/FT employee information, except for when professional liability is included
-            //       In those cases, the CoverageCd is whatever employee code matches the Professional Liability selected
+            if(index === 0){      
+                // Per Liberty Only Included on 1st location
+            
+                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
+            
+                GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
+                
+                // NOTE: Commercial BOP does not require PT/FT employee information, except for when professional liability is included
+                //       In those cases, the CoverageCd is whatever employee code matches the Professional Liability selected
 
-            // const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
-            // innerCoverage.ele('CoverageCd', 'BOP');
-            // const PTOption = innerCoverage.ele('Option');
-            // PTOption.ele('OptionCd', 'PartTime');
-            // PTOption.ele('OptionTypeCd', 'Num1');
-            // PTOption.ele('OptionValue', location.part_time_employees);
-            // const FTOption = innerCoverage.ele('Option');
-            // FTOption.ele('OptionCd', 'FullTime');
-            // FTOption.ele('OptionTypeCd', 'Num1');
-            // FTOption.ele('OptionValue', location.full_time_employees);
+                // const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
+                // innerCoverage.ele('CoverageCd', 'BOP');
+                // const PTOption = innerCoverage.ele('Option');
+                // PTOption.ele('OptionCd', 'PartTime');
+                // PTOption.ele('OptionTypeCd', 'Num1');
+                // PTOption.ele('OptionValue', location.part_time_employees);
+                // const FTOption = innerCoverage.ele('Option');
+                // FTOption.ele('OptionCd', 'FullTime');
+                // FTOption.ele('OptionTypeCd', 'Num1');
+                // FTOption.ele('OptionValue', location.full_time_employees);
 
-            // Printers Errors and Omissions Liability
-            const printersQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_peo');
-            if (printersQuestion && printersQuestion.answerValue.toLowerCase() === 'yes') {
-                const CommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
-                CommlCoverage.ele('CoverageCd', 'PEROM');
+                // Printers Errors and Omissions Liability
+                const printersQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_peo');
+                if (printersQuestion && printersQuestion.answerValue.toLowerCase() === 'yes') {
+                    const CommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
+                    CommlCoverage.ele('CoverageCd', 'PEROM');
 
-                const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_peo_annualReceipts');
-                if (annualReceiptsQuestion) {
-                    const receiptValue = parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10);
+                    const annualReceiptsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'coverage_peo_annualReceipts');
+                    if (annualReceiptsQuestion) {
+                        const receiptValue = parseInt(annualReceiptsQuestion.answerValue.replace(/$|,/g, ''), 10);
 
-                    LiabilityInfo.ele('CommlCoverage').ele('CoverageCd', 'PEROM');
-                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
-                    const Option = Coverage.ele('Option');
-                    Option.ele('OptionaTypeCd', 'NumV1');
-                    Option.ele('OptionCd', 'GrReceipts');
-                    Option.ele('OptionValue', receiptValue > 0 ? receiptValue : 0);
-                }
-            }
-
-            // barber/beautician/manicurits liability (pairs of ft/pt must exist if one exists)
-            const bbamQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam');
-            if (bbamQuestion && bbamQuestion.answerValue.toLowerCase() === 'yes') {
-                // barber
-                const ftBarberQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numFTBarber');
-                const ptBarberQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numPTBarber');
-                if (ftBarberQuestion && ptBarberQuestion) {
-                    let ftCount = parseInt(ftBarberQuestion.answerValue, 10);
-                    ftCount = isNaN(ftCount) || ftCount < 0 ? 0 : ftCount;
-                    let ptCount = parseInt(ptBarberQuestion.answerValue, 10);
-                    ptCount = isNaN(ptCount) || ptCount < 0 ? 0 : ptCount;
-
-                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
-                    Coverage.ele('CoverageCd', 'BAPRL');
-                    
-                    const ftOption = Coverage.ele('Option');
-                    ftOption.ele('OptionCd', 'FullTime');
-                    ftOption.ele('OptionTypeCd', 'Num1');
-                    ftOption.ele('OptionValue', ftCount);
-
-                    const ptOption = Coverage.ele('Option');
-                    ptOption.ele('OptionCd', 'PartTime');
-                    ptOption.ele('OptionTypeCd', 'Num1');
-                    ptOption.ele('OptionValue', ptCount);
-                }
-                else {
-                    log.warn(`${logPrefix}Cannot include Barber Liability Coverage as one or both employee count questions weren't provided. ${__location}`);
+                        LiabilityInfo.ele('CommlCoverage').ele('CoverageCd', 'PEROM');
+                        const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                        const Option = Coverage.ele('Option');
+                        Option.ele('OptionaTypeCd', 'NumV1');
+                        Option.ele('OptionCd', 'GrReceipts');
+                        Option.ele('OptionValue', receiptValue > 0 ? receiptValue : 0);
+                    }
                 }
 
-                // beautician
-                const ftBeauticianQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numFTBeaut');
-                const ptBBeauticianQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numPTBeaut');
-                if (ftBeauticianQuestion && ptBBeauticianQuestion) {
-                    let ftCount = parseInt(ftBeauticianQuestion.answerValue, 10);
-                    ftCount = isNaN(ftCount) || ftCount < 0 ? 0 : ftCount;
-                    let ptCount = parseInt(ptBBeauticianQuestion.answerValue, 10);
-                    ptCount = isNaN(ptCount) || ptCount < 0 ? 0 : ptCount;
+                // barber/beautician/manicurits liability (pairs of ft/pt must exist if one exists)
+                const bbamQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam');
+                if (bbamQuestion && bbamQuestion.answerValue.toLowerCase() === 'yes') {
+                    // barber
+                    const ftBarberQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numFTBarber');
+                    const ptBarberQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numPTBarber');
+                    if (ftBarberQuestion && ptBarberQuestion) {
+                        let ftCount = parseInt(ftBarberQuestion.answerValue, 10);
+                        ftCount = isNaN(ftCount) || ftCount < 0 ? 0 : ftCount;
+                        let ptCount = parseInt(ptBarberQuestion.answerValue, 10);
+                        ptCount = isNaN(ptCount) || ptCount < 0 ? 0 : ptCount;
 
-                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
-                    Coverage.ele('CoverageCd', 'BEPRL');
-                    
-                    const ftOption = Coverage.ele('Option');
-                    ftOption.ele('OptionCd', 'FullTime');
-                    ftOption.ele('OptionTypeCd', 'Num1');
-                    ftOption.ele('OptionValue', ftCount);
+                        const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                        Coverage.ele('CoverageCd', 'BAPRL');
+                        
+                        const ftOption = Coverage.ele('Option');
+                        ftOption.ele('OptionCd', 'FullTime');
+                        ftOption.ele('OptionTypeCd', 'Num1');
+                        ftOption.ele('OptionValue', ftCount);
 
-                    const ptOption = Coverage.ele('Option');
-                    ptOption.ele('OptionCd', 'PartTime');
-                    ptOption.ele('OptionTypeCd', 'Num1');
-                    ptOption.ele('OptionValue', ptCount);
-                }
-                else {
-                    log.warn(`${logPrefix}Cannot include Beautician Liability Coverage as one or both employee count questions weren't provided. ${__location}`);
-                }
+                        const ptOption = Coverage.ele('Option');
+                        ptOption.ele('OptionCd', 'PartTime');
+                        ptOption.ele('OptionTypeCd', 'Num1');
+                        ptOption.ele('OptionValue', ptCount);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Cannot include Barber Liability Coverage as one or both employee count questions weren't provided. ${__location}`);
+                    }
 
-                // manicurist
-                const manicuristQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numManic');
-                if (manicuristQuestion) {
-                    let count = parseInt(manicuristQuestion.answerValue, 10);
-                    count = isNaN(count) || count < 0 ? 0 : count;
+                    // beautician
+                    const ftBeauticianQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numFTBeaut');
+                    const ptBBeauticianQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numPTBeaut');
+                    if (ftBeauticianQuestion && ptBBeauticianQuestion) {
+                        let ftCount = parseInt(ftBeauticianQuestion.answerValue, 10);
+                        ftCount = isNaN(ftCount) || ftCount < 0 ? 0 : ftCount;
+                        let ptCount = parseInt(ptBBeauticianQuestion.answerValue, 10);
+                        ptCount = isNaN(ptCount) || ptCount < 0 ? 0 : ptCount;
 
-                    const Coverage = GeneralLiabilityClassification.ele('Coverage');
-                    Coverage.ele('CoverageCd', 'MNPL');
+                        const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                        Coverage.ele('CoverageCd', 'BEPRL');
+                        
+                        const ftOption = Coverage.ele('Option');
+                        ftOption.ele('OptionCd', 'FullTime');
+                        ftOption.ele('OptionTypeCd', 'Num1');
+                        ftOption.ele('OptionValue', ftCount);
 
-                    const Option = Coverage.ele('Coverage');
-                    Option.ele('OptionCd', 'EMPL');
-                    Option.ele('OptionTypeCd', 'Num1');
-                    Option.ele('OptionValue', count);
-                }
-                else {
-                    log.warn(`${logPrefix}Cannot include Manicurist Liability Coverage employee count question wasn't provided.`);
+                        const ptOption = Coverage.ele('Option');
+                        ptOption.ele('OptionCd', 'PartTime');
+                        ptOption.ele('OptionTypeCd', 'Num1');
+                        ptOption.ele('OptionValue', ptCount);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Cannot include Beautician Liability Coverage as one or both employee count questions weren't provided. ${__location}`);
+                    }
+
+                    // manicurist
+                    const manicuristQuestion = location.questions.find(question => question.insurerQuestionIdentifier === 'pl_coverage_bbam_numManic');
+                    if (manicuristQuestion) {
+                        let count = parseInt(manicuristQuestion.answerValue, 10);
+                        count = isNaN(count) || count < 0 ? 0 : count;
+
+                        const Coverage = GeneralLiabilityClassification.ele('Coverage');
+                        Coverage.ele('CoverageCd', 'MNPL');
+
+                        const Option = Coverage.ele('Coverage');
+                        Option.ele('OptionCd', 'EMPL');
+                        Option.ele('OptionTypeCd', 'Num1');
+                        Option.ele('OptionValue', count);
+                    }
+                    else {
+                        log.warn(`${logPrefix}Cannot include Manicurist Liability Coverage employee count question wasn't provided.`);
+                    }
                 }
             }
         });
@@ -1198,11 +1204,13 @@ module.exports = class LibertySBOP extends Integration {
             const BldgArea = Construction.ele('BldgArea');
 
             // total receipts (only required if more than 1 location, but including anyways)
-            const totalReceipts = location.activityPayrollList.map(activity => activity.payroll).reduce((sum, payroll) => sum + payroll);
-            const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
-            TotalGrossReceipts.ele('OperationsCd', "TOTAL");
-            const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
-            TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
+            // if(applicationDocData.locations.length > 1){
+            //     const totalReceipts = NEED LOCATION QUESTION FOR LOCATION Gross receipts.
+            //     const TotalGrossReceipts = LocationUWInfo.ele('GrossReceipts');
+            //     TotalGrossReceipts.ele('OperationsCd', "TOTAL");
+            //     const TotalAnnualGrossReceiptsAmt = TotalGrossReceipts.ele('AnnualGrossReceiptsAmt');
+            //     TotalAnnualGrossReceiptsAmt.ele('Amt', totalReceipts);
+            // }
 
             // Bldg Area (autofill)
             BldgArea.ele('NumUnits', location.square_footage);

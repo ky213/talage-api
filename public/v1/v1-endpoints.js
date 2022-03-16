@@ -149,6 +149,8 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'api', 'application-rt');
     registerEndpoint(server, 'api', 'auth-api-rt');
 
+    registerEndpoint(server, 'api-login', 'api-login-rt');
+
     // new quote app endpoints
     registerEndpoint(server, 'mitsumori', 'route-planner-rt');
     registerEndpoint(server, 'mitsumori', 'resources-rt');

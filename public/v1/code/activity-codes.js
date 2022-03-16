@@ -139,5 +139,5 @@ const GetActivityCodesByNCCICode = wrap(async(req, res, next) => {
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get Activity Codes', `${basePath}/activity-codes`, GetActivityCodes);
     server.addGet('Get Activity Codes (depr)', `${basePath}/activity_codes`, GetActivityCodes);
-    server.addGet('Get Activity Codes by NCCI code', `${basePath}/ncci-activity-codes`, GetActivityCodesByNCCICode);
+    server.addGetAuth('Get Activity Codes by NCCI code', `${basePath}/ncci-activity-codes`, GetActivityCodesByNCCICode);
 };

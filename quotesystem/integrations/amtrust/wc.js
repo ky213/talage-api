@@ -91,10 +91,12 @@ module.exports = class AMTrustWC extends Integration {
                 if (insurerClassCodeDoc && insurerClassCodeDoc.code) {
                     let addAmtrustClassCode = false;
                     const amTrustCodeSub = insurerClassCodeDoc.code + insurerClassCodeDoc.sub;
-                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === amTrustCodeSub && acc?.state === location.state);
+                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCodeFull === amTrustCodeSub && acc?.state === location.state);
                     if (!amtrustClassCode) {
                         amtrustClassCode = {
-                            ncciCode: amTrustCodeSub,
+                            ncciCodeFull: amTrustCodeSub,
+                            ncciCode: insurerClassCodeDoc.code,
+                            subCode: insurerClassCodeDoc.sub,
                             state: location?.state,
                             payroll: 0,
                             fullTimeEmployees: 0,
@@ -126,13 +128,19 @@ module.exports = class AMTrustWC extends Integration {
                 }
             }
         }
+        //check for only having 8810A - CLERICAL OFFICE EMPLOYEES — N.O.C — Non–Governing Class
+        // Flip it to 8810B -  CLERICAL OFFICE EMPLOYEES — N.O.C — Governing Class | 8810B - 00
+        // both subcodes are "00";
+        if(amtrustClassCodeList.length === 1 && amtrustClassCodeList[0].ncciCode === "8810A"){
+            amtrustClassCodeList[0].ncciCode = "8810B"
+        }
 
         // Build the class code list to return
         const classCodeList = [];
         for (const amtrustClassCode of amtrustClassCodeList) {
             classCodeList.push({
-                "ClassCode": amtrustClassCode.ncciCode.substring(0, amtrustClassCode.ncciCode.length - 2),
-                "ClassCodeDescription": amtrustClassCode.ncciCode.substring(amtrustClassCode.ncciCode.length - 2, amtrustClassCode.ncciCode.length),
+                "ClassCode": amtrustClassCode.ncciCode,
+                "ClassCodeDescription": amtrustClassCode.subCode,
                 "State": amtrustClassCode.state,
                 "Payroll": amtrustClassCode.payroll,
                 "FullTimeEmployees": amtrustClassCode.fullTimeEmployees,
@@ -1072,12 +1080,14 @@ module.exports = class AMTrustWC extends Integration {
                     log.error(`AMtrust WC (application ${this.app.id}): Could not determine question ${questionId} answer: ${error} ${__location}`);
                     //return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
+                //this.question_details - contains some the insurerQuestion details.
                 // This question was not answered
-                if (!answer) {
+                if (!answer || !this.question_details[questionId]) {
                     continue;
                 }
+
                 for (const requiredQuestion of requiredQuestionList.Data) {
-                    if (requiredQuestion.Question.trim() === question.text) {
+                    if (requiredQuestion.Question.toLowerCase().trim() === this.question_details[questionId].insurerText.toLowerCase().trim()) {
                         questionRequestData.push({
                             QuestionId: requiredQuestion.Id,
                             AnswerValue: answer

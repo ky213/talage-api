@@ -31,10 +31,9 @@ exports.processtask = async function(queueMessage){
     if(messageAge < 1800){
         // DO STUFF
 
-        await dailyDigestTask().catch(err => error = err);
-        if(error){
-            log.error("Error dailyDigestTask " + error + __location);
-        }
+        dailyDigestTask().catch(function(err){
+            log.error("Error dailyDigestTask " + err + __location);
+        });
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;

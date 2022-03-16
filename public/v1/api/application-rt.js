@@ -605,6 +605,7 @@ async function applicationLocationSave(req, res, next) {
             }
 
             const appId = applicationDB.applicationId
+            applicationDB.lastPage = "Location";
             responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
                 applicationDB);
 
@@ -1469,6 +1470,7 @@ async function requestToBindQuote(req, res, next) {
     const quoteId = req.body.quoteId;
     const paymentPlanId = req.body.paymentPlanId;
     const insurerPaymentPlanId = req.body.insurerPaymentPlanId;
+    const lastPage = req.body.lastPage ? req.body.lastPage : "request-to-bind";
 
     //assume uuid input
     log.debug(`Getting app id  ${applicationId} from mongo` + __location)
@@ -1480,13 +1482,15 @@ async function requestToBindQuote(req, res, next) {
     if (error) {
         return next(Error);
     }
+
     if(applicationDB){
         applicationId = applicationDB.applicationId;
         try{
             const quoteJSON = {
                 quoteId: quoteId,
                 paymentPlanId: paymentPlanId,
-                insurerPaymentPlanId: insurerPaymentPlanId
+                insurerPaymentPlanId: insurerPaymentPlanId,
+                lastPage: lastPage
             };
             await applicationBO.processRequestToBind(applicationId,quoteJSON);
 

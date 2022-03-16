@@ -262,8 +262,16 @@ module.exports = class AgencyBO {
                         if(getAgencyNetwork === true){
                             const agencyNetworkBO = new AgencyNetworkBO();
                             try {
+                                if(typeof docDB.agencyNetworkId === 'string'){
+                                    docDB.agencyNetworkId = parseInt(docDB.agencyNetworkId, 10);
+                                }
                                 const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
-                                docDB.agencyNetworkName = agencyNetworkJSON.name;
+                                if(agencyNetworkJSON){
+                                    docDB.agencyNetworkName = agencyNetworkJSON.name;
+                                }
+                                else {
+                                    log.error(`Redis Agency cache Agency ${mysqlId} did not load AgencyNetworkId ${docDB.agencyNetworkId} getting Agency Network  ` + __location);
+                                }
                             }
                             catch (err) {
                                 log.error("Error getting Agency Network  " + err + __location);
@@ -943,6 +951,9 @@ module.exports = class AgencyBO {
                             agencyDoc.deletedByUser = userId;
                         }
                         await agencyDoc.save();
+                        if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                            await this.updateRedisCache(agencyDoc);
+                        }
                     }
                 }
                 catch (err) {
@@ -969,6 +980,9 @@ module.exports = class AgencyBO {
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = true;
                         await agencyDoc.save();
+                        if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                            await this.updateRedisCache(agencyDoc);
+                        }
                     }
                 }
                 catch (err) {
@@ -994,6 +1008,9 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     agencyDoc.wholesaleAgreementSigned = new moment();
                     await agencyDoc.save();
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                        await this.updateRedisCache(agencyDoc);
+                    }
                 }
                 catch (err) {
                     log.error("Error get marking agencyDoc from mysqlId " + err + __location);
@@ -1018,6 +1035,9 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(agencyId, returnDoc);
                     agencyDoc.docusignEnvelopeId = envelopeId;
                     await agencyDoc.save();
+                    if(global.settings.USE_REDIS_AGENCY_CACHE === "YES"){
+                        await this.updateRedisCache(agencyDoc);
+                    }
                 }
                 catch (err) {
                     log.error("Error get marking agencyDoc from mysqlId " + err + __location);
@@ -1165,7 +1185,8 @@ module.exports = class AgencyBO {
                         log.error(`Getting AgencyEmail error agencyId ${agencyId}` + err + __location);
                     }
                     if (agencyEmailDB) {
-                        if (agencyEmailDB[contentProperty] && agencyEmailDB[contentProperty].length > 0) {
+                        if (agencyEmailDB[contentProperty] && agencyEmailDB[contentProperty]?.subject?.length > 0
+                            && agencyEmailDB[contentProperty]?.message?.length > 0) {
                             emailTemplateJSON.message = agencyEmailDB[contentProperty].message;
                             emailTemplateJSON.subject = agencyEmailDB[contentProperty].subject;
                         }

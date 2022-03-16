@@ -249,6 +249,10 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
             emailJSON.subject = `[DEV TEST] ${emailJSON.subject}`;
         }
     }
+
+    // Remove duplicates from recipients
+    recipients = [...new Set(recipients.toLowerCase().split(','))].join(',');
+
     emailJSON.to = recipients;
 
     // DO NOT send non talageins.com email in development (local) or awsdev
@@ -272,14 +276,14 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
                 emailJSON.to = global.settings.TEST_EMAIL;
             }
             else {
-                const overrideEmail = 'brian@talageins.com,pdimaria@talageins.com';
+                const overrideEmail = 'qateam@talageins.com';
                 emailJSON.to = overrideEmail;
             }
         }
     }
 
-    //save any overrides for DB Save and remove duplicate .to emails
-    recipients = [...new Set(emailJSON.to.split(','))].join(',');
+    //save any overrides for DB Save
+    recipients = emailJSON.to;
     if (attachments) {
         emailJSON.attachments = attachments;
     }
