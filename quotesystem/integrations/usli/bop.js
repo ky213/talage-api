@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable dot-location */
 /* eslint-disable implicit-arrow-linebreak */
 /* eslint-disable no-extra-parens */
@@ -209,8 +210,19 @@ module.exports = class USLIBOP extends Integration {
         const GPINameInfo = IPGeneralPartyInfo.ele('NameInfo');
         const GPICommlName = GPINameInfo.ele('CommlName');
         GPICommlName.ele('CommercialName', applicationDocData.bussinessName);
-        const entityType = this.getEntityType(); // TODO: finish this.getEntityTypeFunction
+        const entityType = getEntityType();
         GPINameInfo.ele('LegalEntityCd', entityType.abbr).att('id', entityType.id);
+        const GPIAddr = IPGeneralPartyInfo.ele('Addr');
+        GPIAddr.ele('AddrTypeCd', "InsuredsAddress");
+        GPIAddr.ele('Addr1', applicationDocData.mailingAddress);
+        GPIAddr.ele('City', applicationDocData.mailingCity);
+        GPIAddr.ele('StateProvCd', applicationDocData.mailingState);
+        GPIAddr.ele('PostalCode', applicationDocData.mailingZipcode.substring(0, 5));
+        GPIAddr.ele('CountryCd', "USA");
+        const GPICommunications = IPGeneralPartyInfo.ele('Communications');
+        const GPIPhoneInfo = GPICommunications.ele('PhoneInfo');
+        GPIPhoneInfo.ele('DoNotContactInd', false);
+
 
         //                 <InsuredOrPrincipalInfo>
         //                     <InsuredOrPrincipalRoleCd>Insured</InsuredOrPrincipalRoleCd>
@@ -244,6 +256,28 @@ module.exports = class USLIBOP extends Integration {
         //                     </BusinessInfo>
         //                 </InsuredOrPrincipalInfo>
         //             </InsuredOrPrincipal>
+
+        // NOTE: This whole section is currently defaulted to 0'd values
+        const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
+        InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', "Insured");
+        const IPIPersonInfo = InsuredOrPrincipalInfo.ele('PersonInfo');
+        const LengthTimeEmployed = IPIPersonInfo.ele('LengthTimeEmployed');
+        LengthTimeEmployed.ele('NumUnits', 0); // TODO: should be a new manual question, or a new property on the app? 
+        const LengthTimeCurrentOccupation = IPIPersonInfo.ele('LengthTimeCurrentOccupation');
+        LengthTimeCurrentOccupation.ele('NumUnits', 0); // TODO: should be a new manual question, or a new property on the app?
+        const LengthTimeWithPreviousEmployer = IPIPersonInfo.ele('LengthTimeWithPreviousEmployer');
+        LengthTimeWithPreviousEmployer.ele('NumUnits', 0); // TODO: should be a new manual question, or a new property on the app?
+        const LengthTimeCurrentAddr = IPIPersonInfo.ele('LengthTimeCurrentAddr');
+        LengthTimeCurrentAddr.ele('StartTime', "00:00:00.0000000-04:00");
+        LengthTimeCurrentAddr.ele('EndTime', "00:00:00.0000000-04:00");
+        LengthTimeCurrentAddr.ele('LocalStandardTimeInd', false);
+        const LTCADurationPeriod = LengthTimeCurrentAddr.ele('DurationPeriod');
+        LTCADurationPeriod.ele('NumUnits', 0);
+        LengthTimeCurrentAddr.ele('ContinuousInd', false);
+        LengthTimeCurrentAddr.ele('GB.BothDaysInclusiveInd', false);
+        const IPIBusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
+        IPIBusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).year());
+        IPIBusinessInfo.ele('OperationsDesc', 'Apartment'); // most likely use the operation desc talage question, create manual insurer question for USLI
 
 
         //             <CommlPolicy xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
@@ -297,6 +331,46 @@ module.exports = class USLIBOP extends Integration {
         //                 <usli:IsUnsolicited xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsUnsolicited>
         //             </CommlPolicy>
 
+        const CommlPolicy = CommlPkgPolicyQuoteInqRq.ele('CommlPolicy').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        CommlPolicy.ele('CompanyProductCd', "050070");
+        CommlPolicy.ele('LOBCd', "CPKGE");
+        CommlPolicy.ele('NAICCd', "000000"); // TODO: Do a lookup for this value
+        CommlPolicy.ele('ControllingStateProvCd', applicationDocData.mailingState);
+        const ContractTerm = CommlPolicy.ele('ContractTerm');
+        ContractTerm.ele('EffectiveDt', moment(applicationDocData.effectiveDate).format("YYYY-MM-DD"));
+        ContractTerm.ele('ExpirationDt', moment(applicationDocData.expirationDate).format("YYYY-MM-DD"));
+        const DurationPeriod = ContractTerm.ele('DurationPeriod');
+        DurationPeriod.ele('NumUnits', 12);
+        DurationPeriod.ele('UnitMeasurementCd', "month");
+        CommlPolicy.ele('PrintedDocumentsRequestedInd', false);
+        const TotalPaidLossAmt = CommlPolicy.ele('TotalPaidLossAmt');
+        TotalPaidLossAmt.ele('Amt', this.get_total_amount_paid_on_claims());
+        CommlPolicy.ele('NumLosses', applicationDocData.claims.length);
+        CommlPolicy.ele('NumLossesYrs', 0);
+        CommlPolicy.ele('FutureEffDateInd', false);
+        CommlPolicy.ele('FutureEffDateNumDays', 0);
+        CommlPolicy.ele('InsuredRequestsPrintedDocumentsInd', false);
+        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement'); // TODO: IS THIS NEEDED, WHAT IS THIS?
+        CommlPolicySupplement.ele('PolicyTypeCd', "SPC"); // TODO: IS THIS NEEDED, WHAT IS THIS?
+        CommlPolicy.ele('WrapUpInd', false);
+        const STMPFCommlCoverage = CommlPolicy.ele('CommlCoverage');
+        STMPFCommlCoverage.ele('CoverageCd', "STMPF");
+        STMPFCommlCoverage.ele('CoverageDesc', "Stamping Fee");
+        STMPFCommlCoverage.ele('usli:CoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        STMPFCommlCoverage.ele('usli:FireCoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        STMPFCommlCoverage.ele('usli:IsLeasedOccupancy', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        const SPLTXCommlCoverage = CommlPolicy.ele('CommlCoverage');
+        SPLTXCommlCoverage.ele('CoverageCd', "SPLTX");
+        SPLTXCommlCoverage.ele('CoverageDesc', "Surplus Lines Tax");
+        SPLTXCommlCoverage.ele('usli:CoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        SPLTXCommlCoverage.ele('usli.FireCoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        SPLTXCommlCoverage.ele('usli.IsLeasedOccupancy', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        CommlPolicy.ele('AnyLossesAccidentsConvictions', applicationDocData.claims.length > 0);
+        // TODO: Questions? Maybe claims questions? 
+        CommlPolicy.ele('usli:Status', "Quote").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        CommlPolicy.ele('usli:Carrier', "MTV").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        CommlPolicy.ele('usli:FilingId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        CommlPolicy.ele('usli:IsUnsolicted', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
 
         //             <Location id="1" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
         //                 <Addr>
@@ -613,29 +687,22 @@ module.exports = class USLIBOP extends Integration {
 
 }
 
-getEntityType = () => {
+const getEntityType = () => {
     switch (applicationDocData.entityType) {
-        case "":
-            return {abbr: "IN",
-id: "INDIVIDUAL"};
-        case "":
-            return {abbr: "CP",
-id: "CORPORATION"};
-        case "":
-            return {abbr: "PT",
-id: "PARTNERSHIP"};
-        case "":
-            return {abbr: "NP",
-id: "NON PROFIT CORPORATION"};
-        case "":
-            return {abbr: "LL",
-id: "LIMITED LIABILITY COMPANY"};
-        case "":
-            return {abbr: "TR",
-id: "TRUST"};
+        // case "":
+        //     return {abbr: "IN", id: "INDIVIDUAL"};
+        case "Corporation":
+            return {abbr: "CP", id: "CORPORATION"};
+        case "Partnership":
+            return {abbr: "PT", id: "PARTNERSHIP"};
+        case "Non Profit Corporation":
+            return {abbr: "NP", id: "NON PROFIT CORPORATION"};
+        case "Limited Liability Company":
+            return {abbr: "LL", id: "LIMITED LIABILITY COMPANY"};
+        // case "":
+        //     return {abbr: "TR", id: "TRUST"};
         default:
-            return {abbr: "OT",
-id: "OTHER"};
+            return {abbr: "OT", id: "OTHER"};
     }
 }
  

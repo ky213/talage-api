@@ -936,6 +936,21 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns the total paid on claims associated w/ the application
+     *
+     * @returns {int} - the total amount paid out for claims
+     */
+    get_total_amount_paid_on_claims() {
+        let total = 0;
+        for (const claim of this.applicationDocData.claims) {
+            total += claim.amountPaid;
+        }
+
+        // Return the result
+        return total;
+    }
+
+    /**
      * Returns the total number of employees associated with this application
      *
      * @returns {int} - The total number of employees as an integer
