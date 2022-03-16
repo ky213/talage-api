@@ -113,7 +113,9 @@ module.exports = class Application {
 
         //Fix all ZipCode to 5 digits before anything is loaded from the data
         try{
-            this.applicationDocData.mailingZipcode = this.applicationDocData.mailingZipcode.slice(0,5);
+            if(this.applicationDocData?.mailingZipcode){
+                this.applicationDocData.mailingZipcode = this.applicationDocData.mailingZipcode.slice(0,5);
+            }
             for(const location of this.applicationDocData.locations){
                 if(location.zipcode){
                     location.zipcode = location.zipcode.slice(0,5)
