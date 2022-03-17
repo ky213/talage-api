@@ -26,6 +26,57 @@ let logPrefix = '';
 let applicationDocData = null;
 let industryCode = null;
 
+// key value map where key is OUR options, value is THEIR data
+// NOTE: Options we do not support are commented out
+const constructionCodes = {
+    "Frame": {
+        desc: "Frame",
+        code: "F"
+    },
+    // "": {
+    //     desc: "Veneer",
+    //     code: "F"
+    // },
+    "Joisted Masonry": {
+        desc: "Joisted Masonry",
+        code: "JM"
+    },
+    // "": {
+    //     desc: "Light Non-Combustible",
+    //     code: "NC"
+    // },
+    "Non Combustible": {
+        desc: "Non-Combustuble",
+        code: "NC"
+    },
+    "Masonry Non Combustible": {
+        desc: "Masonry Non-Combustible",
+        code: "MNC"
+    },
+    // "": {
+    //     desc: "Masonry Non-Combustible with Wind Resistive Roof",
+    //     code: "MFR"
+    // },
+    "Fire Resistive": {
+        desc: "Fire-Resistive",
+        code: "FR"
+    },
+    "Other": {
+        desc: "Other",
+        code: "OT"
+    }
+};
+
+const roofingMaterials = {
+    "Asphalt Shingles": "ASPHS",
+    "Clay or Concrete Tile": "CONCRETE",
+    "Metal": "METL",
+    // "": "SLAT", // Slate
+    // "": "TILE", // Tile
+    "Wood Shingles/Shakes": "WOODK",
+    "Other": "OT"
+}
+
 // quote response properties
 // let quoteNumber = null;
 // let quoteProposalId = null;
@@ -372,88 +423,157 @@ module.exports = class USLIBOP extends Integration {
         CommlPolicy.ele('usli:FilingId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
         CommlPolicy.ele('usli:IsUnsolicted', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
 
-        //             <Location id="1" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
-        //                 <Addr>
-        //                     <AddrTypeCd>PhysicalRisk</AddrTypeCd>
-        //                     <Addr1>123 Main Street</Addr1>
-        //                     <City>Katy</City>
-        //                     <StateProvCd>TX</StateProvCd>
-        //                     <PostalCode>77493</PostalCode>
-        //                     <CountryCd>USA</CountryCd>
-        //                     <County>Harris</County>
-        //                 </Addr>
-        //             </Location>
-        //             <CommlSubLocation LocationRef="1" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
-        //                 <Construction>
-        //                     <ConstructionCd>F</ConstructionCd>
-        //                     <Description>Frame</Description>
-        //                     <YearBuilt>2010</YearBuilt>
-        //                     <BldgArea>
-        //                         <NumUnits>4000</NumUnits>
-        //                     </BldgArea>
-        //                     <RoofingMaterial>
-        //                         <RoofMaterialCd>ASPHS</RoofMaterialCd>
-        //                     </RoofingMaterial>
-        //                     <usli:PlumbingCd xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">PVC</usli:PlumbingCd>
-        //                 </Construction>
-        //                 <BldgImprovements>
-        //                     <RoofingImprovementYear>2010</RoofingImprovementYear>
-        //                 </BldgImprovements>
-        //                 <BldgProtection>
-        //                     <FireProtectionClassCd>1</FireProtectionClassCd>
-        //                     <ProtectionDeviceBurglarCd>NotAnswered</ProtectionDeviceBurglarCd>
-        //                     <ProtectionDeviceSmokeCd>0</ProtectionDeviceSmokeCd>
-        //                     <ProtectionDeviceSprinklerCd>Unknown</ProtectionDeviceSprinklerCd>
-        //                     <SprinkleredPct>0</SprinkleredPct>
-        //                 </BldgProtection>
-        //                 <BldgOccupancy>
-        //                     <usli:YearsAtCurrentLocation xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:YearsAtCurrentLocation>
-        //                     <usli:YearOccupiedCurrentLocation xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:YearOccupiedCurrentLocation>
-        //                 </BldgOccupancy>
-        //                 <RequestedValuationTypeCd>RC</RequestedValuationTypeCd>
-        //                 <usli:Perils xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">Special Excluding Wind And Hail</usli:Perils>
-        //                 <usli:RequestedCauseOfLossCd xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">SPC</usli:RequestedCauseOfLossCd>
-        //             </CommlSubLocation>
-        //             <CommlPropertyLineBusiness xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
-        //                 <LOBCd>CPKGE</LOBCd>
-        //                 <MinPremInd>false</MinPremInd>
-        //                 <PropertyInfo>
-        //                     <CommlPropertyInfo LocationRef="1">
-        //                         <ItemValueAmt>
-        //                             <Amt>0</Amt>
-        //                         </ItemValueAmt>
-        //                         <ClassCdDesc>Building</ClassCdDesc>
-        //                         <CommlCoverage>
-        //                             <CoverageCd>BLDG</CoverageCd>
-        //                             <CoverageDesc>Building</CoverageDesc>
-        //                             <Limit>
-        //                                 <FormatText>500000</FormatText>
-        //                                 <ValuationCd>RC</ValuationCd>
-        //                                 <LimitAppliesToCd>Aggregate</LimitAppliesToCd>
-        //                             </Limit>
-        //                             <Deductible>
-        //                                 <FormatInteger>1000</FormatInteger>
-        //                                 <DeductibleTypeCd>WD</DeductibleTypeCd>
-        //                                 <DeductibleAppliesToCd>AllPeril</DeductibleAppliesToCd>
-        //                             </Deductible>
-        //                             <PremiumBasisCd>Unit</PremiumBasisCd>
-        //                             <CommlCoverageSupplement>
-        //                                 <CoinsurancePct>80</CoinsurancePct>
-        //                             </CommlCoverageSupplement>
-        //                             <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">10000</usli:CoverageTypeId>
-        //                             <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
-        //                             <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                         </CommlCoverage>
-        //                         <BlanketNumber>0</BlanketNumber>
-        //                         <ValueReportingInd>false</ValueReportingInd>
-        //                         <GroundFloorArea>
-        //                             <NumUnits>0</NumUnits>
-        //                         </GroundFloorArea>
-        //                         <BlanketInd>false</BlanketInd>
-        //                         <TotalPayrollAmt>
-        //                             <Amt>0</Amt>
-        //                         </TotalPayrollAmt>
-        //                     </CommlPropertyInfo>
+        applicationDocData.locations.forEach((location, index) => {
+            //             <Location id="1" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
+            //                 <Addr>
+            //                     <AddrTypeCd>PhysicalRisk</AddrTypeCd>
+            //                     <Addr1>123 Main Street</Addr1>
+            //                     <City>Katy</City>
+            //                     <StateProvCd>TX</StateProvCd>
+            //                     <PostalCode>77493</PostalCode>
+            //                     <CountryCd>USA</CountryCd>
+            //                     <County>Harris</County>
+            //                 </Addr>
+            //             </Location>
+
+            const Location = CommlPkgPolicyQuoteInqRq.ele('Location').att('id', index + 1).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+            const Addr = Location.ele('Addr');
+            Addr.ele('AddrTypeCd', "PhysicalRisk");
+            Addr.ele('Addr1', location.address);
+            Addr.ele('City', location.city);
+            Addr.ele('StateProvCd', location.state);
+            Addr.ele('PostalCode', location.zipcode.substring(0, 5));
+            Addr.ele('CountryCd', "USA");
+            // NOTE: leaving out County for now...
+
+            //             <CommlSubLocation LocationRef="1" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
+            //                 <Construction>
+            //                     <ConstructionCd>F</ConstructionCd>
+            //                     <Description>Frame</Description>
+            //                     <YearBuilt>2010</YearBuilt>
+            //                     <BldgArea>
+            //                         <NumUnits>4000</NumUnits>
+            //                     </BldgArea>
+            //                     <RoofingMaterial>
+            //                         <RoofMaterialCd>ASPHS</RoofMaterialCd>
+            //                     </RoofingMaterial>
+            //                     <usli:PlumbingCd xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">PVC</usli:PlumbingCd>
+            //                 </Construction>
+            //                 <BldgImprovements>
+            //                     <RoofingImprovementYear>2010</RoofingImprovementYear>
+            //                 </BldgImprovements>
+            //                 <BldgProtection>
+            //                     <FireProtectionClassCd>1</FireProtectionClassCd>
+            //                     <ProtectionDeviceBurglarCd>NotAnswered</ProtectionDeviceBurglarCd>
+            //                     <ProtectionDeviceSmokeCd>0</ProtectionDeviceSmokeCd>
+            //                     <ProtectionDeviceSprinklerCd>Unknown</ProtectionDeviceSprinklerCd>
+            //                     <SprinkleredPct>0</SprinkleredPct>
+            //                 </BldgProtection>
+            //                 <BldgOccupancy>
+            //                     <usli:YearsAtCurrentLocation xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:YearsAtCurrentLocation>
+            //                     <usli:YearOccupiedCurrentLocation xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:YearOccupiedCurrentLocation>
+            //                 </BldgOccupancy>
+            //                 <RequestedValuationTypeCd>RC</RequestedValuationTypeCd>
+            //                 <usli:Perils xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">Special Excluding Wind And Hail</usli:Perils>
+            //                 <usli:RequestedCauseOfLossCd xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">SPC</usli:RequestedCauseOfLossCd>
+            //             </CommlSubLocation>
+
+            const CommlSubLocation = CommlPkgPolicyQuoteInqRq.ele('CommlSubLocation').att('LocationRef', index + 1).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            const Construction = CommlSubLocation.ele('Construction');
+            const constructionType = constructionCodes[location.constructionType] ? constructionCodes[location.constructionType] : {desc: "Other", code: "OT"};
+            Construction.ele('ConstructionCd', constructionType.code);
+            Construction.ele('Description', constructionType.desc);
+            Construction.ele('YearBuilt', location.yearBuilt);
+            const BldgArea = Construction.ele('BldgArea');
+            BldgArea.ele('NumUnits', location.square_footage);
+            const RoofingMaterial = Construction.ele('RoofingMaterial');
+            const roofingMaterialQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.building.roofingMaterial");
+            const roofingMaterial = roofingMaterialQuestion && roofingMaterials[roofingMaterialQuestion.answerValue] ? roofingMaterials[roofingMaterialQuestion.answerValue] : "OT"; 
+            RoofingMaterial.ele('RoofMaterialCd', roofingMaterial);
+            const BldgImprovements = CommlSubLocation.ele('BldgImprovements');
+            BldgImprovements.ele('RoofingImprovementYear', location.bop.roofingImprovementYear);
+            const BldgProtection = CommlSubLocation.ele('BldgProtection');
+            BldgProtection.ele('FireProtectionClassCd', 1); // TODO: Figure out the values for this, may be a new question
+            BldgProtection.ele('ProtectionDeviceBurglarCd', "Unknown");
+            BldgProtection.ele('ProtectionDeviceSmokeCd', 0);
+            BldgProtection.ele('ProtectionDeviceSprinkler', location.bop.sprinklerEquipped ? "FullSprinkler" : "Unknown");
+            BldgProtection.ele('SprinklerPct', 0) // NOTE: Defaulting to 0% for now, we may need to add a question for this
+            const BldgOccupancy = CommlSubLocation.ele('BldgOccupancy');
+            BldgOccupancy.ele('usli:YearsAtCurrentLocation', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); // TODO: Add a question for this? May add to model instead
+            BldgOccupancy.ele('usli:YearOccupiedCurrentLocation', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); // TODO: Should be able to calculate this from the number above
+            CommlSubLocation.ele('RequestedValuationTypeCd', "RC"); // TODO: Add a question for this
+            CommlSubLocation.ele('usli:Perils', "Special Excluding Wind And Hail").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            CommlSubLocation.ele('usli:RequestedCauseOfLoss', "SPC").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+
+            //             <CommlPropertyLineBusiness xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
+            //                 <LOBCd>CPKGE</LOBCd>
+            //                 <MinPremInd>false</MinPremInd>
+            //                 <PropertyInfo>
+
+
+            const CommlPropertyLineBusiness = CommlPkgPolicyQuoteInqRq.ele('CommlPropertyLineBusiness').att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            CommlPropertyLineBusiness.ele('LOBCd', "CPKGE");
+            CommlPropertyLineBusiness.ele('MinPremInd', false);
+            const PropertyInfo = CommlPropertyLineBusiness.ele('PropertyInfo');
+
+            //                     <CommlPropertyInfo LocationRef="1">
+            //                         <ItemValueAmt>
+            //                             <Amt>0</Amt>
+            //                         </ItemValueAmt>
+            //                         <ClassCdDesc>Building</ClassCdDesc>
+            //                         <CommlCoverage>
+            //                             <CoverageCd>BLDG</CoverageCd>
+            //                             <CoverageDesc>Building</CoverageDesc>
+            //                             <Limit>
+            //                                 <FormatText>500000</FormatText>
+            //                                 <ValuationCd>RC</ValuationCd>
+            //                                 <LimitAppliesToCd>Aggregate</LimitAppliesToCd>
+            //                             </Limit>
+            //                             <Deductible>
+            //                                 <FormatInteger>1000</FormatInteger>
+            //                                 <DeductibleTypeCd>WD</DeductibleTypeCd>
+            //                                 <DeductibleAppliesToCd>AllPeril</DeductibleAppliesToCd>
+            //                             </Deductible>
+            //                             <PremiumBasisCd>Unit</PremiumBasisCd>
+            //                             <CommlCoverageSupplement>
+            //                                 <CoinsurancePct>80</CoinsurancePct>
+            //                             </CommlCoverageSupplement>
+            //                             <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">10000</usli:CoverageTypeId>
+            //                             <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
+            //                             <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
+            //                         </CommlCoverage>
+            //                         <BlanketNumber>0</BlanketNumber>
+            //                         <ValueReportingInd>false</ValueReportingInd>
+            //                         <GroundFloorArea>
+            //                             <NumUnits>0</NumUnits>
+            //                         </GroundFloorArea>
+            //                         <BlanketInd>false</BlanketInd>
+            //                         <TotalPayrollAmt>
+            //                             <Amt>0</Amt>
+            //                         </TotalPayrollAmt>
+            //                     </CommlPropertyInfo>
+
+            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', index + 1);
+            const ItemValueAmt = CommlPropertyInfo.ele('ItemValueAmt');
+            ItemValueAmt.ele('Amt', 0);
+            CommlPropertyInfo.ele('ClassCdDesc', 'Building');
+            const CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+            CommlCoverage.ele('CoverageCd', "BLDG");
+            CommlCoverage.ele('CoverageDesc', "Building");
+            const Limit = CommlCoverage.ele('Limit');
+            Limit.ele('FormatText', location.buildingLimit ? location.buildingLimit : 0);
+            Limit.ele('ValuationCd', "RC"); // TODO: What is this?
+            Limit.ele('LimitAppliesToCd', "Aggregate");
+            const Deductible = CommlCoverage.ele('Deductible');
+            Deductible.ele('FormatInteger', 1000); // TODO: Do we need to add a question for this? Or maybe add to model? 
+            Deductible.ele('DeductibleTypeCd', "WD"); // NOTE: Leaving as default
+            Deductible.ele('DeductibleAppliesToCd', "AllPeril"); // NOTE: Leaving as default
+            CommlCoverage.ele('PremiumBasisCd', "Unit");
+            const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
+            CommlCoverageSupplement.ele('CoinsurancePct', 0);
+
+        });
+
         //                     <CommlPropertyInfo LocationRef="1">
         //                         <ItemValueAmt>
         //                             <Amt>0</Amt>
@@ -489,6 +609,8 @@ module.exports = class USLIBOP extends Integration {
         //                     </CommlPropertyInfo>
         //                 </PropertyInfo>
         //             </CommlPropertyLineBusiness>
+
+
         //             <GeneralLiabilityLineBusiness xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
         //                 <LOBCd>CPKGE</LOBCd>
         //                 <MinPremInd>false</MinPremInd>
