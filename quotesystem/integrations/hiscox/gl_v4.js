@@ -1505,7 +1505,6 @@ module.exports = class HiscoxGL extends Integration {
                 return this.return_result('error');
             }
 
-
             // Check for errors
             const responseErrors = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
             let errorResponseList = null;
@@ -1516,6 +1515,11 @@ module.exports = class HiscoxGL extends Integration {
             else {
                 errorResponseList = responseErrors;
             }
+            if(respProductStatus === "Referred"){
+                this.reasons.push(`Hiscox reason: ${responseErrors.code}: ${responseErrors.Description}`);
+                return this.return_result('referred');
+            }
+
 
             if (errorResponseList) {
                 let errors = "";
@@ -1642,6 +1646,10 @@ module.exports = class HiscoxGL extends Integration {
 
             // That we are quoted
             return this.return_result('quoted');
+        }
+        else if (submissionStatus === "Referred") {
+            this.reasons.push("Hiscox return an Incomplete status for the submission.");
+            return this.return_result('referred');
         }
         else if (submissionStatus === "Incomplete") {
             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
