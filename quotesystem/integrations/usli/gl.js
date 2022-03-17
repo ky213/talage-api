@@ -54,8 +54,33 @@ module.exports = class USLIGL extends Integration {
    * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
    */
   async _insurer_quote() {
-    applicationDocData = this.applicationDocData;
-    const primaryLocation = applicationDocData.locations.find(({ primary }) => primary);
+    const applicationDocData = this.applicationDocData;
+    const policy = applicationDocData.policies.find(({ policyType }) => policyType === "GL");
+    const entityTypes = {
+      Corporation: { abbr: "CP", id: "CORPORATION" },
+      Partnership: { abbr: "PT", id: "PARTNERSHIP" },
+      "Non Profit Corporation": { abbr: "NP", id: "NON PROFIT CORPORATION" },
+      "Limited Liability Company": { abbr: "LL", id: "LIMITED LIABILITY COMPANY" },
+    };
+
+    const ignoredQuestionIds = [
+      "usli.building.roofingMaterial",
+      "usli.building.roofingMaterial",
+      "usli.general.terrorismCoverage",
+      "usli.building.fireProtectionClassCd",
+      "usli.building.requestedValuationTypeCd",
+      "usli.building.yearOccupiedLocation",
+    ];
+
+    const supportedLimitsMap = {
+      100000010000001000000: ["1000000", "2000000", "2000000"],
+      100000020000001000000: ["1000000", "2000000", "2000000"],
+      100000020000002000000: ["1000000", "2000000", "2000000"],
+      200000040000004000000: ["2000000", "4000000", "4000000"],
+    };
+
+    const limits = supportedLimitsMap[policy.limits] || [];
+
     // const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
     // logPrefix = `USLI Monoline GL (Appid: ${applicationDocData.applicationId}): `;
 
@@ -84,7 +109,6 @@ module.exports = class USLIGL extends Integration {
         "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
         SignonRq: {
           SignonPswd: {
-            "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
             CustId: {
               SPName: "com.usli",
               CustLoginId: this.username,
@@ -95,29 +119,19 @@ module.exports = class USLIGL extends Integration {
             },
             GenSessKey: false,
           },
-          CustLangPref: {
-            "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
-            "#text": "en",
-          },
+          CustLangPref: "en",
           ClientApp: {
-            Version: 0,
+            Version: "2.0",
           },
           SuppressEcho: false,
         },
         InsuranceSvcRq: {
-          RqUID: {
-            "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
-            "#text": uuid(),
-          },
+          RqUID: uuid(),
           CommlPkgPolicyQuoteInqRq: {
-            CurCd: {
-              "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
-              "#text": "USD",
-            },
+            CurCd: "USD",
             Producer: {
-              "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
               ItemIdInfo: {
-                InsurerId: 1065,
+                InsurerId: "1065",
               },
               GeneralPartyInfo: {
                 NameInfo: [
@@ -145,23 +159,22 @@ module.exports = class USLIGL extends Integration {
               },
             },
             InsuredOrPrincipal: {
-              "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
               GeneralPartyInfo: {
                 NameInfo: {
                   CommlName: {
-                    CommercialName: this.applicationDocData?.businessName,
+                    CommercialName: applicationDocData?.businessName,
                   },
                   LegalEntityCd: {
-                    "@id": "INDIVIDUAL",
-                    "#text": "IN",
+                    "@id": entityTypes[applicationDocData?.entityType]?.id || "OTHER",
+                    "#text": entityTypes[applicationDocData?.entityType]?.abbr || "OT",
                   },
                 },
                 Addr: {
                   AddrTypeCd: "InsuredsAddress",
-                  Addr1: this.applicationDocData?.mailingAddress,
-                  City: this.applicationDocData?.mailingCity,
-                  StateProvCd: this.applicationDocData?.mailingState,
-                  PostalCode: this.applicationDocData?.mailingZipcode,
+                  Addr1: applicationDocData?.mailingAddress,
+                  City: applicationDocData?.mailingCity,
+                  StateProvCd: applicationDocData?.mailingState,
+                  PostalCode: applicationDocData?.mailingZipcode?.substring(0, 5),
                   CountryCd: "USA",
                 },
                 Communications: {
@@ -197,205 +210,133 @@ module.exports = class USLIGL extends Integration {
                   CoInsuredSameAddressInsuredInd: false,
                 },
                 BusinessInfo: {
-                  BusinessStartDt: -1,
-                  OperationsDesc: "",
+                  BusinessStartDt: moment(applicationDocData.founded).year(),
+                  OperationsDesc:
+                    applicationDocData?.questions?.find(
+                      ({ insurerQuestionIdentifier }) => insurerQuestionIdentifier === "usli.general.operationsDesc"
+                    )?.answerValue || "Not Provided",
                 },
               },
             },
             CommlPolicy: {
-              "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
-              CompanyProductCd: 50070,
+              CompanyProductCd: "050070",
               LOBCd: "CGL",
-              NAICCd: 26522,
-              ControllingStateProvCd: "TX",
+              NAICCd: this.insurerIndustryCode?.naic || "26522",
+              ControllingStateProvCd: this.policy?.primary_territory,
               ContractTerm: {
-                EffectiveDt: "2022-04-17",
-                ExpirationDt: "2023-04-17",
+                EffectiveDt: this.policy?.effective_date?.format("YYYY-MM-DD"),
+                ExpirationDt: this.policy?.expiration_date?.format("YYYY-MM-DD"),
                 DurationPeriod: {
-                  NumUnits: 12,
+                  NumUnits: this.policy?.expiration_date?.diff(this.policy?.effective_date, "months"),
                   UnitMeasurementCd: "month",
                 },
               },
               PrintedDocumentsRequestedInd: false,
               TotalPaidLossAmt: {
-                Amt: 0,
+                Amt: applicationDocData.claims?.reduce((total, { amountPaid }) => total + (amountPaid || 0), 0),
               },
-              NumLosses: 0,
+              NumLosses: applicationDocData.claims?.length,
               NumLossesYrs: 0,
               FutureEffDateInd: false,
               FutureEffDateNumDays: 0,
               InsuredRequestsPrintedDocumentsInd: false,
               CommlPolicySupplement: {
-                PolicyTypeCd: "SPC",
+                PolicyTypeCd: "OCCUR",
               },
               WrapUpInd: false,
               CommlCoverage: [
                 {
                   CoverageCd: "STMPF",
                   CoverageDesc: "Stamping Fee",
-                  CoverageTypeId: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
-                  FireCoverageTypeId: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
-                  IsLeasedOccupancy: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
+                  "usli:CoverageTypeId": 0,
+                  "usli:FireCoverageTypeId": 0,
+                  usliIsLeasedOccupancy: 0,
                 },
                 {
                   CoverageCd: "SPLTX",
                   CoverageDesc: "Surplus Lines Tax",
-                  CoverageTypeId: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
-                  FireCoverageTypeId: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
-                  IsLeasedOccupancy: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
+                  "usli:CoverageTypeId": 0,
+                  "usli:FireCoverageTypeId": 0,
+                  "usli:IsLeasedOccupancy": 0,
                 },
               ],
-              AnyLossesAccidentsConvictionsInd: false,
-              DynamicQuestion: [
-                {
-                  QuestionID: 10345,
-                  QuestionType: "Applicant",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10353,
-                  QuestionType: "Applicant",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10438,
-                  QuestionType: "Applicant",
-                  Answer: "Yes",
-                },
-                {
-                  QuestionID: 10424,
-                  QuestionType: "Location",
-                  Answer: "Yes",
-                },
-                {
-                  QuestionID: 10425,
-                  QuestionType: "Location",
-                  Answer: "Yes",
-                },
-                {
-                  QuestionID: 10426,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10428,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10429,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10430,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10431,
-                  QuestionType: "Location",
-                  Answer: "Yes",
-                },
-                {
-                  QuestionID: 10433,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10434,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10436,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10437,
-                  QuestionType: "Location",
-                  Answer: "Unknown",
-                },
-                {
-                  QuestionID: 10587,
-                  QuestionType: "Location",
-                  Answer: "No",
-                },
-                {
-                  QuestionID: 1946,
-                  QuestionType: "Classification",
-                  Answer: "Unknown",
-                },
-              ],
-              Status: "Quote",
-              Carrier: "MTV",
-              FilingId: 0,
-              IsUnsolicited: 0,
+              AnyLossesAccidentsConvictionsInd: applicationDocData.claims?.length > 0,
+              "usli:DynamicQuestion": applicationDocData.questions
+                ?.map((question) => {
+                  if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
+                    return {
+                      "usli:QuestionId": question.insurerQuestionIdentifier, // Question ID instead
+                      "usli:QuestionType": "Applicant",
+                      "usli:Answer": question.answerValue || "Unknown",
+                    };
+                  }
+                })
+                .concat(
+                  applicationDocData.locations.flatMap((location, i) =>
+                    location?.questions.map((q) => {
+                      if (!ignoredQuestionIds.includes(q.insurerQuestionIdentifier)) {
+                        return {
+                          "@LocationRef": `${i + 1}`,
+                          "usli:QuestionId": q.insurerQuestionIdentifier, // Question ID instead
+                          "usli:QuestionType": "Location",
+                          "usli:Answer": q.answerValue || "Unknown",
+                        };
+                      }
+                    })
+                  )
+                )
+                .filter((q) => q),
+              "usli:Status": "Quote",
+              "usli:Carrier": "MTV",
+              "usli:FilingId": 0,
+              "usli:IsUnsolicited": 0,
             },
-            Location: {
-              "@id": "1",
-              "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
-              Addr: {
-                AddrTypeCd: "PhysicalRisk",
-                Addr1: primaryLocation?.address,
-                City: primaryLocation?.city,
-                StateProvCd: primaryLocation?.state,
-                PostalCode: primaryLocation?.zipcode,
-                CountryCd: "USA",
-              },
-            },
-            CommlSubLocation: {
-              Construction: {
-                ConstructionCd: "F",
-                Description: "Frame",
-                YearBuilt: 2010,
-                BldgArea: {
-                  NumUnits: 4000,
-                },
-                RoofingMaterial: {
-                  RoofMaterialCd: "ASPHS",
-                },
-                PlumbingCd: "PVC",
-              },
-              BldgImprovements: {
-                RoofingImprovementYear: 2010,
-              },
-              BldgProtection: {
-                FireProtectionClassCd: 1,
-                ProtectionDeviceBurglarCd: "NotAnswered",
-                ProtectionDeviceSmokeCd: 0,
-                ProtectionDeviceSprinklerCd: "Unknown",
-                SprinkleredPct: 0,
-              },
-              BldgOccupancy: {
-                YearsAtCurrentLocation: 0,
-                YearOccupiedCurrentLocation: 0,
-              },
-              RequestedValuationTypeCd: "RC",
-              Perils: "Special Excluding Wind And Hail",
-              RequestedCauseOfLossCd: "SPC",
-            },
+            Location: applicationDocData.locations
+              .map((location, index) => {
+                if (location.primary) {
+                  return {
+                    "@id": `${index + 1}`,
+                    Addr: {
+                      AddrTypeCd: "PhysicalRisk",
+                      Addr1: location?.address,
+                      City: location?.city,
+                      StateProvCd: location?.state,
+                      PostalCode: location?.zipcode,
+                      CountryCd: "USA",
+                    },
+                  };
+                }
+              })
+              .filter((l) => l),
+            CommlSubLocation: applicationDocData.locations
+              .map((location, index) => {
+                if (!location.primary) {
+                  return {
+                    "@LocationRef": `${index + 1}`,
+                    Construction: {
+                      ConstructionCd: "OT",
+                      Description: "Unknown",
+                      BldgArea: {
+                        NumUnits: 0,
+                      },
+                      "usli:PlumbingCd": "UNK",
+                    },
+                    BldgProtection: {
+                      ProtectionDeviceBurglarCd: "NotAnswered",
+                      ProtectionDeviceSmokeCd: 0,
+                      ProtectionDeviceSprinklerCd: "NoSprinkler",
+                      SprinkleredPct: 0,
+                    },
+                    BldgOccupancy: {
+                      "usli:YearsAtCurrentLocation": 0,
+                      "usli:YearOccupiedCurrentLocation": 0,
+                    },
+                    "usli:Perils": "Unknown",
+                  };
+                }
+              })
+              .filter((l) => l),
             CommlPropertyLineBusiness: {
-              "@xmlns": "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/",
               LOBCd: "CGL",
               MinPremInd: false,
               PropertyInfo: {
@@ -424,18 +365,9 @@ module.exports = class USLIGL extends Integration {
                       CommlCoverageSupplement: {
                         CoinsurancePct: 80,
                       },
-                      CoverageTypeId: {
-                        "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                        "#text": 1000,
-                      },
-                      FireCoverageTypeId: {
-                        "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                        "#text": 1000,
-                      },
-                      IsLeasedOccupancy: {
-                        "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                        "#text": 1000,
-                      },
+                      CoverageTypeId: 1000,
+                      FireCoverageTypeId: 1000,
+                      IsLeasedOccupancy: 1000,
                     },
                     BlanketNumber: 0,
                     ValueReportingInd: false,
@@ -493,41 +425,45 @@ module.exports = class USLIGL extends Integration {
                     CoverageCd: "EAOCC",
                     CoverageDesc: "Each Occurrence Limit",
                     Limit: {
-                      FormatText: 1000000,
+                      FormatText: limits[0] || "2000000",
                       LimitAppliesToCd: "PerOcc",
                     },
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
+                    "usli:CoverageTypeId": 0,
+                    "usli:FireCoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
+                  },
+                  {
+                    CoverageCd: "GENAG",
+                    CoverageDesc: "General Aggregate Limit",
+                    Limit: {
+                      FormatText: limits[1] || "4000000",
+                      LimitAppliesToCd: "Aggregate",
                     },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
+                    "usli:CoverageTypeId": 0,
+                    "usli:FireCoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
+                  },
+                  {
+                    CoverageCd: "PRDCO",
+                    CoverageDesc: "Products/Completed Operations Aggregate Limit",
+                    Limit: {
+                      FormatText: limits[2] || "4000000",
+                      LimitAppliesToCd: "Aggregate",
                     },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
+                    "usli:CoverageTypeId": 0,
+                    "usli:FireCoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "PIADV",
                     CoverageDesc: "Personal &amp; Advertising Injury Limit",
                     Limit: {
-                      FormatText: 1000000,
+                      FormatText: limits[2] || "4000000",
                       LimitAppliesToCd: "PerPers",
                     },
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
+                    "usli:CoverageTypeId": 0,
+                    "usli:FireCoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "MEDEX",
@@ -536,18 +472,9 @@ module.exports = class USLIGL extends Integration {
                       FormatText: 5000,
                       LimitAppliesToCd: "PerPers",
                     },
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
+                    "usli:CoverageTypeId": 0,
+                    "usli:FireCoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "FIRDM",
@@ -556,107 +483,34 @@ module.exports = class USLIGL extends Integration {
                       FormatText: 100000,
                       LimitAppliesToCd: "PropDam",
                     },
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                  },
-                  {
-                    CoverageCd: "PRDCO",
-                    CoverageDesc: "Products/Completed Operations Aggregate Limit",
-                    Limit: {
-                      LimitAppliesToCd: "Aggregate",
-                    },
-                    Option: {
-                      OptionCd: "Incl",
-                    },
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                  },
-                  {
-                    CoverageCd: "GENAG",
-                    CoverageDesc: "General Aggregate Limit",
-                    Limit: {
-                      FormatText: 2000000,
-                      LimitAppliesToCd: "Aggregate",
-                    },
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
+                    "usli:CoverageTypeId": 0,
+                    "usli:FireCoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
                   },
                 ],
                 GeneralLiabilityClassification: {
+                  "@id": "C1",
+                  "@LocationRef": "1",
                   CommlCoverage: {
                     CoverageCd: "PREM",
                     ClassCd: 60010,
-                    CoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
-                    FireCoverageTypeId: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 101,
-                    },
-                    FireCode: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": "0312",
-                    },
-                    IsLeasedOccupancy: {
-                      "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                      "#text": 0,
-                    },
+                    CoverageTypeId: 0,
+                    FireCoverageTypeId: 101,
+                    FireCode: "0312",
+                    IsLeasedOccupancy: 0,
                   },
                   ClassCd: 60010,
                   ClassCdDesc: "Apartment Buildings",
                   Exposure: 12,
                   PremiumBasisCd: "Unit",
                   IfAnyRatingBasisInd: false,
-                  ClassId: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 0,
-                  },
-                  CoverageTypeId: {
-                    "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                    "#text": 5337,
-                  },
+                  ClassId: 0,
+                  "usli:CoverageTypeId": 5337,
                 },
-                EarnedPremiumPct: {
-                  "@xmlns:usli": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-                  "#text": 0,
-                },
+                EarnedPremiumPct: 0,
               },
             },
-            TransactionRequestDt: {
-              "@xmlns": "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/",
-              "#text": moment().format(),
-            },
+            TransactionRequestDt: moment().format(),
           },
         },
       },
@@ -665,13 +519,15 @@ module.exports = class USLIGL extends Integration {
     // -------------- SEND XML REQUEST ----------------
 
     // Get the XML structure as a string
-    const xml = builder.create(acord).end({ pretty: true });
+    const xml = builder.create(acord).end();
 
     // TODO: Send the XML request object to USLI's quote API
 
-    const host = ""; // TODO: base API path here
-    const quotePath = ``; // TODO: API Route path here
-    const additionalHeaders = {};
+    const host = "services.uslistage.com"; // TODO: base API path here
+    const quotePath = `/API/Quote`; // TODO: API Route path here
+    const additionalHeaders = {
+      "Content-Type": "application/xml",
+    };
 
     let result = null;
     try {
@@ -713,7 +569,7 @@ module.exports = class USLIGL extends Integration {
   async getUSLIIndustryCode() {
     const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
     const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:mm:ss");
-    applicationDocData = this.applicationDocData;
+    applicationDocData = applicationDocData;
 
     const industryQuery = {
       insurerId: this.insurer.id,
