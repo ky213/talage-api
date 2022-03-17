@@ -495,7 +495,10 @@ module.exports = class Integration {
         }
         // If not required and not answered, we return no answer
         if (!required && !questionWasAnswered) {
-            return false;
+            // if (question.type !== 'Yes/No'){
+            //     answer = '';
+            // }
+            return answer
         }
 
         // If this question has a parent that belongs to a different insurer it should have a default
@@ -526,8 +529,8 @@ module.exports = class Integration {
                     }
 
                     if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} anwserid ${answer_id} encountered an answer to a question that is not possible.` + __location);
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} anwserid ${answer_id} encountered an answer to a question that is not possible. ${question.possible_answers}` + __location);
+                        //log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
                         return false;
                     }
 

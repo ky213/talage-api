@@ -136,9 +136,13 @@ module.exports = class Question{
         // For Checkbox questions, there may be more than one possible answer, process each
         if (this.type === 'Checkboxes') {
             let answerArray = [];
+            if(answer === "||"){
+                answer = "";
+            }
+
             if (typeof answer === 'string' && answer.indexOf("|") > -1) {
                 if (answer.indexOf("|") === 0) {
-                    answer = answer.substr(1);
+                    answer = answer.substring(1);
                 }
                 answerArray = answer.split('|');
                 try {

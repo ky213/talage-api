@@ -11,7 +11,7 @@ const momentTimezone = require("moment-timezone");
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
-const InsurerQuestionBO = global.requireShared('./models/InsurerQuestion-BO.js');
+
 
 module.exports = class HiscoxGL extends Integration {
 
@@ -33,8 +33,8 @@ module.exports = class HiscoxGL extends Integration {
      */
     async _insurer_quote() {
 
-
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_quote ` + __location)
+        const appDoc = this.applicationDocData
         // These are the statuses returned by the insurer and how they map to our Talage statuses
 
         // this.possible_api_responses.DECLINE = 'declined';
@@ -649,7 +649,6 @@ module.exports = class HiscoxGL extends Integration {
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {ApplicationRatingInfo: {}};
 
-        const appDoc = this.applicationDocData;
         const experience = moment(appDoc.founded).format('YYYY-MM-DD');
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
@@ -861,127 +860,131 @@ module.exports = class HiscoxGL extends Integration {
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Questton setup 1 ` + __location)
-        for (const question of Object.values(this.questions)) {
-            try{
-                let questionAnswer = this.determine_question_answer(question, question.required);
-                let elementName = questionDetails[question.id].attributes.elementName;
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Questton setup 1 ` + __location)
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 1 this.questions ${JSON.stringify(this.questions)} ` + __location)
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 1 this.insurerQuestionList ${JSON.stringify(this.insurerQuestionList)} ` + __location)
+        //should loop on insurerQuestion and look up talage question.
+        //for (const question of Object.values(this.questions)) {
+        for(const insurerQuestion of this.insurerQuestionList){
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
 
-                let attributes = null;
-                if (question.type === 'Checkboxes' || question.type === 'Select List') {
-                    // Checkbox questions require that each checked answer turns into another object property underneath the main question property
-                    // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
-                    const insurerQuestionBO = new InsurerQuestionBO();
-                    const insurerQuestionQuery = {
-                        active: true,
-                        talageQuestionId: question.id
-                    };
-                    let insurerQuestionList = null;
-                    try {
-                        insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
-                    }
-                    catch (err) {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
-                    }
-                    if (!insurerQuestionList || insurerQuestionList.length === 0) {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
-                        continue;
-                    }
-                    if (!insurerQuestionList[0].attributes) {
-                        if (question.type === 'Checkboxes') {
-                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
-                        }
-                        continue;
-                    }
-                    attributes = insurerQuestionList[0].attributes;
+                //log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName}`)
+                //const question = this.questions[question_id];
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName} no TalageQuestion`)
+                    continue;
                 }
 
-                if (questionAnswer !== false) {
-                    if (elementName === 'GLHireNonOwnVehicleUse') {
-                        elementName = 'HireNonOwnVehclUse';
-                    }
-                    else if (elementName === 'HNOACoverQuoteRq') {
-                        if (questionAnswer !== 'No') {
-                            this.hnoaAmount = questionAnswer;
-                            // this.questionList.push({
-                            //     nodeName: 'HireNonOwnVehclCoverage',
-                            //     answer: 'Yes'
-                            // });
+                try{
+                    //use ApplicationDocData.questions
+                    let questionAnswer = this.determine_question_answer(question, question.required);
+                    let elementName = insurerQuestion.attributes.elementName;
+
+                    let attributes = null;
+                    if (question.type === 'Checkboxes' || question.type === 'Select List') {
+                        // Checkbox questions require that each checked answer turns into another object property underneath the main question property
+                        // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
+
+                        if (!insurerQuestion.attributes) {
+                            if (question.type === 'Checkboxes') {
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestion.identifier}: ${insurerQuestion.text} ${__location}`)
+                            }
+                            continue;
                         }
-                        // Don't add this to the question list
-                        continue;
+                        attributes = insurerQuestion.attributes;
                     }
-                    else if (elementName === 'SecondaryCOBSmallContractors') {
-                        const cobDescriptionList = questionAnswer.split(", ");
-                        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
-                        for (const cobDescription of cobDescriptionList) {
-                            const cobDescQuery = {
-                                active: true,
-                                insurerId: this.insurer.id,
-                                description: cobDescription
-                            }
-                            let cob = null;
-                            try {
-                                cob = await insurerIndustryCodeBO.getList(cobDescQuery);
-                            }
-                            catch (err) {
-                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
-                            }
-                            if (!cob || cob.length === 0) {
-                                log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
-                                continue;
-                            }
-                            this.additionalCOBs.push(cob[0].attributes.v4Code);
+
+                    if (questionAnswer !== false && questionAnswer !== '') {
+                        if (elementName === 'GLHireNonOwnVehicleUse') {
+                            elementName = 'HireNonOwnVehclUse';
                         }
-                        // Don't add this to the question list
-                        continue;
-                    }
-                    else if (elementName === 'EstmtdPayrollSC') {
-                        if (questionAnswer === null) {
-                            questionAnswer = 0;
+                        else if (elementName === 'HNOACoverQuoteRq') {
+                            if (questionAnswer !== 'No') {
+                                this.hnoaAmount = questionAnswer;
+                                // this.questionList.push({
+                                //     nodeName: 'HireNonOwnVehclCoverage',
+                                //     answer: 'Yes'
+                                // });
+                            }
+                            // Don't add this to the question list
+                            continue;
                         }
-                        else {
-                            try {
-                                //parseInt does not throw error with parse a non-number.
-                                questionAnswer = parseInt(questionAnswer, 10);
-                                if(questionAnswer === "NaN"){
-                                    throw new Error("Not an integer");
+                        else if (elementName === 'SecondaryCOBSmallContractors') {
+                            const cobDescriptionList = questionAnswer.split(", ");
+                            const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+                            for (const cobDescription of cobDescriptionList) {
+                                const cobDescQuery = {
+                                    active: true,
+                                    insurerId: this.insurer.id,
+                                    description: cobDescription
                                 }
+                                let cob = null;
+                                try {
+                                    cob = await insurerIndustryCodeBO.getList(cobDescQuery);
+                                }
+                                catch (err) {
+                                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
+                                }
+                                if (!cob || cob.length === 0) {
+                                    log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
+                                    continue;
+                                }
+                                this.additionalCOBs.push(cob[0].attributes.v4Code);
                             }
-                            catch (error) {
-                                log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
+                            // Don't add this to the question list
+                            continue;
+                        }
+                        else if (elementName === 'EstmtdPayrollSC') {
+                            if (questionAnswer === null) {
                                 questionAnswer = 0;
                             }
-                        }
-                        // Add contractor payroll
-                        if(!(questionAnswer > 0)){
-                            questionAnswer = 0
+                            else {
+                                try {
+                                    //parseInt does not throw error with parse a non-number.
+                                    questionAnswer = parseInt(questionAnswer, 10);
+                                    if(questionAnswer === "NaN"){
+                                        throw new Error("Not an integer");
+                                    }
+                                }
+                                catch (error) {
+                                    log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
+                                    questionAnswer = 0;
+                                }
+                            }
+                            // Add contractor payroll
+                            if(!(questionAnswer > 0)){
+                                questionAnswer = 0
+                            }
+                            this.questionList.push({
+                                nodeName: 'EstmtdPayrollSC',
+                                answer: questionAnswer
+                            });
+                            // Don't add more to the question list
+                            continue;
                         }
                         this.questionList.push({
-                            nodeName: 'EstmtdPayrollSC',
-                            answer: questionAnswer
+                            nodeName: elementName,
+                            answer: questionAnswer,
+                            attributes: attributes,
+                            type: question.type
                         });
-                        // Don't add more to the question list
-                        continue;
                     }
-                    this.questionList.push({
-                        nodeName: elementName,
-                        answer: questionAnswer,
-                        attributes: attributes,
-                        type: question.type
-                    });
+                    else if (question.type === 'Checkboxes' && !questionAnswer) {
+                        this.questionList.push({
+                            nodeName: elementName,
+                            answer: '',
+                            attributes: attributes,
+                            type: question.type
+                        })
+                    }
+                    else {
+                        log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName} not adding question ` + __location)
+                    }
                 }
-                else if (question.type === 'Checkboxes' && !questionAnswer) {
-                    this.questionList.push({
-                        nodeName: elementName,
-                        answer: '',
-                        attributes: attributes,
-                        type: question.type
-                    })
+                catch(err){
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
                 }
-            }
-            catch(err){
-                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
             }
         }
 
@@ -1274,6 +1277,7 @@ module.exports = class HiscoxGL extends Integration {
                 const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
                 const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
                 if (glRatingQuestion || bopRatingQuestion) {
+
                     if (question.nodeName === "SupplyManufactDistbtGoodsOrProductsOwnership") {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer === 'No' ? 'My business does this' : 'A third-party does this';
                     }
