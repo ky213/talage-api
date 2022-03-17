@@ -251,7 +251,7 @@ module.exports = class EmployersWC extends Integration {
 
             // Ensure this entity type is in the entity matrix above
             if (!(appDoc.entityType in entityMatrix)) {
-                log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
+                log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${appDoc.entityType} ` + __location)
             }
 
 
