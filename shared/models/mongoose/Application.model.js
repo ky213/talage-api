@@ -186,7 +186,7 @@ const professionalLiabilityPolicySchema = new Schema({
 });
 
 const fireCodeSchema = new Schema({
-    fireCode: {type: Number, required: true},
+    fireCode: {type: String, required: true},
     description: {type: String, required: false},
     attributes: {type: Schema.Types.Mixed, required: false}
 });
@@ -221,7 +221,7 @@ const PolicySchema = new Schema({
     cyber: cyberPolicySchema,
     profLiability: professionalLiabilityPolicySchema,
     bopIndustryCodeId: {type: Number, required: false},
-    fireCodes: [fireCodeSchema]
+    fireCode: {type: fireCodeSchema, required: false}
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({

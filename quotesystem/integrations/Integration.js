@@ -1145,11 +1145,19 @@ module.exports = class Integration {
     get_location_payroll(location) {
         let total = 0;
 
+        // current structure
         location.activityPayrollList.forEach((activtyCodePayroll) => {
             activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
                 total += employeeType.employeeTypePayroll;
             });
         });
+
+        // old structure
+        if (total === 0) {
+            location.activity_codes.forEach(wc_code => {
+                total += wc_code.payroll;
+            });
+        }
 
         return total;
     }
