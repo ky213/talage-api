@@ -572,7 +572,7 @@ module.exports = class Integration {
      * @param {array} carrierLimits - A list of limits supported by the carrier
      * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
      */
-    getBestLimits(carrierLimits) {
+    getBestLimits(carrierLimits) { 
         let higherLimit = null;
 
         // Take the requested limits and prepare them for processing
@@ -608,6 +608,17 @@ module.exports = class Integration {
         });
 
         return higherLimit;
+    }
+
+    /**
+     * Gets the supported hiscox limit less than or equal to the one provided
+     * @param {number} deductible - deductible from this.policy.deductible
+     * @param {array} validDeductibles - array of supported deductibles for the given policy type
+     * @returns {number} Higher valid deductible equal to or lower than provided deductible
+     */
+    getBestDeductible(deductible, validDeductibles) {
+        const equalLessThanDeductibles = validDeductibles.filter(val => val <= deductible);
+        return Math.max(...equalLessThanDeductibles);
     }
 
     /**

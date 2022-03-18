@@ -1686,17 +1686,6 @@ module.exports = class HiscoxGL extends Integration {
     }
 
     /**
-     * Gets the supported hiscox limit less than or equal to the one provided
-     * @param {number} deductible - deductible from this.policy.deductible
-     * @param {array} validDeductibles - array of supported deductibles for the given policy type
-     * @returns {number} Higher valid deductible equal to or lower than provided deductible
-     */
-    getBestDeductible(deductible, validDeductibles) {
-        const equalLessThanDeductibles = validDeductibles.filter(val => val <= deductible);
-        return Math.max(...equalLessThanDeductibles);
-    }
-
-    /**
      * Fits the entered business personal property limit to the next highest Hiscox supported value
      * @param {number} appLimit - Limit from the application location
      * @returns {number} Hiscox Supported Limit in String Format
