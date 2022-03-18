@@ -616,7 +616,7 @@ module.exports = class Integration {
      * @param {array} validDeductibles - array of supported deductibles for the given policy type
      * @returns {number} Higher valid deductible equal to or lower than provided deductible
      */
-     getBestDeductible(deductible, validDeductibles) {
+    getBestDeductible(deductible, validDeductibles) {
         const equalLessThanDeductibles = validDeductibles.filter(val => val <= deductible);
         return Math.max(...equalLessThanDeductibles);
     }
