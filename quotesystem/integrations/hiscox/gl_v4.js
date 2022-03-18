@@ -35,6 +35,22 @@ module.exports = class HiscoxGL extends Integration {
 
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_quote ` + __location)
         const appDoc = this.applicationDocData
+
+        // Define how legal entities are mapped for Hiscox
+        const entityMatrix = {
+            'Association': 'Professional Association',
+            'Corporation': 'Corporation',
+            'Corporation (C-Corp)': 'Corporation',
+            'Corporation (S-Corp)': 'Corporation',
+            'Limited Liability Company': 'Limited Liability Company',
+            'Limited Partnership': 'Partnership',
+            'Limited Liability Company (Member Managed)': 'Limited Liability Company',
+            'Limited Liability Company (Manager Managed)': 'Limited Liability Company',
+            'Partnership': 'Partnership',
+            'Sole Proprietorship': 'Sole Proprietor',
+            'Other': 'Other'
+        };
+
         // These are the statuses returned by the insurer and how they map to our Talage statuses
 
         // this.possible_api_responses.DECLINE = 'declined';
@@ -253,53 +269,6 @@ module.exports = class HiscoxGL extends Integration {
             "62161000_31112100_02000000"
         ]
 
-        let glCarrierLimits = null;
-        if (landSurveyorCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
-            // GL: Land Surveyor
-            glCarrierLimits = ['300000/300000','300000/500000', '500000/500000', '500000/1000000', '1000000/1000000'];
-        }
-        else if (cobGroup1.includes(this.insurerIndustryCode.attributes.v4Code)) {
-            // GL: Landscape/Janitorial/Retail COBs, Mobile Food Services, Small Contractor COBs
-            glCarrierLimits = ['300000/300000', '300000/500000', '500000/500000', '500000/1000000', '1000000/1000000', '1000000/2000000'];
-        }
-        else if (cobGroup2.includes(this.insurerIndustryCode.attributes.v4Code)) {
-            // GL: ARCHITECTS & ENGINEERS COBs Except Land Surveyor, Home health aide, Insurance inspector, Manufacturer sales representative, Personal care aide, Safety consultant
-            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
-        }
-        else {
-            // Gl: All other COBs have
-            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
-        }
-
-
-        // GL Deductible
-        let glDeductible = 0;
-        const propMgmtRealEstateAgentCOBs = [
-            "53121000_41902100_00000000",
-            "53131100_11914100_00000000"
-        ];
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
-        if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
-            glDeductible = 1000;
-        }
-
-        // BOP Deductible
-        const bopDeductibles = [0, 500, 1000];
-
-        // Choose Carrier Limits based on Policy Type
-        let carrierLimits = null;
-        if (this.policy.type === 'GL') {
-            carrierLimits = glCarrierLimits;
-            this.deductible = glDeductible;
-        }
-        else if (this.policy.type === 'BOP') {
-            carrierLimits = bopCarrierLimits;
-            this.deductible = this.getBestDeductible(this.policy.deductible, bopDeductibles);
-        }
-        else {
-            log.error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
-        }
-
         const validCounties = [
             "Broward county",
             "Duval county",
@@ -331,6 +300,58 @@ module.exports = class HiscoxGL extends Integration {
             "Platte county (other than Kansas City)",
             "Saint Louis county"
         ];
+
+
+        let glCarrierLimits = null;
+        if (landSurveyorCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: Land Surveyor
+            glCarrierLimits = ['300000/300000','300000/500000', '500000/500000', '500000/1000000', '1000000/1000000'];
+        }
+        else if (cobGroup1.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: Landscape/Janitorial/Retail COBs, Mobile Food Services, Small Contractor COBs
+            glCarrierLimits = ['300000/300000', '300000/500000', '500000/500000', '500000/1000000', '1000000/1000000', '1000000/2000000'];
+        }
+        else if (cobGroup2.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: ARCHITECTS & ENGINEERS COBs Except Land Surveyor, Home health aide, Insurance inspector, Manufacturer sales representative, Personal care aide, Safety consultant
+            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
+        }
+        else {
+            // Gl: All other COBs have
+            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
+        }
+
+
+        // GL Deductible
+        //Hiscox UI guidelines only list 0, 1000  from XSD
+        const glDeductibles = [0,1000];
+        const propMgmtRealEstateAgentCOBs = [
+            "53121000_41902100_00000000",
+            "53131100_11914100_00000000"
+        ];
+
+        // BOP Deductible from XSD
+        const bopDeductibles = [0, 1000, 2500, 5000, 7500, 10000, 15000, 200000, 250000];
+
+        // Choose Carrier Limits based on Policy Type
+        let carrierLimits = null;
+        if (this.policy.type === 'GL') {
+            carrierLimits = glCarrierLimits;
+            this.deductible = this.getBestDeductible(this.policy.deductible, glDeductibles);
+
+            log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
+            if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
+                this.deductible = 1000;
+            }
+
+        }
+        else if (this.policy.type === 'BOP') {
+            carrierLimits = bopCarrierLimits;
+            this.deductible = this.getBestDeductible(this.policy.deductible, bopDeductibles);
+        }
+        else {
+            log.error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
+        }
+
 
         log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
@@ -386,29 +407,6 @@ module.exports = class HiscoxGL extends Integration {
         }
         log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
 
-        // Define how legal entities are mapped for Hiscox
-        const entityMatrix = {
-            'Association': 'Professional Association',
-            'Corporation': 'Corporation',
-            'Corporation (C-Corp)': 'Corporation',
-            'Corporation (S-Corp)': 'Corporation',
-            'Limited Liability Company': 'Limited Liability Company',
-            'Limited Partnership': 'Partnership',
-            'Limited Liability Company (Member Managed)': 'Limited Liability Company',
-            'Limited Liability Company (Manager Managed)': 'Limited Liability Company',
-            'Partnership': 'Partnership',
-            'Sole Proprietorship': 'Sole Proprietor',
-            'Other': 'Other'
-        };
-
-        // Determine which URL to use
-        let host = "";
-        if (this.insurer.useSandbox) {
-            host = "sdbx.hiscox.com";
-        }
-        else {
-            host = "api.hiscox.com";
-        }
 
         const reqJSON = {InsuranceSvcRq: {QuoteRq: {}}};
 
@@ -539,7 +537,6 @@ module.exports = class HiscoxGL extends Integration {
 
 
         // Determine the best limits
-        // ***** HACK TODO ****** Temporarily hard-coded limits to 1000000/1000000 for testing.
         // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits
         // ***** V3 request with 250000/250000 was fine but V4 doesn't like it. Not sure how bestLimits even resulted in 250000/250000
         // ***** Anyway, limits needs to be revisited and set correctly
@@ -1406,6 +1403,15 @@ module.exports = class HiscoxGL extends Integration {
                 reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.GeneralLiabilityQuoteRq.RatingInfo.SecondaryCOBSmallContractors = {ClassOfBusinessCd: 'None of the above'};
             }
 
+        }
+
+        // Determine which URL to use
+        let host = "";
+        if (this.insurer.useSandbox) {
+            host = "sdbx.hiscox.com";
+        }
+        else {
+            host = "api.hiscox.com";
         }
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse` + __location)
         // Get a token from their auth server
