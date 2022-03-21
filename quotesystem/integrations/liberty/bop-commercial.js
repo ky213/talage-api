@@ -402,7 +402,8 @@ module.exports = class LibertySBOP extends Integration {
             aggLimit] = this.getSupportedLimits(BOPPolicy.limits);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
-        const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
+        //const deductible = this.getSupportedDeductible(BOPPolicy.deductible);
+        const deductible = this.getBestDeductible(BOPPolicy.deductible, supportedDeductables);
 
         let phone = applicationDocData.contacts.find(c => c.primary).phone.toString();
         // fall back to outside phone IFF we cannot find primary contact phone

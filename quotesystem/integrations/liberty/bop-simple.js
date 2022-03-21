@@ -24,12 +24,12 @@ const supportedLimits = [
 ];
 
 // The supported property deductables
-const supportedDeductables = [
-    500,
-    1000,
-    2500,
-    5000
-];
+// const supportedDeductables = [
+//     500,
+//     1000,
+//     2500,
+//     5000
+// ];
 
 // An association list tying the Talage entity list (left) to the codes used by this insurer (right)
 const entityMatrix = {
@@ -765,34 +765,4 @@ module.exports = class LibertySBOP extends Integration {
         }
     }
 
-    getSupportedDeductible(deductible) {
-        // find the index of the limit that is greater than the passed-in limit, if it exists
-        let greaterThanIndex = -1;
-        for (let i = 0; i < supportedDeductables.length; i++) {
-            const d = supportedDeductables[i];
-            if (d > deductible) {
-                greaterThanIndex = i;
-                break;
-            }
-        }
-
-        // based off the index, determine which limit to return (as a string)
-        switch (greaterThanIndex) {
-            case -1:
-                return `${supportedDeductables[supportedDeductables.length - 1]}`;
-            case 0:
-                return `${supportedDeductables[0]}`;
-            default:
-                const lowerLimit = supportedDeductables[greaterThanIndex - 1];
-                const upperLimit = supportedDeductables[greaterThanIndex];
-                const diffToLower = deductible - lowerLimit;
-                const diffToUpper = upperLimit - deductible;
-                if (diffToLower < diffToUpper) {
-                    return `${lowerLimit}`;
-                }
-                else {
-                    return `${upperLimit}`;
-                }
-        }
-    }
 }
