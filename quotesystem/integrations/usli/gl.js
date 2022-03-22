@@ -55,7 +55,6 @@ module.exports = class USLIGL extends Integration {
    */
   async _insurer_quote() {
     const applicationDocData = this.applicationDocData;
-    const policy = applicationDocData.policies.find(({ policyType }) => policyType === "GL");
     const entityTypes = {
       Corporation: { abbr: "CP", id: "CORPORATION" },
       Partnership: { abbr: "PT", id: "PARTNERSHIP" },
@@ -73,13 +72,13 @@ module.exports = class USLIGL extends Integration {
     ];
 
     const supportedLimitsMap = {
-      100000010000001000000: ["1000000", "2000000", "2000000"],
-      100000020000001000000: ["1000000", "2000000", "2000000"],
-      100000020000002000000: ["1000000", "2000000", "2000000"],
-      200000040000004000000: ["2000000", "4000000", "4000000"],
+      "1000000/1000000/1000000": ["1000000", "2000000", "2000000"],
+      "1000000/2000000/1000000": ["1000000", "2000000", "2000000"],
+      "1000000/2000000/2000000": ["1000000", "2000000", "2000000"],
+      "2000000/4000000/4000000": ["2000000", "4000000", "4000000"],
     };
 
-    const limits = supportedLimitsMap[policy.limits] || [];
+    const limits = supportedLimitsMap[this.policy.limits] || [];
 
     // const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
     // logPrefix = `USLI Monoline GL (Appid: ${applicationDocData.applicationId}): `;
@@ -488,20 +487,18 @@ module.exports = class USLIGL extends Integration {
                     "usli:IsLeasedOccupancy": 0,
                   },
                 ],
-                GeneralLiabilityClassification: {
+                GeneralLiabilityClassification: { // to be refactored
                   "@id": "C1",
                   "@LocationRef": "1",
                   CommlCoverage: {
                     CoverageCd: "PREM",
                     ClassCd: 60010,
-                    CoverageTypeId: 0,
-                    FireCoverageTypeId: 101,
-                    FireCode: "0312",
-                    IsLeasedOccupancy: 0,
+                    "usli:CoverageTypeId": 0,
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   ClassCd: 60010,
                   ClassCdDesc: "Apartment Buildings",
-                  Exposure: 12,
+                  Exposure: 12, // hardcoded
                   PremiumBasisCd: "Unit",
                   IfAnyRatingBasisInd: false,
                   ClassId: 0,
