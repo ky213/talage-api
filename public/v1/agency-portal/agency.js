@@ -379,6 +379,7 @@ async function postAgency(req, res, next) {
     }
 
     let insurers = [];
+    let useTalageWholesale = false;
     //useAgencyPrime means All the AgencyPrime's appointments, not be insurer.
     //TODO  - Client use TalageWhole, back must flip to useAgencyPrime if agency network does not use talageWholesale.
     if(useAgencyPrime === false){
@@ -386,7 +387,6 @@ async function postAgency(req, res, next) {
             log.warn('agencyId or Talage Wholesale are required');
             return next(serverHelper.requestError('You must enter at least one Agency ID or Talage Wholesale'));
         }
-
 
         try{
             let agencyNetworkBO = new AgencyNetworkBO();
@@ -396,6 +396,9 @@ async function postAgency(req, res, next) {
             });
             if (error) {
                 return next(error);
+            }
+            if(agencyNetworkJSON?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkJSON?.featureJson?.talageWholesale === true){
+                useTalageWholesale = true;
             }
 
             // eslint-disable-next-line prefer-const
@@ -485,7 +488,11 @@ async function postAgency(req, res, next) {
     const agencyIds = req.body.agencyIds;
     const agentIds = req.body.agentIds;
     const cred3s = req.body.cred3s;
-    const talageWholesaleJson = req.body.talageWholesale;
+    let wholesaleJson = req.body.talageWholesale;
+    if(!useTalageWholesale){
+        wholesaleJson = req.body.useAgencyPrimeInsurer;
+    }
+
     const tierId = req.body.tierId || null;
     const tierName = req.body.tierName || null;
 
@@ -639,9 +646,9 @@ async function postAgency(req, res, next) {
             }
         }
         //talage wholesale
-        for (const insurerID in talageWholesaleJson) {
+        for (const insurerID in wholesaleJson) {
             // only add insurer if the the talageWholeSale setting is equal to true;
-            if(talageWholesaleJson[insurerID] === true){
+            if(wholesaleJson[insurerID] === true){
                 const insurerIdInt = parseInt(insurerID, 10)
                 // Do not default to WC only.
                 // base it on the insurer setup.
@@ -652,9 +659,14 @@ async function postAgency(req, res, next) {
                         //insurerDB.policyTypes = insurerPtDBList;
                         const insurerAL = {
                             "insurerId": insurerIdInt,
-                            talageWholesale: true,
                             policyTypeInfo: {}
                         };
+                        if(useTalageWholesale){
+                            insurerAL.talageWholesale = true
+                        }
+                        else {
+                            insurerAL.useAgencyPrime = true
+                        }
                         if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
                             for(const insurerPolicyType of insurerJSON.policyTypes){
                                 insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
