@@ -80,6 +80,9 @@ module.exports = class Integration {
 
         this.insurer = insurer;
         this.insurerDoc = null;//mongo document for insurer.
+        //Wholesale and AgencyPrime use.
+        this.usingAgencyPrimeAgencyLocation = false;
+        this.quotingAgencyLocationDB = {};
         this.insurer_wc_codes = {};
         this.grouped_activity_codes = [];
         this.limits = {};
@@ -130,6 +133,15 @@ module.exports = class Integration {
                 log.error('Integration insurer')
             }
         }
+        //Determine what is the quotingAgencyLocation
+        if(app?.agencyLocation?.insurers[this.insurer.id].talageWholesale 
+            || app?.agencyLocation?.insurers[this.insurer.id].useAgencyPrime){
+            this.quotingAgencyLocationDB = app.agencyLocation.agencyPrimeAgencyLocationDB;
+        }
+        else {
+            this.quotingAgencyLocationDB = app.agencyLocation.quotingAgencyLocationDB;
+        }
+        
 
         // Apply WC payroll caps for Nevada
         if (this.policy.type === 'WC' && this.app.business && app.business.primary_territory === 'NV') {
