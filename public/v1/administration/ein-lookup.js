@@ -1,4 +1,5 @@
 const EinLookupService = global.requireShared('./services/businessdatalookupsvc.js')
+const openCorporateDataService = global.requireShared('./services/opencorporatesvc.js');
 const serverHelper = global.requireRootPath('server.js');
 
 /**
@@ -23,15 +24,11 @@ async function einLookup(req, res, next) {
             state: req.query.state,
             zipCode: req.query.zipCode
         });
-        res.send(200, einData.map(t => ({
-            ein: `${t.IRS_NUMBER.substr(0,2)}-${t.IRS_NUMBER.substr(2)}`,
-            businessName: t.CONFORMED_NAME,
-            address: `${t.BUSINESS_ADDRESS_STREET1 || t.MAIL_ADDRESS_STREET1 || ''} ${t.BUSINESS_ADDRESS_STREET2 || t.MAIL_ADDRESS_STREET2 || ''}`,
-            city: t.BUSINESS_ADDRESS_CITY || t.MAIL_ADDRESS_CITY || '',
-            state: t.BUSINESS_ADDRESS_STATE || t.MAIL_ADDRESS_STATE || '',
-            zipCode: t.BUSINESS_ADDRESS_ZIP || t.MAIL_ADDRESS_ZIP || '',
-            founded: ''
-        })));
+        const openCorporateData = await openCorporateDataService.performCompanyLookup({
+            businessName: req.query.businessName,
+            state: req.query.state
+        });
+        res.send(200, einData);
         return next();
     }
     catch (err) {
