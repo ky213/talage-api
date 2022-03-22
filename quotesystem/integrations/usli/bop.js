@@ -32,7 +32,6 @@ let industryCode = null;
 // This list ensures the questions do not show up in the request, as they are custom Talage questions
 const ignoredQuestionIds = [
     "usli.building.roofingMaterial",
-    "usli.building.roofingMaterial",
     "usli.general.terrorismCoverage",
     "usli.building.fireProtectionClassCd",
     "usli.building.requestedValuationTypeCd",
@@ -135,7 +134,9 @@ const roofingMaterials = {
     // "": "TILE", // Tile
     "Wood Shingles/Shakes": "WOODK",
     "Other": "OT"
-}
+};
+
+let terrorismCoverageIncluded = false;
 
 // quote response properties
 // let quoteNumber = null;
@@ -498,6 +499,9 @@ module.exports = class USLIBOP extends Integration {
             location.questions.forEach(question => {
                 if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
                     const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                    if (question.attributes.questionType === "Classification") {
+                        usliDynamicQuestion.att('ClassificationRef', "C1");
+                    }
                     usliDynamicQuestion.ele('usli:QuestionId', question.insurerQuestionIdentifier);
                     usliDynamicQuestion.ele('usli:QuestionType', "Applicant");
                     usliDynamicQuestion.ele('usli:Answer', question.answerValue); 
@@ -733,6 +737,7 @@ module.exports = class USLIBOP extends Integration {
             // although terrorism coverage is a general question, it is placed in the location specific area of the request. So only attached to the first location
             const terrorismCoverageQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "usli.general.terrorismCoverage");
             if (index + 1 === 1 && terrorismCoverageQuestion && terrorismCoverageQuestion.answerValue.toLowerCase() === "yes") {
+                terrorismCoverageIncluded = true;
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', 1);
                 const CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', "TRIA");
@@ -765,98 +770,74 @@ module.exports = class USLIBOP extends Integration {
         //                     </CommlCoverage>
 
         createLiabilityInfoCoverage(LiabilityInfo, "EAOCC", "Each Occurrence Limit", limits[0], "PerOcc");
-
-        //                     <CommlCoverage>
-        //                         <CoverageCd>GENAG</CoverageCd>
-        //                         <CoverageDesc>General Aggregate Limit</CoverageDesc>
-        //                         <Limit>
-        //                             <FormatText>2000000</FormatText>
-        //                             <LimitAppliesToCd>Aggregate</LimitAppliesToCd>
-        //                         </Limit>
-        //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
-        //                         <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
-        //                         <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                     </CommlCoverage>
-
         createLiabilityInfoCoverage(LiabilityInfo, "GENAG", "General Aggregate Limit", limits[1], "Aggregate");
-
-        //                     <CommlCoverage>
-        //                         <CoverageCd>PRDCO</CoverageCd>
-        //                         <CoverageDesc>Products/Completed Operations Aggregate Limit</CoverageDesc>
-        //                         <Limit>
-        //                             <LimitAppliesToCd>Aggregate</LimitAppliesToCd>
-        //                         </Limit>
-        //                         <Option>
-        //                             <OptionCd>Incl</OptionCd>
-        //                         </Option>
-        //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
-        //                         <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
-        //                         <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                     </CommlCoverage>
-
         createLiabilityInfoCoverage(LiabilityInfo, "PRDCO", "Products/Completed Operations Aggregate Limit", limits[2], "Aggregate");
-
-        //                     <CommlCoverage>
-        //                         <CoverageCd>PIADV</CoverageCd>
-        //                         <CoverageDesc>Personal &amp; Advertising Injury Limit</CoverageDesc>
-        //                         <Limit>
-        //                             <FormatText>1000000</FormatText>
-        //                             <LimitAppliesToCd>PerPers</LimitAppliesToCd>
-        //                         </Limit>
-        //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
-        //                         <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
-        //                         <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                     </CommlCoverage>
-
         createLiabilityInfoCoverage(LiabilityInfo, "PIADV", "Personal &amp; Advertising Injury Limit", limits[2], "PerPers");
-
-        //                     <CommlCoverage>
-        //                         <CoverageCd>MEDEX</CoverageCd>
-        //                         <CoverageDesc>Medical Expense Limit</CoverageDesc>
-        //                         <Limit>
-        //                             <FormatText>5000</FormatText>
-        //                             <LimitAppliesToCd>PerPers</LimitAppliesToCd>
-        //                         </Limit>
-        //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
-        //                         <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
-        //                         <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                     </CommlCoverage>
-
         // USLI only supports one option - 5,000
         createLiabilityInfoCoverage(LiabilityInfo, "MEDEX", "Medical Expense Limit", "5000", "PerPers");
-
-        //                     <CommlCoverage>
-        //                         <CoverageCd>FIRDM</CoverageCd>
-        //                         <CoverageDesc>Damages To Premises Rented To You</CoverageDesc>
-        //                         <Limit>
-        //                             <FormatText>100000</FormatText>
-        //                             <LimitAppliesToCd>PropDam</LimitAppliesToCd>
-        //                         </Limit>
-        //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
-        //                         <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:FireCoverageTypeId>
-        //                         <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                     </CommlCoverage>
-
         // USLI only supports one option - 100,000
         createLiabilityInfoCoverage(LiabilityInfo, "FIRDM", "Damages To Premises Rented To You", "100000", "PropDam");
 
-        //                     <GeneralLiabilityClassification id="C1" LocationRef="1">
-        //                         <CommlCoverage>
-        //                             <CoverageCd>PREM</CoverageCd>
-        //                             <ClassCd>60010</ClassCd>
-        //                             <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
-        //                             <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">101</usli:FireCoverageTypeId>
-        //                             <usli:FireCode xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0312</usli:FireCode>
-        //                             <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
-        //                         </CommlCoverage>
-        //                         <ClassCd>60010</ClassCd>
-        //                         <ClassCdDesc>Apartment Buildings</ClassCdDesc>
-        //                         <Exposure>12</Exposure>
-        //                         <PremiumBasisCd>Unit</PremiumBasisCd>
-        //                         <IfAnyRatingBasisInd>false</IfAnyRatingBasisInd>
-        //                         <usli:ClassId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:ClassId>
-        //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">5337</usli:CoverageTypeId>
-        //                     </GeneralLiabilityClassification>
+        applicationDocData.locations.forEach((location, index) => {
+            //                     <GeneralLiabilityClassification id="C1" LocationRef="1">
+            //                         <CommlCoverage>
+            //                             <CoverageCd>PREM</CoverageCd>
+            //                             <ClassCd>60010</ClassCd>
+            //                             <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:CoverageTypeId>
+            //                             <usli:FireCoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">101</usli:FireCoverageTypeId>
+            //                             <usli:FireCode xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0312</usli:FireCode>
+            //                             <usli:IsLeasedOccupancy xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsLeasedOccupancy>
+            //                         </CommlCoverage>
+            //                         <ClassCd>60010</ClassCd>
+            //                         <ClassCdDesc>Apartment Buildings</ClassCdDesc>
+            //                         <Exposure>12</Exposure>
+            //                         <PremiumBasisCd>Unit</PremiumBasisCd>
+            //                         <IfAnyRatingBasisInd>false</IfAnyRatingBasisInd>
+            //                         <usli:ClassId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:ClassId>
+            //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">5337</usli:CoverageTypeId>
+            //                     </GeneralLiabilityClassification>
+
+            // NOTE: We include both PREM and PROD GL Classifications
+            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "C1").att('LocationRef', index + 1);
+            const PREMCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
+            PREMCommlCoverage.ele('CoverageCd', "PREM");
+            PREMCommlCoverage.ele('ClassCd', "12345"); // TODO: Hard code a mapped code here
+            // PREMCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
+            PREMCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PREMCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
+            PREMCommlCoverage.ele('usli:FireCode', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); // TODO: Hard code an acceptable fire code here
+            // PREMCommlCoverage.ele('usli:FireCode', 0).att('xmlns', BOPPolicy.fireCode.fireCode ? BOPPolicy.fireCode.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PREMCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            const PRODCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
+            PRODCommlCoverage.ele('CoverageCd', "PROD");
+            PRODCommlCoverage.ele('ClassCd', "12345"); // TODO: Hard code a mapped code here
+            // PRODCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
+            PRODCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PRODCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
+            PRODCommlCoverage.ele('usli:FireCode', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); // TODO: Hard code an acceptable fire code here
+            // PRODCommlCoverage.ele('usli:FireCode', 0).att('xmlns', BOPPolicy.fireCode.fireCode ? BOPPolicy.fireCode.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PRODCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            GeneralLiabilityClassification.ele('ClassCd', "12345"); // TODO: Hard code a mapped code here
+            // PREMGeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
+            GeneralLiabilityClassification.ele('ClassCdDesc', "some description"); // TODO: Hard code a mapped desc here
+            // PREMGeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
+            const exposure = getExposure();
+            if (exposure) {
+                GeneralLiabilityClassification.ele('Exposure', exposure);
+            }
+            GeneralLiabilityClassification.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
+            GeneralLiabilityClassification.ele('IfAnyRatingBasisInd', false);
+            GeneralLiabilityClassification.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            GeneralLiabilityClassification.ele('usli:CoverageTypeId', "11111") // TODO: Hard code a mapped insurer class code here
+            // GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            if (terrorismCoverageIncluded && index + 1 === 1) {
+                const TIAGeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', 1).att('id', "TRIA1");
+                TIAGeneralLiabilityClassification.ele('ClassCd', "08811");
+                TIAGeneralLiabilityClassification.ele('ClassCdDesc', "Terrorism Coverage");
+                TIAGeneralLiabilityClassification.ele('usli:CoverageTypeId', "6197").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            }
+        });
+        
         //                     <usli:EarnedPremiumPct xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:EarnedPremiumPct>
         //                 </LiabilityInfo>
         //             </GeneralLiabilityLineBusiness>
@@ -864,6 +845,9 @@ module.exports = class USLIBOP extends Integration {
         //         </CommlPkgPolicyQuoteInqRq>
         //     </InsuranceSvcRq>
         // </ACORD>
+
+        LiabilityInfo.ele('usli:EarnedPremiumPct', 0).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment.now()).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/"); // TODO: Ensure proper date format here
 
         // -------------- SEND XML REQUEST ----------------
 
@@ -1025,6 +1009,37 @@ const getEntityType = () => {
         //     return {abbr: "TR", id: "TRUST"};
         default:
             return {abbr: "OT", id: "OTHER"};
+    }
+}
+
+// TODO: Once we create the exposure questions and assign them properly, fill in the question value returns below
+const getExposure = () => {
+    switch (industryCode.attributes.premiumExposureBasis) {
+        case "1,000 Gallons":
+        case "100 Payroll":
+        case "Acre":
+        case "Additional Insured":
+        case "Admissions":
+        case "Beautician/Barber":
+        case "Dwelling":
+        case "Event":
+        case "Exhibition":
+        case "Fitness Center":
+        case "Flat":
+        case "Full-Time Janitor":
+        case "Full-time employee":
+        case "Payroll":
+        case "Per Assistant":
+        case "Per Instructor":
+        case "Pool":
+        case "Sales":
+        case "Total Area":
+        case "Total Cost":
+        case "Washer":
+        case "Worker":
+        default:
+            // in cases where there is no premiumExposureBasis, return null
+            return null;
     }
 }
  
