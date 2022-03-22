@@ -2329,6 +2329,8 @@ module.exports = class ApplicationModel {
      * @param {number} applicationId The application UUID.
      */
     async recalculateQuoteMetrics(applicationId) {
+
+        let returnMetrics = null;
         try{
 
             const quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
@@ -2417,6 +2419,8 @@ module.exports = class ApplicationModel {
                 await ApplicationMongooseModel.updateOne({applicationId: applicationId}, updateJSON);
                 //NOTE if metric are displayed in AP applist Redis cache will have to update.
 
+                returnMetrics = JSON.parse(JSON.stringify(metrics));
+
             }
         }
         catch(err){
@@ -2427,6 +2431,8 @@ module.exports = class ApplicationModel {
                 log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
             }
         }
+
+        return returnMetrics;
     }
 
     // *********************************
