@@ -423,7 +423,7 @@ module.exports = class HiscoxGL extends Integration {
             this.employeeCount = 1;
         }
         //Wholesale swap already done if necessary.
-        this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+        //this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
 
         this.agencyId = this.app.agencyLocation.agencyId;
         this.agency = this.app.agencyLocation.agency;
@@ -456,13 +456,20 @@ module.exports = class HiscoxGL extends Integration {
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo = {};
         // zy TODO HACK Nothing I try is a valid ProducerClient. Hard-codign to their example for now
         // reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'APIQA'; // zy debug fix
+
+
+        if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.app.agencyLocation.insurers[this.insurer.id].agentId;
+        }
+        else {
+            // not setup assign to Talage as the partner
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'Talage';
+        }
+
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.EmailInfo = {EmailAddr: this.agencyEmail};
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo = {AgencyName: this.agency};
-        if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
-            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.AgentID = this.app.agencyLocation.insurers[this.insurer.id].agentId;
-        }
+
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person = {Name: {}};
 
         if (this.first_name){
