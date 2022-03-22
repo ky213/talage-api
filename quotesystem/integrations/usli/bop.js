@@ -801,34 +801,43 @@ module.exports = class USLIBOP extends Integration {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "C1").att('LocationRef', index + 1);
             const PREMCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PREMCommlCoverage.ele('CoverageCd', "PREM");
-            PREMCommlCoverage.ele('ClassCd', "12345"); // TODO: Hard code a mapped code here
+            PREMCommlCoverage.ele('ClassCd', "10113");
+            // TODO: Hardcoding to barber shop
             // PREMCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
             PREMCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PREMCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PREMCommlCoverage.ele('usli:FireCode', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); // TODO: Hard code an acceptable fire code here
+            PREMCommlCoverage.ele('usli:FireCode', "0921").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            // TODO: Hardcoding to barber shop
             // PREMCommlCoverage.ele('usli:FireCode', 0).att('xmlns', BOPPolicy.fireCode.fireCode ? BOPPolicy.fireCode.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PREMCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             const PRODCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PRODCommlCoverage.ele('CoverageCd', "PROD");
-            PRODCommlCoverage.ele('ClassCd', "12345"); // TODO: Hard code a mapped code here
+            PRODCommlCoverage.ele('ClassCd', "10113");
+            // TODO: Hardcoding to barber shop
             // PRODCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
             PRODCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PRODCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PRODCommlCoverage.ele('usli:FireCode', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); // TODO: Hard code an acceptable fire code here
+            PRODCommlCoverage.ele('usli:FireCode', "0921").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            // TODO: Hardcoding to barber shop
             // PRODCommlCoverage.ele('usli:FireCode', 0).att('xmlns', BOPPolicy.fireCode.fireCode ? BOPPolicy.fireCode.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PRODCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            GeneralLiabilityClassification.ele('ClassCd', "12345"); // TODO: Hard code a mapped code here
+            GeneralLiabilityClassification.ele('ClassCd', "10113");
+            // TODO: Hardcoding to barber shop
             // PREMGeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
-            GeneralLiabilityClassification.ele('ClassCdDesc', "some description"); // TODO: Hard code a mapped desc here
+            GeneralLiabilityClassification.ele('ClassCdDesc', "Barber Shops - Full-time employee");
+            // TODO: Hardcoding to barber shop
             // PREMGeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
             const exposure = getExposure();
             if (exposure) {
-                GeneralLiabilityClassification.ele('Exposure', exposure);
+                // GeneralLiabilityClassification.ele('Exposure', exposure);
+                // TODO: Hardcoding this exposure for barber shop, which requires FTE as exposure
+                GeneralLiabilityClassification.ele('Exposure', this.get_total_location_full_time_employees(location));
             }
             GeneralLiabilityClassification.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
             GeneralLiabilityClassification.ele('IfAnyRatingBasisInd', false);
             GeneralLiabilityClassification.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            GeneralLiabilityClassification.ele('usli:CoverageTypeId', "11111") // TODO: Hard code a mapped insurer class code here
+            GeneralLiabilityClassification.ele('usli:CoverageTypeId', "173");
+            // TODO: Hardcoding to barber shop
             // GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             if (terrorismCoverageIncluded && index + 1 === 1) {
                 const TIAGeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', 1).att('id', "TRIA1");
@@ -847,12 +856,15 @@ module.exports = class USLIBOP extends Integration {
         // </ACORD>
 
         LiabilityInfo.ele('usli:EarnedPremiumPct', 0).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment.now()).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/"); // TODO: Ensure proper date format here
+        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment().local().format()).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/"); // TODO: Ensure proper date format here
 
         // -------------- SEND XML REQUEST ----------------
 
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
+
+        console.log(xml);
+        process.exit(-1);
 
         const host = ''; // TODO: base API path here
         const quotePath = ``; // TODO: API Route path here

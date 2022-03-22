@@ -1051,6 +1051,12 @@ module.exports = class Integration {
         if(total === 0 && appLocation){
             total += appLocation.full_time_employees;
         }
+
+        // safeguard for above code. If there are just no FTE's on the app, the above simple storage code will set 0 to undefined potentially
+        if (typeof total !== 'number') {
+            total = 0;
+        }
+
         return total;
     }
 
