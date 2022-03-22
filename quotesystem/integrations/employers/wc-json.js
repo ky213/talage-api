@@ -179,10 +179,10 @@ module.exports = class EmployersWC extends Integration {
 
                 const applicantContact = {"email": primaryContact.email};
                 const billingContact = {"email": primaryContact.email};
-                const proposalContact = {"email": agency.agencyEmail};
+                const proposalContact = {"email": this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agency.agencyEmail};
 
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
-                const formattedAgencyPhone = this.formatPhoneForEmployers(agency.agencyPhone);
+                const formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
 
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
@@ -197,9 +197,8 @@ module.exports = class EmployersWC extends Integration {
                 else {
                     applicantContact.name = applicantName;
                     billingContact.name = applicantName;
-                    proposalContact.name = `${agency.first_name} ${agency.last_name}`;
                 }
-
+                proposalContact.name = `${this.quotingAgencyLocationDB?.firstName ? this.quotingAgencyLocationDB?.firstName : agency.first_name} ${this.quotingAgencyLocationDB.lastName ? this.quotingAgencyLocationDB.lastName : agency.last_name}`;
                 const address = {
                     "streetAddress1": appDoc.mailingAddress,
                     "streetAddress2": appDoc.mailingAddress2 ? appDoc.mailingAddress2 : "",
@@ -208,13 +207,17 @@ module.exports = class EmployersWC extends Integration {
                     "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
                 };
 
+                //TODO this need to determine if this is TalageWhole Sale or using AgencyPrime for Employers
+                //if another insurer is using TalageWholesale, but Employer's is not.   this would be wrong.
+                //if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
                 const agencyAddress = {
-                    "streetAddress1": agency.quotingAgencyLocationDB.address,
+                    "streetAddress1": this.quotingAgencyLocationDB.address,
                     "streetAddress2": "",
-                    "city": agency.quotingAgencyLocationDB.city,
-                    "state": agency.quotingAgencyLocationDB.state,
-                    "zipCode": this.formatZipCodeForEmployers(agency.quotingAgencyLocationDB.zip)
+                    "city": this.quotingAgencyLocationDB.city,
+                    "state": this.quotingAgencyLocationDB.state,
+                    "zipCode": this.formatZipCodeForEmployers(this.quotingAgencyLocationDB.zip)
                 };
+                proposalContact.address = agencyAddress;
 
                 if (!appDoc.mailingAddress || !appDoc.mailingCity || !appDoc.mailingState || !address.zipCode) {
                     log.warn(`${logPrefix}Cannot fully construct address information. Some fields missing:` + __location);
@@ -223,7 +226,7 @@ module.exports = class EmployersWC extends Integration {
                 else {
                     applicantContact.address = address;
                     billingContact.address = address;
-                    proposalContact.address = agencyAddress;
+
                 }
 
                 requestJSON.applicantContact = applicantContact;

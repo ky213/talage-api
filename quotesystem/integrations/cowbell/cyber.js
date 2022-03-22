@@ -567,14 +567,14 @@ module.exports = class cowbellCyber extends Integration {
         let agencyPhone = this.app.agencyLocation.agencyPhone
 
         // If talageWholeSale
-        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
-            Surname = this.app.agencyLocation.quotingAgencyLocationDB.lastName;
-            GivenName = this.app.agencyLocation.quotingAgencyLocationDB.firstName;
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale && this.app.agencyLocation.insurers[this.insurer.id].useAgencyPrime){
+            Surname = this.quotingAgencyLocationDB.lastName;
+            GivenName = this.quotingAgencyLocationDB.firstName;
             const agencyBO = new AgencyBO();
-            const agencyInfo = await agencyBO.getById(this.app.agencyLocation.quotingAgencyLocationDB.agencyId);
+            const agencyInfo = await agencyBO.getById(this.quotingAgencyLocationDB.agencyId);
             agencyName = agencyInfo.name;
-            agencyEmail = this.app.agencyLocation.quotingAgencyLocationDB.email
-            agencyPhone = this.app.agencyLocation.quotingAgencyLocationDB.phone
+            agencyEmail = this.quotingAgencyLocationDB.email
+            agencyPhone = this.quotingAgencyLocationDB.phone
         }
 
 

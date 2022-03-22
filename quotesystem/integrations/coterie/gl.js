@@ -146,8 +146,12 @@ module.exports = class CoterieWC extends Integration {
                 coterieDeductible = 5000
             }
             if(this.policy.type.toUpperCase() === 'BOP'){
-                submissionJSON.bppDeductible = coterieDeductible;
-                submissionJSON.propertyDamageLiabilityDeductible = coterieDeductible;
+                // BOP Deductible from XSD
+                // eslint-disable-next-line array-element-newline
+                const bopPropDeductibles = [250, 500, 1000, 2500];
+                const propDeductible = this.getBestDeductible(this.policy.deductible, bopPropDeductibles);
+                submissionJSON.bppDeductible = propDeductible;
+                submissionJSON.propertyDamageLiabilityDeductible = propDeductible;
             }
             // what is "propertyDamageLiabilityDeductible" Assuming GL Deductible.
             //"propertyDamageLiabilityDeductible": 500,
