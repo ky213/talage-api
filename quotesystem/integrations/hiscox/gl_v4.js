@@ -655,7 +655,7 @@ module.exports = class HiscoxGL extends Integration {
 
         const experience = moment(appDoc.founded).format('YYYY-MM-DD');
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
+        //reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} effective date ` + __location)
@@ -1025,7 +1025,7 @@ module.exports = class HiscoxGL extends Integration {
             'SubcontractProfSrvcs',
             'SubcontractRepair',
             'SubcontractSrvcsDescribe',
-            'SupplyManufactDistbtGoodsOrProductsPercent3',
+            'SupplyManufactDistbtGoodsOrProductsPercent3zzz',
             'SupplyManufactDistbtGoodsOrProductsWebsite2',
             'SupplyManufactDistbtGoodsOrProductsWebsite4',
             'TangibleGoodWork',
@@ -1083,6 +1083,7 @@ module.exports = class HiscoxGL extends Integration {
             'SupplyManufactDistbtGoodsOrProductsPercent',
             'SupplyManufactDistbtGoodsOrProductsPercent1',
             'SupplyManufactDistbtGoodsOrProductsPercent2',
+            'SupplyManufactDistbtGoodsOrProductsPercent3',
             'SupplyManufactDistbtGoodsOrProductsPercent4',
             'SupplyManufactDistbtGoodsOrProductsProceduresDescribe',
             'SupplyManufactDistbtGoodsOrProductsProceduresDescribe1',
@@ -1158,6 +1159,7 @@ module.exports = class HiscoxGL extends Integration {
             "SupplyManufactDistbtGoodsOrProductsPercent",
             "SupplyManufactDistbtGoodsOrProductsPercent1",
             "SupplyManufactDistbtGoodsOrProductsPercent2",
+            "SupplyManufactDistbtGoodsOrProductsPercent3",
             "SupplyManufactDistbtGoodsOrProductsProceduresDescribe",
             "SupplyManufactDistbtGoodsOrProductsProceduresDescribe1",
             "SupplyManufactDistbtGoodsOrProductsUsed",
@@ -1272,7 +1274,9 @@ module.exports = class HiscoxGL extends Integration {
                     else {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
                     }
-                    if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+
+                    //if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+                    if (question.nodeName === 'TangibleGoodWork') {
                         // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
                         // we only get one answer. This fixes that issue
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application
