@@ -1,71 +1,93 @@
+/* eslint-disable require-jsdoc */
 const axios = require('axios');
-const moment = require('moment');
 
-/**
- * Lookup a company's EIN number based on information passed in.
- *
- * companyInfoJSON should be in this format:
- *   const companyInfoJSONExample = {
- *      name: "Acme Inc",
- *      streetAddress: "300 South Wells",
- *      city: "Reno",
- *      state: "NV",
- *      zipCode: "89502"
- *   }
- * @param {*} companyInfoJSON see above
- * @returns {void}
- */
+const openCorporateUrl = `https://api.opencorporates.com/v0.4/companies/search`
+
+const apiToken = "WmeTyxCt74Lb40UTnfG9";
+
+
 async function performCompanyLookup(companyInfoJSON) {
-    const openCorporateUrl = `https://api.opencorporates.com/v0.4/companies/search`
+    // const companyInfoJSONExample = {
+    //     name: "Acme Inc",
+    //     streetAddress: "300 South Wells",
+    //     city: "Reno",
+    //     state: "NV",
+    //     zipCode: "89502"
+    // }
     if(!companyInfoJSON || !companyInfoJSON.name || !companyInfoJSON.state){
-        throw new Error("You must enter at least a company name and state");
+        return null;
     }
-    let requestUrl = openCorporateUrl;
-    const responseHits = [];
-    requestUrl = `?q= + ${encodeURI(companyInfoJSON.name)}&jurisdiction_code=us_${companyInfoJSON.state.toLowerCase()}`;
 
-    let openCorporateResponse = null;
+
+    const qparms = {
+        api_token: apiToken,
+        "q": companyInfoJSON.name,
+        "jurisdiction_code": "us_" + companyInfoJSON.state.toLowerCase()
+    }
+
+    const requestOptions = {params: qparms}
+
+    // log.debug(`Got OpenCorporate request - ${JSON.stringify(requestOptions)} `);
+    let OpenCorporateResponse = null;
     try {
-        openCorporateResponse = await axios.get(requestUrl);
-        let companyInfo = {};
-        const currCompanyAppJSON = {
-            ein: '',
-            businessName: '',
-            address: '',
-            city: '',
-            state: '',
-            zipCode: '',
-            founded: ''
-        }
-        if(openCorporateResponse.data?.company?.incorporation_date){
-            companyInfo = openCorporateResponse.data?.company;
-            log.debug(`OpenCorp Hit Founded Date for ${companyInfoJSON.name}`)
-            currCompanyAppJSON.founded = moment(companyInfo.incorporation_date,"YYYY-M-D")
-            //foundedDateHit++;
-        }
-        if(companyInfo.identifiers?.length > 0){
-            const feinIdentifier = companyInfo.identifiers.find((item) => item.identifier.identifier_system_code === "us_fein");
-            if(feinIdentifier && feinIdentifier.identifier?.uid){
-                log.debug(`OpenCorp Hit FEIN for ${currCompanyAppJSON.businessName}`)
-                currCompanyAppJSON.ein = feinIdentifier.identifier.uid
-                //fienHit++;
-            }
-        }
+        OpenCorporateResponse = await axios.get(openCorporateUrl, requestOptions);
+        // log.debug(`Got OpenCorporate result - ${JSON.stringify( OpenCorporateResponse.data)} `);
     }
     catch (error) {
         // Return a connection error
-        throw new Error(`Hipaa connection error: ${error}`);
+        return {error: `OpenCorporate connection error: ${error}`};
     }
     // Ensure we have a successful HTTP status code
-    if (openCorporateResponse.status !== 200) {
-        throw new Error(`Hipaa returned error status ${openCorporateResponse.status}`);
+    if (OpenCorporateResponse.status !== 200) {
+        log.error(`OpenCorporate returned error status ${OpenCorporateResponse.status}`)
+        return null;
     }
-    if (openCorporateResponse.data?.EIN && responseHits) {
-        return responseHits;
+    if (!OpenCorporateResponse.data) {
+        log.error(`OpenCorporate no data returned`)
+        return null;
     }
-    else {
-        throw new Error(`Unexpected Hipaa response ${openCorporateResponse}  ${JSON.stringify(openCorporateResponse.data)}`);
+    let companyInfo = null;
+
+    if(OpenCorporateResponse.data?.results?.total_count === 1 && OpenCorporateResponse.data?.results?.companies[0]?.company?.company_number){
+        try {
+            companyInfo = OpenCorporateResponse.data?.results?.companies[0]?.company;
+            const companyUrl = `https://api.opencorporates.com/companies/${companyInfo.jurisdiction_code}/${companyInfo.company_number}`;
+            //log.debug(`Opencorporates ${companyUrl} ` + __location)
+            OpenCorporateResponse = await axios.get(companyUrl, requestOptions);
+            companyInfo = OpenCorporateResponse?.data?.results?.company
+        }
+        catch (error) {
+            log.error(`OpenCorporates Error ${error}` + __location)
+            // Return a connection error
+            //return {error: `OpenCorporate connection error: ${error}`};
+            return null;
+        }
     }
+    else if(OpenCorporateResponse.data?.results?.total_count > 1) {
+        for(const testCompany of OpenCorporateResponse.data?.results?.companies){
+            if(!companyInfo && testCompany.company?.inactive === false){
+                companyInfo = testCompany.company;
+                if(companyInfo.company_number){
+                    try {
+                        const companyUrl = `https://api.opencorporates.com/companies/${companyInfo.jurisdiction_code}/${companyInfo.company_number}`;
+                        // log.debug(`Opencorporates ${companyUrl} ` + __location)
+                        OpenCorporateResponse = await axios.get(companyUrl, requestOptions);
+                        companyInfo = OpenCorporateResponse?.data?.results?.company
+                        break;
+                    }
+                    catch (error) {
+                        log.error(`OpenCorporates Error ${error}` + __location)
+                        // Return a connection error
+                        //return {error: `OpenCorporate connection error: ${error}`};
+                        return null;
+                    }
+
+                }
+            }
+        }
+    }
+    return companyInfo;
 }
 
-module.exports = {performCompanyLookup: performCompanyLookup};
+
+module.exports = {performCompanyLookup: performCompanyLookup}
