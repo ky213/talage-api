@@ -1405,88 +1405,7 @@ module.exports = class HiscoxGL extends Integration {
 
         }
 
-        //find payment plans
-        const insurerPaymentPlans =
-        res.Policy[0]?.QuoteInfo[0]?.QuoteInfoExt[0]?.PaymentOption?.map(
-            ({$, ...rest}) => ({
-            PaymentRule: $['com.libertymutual.ci_PaymentRuleInfoRefs'],
-            ...rest
-            })
-        )
 
-        if (insurerPaymentPlans?.length > 0) {
-        const [
-            Annual,
-            ,
-            Quarterly,
-            TenPay,
-            Monthly
-        ] = paymentPlanSVC.getList()
-        const talageInsurerPaymentPlans = []
-        const paymentPlansMap = {
-            'FL':Annual,
-            'QT': Quarterly,
-            'MO': Monthly,
-            '10': TenPay,
-            '9E': TenPay
-        }
-
-        const numberOfPayments = {
-            'FL': 1, // Full
-            'QT': 4, // Quarterly
-            'MO': 12, // Monthly
-            '10': 11, // 2 months down + 10 installments
-            '9E': 10 // 10% down + 9 equal payments.
-        }
-        const costFactor = {
-            ...numberOfPayments,
-            '10': 6
-        }
-
-        // Raw insurer payment plans
-        this.insurerPaymentPlans = insurerPaymentPlans
-
-        // Talage payment plans
-        for (const insurerPaymentPlan of insurerPaymentPlans) {
-            const code = insurerPaymentPlan.PaymentPlanCd[0]
-            const amount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
-            const mode = insurerPaymentPlan.PaymentRule
-            const talagePaymentPlan = paymentPlansMap[code]
-            const total = amount * costFactor[code]
-            let installmentPayment = null
-
-            switch (code) {
-                case 'FL':
-                    installmentPayment = 0
-                    break;
-                case '10':
-                    installmentPayment = amount / 2
-                    break;
-                default:
-                    installmentPayment = amount
-            }
-
-            if (talagePaymentPlan) {
-            talageInsurerPaymentPlans.push({
-                paymentPlanId: talagePaymentPlan.id,
-                insurerPaymentPlanId: code,
-                insurerPaymentPlanDescription: mode,
-                NumberPayments: numberOfPayments[code],
-                TotalCost: total,
-                TotalPremium: total,
-                DownPayment: code === 'FL' ? 0 : amount,
-                TotalStateTaxes: 0,
-                TotalBillingFees: 0,
-                DepositPercent: Number((100 * amount / total).toFixed(2)),
-                IsDirectDebit: true,
-                installmentPayment: installmentPayment
-            })
-            }
-        }
-
-        this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
-
-        }
       
         // Determine which URL to use
         let host = "";
@@ -1660,6 +1579,29 @@ module.exports = class HiscoxGL extends Integration {
             return this.client_error(`The Hiscox API returned an error of ${requestError.httpStatusCode} without explanation`, __location, {requestError: requestError});
         } // End of Response Error Processing
 
+        // simulate a returned quote to test talage matching
+        const resultTest = {
+            "InsuranceSvcRs": {
+                "QuoteRs": {
+                    "RqUID": "87fa838a46-2343",
+                    "ReferenceNumberID": "S100.126.713",
+                    "ReferenceNumberPremium": {
+                        "Annual": 500,
+                        "SemiAnnual": {
+                            "InstallmentAmount": 250,
+                            "DownPayment": 250,
+                            "NumberOfInstallments": 1
+                        },
+                        "Quarterly": {
+                            "InstallmentAmount": 125,
+                            "DownPayment": 125,
+                            "NumberOfInstallments": 3
+                        }
+                    }
+                }
+            }
+        }
+
         //check if it qouted.
         //Check status reported By Hiscox
         const QuoteRs = result?.InsuranceSvcRs?.QuoteRs
@@ -1706,6 +1648,84 @@ module.exports = class HiscoxGL extends Integration {
             }
             this.amount = premium;
 
+            //find payment plans
+            const insurerPaymentPlans = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Premium;
+            
+
+            if (insurerPaymentPlans?.length > 0) {
+            const paymentPlanSVC =  [
+                'Annual',
+                'SemiAnnual',
+                'Quarterly',
+                'Monthly',
+                'MonthlyWithDownPayment',
+            ];
+            const talageInsurerPaymentPlans = []
+            const paymentPlansMap = {
+                'FL': Annual,
+                'SA': SemiAnnual,
+                'QT': Quarterly,
+                'MO': Monthly,
+                '10': TenInstallment25PercentDownPayment,
+            }
+
+            const numberOfPayments = {
+                'FL': 1, // Full
+                'SA': 1, //semiAnnual
+                'QT': 2, // Quarterly
+                'MO': 12, // Monthly
+                '10': 11, // 2 months down + 10 installments
+            }
+            const costFactor = {
+                ...numberOfPayments,
+                '10': 6
+            }
+
+            // Raw insurer payment plans
+            this.insurerPaymentPlans = insurerPaymentPlans
+
+            // Talage payment plans
+            for (const insurerPaymentPlan of insurerPaymentPlans) {
+                const code = insurerPaymentPlan.PaymentPlanCd[0]
+                const amount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+                const mode = insurerPaymentPlan.PaymentRule
+                const talagePaymentPlan = paymentPlansMap[code]
+                const total = amount * costFactor[code]
+                let installmentPayment = null
+
+                switch (code) {
+                    case 'FL':
+                        installmentPayment = 0
+                        break;
+                    case '10':
+                        installmentPayment = amount / 2
+                        break;
+                    default:
+                        installmentPayment = amount
+                }
+
+                if (talagePaymentPlan) {
+                talageInsurerPaymentPlans.push({
+                    paymentPlanId: talagePaymentPlan.id,
+                    insurerPaymentPlanId: code,
+                    insurerPaymentPlanDescription: mode,
+                    NumberPayments: numberOfPayments[code],
+                    TotalCost: total,
+                    TotalPremium: total,
+                    DownPayment: code === 'FL' ? 0 : amount,
+                    TotalStateTaxes: 0,
+                    TotalBillingFees: 0,
+                    DepositPercent: Number((100 * amount / total).toFixed(2)),
+                    IsDirectDebit: true,
+                    installmentPayment: installmentPayment
+                })
+                }
+            }
+
+            this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
+
+            }
+
             // Get the quote link
             const retrieveURL = result?.InsuranceSvcRs?.QuoteRs?.ReferenceNumberRetrieveURL;
             if (retrieveURL) {
@@ -1750,6 +1770,8 @@ module.exports = class HiscoxGL extends Integration {
             this.reasons.push(`Hiscox return an ${submissionStatus} status for the submission.`);
             return this.return_result('error');
         }
+
+        
     }
 
     /**
