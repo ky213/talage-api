@@ -557,8 +557,20 @@ module.exports = class HiscoxGL extends Integration {
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.applicationDocData.locations];
 
+
+        // Determine the primary and secondary locations
+        // cannot not count on the order of locations.
+        //this.primaryLocation = locations.shift();
+        //this.secondaryLocations = locations;
+        this.secondaryLocations = [];
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
+            if(location.primary){
+                this.primaryLocation = location
+            }
+            else {
+                this.secondaryLocations.push(location)
+            }
             if (["FL", "MO", "TX"].includes(location.territory)) {
                 // Hiscox requires a county in these states
                 if (location.county) {
@@ -631,9 +643,6 @@ module.exports = class HiscoxGL extends Integration {
             }
         }
 
-        // Determine the primary and secondary locations
-        this.primaryLocation = locations.shift();
-        this.secondaryLocations = locations;
         this.secondaryLocationsCount = this.secondaryLocations?.length >= 5 ? "5+" : this.secondaryLocations?.length.toString();
         if(!this.secondaryLocationsCount){
             this.secondaryLocationsCount = 0;
@@ -752,7 +761,9 @@ module.exports = class HiscoxGL extends Integration {
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                if(this.primaryLocation.territory === "AL"){
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                }
             }
 
         }
@@ -807,7 +818,9 @@ module.exports = class HiscoxGL extends Integration {
                         location.AddrInfo.RatingInfo.AgeOfBldng = secondaryLocation.yearBuilt;
                         location.AddrInfo.RatingInfo.BuildingConstruction = secondaryLocation.constructionType;
                         location.AddrInfo.RatingInfo.NumOfStoriesInBldng = secondaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-                        location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                        if(this.primaryLocation.territory === "AL"){
+                            location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                        }
                     }
 
                 }
