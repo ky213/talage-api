@@ -18,24 +18,10 @@
 const builder = require("xmlbuilder");
 const moment = require("moment");
 const { v4: uuid } = require("uuid");
+const { get } = require("lodash");
 const Integration = require("../Integration.js");
 
 global.requireShared("./helpers/tracker.js");
-
-let logPrefix = "";
-let applicationDocData = null;
-let industryCode = null;
-
-// TODO: Once you get a response, fill out these values for quote submission within our system
-// quote response properties
-let quoteNumber = null;
-let quoteProposalId = null;
-let premium = null;
-const quoteLimits = {};
-let quoteLetter = null;
-const quoteMIMEType = "BASE64";
-let policyStatus = null;
-const quoteCoverages = [];
 
 module.exports = class USLIGL extends Integration {
   /**
@@ -54,6 +40,8 @@ module.exports = class USLIGL extends Integration {
    * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
    */
   async _insurer_quote() {
+    let logPrefix = "";
+    let quoteLetter = null;
     const applicationDocData = this.applicationDocData;
     const entityTypes = {
       Corporation: { abbr: "CP", id: "CORPORATION" },
@@ -78,25 +66,22 @@ module.exports = class USLIGL extends Integration {
       "2000000/4000000/4000000": ["2000000", "4000000", "4000000"],
     };
 
-    const limits = supportedLimitsMap[this.policy.limits] || [];
+    const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
 
-    // const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
-    // logPrefix = `USLI Monoline GL (Appid: ${applicationDocData.applicationId}): `;
+    logPrefix = `USLI Monoline GL (Appid: ${applicationDocData.applicationId}): `;
 
-    // industryCode = await this.getUSLIIndustryCodes();
+    if (!this.industry_code?.insurerIndustryCodeId) {
+      const errorMessage = `No Industry Code was found for GL. `;
+      log.warn(`${logPrefix}${errorMessage} ${__location}`);
+      return this.client_autodeclined_out_of_appetite();
+    }
 
-    // if (!industryCode) {
-    //   const errorMessage = `No Industry Code was found for GL. `;
-    //   log.warn(`${logPrefix}${errorMessage} ${__location}`);
-    //   return this.client_autodeclined_out_of_appetite();
-    // }
-
-    // // if there's no GL policy
-    // if (!GLPolicy) {
-    //   const errorMessage = `Could not find a policy with type GL.`;
-    //   log.error(`${logPrefix}${errorMessage} ${__location}`);
-    //   return this.client_error(errorMessage, __location);
-    // }
+    // if there's no GL policy
+    if (this.policy?.type !== "GL") {
+      const errorMessage = `Could not find a policy with type GL.`;
+      log.error(`${logPrefix}${errorMessage} ${__location}`);
+      return this.client_error(errorMessage, __location);
+    }
 
     // ------------- CREATE XML REQUEST ---------------
 
@@ -424,7 +409,7 @@ module.exports = class USLIGL extends Integration {
                     CoverageCd: "EAOCC",
                     CoverageDesc: "Each Occurrence Limit",
                     Limit: {
-                      FormatText: limits[0] || "2000000",
+                      FormatText: supportedLimits[0] || "2000000",
                       LimitAppliesToCd: "PerOcc",
                     },
                     "usli:CoverageTypeId": 0,
@@ -435,7 +420,7 @@ module.exports = class USLIGL extends Integration {
                     CoverageCd: "GENAG",
                     CoverageDesc: "General Aggregate Limit",
                     Limit: {
-                      FormatText: limits[1] || "4000000",
+                      FormatText: supportedLimits[1] || "4000000",
                       LimitAppliesToCd: "Aggregate",
                     },
                     "usli:CoverageTypeId": 0,
@@ -446,7 +431,7 @@ module.exports = class USLIGL extends Integration {
                     CoverageCd: "PRDCO",
                     CoverageDesc: "Products/Completed Operations Aggregate Limit",
                     Limit: {
-                      FormatText: limits[2] || "4000000",
+                      FormatText: supportedLimits[2] || "4000000",
                       LimitAppliesToCd: "Aggregate",
                     },
                     "usli:CoverageTypeId": 0,
@@ -457,7 +442,7 @@ module.exports = class USLIGL extends Integration {
                     CoverageCd: "PIADV",
                     CoverageDesc: "Personal &amp; Advertising Injury Limit",
                     Limit: {
-                      FormatText: limits[2] || "4000000",
+                      FormatText: supportedLimits[2] || "4000000",
                       LimitAppliesToCd: "PerPers",
                     },
                     "usli:CoverageTypeId": 0,
@@ -487,7 +472,8 @@ module.exports = class USLIGL extends Integration {
                     "usli:IsLeasedOccupancy": 0,
                   },
                 ],
-                GeneralLiabilityClassification: { // to be refactored
+                GeneralLiabilityClassification: {
+                  // to be refactored
                   "@id": "C1",
                   "@LocationRef": "1",
                   CommlCoverage: {
@@ -537,76 +523,69 @@ module.exports = class USLIGL extends Integration {
 
     // -------------- PARSE XML RESPONSE ----------------
 
-    // TODO: Check result structure
+    const response = get(result, "ACORD.InsuranceSvcRs[0]");
+    const statusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
+    const statusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
 
-    // TODO: Perform necessary response parsing to determine fail/success and get appropriate quote information
+    // Check that there was success at the root level
+    if (statusCode === "Rejected") {
+      this.reasons.push(`Insurer's API Responded With Rejected Status ${statusDescription}`);
+      return this.return_result("error");
+    }
 
-    // TODO: Call the appropriate return function
-    // NOTE: This will likely be determined by some policyStatus in the quote response
-    // EXAMPLE BELOW
-    // return result based on policy status
-    if (policyStatus) {
-      switch (policyStatus.toLowerCase()) {
-        case "accept":
-          return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
-        case "refer":
-          return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
-        default:
-          const errorMessage = `USLI response error: unknown policyStatus - ${policyStatus} `;
-          log.error(logPrefix + errorMessage + __location);
-          return this.client_error(errorMessage, __location);
-      }
-    } else {
-      const errorMessage = `USLI response error: missing policyStatus. `;
+    if (statusCode === "Error") {
+      const errorMessage = `USLI response error: ${statusDescription} `;
       log.error(logPrefix + errorMessage + __location);
       return this.client_error(errorMessage, __location);
     }
-  }
 
-  async getUSLIIndustryCode() {
-    const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
-    const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:mm:ss");
-    applicationDocData = applicationDocData;
+    const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
+    const commlCoverage = get(
+      response,
+      "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage"
+    );
+    const rates = get(
+      response,
+      "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage"
+    );
+    const premium = rates?.reduce((t, { Rate }) => t + Number(Rate[0] || 0), 0);
+    const quoteLimits = {};
 
-    const industryQuery = {
-      insurerId: this.insurer.id,
-      talageIndustryCodeIdList: applicationDocData.industryCode,
-      territoryList: applicationDocData.mailingState,
-      effectiveDate: { $lte: policyEffectiveDate },
-      expirationDate: { $gte: policyEffectiveDate },
-      active: true,
-    };
+    commlCoverage.forEach(({ Limit }) => {
+      const limit = Limit[0]?.FormatText[0];
+      const limitCode = Limit[0]?.LimitAppliesToCd[0];
 
-    const orParamList = [];
-    const policyTypeCheck = { policyType: this.policyTypeFilter };
-    const policyTypeNullCheck = { policyType: null };
-    orParamList.push(policyTypeCheck);
-    orParamList.push(policyTypeNullCheck);
-    industryQuery.$or = orParamList;
+      switch (limitCode) {
+        case "EAOCC":
+          quoteLimits[4] = limit;
+          break;
+        case "FIRDM":
+          quoteLimits[5] = limit;
+          break;
+        case "MEDEX":
+          quoteLimits[6] = limit;
+          break;
+        case "PIADV":
+          quoteLimits[7] = limit;
+          break;
+        case "GENAG":
+          quoteLimits[8] = limit;
+          break;
+        case "PRDCO":
+          quoteLimits[9] = limit;
+          break;
+        default:
+          log.warn(`${logPrefix}Integration Error: Unexpected limit found in response` + __location);
+          break;
+      }
+    });
 
-    // eslint-disable-next-line prefer-const
-    let insurerIndustryCodeList = null;
-    try {
-      insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery);
-    } catch (e) {
-      log.error(`${logPrefix}Error re-retrieving USLI industry codes. Falling back to original code. ${__location}`);
-      return;
-    }
+    const usliStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0]['usli:Status'][0]");
 
-    let USLIIndustryCode = null;
-    if (insurerIndustryCodeList && insurerIndustryCodeList.length > 0) {
-      USLIIndustryCode = insurerIndustryCodeList;
+    if (usliStatus === "Quote") {
+      return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64");
     } else {
-      log.warn(
-        `${logPrefix}No industry codes were returned while attempting to re-retrieve USLI industry codes. Falling back to original code. ${__location}`
-      );
-      USLIIndustryCode = [this.industry_code];
+      return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64");
     }
-
-    if (insurerIndustryCodeList.length > 1) {
-      log.warn(`${logPrefix}Multiple insurer industry codes returned. Picking the first result. ${__location}`);
-    }
-
-    return USLIIndustryCode[0];
   }
 };
