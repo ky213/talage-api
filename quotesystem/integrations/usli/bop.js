@@ -35,7 +35,8 @@ const ignoredQuestionIds = [
     "usli.general.terrorismCoverage",
     "usli.building.fireProtectionClassCd",
     "usli.building.requestedValuationTypeCd",
-    "usli.building.yearOccupiedLocation"
+    "usli.building.yearOccupiedLocation",
+    "usli.general.operationsDesc"
 ];
 
 // EAOCC/GENAG/PRDCO
@@ -126,6 +127,7 @@ const constructionCodes = {
     }
 };
 
+// options we do not support in our existing talage question are commented out
 const roofingMaterials = {
     "Asphalt Shingles": "ASPHS",
     "Clay or Concrete Tile": "CONCRETE",
@@ -170,7 +172,7 @@ module.exports = class USLIBOP extends Integration {
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         logPrefix = `USLI Commercial Package (BOP) (Appid: ${applicationDocData.applicationId}): `;
 
-        industryCode = await this.getUSLIIndustryCodes();
+        industryCode = await this.getUSLIIndustryCode();
 
         if (!industryCode) {
             const errorMessage = `No Industry Code was found for Commercial BOP. `;
@@ -178,7 +180,7 @@ module.exports = class USLIBOP extends Integration {
             return this.client_autodeclined_out_of_appetite();
         }
 
-        // if there's no BOP policy
+        // if there's no BOP policy, error out
         if (!BOPPolicy) {
             const errorMessage = `Could not find a policy with type BOP.`;
             log.error(`${logPrefix}${errorMessage} ${__location}`);
@@ -186,6 +188,8 @@ module.exports = class USLIBOP extends Integration {
         }
 
         const UUID = this.generate_uuid();
+
+        console.log(applicationDocData);
 
         // ------------- CREATE XML REQUEST ---------------
 
@@ -451,10 +455,10 @@ module.exports = class USLIBOP extends Integration {
         CommlPolicy.ele('NAICCd', NAICSCd);
         CommlPolicy.ele('ControllingStateProvCd', applicationDocData.mailingState);
         const ContractTerm = CommlPolicy.ele('ContractTerm');
-        ContractTerm.ele('EffectiveDt', moment(applicationDocData.effectiveDate).format("YYYY-MM-DD"));
-        ContractTerm.ele('ExpirationDt', moment(applicationDocData.expirationDate).format("YYYY-MM-DD"));
+        ContractTerm.ele('EffectiveDt', moment(BOPPolicy.effectiveDate).format("YYYY-MM-DD"));
+        ContractTerm.ele('ExpirationDt', moment(BOPPolicy.expirationDate).format("YYYY-MM-DD"));
         const DurationPeriod = ContractTerm.ele('DurationPeriod');
-        DurationPeriod.ele('NumUnits', 12);
+        DurationPeriod.ele('NumUnits', moment(applicationDocData.expirationDate).diff(applicationDocData.effectiveDate, "months"));
         DurationPeriod.ele('UnitMeasurementCd', "month");
         CommlPolicy.ele('PrintedDocumentsRequestedInd', false);
         const TotalPaidLossAmt = CommlPolicy.ele('TotalPaidLossAmt');
@@ -484,6 +488,7 @@ module.exports = class USLIBOP extends Integration {
 
         CommlPolicy.ele('AnyLossesAccidentsConvictions', applicationDocData.claims.length > 0);
         // general questions go here...
+        // TODO: Check if we need to add a check if these questions can have type Classification, if so, they will need the ClassificationRef attribute
         applicationDocData.questions.forEach(question => {
             if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
                 const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
@@ -499,7 +504,7 @@ module.exports = class USLIBOP extends Integration {
             location.questions.forEach(question => {
                 if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
                     const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                    if (question.attributes.questionType === "Classification") {
+                    if (question?.insurerQuestionAttributes?.questionType === "Classification") {
                         usliDynamicQuestion.att('ClassificationRef', "C1");
                     }
                     usliDynamicQuestion.ele('usli:QuestionId', question.insurerQuestionIdentifier);
@@ -627,7 +632,6 @@ module.exports = class USLIBOP extends Integration {
             //                 <MinPremInd>false</MinPremInd>
             //                 <PropertyInfo>
 
-
             const CommlPropertyLineBusiness = CommlPkgPolicyQuoteInqRq.ele('CommlPropertyLineBusiness').att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             CommlPropertyLineBusiness.ele('LOBCd', "CPKGE");
             CommlPropertyLineBusiness.ele('MinPremInd', false);
@@ -706,7 +710,7 @@ module.exports = class USLIBOP extends Integration {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', index + 1);
                 const ItemValueAmt1 = CommlPropertyInfo.ele('ItemValueAmt');
                 ItemValueAmt1.ele('Amt', 0);
-                CommlPropertyInfo.ele('ClassCdDesc', 'Building');
+                CommlPropertyInfo.ele('ClassCdDesc', 'Business Personal Property');
                 const CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', "BPP");
                 CommlCoverage.ele('CoverageDesc', "Business Personal Property");
@@ -977,7 +981,7 @@ const createLiabilityInfoCoverage = (LiabilityInfoElement, limitAbbreviation, li
 const getNAICSCode = async () => {
     const query = {
         active: true,
-        talageIndustryCodeId: applicationDocData.industryCode
+        industryCodeId: applicationDocData.industryCode
     };
 
     let talageIndustryCodeRecord = null;
