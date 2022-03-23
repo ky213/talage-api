@@ -751,6 +751,9 @@ module.exports = class HiscoxGL extends Integration {
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
             }
             sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingOwnership = this.primaryLocation.own ? 'Yes' : 'No';
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.OperatedFromHome = this.get_question_anwser_by_identifier("77a3c1f78d8b4107dcc1ac7352d57baae2530433")
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfEmployees = this.get_total_location_employees(this.primaryLocation)
+
             if (this.primaryLocation.own) {
                 if (isNaN(this.primaryLocation.buildingLimit)) {
                     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Building Limit missing ${__location}`);
@@ -808,6 +811,9 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 if (this.policy.type === 'BOP'){
                     location.AddrInfo.RatingInfo.BuildingOwnership = secondaryLocation.own ? 'Yes' : 'No';
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.OperatedFromHome = this.get_question_anwser_by_identifier("77a3c1f78d8b4107dcc1ac7352d57baae2530433")
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfEmployees = this.get_total_location_employees(secondaryLocation)
+
                     if (secondaryLocation.own) {
                         if (isNaN(secondaryLocation.buildingLimit)) {
                             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Secondary Location Building Limit missing ${__location}`);

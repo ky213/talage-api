@@ -901,6 +901,25 @@ module.exports = class Integration {
         return false;
     }
 
+
+    /**
+     * Retrieves the question that matches the identifier specified, returns false if none
+     *
+     * @param {string} identifier - The insurer identifier for the question
+     * @returns {string} - question.answer on success, null otherwise
+     */
+    get_question_anwser_by_identifier(identifier) {
+        // Loop through each question and check the identifier
+        for (const question_id in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+                if (this.question_identifiers[question_id] === identifier) {
+                    return this.questions[question_id].answer;
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Gets the identifiers for each question for the current insurer also populates also populates insurerQuestionList
      *
