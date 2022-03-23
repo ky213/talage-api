@@ -423,7 +423,7 @@ module.exports = class HiscoxGL extends Integration {
             this.employeeCount = 1;
         }
         //Wholesale swap already done if necessary.
-        this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+        //this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
 
         this.agencyId = this.app.agencyLocation.agencyId;
         this.agency = this.app.agencyLocation.agency;
@@ -456,13 +456,20 @@ module.exports = class HiscoxGL extends Integration {
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo = {};
         // zy TODO HACK Nothing I try is a valid ProducerClient. Hard-codign to their example for now
         // reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'APIQA'; // zy debug fix
+
+
+        if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.app.agencyLocation.insurers[this.insurer.id].agentId;
+        }
+        else {
+            // not setup assign to Talage as the partner
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'Talage';
+        }
+
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.EmailInfo = {EmailAddr: this.agencyEmail};
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo = {AgencyName: this.agency};
-        if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
-            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.AgentID = this.app.agencyLocation.insurers[this.insurer.id].agentId;
-        }
+
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person = {Name: {}};
 
         if (this.first_name){
@@ -550,8 +557,20 @@ module.exports = class HiscoxGL extends Integration {
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.applicationDocData.locations];
 
+
+        // Determine the primary and secondary locations
+        // cannot not count on the order of locations.
+        //this.primaryLocation = locations.shift();
+        //this.secondaryLocations = locations;
+        this.secondaryLocations = [];
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
+            if(location.primary){
+                this.primaryLocation = location
+            }
+            else {
+                this.secondaryLocations.push(location)
+            }
             if (["FL", "MO", "TX"].includes(location.territory)) {
                 // Hiscox requires a county in these states
                 if (location.county) {
@@ -624,9 +643,6 @@ module.exports = class HiscoxGL extends Integration {
             }
         }
 
-        // Determine the primary and secondary locations
-        this.primaryLocation = locations.shift();
-        this.secondaryLocations = locations;
         this.secondaryLocationsCount = this.secondaryLocations?.length >= 5 ? "5+" : this.secondaryLocations?.length.toString();
         if(!this.secondaryLocationsCount){
             this.secondaryLocationsCount = 0;
@@ -648,7 +664,7 @@ module.exports = class HiscoxGL extends Integration {
 
         const experience = moment(appDoc.founded).format('YYYY-MM-DD');
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
+        //reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} effective date ` + __location)
@@ -735,6 +751,9 @@ module.exports = class HiscoxGL extends Integration {
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
             }
             sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingOwnership = this.primaryLocation.own ? 'Yes' : 'No';
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.OperatedFromHome = this.get_question_anwser_by_identifier("77a3c1f78d8b4107dcc1ac7352d57baae2530433")
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfEmployees = this.get_total_location_employees(this.primaryLocation)
+
             if (this.primaryLocation.own) {
                 if (isNaN(this.primaryLocation.buildingLimit)) {
                     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Building Limit missing ${__location}`);
@@ -745,7 +764,9 @@ module.exports = class HiscoxGL extends Integration {
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                if(this.primaryLocation.territory === "AL"){
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                }
             }
 
         }
@@ -790,6 +811,9 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 if (this.policy.type === 'BOP'){
                     location.AddrInfo.RatingInfo.BuildingOwnership = secondaryLocation.own ? 'Yes' : 'No';
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.OperatedFromHome = this.get_question_anwser_by_identifier("77a3c1f78d8b4107dcc1ac7352d57baae2530433")
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfEmployees = this.get_total_location_employees(secondaryLocation)
+
                     if (secondaryLocation.own) {
                         if (isNaN(secondaryLocation.buildingLimit)) {
                             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Secondary Location Building Limit missing ${__location}`);
@@ -800,7 +824,9 @@ module.exports = class HiscoxGL extends Integration {
                         location.AddrInfo.RatingInfo.AgeOfBldng = secondaryLocation.yearBuilt;
                         location.AddrInfo.RatingInfo.BuildingConstruction = secondaryLocation.constructionType;
                         location.AddrInfo.RatingInfo.NumOfStoriesInBldng = secondaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-                        location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                        if(this.primaryLocation.territory === "AL"){
+                            location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                        }
                     }
 
                 }
@@ -1018,7 +1044,7 @@ module.exports = class HiscoxGL extends Integration {
             'SubcontractProfSrvcs',
             'SubcontractRepair',
             'SubcontractSrvcsDescribe',
-            'SupplyManufactDistbtGoodsOrProductsPercent3',
+            'SupplyManufactDistbtGoodsOrProductsPercent3zzz',
             'SupplyManufactDistbtGoodsOrProductsWebsite2',
             'SupplyManufactDistbtGoodsOrProductsWebsite4',
             'TangibleGoodWork',
@@ -1076,6 +1102,7 @@ module.exports = class HiscoxGL extends Integration {
             'SupplyManufactDistbtGoodsOrProductsPercent',
             'SupplyManufactDistbtGoodsOrProductsPercent1',
             'SupplyManufactDistbtGoodsOrProductsPercent2',
+            'SupplyManufactDistbtGoodsOrProductsPercent3',
             'SupplyManufactDistbtGoodsOrProductsPercent4',
             'SupplyManufactDistbtGoodsOrProductsProceduresDescribe',
             'SupplyManufactDistbtGoodsOrProductsProceduresDescribe1',
@@ -1151,6 +1178,7 @@ module.exports = class HiscoxGL extends Integration {
             "SupplyManufactDistbtGoodsOrProductsPercent",
             "SupplyManufactDistbtGoodsOrProductsPercent1",
             "SupplyManufactDistbtGoodsOrProductsPercent2",
+            "SupplyManufactDistbtGoodsOrProductsPercent3",
             "SupplyManufactDistbtGoodsOrProductsProceduresDescribe",
             "SupplyManufactDistbtGoodsOrProductsProceduresDescribe1",
             "SupplyManufactDistbtGoodsOrProductsUsed",
@@ -1265,7 +1293,9 @@ module.exports = class HiscoxGL extends Integration {
                     else {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
                     }
-                    if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+
+                    //if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+                    if (question.nodeName === 'TangibleGoodWork') {
                         // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
                         // we only get one answer. This fixes that issue
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application

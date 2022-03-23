@@ -378,6 +378,9 @@ exports.requiredFields = async(appId) => {
     catch(err){
         log.error("Error getting application doc " + err + __location);
     }
+    if(!applicationDB){
+        return {};
+    }
 
     let POLICY_TYPE_BASED = true
 

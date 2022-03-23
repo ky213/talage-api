@@ -2364,7 +2364,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);
-    server.addGetAuth('GetAssociations', `${basePath}/application/getrequiredfields`, GetRequiredFields);
+    server.addGetAuth('Get Required Fields', `${basePath}/application/getrequiredfields`, GetRequiredFields);
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);

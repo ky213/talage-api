@@ -1262,6 +1262,15 @@ module.exports = class Application {
                     }).
                     join(' and ')}`
             };
+            if(some_quotes && this.applicationDocData.metrics?.appValue > 0){
+                const amountStr = this.applicationDocData.metrics.appValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                const appValue = {
+                    'short': true,
+                    'title': 'AppValue',
+                    'value': `$${amountStr}`
+                }
+                attachment.fields.push(appValue)
+            }
 
             // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack
