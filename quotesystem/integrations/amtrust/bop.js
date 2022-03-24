@@ -399,7 +399,7 @@ module.exports = class AMTrustBOP extends Integration {
                 this.quoteCoverages.push(deductibleCoverage);
 
                 //Per AMTRUST referred Only until Amtrust implements Questions in the API.
-                return this.client_referred(quoteId, quoteLimits, quotePremium);
+                return this.client_price_indication(quoteId, quoteLimits, quotePremium);
 
             }
             else {

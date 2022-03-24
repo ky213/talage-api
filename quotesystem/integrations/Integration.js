@@ -1955,6 +1955,43 @@ module.exports = class Integration {
         return this.return_result('referred');
     }
 
+
+    /**
+     * Returns a quote object for a 'referred' quote
+     *
+     * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
+     * @param {array<object>} limits - The limits parsed from the quote (optional if coverages is supplied)
+     * @param {int} premiumAmount - The premium amount (optional)
+     * @param {array<object>} quoteCoverages - The insurer quote coverages parsed from the quote (optional if limits is supplied)
+     * @returns {object} - An object containing the quote information
+     */
+    async client_price_indication(quoteNumber, limits = {}, premiumAmount = null, quoteCoverages = []) {
+        this.limits = limits && Object.keys(limits).length > 0 ? limits : null;
+        this.quoteCoverages = quoteCoverages && quoteCoverages.length > 0 ? quoteCoverages : null;
+
+        // check as logged in return_result.
+        // should be detected and log in insurer integration code.
+        // if (!this.limits && !this.quoteCoverages) {
+        //     this.log_info(`Received a referred quote but no limits or coverages were supplied.`, __location);
+        //     //BP - Do not error out the quote on lack of limits
+        //     //     return this.return_error('error', `Could not locate the limits or coverages in the quote returned from the carrier.`);
+        // }
+
+        if (premiumAmount) {
+            this.amount = premiumAmount;
+        }
+        if (quoteNumber) {
+            this.number = quoteNumber;
+        }
+        
+
+        const message = `Price Indication: premium $${premiumAmount}`;
+        this.log += `<br>${message}<br><br>\n`;
+        this.log_info(message, __location);
+
+        return this.return_result('price_indication');
+    }
+
     /**
      * Returns a quote object for a 'quoted' quote
      *
@@ -2061,8 +2098,19 @@ module.exports = class Integration {
 	 * @param {int} amount - The amount of the indication as a whole number
 	 * @returns {object} - An object containing the indication information
 	 */
-    async return_indication(amount) {
+    async return_referred_with_price(amount) {
         const quoteResp = await this.record_quote(amount, 'referred_with_price');
+        return quoteResp;
+    }
+
+    /**
+	 * Generates and returns the proper structure for returning an indication from an integration
+	 *
+	 * @param {int} amount - The amount of the indication as a whole number
+	 * @returns {object} - An object containing the indication information
+	 */
+    async return_price_indication(amount) {
+        const quoteResp = await this.record_quote(amount, 'price_indication');
         return quoteResp;
     }
 
@@ -2131,7 +2179,8 @@ module.exports = class Integration {
             quoted: 'Quote Recieved',
             referred: 'Application Referred',
             referred_with_price: 'Application Referred With Price',
-            acord_emailed: 'Acord Form Emailed'
+            acord_emailed: 'Acord Form Emailed',
+            price_indication: 'Price Indication'
         };
 
         // Make sure we have a result
@@ -2139,7 +2188,9 @@ module.exports = class Integration {
             const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Missing argument for return_result(). Must pass in a valid value for result.`;
             log.error(error_message + __location);
             this.reasons.push(error_message);
-            return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+            //Do not setup the log from being saved.  change to error
+            result = "error"
+            //return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         }
 
         // Make sure the result is one of the ones we are expecting
@@ -2152,7 +2203,9 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+                //Do not setup the log from being saved.  change to error
+                result = "error"
+                //return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
             }
 
             // Double check: Is the result now what we are expecting
@@ -2160,7 +2213,9 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+                //Do not setup the log from being saved.  change to error
+                result = "error"
+                //return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
             }
         }
 
@@ -2251,8 +2306,12 @@ module.exports = class Integration {
             case 'acord_emailed':
                 return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication` + __location);
-                return this.return_indication(this.amount);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting with price` + __location);
+                return this.return_referred_with_price(this.amount);
+
+            case 'price_indication':
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Price Indication` + __location);
+                return this.return_price_indication(this.amount);
 
             default:
         }
