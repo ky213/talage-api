@@ -19,7 +19,9 @@ const builder = require("xmlbuilder");
 const moment = require("moment");
 const { v4: uuid } = require("uuid");
 const { get } = require("lodash");
+
 const Integration = require("../Integration.js");
+const { convertToDollarFormat } = global.requireShared("./helpers/stringFunctions.js");
 
 global.requireShared("./helpers/tracker.js");
 
@@ -43,6 +45,7 @@ module.exports = class USLIGL extends Integration {
     let logPrefix = "";
     let quoteLetter = null;
     const applicationDocData = this.applicationDocData;
+    const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
     const entityTypes = {
       Corporation: { abbr: "CP", id: "CORPORATION" },
       Partnership: { abbr: "PT", id: "PARTNERSHIP" },
@@ -70,7 +73,7 @@ module.exports = class USLIGL extends Integration {
     }
 
     // if there's no GL policy
-    if (this.policy?.type !== "GL") {
+    if (GLPolicy?.policyType !== "GL") {
       const errorMessage = `Could not find a policy with type GL.`;
       log.error(`${logPrefix}${errorMessage} ${__location}`);
       return this.client_error(errorMessage, __location);
@@ -361,24 +364,19 @@ module.exports = class USLIGL extends Integration {
                     "usli:IsLeasedOccupancy": 0,
                   },
                 ],
-                GeneralLiabilityClassification: {
-                  // to be refactored
-                  "@id": "C1",
-                  "@LocationRef": "1",
-                  CommlCoverage: {
-                    CoverageCd: "PREM",
-                    ClassCd: 60010,
-                    "usli:CoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
-                  },
-                  ClassCd: 60010,
-                  ClassCdDesc: "Apartment Buildings",
-                  Exposure: 12, // to be refactored
-                  PremiumBasisCd: "Unit",
-                  IfAnyRatingBasisInd: false,
-                  ClassId: 0,
-                  "usli:CoverageTypeId": 5337,
-                },
+                GeneralLiabilityClassification: applicationDocData.locations.map((location, index) => {
+                  return {
+                    "@id": "C1",
+                    "@LocationRef": `${index + 1}`,
+                    ClassCd: this.industry_code?.attributes?.GLCode,
+                    ClassCdDesc: this.industry_code?.attributes?.product,
+                    Exposure: 12, // to be refactored
+                    PremiumBasisCd: this.industry_code?.attributes?.ACORDPremiumBasisCode,
+                    IfAnyRatingBasisInd: false,
+                    ClassId: 0,
+                    "usli:CoverageTypeId": this.industry_code?.code,
+                  };
+                }),
                 EarnedPremiumPct: 0,
               },
             },
@@ -413,17 +411,26 @@ module.exports = class USLIGL extends Integration {
     // -------------- PARSE XML RESPONSE ----------------
 
     const response = get(result, "ACORD.InsuranceSvcRs[0]");
-    const statusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
-    const statusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
+    const statusCode = get(response, "Status[0].StatusCd[0]");
+    const msgStatusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
+    const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
+    const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
     // Check that there was success at the root level
-    if (statusCode === "Rejected") {
-      this.reasons.push(`Insurer's API Responded With Rejected Status ${statusDescription}`);
-      return this.return_result("error");
+    if (msgStatusCode === "Rejected") {
+      const errorMessage = `USLI decline error: ${msgStatusDescription} `;
+      log.error(logPrefix + errorMessage + __location);
+      return this.client_declined(msgStatusDescription);
     }
 
-    if (statusCode === "Error") {
-      const errorMessage = `USLI response error: ${statusDescription} `;
+    if (msgErrorCode === "DataError") {
+      const errorMessage = `USLI data not valid error: ${msgStatusDescription} `;
+      log.error(logPrefix + errorMessage + __location);
+      return this.client_error(errorMessage, __location);
+    }
+
+    if (msgErrorCode === "Error") {
+      const errorMessage = `USLI error: ${msgStatusDescription} `;
       log.error(logPrefix + errorMessage + __location);
       return this.client_error(errorMessage, __location);
     }
@@ -440,12 +447,26 @@ module.exports = class USLIGL extends Integration {
     const premium = rates?.reduce((t, { Rate }) => t + Number(Rate[0] || 0), 0);
     const quoteLimits = {};
 
-    const usliStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0]['usli:Status'][0]");
+    const coverages = commlCoverage.map((coverage, index) => {
+      const code = coverage.CoverageCd[0];
+      const description = coverage.CoverageDesc[0];
+      const limit = coverage.Limit[0]?.FormatText[0];
 
-    if (usliStatus === "Quote") {
-      return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", commlCoverage);
-    } else {
-      return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", commlCoverage);
+      return {
+        description: description,
+        value: convertToDollarFormat(limit, true),
+        sort: index,
+        category: "General Limits",
+        insurerIdentifier: code,
+      };
+    });
+
+    if (statusCode === "0" && msgStatusCode === "Success") {
+      return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
+    }
+
+    if (statusCode === "434") {
+      return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
     }
   }
 };
