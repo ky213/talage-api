@@ -22,7 +22,7 @@ async function authorize(agencyNetworkId, appAgencyId, appAgencyLocationId) {
     }
     const AgencyLocationMongooseModel = global.mongoose.AgencyLocation;
     let agencyLocationId = appAgencyLocationId;
-    let agencyId = agencyId;
+    let agencyId = appAgencyId;
     if(agencyId){
         const appAgencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: appAgencyLocationId}, '-__v');
         //user prime agency ??
