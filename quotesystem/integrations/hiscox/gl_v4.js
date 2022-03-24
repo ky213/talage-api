@@ -1487,11 +1487,11 @@ module.exports = class HiscoxGL extends Integration {
         let result = null;
         let requestError = null;
         try {
-            result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-                "Content-Type": "application/json"
-            });
+            // result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
+            //     Authorization: `Bearer ${token}`,
+            //     Accept: "application/json",
+            //     "Content-Type": "application/json"
+            // });
         }
         catch (error) {
             requestError = error;
@@ -1610,7 +1610,7 @@ module.exports = class HiscoxGL extends Integration {
         } // End of Response Error Processing
 
         // simulate a returned quote to test talage matching
-        const resultTest = {
+        result = {
             "InsuranceSvcRs": {
                 "QuoteRs": {
                     "RqUID": "87fa838a46-2343",
@@ -1626,6 +1626,58 @@ module.exports = class HiscoxGL extends Integration {
                             "InstallmentAmount": 125,
                             "DownPayment": 125,
                             "NumberOfInstallments": 3
+                        },
+                        "TenInstallment25PercentDownPayment": {
+                            "InstallmentAmount": 37.5,
+                            "DownPayment": 125,
+                            "NumberOfInstakkments": 10
+                        },
+                        "Surcharge": 0
+                    },
+                    "ReferenceNumberRetrieveURL": "https://",
+                    "QuoteRqDt": "2022-03-22",
+                    "StateOrProvCd": "NY",
+                    "ClassOfBusinessCd": "44314100_11101100_000001",
+                    "ProductQuoteRs": {
+                        "BusinessOwnersPolicyQuoteRs": {
+                            "Status": "Quoted",
+                            "Premium": {
+                                "Annual": 500,
+                                "SemiAnnual": {
+                                    "InstallmentAmount": 250,
+                                    "DownPayment": 250,
+                                    "NumberOfInstallments": 1
+                                },
+                                "Quarterly": {
+                                    "InstallmentAmount": 125,
+                                    "DownPayment": 125,
+                                    "NumberOfInstallments": 3
+                                },
+                                "TenInstallment25PercentDownPayment": {
+                                    "InstallmentAmount": 37.5,
+                                    "DownPayment": 125,
+                                    "NumberOfInstakkments": 10
+                                },
+                            }
+                        },
+                        "WaiverOfSubrogationCoverQuoteRs":{
+                            "Premium": 0
+                        },
+                        "PropertyAndEquiptmentCoverQuoteRs": {
+                            "RatingResult": {
+                                "Deductible": 500
+                            }
+                        },
+                        "TRIACOverQuoteRs": {
+                            "Premium": 5
+                        },
+                        "PrimaryNonCotribCoverQuoteRs": {
+                            "Premium": 0
+                        },
+                        "RatingResult": {
+                            "AggLOI": 200000,
+                            "LOI": 100000,
+                            "Deductible": 0
                         }
                     }
                 }
@@ -1680,7 +1732,9 @@ module.exports = class HiscoxGL extends Integration {
 
             //find payment plans
             const insurerPaymentPlans = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Premium;
-            
+            log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
+            log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
+            log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
 
             if (insurerPaymentPlans?.length > 0) {
             const paymentPlanSVC =  [
@@ -1753,7 +1807,10 @@ module.exports = class HiscoxGL extends Integration {
             }
 
             this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
-
+            
+            log.error('talage insure 00000000000000000000000000')
+            log.error('talage insure==>'+JSON.stringify(this.talageInsurerPaymentPlans));
+            log.error('talage insure 00000000000000000000000000')
             }
 
             // Get the quote link
