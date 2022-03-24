@@ -50,14 +50,7 @@ module.exports = class USLIGL extends Integration {
       "Limited Liability Company": { abbr: "LL", id: "LIMITED LIABILITY COMPANY" },
     };
 
-    const ignoredQuestionIds = [
-      "usli.building.roofingMaterial",
-      "usli.building.roofingMaterial",
-      "usli.general.terrorismCoverage",
-      "usli.building.fireProtectionClassCd",
-      "usli.building.requestedValuationTypeCd",
-      "usli.building.yearOccupiedLocation",
-    ];
+    const ignoredQuestionIds = ["usli.general.terrorismCoverage"];
 
     const supportedLimitsMap = {
       "1000000/1000000/1000000": ["1000000", "2000000", "2000000"],
@@ -292,113 +285,9 @@ module.exports = class USLIGL extends Integration {
                 }
               })
               .filter((l) => l),
-            CommlSubLocation: applicationDocData.locations
-              .map((location, index) => {
-                if (!location.primary) {
-                  return {
-                    "@LocationRef": `${index + 1}`,
-                    Construction: {
-                      ConstructionCd: "OT",
-                      Description: "Unknown",
-                      BldgArea: {
-                        NumUnits: 0,
-                      },
-                      "usli:PlumbingCd": "UNK",
-                    },
-                    BldgProtection: {
-                      ProtectionDeviceBurglarCd: "NotAnswered",
-                      ProtectionDeviceSmokeCd: 0,
-                      ProtectionDeviceSprinklerCd: "NoSprinkler",
-                      SprinkleredPct: 0,
-                    },
-                    BldgOccupancy: {
-                      "usli:YearsAtCurrentLocation": 0,
-                      "usli:YearOccupiedCurrentLocation": 0,
-                    },
-                    "usli:Perils": "Unknown",
-                  };
-                }
-              })
-              .filter((l) => l),
             CommlPropertyLineBusiness: {
               LOBCd: "CGL",
               MinPremInd: false,
-              PropertyInfo: {
-                "@LocationRef": "1",
-                CommlPropertyInfo: [
-                  {
-                    "@LocationRef": "1",
-                    ItemValueAmt: {
-                      Amt: 0,
-                    },
-                    ClassCdDesc: "Building",
-                    CommlCoverage: {
-                      CoverageCd: "BLDG",
-                      CoverageDesc: "Building",
-                      Limit: {
-                        FormatText: 500000,
-                        ValuationCd: "RC",
-                        LimitAppliesToCd: "Aggregate",
-                      },
-                      Deductible: {
-                        FormatInteger: 1000,
-                        DeductibleTypeCd: "WD",
-                        DeductibleAppliesToCd: "AllPeril",
-                      },
-                      PremiumBasisCd: "Unit",
-                      CommlCoverageSupplement: {
-                        CoinsurancePct: 80,
-                      },
-                      CoverageTypeId: 1000,
-                      FireCoverageTypeId: 1000,
-                      IsLeasedOccupancy: 1000,
-                    },
-                    BlanketNumber: 0,
-                    ValueReportingInd: false,
-                    GroundFloorArea: {
-                      NumUnits: 0,
-                    },
-                    BlanketInd: false,
-                    TotalPayrollAmt: {
-                      Amt: 0,
-                    },
-                  },
-                  {
-                    "@LocationRef": "1",
-                    ItemValueAmt: {
-                      Amt: 0,
-                    },
-                    ClassCdDesc: "Equipment Breakdown",
-                    CommlCoverage: {
-                      CoverageCd: "EQBK",
-                      CoverageDesc: "Equipment Breakdown",
-                      Limit: {
-                        FormatText: 500000,
-                        ValuationCd: "NotSet",
-                        LimitAppliesToCd: "Aggregate",
-                      },
-                      Deductible: {
-                        FormatInteger: 0,
-                        DeductibleTypeCd: "WD",
-                        DeductibleAppliesToCd: "AllPeril",
-                      },
-                      PremiumBasisCd: "Unit",
-                      CoverageTypeId: 10010,
-                      FireCoverageTypeId: 0,
-                      IsLeasedOccupancy: 0,
-                    },
-                    BlanketNumber: 0,
-                    ValueReportingInd: false,
-                    GroundFloorArea: {
-                      NumUnits: 0,
-                    },
-                    BlanketInd: false,
-                    TotalPayrollAmt: {
-                      Amt: 0,
-                    },
-                  },
-                ],
-              },
             },
             GeneralLiabilityLineBusiness: {
               LOBCd: "CGL",
@@ -484,7 +373,7 @@ module.exports = class USLIGL extends Integration {
                   },
                   ClassCd: 60010,
                   ClassCdDesc: "Apartment Buildings",
-                  Exposure: 12, // hardcoded
+                  Exposure: 12, // to be refactored
                   PremiumBasisCd: "Unit",
                   IfAnyRatingBasisInd: false,
                   ClassId: 0,
@@ -551,41 +440,12 @@ module.exports = class USLIGL extends Integration {
     const premium = rates?.reduce((t, { Rate }) => t + Number(Rate[0] || 0), 0);
     const quoteLimits = {};
 
-    commlCoverage.forEach(({ Limit }) => {
-      const limit = Limit[0]?.FormatText[0];
-      const limitCode = Limit[0]?.LimitAppliesToCd[0];
-
-      switch (limitCode) {
-        case "EAOCC":
-          quoteLimits[4] = limit;
-          break;
-        case "FIRDM":
-          quoteLimits[5] = limit;
-          break;
-        case "MEDEX":
-          quoteLimits[6] = limit;
-          break;
-        case "PIADV":
-          quoteLimits[7] = limit;
-          break;
-        case "GENAG":
-          quoteLimits[8] = limit;
-          break;
-        case "PRDCO":
-          quoteLimits[9] = limit;
-          break;
-        default:
-          log.warn(`${logPrefix}Integration Error: Unexpected limit found in response` + __location);
-          break;
-      }
-    });
-
     const usliStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0]['usli:Status'][0]");
 
     if (usliStatus === "Quote") {
-      return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64");
+      return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", commlCoverage);
     } else {
-      return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64");
+      return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", commlCoverage);
     }
   }
 };
