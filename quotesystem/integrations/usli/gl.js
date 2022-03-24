@@ -17,15 +17,16 @@
 
 const builder = require("xmlbuilder");
 const moment = require("moment");
-const { v4: uuid } = require("uuid");
-const { get } = require("lodash");
+const {v4: uuid} = require("uuid");
+const {get} = require("lodash");
 
 const Integration = require("../Integration.js");
-const { convertToDollarFormat } = global.requireShared("./helpers/stringFunctions.js");
+const {convertToDollarFormat} = global.requireShared("./helpers/stringFunctions.js");
 
 global.requireShared("./helpers/tracker.js");
 
 module.exports = class USLIGL extends Integration {
+
   /**
    * Initializes this integration.
    *
@@ -43,23 +44,35 @@ module.exports = class USLIGL extends Integration {
    */
   async _insurer_quote() {
     let logPrefix = "";
-    let quoteLetter = null;
+    const quoteLetter = null;
     const applicationDocData = this.applicationDocData;
     const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
     const entityTypes = {
-      Corporation: { abbr: "CP", id: "CORPORATION" },
-      Partnership: { abbr: "PT", id: "PARTNERSHIP" },
-      "Non Profit Corporation": { abbr: "NP", id: "NON PROFIT CORPORATION" },
-      "Limited Liability Company": { abbr: "LL", id: "LIMITED LIABILITY COMPANY" },
+      Corporation: {abbr: "CP",
+id: "CORPORATION"},
+      Partnership: {abbr: "PT",
+id: "PARTNERSHIP"},
+      "Non Profit Corporation": {abbr: "NP",
+id: "NON PROFIT CORPORATION"},
+      "Limited Liability Company": {abbr: "LL",
+id: "LIMITED LIABILITY COMPANY"}
     };
 
     const ignoredQuestionIds = ["usli.general.terrorismCoverage"];
 
     const supportedLimitsMap = {
-      "1000000/1000000/1000000": ["1000000", "2000000", "2000000"],
-      "1000000/2000000/1000000": ["1000000", "2000000", "2000000"],
-      "1000000/2000000/2000000": ["1000000", "2000000", "2000000"],
-      "2000000/4000000/4000000": ["2000000", "4000000", "4000000"],
+      "1000000/1000000/1000000": ["1000000",
+"2000000",
+"2000000"],
+      "1000000/2000000/1000000": ["1000000",
+"2000000",
+"2000000"],
+      "1000000/2000000/2000000": ["1000000",
+"2000000",
+"2000000"],
+      "2000000/4000000/4000000": ["2000000",
+"4000000",
+"4000000"]
     };
 
     const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
@@ -91,19 +104,19 @@ module.exports = class USLIGL extends Integration {
           SignonPswd: {
             CustId: {
               SPName: "com.usli",
-              CustLoginId: this.username,
+              CustLoginId: this.username
             },
             CustPswd: {
               EncryptionTypeCd: "NONE",
-              Pswd: this.password,
+              Pswd: this.password
             },
-            GenSessKey: false,
+            GenSessKey: false
           },
           CustLangPref: "en",
           ClientApp: {
-            Version: "2.0",
+            Version: "2.0"
           },
-          SuppressEcho: false,
+          SuppressEcho: false
         },
         InsuranceSvcRq: {
           RqUID: uuid(),
@@ -111,43 +124,42 @@ module.exports = class USLIGL extends Integration {
             CurCd: "USD",
             Producer: {
               ItemIdInfo: {
-                InsurerId: "1065",
+                InsurerId: "1065"
               },
               GeneralPartyInfo: {
                 NameInfo: [
                   {
                     CommlName: {
-                      CommercialName: this.app?.agencyLocation?.agency,
-                    },
-                  },
-                  {
+                      CommercialName: this.app?.agencyLocation?.agency
+                    }
+                  }, {
                     PersonName: {
                       Surname: this.app?.agencyLocation?.first_name,
-                      GivenName: this.app?.agencyLocation?.last_name,
-                    },
-                  },
+                      GivenName: this.app?.agencyLocation?.last_name
+                    }
+                  }
                 ],
                 Communications: {
                   EmailInfo: {
                     EmailAddr: this.app?.agencyLocation?.agencyEmail,
-                    DoNotContactInd: false,
-                  },
-                },
+                    DoNotContactInd: false
+                  }
+                }
               },
               ProducerInfo: {
-                ProducerRoleCd: "Agency",
-              },
+                ProducerRoleCd: "Agency"
+              }
             },
             InsuredOrPrincipal: {
               GeneralPartyInfo: {
                 NameInfo: {
                   CommlName: {
-                    CommercialName: applicationDocData?.businessName,
+                    CommercialName: applicationDocData?.businessName
                   },
                   LegalEntityCd: {
                     "@id": entityTypes[applicationDocData?.entityType]?.id || "OTHER",
-                    "#text": entityTypes[applicationDocData?.entityType]?.abbr || "OT",
-                  },
+                    "#text": entityTypes[applicationDocData?.entityType]?.abbr || "OT"
+                  }
                 },
                 Addr: {
                   AddrTypeCd: "InsuredsAddress",
@@ -155,48 +167,48 @@ module.exports = class USLIGL extends Integration {
                   City: applicationDocData?.mailingCity,
                   StateProvCd: applicationDocData?.mailingState,
                   PostalCode: applicationDocData?.mailingZipcode?.substring(0, 5),
-                  CountryCd: "USA",
+                  CountryCd: "USA"
                 },
                 Communications: {
                   PhoneInfo: {
-                    DoNotContactInd: false,
-                  },
-                },
+                    DoNotContactInd: false
+                  }
+                }
               },
               InsuredOrPrincipalInfo: {
                 InsuredOrPrincipalRoleCd: "Insured",
                 PersonInfo: {
                   LengthTimeEmployed: {
-                    NumUnits: 0,
+                    NumUnits: 0
                   },
                   LengthTimeCurrentOccupation: {
-                    NumUnits: 0,
+                    NumUnits: 0
                   },
                   LengthTimeWithPreviousEmployer: {
-                    NumUnits: 0,
+                    NumUnits: 0
                   },
                   LengthTimeCurrentAddr: {
                     StartTime: "00:00:00.0000000-04:00",
                     EndTime: "00:00:00.0000000-04:00",
                     LocalStandardTimeInd: false,
                     DurationPeriod: {
-                      NumUnits: 0,
+                      NumUnits: 0
                     },
                     ContinuousInd: false,
-                    "GB.BothDaysInclusiveInd": false,
+                    "GB.BothDaysInclusiveInd": false
                   },
                   DoNotSolicitInd: false,
                   NumDependents: 0,
-                  CoInsuredSameAddressInsuredInd: false,
+                  CoInsuredSameAddressInsuredInd: false
                 },
                 BusinessInfo: {
                   BusinessStartDt: moment(applicationDocData.founded).year(),
                   OperationsDesc:
                     applicationDocData?.questions?.find(
-                      ({ insurerQuestionIdentifier }) => insurerQuestionIdentifier === "usli.general.operationsDesc"
-                    )?.answerValue || "Not Provided",
-                },
-              },
+                      ({insurerQuestionIdentifier}) => insurerQuestionIdentifier === "usli.general.operationsDesc"
+                    )?.answerValue || "Not Provided"
+                }
+              }
             },
             CommlPolicy: {
               CompanyProductCd: "050070",
@@ -208,12 +220,12 @@ module.exports = class USLIGL extends Integration {
                 ExpirationDt: this.policy?.expiration_date?.format("YYYY-MM-DD"),
                 DurationPeriod: {
                   NumUnits: this.policy?.expiration_date?.diff(this.policy?.effective_date, "months"),
-                  UnitMeasurementCd: "month",
-                },
+                  UnitMeasurementCd: "month"
+                }
               },
               PrintedDocumentsRequestedInd: false,
               TotalPaidLossAmt: {
-                Amt: applicationDocData.claims?.reduce((total, { amountPaid }) => total + (amountPaid || 0), 0),
+                Amt: applicationDocData.claims?.reduce((total, {amountPaid}) => total + (amountPaid || 0), 0)
               },
               NumLosses: applicationDocData.claims?.length,
               NumLossesYrs: 0,
@@ -221,7 +233,7 @@ module.exports = class USLIGL extends Integration {
               FutureEffDateNumDays: 0,
               InsuredRequestsPrintedDocumentsInd: false,
               CommlPolicySupplement: {
-                PolicyTypeCd: "OCCUR",
+                PolicyTypeCd: "OCCUR"
               },
               WrapUpInd: false,
               CommlCoverage: [
@@ -230,15 +242,14 @@ module.exports = class USLIGL extends Integration {
                   CoverageDesc: "Stamping Fee",
                   "usli:CoverageTypeId": 0,
                   "usli:FireCoverageTypeId": 0,
-                  usliIsLeasedOccupancy: 0,
-                },
-                {
+                  usliIsLeasedOccupancy: 0
+                }, {
                   CoverageCd: "SPLTX",
                   CoverageDesc: "Surplus Lines Tax",
                   "usli:CoverageTypeId": 0,
                   "usli:FireCoverageTypeId": 0,
-                  "usli:IsLeasedOccupancy": 0,
-                },
+                  "usli:IsLeasedOccupancy": 0
+                }
               ],
               AnyLossesAccidentsConvictionsInd: applicationDocData.claims?.length > 0,
               "usli:DynamicQuestion": applicationDocData.questions
@@ -247,7 +258,7 @@ module.exports = class USLIGL extends Integration {
                     return {
                       "usli:QuestionId": question.insurerQuestionIdentifier, // Question ID instead
                       "usli:QuestionType": "Applicant",
-                      "usli:Answer": question.answerValue || "Unknown",
+                      "usli:Answer": question.answerValue || "Unknown"
                     };
                   }
                 })
@@ -259,7 +270,7 @@ module.exports = class USLIGL extends Integration {
                           "@LocationRef": `${i + 1}`,
                           "usli:QuestionId": q.insurerQuestionIdentifier, // Question ID instead
                           "usli:QuestionType": "Location",
-                          "usli:Answer": q.answerValue || "Unknown",
+                          "usli:Answer": q.answerValue || "Unknown"
                         };
                       }
                     })
@@ -269,9 +280,10 @@ module.exports = class USLIGL extends Integration {
               "usli:Status": "Quote",
               "usli:Carrier": "MTV",
               "usli:FilingId": 0,
-              "usli:IsUnsolicited": 0,
+              "usli:IsUnsolicited": 0
             },
             Location: applicationDocData.locations
+            // eslint-disable-next-line array-callback-return
               .map((location, index) => {
                 if (location.primary) {
                   return {
@@ -282,15 +294,15 @@ module.exports = class USLIGL extends Integration {
                       City: location?.city,
                       StateProvCd: location?.state,
                       PostalCode: location?.zipcode,
-                      CountryCd: "USA",
-                    },
+                      CountryCd: "USA"
+                    }
                   };
                 }
               })
               .filter((l) => l),
             CommlPropertyLineBusiness: {
               LOBCd: "CGL",
-              MinPremInd: false,
+              MinPremInd: false
             },
             GeneralLiabilityLineBusiness: {
               LOBCd: "CGL",
@@ -302,70 +314,69 @@ module.exports = class USLIGL extends Integration {
                     CoverageDesc: "Each Occurrence Limit",
                     Limit: {
                       FormatText: supportedLimits[0] || "2000000",
-                      LimitAppliesToCd: "PerOcc",
+                      LimitAppliesToCd: "PerOcc"
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
+                    "usli:IsLeasedOccupancy": 0
                   },
                   {
                     CoverageCd: "GENAG",
                     CoverageDesc: "General Aggregate Limit",
                     Limit: {
                       FormatText: supportedLimits[1] || "4000000",
-                      LimitAppliesToCd: "Aggregate",
+                      LimitAppliesToCd: "Aggregate"
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
+                    "usli:IsLeasedOccupancy": 0
                   },
                   {
                     CoverageCd: "PRDCO",
                     CoverageDesc: "Products/Completed Operations Aggregate Limit",
                     Limit: {
                       FormatText: supportedLimits[2] || "4000000",
-                      LimitAppliesToCd: "Aggregate",
+                      LimitAppliesToCd: "Aggregate"
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
+                    "usli:IsLeasedOccupancy": 0
                   },
                   {
                     CoverageCd: "PIADV",
                     CoverageDesc: "Personal &amp; Advertising Injury Limit",
                     Limit: {
                       FormatText: supportedLimits[2] || "4000000",
-                      LimitAppliesToCd: "PerPers",
+                      LimitAppliesToCd: "PerPers"
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
+                    "usli:IsLeasedOccupancy": 0
                   },
                   {
                     CoverageCd: "MEDEX",
                     CoverageDesc: "Medical Expense Limit",
                     Limit: {
                       FormatText: 5000,
-                      LimitAppliesToCd: "PerPers",
+                      LimitAppliesToCd: "PerPers"
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
+                    "usli:IsLeasedOccupancy": 0
                   },
                   {
                     CoverageCd: "FIRDM",
                     CoverageDesc: "Damages To Premises Rented To You",
                     Limit: {
                       FormatText: 100000,
-                      LimitAppliesToCd: "PropDam",
+                      LimitAppliesToCd: "PropDam"
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0,
-                  },
+                    "usli:IsLeasedOccupancy": 0
+                  }
                 ],
-                GeneralLiabilityClassification: applicationDocData.locations.map((location, index) => {
-                  return {
+                GeneralLiabilityClassification: applicationDocData.locations.map((location, index) => ({
                     "@id": "C1",
                     "@LocationRef": `${index + 1}`,
                     ClassCd: this.industry_code?.attributes?.GLCode,
@@ -374,16 +385,15 @@ module.exports = class USLIGL extends Integration {
                     PremiumBasisCd: this.industry_code?.attributes?.ACORDPremiumBasisCode,
                     IfAnyRatingBasisInd: false,
                     ClassId: 0,
-                    "usli:CoverageTypeId": this.industry_code?.code,
-                  };
-                }),
-                EarnedPremiumPct: 0,
-              },
+                    "usli:CoverageTypeId": this.industry_code?.code
+                  })),
+                EarnedPremiumPct: 0
+              }
             },
-            TransactionRequestDt: moment().format(),
-          },
-        },
-      },
+            TransactionRequestDt: moment().format()
+          }
+        }
+      }
     };
 
     // -------------- SEND XML REQUEST ----------------
@@ -396,13 +406,14 @@ module.exports = class USLIGL extends Integration {
     const host = "services.uslistage.com"; // TODO: base API path here
     const quotePath = `/API/Quote`; // TODO: API Route path here
     const additionalHeaders = {
-      "Content-Type": "application/xml",
+      "Content-Type": "application/xml"
     };
 
     let result = null;
     try {
       result = await this.send_xml_request(host, quotePath, xml, additionalHeaders);
-    } catch (e) {
+    }
+ catch (e) {
       const errorMessage = `An error occurred while trying to hit the USLI Quote API endpoint: ${e}. `;
       log.error(logPrefix + errorMessage + __location);
       return this.client_error(errorMessage, __location);
@@ -444,7 +455,7 @@ module.exports = class USLIGL extends Integration {
       response,
       "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage"
     );
-    const premium = rates?.reduce((t, { Rate }) => t + Number(Rate[0] || 0), 0);
+    const premium = rates?.reduce((t, {Rate}) => t + Number(Rate[0] || 0), 0);
     const quoteLimits = {};
 
     const coverages = commlCoverage.map((coverage, index) => {
@@ -457,7 +468,7 @@ module.exports = class USLIGL extends Integration {
         value: convertToDollarFormat(limit, true),
         sort: index,
         category: "General Limits",
-        insurerIdentifier: code,
+        insurerIdentifier: code
       };
     });
 
