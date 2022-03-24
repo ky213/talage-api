@@ -6,7 +6,7 @@ const axios = require("axios")
 let accessToken = "";
 let credentials = null;
 
-async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
+async function authorize(agencyNetworkId, appAgencyId, appAgencyLocationId) {
     accessToken = "";
     //get Amtrust insurer.
     var InsurerModel = global.mongoose.Insurer;
@@ -21,7 +21,8 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
         credentials = JSON.parse(insurer.test_password);
     }
     const AgencyLocationMongooseModel = global.mongoose.AgencyLocation;
-    let agencyLocationId = 1; //talage
+    let agencyLocationId = appAgencyLocationId;
+    let agencyId = appAgencyId;
     if(agencyId){
         const appAgencyLocDoc = await AgencyLocationMongooseModel.findOne({systemId: appAgencyLocationId}, '-__v');
         //user prime agency ??
@@ -43,10 +44,12 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
                 const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
                 if(agencyLocationPrime){
                     agencyLocationId = agencyLocationPrime.systemId;
+                    agencyId = agencyLocationPrime.systemId;
                     //is Amtrust talageWholeSale
                     const amtrustAL = agencyLocationPrime.insurers.find((alI) => alI.insurerId === insurer.insurerId);
                     if(amtrustAL?.talageWholesale){
                         agencyLocationId = 1;
+                        agencyId = 1;
                     }
                 }
             }
@@ -84,7 +87,7 @@ async function authorize(agencyNetworkId, agencyId, appAgencyLocationId) {
         const agentUserNamePassword = amtrustAL.agentId.trim();
         const commaIndex = agentUserNamePassword.indexOf(',');
         if(commaIndex === -1){
-            log.error(`agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
+            log.error(`agencyId ${agencyId} agencyLocationId ${agencyLocationId} Amtrust credentials missing configured` + __location)
         }
         else {
             agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
