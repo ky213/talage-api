@@ -388,6 +388,16 @@ module.exports = class EmployersWC extends Integration {
               }
             }
 
+            // California Req: If there is atleast one CA location, and its an LLC/Partnerhsip, all owners must be listed
+            if (appDoc.locations.find(location => location.state === 'CA') && appDoc.entityType === 'Limited Liability Company') {
+                log.error('Triggered - App is in California and is an LLC');
+                console.log('appDoc.locations: ', appDoc.locations)
+                console.log(`Parkers statement is true. State is ${appDoc.locations[0].state}, and the entity type is ${appDoc.entityType}.`);
+                // console.error('Warn Test - Parker H. ')
+            } else {
+                console.log('Not California!!')
+            }
+
             requestJSON.namedInsureds = [{}];
             if (businessName) {
                 requestJSON.namedInsureds[0].name = businessName;
