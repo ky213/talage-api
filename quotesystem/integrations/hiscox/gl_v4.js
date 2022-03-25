@@ -11,7 +11,7 @@ const momentTimezone = require("moment-timezone");
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
-const InsurerQuestionBO = global.requireShared('./models/InsurerQuestion-BO.js');
+
 
 module.exports = class HiscoxGL extends Integration {
 
@@ -33,8 +33,24 @@ module.exports = class HiscoxGL extends Integration {
      */
     async _insurer_quote() {
 
-
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_quote ` + __location)
+        const appDoc = this.applicationDocData
+
+        // Define how legal entities are mapped for Hiscox
+        const entityMatrix = {
+            'Association': 'Professional Association',
+            'Corporation': 'Corporation',
+            'Corporation (C-Corp)': 'Corporation',
+            'Corporation (S-Corp)': 'Corporation',
+            'Limited Liability Company': 'Limited Liability Company',
+            'Limited Partnership': 'Partnership',
+            'Limited Liability Company (Member Managed)': 'Limited Liability Company',
+            'Limited Liability Company (Manager Managed)': 'Limited Liability Company',
+            'Partnership': 'Partnership',
+            'Sole Proprietorship': 'Sole Proprietor',
+            'Other': 'Other'
+        };
+
         // These are the statuses returned by the insurer and how they map to our Talage statuses
 
         // this.possible_api_responses.DECLINE = 'declined';
@@ -253,53 +269,6 @@ module.exports = class HiscoxGL extends Integration {
             "62161000_31112100_02000000"
         ]
 
-        let glCarrierLimits = null;
-        if (landSurveyorCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
-            // GL: Land Surveyor
-            glCarrierLimits = ['300000/300000','300000/500000', '500000/500000', '500000/1000000', '1000000/1000000'];
-        }
-        else if (cobGroup1.includes(this.insurerIndustryCode.attributes.v4Code)) {
-            // GL: Landscape/Janitorial/Retail COBs, Mobile Food Services, Small Contractor COBs
-            glCarrierLimits = ['300000/300000', '300000/500000', '500000/500000', '500000/1000000', '1000000/1000000', '1000000/2000000'];
-        }
-        else if (cobGroup2.includes(this.insurerIndustryCode.attributes.v4Code)) {
-            // GL: ARCHITECTS & ENGINEERS COBs Except Land Surveyor, Home health aide, Insurance inspector, Manufacturer sales representative, Personal care aide, Safety consultant
-            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
-        }
-        else {
-            // Gl: All other COBs have
-            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
-        }
-
-
-        // GL Deductible
-        let glDeductible = 0;
-        const propMgmtRealEstateAgentCOBs = [
-            "53121000_41902100_00000000",
-            "53131100_11914100_00000000"
-        ];
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
-        if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
-            glDeductible = 1000;
-        }
-
-        // BOP Deductible
-        const bopDeductibles = [0, 500, 1000];
-
-        // Choose Carrier Limits based on Policy Type
-        let carrierLimits = null;
-        if (this.policy.type === 'GL') {
-            carrierLimits = glCarrierLimits;
-            this.deductible = glDeductible;
-        }
-        else if (this.policy.type === 'BOP') {
-            carrierLimits = bopCarrierLimits;
-            this.deductible = this.getBestDeductible(this.policy.deductible, bopDeductibles);
-        }
-        else {
-            log.error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
-        }
-
         const validCounties = [
             "Broward county",
             "Duval county",
@@ -331,6 +300,58 @@ module.exports = class HiscoxGL extends Integration {
             "Platte county (other than Kansas City)",
             "Saint Louis county"
         ];
+
+
+        let glCarrierLimits = null;
+        if (landSurveyorCOBs.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: Land Surveyor
+            glCarrierLimits = ['300000/300000','300000/500000', '500000/500000', '500000/1000000', '1000000/1000000'];
+        }
+        else if (cobGroup1.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: Landscape/Janitorial/Retail COBs, Mobile Food Services, Small Contractor COBs
+            glCarrierLimits = ['300000/300000', '300000/500000', '500000/500000', '500000/1000000', '1000000/1000000', '1000000/2000000'];
+        }
+        else if (cobGroup2.includes(this.insurerIndustryCode.attributes.v4Code)) {
+            // GL: ARCHITECTS & ENGINEERS COBs Except Land Surveyor, Home health aide, Insurance inspector, Manufacturer sales representative, Personal care aide, Safety consultant
+            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
+        }
+        else {
+            // Gl: All other COBs have
+            glCarrierLimits = ['300000/600000', '500000/600000', '500000/1000000', '1000000/1000000', '1000000/2000000', '2000000/2000000'];
+        }
+
+
+        // GL Deductible
+        //Hiscox UI guidelines only list 0, 1000  from XSD
+        const glDeductibles = [0,1000];
+        const propMgmtRealEstateAgentCOBs = [
+            "53121000_41902100_00000000",
+            "53131100_11914100_00000000"
+        ];
+
+        // BOP Deductible from XSD
+        const bopDeductibles = [0, 1000, 2500, 5000, 7500, 10000, 15000, 200000, 250000];
+
+        // Choose Carrier Limits based on Policy Type
+        let carrierLimits = null;
+        if (this.policy.type === 'GL') {
+            carrierLimits = glCarrierLimits;
+            this.deductible = this.getBestDeductible(this.policy.deductible, glDeductibles);
+
+            log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
+            if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
+                this.deductible = 1000;
+            }
+
+        }
+        else if (this.policy.type === 'BOP') {
+            carrierLimits = bopCarrierLimits;
+            this.deductible = this.getBestDeductible(this.policy.deductible, bopDeductibles);
+        }
+        else {
+            log.error(`Unsupported Policy type "${this.policy.type}" is neither GL nor BOP`);
+        }
+
 
         log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
@@ -386,29 +407,6 @@ module.exports = class HiscoxGL extends Integration {
         }
         log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
 
-        // Define how legal entities are mapped for Hiscox
-        const entityMatrix = {
-            'Association': 'Professional Association',
-            'Corporation': 'Corporation',
-            'Corporation (C-Corp)': 'Corporation',
-            'Corporation (S-Corp)': 'Corporation',
-            'Limited Liability Company': 'Limited Liability Company',
-            'Limited Partnership': 'Partnership',
-            'Limited Liability Company (Member Managed)': 'Limited Liability Company',
-            'Limited Liability Company (Manager Managed)': 'Limited Liability Company',
-            'Partnership': 'Partnership',
-            'Sole Proprietorship': 'Sole Proprietor',
-            'Other': 'Other'
-        };
-
-        // Determine which URL to use
-        let host = "";
-        if (this.insurer.useSandbox) {
-            host = "sdbx.hiscox.com";
-        }
-        else {
-            host = "api.hiscox.com";
-        }
 
         const reqJSON = {InsuranceSvcRq: {QuoteRq: {}}};
 
@@ -425,7 +423,7 @@ module.exports = class HiscoxGL extends Integration {
             this.employeeCount = 1;
         }
         //Wholesale swap already done if necessary.
-        this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+        //this.agency_id = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
 
         this.agencyId = this.app.agencyLocation.agencyId;
         this.agency = this.app.agencyLocation.agency;
@@ -458,13 +456,20 @@ module.exports = class HiscoxGL extends Integration {
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo = {};
         // zy TODO HACK Nothing I try is a valid ProducerClient. Hard-codign to their example for now
         // reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.agency;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'APIQA'; // zy debug fix
+
+
+        if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = this.app.agencyLocation.insurers[this.insurer.id].agentId;
+        }
+        else {
+            // not setup assign to Talage as the partner
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'Talage';
+        }
+
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.EmailInfo = {EmailAddr: this.agencyEmail};
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo = {AgencyName: this.agency};
-        if (this.app.agencyLocation.insurers[this.insurer.id].agentId){
-            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.AgentID = this.app.agencyLocation.insurers[this.insurer.id].agentId;
-        }
+
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person = {Name: {}};
 
         if (this.first_name){
@@ -539,7 +544,6 @@ module.exports = class HiscoxGL extends Integration {
 
 
         // Determine the best limits
-        // ***** HACK TODO ****** Temporarily hard-coded limits to 1000000/1000000 for testing.
         // ***** Need to revisit how to determine limits as Hiscox doesn't seem to like the results of our getBestLimits
         // ***** V3 request with 250000/250000 was fine but V4 doesn't like it. Not sure how bestLimits even resulted in 250000/250000
         // ***** Anyway, limits needs to be revisited and set correctly
@@ -553,8 +557,20 @@ module.exports = class HiscoxGL extends Integration {
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.applicationDocData.locations];
 
+
+        // Determine the primary and secondary locations
+        // cannot not count on the order of locations.
+        //this.primaryLocation = locations.shift();
+        //this.secondaryLocations = locations;
+        this.secondaryLocations = [];
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
+            if(location.primary){
+                this.primaryLocation = location
+            }
+            else {
+                this.secondaryLocations.push(location)
+            }
             if (["FL", "MO", "TX"].includes(location.territory)) {
                 // Hiscox requires a county in these states
                 if (location.county) {
@@ -627,9 +643,6 @@ module.exports = class HiscoxGL extends Integration {
             }
         }
 
-        // Determine the primary and secondary locations
-        this.primaryLocation = locations.shift();
-        this.secondaryLocations = locations;
         this.secondaryLocationsCount = this.secondaryLocations?.length >= 5 ? "5+" : this.secondaryLocations?.length.toString();
         if(!this.secondaryLocationsCount){
             this.secondaryLocationsCount = 0;
@@ -649,10 +662,9 @@ module.exports = class HiscoxGL extends Integration {
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs = {ApplicationRatingInfo: {}};
 
-        const appDoc = this.applicationDocData;
         const experience = moment(appDoc.founded).format('YYYY-MM-DD');
         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.ProfessionalExperience = experience;
-        reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
+        //reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} effective date ` + __location)
@@ -739,6 +751,9 @@ module.exports = class HiscoxGL extends Integration {
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BsnsPrsnlPropertyLimit = this.getHiscoxBusinessPersonalPropertyLimit(this.primaryLocation.businessPersonalPropertyLimit);
             }
             sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingOwnership = this.primaryLocation.own ? 'Yes' : 'No';
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.OperatedFromHome = this.get_question_anwser_by_identifier("77a3c1f78d8b4107dcc1ac7352d57baae2530433")
+            sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfEmployees = this.get_total_location_employees(this.primaryLocation)
+
             if (this.primaryLocation.own) {
                 if (isNaN(this.primaryLocation.buildingLimit)) {
                     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Primary Location Building Limit missing ${__location}`);
@@ -749,7 +764,9 @@ module.exports = class HiscoxGL extends Integration {
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.AgeOfBldng = this.primaryLocation.yearBuilt;
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.BuildingConstruction = this.primaryLocation.constructionType;
                 sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfStoriesInBldng = this.primaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-                sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                if(this.primaryLocation.territory === "AL"){
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                }
             }
 
         }
@@ -794,6 +811,9 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 if (this.policy.type === 'BOP'){
                     location.AddrInfo.RatingInfo.BuildingOwnership = secondaryLocation.own ? 'Yes' : 'No';
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.OperatedFromHome = this.get_question_anwser_by_identifier("77a3c1f78d8b4107dcc1ac7352d57baae2530433")
+                    sharedQuoteRqStructure.Locations.Primary.AddrInfo.RatingInfo.NumOfEmployees = this.get_total_location_employees(secondaryLocation)
+
                     if (secondaryLocation.own) {
                         if (isNaN(secondaryLocation.buildingLimit)) {
                             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Required field Secondary Location Building Limit missing ${__location}`);
@@ -804,7 +824,9 @@ module.exports = class HiscoxGL extends Integration {
                         location.AddrInfo.RatingInfo.AgeOfBldng = secondaryLocation.yearBuilt;
                         location.AddrInfo.RatingInfo.BuildingConstruction = secondaryLocation.constructionType;
                         location.AddrInfo.RatingInfo.NumOfStoriesInBldng = secondaryLocation.numStories >= 4 ? '4 or more' : this.primaryLocation.numStories;
-                        location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                        if(this.primaryLocation.territory === "AL"){
+                            location.AddrInfo.RatingInfo.Roof = 'Metal'; // zy debug fix hard-coded value
+                        }
                     }
 
                 }
@@ -861,127 +883,131 @@ module.exports = class HiscoxGL extends Integration {
         // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Questton setup 1 ` + __location)
-        for (const question of Object.values(this.questions)) {
-            try{
-                let questionAnswer = this.determine_question_answer(question, question.required);
-                let elementName = questionDetails[question.id].attributes.elementName;
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Questton setup 1 ` + __location)
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 1 this.questions ${JSON.stringify(this.questions)} ` + __location)
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 1 this.insurerQuestionList ${JSON.stringify(this.insurerQuestionList)} ` + __location)
+        //should loop on insurerQuestion and look up talage question.
+        //for (const question of Object.values(this.questions)) {
+        for(const insurerQuestion of this.insurerQuestionList){
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
 
-                let attributes = null;
-                if (question.type === 'Checkboxes' || question.type === 'Select List') {
-                    // Checkbox questions require that each checked answer turns into another object property underneath the main question property
-                    // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
-                    const insurerQuestionBO = new InsurerQuestionBO();
-                    const insurerQuestionQuery = {
-                        active: true,
-                        talageQuestionId: question.id
-                    };
-                    let insurerQuestionList = null;
-                    try {
-                        insurerQuestionList = await insurerQuestionBO.getList(insurerQuestionQuery);
-                    }
-                    catch (err) {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting associated insurer question for talage question ID ${question.id} ${__location}`);
-                    }
-                    if (!insurerQuestionList || insurerQuestionList.length === 0) {
-                        log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Did not find insurer question linked to talage question id ${question.id}. This can stop us from putting correct properties into request ${__location}`);
-                        continue;
-                    }
-                    if (!insurerQuestionList[0].attributes) {
-                        if (question.type === 'Checkboxes') {
-                            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestionList[0].identifier}: ${insurerQuestionList[0].text} ${__location}`)
-                        }
-                        continue;
-                    }
-                    attributes = insurerQuestionList[0].attributes;
+                //log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName}`)
+                //const question = this.questions[question_id];
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName} no TalageQuestion`)
+                    continue;
                 }
 
-                if (questionAnswer !== false) {
-                    if (elementName === 'GLHireNonOwnVehicleUse') {
-                        elementName = 'HireNonOwnVehclUse';
-                    }
-                    else if (elementName === 'HNOACoverQuoteRq') {
-                        if (questionAnswer !== 'No') {
-                            this.hnoaAmount = questionAnswer;
-                            // this.questionList.push({
-                            //     nodeName: 'HireNonOwnVehclCoverage',
-                            //     answer: 'Yes'
-                            // });
+                try{
+                    //use ApplicationDocData.questions
+                    let questionAnswer = this.determine_question_answer(question, question.required);
+                    let elementName = insurerQuestion.attributes.elementName;
+
+                    let attributes = null;
+                    if (question.type === 'Checkboxes' || question.type === 'Select List') {
+                        // Checkbox questions require that each checked answer turns into another object property underneath the main question property
+                        // The code here grabs the attributes from the insurer question to map the question answer text to the element name expected by Hiscox
+
+                        if (!insurerQuestion.attributes) {
+                            if (question.type === 'Checkboxes') {
+                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} No attributes present on insurer question: ${insurerQuestion.identifier}: ${insurerQuestion.text} ${__location}`)
+                            }
+                            continue;
                         }
-                        // Don't add this to the question list
-                        continue;
+                        attributes = insurerQuestion.attributes;
                     }
-                    else if (elementName === 'SecondaryCOBSmallContractors') {
-                        const cobDescriptionList = questionAnswer.split(", ");
-                        const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
-                        for (const cobDescription of cobDescriptionList) {
-                            const cobDescQuery = {
-                                active: true,
-                                insurerId: this.insurer.id,
-                                description: cobDescription
-                            }
-                            let cob = null;
-                            try {
-                                cob = await insurerIndustryCodeBO.getList(cobDescQuery);
-                            }
-                            catch (err) {
-                                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
-                            }
-                            if (!cob || cob.length === 0) {
-                                log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
-                                continue;
-                            }
-                            this.additionalCOBs.push(cob[0].attributes.v4Code);
+
+                    if (questionAnswer !== false && questionAnswer !== '') {
+                        if (elementName === 'GLHireNonOwnVehicleUse') {
+                            elementName = 'HireNonOwnVehclUse';
                         }
-                        // Don't add this to the question list
-                        continue;
-                    }
-                    else if (elementName === 'EstmtdPayrollSC') {
-                        if (questionAnswer === null) {
-                            questionAnswer = 0;
+                        else if (elementName === 'HNOACoverQuoteRq') {
+                            if (questionAnswer !== 'No') {
+                                this.hnoaAmount = questionAnswer;
+                                // this.questionList.push({
+                                //     nodeName: 'HireNonOwnVehclCoverage',
+                                //     answer: 'Yes'
+                                // });
+                            }
+                            // Don't add this to the question list
+                            continue;
                         }
-                        else {
-                            try {
-                                //parseInt does not throw error with parse a non-number.
-                                questionAnswer = parseInt(questionAnswer, 10);
-                                if(questionAnswer === "NaN"){
-                                    throw new Error("Not an integer");
+                        else if (elementName === 'SecondaryCOBSmallContractors') {
+                            const cobDescriptionList = questionAnswer.split(", ");
+                            const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+                            for (const cobDescription of cobDescriptionList) {
+                                const cobDescQuery = {
+                                    active: true,
+                                    insurerId: this.insurer.id,
+                                    description: cobDescription
                                 }
+                                let cob = null;
+                                try {
+                                    cob = await insurerIndustryCodeBO.getList(cobDescQuery);
+                                }
+                                catch (err) {
+                                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Problem getting insurer industry code: ${err} ${__location}`);
+                                }
+                                if (!cob || cob.length === 0) {
+                                    log.warn(`Could not locate COB code for COB description '${cobDescription}'` + __location);
+                                    continue;
+                                }
+                                this.additionalCOBs.push(cob[0].attributes.v4Code);
                             }
-                            catch (error) {
-                                log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
+                            // Don't add this to the question list
+                            continue;
+                        }
+                        else if (elementName === 'EstmtdPayrollSC') {
+                            if (questionAnswer === null) {
                                 questionAnswer = 0;
                             }
-                        }
-                        // Add contractor payroll
-                        if(!(questionAnswer > 0)){
-                            questionAnswer = 0
+                            else {
+                                try {
+                                    //parseInt does not throw error with parse a non-number.
+                                    questionAnswer = parseInt(questionAnswer, 10);
+                                    if(questionAnswer === "NaN"){
+                                        throw new Error("Not an integer");
+                                    }
+                                }
+                                catch (error) {
+                                    log.warn(`Could not convert contractor payroll '${questionAnswer}' to a number.` + __location);
+                                    questionAnswer = 0;
+                                }
+                            }
+                            // Add contractor payroll
+                            if(!(questionAnswer > 0)){
+                                questionAnswer = 0
+                            }
+                            this.questionList.push({
+                                nodeName: 'EstmtdPayrollSC',
+                                answer: questionAnswer
+                            });
+                            // Don't add more to the question list
+                            continue;
                         }
                         this.questionList.push({
-                            nodeName: 'EstmtdPayrollSC',
-                            answer: questionAnswer
+                            nodeName: elementName,
+                            answer: questionAnswer,
+                            attributes: attributes,
+                            type: question.type
                         });
-                        // Don't add more to the question list
-                        continue;
                     }
-                    this.questionList.push({
-                        nodeName: elementName,
-                        answer: questionAnswer,
-                        attributes: attributes,
-                        type: question.type
-                    });
+                    else if (question.type === 'Checkboxes' && !questionAnswer) {
+                        this.questionList.push({
+                            nodeName: elementName,
+                            answer: '',
+                            attributes: attributes,
+                            type: question.type
+                        })
+                    }
+                    else {
+                        log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName} not adding question ` + __location)
+                    }
                 }
-                else if (question.type === 'Checkboxes' && !questionAnswer) {
-                    this.questionList.push({
-                        nodeName: elementName,
-                        answer: '',
-                        attributes: attributes,
-                        type: question.type
-                    })
+                catch(err){
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
                 }
-            }
-            catch(err){
-                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
             }
         }
 
@@ -1018,7 +1044,7 @@ module.exports = class HiscoxGL extends Integration {
             'SubcontractProfSrvcs',
             'SubcontractRepair',
             'SubcontractSrvcsDescribe',
-            'SupplyManufactDistbtGoodsOrProductsPercent3',
+            'SupplyManufactDistbtGoodsOrProductsPercent3zzz',
             'SupplyManufactDistbtGoodsOrProductsWebsite2',
             'SupplyManufactDistbtGoodsOrProductsWebsite4',
             'TangibleGoodWork',
@@ -1076,6 +1102,7 @@ module.exports = class HiscoxGL extends Integration {
             'SupplyManufactDistbtGoodsOrProductsPercent',
             'SupplyManufactDistbtGoodsOrProductsPercent1',
             'SupplyManufactDistbtGoodsOrProductsPercent2',
+            'SupplyManufactDistbtGoodsOrProductsPercent3',
             'SupplyManufactDistbtGoodsOrProductsPercent4',
             'SupplyManufactDistbtGoodsOrProductsProceduresDescribe',
             'SupplyManufactDistbtGoodsOrProductsProceduresDescribe1',
@@ -1151,6 +1178,7 @@ module.exports = class HiscoxGL extends Integration {
             "SupplyManufactDistbtGoodsOrProductsPercent",
             "SupplyManufactDistbtGoodsOrProductsPercent1",
             "SupplyManufactDistbtGoodsOrProductsPercent2",
+            "SupplyManufactDistbtGoodsOrProductsPercent3",
             "SupplyManufactDistbtGoodsOrProductsProceduresDescribe",
             "SupplyManufactDistbtGoodsOrProductsProceduresDescribe1",
             "SupplyManufactDistbtGoodsOrProductsUsed",
@@ -1265,7 +1293,9 @@ module.exports = class HiscoxGL extends Integration {
                     else {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo[question.nodeName] = question.answer;
                     }
-                    if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+
+                    //if (this.policy.type === 'BOP' && question.nodeName === 'TangibleGoodWork') {
+                    if (question.nodeName === 'TangibleGoodWork') {
                         // TangibleGoodWork1 shares an answer with TangibleGoodWork but when we have two questions linked to the same Talage Question
                         // we only get one answer. This fixes that issue
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo.TangibleGoodWork1 = question.answer; // zy Possibly refactor this if we can get the answer to both questions from the application
@@ -1274,6 +1304,7 @@ module.exports = class HiscoxGL extends Integration {
                 const glRatingQuestion = this.policy.type === 'GL' && generalLiabilityRatingInfoQuestions.includes(question.nodeName);
                 const bopRatingQuestion = this.policy.type === 'BOP' && BOPRatingInfoQuestions.includes(question.nodeName);
                 if (glRatingQuestion || bopRatingQuestion) {
+
                     if (question.nodeName === "SupplyManufactDistbtGoodsOrProductsOwnership") {
                         reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs[policyRequestType].RatingInfo[question.nodeName] = question.answer === 'No' ? 'My business does this' : 'A third-party does this';
                     }
@@ -1403,6 +1434,15 @@ module.exports = class HiscoxGL extends Integration {
             }
 
         }
+
+        // Determine which URL to use
+        let host = "";
+        if (this.insurer.useSandbox) {
+            host = "sdbx.hiscox.com";
+        }
+        else {
+            host = "api.hiscox.com";
+        }
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse` + __location)
         // Get a token from their auth server
         const tokenRequestData = {
@@ -1501,7 +1541,6 @@ module.exports = class HiscoxGL extends Integration {
                 return this.return_result('error');
             }
 
-
             // Check for errors
             const responseErrors = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
             let errorResponseList = null;
@@ -1512,6 +1551,11 @@ module.exports = class HiscoxGL extends Integration {
             else {
                 errorResponseList = responseErrors;
             }
+            if(respProductStatus === "Referred"){
+                this.reasons.push(`Hiscox reason: ${responseErrors.code}: ${responseErrors.Description}`);
+                return this.return_result('referred');
+            }
+
 
             if (errorResponseList) {
                 let errors = "";
@@ -1639,6 +1683,10 @@ module.exports = class HiscoxGL extends Integration {
             // That we are quoted
             return this.return_result('quoted');
         }
+        else if (submissionStatus === "Referred") {
+            this.reasons.push("Hiscox return an Incomplete status for the submission.");
+            return this.return_result('referred');
+        }
         else if (submissionStatus === "Incomplete") {
             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
             this.reasons.push("Hiscox return an Incomplete status for the submission.");
@@ -1665,17 +1713,6 @@ module.exports = class HiscoxGL extends Integration {
         else {
             return null;
         }
-    }
-
-    /**
-     * Gets the supported hiscox limit less than or equal to the one provided
-     * @param {number} deductible - deductible from this.policy.deductible
-     * @param {array} validDeductibles - array of supported deductibles for the given policy type
-     * @returns {number} Higher valid deductible equal to or lower than provided deductible
-     */
-    getBestDeductible(deductible, validDeductibles) {
-        const equalLessThanDeductibles = validDeductibles.filter(val => val <= deductible);
-        return Math.max(...equalLessThanDeductibles);
     }
 
     /**

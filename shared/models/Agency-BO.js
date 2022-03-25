@@ -1185,7 +1185,8 @@ module.exports = class AgencyBO {
                         log.error(`Getting AgencyEmail error agencyId ${agencyId}` + err + __location);
                     }
                     if (agencyEmailDB) {
-                        if (agencyEmailDB[contentProperty] && agencyEmailDB[contentProperty].length > 0) {
+                        if (agencyEmailDB[contentProperty] && agencyEmailDB[contentProperty]?.subject?.length > 0
+                            && agencyEmailDB[contentProperty]?.message?.length > 0) {
                             emailTemplateJSON.message = agencyEmailDB[contentProperty].message;
                             emailTemplateJSON.subject = agencyEmailDB[contentProperty].subject;
                         }

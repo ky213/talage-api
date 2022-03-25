@@ -778,6 +778,38 @@ async function applicationCopy(req, res, next) {
         // for cross sell, change the policy and effective date to the ones passed through
         if(req.body.crossSellCopy === true || req.body.crossSellCopy === "true"){
             if(req.body.policyType && req.body.effectiveDate){
+                //Validate Agency location Support policyType
+                if(applicationDocDB.agencyLocationId){
+                    const agencyLocationBO = new AgencyLocationBO();
+                    const agencyLocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+                        log.error(`Error Copying application doc getting Agency Location ${applicationDocDB.agencyLocationId} ${err}` + __location)
+                    });
+                    if(agencyLocationJSON){
+                        let gotHit = false;
+                        for(const insurer of agencyLocationJSON.insurers){
+                            if(insurer.policyTypeInfo[req.body.policyType.toUpperCase()] && insurer.policyTypeInfo[req.body.policyType.toUpperCase()].enabled === true){
+                                gotHit = true;
+                                break;
+                            }
+                        }
+                        if(!gotHit){
+                            log.warn(`Application copy Agency Location does not cover -  ${req.body.policyType} AppId ${req.body.applicationId} ` + __location)
+                            res.send(400, `Application agency location does not cover -  ${req.body.policyType}`);
+                            return next(serverHelper.requestError(`Bad Request: check error `));
+                        }
+                    }
+                    else {
+                        log.warn(`Application copy Agency Location is no longer available  -  ${req.body.applicationId}  ` + __location)
+                        res.send(500, `Application agency location is no longer available`);
+                        return next(serverHelper.internalError(`Application agency location is no longer available `));
+                    }
+                }   
+                else {
+                    log.error("Error Copying application doc no Agency Location " + __location)
+                    res.send(500, `Application corrupted no agency location`);
+                    return next(serverHelper.internalError(`Application corrupted no agency location`));
+                }
+
                 newApplicationDoc.policies = [{
                     policyType: req.body.policyType,
                     effectiveDate: req.body.effectiveDate
@@ -1949,8 +1981,14 @@ async function markQuoteAsDead(req, res, next){
 async function GetBopCodes(req, res, next){
     let bopIcList = null;
     try{
-        const applicationBO = new ApplicationBO();
-        bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+        }
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -2255,6 +2293,35 @@ async function getHints(req, res, next){
    
 }
 
+async function CheckAppetite(req, res, next){
+    let appetitePolicyTypeList = null;
+    try{
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            appetitePolicyTypeList = await applicationBO.checkAppetite(req.params.id, req.query);
+        }
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!appetitePolicyTypeList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, appetitePolicyTypeList);
+    return next();
+}
+
 // eslint-disable-next-line no-unused-vars
 async function accesscheckEmail(email, applicationJSON){
     let hasAccess = false;
@@ -2329,10 +2396,12 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage');
     server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
+    server.addGetAuth('CheckAppetite for AP Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
+
     server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);
-    server.addGetAuth('GetAssociations', `${basePath}/application/getrequiredfields`, GetRequiredFields);
+    server.addGetAuth('Get Required Fields', `${basePath}/application/getrequiredfields`, GetRequiredFields);
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);

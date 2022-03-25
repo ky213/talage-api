@@ -82,6 +82,8 @@ async function getbyId(req, res, next) {
     if (locationJSONList && locationJSONList.length > 0) {
         let location = locationJSONList[0];
         location.id = location.systemId;
+
+        let useTalageWholesale = false;
         if(location.agencyId){
             try{
                 let agencyNetworkId = null;
@@ -104,6 +106,9 @@ async function getbyId(req, res, next) {
                     if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
                         location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
                     }
+                    if(agencyNetwork.featureJson?.talageWholesale && agencyNetwork.featureJson?.agencyPrimePerInsurer === false) {
+                        useTalageWholesale = true;
+                    }
                 }
             }
             catch(err){
@@ -116,6 +121,9 @@ async function getbyId(req, res, next) {
             for(let i = 0; i < location.insurers.length; i++) {
                 let insurer = location.insurers[i];
                 insurer.cred3 = insurer.agencyCred3
+                if(useTalageWholesale === true){
+                    insurer.useAgencyPrime = insurer.talageWholesale
+                }
                 //backward compatible for Quote App.  properties for WC, BOP, GL
                 if(insurer.policyTypeInfo){
                     insurer.policy_type_info = insurer.policyTypeInfo
@@ -194,6 +202,42 @@ async function createAgencyLocation(req, res, next) {
         req.body.policyTypeInfo = req.body.policy_type_info
     }
 
+    //convert legacy property Name
+    if(req.body.agency){
+        req.body.agencyId = req.body.agency;
+    }
+    if(!req.body.agencyNetworkId){
+        req.body.agencyNetworkId = req.authentication.agencyNetworkId
+    }
+
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+    const agencyDB = await agencyBO.getById(req.body.agencyId).catch(function(err) {
+        log.error("agencyBO load error " + err + __location);
+        error = err;
+    });
+    if(!agencyDB){
+        log.info('Bad Request: Bad data ');
+        return next(serverHelper.requestError('Bad data'));
+    }
+
+    if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+        && req.authentication.permissions.talageStaff === true
+        && req.authentication.enableGlobalView === true){
+        //Get agencyNetwork from Agency
+        req.body.agencyNetworkId = agencyDB.agencyNetworkId
+    }
+    else if(req.body.agencyNetworkId !== agencyDB.agencyNetworkId){
+        return next(serverHelper.notAuthorizedError('You are not authorized to manage this agency'));
+    }
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDB = await agencyNetworkBO.getById(agencyDB.agencyNetworkId);
+
+    let useTalageWholesale = false;
+    if(agencyNetworkDB?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkDB?.featureJson?.talageWholesale === true){
+        useTalageWholesale = true;
+    }
+
     //Fix insures
     if (req.body.insurers) {
         for (let i = 0; i < req.body.insurers.length; i++) {
@@ -208,36 +252,10 @@ async function createAgencyLocation(req, res, next) {
             if(insurer.cred3){
                 insurer.agencyCred3 = insurer.cred3
             }
+            if(useTalageWholesale && Object.prototype.hasOwnProperty.call(insurer, 'talageWholesale') === false){
+                insurer.talageWholesale = insurer.useAgencyPrime
+            }
         }
-    }
-
-    //convert legacy property Name
-    if(req.body.agency){
-        req.body.agencyId = req.body.agency;
-    }
-    if(!req.body.agencyNetworkId){
-        req.body.agencyNetworkId = req.authentication.agencyNetworkId
-    }
-
-    const agencyBO = new AgencyBO();
-    // Load the request data into it
-    const agency = await agencyBO.getById(req.body.agencyId).catch(function(err) {
-        log.error("agencyBO load error " + err + __location);
-        error = err;
-    });
-    if(!agency){
-        log.info('Bad Request: Bad data ');
-        return next(serverHelper.requestError('Bad data'));
-    }
-
-    if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
-        && req.authentication.permissions.talageStaff === true
-        && req.authentication.enableGlobalView === true){
-        //Get agencyNetwork from Agency
-        req.body.agencyNetworkId = agency.agencyNetworkId
-    }
-    else if(req.body.agencyNetworkId !== agency.agencyNetworkId){
-        return next(serverHelper.notAuthorizedError('You are not authorized to manage this agency'));
     }
 
     // Initialize an agency object
@@ -302,9 +320,12 @@ async function deleteAgencyLocation(req, res, next) {
 
     const id = parseInt(req.query.id, 10);
     let agencyId = -1;
+    let agencyDB = null;
     // Get the Agency ID corresponding to this location
     try {
         agencyId = await getAgencyByLocationId(id);
+        const agencyBO = new AgencyBO();
+        agencyDB = await agencyBO.getById(agencyId);
     }
     catch (err) {
         log.error("Get Agency by ID error: " + err + __location)
@@ -319,13 +340,9 @@ async function deleteAgencyLocation(req, res, next) {
             && req.authentication.enableGlobalView === true){
             log.info(`deleting agency location in global mode for agency ${agencyId}`)
         }
-        else {
-            const agencyBO = new AgencyBO();
-            const agency = await agencyBO.getById(agencyId);
-            if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
-                log.info('Forbidden: User is not authorized to manage th is agency');
-                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
-            }
+        else if(agencyDB?.agencyNetworkId !== req.authentication.agencyNetworkId){
+            log.info('Forbidden: User is not authorized to manage the is agency');
+            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
         }
     }
     else {
@@ -416,7 +433,7 @@ async function updateAgencyLocation(req, res, next) {
         return next(serverHelper.requestError('ID missing'));
     }
 
-    const id = parseInt(req.body.id, 10);
+    const agencyLocationId = parseInt(req.body.id, 10);
 
     // Get the agencies that the user is permitted to manage
     const agencies = await auth.getAgents(req).catch(function(e) {
@@ -433,7 +450,7 @@ async function updateAgencyLocation(req, res, next) {
         if (req.authentication.isAgencyNetworkUser === false) {
             // If this is an Agency Network User, get the agency from the location
             try {
-                req.body.agency = await getAgencyByLocationId(id);
+                req.body.agency = await getAgencyByLocationId(agencyLocationId);
             }
             catch (err) {
                 log.error("getAgencyByLocationId error " + err + __location);
@@ -445,6 +462,24 @@ async function updateAgencyLocation(req, res, next) {
             req.body.agency = agencies[0];
         }
     }
+
+    let agencyDB = null;
+    try {
+        const agencyBO = new AgencyBO();
+        agencyDB = await agencyBO.getById(req.body.agency);
+    }
+    catch (err) {
+        log.error("Get Agency by ID error: " + err + __location)
+        return next(err);
+    }
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDB = await agencyNetworkBO.getById(agencyDB.agencyNetworkId);
+
+    let useTalageWholesale = false;
+    if(agencyNetworkDB?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkDB?.featureJson?.talageWholesale === true){
+        useTalageWholesale = true;
+    }
+
     // Security Check: Make sure this Agency Network has access to this Agency
     if(req.authentication.isAgencyNetworkUser && req.body.agency){
         if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
@@ -452,20 +487,16 @@ async function updateAgencyLocation(req, res, next) {
             && req.authentication.enableGlobalView === true){
             log.info(`Updating agency location in global mode `)
         }
-        else {
-            const agencyId = parseInt(req.body.agency, 10);
-            const agencyBO = new AgencyBO();
-            const agency = await agencyBO.getById(agencyId);
-            if(agency?.agencyNetworkId !== req.authentication.agencyNetworkId){
-                log.info('Forbidden: User is not authorized to manage th is agency');
-                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
-            }
+        else if(agencyDB?.agencyNetworkId !== req.authentication.agencyNetworkId){
+            log.info('Forbidden: User is not authorized to manage th is agency');
+            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
         }
     }
     else if (!agencies.includes(req.body.agency)) {
         log.info('Forbidden: User is not authorized to manage th is agency');
         return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
     }
+
     //Fix location:
     if (req.body.insurers) {
         for (let i = 0; i < req.body.insurers.length; i++) {
@@ -480,6 +511,9 @@ async function updateAgencyLocation(req, res, next) {
             }
             if(insurer.cred3){
                 insurer.agencyCred3 = insurer.cred3
+            }
+            if(useTalageWholesale && Object.prototype.hasOwnProperty.call(insurer, 'talageWholesale') === false){
+                insurer.talageWholesale = insurer.useAgencyPrime
             }
         }
     }
@@ -565,6 +599,7 @@ async function getSelectionList(req, res, next) {
     const getAgencyName = false;
     const getChildren = true;
     const useAgencyPrimeInsurers = true;
+    let useTalageWholesale = false;
 
     locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
         log.error(err.message + __location);
@@ -600,6 +635,9 @@ async function getSelectionList(req, res, next) {
                     if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
                         location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
                     }
+                    if(agencyNetwork?.featureJson?.agencyPrimePerInsurer === false && agencyNetwork?.featureJson?.talageWholesale === true){
+                        useTalageWholesale = true;
+                    }
                 }
             }
             catch(err){
@@ -611,6 +649,9 @@ async function getSelectionList(req, res, next) {
                 let insurer = location.insurers[i];
                 insurer.insurer = insurer.insurerId
                 insurer.cred3 = insurer.agencyCred3
+                if(useTalageWholesale){
+                    insurer.useAgencyPrime = insurer.talageWholesale
+                }
                 //backward compatible for Quote App.  properties for WC, BOP, GL
                 if(insurer.policyTypeInfo){
                     insurer.policy_type_info = insurer.policyTypeInfo

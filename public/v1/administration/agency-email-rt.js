@@ -110,6 +110,14 @@ async function findOne(req, res, next) {
             "talage_wholesale": {
                 "message": "",
                 "subject": ""
+            },
+            "quote_app_application_link":{
+                "message": "",
+                "subject": ""
+            },
+            "agency_portal_application_link":{
+                "message": "",
+                "subject": ""
             }
         }
         res.send(200,blankCustomeEmails);

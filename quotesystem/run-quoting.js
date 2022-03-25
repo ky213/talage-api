@@ -317,7 +317,8 @@ async function runQuoting(app) {
 
 
     // Update the application quote metrics
-    await applicationBO.recalculateQuoteMetrics(app.applicationDocData.applicationId);
+    const newMetrics = await applicationBO.recalculateQuoteMetrics(app.applicationDocData.applicationId);
+    app.applicationDocData.metrics = newMetrics;
 
     // Update the application Status
     // Update the application quote progress to "complete"

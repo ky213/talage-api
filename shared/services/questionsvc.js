@@ -83,10 +83,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
 
     const policyTypes = [];
     const mongoPolicyExpirationList = [];
+
+    const policyExpirationList = [];
     // Question list effective date is done per policy type.
     // For a given policy type, check the question's effective/expiration dates.
     const uniquePolicyEffectiveDateList = [];
-    const questionEffectiveDateWhereClauseList = [];
+    // const questionEffectiveDateWhereClauseList = [];
     policyTypeArray.forEach(function(policyTypeJSON) {
         // Build a list of policy types
         policyTypes.push(policyTypeJSON.type.replace(/[^a-z]/gi, '').toUpperCase());
@@ -95,7 +97,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
         if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
             uniquePolicyEffectiveDateList.push(policyEffectiveDate);
         }
-        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
+        // questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
 
         const mongoPolicyEffectiveDateQuery = {
             policyTypeList: policyTypeJSON.type.toUpperCase(),
@@ -103,27 +105,28 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
             expirationDate: {$gte: policyEffectiveDate}
         }
         mongoPolicyExpirationList.push(mongoPolicyEffectiveDateQuery);
+
+        //for IC and AC queries
+        const policyEffectiveDateItem = {
+            policyTypeList: policyTypeJSON.type.toUpperCase(),
+            effectiveDate: policyEffectiveDate,
+            expirationDate: policyEffectiveDate
+        }
+
+        policyExpirationList.push(policyEffectiveDateItem);
     });
 
-
-    // Industry and activity code effective date is done using the unique policy effective date list.
-    const industryCodeEffectiveDateWhereClauseList = [];
-    const activityCodeEffectiveDateWhereClauseList = [];
-    for (const policyEffectiveDate of uniquePolicyEffectiveDateList) {
-        industryCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)`);
-        activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
-    }
 
     // Get Policy Types from the database - Is this necessary - bad policyType will just mean no questions.
     const supported_policy_types = [];
     const PolicyTypeBO = global.requireShared('./models/PolicyType-BO.js');
     const policyTypeBO = new PolicyTypeBO();
-    const policyTypeList = await policyTypeBO.getList({wheelhouse_support: true}).catch(function(err) {
+    const policyTypeListDB = await policyTypeBO.getList({wheelhouse_support: true}).catch(function(err) {
         // Check if this was
         log.error(`policyTypeBO error on getList ` + err + __location);
     });
-    if (policyTypeList) {
-        policyTypeList.forEach(function(policy_type) {
+    if (policyTypeListDB) {
+        policyTypeListDB.forEach(function(policy_type) {
             supported_policy_types.push(policy_type.policyTypeCd);
         });
     }
@@ -165,7 +168,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     // ============================================================
     // Get universal questions
     // Mongo
-    const policyEffectiveDate = uniquePolicyEffectiveDateList[0];
+
 
     // eslint-disable-next-line prefer-const
     let insurerQuestionQuery = {
@@ -246,6 +249,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
     // if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
     // }
+    let policyEffectiveDate = uniquePolicyEffectiveDateList[0];
+    //get first non-WC effective date, otherwise use the only one we have.
+    const glPolicyDates = policyExpirationList.find((policyEffective) => policyEffective.policyTypeList !== "WC");
+    if(glPolicyDates){
+        policyEffectiveDate = glPolicyDates.effectiveDate
+    }
+
     const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
     start = moment();
     for(const industryCodeId of industryCodeIdList){
@@ -358,17 +368,24 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
 
     log.debug("Getting activity questions " + __location);
     // ============================================================
+
+    //get WC effective date, no WC use 1st one we have.
+    policyEffectiveDate = uniquePolicyEffectiveDateList[0];
+    const wcPolicyDates = policyExpirationList.find((policyEffective) => policyEffective.policyTypeList === "WC");
+    if(wcPolicyDates){
+        policyEffectiveDate = wcPolicyDates.effectiveDate
+    }
+
     // Get activity-based questions
     const InsurerActivityCodeModel = global.mongoose.InsurerActivityCode;
     start = moment();
-    const now = moment();
     // eslint-disable-next-line prefer-const
     let activityCodeQuery = {
         insurerId: {$in: insurerArray},
         talageActivityCodeIdList: {$in: activityCodeArray},
         territoryList: {$in: territories},
-        effectiveDate: {$lte: now},
-        expirationDate: {$gte: now},
+        effectiveDate: {$lte: policyEffectiveDate},
+        expirationDate: {$gte: policyEffectiveDate},
         active: true
     }
     try{

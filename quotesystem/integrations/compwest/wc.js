@@ -454,9 +454,9 @@ module.exports = class CompwestWC extends Integration {
         // If talageWholeSale
         let Surname = this.app.agencyLocation.last_name
         let GivenName = this.app.agencyLocation.first_name
-        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
-            Surname = this.app.agencyLocation.quotingAgencyLocationDB.lastName;
-            GivenName = this.app.agencyLocation.quotingAgencyLocationDB.firstName;
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale || this.app.agencyLocation.insurers[this.insurer.id].useAgencyPrime){
+            Surname = this.quotingAgencyLocationDB.lastName;
+            GivenName = this.quotingAgencyLocationDB.firstName;
         }
 
         // <PersonName>
