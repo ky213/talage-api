@@ -8,6 +8,7 @@
 const Integration = require("../Integration.js");
 const moment = require("moment");
 const momentTimezone = require("moment-timezone");
+const paymentPlanSVC = global.requireShared('./services/paymentplansvc');
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
@@ -1733,30 +1734,30 @@ module.exports = class HiscoxGL extends Integration {
             //find payment plans
             const insurerPaymentPlans = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Premium;
             log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
-            log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
+            
             log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
 
-            if (insurerPaymentPlans?.length > 0) {
-            const paymentPlanSVC =  [
-                'Annual',
-                'SemiAnnual',
-                'Quarterly',
-                'Monthly',
-                'MonthlyWithDownPayment',
-            ];
+            if (insurerPaymentPlans) {
+                const [
+                    Annual,
+                    SemiAnnual,
+                    Quarterly,
+                    TenPay,
+                    Monthly
+                ] = paymentPlanSVC.getList()
             const talageInsurerPaymentPlans = []
             const paymentPlansMap = {
-                'FL': Annual,
-                'SA': SemiAnnual,
-                'QT': Quarterly,
-                'MO': Monthly,
-                '10': TenInstallment25PercentDownPayment,
+                'Annual': Annual,
+                'SemiAnnual': SemiAnnual,
+                'Quarterly': Quarterly,
+                'Monthly': Monthly,
+                'TenPay': TenPay,
             }
 
             const numberOfPayments = {
                 'FL': 1, // Full
-                'SA': 1, //semiAnnual
-                'QT': 2, // Quarterly
+                'SA': 2, // semiAnnual
+                'QT': 4, // Quarterly
                 'MO': 12, // Monthly
                 '10': 11, // 2 months down + 10 installments
             }
@@ -1769,42 +1770,35 @@ module.exports = class HiscoxGL extends Integration {
             this.insurerPaymentPlans = insurerPaymentPlans
 
             // Talage payment plans
-            for (const insurerPaymentPlan of insurerPaymentPlans) {
-                const code = insurerPaymentPlan.PaymentPlanCd[0]
-                const amount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
-                const mode = insurerPaymentPlan.PaymentRule
-                const talagePaymentPlan = paymentPlansMap[code]
-                const total = amount * costFactor[code]
-                let installmentPayment = null
-
-                switch (code) {
-                    case 'FL':
-                        installmentPayment = 0
-                        break;
-                    case '10':
-                        installmentPayment = amount / 2
-                        break;
-                    default:
-                        installmentPayment = amount
+            Object.keys(insurerPaymentPlans).forEach(paytype=>{
+                log.error('check this--> ', paymentPlansMap[paytype])
+                let talagePaymentPlan = paymentPlansMap[paytype]
+                let amount = 0
+                if(paytype == 'Annual'){
+                    amount = insurerPaymentPlans[paytype]
+                }else{
+                    amount = insurerPaymentPlans[paytype].InstallmentAmount
+                    // let DownPayment = insurerPaymentPlans[paytype].DownPayment
+                    // let NumberOfPayments = insurerPaymentPlans[paytype].NumberOfInstallments
                 }
 
                 if (talagePaymentPlan) {
-                talageInsurerPaymentPlans.push({
-                    paymentPlanId: talagePaymentPlan.id,
-                    insurerPaymentPlanId: code,
-                    insurerPaymentPlanDescription: mode,
-                    NumberPayments: numberOfPayments[code],
-                    TotalCost: total,
-                    TotalPremium: total,
-                    DownPayment: code === 'FL' ? 0 : amount,
-                    TotalStateTaxes: 0,
-                    TotalBillingFees: 0,
-                    DepositPercent: Number((100 * amount / total).toFixed(2)),
-                    IsDirectDebit: true,
-                    installmentPayment: installmentPayment
-                })
+                    talageInsurerPaymentPlans.push({
+                        paymentPlanId: talagePaymentPlan.id,
+                        insurerPaymentPlanId: paytype,
+                        insurerPaymentPlanDescription: paytype,
+                        NumberPayments: insurerPaymentPlans[paytype].NumberOfInstallments,
+                        TotalCost: amount,
+                        TotalPremium: premium,
+                        DownPayment: paytype == 'Annual',
+                        TotalStateTaxes: 0,
+                        TotalBillingFees: 0,
+                        DepositPercent: Number((100 * amount / premium)).toFixed(2),
+                        IsDirectDebit: true,
+                        installmentPayment: amount
+                    })
                 }
-            }
+            })
 
             this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
             
