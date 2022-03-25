@@ -1436,8 +1436,6 @@ module.exports = class HiscoxGL extends Integration {
 
         }
 
-
-      
         // Determine which URL to use
         let host = "";
         if (this.insurer.useSandbox) {
@@ -1676,18 +1674,6 @@ module.exports = class HiscoxGL extends Integration {
                     'TenPay': TenPay
                 }
 
-                const numberOfPayments = {
-                    'FL': 1, // Full
-                    'SA': 2, // semiAnnual
-                    'QT': 4, // Quarterly
-                    'MO': 12, // Monthly
-                    '10': 11, // 2 months down + 10 installments
-                }
-                const costFactor = {
-                    ...numberOfPayments,
-                    '10': 6
-                }
-
                 // Raw insurer payment plans
                 this.insurerPaymentPlans = insurerPaymentPlans
 
@@ -1697,9 +1683,9 @@ module.exports = class HiscoxGL extends Integration {
                     let amount = 0
                     if(paytype === 'Annual') {
                         amount = insurerPaymentPlans[paytype]
-                    } else {
+                    }
+                    else {
                         amount = insurerPaymentPlans[paytype].InstallmentAmount
-
                     }
 
                     if (talagePaymentPlan) {
@@ -1767,7 +1753,6 @@ module.exports = class HiscoxGL extends Integration {
             return this.return_result('error');
         }
 
-        
     }
 
     /**
