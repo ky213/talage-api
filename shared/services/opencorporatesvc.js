@@ -23,6 +23,10 @@ async function performCompanyLookup(companyInfoJSON) {
         "jurisdiction_code": "us_" + companyInfoJSON.state.toLowerCase()
     }
 
+    if(companyInfoJSON.streetAddress){
+        qparms.registred_address = companyInfoJSON.streetAddress.toLowerCase()
+    }
+
     const requestOptions = {params: qparms}
 
     // log.debug(`Got OpenCorporate request - ${JSON.stringify(requestOptions)} `);
@@ -33,6 +37,7 @@ async function performCompanyLookup(companyInfoJSON) {
     }
     catch (error) {
         // Return a connection error
+        log.error(`Not able to search companies. OpenCorporates data connection error: ${error}`)
         throw new Error(`OpenCorporates connection error: ${error}`);
     }
     // Ensure we have a successful HTTP status code
@@ -67,7 +72,15 @@ async function performCompanyLookup(companyInfoJSON) {
             throw new Error(`OpenCorporates connection error: ${error}`);
         }
     }
-    log.debug(JSON.stringify(businessData, null, 2));
+
+    if (companyInfoJSON.city && companyInfoJSON.city.length > 0){
+        businessData = filterCompaniesByCity(businessData, companyInfoJSON.city);
+    }
+
+    if (companyInfoJSON.zipCode && companyInfoJSON.zipCode.length > 0){
+        businessData = filterCompaniesByZipCode(businessData, companyInfoJSON.zipCode);
+    }
+
     return businessData;
 }
 
@@ -80,7 +93,6 @@ async function getCompanyDetails(companyInfo, requestOptions) {
             if (companyDetails) {
                 if(companyDetails.incorporation_date){
                     log.debug(`OpenCorp Hit Founded Date for ${companyDetails.name}`);
-                    log.debug(typeof companyDetails.incorporation_date)
                     const foundedDate = moment(companyDetails.incorporation_date).tz("America/Los_Angeles").format("YYYY-MM-DD");
                     companyDetails.founded = foundedDate;
                 }
@@ -140,6 +152,7 @@ async function getCompanyAddress(dataId, companyDetails){
     try {
         const qparams = {api_token: apiToken};
         const companyDataResponse = await axios.get(companyDataUrl, {params: qparams});
+
         if (companyDataResponse.data?.results?.datum?.attributes){
             const attributes = companyDataResponse.data.results.datum.attributes
             companyDetails.address = attributes.street_address;
@@ -149,10 +162,32 @@ async function getCompanyAddress(dataId, companyDetails){
         }
     }
     catch(error){
-        log.error(`OpenCorporates data connection error: ${error}`)
+        log.error(`Not able to get data for Address. OpenCorporates data connection error: ${error}`);
     }
-
 }
 
+function filterCompaniesByCity(companies, city){
+    if (city && city.length > 0){
+        const businessData = companies.filter(data => city === data.city);
+        return businessData;
+    }
+    else{
+        log.warn('There is no city on the request params');
+        return companies;
+    }
+}
+
+function filterCompaniesByZipCode(companies, zipCode){
+    log.debug(typeof zipCode);
+    if (zipCode && zipCode?.length > 0){
+
+        const businessData = companies.filter(company => zipCode === company.zipCode);
+        return businessData;
+    }
+    else{
+        log.warn('There is no city on the request params');
+        return companies;
+    }
+}
 
 module.exports = {performCompanyLookup: performCompanyLookup}
