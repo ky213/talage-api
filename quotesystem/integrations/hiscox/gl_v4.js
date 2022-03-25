@@ -1488,11 +1488,11 @@ module.exports = class HiscoxGL extends Integration {
         let result = null;
         let requestError = null;
         try {
-            // result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
-            //     Authorization: `Bearer ${token}`,
-            //     Accept: "application/json",
-            //     "Content-Type": "application/json"
-            // });
+            result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+                "Content-Type": "application/json"
+            });
         }
         catch (error) {
             requestError = error;
@@ -1667,62 +1667,59 @@ module.exports = class HiscoxGL extends Integration {
                     TenPay,
                     Monthly
                 ] = paymentPlanSVC.getList()
-            const talageInsurerPaymentPlans = []
-            const paymentPlansMap = {
-                'Annual': Annual,
-                'SemiAnnual': SemiAnnual,
-                'Quarterly': Quarterly,
-                'Monthly': Monthly,
-                'TenPay': TenPay,
-            }
-
-            const numberOfPayments = {
-                'FL': 1, // Full
-                'SA': 2, // semiAnnual
-                'QT': 4, // Quarterly
-                'MO': 12, // Monthly
-                '10': 11, // 2 months down + 10 installments
-            }
-            const costFactor = {
-                ...numberOfPayments,
-                '10': 6
-            }
-
-            // Raw insurer payment plans
-            this.insurerPaymentPlans = insurerPaymentPlans
-
-            // Talage payment plans
-            Object.keys(insurerPaymentPlans).forEach(paytype=>{
-                let talagePaymentPlan = paymentPlansMap[paytype]
-                let amount = 0
-                if(paytype == 'Annual'){
-                    amount = insurerPaymentPlans[paytype]
-                }else{
-                    amount = insurerPaymentPlans[paytype].InstallmentAmount
-                    // let DownPayment = insurerPaymentPlans[paytype].DownPayment
-                    // let NumberOfPayments = insurerPaymentPlans[paytype].NumberOfInstallments
+                const talageInsurerPaymentPlans = []
+                const paymentPlansMap = {
+                    'Annual': Annual,
+                    'SemiAnnual': SemiAnnual,
+                    'Quarterly': Quarterly,
+                    'Monthly': Monthly,
+                    'TenPay': TenPay
                 }
 
-                if (talagePaymentPlan) {
-                    talageInsurerPaymentPlans.push({
-                        paymentPlanId: talagePaymentPlan.id,
-                        insurerPaymentPlanId: paytype,
-                        insurerPaymentPlanDescription: paytype,
-                        NumberPayments: insurerPaymentPlans[paytype].NumberOfInstallments,
-                        TotalCost: amount,
-                        TotalPremium: premium,
-                        DownPayment: paytype == 'Annual' ? 0 : insurerPaymentPlans[paytype].DownPayment,
-                        TotalStateTaxes: 0,
-                        TotalBillingFees: 0,
-                        DepositPercent: Number((100 * amount / premium)).toFixed(2),
-                        IsDirectDebit: true,
-                        installmentPayment: amount
-                    })
+                const numberOfPayments = {
+                    'FL': 1, // Full
+                    'SA': 2, // semiAnnual
+                    'QT': 4, // Quarterly
+                    'MO': 12, // Monthly
+                    '10': 11, // 2 months down + 10 installments
                 }
-            })
+                const costFactor = {
+                    ...numberOfPayments,
+                    '10': 6
+                }
 
-            this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
-            
+                // Raw insurer payment plans
+                this.insurerPaymentPlans = insurerPaymentPlans
+
+                // Talage payment plans
+                Object.keys(insurerPaymentPlans).forEach(paytype => {
+                    const talagePaymentPlan = paymentPlansMap[paytype]
+                    let amount = 0
+                    if(paytype === 'Annual') {
+                        amount = insurerPaymentPlans[paytype]
+                    } else {
+                        amount = insurerPaymentPlans[paytype].InstallmentAmount
+
+                    }
+
+                    if (talagePaymentPlan) {
+                        talageInsurerPaymentPlans.push({
+                            paymentPlanId: talagePaymentPlan.id,
+                            insurerPaymentPlanId: paytype,
+                            insurerPaymentPlanDescription: paytype,
+                            NumberPayments: insurerPaymentPlans[paytype].NumberOfInstallments,
+                            TotalCost: amount,
+                            TotalPremium: premium,
+                            DownPayment: paytype === 'Annual' ? 0 : insurerPaymentPlans[paytype].DownPayment,
+                            TotalStateTaxes: 0,
+                            TotalBillingFees: 0,
+                            DepositPercent: Number(100 * amount / premium).toFixed(2),
+                            IsDirectDebit: true,
+                            installmentPayment: amount
+                        })
+                    }
+                })
+                this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
             }
 
             // Get the quote link
