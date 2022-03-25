@@ -1610,81 +1610,6 @@ module.exports = class HiscoxGL extends Integration {
             return this.client_error(`The Hiscox API returned an error of ${requestError.httpStatusCode} without explanation`, __location, {requestError: requestError});
         } // End of Response Error Processing
 
-        // simulate a returned quote to test talage matching
-        result = {
-            "InsuranceSvcRs": {
-                "QuoteRs": {
-                    "RqUID": "87fa838a46-2343",
-                    "ReferenceNumberID": "S100.126.713",
-                    "ReferenceNumberPremium": {
-                        "Annual": 500,
-                        "SemiAnnual": {
-                            "InstallmentAmount": 250,
-                            "DownPayment": 250,
-                            "NumberOfInstallments": 1
-                        },
-                        "Quarterly": {
-                            "InstallmentAmount": 125,
-                            "DownPayment": 125,
-                            "NumberOfInstallments": 3
-                        },
-                        "TenInstallment25PercentDownPayment": {
-                            "InstallmentAmount": 37.5,
-                            "DownPayment": 125,
-                            "NumberOfInstakkments": 10
-                        },
-                        "Surcharge": 0
-                    },
-                    "ReferenceNumberRetrieveURL": "https://",
-                    "QuoteRqDt": "2022-03-22",
-                    "StateOrProvCd": "NY",
-                    "ClassOfBusinessCd": "44314100_11101100_000001",
-                    "ProductQuoteRs": {
-                        "BusinessOwnersPolicyQuoteRs": {
-                            "Status": "Quoted",
-                            "Premium": {
-                                "Annual": 500,
-                                "SemiAnnual": {
-                                    "InstallmentAmount": 250,
-                                    "DownPayment": 250,
-                                    "NumberOfInstallments": 1
-                                },
-                                "Quarterly": {
-                                    "InstallmentAmount": 125,
-                                    "DownPayment": 125,
-                                    "NumberOfInstallments": 3
-                                },
-                                "TenInstallment25PercentDownPayment": {
-                                    "InstallmentAmount": 37.5,
-                                    "DownPayment": 125,
-                                    "NumberOfInstakkments": 10
-                                },
-                            }
-                        },
-                        "WaiverOfSubrogationCoverQuoteRs":{
-                            "Premium": 0
-                        },
-                        "PropertyAndEquiptmentCoverQuoteRs": {
-                            "RatingResult": {
-                                "Deductible": 500
-                            }
-                        },
-                        "TRIACOverQuoteRs": {
-                            "Premium": 5
-                        },
-                        "PrimaryNonCotribCoverQuoteRs": {
-                            "Premium": 0
-                        },
-                        "RatingResult": {
-                            "AggLOI": 200000,
-                            "LOI": 100000,
-                            "Deductible": 0
-                        }
-                    }
-                }
-            }
-        }
-
         //check if it qouted.
         //Check status reported By Hiscox
         const QuoteRs = result?.InsuranceSvcRs?.QuoteRs
@@ -1733,9 +1658,6 @@ module.exports = class HiscoxGL extends Integration {
 
             //find payment plans
             const insurerPaymentPlans = result?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Premium;
-            log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
-            
-            log.info('insurer payment plans --->'+ JSON.stringify(insurerPaymentPlans))
 
             if (insurerPaymentPlans) {
                 const [
@@ -1771,7 +1693,6 @@ module.exports = class HiscoxGL extends Integration {
 
             // Talage payment plans
             Object.keys(insurerPaymentPlans).forEach(paytype=>{
-                log.error('check this--> ', JSON.stringify(paymentPlansMap[paytype]))
                 let talagePaymentPlan = paymentPlansMap[paytype]
                 let amount = 0
                 if(paytype == 'Annual'){
@@ -1790,7 +1711,7 @@ module.exports = class HiscoxGL extends Integration {
                         NumberPayments: insurerPaymentPlans[paytype].NumberOfInstallments,
                         TotalCost: amount,
                         TotalPremium: premium,
-                        DownPayment: paytype == 'Annual',
+                        DownPayment: paytype == 'Annual' ? 0 : insurerPaymentPlans[paytype].DownPayment,
                         TotalStateTaxes: 0,
                         TotalBillingFees: 0,
                         DepositPercent: Number((100 * amount / premium)).toFixed(2),
@@ -1802,9 +1723,6 @@ module.exports = class HiscoxGL extends Integration {
 
             this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
             
-            log.error('talage insure 00000000000000000000000000')
-            log.error('talage insure==>'+JSON.stringify(this.talageInsurerPaymentPlans, null, 4));
-            log.error('talage insure 00000000000000000000000000')
             }
 
             // Get the quote link
