@@ -1771,7 +1771,7 @@ module.exports = class HiscoxGL extends Integration {
 
             // Talage payment plans
             Object.keys(insurerPaymentPlans).forEach(paytype=>{
-                log.error('check this--> ', paymentPlansMap[paytype])
+                log.error('check this--> ', JSON.stringify(paymentPlansMap[paytype]))
                 let talagePaymentPlan = paymentPlansMap[paytype]
                 let amount = 0
                 if(paytype == 'Annual'){
@@ -1803,7 +1803,7 @@ module.exports = class HiscoxGL extends Integration {
             this.talageInsurerPaymentPlans = talageInsurerPaymentPlans
             
             log.error('talage insure 00000000000000000000000000')
-            log.error('talage insure==>'+JSON.stringify(this.talageInsurerPaymentPlans));
+            log.error('talage insure==>'+JSON.stringify(this.talageInsurerPaymentPlans, null, 4));
             log.error('talage insure 00000000000000000000000000')
             }
 
