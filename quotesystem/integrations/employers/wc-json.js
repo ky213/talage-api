@@ -388,6 +388,35 @@ module.exports = class EmployersWC extends Integration {
               }
             }
 
+            // California Req: If there is atleast one CA location, and it is a Partnerhsip entity, all owners must be listed
+            if (appDoc.entityType === 'Partnership' || appDoc.entityType === 'Limited Partnership' || appDoc.entityType === 'Limited Liability Partnership') {
+                if (appDoc.locations.find(location => location.state === 'CA')) {
+                    if (appDoc.owners.length < 2) {
+                        log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Only one partner was listed.`);
+                        this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application if insuring a location in the state of California. However, only one partner was listed. - Stopped before submission to insurer`);
+                        fulfill(this.return_result('autodeclined'));
+                        return;
+                    }
+                    let countOwnershipRate = 0;
+                    appDoc.owners.map(ownershipPercentage => countOwnershipRate += ownershipPercentage.ownership);
+                    if (countOwnershipRate !== 100) {
+                        log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Current ownership percentage listed is ${countOwnershipRate}%.`);
+                        this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application if insuring a location in the state of California. Current ownership allocation is listed at ${countOwnershipRate}% - Stopped before submission to insurer`);
+                        fulfill(this.return_result('autodeclined'));
+                        return;
+                    }
+                    // Add partnerNames to our requestJSON submission
+                    const arrOfPartners = [];
+                    for (const partner of appDoc.owners) {
+                        const temp = {};
+                        temp.firstName = partner.fname;
+                        temp.lastName = partner.lname;
+                        arrOfPartners.push(temp);
+                      }
+                    requestJSON.partnerNames = arrOfPartners;
+                }
+            }
+
             requestJSON.namedInsureds = [{}];
             if (businessName) {
                 requestJSON.namedInsureds[0].name = businessName;
