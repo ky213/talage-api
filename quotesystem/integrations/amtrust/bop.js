@@ -327,84 +327,99 @@ module.exports = class AMTrustBOP extends Integration {
 
         if(quoteResponse?.data){
             quoteId = quoteResponse.data.accountInformation?.quoteId;
-            // TO BE MOVE to after questions snet - No question sent..  we do not have question list from Amtrust yet 2/5/2022.
-            if(quoteResponse.data.premiumDetails){
-                // "premiumDetails": {
-                //     "priceIndication": 500.0,
-                //     "generalLiabilityLimits": "1,000/2,000/2,000,000",
-                //     "medicalPayments": "5,000",
-                //     "damagesToPremisesLiabilityLimit": "50,000",
-                //     "businessPersonalProperty": "17",
-                //     "propertyDeductible": "None",
-                //     "expansionEndorsement": "Basic"
-                // },
-                const quotePremium = quoteResponse.data.premiumDetails.priceIndication
-
-                if(quoteResponse.data.isOK && quoteResponse.data.messages?.length > 0){
-                    for(const message of quoteResponse.data.messages){
-                        if(message.messageCode === 'Deeplink'){
-                            this.quoteLink = message.title;
-                            break;
-                        }
-                    }
+            if (quoteResponse.data.eligibility === "Decline") {
+                //eligibilityReasons
+                //declined
+                let declineMessage = "The insurer has declined to offer you coverage at this time";
+                if(quoteResponse.data.eligibilityReasons){
+                    declineMessage = quoteResponse.data.eligibilityReasons
                 }
+                return this.client_declined(declineMessage);
 
-                const quoteLimits = {}
-                quoteLimits[6] = quoteResponse.data.premiumDetails.medicalPayments;
-                let coverageSort = 0;
-
-                const glCoverage = {
-                    description: 'General Liability Limits',
-                    value: quoteResponse.data.premiumDetails.generalLiabilityLimits,
-                    sort: coverageSort++,
-                    category: 'General Limits',
-                    insurerIdentifier: "generalLiabilityLimits"
-                };
-                this.quoteCoverages.push(glCoverage);
-
-                const premiseCoverage = {
-                    description: 'Damages To Premises Liability Limit',
-                    value: quoteResponse.data.premiumDetails.damagesToPremisesLiabilityLimit,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "damagesToPremisesLiabilityLimit"
-                };
-                this.quoteCoverages.push(premiseCoverage);
-
-                const bppCoverage = {
-                    description: 'Business Personal Property Liability Limit',
-                    value: quoteResponse.data.premiumDetails.businessPersonalProperty,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "bppCoverage"
-                };
-                this.quoteCoverages.push(bppCoverage);
-
-                const medicalCoverage = {
-                    description: 'Medical Payments',
-                    value: quoteResponse.data.premiumDetails.medicalPayments,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "medicalPayments"
-                };
-                this.quoteCoverages.push(medicalCoverage);
-
-                const deductibleCoverage = {
-                    description: 'Property Deductible',
-                    value: quoteResponse.data.premiumDetails.propertyDeductible,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "propertyDeductible"
-                };
-                this.quoteCoverages.push(deductibleCoverage);
-
-                //Per AMTRUST referred Only until Amtrust implements Questions in the API.
-                return this.client_referred(quoteId, quoteLimits, quotePremium);
+                //if Refer look at Messages.
 
             }
             else {
-                //declined
-                return this.client_declined("The insurer has declined to offer you coverage at this time");
+                // TO BE MOVE to after questions snet - No question sent..  we do not have question list from Amtrust yet 2/5/2022.
+                // eslint-disable-next-line no-lonely-if
+                if(quoteResponse.data.premiumDetails){
+                    // "premiumDetails": {
+                    //     "priceIndication": 500.0,
+                    //     "generalLiabilityLimits": "1,000/2,000/2,000,000",
+                    //     "medicalPayments": "5,000",
+                    //     "damagesToPremisesLiabilityLimit": "50,000",
+                    //     "businessPersonalProperty": "17",
+                    //     "propertyDeductible": "None",
+                    //     "expansionEndorsement": "Basic"
+                    // },
+                    const quotePremium = quoteResponse.data.premiumDetails.priceIndication
+
+                    if(quoteResponse.data.isOK && quoteResponse.data.messages?.length > 0){
+                        for(const message of quoteResponse.data.messages){
+                            if(message.messageCode === 'Deeplink'){
+                                this.quoteLink = message.title;
+                                break;
+                            }
+                        }
+                    }
+
+                    const quoteLimits = {}
+                    quoteLimits[6] = quoteResponse.data.premiumDetails.medicalPayments;
+                    let coverageSort = 0;
+
+                    const glCoverage = {
+                        description: 'General Liability Limits',
+                        value: quoteResponse.data.premiumDetails.generalLiabilityLimits,
+                        sort: coverageSort++,
+                        category: 'General Limits',
+                        insurerIdentifier: "generalLiabilityLimits"
+                    };
+                    this.quoteCoverages.push(glCoverage);
+
+                    const premiseCoverage = {
+                        description: 'Damages To Premises Liability Limit',
+                        value: quoteResponse.data.premiumDetails.damagesToPremisesLiabilityLimit,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "damagesToPremisesLiabilityLimit"
+                    };
+                    this.quoteCoverages.push(premiseCoverage);
+
+                    const bppCoverage = {
+                        description: 'Business Personal Property Liability Limit',
+                        value: quoteResponse.data.premiumDetails.businessPersonalProperty,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "bppCoverage"
+                    };
+                    this.quoteCoverages.push(bppCoverage);
+
+                    const medicalCoverage = {
+                        description: 'Medical Payments',
+                        value: quoteResponse.data.premiumDetails.medicalPayments,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "medicalPayments"
+                    };
+                    this.quoteCoverages.push(medicalCoverage);
+
+                    const deductibleCoverage = {
+                        description: 'Property Deductible',
+                        value: quoteResponse.data.premiumDetails.propertyDeductible,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "propertyDeductible"
+                    };
+                    this.quoteCoverages.push(deductibleCoverage);
+
+                    //Per AMTRUST referred Only until Amtrust implements Questions in the API.
+                    return this.client_price_indication(quoteId, quoteLimits, quotePremium);
+
+                }
+                else {
+                    //declined
+                    return this.client_declined("The insurer has declined to offer you coverage at this time");
+                }
             }
 
         }

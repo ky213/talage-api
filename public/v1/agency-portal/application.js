@@ -1981,8 +1981,14 @@ async function markQuoteAsDead(req, res, next){
 async function GetBopCodes(req, res, next){
     let bopIcList = null;
     try{
-        const applicationBO = new ApplicationBO();
-        bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+        }
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -2287,6 +2293,35 @@ async function getHints(req, res, next){
    
 }
 
+async function CheckAppetite(req, res, next){
+    let appetitePolicyTypeList = null;
+    try{
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            appetitePolicyTypeList = await applicationBO.checkAppetite(req.params.id, req.query);
+        }
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!appetitePolicyTypeList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, appetitePolicyTypeList);
+    return next();
+}
+
 // eslint-disable-next-line no-unused-vars
 async function accesscheckEmail(email, applicationJSON){
     let hasAccess = false;
@@ -2361,6 +2396,8 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage');
     server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
+    server.addGetAuth('CheckAppetite for AP Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
+
     server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);

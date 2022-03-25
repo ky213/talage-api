@@ -905,7 +905,9 @@ module.exports = class Application {
             }}
         }
         quoteList.forEach((quoteDoc) => {
-            if (quoteDoc.quoteStatusId === quoteStatus.quoted.id || quoteDoc.quoteStatusId === quoteStatus.quoted_referred.id) {
+            if (quoteDoc.quoteStatusId === quoteStatus.quoted.id
+                || quoteDoc.quoteStatusId === quoteStatus.quoted_referred.id
+                || quoteDoc.quoteStatusId === quoteStatus.priceIndication.id) {
                 some_quotes = true;
             }
             //quote Docs are marked with handledByTalage
