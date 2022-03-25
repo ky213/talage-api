@@ -40,14 +40,7 @@ async function performCompanyLookup(companyInfoJSON) {
         throw new Error(`Hipaa returned error status ${hipaaResponse.status}`);
     }
     if (hipaaResponse.data?.EIN && responseHits) {
-        return responseHits.map(hit => ({
-            ein: `${hit.IRS_NUMBER.substr(0,2)}-${hit.IRS_NUMBER.substr(2)}`,
-            businessName: hit.CONFORMED_NAME,
-            address: `${hit.BUSINESS_ADDRESS_STREET1 || hit.MAIL_ADDRESS_STREET1 || ''} ${hit.BUSINESS_ADDRESS_STREET2 || hit.MAIL_ADDRESS_STREET2 || ''}`,
-            city: hit.BUSINESS_ADDRESS_CITY || hit.MAIL_ADDRESS_CITY || '',
-            state: hit.BUSINESS_ADDRESS_STATE || hit.MAIL_ADDRESS_STATE || '',
-            zipCode: hit.BUSINESS_ADDRESS_ZIP || hit.MAIL_ADDRESS_ZIP || ''
-        }));
+        return responseHits;
     }
     else {
         throw new Error(`Unexpected Hipaa response ${hipaaResponse}  ${JSON.stringify(hipaaResponse.data)}`);
