@@ -1846,6 +1846,35 @@ async function GetRequiredFields(req, res, next){
 
 }
 
+async function CheckAppetite(req, res, next){
+    let appetitePolicyTypeList = null;
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    try{
+        const applicationBO = new ApplicationBO();
+        appetitePolicyTypeList = await applicationBO.checkAppetite(appId, req.query);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!appetitePolicyTypeList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, appetitePolicyTypeList);
+    return next();
+}
+
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
@@ -1858,6 +1887,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
     server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
     server.addGetAuthAppApi('GET Required Fields', `${basePath}/application/:id/getrequiredfields`, GetRequiredFields);
+    server.addGetAuthAppApi('CheckAppetite for  Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
