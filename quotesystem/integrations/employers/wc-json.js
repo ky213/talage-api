@@ -397,13 +397,23 @@ module.exports = class EmployersWC extends Integration {
                         fulfill(this.return_result('autodeclined'));
                         return;
                     }
-                    let ownersRate = 0;
-                    if (appDoc.owners.map(ownershipPercentage => ownersRate += ownershipPercentage.ownership) !== 100) {
-                        log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Current ownership percentage listed is ${ownersRate}%.`);
-                        this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application if insuring a location in the state of California. Current ownership allocation is listed at ${ownersRate}% - Stopped before submission to insurer`);
+                    let countOwnershipRate = 0;
+                    appDoc.owners.map(ownershipPercentage => countOwnershipRate += ownershipPercentage.ownership);
+                    if (countOwnershipRate !== 100) {
+                        log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Current ownership percentage listed is ${countOwnershipRate}%.`);
+                        this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application if insuring a location in the state of California. Current ownership allocation is listed at ${countOwnershipRate}% - Stopped before submission to insurer`);
                         fulfill(this.return_result('autodeclined'));
                         return;
                     }
+                    // Add partnerNames to our requestJSON submission
+                    const arrOfPartners = [];
+                    for (const partner of appDoc.owners) {
+                        const temp = {};
+                        temp.firstName = partner.fname;
+                        temp.lastName = partner.lname;
+                        arrOfPartners.push(temp);
+                      }
+                    requestJSON.partnerNames = arrOfPartners;
                 }
             }
 
