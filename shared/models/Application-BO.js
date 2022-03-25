@@ -2793,4 +2793,144 @@ module.exports = class ApplicationModel {
         return hintJson
     }
 
+    async checkAppetite(applicationId, optionParams){
+
+
+        const appetiteCheckSvc = global.requireShared('./services/appetitechecksvc.js');
+        let ptAppetiteList = [];
+        if(!optionParams){
+            optionParams = {};
+        }
+        try{
+            const appDoc = await this.getById(applicationId)
+            if(!appDoc){
+                throw new Error(`checkAppetite bad appId ${applicationId}`)
+            }
+            let needActivityCodeIdList = false;
+            //determine policy list.
+            let bopIndustryCodeId = null;
+            let policyTypeArray = [];
+            if(appDoc.policies && appDoc.policies.length > 0){
+                for(let i = 0; i < appDoc.policies.length; i++){
+                    if(!optionParams.policytype || optionParams.policytype === appDoc.policies[i].policyType){
+                        policyTypeArray.push({
+                            type: appDoc.policies[i].policyType,
+                            effectiveDate: appDoc.policies[i].effectiveDate
+                        });
+                        if(appDoc.policies[i].policyType === "WC"){
+                            needActivityCodeIdList = true;
+                        }
+                        if(appDoc.policies[i].policyType === "BOP" && appDoc.policies[i].bopIndustryCodeId){
+                            bopIndustryCodeId = appDoc.policies[i].bopIndustryCodeId
+                        }
+                    }
+                }
+            }
+            let activityCodeIdList = [];
+
+            if(needActivityCodeIdList){
+                if(optionParams.activitycodeidlist && optionParams.activitycodeidlist.length > 0){
+                    let activitycodeidlistStr = null;
+                    if(!Array.isArray(optionParams.activitycodeidlist)){
+                        activitycodeidlistStr = optionParams.activitycodeidlist.split(',')
+                    }
+                    else {
+                        activitycodeidlistStr = optionParams.activitycodeidlist
+                    }
+                    activityCodeIdList = activitycodeidlistStr.map(activityCode => parseInt(activityCode, 10));
+                }
+                else {
+                    //get applications activityCodeId's
+                    appDoc.locations.forEach(function(location) {
+                        location.activityPayrollList.forEach(function(activtyCodePayroll) {
+                            if(!activityCodeIdList.includes(activtyCodePayroll.activityCodeId)){
+                                activityCodeIdList.push(activtyCodePayroll.activityCodeId)
+                            }
+                        });
+                    });
+                }
+            }
+            let stateList = []
+            appDoc.locations.forEach(function(location) {
+                //state/territory list.
+                if(!stateList.includes(location.state)){
+                    stateList.push(location.state)
+                }
+            });
+
+
+            if(optionParams.statelist && optionParams.statelist.length > 0){
+                if(!Array.isArray(optionParams.statelist)){
+                    optionParams.statelist = optionParams.statelist.split(',')
+                }
+                stateList = optionParams.statelist
+            }
+            let industryCodeIdList = [];
+            if(optionParams.industrycodeidlist && optionParams.industrycodeidlist.length > 0){
+                if(!Array.isArray(optionParams.industrycodeidlist)){
+                    optionParams.industrycodeidlist = optionParams.industrycodeidlist.split(',')
+                }
+                industryCodeIdList = optionParams.industrycodeidlist.map(ic => parseInt(ic, 10));
+            }
+            else {
+                industryCodeIdList.push(parseInt(appDoc.industryCode))
+                if(bopIndustryCodeId){
+                    industryCodeIdList.push(bopIndustryCodeId);
+                }
+
+            }
+
+            //Get agencyLocation
+            //get agencyLocationJSON
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = false;
+            const addAgencyPrimaryLocation = true;
+            let agencylocationJSON = await agencyLocationBO.getById(appDoc.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+                log.error(`Error checkAppetite call error ${err}` + __location);
+            });
+
+            if(!agencylocationJSON){
+                throw new Error(`checkAppetite appId ${applicationId} bad agencyLocationid ${appDoc.agencyLocationId} `)
+            }
+
+            for(const policyType of policyTypeArray){
+                const insurerIdList = [];
+                for(const locInsurer of agencylocationJSON.insurers){
+                    try{
+                        if(Object.hasOwnProperty.call(locInsurer.policyTypeInfo, policyType.type)){
+                            const policyTypeInfo = locInsurer.policyTypeInfo[policyType.type]
+                            if(policyTypeInfo.enabled === true){
+                                insurerIdList.push(locInsurer.insurerId)
+                            }
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error checkAppetite call error ${err}` + __location);
+                    }
+
+                }
+
+                //get effective date for policy
+                let effectiveDate = moment();
+                if(policyType.effectiveDate){
+                    effectiveDate = policyType.effectiveDate;
+                }
+
+                const appetiteCheckResponse = await appetiteCheckSvc.checkAppetite(policyType.type, effectiveDate, activityCodeIdList, industryCodeIdList, insurerIdList, stateList)
+                if(appetiteCheckResponse){
+                    const policyAppetite = {
+                        policyTypeCd: policyType.type,
+                        appetiteStatus: appetiteCheckResponse
+                    }
+                    ptAppetiteList.push(policyAppetite);
+                }
+
+            }
+        }
+        catch(err){
+            log.error(`Error checkAppetite call error ${err}` + __location);
+        }
+        return ptAppetiteList;
+    }
+
 }

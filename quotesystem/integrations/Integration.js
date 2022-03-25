@@ -787,9 +787,6 @@ module.exports = class Integration {
         const activityCodeArray = [];
         this.applicationDocData.locations.forEach(function(location) {
             location.activityPayrollList.forEach(function(activtyCodePayroll) {
-                if(!activityCodeArray.activityCodeId){
-                    activityCodeArray.activityCodeId = activityCodeArray.ncciCode
-                }
                 if(!activityCodeArray.includes(activtyCodePayroll.activityCodeId)){
                     activityCodeArray.push(activtyCodePayroll.activityCodeId)
                 }
