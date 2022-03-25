@@ -388,15 +388,24 @@ module.exports = class EmployersWC extends Integration {
               }
             }
 
-            // California Req: If there is atleast one CA location, and its an LLC/Partnerhsip, all owners must be listed
+            // California Req: If there is atleast one CA location, and it is a Partnerhsip, all owners must be listed
             if (appDoc.locations.find(location => location.state === 'CA')
             && appDoc.entityType === 'Partnership'
             || appDoc.entityType === 'Limited Partnership'
             || appDoc.entityType === 'Limited Liability Partnership') {
-                // Ensure there is 2+ partners, otherwise trigger the else statement.
-            }
-            else {
-                log.error(`A ${appDoc.entityType} with at least one location in California, is required to have a minimum of two partners listed on the application. Please follow instructions for a manual quote in order to complete this request.`);
+                if (appDoc.owners.length < 2) {
+                    log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Only one partner was listed.`);
+                    this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application in the state of California. However, only one partner was listed. - Stopped before submission to insurer`);
+                    fulfill(this.return_result('autodeclined'));
+                    return;
+                }
+                let totalRate = 0;
+                if (appDoc.owners.map(ownershipPercentage => totalRate += ownershipPercentage.ownership) !== 100) {
+                    log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Current ownership percentage listed is ${totalRate}%.`);
+                    this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application in the state of California. Current ownership allocation is listed at ${totalRate}% - Stopped before submission to insurer`);
+                    fulfill(this.return_result('autodeclined'));
+                    return;
+                }
             }
 
             requestJSON.namedInsureds = [{}];
