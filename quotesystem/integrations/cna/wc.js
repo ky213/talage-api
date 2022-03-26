@@ -260,7 +260,17 @@ module.exports = class CnaWC extends Integration {
             generalPartyInfo.NameInfo[0].TaxIdentity = this.getTaxIdentity();
             
             if (business.dba) {
-                if(generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0] && generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd){
+                if(!generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0]){
+                    generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [{}];
+                }
+                
+                if(generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0]){
+                    if(!generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd){
+                        generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd = {};
+                    }
+                    if(!generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName){
+                        generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName = {};
+                    }
                 
                     generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
                     generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
