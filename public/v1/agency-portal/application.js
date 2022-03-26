@@ -447,14 +447,12 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     try{
                         // eslint-disable-next-line prefer-const
                         let activityPayroll = location.activityPayrollList[j];
-                        let activtyCodeJSON = {};
                         if(activityPayroll.activityCodeId){
-                            activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
+                            const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
+                            activityPayroll.description = activtyCodeJSON?.description;
                         }
-                        else {
-                            activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
-                        }
-                        activityPayroll.description = activtyCodeJSON.description;
+                       
+                       
                         //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
