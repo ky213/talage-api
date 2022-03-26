@@ -576,6 +576,10 @@ module.exports = class EmployersWC extends Integration {
                     this.reasons.push(`Employers API: Application is not available'`);
                     fulfill(this.return_result('outage'));
                 }
+                else if (err.toString().includes('Request unsuccessful')){
+                    this.reasons.push(`Employers API: Request unsuccessful'`);
+                    fulfill(this.return_result('outage'));
+                }
                 else {
                     this.reasons.push(`Employers API Error: ${err}`);
                     fulfill(this.return_result('error'));

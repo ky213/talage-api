@@ -182,6 +182,11 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) 
         //  return 'error';
         return applicationStatus.error;
     }
+    else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.outage.id)) {
+        //appStatusId = 20
+        //  return 'error';
+        return applicationStatus.error;
+    }
     // else if (quoteDocJsonList.some((quote) => quote.quoteStatusId === quoteStatus.piError.id)) {
     //     // INTENTIONALLY SKIPPED - WE DO NOT WANT AGENT STOPPING BECAUSE OF PI ERRORS OR OUT OF APPETITE.
     //     //  only a few insurers do Price Indications.
