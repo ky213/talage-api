@@ -255,7 +255,7 @@ module.exports = class IndustryCodeBO{
                     docDB = await IndustryCode.findOne(query, '-__v');
                 }
                 catch (err) {
-                    log.error("Getting Agency error " + err + __location);
+                    log.error("Getting industry code error " + err + __location);
                     reject(err);
                 }
                 if(returnMongooseModel){
