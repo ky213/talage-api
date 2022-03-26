@@ -534,7 +534,7 @@ module.exports = class Integration {
 
                     // Ensure that the answer_id is a string, not a number.
                     // Note: on AWS servers, answer_id is a number; on other platforms, it is a string.
-                    if (typeof answer_id !== "string") {
+                    if (typeof answer_id !== "string" && answer_id) {
                         try {
                             answer_id = answer_id.toString();
                         }
@@ -1441,7 +1441,7 @@ module.exports = class Integration {
                     if (insurerQuestion.talageQuestionId) {
                         try{
                             //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
-                            const qId_String = insurerQuestion.talageQuestionId.toString();
+                            const qId_String = insurerQuestion.talageQuestionId?.toString();
                             //first look if the TalageQuestion is in the App data directly, before using old strustures.  
                             //    old structures and logic around them is complex and overkill. requiring similar logic to QuestionSvc to be repeated here.
                             //    This question is there or not....
@@ -2287,7 +2287,7 @@ module.exports = class Integration {
                         log.verbose(reason);
                     });
                 }
-                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+                return this.return_error('outage', 'Insurer is having an outage');
 
             case 'quoted':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)` + __location);
@@ -2615,7 +2615,7 @@ module.exports = class Integration {
             throw error;
         }
         // Convert the data to a string
-        const str_data = raw_data.toString();
+        const str_data = raw_data?.toString();
 
         if (dumpRawXML) {
             // eslint-disable-next-line no-console

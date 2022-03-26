@@ -180,8 +180,14 @@ module.exports = class CompwestWC extends Integration {
             this.log += '--------======= Unexpected API Response - No Acord Tag =======--------';
             this.log += util.inspect(result, false, null);
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Unexpected response ${JSON.stringify(result)}`)
-            this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
-            return this.return_result('error');
+            if(typeof result === 'object' && JSON.stringify(result).includes('502 Proxy Error')){
+                this.reasons.push(`${this.insurer.name} API: 502 Proxy Error`);
+                return this.return_result('outage');
+            }
+            else {
+                this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
+                return this.return_result('error');
+            }
         }
         const res = result.ACORD;
         //log.debug("AF response " + JSON.stringify(res))
