@@ -259,7 +259,7 @@ module.exports = class AgencyBO {
                     let docDB = null;
                     try{
                         docDB = await this.getRedisById(mysqlId)
-                        if(getAgencyNetwork === true){
+                        if(docDB & getAgencyNetwork === true){
                             const agencyNetworkBO = new AgencyNetworkBO();
                             try {
                                 if(typeof docDB.agencyNetworkId === 'string'){
