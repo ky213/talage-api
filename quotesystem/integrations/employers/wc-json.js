@@ -569,11 +569,17 @@ module.exports = class EmployersWC extends Integration {
             }
             catch (err) {
                 log.error(`Employers API: Appid: ${this.app.id} API call error: ${err}  ` + __location);
-                this.reasons.push(`Employers API Error: ${err}`);
                 this.log += `--------======= Employers Request Error =======--------<br><br>`;
                 this.log += err;
                 this.log += `--------======= End =======--------<br><br>`;
-                fulfill(this.return_result('error'));
+                if(err.toString().includes('Application is not available')){
+                    this.reasons.push(`Employers API: Application is not available'`);
+                    fulfill(this.return_result('outage'));
+                }
+                else {
+                    this.reasons.push(`Employers API Error: ${err}`);
+                    fulfill(this.return_result('error'));
+                }
                 return;
             }
 

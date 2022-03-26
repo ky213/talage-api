@@ -122,8 +122,6 @@ module.exports = class Business {
         this.appId = applicationDoc.applicationId;
         let data2 = {}
         let applicationDocJSON = JSON.parse(JSON.stringify(applicationDoc))
-        //ein not part of Schema some it has been copied.
-        //applicationDocJSON.ein = applicationDoc.ein;
 
         const propMappings = {}
         this.mapToSnakeCaseJSON(applicationDocJSON, data2, propMappings);
@@ -165,7 +163,7 @@ module.exports = class Business {
         this.name = applicationDocJSON.businessName;
         this.founded = moment(applicationDocJSON.founded);
         this.owners = applicationDocJSON.owners;
-        this.industry_code = applicationDocJSON.industryCode.toString();
+        this.industry_code = applicationDocJSON.industryCode?.toString();
         if(applicationDocJSON.industryCode && parseInt(applicationDocJSON.industryCode, 10) > 0){
             try{
                 const industryCodeId = parseInt(applicationDocJSON.industryCode, 10)
@@ -224,7 +222,9 @@ module.exports = class Business {
                     throw err;
                 }
                 location.business_entity_type = applicationDocJSON.entityType;
-                location.identification_number = stringFunctions.santizeNumber(applicationDocJSON.ein);
+                if(applicationDocJSON.ein){
+                    location.identification_number = stringFunctions.santizeNumber(applicationDocJSON.ein);
+                }
                 this.locations.push(location);
             }
         }

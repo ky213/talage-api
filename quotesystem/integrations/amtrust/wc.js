@@ -683,7 +683,7 @@ module.exports = class AMTrustWC extends Integration {
         }
 
         // Format the FEIN
-        const fein = appDoc.ein.replace(/\D/g, '');
+        const fein = appDoc.ein ? appDoc.ein.replace(/\D/g, '') : "";
 
         let useQuotePut_OldQuoteId = false;
         // Check the status of the FEIN.

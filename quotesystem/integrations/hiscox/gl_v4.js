@@ -571,7 +571,7 @@ module.exports = class HiscoxGL extends Integration {
             else {
                 this.secondaryLocations.push(location)
             }
-            if (["FL", "MO", "TX"].includes(location.territory)) {
+            if (["FL", "MO", "TX"].includes(location.territory) && this.app?.business?.locations[0]) {
                 // Hiscox requires a county in these states
                 if (location.county) {
                     const addressInfoResponse = await smartystreetSvc.checkAddress(this.app.business.locations[0].address,
@@ -647,10 +647,13 @@ module.exports = class HiscoxGL extends Integration {
         if(!this.secondaryLocationsCount){
             this.secondaryLocationsCount = 0;
         }
+        if(!this.primaryLocation && this.applicationDocData.locations.length > 0){
+            this.primaryLocation = this.applicationDocData.locations[0];
+        }
 
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress = {AddrInfo: {}};
-        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
-        if (this.primaryLocation.address2){
+        reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr1 = this.primaryLocation?.address.substring(0,250);
+        if (this.primaryLocation?.address2){
             reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
         }
         reqJSON.InsuranceSvcRq.QuoteRq.BusinessInfo.MailingAddress.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
@@ -718,8 +721,8 @@ module.exports = class HiscoxGL extends Integration {
         // Set primary location
         sharedQuoteRqStructure.Locations = {Primary: {AddrInfo: {}}};
 
-        sharedQuoteRqStructure.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation.address.substring(0,250);
-        if (this.primaryLocation.address2){
+        sharedQuoteRqStructure.Locations.Primary.AddrInfo.Addr1 = this.primaryLocation?.address.substring(0,250);
+        if (this.primaryLocation?.address2){
             sharedQuoteRqStructure.Locations.Primary.AddrInfo.Addr2 = this.primaryLocation.address2.substring(0,250);
         }
         sharedQuoteRqStructure.Locations.Primary.AddrInfo.City = stringFunctions.capitalizeName(this.primaryLocation.city).substring(0,250);
@@ -795,8 +798,8 @@ module.exports = class HiscoxGL extends Integration {
 
             for (const secondaryLocation of this.secondaryLocations) {
                 const location = {AddrInfo: {RatingInfo: {}}};
-                location.AddrInfo.Addr1 = secondaryLocation.address.substring(0,250);
-                if (secondaryLocation.address2){
+                location.AddrInfo.Addr1 = secondaryLocation?.address.substring(0,250);
+                if (secondaryLocation?.address2){
                     location.AddrInfo.Addr2 = secondaryLocation.address2.substring(0,250);
                 }
                 location.AddrInfo.City = stringFunctions.capitalizeName(secondaryLocation.city).substring(0,250);
