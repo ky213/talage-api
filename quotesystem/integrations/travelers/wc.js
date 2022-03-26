@@ -806,12 +806,20 @@ module.exports = class AcuityWC extends Integration {
 
         // Check for internal errors where the request format is incorrect
         if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
+            let travelersMessage = '';
+            if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].description){
+                travelersMessage = response.debugMessages[0].description;
+            }
             if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].code === 'INVALID_PRODUCER_INFORMATION'){
-                log.error(`${logPrefix} Travelers returned a INVALID_PRODUCER_INFORMATION  AgencyId ${appDoc.agencyId}`)
+                log.error(`${logPrefix} Travelers returned a INVALID_PRODUCER_INFORMATION  AgencyId ${appDoc.agencyId}` + __location)
                 return this.client_error(` returned a INVALID_PRODUCER_INFORMATION check Agency configuration`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
             }
+            else if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].code === 'JOB_CLASS_DE_DATA_ERROR'){
+                log.warn(`${logPrefix} Travelers returned a JOB_CLASS_DE_DATA_ERROR  AgencyId ${appDoc.agencyId}` + __location)
+                return this.client_declined(`Travelers returned ${response.debugMessages[0].description}`);
+            }
             else {
-                return this.client_error(`The insurer returned an request error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+                return this.client_error(`The insurer returned an request error status code of ${response.statusCode}.  ${travelersMessage}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
             }
         }
 
@@ -880,7 +888,7 @@ module.exports = class AcuityWC extends Integration {
                     this.quoteLink = validationDeepLink;
                 }
                 else {
-                    this.log_error(`Could not locate validationDeepLink property in response.`, __location);
+                    log.error(`${logPrefix}Could not locate validationDeepLink property in response.` + __location)
                 }
                 return this.client_quoted(quoteId, limits, premium);
             default:
