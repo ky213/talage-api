@@ -219,7 +219,7 @@ async function runFunction() {
                     if(!mongoApp.additionalInfo){
                         mongoApp.additionalInfo = {}
                     }
-                    log.debug("Loaded sourceAppId " + sourceAppId + " applicationId " + mongoApp.applicationId)
+                    log.debug("Loaded " + appList[i].description + " sourceAppId " + sourceAppId + " applicationId " + mongoApp.applicationId)
                     mongoApp.additionalInfo.copiedFromMysqlId = mongoApp.mysqlId;
                     mongoApp.additionalInfo.copiedFromAppId = mongoApp.applicationId;
 
@@ -233,6 +233,20 @@ async function runFunction() {
                     const newEffectiveDate = moment().add(15,"days");
                     const newExpirationDate = newEffectiveDate.clone().add(1,'years');
 
+                    if(appList[i].policyTypes){
+                        log.debug("RESETTING POLICYTYPES")
+                        const appPolicyList = []
+                        for(const appPolicyCd of appList[i].policyTypes){
+                            const policyJSON = mongoApp.policies.find((policy) => policy.policyType === appPolicyCd)
+                            if(policyJSON){
+                                appPolicyList.push(policyJSON)
+                            }
+                        }
+                        if(appPolicyList.length > 0){
+                            mongoApp.policies = appPolicyList
+                        }
+                    }
+
                     if(mongoApp.policies && mongoApp.policies.length > 0){
                         for(let j = 0; j < mongoApp.policies.length; j++){
                             mongoApp.policies[j].effectiveDate = newEffectiveDate;
@@ -245,6 +259,7 @@ async function runFunction() {
                     mongoApp.processStateOld = 1;
                     mongoApp.lastStep = 8;
                     mongoApp.progress = "unknown";
+                    mongoApp.metrics = null;
 
                     if(appList[i].requiresNewEin){
                         mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
@@ -261,6 +276,100 @@ async function runFunction() {
                     //save mongoinsert
                     const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
                     log.debug("Saved new sourceAppId " + sourceAppId + " applicationId " + newApplicationJSON.applicationId);
+
+                    //get questions for new app - new policy effective date
+                    const questionDefResponse = await getQuestions(newApplicationJSON.applicationId, apiApRequoteUrlBase, authResponse.data.token).catch((err) => {
+                        log.error(`Error getting API questions ${err}`)
+                    });
+                    if(questionDefResponse && questionDefResponse.questionList){
+                        let answerList = [];
+                        let newQuestions = false;
+                        for(let qidx = 0; qidx < questionDefResponse.questionList.length; qidx++){
+                            const questionDef = questionDefResponse.questionList[qidx]
+                            //
+                            const existingAppQ = newApplicationJSON.questions.find((appQ) => appQ.questionId === questionDef.talageQuestionId)
+                            if(existingAppQ){
+                                const newAnswer = {
+                                    "hidden": false,
+                                    "questionId": questionDef.talageQuestionId,
+                                    "questionType": existingAppQ.questionType,
+                                    "questionText": questionDef.text,
+                                    "answerId": existingAppQ.answerId,
+                                    "answerValue": existingAppQ.answerValue
+                                }
+                                answerList.push(newAnswer);
+                                continue;
+                            }
+
+                            if(questionDefResponse.answeredList && questionDefResponse.answeredList.length > 0){
+                                const existingAnswer = questionDefResponse.answeredList.find((a) => a.questionId === questionDef.talageQuestionId)
+                                //do not change existing answers
+                                if(existingAnswer){
+                                    answerList.push(existingAnswer);
+                                    continue;
+                                }
+                            }
+                            newQuestions = true;
+                            if(questionDef.typeId === 1){
+                                //Yes/NO
+                                const newAnswer = {
+                                    "hidden": false,
+                                    "questionId": questionDef.talageQuestionId,
+                                    "questionType": "Yes/No",
+                                    "questionText": questionDef.text,
+                                    "answerId": 1,
+                                    "answerValue": "No"
+                                }
+                                //Get default anwser.
+                                const defaultAnswer = questionDef.answers.find((a) => a.default === true)
+                                if(defaultAnswer){
+                                    newAnswer.answerId = defaultAnswer.answerId
+                                    newAnswer.answerValue = defaultAnswer.answer
+                                }
+                                else if(questionDef.answers[0].answer === "No"){
+                                    //1st one is suppose to NO
+                                    newAnswer.answerId = questionDef.answers[0].answerId
+                                    newAnswer.answerValue = questionDef.answers[0].answer
+                                }
+                                else {
+                                    newAnswer.answerId = questionDef.answers[1].answerId
+                                    newAnswer.answerValue = questionDef.answers[1].answer
+                                }
+                                answerList.push(newAnswer);
+                            }
+                            else if (questionDef.typeId === 5){
+                                //special processing for known questoins (Travelers' employees shift)
+
+                                const newAnswer = {
+                                    "hidden": false,
+                                    "questionId":  questionDef.talageQuestionId,
+                                    "questionType": "Text - Single Line",
+                                    "questionText": questionDef.text,
+                                    "answerValue": ""
+                                }
+
+                                if(questionDef.text === "What is the maximum number of employees per shift at any one location?"){
+                                    let totalFTE = 0;
+                                    newApplicationJSON.locations.forEach((location) => {
+                                        totalFTE += location.full_time_employees;
+                                    });
+
+                                    newAnswer.answerValue = totalFTE;
+                                    answerList.push(newAnswer);
+                                }
+                            }
+
+
+                        }
+                        // not handling or added other question types
+                        if(newQuestions){
+                            const saveResp = await postApplicationQuestionAnswers(newApplicationJSON, answerList, apiApRequoteUrlBase, authResponse.data.token).catch((err) => {
+                                log.error(`Error Putting API questions ${err}`)
+                            });
+                        }
+
+                    }
+
 
                     //run quote process
                     const quoteURL = `${apiApRequoteUrlBase}/quote`;
@@ -293,6 +402,38 @@ async function runFunction() {
     }
     log.debug("Done!");
     process.exit(1);
+}
+
+async function getQuestions(applicationId, apiPostAppUrlBase, authToken){
+
+    //log.debug(`Getting Questions for ${currCompanyAppJSON.businessName}`)
+    const instance = axios.create();
+    instance.defaults.timeout = 4500;
+    // eslint-disable-next-line dot-notation
+    instance.defaults.headers.common["Authorization"] = authToken;
+    const responseAppDoc = await instance.get(apiPostAppUrlBase + `/${applicationId}/questions`,{headers: {'Content-Type': 'application/json'}});
+    return responseAppDoc.data;
+
+}
+
+async function postApplicationQuestionAnswers(currCompanyAppJSON, questionAnswerList, apiPostAppUrlBase, authToken){
+    if(!currCompanyAppJSON?.applicationId){
+        return;
+    }
+
+    //log.debug(`Putting Application QuestionAnswers for ${currCompanyAppJSON.businessName} - ${currCompanyAppJSON.applicationId}`)
+
+    const newAppData = {
+        applicationId: currCompanyAppJSON.applicationId,
+        questions: questionAnswerList
+    }
+
+    const instance = axios.create();
+    instance.defaults.timeout = 4500;
+    // eslint-disable-next-line dot-notation
+    instance.defaults.headers.common["Authorization"] = authToken;
+    await instance.put(apiPostAppUrlBase, JSON.stringify(newAppData),{headers: {'Content-Type': 'application/json'}});
+    return {saved: true};
 }
 
 main();
