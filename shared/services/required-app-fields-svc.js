@@ -48,12 +48,14 @@ const policyBasedRequiredFields = {
                 plumbingImprovementYear: {requirement: required}
             }
         },
+        policy: {
+            fireCode: {required: hidden}
+        },
         grossSalesAmt: {requirement: required},
         ein: {requirement: optional},
         website: {requirement: optional},
         coverageLapseWC: {requirement: hidden},
         yearsOfExp: {requirement: required},
-        fireCode: {required: hidden},
         owner: {
             requirement: optional,
             officerTitle: {requirement: optional},
@@ -85,12 +87,14 @@ const policyBasedRequiredFields = {
                 plumbingImprovementYear: {requirement: hidden}
             }
         },
+        policy: {
+            fireCode: {required: hidden}
+        },
         grossSalesAmt: {requirement: required},
         ein: {requirement: optional},
         coverageLapseWC: {requirement: hidden},
         website: {requirement: optional},
         yearsOfExp: {requirement: required},
-        fireCode: {required: hidden},
         owner: {
             requirement: hidden
         }
@@ -125,11 +129,13 @@ const policyBasedRequiredFields = {
                 plumbingImprovementYear: {requirement: hidden}
             }
         },
+        policy: {
+            fireCode: {required: hidden}
+        },
         grossSalesAmt: {requirement: hidden},
         ein: {requirement: required},
         website: {requirement: optional},
-        yearsOfExp: {requirement: required},
-        fireCode: {required: hidden}
+        yearsOfExp: {requirement: required}
     },
     PL: {
         location: {
@@ -154,12 +160,14 @@ const policyBasedRequiredFields = {
                 plumbingImprovementYear: {requirement: hidden}
             }
         },
+        policy: {
+            fireCode: {required: hidden}
+        },
         website: {requirement: hidden},
         grossSalesAmt: {requirement: required},
         ein: {requirement: hidden},
         yearsOfExp: {requirement: required},
         coverageLapseWC: {requirement: hidden},
-        fireCode: {required: hidden},
         owner: {
             requirement: hidden
         }
@@ -187,12 +195,14 @@ const policyBasedRequiredFields = {
                 plumbingImprovementYear: {requirement: hidden}
             }
         },
+        policy: {
+            fireCode: {required: hidden}
+        },
         grossSalesAmt: {requirement: hidden},
         ein: {requirement: hidden},
         website: {requirement: hidden},
         yearsOfExp: {requirement: hidden},
         coverageLapseWC: {requirement: hidden},
-        fireCode: {required: hidden},
         owner: {
             requirement: hidden
         }
