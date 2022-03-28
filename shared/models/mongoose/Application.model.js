@@ -221,7 +221,7 @@ const PolicySchema = new Schema({
     cyber: cyberPolicySchema,
     profLiability: professionalLiabilityPolicySchema,
     bopIndustryCodeId: {type: Number, required: false},
-    fireCodes: [fireCodeSchema]
+    fireCode: fireCodeSchema
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({

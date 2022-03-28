@@ -1975,6 +1975,42 @@ async function markQuoteAsDead(req, res, next){
     return next();
 }
 
+async function GetFireCodes(req, res, next) {
+    let hasAccess = false;
+    try {
+        hasAccess = await accesscheck(req.params.id, req);
+    }
+    catch (e) {
+        log.error(`application <GetFireCodes>: Error getting application hasAccess rights: ${e}. ` + __location);
+        return next(serverHelper.requestError(`Bad Request: ${e}`));
+    }
+
+    if (!hasAccess) {
+        log.error(`application <GetFireCodes>: Caller does not have access to this application. ` + __location);
+        return next(serverHelper.requestError(`Forbidden: Caller doesn't have the rights to access this application.`));
+    }
+
+    let fireCodes = null;
+    try {
+        const applicationBO = new ApplicationBO();
+        fireCodes = await applicationBO.getAppFireCodes();
+    }
+    catch (e) {
+        log.error(`application <GetFireCodes>: Error retrieving Fire Codes: ${e}. ` + __location);
+        // return next(serverHelper.requestError(`Server Error: ${e}`));
+        res.send(200, {});
+        return next();
+    }
+
+    if (!fireCodes) {
+        log.error(`application <GetFireCodes>: No Fire Codes returned. ` + __location);
+        res.send(200, {});
+        return next();
+    }
+
+    res.send(200, fireCodes);
+    return next();
+}
 
 async function GetBopCodes(req, res, next){
     let bopIcList = null;
@@ -2393,6 +2429,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage');
+    server.addGetAuth('GetFireCodes for AP Application', `${basePath}/application/:id/firecodes`, GetFireCodes, 'applications', 'manage');
     server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
     server.addGetAuth('CheckAppetite for AP Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
 

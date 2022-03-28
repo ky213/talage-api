@@ -1701,6 +1701,31 @@ async function bindQuote(req, res, next) {
     return next();
 }
 
+async function getFireCodes(req, res, next) {
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId);
+    if (!rightsToApp) {
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    let fireCodes = null;
+    try {
+        const applicationBO = new ApplicationBO();
+        fireCodes = await applicationBO.getAppFireCodes(appId);
+    }
+    catch (e) {
+        log.error(`Error getting Fire Codes for appId ${appId}: ${e}. ` + __location);
+        return next(serverHelper.requestError(`An error occured while retrieving Fire Codes: ${e}. `));
+    }
+
+    if (!fireCodes) {
+        log.error(`No Fire Codes were returned for appId ${appId}. ` + __location);
+        return next(serverHelper.requestError(`An error occurred while retrieving Fire Codes.`));
+    }
+
+    res.send(200, fireCodes);
+}
 
 async function getBopCodes(req, res, next){
 
@@ -1723,12 +1748,12 @@ async function getBopCodes(req, res, next){
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
         log.info(`Error getting BOP codes for appId ${appId} ` + err + __location);
-        return next(serverHelper.requestError('An error occured while retrieving BOP codes questions. ' + err));
+        return next(serverHelper.requestError(`An error occured while retrieving BOP codes: ${err}.`));
     }
 
     if(!bopIcList){
-        log.error(`No response from BOP codes:  appId ${appId} ${JSON.stringify(bopIcList)}` + __location);
-        return next(serverHelper.requestError('An error occured while retrieving BOP codes questions.'));
+        log.error(`No BOP codes were returned: appId ${appId} ${JSON.stringify(bopIcList)}` + __location);
+        return next(serverHelper.requestError('An error occured while retrieving BOP codes.'));
     }
 
     res.send(200, bopIcList);
@@ -1884,7 +1909,8 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`, getApplication);
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
-    server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
+    server.addGetAuthAppApi('GET Application Fire Codes', `${basePath}/application/:id/firecodes`, getFireCodes);
+    server.addGetAuthAppApi('GET Application BOP Codes', `${basePath}/application/:id/bopcodes`, getBopCodes);
     server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
     server.addGetAuthAppApi('GET Required Fields', `${basePath}/application/:id/getrequiredfields`, GetRequiredFields);
     server.addGetAuthAppApi('CheckAppetite for  Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
