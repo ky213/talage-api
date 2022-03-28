@@ -2,7 +2,7 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable default-case */
 const ApplicationBO = global.requireShared("models/Application-BO.js");
-const AgencyLcoationBO = global.requireShared("models/AgencyLocation-BO.js");
+const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 
@@ -53,6 +53,7 @@ const policyBasedRequiredFields = {
         website: {requirement: optional},
         coverageLapseWC: {requirement: hidden},
         yearsOfExp: {requirement: required},
+        fireCode: {required: hidden},
         owner: {
             requirement: optional,
             officerTitle: {requirement: optional},
@@ -89,6 +90,7 @@ const policyBasedRequiredFields = {
         coverageLapseWC: {requirement: hidden},
         website: {requirement: optional},
         yearsOfExp: {requirement: required},
+        fireCode: {required: hidden},
         owner: {
             requirement: hidden
         }
@@ -126,7 +128,8 @@ const policyBasedRequiredFields = {
         grossSalesAmt: {requirement: hidden},
         ein: {requirement: required},
         website: {requirement: optional},
-        yearsOfExp: {requirement: required}
+        yearsOfExp: {requirement: required},
+        fireCode: {required: hidden}
     },
     PL: {
         location: {
@@ -156,6 +159,7 @@ const policyBasedRequiredFields = {
         ein: {requirement: hidden},
         yearsOfExp: {requirement: required},
         coverageLapseWC: {requirement: hidden},
+        fireCode: {required: hidden},
         owner: {
             requirement: hidden
         }
@@ -188,13 +192,12 @@ const policyBasedRequiredFields = {
         website: {requirement: hidden},
         yearsOfExp: {requirement: hidden},
         coverageLapseWC: {requirement: hidden},
+        fireCode: {required: hidden},
         owner: {
             requirement: hidden
         }
     }
-
-
-}
+};
 
 
 // const bopRequirements = {
@@ -388,7 +391,7 @@ exports.requiredFields = async(appId) => {
     // for this applications.
     let agencyLocationDB = null;
     let insurerList = [];
-    const agencyLcoationBO = new AgencyLcoationBO();
+    const agencyLcoationBO = new AgencyLocationBO();
     POLICY_TYPE_BASED = false
     try{
         log.debug(`Loading Agency Location Id ${applicationDB.agencyLocationId} ` + __location)
