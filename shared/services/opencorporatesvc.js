@@ -14,13 +14,17 @@ async function performCompanyLookup(companyInfoJSON) {
     //     zipCode: "89502"
     // }
     if(!companyInfoJSON || !companyInfoJSON.name || !companyInfoJSON.state){
-        throw new Error("You must enter at least a company name and state");
+        log.error("You must enter at least a company name and state");
+        return null;
     }
 
     const qparms = {
         api_token: apiToken,
-        "q": companyInfoJSON.name,
-        "jurisdiction_code": "us_" + companyInfoJSON.state.toLowerCase()
+        "q": `${companyInfoJSON.name}*`,
+        "jurisdiction_code": "us_" + companyInfoJSON.state.toLowerCase(),
+        "inactive": false,
+        "per_page":5,
+        "page":1
     }
 
     if(companyInfoJSON.streetAddress){
@@ -30,47 +34,55 @@ async function performCompanyLookup(companyInfoJSON) {
     const requestOptions = {params: qparms}
 
     // log.debug(`Got OpenCorporate request - ${JSON.stringify(requestOptions)} `);
-    let OpenCorporateResponse = null;
+    let openCorporateResponse = null;
     try {
-        OpenCorporateResponse = await axios.get(`${openCorporateUrl}/search`, requestOptions);
-        // log.debug(`Got OpenCorporate result - ${JSON.stringify( OpenCorporateResponse.data)} `);
+        openCorporateResponse = await axios.get(`${openCorporateUrl}/search`, requestOptions);
     }
     catch (error) {
-        // Return a connection error
         log.error(`Not able to search companies. OpenCorporates data connection error: ${error}`)
-        throw new Error(`OpenCorporates connection error: ${error}`);
+        return null;
     }
     // Ensure we have a successful HTTP status code
-    if (OpenCorporateResponse.status !== 200) {
-        throw new Error(`OpenCorporates returned error status ${OpenCorporateResponse.status}`);
+    if (openCorporateResponse.status !== 200) {
+        log.error(`OpenCorporates returned error status ${openCorporateResponse.status}`);
+        return null;
     }
-    if (!OpenCorporateResponse.data) {
-        throw new Error('OpenCorporate no data returned');
+    if (!openCorporateResponse.data) {
+        log.error('OpenCorporate no data returned');
+        return null;
     }
-    let businessData = [];
 
-    if(OpenCorporateResponse.data?.results?.total_count === 1 && OpenCorporateResponse.data?.results?.companies[0]?.company?.company_number){
+    let businessData = [];
+    log.debug(JSON.stringify(openCorporateResponse.data?.results?.companies, null, 2));
+    return businessData;
+
+    if(openCorporateResponse.data?.results?.total_count === 1 && openCorporateResponse.data?.results?.companies[0]?.company?.company_number){
         log.debug('Hard hit for Open Corporates');
         try {
-            const company = OpenCorporateResponse.data?.results?.companies[0]?.company;
+            const company = openCorporateResponse.data?.results?.companies[0]?.company?.company;
             const companyDetails = await getCompanyDetails(company, requestOptions);
             businessData.push(companyDetails);
         }
         catch (error) {
             log.error(`OpenCorporates Error ${error}` + __location);
-            throw new Error(`OpenCorporates connection error: ${error}`);
         }
     }
-    else if(OpenCorporateResponse.data?.results?.total_count > 1) {
-        log.debug('Multiple matches for Open Corporates');
+    else if(openCorporateResponse.data?.results?.total_count <= 5 && openCorporateResponse.data?.results?.total_count !== 0) {
+        log.debug('Multiple matches for Open Corporates less than 6');
         try {
-            const companies = OpenCorporateResponse.data?.results?.companies;
-            businessData = await getCompaniesDetails(companies, requestOptions);
+            const companies = openCorporateResponse.data?.results?.companies;
+            for (const testCompany of companies){
+                const company = testCompany.company;
+                const companyDetails = await getCompanyDetails(company, requestOptions);
+                businessData.push(companyDetails);
+            }
         }
         catch(error) {
             log.error(`OpenCorporates Error ${error}` + __location)
-            throw new Error(`OpenCorporates connection error: ${error}`);
         }
+    }
+    else {
+        log.debug('Multiple matches for Open Corporates more than 6');
     }
 
     if (companyInfoJSON.city && companyInfoJSON.city.length > 0){
@@ -124,27 +136,11 @@ async function getCompanyDetails(companyInfo, requestOptions) {
         }
         catch (error) {
             log.error(`OpenCorporates Error ${error}` + __location)
-            throw new Error(`OpenCorporates connection error: ${error}`);
         }
     }
     else {
         log.error(`At least jurisdiction code and company number needs to be set ${__location}`)
     }
-}
-
-async function getCompaniesDetails(companies, requestOptions) {
-    const openCorporateCompanies = await Promise.all(companies.map(async companyInfo => {
-        try {
-            const company = companyInfo.company;
-            const companyDetails = await getCompanyDetails(company, requestOptions);
-            return companyDetails;
-        }
-        catch (error) {
-            log.error(`OpenCorporates ${error} for ${companyInfo.company.name}` + __location)
-        }
-    }));
-
-    return openCorporateCompanies;
 }
 
 async function getCompanyAddress(dataId, companyDetails){
@@ -178,7 +174,6 @@ function filterCompaniesByCity(companies, city){
 }
 
 function filterCompaniesByZipCode(companies, zipCode){
-    log.debug(typeof zipCode);
     if (zipCode && zipCode?.length > 0){
 
         const businessData = companies.filter(company => zipCode === company.zipCode);
