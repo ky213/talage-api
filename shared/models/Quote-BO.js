@@ -471,6 +471,10 @@ module.exports = class QuoteBO {
                 newObjectJSON.updatedAt = new Date();
 
                 const query = {"quoteId": quoteId};
+
+                //so we have easier tracing in history table.
+                newObjectJSON.quoteId = quoteId;
+
                 let newQuoteJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.

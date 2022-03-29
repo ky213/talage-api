@@ -298,6 +298,8 @@ module.exports = class IndustryCodeBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
+                    //so we have easier tracing in history table.
+                    newObjectJSON.industryCodeId = industryCodeId;
 
                     await IndustryCode.updateOne(query, newObjectJSON);
                     const newindustryCode = await IndustryCode.findOne(query);

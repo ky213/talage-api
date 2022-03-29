@@ -275,6 +275,9 @@ module.exports = class QuestionBO{
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
+                    //so we have easier tracing in history table.
+                    newObjectJSON.talageQuestionUuid = docId;
+
                     await QuestionModel.updateOne(query, newObjectJSON);
                     const newQuestionDoc = await QuestionModel.findOne(query);
 
