@@ -23,8 +23,8 @@ async function performCompanyLookup(companyInfoJSON) {
         "q": `${companyInfoJSON.name}*`,
         "jurisdiction_code": "us_" + companyInfoJSON.state.toLowerCase(),
         "inactive": false,
-        "per_page":5,
-        "page":1
+        "per_page": 5,
+        "page": 1
     }
 
     if(companyInfoJSON.streetAddress){
@@ -53,13 +53,11 @@ async function performCompanyLookup(companyInfoJSON) {
     }
 
     let businessData = [];
-    log.debug(JSON.stringify(openCorporateResponse.data?.results?.companies, null, 2));
-    return businessData;
 
     if(openCorporateResponse.data?.results?.total_count === 1 && openCorporateResponse.data?.results?.companies[0]?.company?.company_number){
         log.debug('Hard hit for Open Corporates');
         try {
-            const company = openCorporateResponse.data?.results?.companies[0]?.company?.company;
+            const company = openCorporateResponse.data?.results?.companies[0]?.company;
             const companyDetails = await getCompanyDetails(company, requestOptions);
             businessData.push(companyDetails);
         }
@@ -67,8 +65,9 @@ async function performCompanyLookup(companyInfoJSON) {
             log.error(`OpenCorporates Error ${error}` + __location);
         }
     }
-    else if(openCorporateResponse.data?.results?.total_count <= 5 && openCorporateResponse.data?.results?.total_count !== 0) {
-        log.debug('Multiple matches for Open Corporates less than 6');
+    //else if(openCorporateResponse.data?.results?.total_count <= 5 && openCorporateResponse.data?.results?.total_count !== 0) {
+    else if (openCorporateResponse.data?.results?.total_count > 0){
+        log.debug('Multiple matches for Open Corporates');
         try {
             const companies = openCorporateResponse.data?.results?.companies;
             for (const testCompany of companies){
@@ -80,9 +79,6 @@ async function performCompanyLookup(companyInfoJSON) {
         catch(error) {
             log.error(`OpenCorporates Error ${error}` + __location)
         }
-    }
-    else {
-        log.debug('Multiple matches for Open Corporates more than 6');
     }
 
     if (companyInfoJSON.city && companyInfoJSON.city.length > 0){
@@ -109,9 +105,10 @@ async function getCompanyDetails(companyInfo, requestOptions) {
                     companyDetails.founded = foundedDate;
                 }
                 else {
-                    //try to get it from Fernis
+                    //should try to get it from Fernis
                     companyDetails.founded = '';
                 }
+
                 if(companyDetails.identifiers?.length > 0){
                     const feinIdentifier = companyDetails.identifiers.find((item) => item.identifier.identifier_system_code === "us_fein");
                     if(feinIdentifier && feinIdentifier.identifier?.uid){
@@ -120,9 +117,10 @@ async function getCompanyDetails(companyInfo, requestOptions) {
                     }
                 }
                 else {
-                    // try to get it from HIPAA
+                    // should try to get it from HIPAA
                     companyDetails.ein = '';
                 }
+
                 if(companyDetails.data?.most_recent?.length > 0){
                     const mostRecentCompanyData = companyDetails.data?.most_recent;
                     if (mostRecentCompanyData[0].datum?.data_type === 'CompanyAddress'){
@@ -139,7 +137,7 @@ async function getCompanyDetails(companyInfo, requestOptions) {
         }
     }
     else {
-        log.error(`At least jurisdiction code and company number needs to be set ${__location}`)
+        log.error(`At least jurisdiction code and company number needs to be set. ${__location}`)
     }
 }
 
