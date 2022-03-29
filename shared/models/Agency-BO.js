@@ -849,6 +849,8 @@ module.exports = class AgencyBO {
                     if(!newObjectJSON.hasOwnProperty('$inc')) {
                         newObjectJSON.updatedAt = new Date();
                     }
+                    //so we have easier tracing in history table.
+                    newObjectJSON.agencyId = docId;
 
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);

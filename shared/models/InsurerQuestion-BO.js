@@ -272,6 +272,9 @@ module.exports = class InsurerQuestionBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
+                    //so we have easier tracing in history table.
+                    newObjectJSON.insurerQuestionId = docId;
+
                     await InsurerQuestion.updateOne(query, newObjectJSON);
                     const newInsurerQuestion = await InsurerQuestion.findOne(query);
                     //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});

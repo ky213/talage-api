@@ -407,6 +407,9 @@ module.exports = class AgencyPortalUserBO{
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
+                    //so we have easier tracing in history table.
+                    newObjectJSON.agencyPortalUserUuidId = docId;
+
                     await AgencyPortalUserModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyPortalUserModel.findOne(query);
 
