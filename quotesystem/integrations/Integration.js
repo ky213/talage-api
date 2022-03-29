@@ -1519,13 +1519,14 @@ module.exports = class Integration {
 
             //TODO - 2021/08/21 research if this is necessary
             // General questions
-            const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.applicationDocData.questions);
-            if (!filteredGeneralQuestionList) {
-                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                return;
+            if(this.applicationDocData.questions.length > 0){
+                const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.applicationDocData.questions);
+                if (!filteredGeneralQuestionList) {
+                    fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                    return;
+                }
+                this.applicationDocData.questions = filteredGeneralQuestionList;
             }
-            this.applicationDocData.questions = filteredGeneralQuestionList;
-
 
             // Location questions
             for (const location of this.applicationDocData.locations) {
@@ -1540,6 +1541,35 @@ module.exports = class Integration {
                     // Vehicle questions?
                 }
             }
+
+            // claim questions
+
+            for (const claim of this.applicationDocData.claims) {
+                if (claim.questions) {
+                    for(const question of claim.questions){
+                        let insurerQuestionList = null;
+                        try {
+                            // Get the insurer question identifiers for the question subject area
+                            insurerQuestionList = await this.getInsurerQuestionsByTalageQuestionId("claim", [question.questionId]);
+                        }
+                        catch (err) {
+                            const error_message = `Unable to get claims question identifiers.`;
+                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${error_message}: ${err}` + __location);
+                            //this.reasons.push(error_message);
+                            //return null;
+                        }
+                        if(insurerQuestionList.length > 0){
+                            const insurerQuestion = insurerQuestionList[0];
+                            //this only allow one insuer Q to Talage Q
+                            question.insurerQuestionIdentifier = insurerQuestion.identifier;
+                            question.insurerQuestionAttributes = insurerQuestion.attributes;
+                            question.insurerText = insurerQuestion.text;
+
+                        }
+                    }
+                }
+            }
+
 
             // Run the quote
             const appId = this.app.id;
