@@ -8,6 +8,10 @@
 const Integration = require("../Integration.js");
 const moment = require("moment");
 const momentTimezone = require("moment-timezone");
+const json2xml = require('json2xml');
+const xmlParser = require('xml2json');
+
+
 const paymentPlanSVC = global.requireShared('./services/paymentplansvc');
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
@@ -33,6 +37,7 @@ module.exports = class HiscoxGL extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+        const logPrefix = `Appid: ${this.app.id} Hiscox GL/BOP qouting `
 
         log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_quote ` + __location)
         const appDoc = this.applicationDocData
@@ -339,7 +344,7 @@ module.exports = class HiscoxGL extends Integration {
             carrierLimits = glCarrierLimits;
             this.deductible = this.getBestDeductible(this.policy.deductible, glDeductibles);
 
-            log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
+            // log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} propMgmtRealEstateAgentCOBs ` + __location)
             if (propMgmtRealEstateAgentCOBs.includes(this.insurerIndustryCode?.attributes?.v4Code)) {
                 this.deductible = 1000;
             }
@@ -354,7 +359,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
 
-        log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+        // log.debug(`Insurer Industry Code: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
 
         // Look up the insurer industry code, make sure we got a hit.
         // If it's BOP, check if the code we have is used for BOP,
@@ -387,7 +392,7 @@ module.exports = class HiscoxGL extends Integration {
                                 this.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} cannot parse insurerIndustryCode: ${err}` + __location);
                             }
                         }
-                        log.debug(`Insurer Industry Code used for BOP: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
+                        // log.debug(`Insurer Industry Code used for BOP: ${JSON.stringify(this.insurerIndustryCode, null, 4)}`); // zy debug remove
                     }
                     else {
                         this.industry_code = null;
@@ -406,7 +411,7 @@ module.exports = class HiscoxGL extends Integration {
             }
 
         }
-        log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
+        // log.debug(`This.policy: ${JSON.stringify(this.policy, null, 4)}`); // zy debug remove
 
 
         const reqJSON = {InsuranceSvcRq: {QuoteRq: {}}};
@@ -671,7 +676,7 @@ module.exports = class HiscoxGL extends Integration {
         //reqJSON.InsuranceSvcRq.QuoteRq.ProductQuoteRqs.ApplicationRatingInfo.SupplyManufactDistbtGoodsOrProductsPercent3 = 0; // zy debug fix hard-coded value. Need to add this as a question
 
         reqJSON.InsuranceSvcRq.QuoteRq.Acknowledgements = {};
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} effective date ` + __location)
+        // log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} effective date ` + __location)
         // Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
         if (this.policy.effective_date.isAfter(moment().startOf("day").add(60, "days"))) {
             this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
@@ -679,7 +684,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         this.effectiveDate = this.policy.effective_date.format("YYYY-MM-DD");
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question detail 1 ` + __location)
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question detail 1 ` + __location)
         let questionDetails = null;
         try {
             questionDetails = await this.get_question_details();
@@ -689,7 +694,7 @@ module.exports = class HiscoxGL extends Integration {
             return this.return_result('error', "Could not retrieve the Hiscox question identifiers");
         }
 
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} payroll ` + __location)
+        //log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} payroll ` + __location)
 
         // Determine total payroll
         this.totalPayroll = this.get_total_payroll();
@@ -1005,9 +1010,9 @@ module.exports = class HiscoxGL extends Integration {
                             type: question.type
                         })
                     }
-                    else {
-                        log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName} not adding question ` + __location)
-                    }
+                    // else {
+                    //     log.debug(`Hiscox question processing ${insurerQuestion?.attributes?.elementName} not adding question ` + __location)
+                    // }
                 }
                 catch(err){
                     log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Error question processing: ${JSON.stringify(question)} ${err} ${__location}`)
@@ -1250,7 +1255,7 @@ module.exports = class HiscoxGL extends Integration {
         else if (this.policy.type === 'BOP'){
             policyRequestType = 'BusinessOwnersPolicyQuoteRq';
         }
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 2` + __location)
+        // log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Question setup 2` + __location)
         for (const question of this.questionList) {
             try{
                 if (applicationRatingInfoQuestions.includes(question.nodeName)) {
@@ -1447,13 +1452,12 @@ module.exports = class HiscoxGL extends Integration {
         else {
             host = "api.hiscox.com";
         }
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse` + __location)
+        // log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse` + __location)
         // Get a token from their auth server
         const tokenRequestData = {
             client_id: this.username,
             client_secret: this.password
         };
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse 2 ` + __location)
         let tokenResponse = null;
         try {
             tokenResponse = await this.send_request(host, "/toolbox/auth/accesstoken", tokenRequestData, {"Content-Type": "application/x-www-form-urlencoded"});
@@ -1462,7 +1466,6 @@ module.exports = class HiscoxGL extends Integration {
             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} error getting tokenResponse ${error}` + __location)
             return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {error: error});
         }
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse 3 ` + __location)
         let responseObject = null;
         try{
             responseObject = JSON.parse(tokenResponse);
@@ -1478,25 +1481,64 @@ module.exports = class HiscoxGL extends Integration {
             return this.client_error("Could not retrieve the access token from the Hiscox server.", __location);
         }
         const token = responseObject.access_token;
-        log.debug(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} getting tokenResponse 4 ` + __location)
         // Specify the path to the Quote endpoint
         const path = "/partner/v4/quote";
 
-        log.info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
+        log.debug(`Sending application to https://${host}${path}. This can take up to 30 seconds.`, __location);
 
-        log.debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location); // zy debug remove
+        //log.debug(`Request: ${JSON.stringify(reqJSON, null, 4)}`, __location); // zy debug remove
         // Send the JSON to the insurer
         let result = null;
         let requestError = null;
-        try {
-            result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-                "Content-Type": "application/json"
-            });
+
+        //********************XML vs JSON reqeusts */
+        if(this.insurer.insurerDoc?.additionalInfo?.sendXml === true){
+            try {
+                log.debug(`${logPrefix} SENDING XML ` + __location);
+                const result_str = await this.send_xml_request(host, path, json2xml(reqJSON), {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/xml",
+                    "Content-Type": "application/xml"
+                },
+                false,false, true);
+                const options = {object: true}
+                result = xmlParser.toJson(result_str, options)
+                //log.debug(`${logPrefix} JSON conversion response \n${JSON.stringify(result)}\n` + __location);
+            }
+            catch (error) {
+                //log.debug(`${logPrefix} XML response error \n${error}\n` + __location);
+                log.warn(`${logPrefix} XML response error \n${JSON.stringify(error)}\n` + __location);
+                requestError = error;
+            }
+            if(requestError){
+                try{
+                    const options = {object: true}
+                    //regular processing not error processing that JSON response does.
+                    if(typeof requestError.response === 'string'){
+                        result = xmlParser.toJson(requestError.response, options)
+                    }
+                    else {
+                        result = xmlParser.toJson(JSON.stringify(requestError.response), options)
+                    }
+                    requestError = null;
+                }
+                catch(err){
+                    log.error(`${logPrefix} Error handlingXML response error ${err}` + __location);
+                }
+
+            }
         }
-        catch (error) {
-            requestError = error;
+        else {
+            try {
+                result = await this.send_json_request(host, path, JSON.stringify(reqJSON), {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/json",
+                    "Content-Type": "application/json"
+                });
+            }
+            catch (error) {
+                requestError = error;
+            }
         }
 
         let policyResponseTypeTag = null;
@@ -1582,7 +1624,7 @@ module.exports = class HiscoxGL extends Integration {
             // Check for validation errors
             let validationErrorList = null;
             const validations = errorResponse.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
-            log.debug(`Validations: ${JSON.stringify(validations, null, 4)}`);
+            //(`Validations: ${JSON.stringify(validations, null, 4)}`);
             if (validations && !validations.length) {
                 // if validation is just an object, make it an array
                 validationErrorList = [validations];
@@ -1590,7 +1632,7 @@ module.exports = class HiscoxGL extends Integration {
             else {
                 validationErrorList = validations;
             }
-            log.debug(`Validations Error List: ${JSON.stringify(validationErrorList, null, 4)}` + __location);
+            //log.debug(`Validations Error List: ${JSON.stringify(validationErrorList, null, 4)}` + __location);
 
             if (validationErrorList && validationErrorList.length > 0) {
                 // Loop through and capture each validation message
@@ -1602,14 +1644,15 @@ module.exports = class HiscoxGL extends Integration {
             }
             // Check for a fault string (unknown node name)
             const faultString = errorResponse?.fault?.faultstring;
-            log.debug(`Fault String: ${JSON.stringify(errorResponse, null, 4)}`);
+            //log.debug(`Fault String: ${JSON.stringify(errorResponse, null, 4)}`);
             if (faultString) {
                 // Check for a system fault
                 return this.client_error(`The Hiscox API returned a fault string: ${faultString}`, __location, {requestError: requestError});
             }
             // Return an error result
             return this.client_error(`The Hiscox API returned an error of ${requestError.httpStatusCode} without explanation`, __location, {requestError: requestError});
-        } // End of Response Error Processing
+        }
+        // End of Response Error Processing
 
         //check if it qouted.
         //Check status reported By Hiscox
@@ -1754,6 +1797,36 @@ module.exports = class HiscoxGL extends Integration {
             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
             this.reasons.push("Hiscox return an Incomplete status for the submission.");
             return this.return_result('error');
+        }
+        else if (submissionStatus === "Declined") {
+            const responseErrors = prolicyTypeRs?.Errors?.Error;
+            let errorResponseList = null;
+            if (responseErrors && !responseErrors.length) {
+                // If responseErrors is just an object, make it an array
+                errorResponseList = [responseErrors];
+            }
+            else {
+                errorResponseList = responseErrors;
+            }
+
+            let reasons = "";
+            if (errorResponseList) {
+                for (const errorResponseItem of errorResponseList) {
+                    if (errorResponseItem.Code && errorResponseItem.Description) {
+                        if (errorResponseItem.Code === "Declination") {
+                            // Return an error result
+                            const reason = `${errorResponseItem.Description} (${errorResponseItem.Code})`;
+                            reasons += (reasons.length ? ", " : "") + reason;
+                        }
+                    }
+                }
+                this.reasons.push(`Hiscox Decline reason: ${reasons}`);
+            }
+            if(reasons === ""){
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox unable to determine decline reason.` + __location);
+                this.reasons.push("Hiscox Decline reason: unknown - unexpected response structure");
+            }
+            return this.return_result('declined');
         }
         else {
             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned unexpected status - ${submissionStatus}` + __location);

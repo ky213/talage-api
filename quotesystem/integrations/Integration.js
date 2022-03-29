@@ -2617,9 +2617,10 @@ module.exports = class Integration {
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
 	 * @param {boolean} dumpRawXML (optional) - Dump the raw XML response to the console
      * @param {boolean} returnResponseOnAllStatusCodes - True if response should be returned (fulfilled) on all HTTP status codes, false if it should reject (default)
+     * @param {boolean} returnRawStr - True if response should be returned (fulfilled) on all HTTP status codes, false if it should reject (default)
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false, returnResponseOnAllStatusCodes = false) {
+    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false, returnResponseOnAllStatusCodes = false, returnRawStr = false) {
         // return new Promise(async(fulfill, reject) => {
         // If we don't have additional headers, start an object to append
         if (!additional_headers) {
@@ -2647,9 +2648,13 @@ module.exports = class Integration {
         // Convert the data to a string
         const str_data = raw_data?.toString();
 
+        if(returnRawStr){
+            return str_data;
+        }
+
         if (dumpRawXML) {
             // eslint-disable-next-line no-console
-            console.log(xmlFormatter(str_data, {collapseContent: true}));
+            log.info(`${xmlFormatter(str_data, {collapseContent: true})}\n` + __location);
         }
 
         // Convert the response to XML
