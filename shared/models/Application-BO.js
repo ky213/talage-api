@@ -2587,6 +2587,8 @@ module.exports = class ApplicationModel {
      * @returns {Array<Object>} An array of Fire Codes based on the CGL of the selected Industry Code for the application
      */
     async getAppFireCodes(applicationId) {
+        const industryCodeBO = new IndustryCodeBO();
+        const fireCodeBO = new FireCodeBO();
         const errorPrefix = 'Application-BO <getAppFireCodes>: ';
         let fireCodeRecords = [];
 
@@ -2606,7 +2608,7 @@ module.exports = class ApplicationModel {
 
         let industryCodeRecord = null;
         try {
-            industryCodeRecord = await IndustryCodeBO.getById(applicationJSON.industryCode);
+            industryCodeRecord = await industryCodeBO.getById(applicationJSON.industryCode);
         }
         catch (e) {
             log.error(`${errorPrefix}Error getting Talage Industry Code ${applicationJSON.industryCode}: ${e}. ` + __location);
@@ -2625,7 +2627,7 @@ module.exports = class ApplicationModel {
         }
 
         try {
-            fireCodeRecords = await FireCodeBO.getByCGL(industryCodeRecord.cgl);
+            fireCodeRecords = await fireCodeBO.getByCGL(industryCodeRecord.cgl);
         }
         catch (e) {
             log.error(`${errorPrefix}Error retrieving Fire Codes with provided CGL ${industryCodeRecord.cgl}: ${e}. ` + __location);

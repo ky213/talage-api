@@ -1993,7 +1993,7 @@ async function GetFireCodes(req, res, next) {
     let fireCodes = null;
     try {
         const applicationBO = new ApplicationBO();
-        fireCodes = await applicationBO.getAppFireCodes();
+        fireCodes = await applicationBO.getAppFireCodes(req.params.id);
     }
     catch (e) {
         log.error(`application <GetFireCodes>: Error retrieving Fire Codes: ${e}. ` + __location);

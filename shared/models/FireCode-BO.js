@@ -155,6 +155,7 @@ module.exports = class FireCodeBO{
             throw new Error(`No cgl supplied`);
         }
 
+        // TODO: cgl is an array of objects - update query to look at the cgl within the array
         const query = allRecords ? {
             cgl
         } : {
