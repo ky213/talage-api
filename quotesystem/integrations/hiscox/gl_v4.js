@@ -1524,6 +1524,9 @@ module.exports = class HiscoxGL extends Integration {
                     if(result.InsuranceSvcRs?.QuoteRs?.Validations){
                         requestError.response = result;
                     }
+                    else if(result.fault){
+                        requestError.response = result;
+                    }
                     else {
                         requestError = null;
                     }
@@ -1531,7 +1534,6 @@ module.exports = class HiscoxGL extends Integration {
                 catch(err){
                     log.error(`${logPrefix} Error handlingXML response error ${err}` + __location);
                 }
-
             }
         }
         else {
