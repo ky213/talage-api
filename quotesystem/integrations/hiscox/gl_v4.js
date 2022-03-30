@@ -1490,7 +1490,7 @@ module.exports = class HiscoxGL extends Integration {
         // Send the JSON to the insurer
         let result = null;
         let requestError = null;
-
+        let httpCode = '';
         //********************XML vs JSON reqeusts */
         if(this.insurer.insurerDoc?.additionalInfo?.sendXml === true){
             try {
@@ -1509,6 +1509,7 @@ module.exports = class HiscoxGL extends Integration {
                 //log.debug(`${logPrefix} XML response error \n${error}\n` + __location);
                 log.warn(`${logPrefix} XML response error \n${JSON.stringify(error)}\n` + __location);
                 requestError = error;
+                httpCode = error.httpStatusCode;
             }
             if(requestError){
                 try{
@@ -1520,7 +1521,12 @@ module.exports = class HiscoxGL extends Integration {
                     else {
                         result = xmlParser.toJson(JSON.stringify(requestError.response), options)
                     }
-                    requestError = null;
+                    if(result.InsuranceSvcRs?.QuoteRs?.Validations){
+                        requestError.response = result;
+                    }
+                    else {
+                        requestError = null;
+                    }
                 }
                 catch(err){
                     log.error(`${logPrefix} Error handlingXML response error ${err}` + __location);
@@ -1579,48 +1585,50 @@ module.exports = class HiscoxGL extends Integration {
                 return this.return_result('error');
             }
 
-            //Look for incomplete
-            const respProductStatus = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Status
-            if(respProductStatus === "Incomplete"){
-                this.reasons.push("Hiscox return an Incomplete status for the submission..");
-                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
-                return this.return_result('error');
-            }
+            const ProductQuoteRs = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs
+            if(ProductQuoteRs){
+                //Look for incomplete
+                const respProductStatus = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Status
+                if(respProductStatus === "Incomplete"){
+                    this.reasons.push("Hiscox return an Incomplete status for the submission..");
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned Incomplete status.` + __location);
+                    return this.return_result('error');
+                }
 
-            // Check for errors
-            const responseErrors = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
-            let errorResponseList = null;
-            if (responseErrors && !responseErrors.length) {
-                // If responseErrors is just an object, make it an array
-                errorResponseList = [responseErrors];
-            }
-            else {
-                errorResponseList = responseErrors;
-            }
-            if(respProductStatus === "Referred"){
-                this.reasons.push(`Hiscox reason: ${responseErrors.code}: ${responseErrors.Description}`);
-                return this.return_result('referred');
-            }
+                // Check for errors
+                const responseErrors = errorResponse?.InsuranceSvcRs?.QuoteRs?.ProductQuoteRs?.[policyResponseTypeTag]?.Errors?.Error;
+                let errorResponseList = null;
+                if (responseErrors && !responseErrors.length) {
+                    // If responseErrors is just an object, make it an array
+                    errorResponseList = [responseErrors];
+                }
+                else {
+                    errorResponseList = responseErrors;
+                }
+                if(respProductStatus === "Referred"){
+                    this.reasons.push(`Hiscox reason: ${responseErrors.code}: ${responseErrors.Description}`);
+                    return this.return_result('referred');
+                }
 
 
-            if (errorResponseList) {
-                let errors = "";
-                for (const errorResponseItem of errorResponseList) {
-                    if (errorResponseItem.Code && errorResponseItem.Description) {
-                        if (errorResponseItem.Code === "Declination") {
-                            // Return an error result
-                            return this.client_declined(`${errorResponseItem.Code}: ${errorResponseItem.Description}`);
-                        }
-                        else {
-                            // Non-decline error
-                            const reason = `${errorResponseItem.Description} (${errorResponseItem.Code})`;
-                            errors += (errors.length ? ", " : "") + reason;
+                if (errorResponseList) {
+                    let errors = "";
+                    for (const errorResponseItem of errorResponseList) {
+                        if (errorResponseItem.Code && errorResponseItem.Description) {
+                            if (errorResponseItem.Code === "Declination") {
+                                // Return an error result
+                                return this.client_declined(`${errorResponseItem.Code}: ${errorResponseItem.Description}`);
+                            }
+                            else {
+                                // Non-decline error
+                                const reason = `${errorResponseItem.Description} (${errorResponseItem.Code})`;
+                                errors += (errors.length ? ", " : "") + reason;
+                            }
                         }
                     }
+                    return this.client_error(`The Hiscox server returned the following errors: ${errors}`, __location);
                 }
-                return this.client_error(`The Hiscox server returned the following errors: ${errors}`, __location);
             }
-
             // Check for validation errors
             let validationErrorList = null;
             const validations = errorResponse.InsuranceSvcRs?.QuoteRs?.Validations?.Validation;
@@ -1656,6 +1664,11 @@ module.exports = class HiscoxGL extends Integration {
 
         //check if it qouted.
         //Check status reported By Hiscox
+
+        if(!result.InsuranceSvcRs && httpCode){
+            log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned httpCode: ${httpCode}. ${JSON.stringify(result)}` + __location);
+            return this.client_error(`Hiscox returned httpCode: ${httpCode}`, __location);
+        }
         const QuoteRs = result?.InsuranceSvcRs?.QuoteRs
         if(!QuoteRs){
             log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Hiscox returned unexpect JSON structure. ${JSON.stringify(result)}` + __location);
