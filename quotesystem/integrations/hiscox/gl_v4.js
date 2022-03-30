@@ -1639,12 +1639,12 @@ module.exports = class HiscoxGL extends Integration {
             }
             // Check for validation errors
             let validationErrorList = null;
-            const validations = errorResponse.InsuranceSvcRs?.QuoteRs?.Validations
+            const validations = errorResponse.InsuranceSvcRs?.QuoteRs?.Validations?.Validation
             log.warn(`${logPrefix} XML Validation response error result \n${JSON.stringify(validations)}\n` + __location);
             //(`Validations: ${JSON.stringify(validations, null, 4)}`);
             if (validations && !validations.length) {
                 // if validation is just an object, make it an array
-                validationErrorList = [validations.Validation];
+                validationErrorList = [validations];
             }
             else {
                 validationErrorList = validations;
