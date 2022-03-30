@@ -112,7 +112,8 @@ module.exports = class EmployersWC extends Integration {
                 'Limited Liability Company': 'LL',
                 'Limited Partnership': 'LP',
                 Partnership: 'PT',
-                'Sole Proprietorship': 'IN'
+                'Sole Proprietorship': 'IN',
+                'Other': 'Other'
             };
 
             // Define how owner titles are mapped for Employers
