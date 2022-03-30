@@ -52,6 +52,8 @@ module.exports = class PolicyTypeBO{
                     }
                 }
                 const query = {"policyTypeId": id};
+                //so we have easier tracing in history table.
+                newObjectJSON.policyTypeId = id;
                 let newMappingJSON = null;
                 try {
                     await PolicyTypeModel.updateOne(query, newObjectJSON);

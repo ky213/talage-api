@@ -385,6 +385,9 @@ module.exports = class ApplicationModel {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    //so we have easier tracing in history table.
+                    newObjectJSON.applicationId = uuid;
+                    newObjectJSON.uuid = uuid;
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 

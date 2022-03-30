@@ -298,6 +298,10 @@ module.exports = class AgencyNetworkBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
+                    //so we have easier tracing in history table.
+                    newObjectJSON.agencyNetworkUuidId = docId;
+
+
                     // log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
                     await AgencyNetworkModel.updateOne(query, newObjectJSON);
                     const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
