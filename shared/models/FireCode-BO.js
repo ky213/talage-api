@@ -142,7 +142,8 @@ module.exports = class FireCodeBO{
     }
 
     /**
-     * (Async) Retrieves all Fire Code records from the collection that have the provided CGL
+     * (Async) Retrieves all Fire Code records from the collection that have the provided CGL.
+     * Filters the cgl list down to only the one matching CGL record on the Fire Code.
      *
      * @param {String} cgl the CGL code used for lookup
      * @param {Boolean} active (optional) defaulted TRUE - the active property used for lookup
@@ -177,7 +178,12 @@ module.exports = class FireCodeBO{
 
         // return a filtered list with any fire code record that has a cgl object w/ matching cgl code
         const filteredFireCodes = fireCodeRecords.filter(record => record.cgl.some(cglObject => cglObject.cgl === cgl));
-        console.log(filteredFireCodes);
+
+        // filter each fire codes cgl down to only the cgl record that matches the passed in cgl value
+        // NOTE: This is done because all other cgl records are unnecessary, and makes it easier for calling code so it doesn't need to know the cgl to search on
+        filteredFireCodes.forEach(filteredFireCode => {
+            filteredFireCode.cgl = [filteredFireCode.cgl.find(recordCGL => recordCGL.cgl === cgl)];
+        });
 
         // calling code should handle whether any records were found
         return filteredFireCodes;
