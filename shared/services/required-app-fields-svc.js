@@ -49,7 +49,7 @@ const policyBasedRequiredFields = {
             }
         },
         policy: {
-            fireCode: {required: hidden}
+            fireCode: {requirement: hidden}
         },
         grossSalesAmt: {requirement: required},
         ein: {requirement: optional},
