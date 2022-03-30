@@ -155,11 +155,8 @@ module.exports = class FireCodeBO{
             throw new Error(`No cgl supplied`);
         }
 
-        // TODO: cgl is an array of objects - update query to look at the cgl within the array
-        const query = allRecords ? {
-            cgl
-        } : {
-            cgl,
+        // TODO in AP: Make sure the selected Fire Code gets set on the application model
+        const query = allRecords ? {} : {
             active
         };
 
@@ -178,7 +175,11 @@ module.exports = class FireCodeBO{
             fireCodeRecords = [];
         }
 
+        // return a filtered list with any fire code record that has a cgl object w/ matching cgl code
+        const filteredFireCodes = fireCodeRecords.filter(record => record.cgl.some(cglObject => cglObject.cgl === cgl));
+        console.log(filteredFireCodes);
+
         // calling code should handle whether any records were found
-        return fireCodeRecords;
+        return filteredFireCodes;
     }
 }
