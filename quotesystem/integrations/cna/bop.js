@@ -46,8 +46,27 @@ const specialCaseQuestions = [
     "cna.general.medex",
     "cna.general.mfgProductDesc",
     "cna.general.mfgProductIntendedUse",
-    "cna.general.mfgProductSelfInsured"
+    "cna.general.mfgProductSelfInsured",
+    "com.cna_byobPremisesQuestion",
+    "com.cna_ResidentialExposure",
+    "com.cna_AlcoholSales",
+    "cna.building.commaintenance",
+    "cna.building.rackStorageAbove12Feet",
+    "cna.location.numgaspumps",
+    "cna.location.carwash",
+    "cna.location.propanetanks",
+    "cna.location.numgarageemployees",
+    "cna.location.eligibilityCNAconnect",
+    "cna.location.certificateofinsurance",
+    "cna.location.vacantarea",
+    "cna.location.occupiedautogarage",
+    "cna.location.occupiednonfranchise"
 ];
+
+const commonAreasMap = {
+    "occupant maintains common areas": "A",
+    "occupant does not maintain common areas": "B"
+}
 
 const lossTypes = {
     "Fire": "Fire",
@@ -401,7 +420,7 @@ module.exports = class CnaBOP extends Integration {
         let primaryContact = applicationDocData.contacts.find(c => c.primary);
         let phone = null;
 
-        if (primaryContact?.phone && primaryContact.phone.length > 0) {
+        if (primaryContact?.phone && primaryContact.phone.toString().length > 0) {
             phone = primaryContact.phone.toString().replace(/[()-]/g, '');
         }
         else if (applicationDocData.phone && applicationDocData.phone.length > 0) {
@@ -412,7 +431,7 @@ module.exports = class CnaBOP extends Integration {
             phone = "";
         }
 
-        let formattedPhone = phone.length > 0 ? `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}` : "";
+        const formattedPhone = phone.length > 0 ? `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}` : "";
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -1029,7 +1048,7 @@ module.exports = class CnaBOP extends Integration {
 
                     // sub location information
                     locationObj.SubLocation = [{...locationObj}];
-                    locationObj.SubLocation[0].id += `S${i}`;
+                    locationObj.SubLocation[0].id += `S${i + 1}`;
 
                     // location name - left blank for now
                     locationObj.locationName = {};
@@ -1102,6 +1121,12 @@ module.exports = class CnaBOP extends Integration {
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
             };
+
+            const commonAreasMaintenanceQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.commaintenance");
+            if (commonAreasMaintenanceQuestion) {
+                const commonAreasAnswer = commonAreasMap[commonAreasMaintenanceQuestion.answerValue.toLowerCase()];
+                buildingObj["com.cna_CommonAreasMaintenanceCd"].value = commonAreasAnswer ? commonAreasAnswer : "A";
+            }
 
             // if BLDG limit > 250k, add defaulted OccupancyCd to BldgOccupancy[0]
             if (location.buildingLimit !== null && location.buildingLimit > 250000) {
