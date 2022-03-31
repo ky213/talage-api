@@ -113,7 +113,7 @@ module.exports = class EmployersWC extends Integration {
                 'Limited Partnership': 'LP',
                 Partnership: 'PT',
                 'Sole Proprietorship': 'IN',
-                'Other': 'Other'
+                'Other': 'OT'
             };
 
             // Define how owner titles are mapped for Employers
