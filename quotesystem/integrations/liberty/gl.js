@@ -289,7 +289,7 @@ module.exports = class LibertyGL extends Integration{
 
                                         // <AnnualGrossReceiptsAmt>
                                         AnnualGrossReceiptsAmt = GrossReceipts.ele('AnnualGrossReceiptsAmt');
-                                            AnnualGrossReceiptsAmt.ele('Amt', this.questions[this.get_key_by_value(this.question_identifiers, question_identifier)].answer);
+                                            AnnualGrossReceiptsAmt.ele('Amt', this.questions[this.get_key_by_value(this.question_identifiers, question_identifier)]?.answer);
                                         // </AnnualGrossReceiptsAmt>
                                     // </GrossReceipts>
                                 }
@@ -358,7 +358,7 @@ module.exports = class LibertyGL extends Integration{
                             // <PolicySupplementExt>
                             const PolicySupplementExt = PolicySupplement.ele('PolicySupplementExt');
                                 policySupplementQuestions.forEach((question) => {
-                                    PolicySupplementExt.ele(question['XML Path'], question.answer);
+                                    PolicySupplementExt.ele(question['XML Path'], question?.answer);
                                 });
                             // </PolicySupplementExt>
                             }
@@ -506,7 +506,7 @@ module.exports = class LibertyGL extends Integration{
                                     let exposure = 0;
                                     switch(this.industry_code.attributes.premiumBasis){
                                         case 'Acre(s)':
-                                            exposure = this.questions['1307'].answer;
+                                            exposure = this.questions['1307']?.answer;
                                             break;
                                         case 'Dollars Of Gross Sales':
                                             exposure = this.policy.gross_sales;
@@ -515,16 +515,16 @@ module.exports = class LibertyGL extends Integration{
                                             exposure = this.get_total_payroll();
                                             break;
                                         case 'Gallon(s)':
-                                            exposure = this.questions['1306'].answer;
+                                            exposure = this.questions['1306']?.answer;
                                             break;
                                         case 'Member(s)':
-                                            exposure = this.questions['1308'].answer;
+                                            exposure = this.questions['1308']?.answer;
                                             break;
                                         case 'Square Feet Of Area':
                                             exposure = this.get_total_square_footage();
                                             break;
                                         case 'Unit(s)':
-                                            exposure = this.questions['1309'].answer;
+                                            exposure = this.questions['1309']?.answer;
                                             break;
                                         default:
                                             this.reasons.push(`Encountered unsupported premium basis of ${this.industry_code.attributes.premiumBasis}`);
@@ -550,19 +550,19 @@ module.exports = class LibertyGL extends Integration{
                             // CCP123 - What is the insureds percent of work in or around hospitals?
                             const CCP123 = this.get_question_by_identifier('CCP123');
                             if(CCP123){
-                                GeneralLiabilityLineBusinessExt.ele('com.libertymutual.ci_SalesFromWorkDoneAroundHospitalsPct', CCP123.answer);
+                                GeneralLiabilityLineBusinessExt.ele('com.libertymutual.ci_SalesFromWorkDoneAroundHospitalsPct', CCP123?.answer);
                             }
 
                             // UWQ5944 - What percent of Applicants business is cleaning of kitchen flues or hoods?
                             const UWQ5944 = this.get_question_by_identifier('UWQ5944');
                             if(UWQ5944){
-                                GeneralLiabilityLineBusinessExt.ele('com.libertymutual.ci_SalesFromCleaningKitchenFluesHoodsPct', UWQ5944.answer);
+                                GeneralLiabilityLineBusinessExt.ele('com.libertymutual.ci_SalesFromCleaningKitchenFluesHoodsPct', UWQ5944?.answer);
                             }
 
                             // UWQ5943 - What percent of Applicants business is for construction site clean up & debris removal?
                             const UWQ5943 = this.get_question_by_identifier('UWQ5943');
                             if(UWQ5943){
-                                GeneralLiabilityLineBusinessExt.ele('com.libertymutual.ci_SalesFromConstructionSiteCleanUpDebrisRemovalPct', UWQ5943.answer);
+                                GeneralLiabilityLineBusinessExt.ele('com.libertymutual.ci_SalesFromConstructionSiteCleanUpDebrisRemovalPct', UWQ5943?.answer);
                             }
                         // </GeneralLiabilityLineBusinessExt>
                     // </GeneralLiabilityLineBusiness>
