@@ -342,6 +342,7 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
             }).lean();
 
             if (code) {
+                code.id = insurerActivityCode.activityCodeId;
                 code.ncciCode = insurerActivityCode.code;
                 code.ncciSubCode = insurerActivityCode.sub;
                 codeList.push(code);
