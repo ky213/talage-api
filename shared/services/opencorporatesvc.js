@@ -22,9 +22,9 @@ async function performCompanyLookup(companyInfoJSON) {
         api_token: apiToken,
         "q": `${companyInfoJSON.name}*`,
         "jurisdiction_code": "us_" + companyInfoJSON.state.toLowerCase(),
-        "inactive": false,
-        "per_page": 5,
-        "page": 1
+        "inactive": false
+        //"per_page": 5,
+        //"page": 1
     }
 
     if(companyInfoJSON.streetAddress){
@@ -65,8 +65,8 @@ async function performCompanyLookup(companyInfoJSON) {
             log.error(`OpenCorporates Error ${error}` + __location);
         }
     }
-    //else if(openCorporateResponse.data?.results?.total_count <= 5 && openCorporateResponse.data?.results?.total_count !== 0) {
-    else if (openCorporateResponse.data?.results?.total_count > 0){
+    else if(openCorporateResponse.data?.results?.total_count <= 5 && openCorporateResponse.data?.results?.total_count !== 0) {
+    //else if (openCorporateResponse.data?.results?.total_count > 0){
         log.debug('Multiple matches for Open Corporates');
         try {
             const companies = openCorporateResponse.data?.results?.companies;
