@@ -34,6 +34,6 @@ async function businessDataLookup(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    //change to busine
-    server.addGetAuthAdmin('GET Company EIN lookup', `${basePath}/business-data-lookup`, businessDataLookup, 'TalageAdminUser', 'all');
+    server.addGetAuthAdmin('GET Business Data lookup', `${basePath}/business-data-lookup`, businessDataLookup, 'TalageAdminUser', 'all');
+    server.addGetAuthAdmin('GET Company EIN lookup - depr', `${basePath}/ein-lookup`, businessDataLookup, 'TalageAdminUser', 'all');
 };
