@@ -1,40 +1,27 @@
-const mongoose = global.mongodb;
+const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+const timestamps = require('mongoose-timestamp');
 
-const Application = require("./Application.model");
-
-const ApplicationUploadSchema = Application.ApplicationSchema.clone();
-
-ApplicationUploadSchema.path("ocr", {
-    requestId: {
-        type: String,
-        required: [true, "requestId required"],
-        unique: true
-    },
-    status: {
-        type: String,
-        enum: ["QUEUED",
-            "SUCCESS",
-            "ERROR"],
-        default: ""
-    },
-    data: [{type: Object}],
-    form: {
-        type: String,
-        default: ""
-    },
-    version: {
-        type: String,
-        default: ""
-    },
-    message: {
-        type: String,
-        default: ""
-    }
+const QuestionSchema = new Schema({
+    question: {type: String, required: false},
+    questionTag: {type: String, required: false},
+    answer: {type: String, required: false},
+    page: {type: Number, required: false},
 });
 
-ApplicationUploadSchema.path("ocrCreated", {
-    type: Boolean,
-    default: true
+const ApplicationUpload = new Schema({
+    requestId: {type: String, required: [true, 'requestId required'], unique: true},
+    questions: [QuestionSchema]
 });
 
-mongoose.model("ApplicationUpload", ApplicationUploadSchema);
+ApplicationUpload.plugin(timestamps);
+
+mongoose.model("ApplicationUpload", ApplicationUpload);
+
+// PendingApplication
+//    -> add status fields
+//    -> maybe remove some old status fields from Application model.
+//    -> add futureRunDate
+//    -> whether they want priced or quoted.
+//          -> add a form field to ask them this. (default to 'priced')
+//      -> tags should just be a textbox.
+//      -> move 'Advance 

@@ -1,8 +1,8 @@
-"use strict";
 const axios = require("axios");
+const _ = require('lodash');
 
 const serverHelper = global.requireRootPath("server.js");
-const ApplicationUpload = require("../../../quotesystem/models/ApplicationUpload");
+const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.js');
 
 /**
  * Get the acord status and data after OCR request submission
@@ -13,7 +13,7 @@ const ApplicationUpload = require("../../../quotesystem/models/ApplicationUpload
  *
  * @returns {void}
  */
-async function getacordsStatuses(req, res, next) {
+async function getAcordStatus(req, res, next) {
     const files = req.body.acords;
     // Check for data
     if (!files?.length) {
@@ -50,40 +50,57 @@ async function getacordsStatuses(req, res, next) {
  *
  * @returns {void}
  */
-async function getacordOCR(req, res, next) {
+async function performOcrOnAccodPdfFile(req, res, next) {
     // Check for data
-    if (!req.body.files?.length) {
+    const applicationUploadBO = new ApplicationUploadBO();
+    const agency = {
+        agencyNetworkId: req.authentication.agencyNetwork,
+        agencyId: 1 // pick primary or they could tell us. If agency user, then take it from the user. Needs to work just like the application does.
+        // Add a agency location selection. Work just like the application.
+        // single line tag. just like application. under 30 characters
+        // action: Price, Quote, Create
+        // If we advance 12 months, Application Upload table
+        // Otherwise goes to Application table.
+    };
+
+    // console.log('DA FILE', fs.readFileSync(req.files['0'].path));
+    if (_.isEmpty(req.files)) {
         log.info("Bad Request: No data received" + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
     }
 
     // Check for number of files
-    if (req.body.files?.length > 10) {
+    if (req.files?.length > 10) {
         log.info("Bad Request: exceeded number of files (10)" + __location);
         return next(serverHelper.requestError("Bad Request: Max number of files is 10"));
     }
 
     const initFiles = [];
 
-    for (const file of req.body.files) {
+    for (const file of Object.values(req.files)) {
         // eslint-disable-next-line init-declarations
         let initData;
 
         try {
-            const applicationUpload = new ApplicationUpload(req.body.agency, file);
-            initData = await applicationUpload.init();
+            initFiles.push(applicationUploadBO.submitFile(agency, req.body.type, file));
         }
         catch (error) {
-            initData.error = "Erro initializing acord application file";
-            log.info(`Error initializing acord application file: ${file.fileName} ${error.message} ${__location}`);
+            initData.error = "Error processing acord application file";
+            log.info(`Error processing acord application file: ${file.name} ${error.message} ${__location}`);
         }
-        initFiles.push(initData);
     }
-    res.send(initFiles);
+    const results = await Promise.all(initFiles);
+
+    for (const requestId of results) {
+        const result = await applicationUploadBO.getOcrResult(requestId);
+        console.log('got da result!', result);
+        await applicationUploadBO.saveOcrResult(requestId, result);
+    }
+    res.send(await Promise.all(initFiles));
     next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addPostAuth("POST acord files for OCR", `${basePath}/acord-ocr`, getacordOCR);
-    server.addPostAuth("GET acord files statuses", `${basePath}/acord-ocr/status`, getacordsStatuses);
+    server.addPostAuth("POST acord files for OCR", `${basePath}/acord-ocr`, performOcrOnAccodPdfFile);
+    server.addPostAuth("GET acord files status", `${basePath}/acord-ocr/status`, getAcordStatus);
 };
