@@ -440,9 +440,10 @@ module.exports = class AMTrustBOP extends Integration {
                     // },
                     const quotePremium = quoteResponse.data.premiumDetails.priceIndication
 
-                    if(quoteResponse.data.isOK && quoteResponse.data.messages?.length > 0){
-                        for(const message of quoteResponse.data.messages){
+                    if(quoteResponse.messages?.length > 0){
+                        for(const message of quoteResponse.messages){
                             if(message.messageCode === 'Deeplink'){
+                                //log.debug(`QUOTE LINK ${message.title}` + __location)
                                 this.quoteLink = message.title;
                                 break;
                             }
