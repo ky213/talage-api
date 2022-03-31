@@ -5,6 +5,10 @@ const agencyTiers = [
         "name": "New 1"
     },
     {
+        "id": 15,
+        "name": "Digalent"
+    },
+    {
         "id": 20,
         "name": "New 2"
     },

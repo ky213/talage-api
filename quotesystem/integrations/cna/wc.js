@@ -137,6 +137,9 @@ module.exports = class CnaWC extends Integration {
         let branchProdCd = null;
 
         primaryLocation = this.applicationDocData.locations.find(location => location.primary);
+        if(!primaryLocation && this.applicationDocData.locations.length === 1){
+            primaryLocation = this.applicationDocData.locations[0];
+        }
 
         const tomorrow = moment().add(1,'d').startOf('d');
         if(this.policy.effective_date < tomorrow){
@@ -257,7 +260,17 @@ module.exports = class CnaWC extends Integration {
             generalPartyInfo.NameInfo[0].TaxIdentity = this.getTaxIdentity();
             
             if (business.dba) {
-                if(generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0] && generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd){
+                if(!generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0]){
+                    generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [{}];
+                }
+                
+                if(generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0]){
+                    if(!generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd){
+                        generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd = {};
+                    }
+                    if(!generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName){
+                        generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName = {};
+                    }
                 
                     generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
                     generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
@@ -660,7 +673,7 @@ module.exports = class CnaWC extends Integration {
                 StateProvCd: {value: location.territory},
                 WorkCompLocInfo: await this.getWorkCompLocInfo(location, parseInt(index, 10))
             };
-            const firstNCCICode = await this.get_insurer_code_for_activity_code(this.insurer.id, primaryLocation.state, primaryLocation.activityPayrollList[0].activityCodeId);
+            const firstNCCICode = await this.get_insurer_code_for_activity_code(this.insurer.id, primaryLocation?.state, primaryLocation.activityPayrollList[0].activityCodeId);
             wcrs.GoverningClassCd = {value: firstNCCICode.code.substring(0, firstNCCICode.code.length - 1)}
             workCompRateStates.push(wcrs);
         }
@@ -680,7 +693,7 @@ module.exports = class CnaWC extends Integration {
 
         for (const activityCode of location.activityPayrollList) {
             const wcrc = {
-                RatingClassificationCd: {value: (await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, location.activityPayrollList[0].activityCodeId)).code}, 
+                RatingClassificationCd: {value: (await this.get_insurer_code_for_activity_code(this.insurer.id, location?.state, location.activityPayrollList[0].activityCodeId)).code}, 
                 Exposure: `${activityCode.payroll}`
             };
 

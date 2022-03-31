@@ -7,17 +7,20 @@
   {
     "description": "Edward Terry -Law office, GL & WC Chubb, Liberty, Markel, Employers",
     "sourceAppId": "3453d49c-0601-4c28-bc0b-415f4cd5b2ec",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Clothing CA MKT Apparel INC - WC Employers, Liberty, CompWest",
     "sourceAppId": 13596,
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Auto Body Justin Test - AZ WC Pie, CompWest, Employers, Liberty, Markel",
     "sourceAppId": 13631,
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Clothing TIKI FASHION INC - CA Pie, CompWest,Liberty, Markel",
@@ -32,17 +35,20 @@
    {
     "description": "Travlers Clothing TIKI FASHION INC - CA Pie, CompWest,Liberty, Markel",
     "sourceAppId": "5ddd2dfa-fb09-49a3-af10-2b4962f2c204",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Talage Janitorial Craftsman CA GL & WC - BTIS,Liberty, Chubb, CompWest ",
     "sourceAppId": 13635,
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Talage Barber IL WC - Markel, AF, Libery, Employers",
     "sourceAppId": 11585,
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Talage Autobody NV GL & WC - Liberty, Markel, Compuwest, Employers",
@@ -89,191 +95,222 @@
     "sourceAppId": "3bfb6c6b-c4f8-4059-b22d-78a2171b6e69",
     "requiresNewEin": true,
     "agencyId": 196,
-    "agencyLocationId": 205
+    "agencyLocationId": 205,
+    "policyTypes": ["WC"]
   },
   {
     "description": "CompWest Clothing TIKI FASHION INC - CA Pie, CompWest,Liberty, Markel",
     "sourceAppId": "131d2df5-21a4-46b2-a4ed-d0790430a1d3",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Compwest WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 194,
-    "agencyLocationId": 203
+    "agencyLocationId": 203,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Compwest WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 194,
-    "agencyLocationId": 203
+    "agencyLocationId": 203,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Compwest WC Automotive Body CA",
     "sourceAppId": "06eaedac-2267-4613-b4a9-e8bf96c6708d",
     "requiresNewEin": true,
     "agencyId": 194,
-    "agencyLocationId": 203
+    "agencyLocationId": 203,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AmTrust WC QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 194,
-    "agencyLocationId": 203
+    "agencyLocationId": 203,
+    "policyTypes": ["WC"]
 
   },
   {
     "description": "Hiscox GL QA Village Barber Shop - Barber NV",
     "sourceAppId": 13633,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Hiscox GL QA Clothing Store CA",
     "sourceAppId": "62d2fb0b-11c1-4a91-899b-0eda8d6c3ef8",
     "requiresNewEin": false,
     "agencyId": 183,
-    "agencyLocationId": 190
+    "agencyLocationId": 190,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Hiscox GL QA Agent/manager TX",
     "sourceAppId": "839c7c67-7770-4036-8dac-cb57fe9f7777",
     "requiresNewEin": false,
     "agencyId": 183,
-    "agencyLocationId": 190
+    "agencyLocationId": 190,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Hiscox GL QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 183,
-    "agencyLocationId": 190
+    "agencyLocationId": 190,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Hiscox GL QA Barber shop OH",
     "sourceAppId": "04859738-310a-4922-8152-260fb1a3a2aa",
     "requiresNewEin": false,
     "agencyId": 183,
-    "agencyLocationId": 190
+    "agencyLocationId": 190,
+    "policyTypes": ["GL"]
   },
    {
     "description": "Acuity GL QA Scotty's Transmissions - Barber NV",
     "sourceAppId": 13612,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["GL"]
   },
    {
     "description": "Acuity WC Auto Parts NH",
     "sourceAppId": "1b23435f-2d60-466d-a111-f495ab79579d",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Acuity WC Barber Shop MN",
     "sourceAppId": "96c06e62-8b3e-43b0-a739-fa709bc547dd",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
    {
     "description": "Acuity WC Barber Shop NV",
     "sourceAppId": "96c06e62-8b3e-43b0-a739-fa709bc547dd",
     "requiresNewEin": true,
     "agencyId": 184,
-    "agencyLocationId": 192
+    "agencyLocationId": 192,
+    "policyTypes": ["WC"]
   },
      {
     "description": "Acuity WC Barber Shop MT",
     "sourceAppId": "59546eec-88cb-48bf-a4c4-abe35c382ecc",
     "requiresNewEin": true,
     "agencyId": 184,
-    "agencyLocationId": 192
+    "agencyLocationId": 192,
+    "policyTypes": ["WC"]
   },
 
   {
     "description": "Acuity GL QA Barber NV",
     "sourceAppId": 11700,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Acuity GL QA Barber shop OH",
     "sourceAppId": "04859738-310a-4922-8152-260fb1a3a2aa",
     "requiresNewEin": false,
     "agencyId": 179,
-    "agencyLocationId": 184
+    "agencyLocationId": 184,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Pie WC NV Barber",
     "sourceAppId": 11711,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie WC CA Electrical Contractor",
     "sourceAppId": "75f323bd-9c86-4303-8bcc-b3665e823f7f",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie WC NV Sofware Dev",
     "sourceAppId": "0f74cb76-6240-4167-8d51-df84441cbdaf",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie WC NV Clothing Store",
     "sourceAppId": "7ee35391-22c3-4001-9ce4-5c998b75dd61",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie WC NY Funeral Home/Undertaker",
     "sourceAppId": "a84a1093-cfc6-4a40-a323-6b07b1a32ae7",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie WC FL Taxidermy",
     "sourceAppId": "998ad287-2e83-42f2-930d-3a227121f98e",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie WC AR Reupholstery and Furniture Repair",
     "sourceAppId": "0692e73f-d0db-4685-b357-b4d541342770",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Pie Clothing TIKI FASHION INC - CA Pie, CompWest,Liberty, Markel",
     "sourceAppId": "622566db-976b-4caa-b7fd-292f992ff03c",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "PIE WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 187,
-    "agencyLocationId": 196
+    "agencyLocationId": 196,
+    "policyTypes": ["WC"]
   },
   {
     "description": "PIE - Reno Tahoe Limousine NV WC",
     "sourceAppId": "064c7bca-e4e1-44c3-8669-496d8f80207f",
     "requiresNewEin": true,
     "agencyId": 187,
-    "agencyLocationId": 196
+    "agencyLocationId": 196,
+    "policyTypes": ["WC"]
   },
   {
     "description": "PIE WC FL Automotive Exhaust",
     "sourceAppId": "8597cc9b-0a29-4297-8761-45e99e12845d",
     "requiresNewEin": true,
     "agencyId": 187,
-    "agencyLocationId": 196
+    "agencyLocationId": 196,
+    "policyTypes": ["WC"]
   },
  {
     "description": "PIE WC CA Automotive Body",
     "sourceAppId": "06eaedac-2267-4613-b4a9-e8bf96c6708d",
     "requiresNewEin": true,
     "agencyId": 187,
-    "agencyLocationId": 196
+    "agencyLocationId": 196,
+    "policyTypes": ["WC"]
   },
   {
     "description": "PIE WC Agent/Manager VA",
     "sourceAppId": "3bfb6c6b-c4f8-4059-b22d-78a2171b6e69",
     "requiresNewEin": true,
     "agencyId": 187,
-    "agencyLocationId": 196
+    "agencyLocationId": 196,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Markel Fitness GL NV Fitness Facility",
@@ -283,121 +320,140 @@
   {
     "description": "Chubb GL NV Barber",
     "sourceAppId": 13615,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Chubb GL QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 189,
-    "agencyLocationId": 198
+    "agencyLocationId": 198,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Chubb GL QA Barber shop OH",
     "sourceAppId": "04859738-310a-4922-8152-260fb1a3a2aa",
     "requiresNewEin": false,
     "agencyId": 189,
-    "agencyLocationId": 198
+    "agencyLocationId": 198,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Liberty Mutual WC NV Barber",
     "sourceAppId": 11723,
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
    {
     "description": "Liberty Mutual WC MT Barber",
     "sourceAppId": "59546eec-88cb-48bf-a4c4-abe35c382ecc",
     "requiresNewEin": true,
     "agencyId": 193,
-    "agencyLocationId": 202
+    "agencyLocationId": 202,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Liberty WC QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 193,
-    "agencyLocationId": 202
+    "agencyLocationId": 202,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Liberty Mutual WC Clothing TIKI FASHION INC",
     "sourceAppId": "95f2999c-d436-4596-99ee-c4668aac02e7",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Liberty Mutual GL NV Landscaping",
     "sourceAppId": "88550519-2d8a-4a9e-ad24-0376248c48ea",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Liberty Mutual GL FL Automotive Exhaust",
     "sourceAppId": "8597cc9b-0a29-4297-8761-45e99e12845d",
     "requiresNewEin": true,
     "agencyId": 197,
-    "agencyLocationId": 208
+    "agencyLocationId": 208,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Chubb GL QA Barber shop OH",
     "sourceAppId": "04859738-310a-4922-8152-260fb1a3a2aa",
     "requiresNewEin": false,
     "agencyId": 197,
-    "agencyLocationId": 208
+    "agencyLocationId": 208,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Liberty GL QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 197,
-    "agencyLocationId": 208
+    "agencyLocationId": 208,
+    "policyTypes": ["GL"]
   },
   {
     "description": "Employers WC QA -Gent lemen's Barber Shop",
     "sourceAppId": 13618,
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Employers WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 192,
-    "agencyLocationId": 201
+    "agencyLocationId": 201,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Employers WC BarberShop MT",
     "sourceAppId": "59546eec-88cb-48bf-a4c4-abe35c382ecc",
     "requiresNewEin": true,
     "agencyId": 192,
-    "agencyLocationId": 201
+    "agencyLocationId": 201,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Employers WC QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 192,
-    "agencyLocationId": 201
+    "agencyLocationId": 201,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Markel WC QA - Markel Barber Shop CA",
     "sourceAppId": "a583f102-b81b-49df-a22c-dd4f4976a945",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Markel WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 199,
-    "agencyLocationId": 210
+    "agencyLocationId": 210,
+    "policyTypes": ["WC"]
   },
   {
     "description": "CNA WC QA - Hardware Store NV",
     "sourceAppId": "18b4ebc7-3f20-4c9f-8ff1-249de5d88993",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "CNA WC Agent/Manager VA",
     "sourceAppId": "3bfb6c6b-c4f8-4059-b22d-78a2171b6e69",
     "requiresNewEin": true,
     "agencyId": 200,
-    "agencyLocationId": 212
+    "agencyLocationId": 212,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Coterie QA -BOP BarberShop NV",
@@ -412,107 +468,124 @@
   {
     "description": "Great American WC QA -BarberShop NV",
     "sourceAppId": 13439,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Travelers WC QA Talage Construction -Heating and Air-Conditioning Contractor NV",
     "sourceAppId": 12576,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Travelers WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 202,
-    "agencyLocationId": 215
+    "agencyLocationId": 215,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Travelers WC FL Automotive Exhaust",
     "sourceAppId": "8597cc9b-0a29-4297-8761-45e99e12845d",
     "requiresNewEin": true,
     "agencyId": 202,
-    "agencyLocationId": 215
+    "agencyLocationId": 215,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Travelers WC Barber Shop NV",
     "sourceAppId": "96c06e62-8b3e-43b0-a739-fa709bc547dd",
     "requiresNewEin": true,
     "agencyId": 202,
-    "agencyLocationId": 215
+    "agencyLocationId": 215,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Travelers WC Barber Shop MT",
     "sourceAppId": "59546eec-88cb-48bf-a4c4-abe35c382ecc",
     "requiresNewEin": true,
     "agencyId": 202,
-    "agencyLocationId": 215
+    "agencyLocationId": 215,
+    "policyTypes": ["WC"]
   },
   {
     "description": "BTIS GL NV Handyman -Handyman NV",
     "sourceAppId": 13405,
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "Cowbell Cyber Barber NV",
     "sourceAppId": "3a8bc765-b89d-4116-8874-3ce1c99acc98",
-    "requiresNewEin": false
+    "requiresNewEin": false,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AMtrust WC Agent/manager DC",
     "sourceAppId": "ec66e630-eaa3-4ca2-916f-8fb6b3d521d1",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AMtrust WC BarberShop CO",
     "sourceAppId": "a0347289-6dfd-4362-93ed-75d7173054d2",
     "requiresNewEin": true,
     "agencyId": 203,
-    "agencyLocationId": 216
+    "agencyLocationId": 216,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AMtrust WC BarberShop MT",
     "sourceAppId": "59546eec-88cb-48bf-a4c4-abe35c382ecc",
     "requiresNewEin": true,
     "agencyId": 203,
-    "agencyLocationId": 216
+    "agencyLocationId": 216,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AMTrust Talage Bar - Bar NV",
     "sourceAppId": "1c1c05fc-a5ba-499a-a79a-da4c962dd468",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AmTrust -Talage - Reno Tahoe Limousine NV WC",
     "sourceAppId": "8ff5173d-60b0-4f27-b11e-38dd8815ab64",
-    "requiresNewEin": true
+    "requiresNewEin": true,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AMtrust WC Agent/Manager VA",
     "sourceAppId": "3bfb6c6b-c4f8-4059-b22d-78a2171b6e69",
     "requiresNewEin": true,
     "agencyId": 203,
-    "agencyLocationId": 216
+    "agencyLocationId": 216,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AmTrust WC FL Automotive Exhaust",
     "sourceAppId": "8597cc9b-0a29-4297-8761-45e99e12845d",
     "requiresNewEin": true,
     "agencyId": 203,
-    "agencyLocationId": 216
+    "agencyLocationId": 216,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AmTrust WC CA Automotive Body",
     "sourceAppId": "06eaedac-2267-4613-b4a9-e8bf96c6708d",
     "requiresNewEin": true,
     "agencyId": 203,
-    "agencyLocationId": 216
+    "agencyLocationId": 216,
+    "policyTypes": ["WC"]
   },
   {
     "description": "AmTrust WC QA Agent/manager NV",
     "sourceAppId": "8ebbd660-29eb-4fe7-8eba-87009a8a8928",
     "requiresNewEin": false,
     "agencyId": 203,
-    "agencyLocationId": 216
+    "agencyLocationId": 216,
+    "policyTypes": ["WC"]
   }
 
 ]

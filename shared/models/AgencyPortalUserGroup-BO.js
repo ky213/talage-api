@@ -65,6 +65,9 @@ module.exports = class AgencyPortalUserGroupBO{
                 log.debug("newObjectJSON: " + JSON.stringify(newObjectJSON))
                 const query = {"systemId": id};
                 let newUserGroupJSON = null;
+
+                //so we have easier tracing in history table.
+                newObjectJSON.systemId = id;
                 try {
                     await AgencyPortalUserGroup.updateOne(query, newObjectJSON);
 

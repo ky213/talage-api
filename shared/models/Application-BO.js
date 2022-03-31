@@ -16,6 +16,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const FireCodeBO = global.requireShared('./models/FireCode-BO.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -384,6 +385,9 @@ module.exports = class ApplicationModel {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    //so we have easier tracing in history table.
+                    newObjectJSON.applicationId = uuid;
+                    newObjectJSON.uuid = uuid;
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
@@ -2329,6 +2333,8 @@ module.exports = class ApplicationModel {
      * @param {number} applicationId The application UUID.
      */
     async recalculateQuoteMetrics(applicationId) {
+
+        let returnMetrics = null;
         try{
 
             const quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
@@ -2417,6 +2423,8 @@ module.exports = class ApplicationModel {
                 await ApplicationMongooseModel.updateOne({applicationId: applicationId}, updateJSON);
                 //NOTE if metric are displayed in AP applist Redis cache will have to update.
 
+                returnMetrics = JSON.parse(JSON.stringify(metrics));
+
             }
         }
         catch(err){
@@ -2427,6 +2435,8 @@ module.exports = class ApplicationModel {
                 log.error(`recalculateQuoteMetrics  Error Application ${applicationId} - ${err}. ` + __location)
             }
         }
+
+        return returnMetrics;
     }
 
     // *********************************
@@ -2569,6 +2579,64 @@ module.exports = class ApplicationModel {
 
         return errorMessage ? errorMessage : true;
 
+    }
+
+    /**
+     * Gets the applicable Fire Codes for the application based on the selected industry
+     * NOTE: Currently, this function only uses the CGL of the selected Industry Code
+     * TODO: As required, update this logic to potentially use NAICS or SIC for lookup
+     *
+     * @param {String} applicationId the application ID for application lookup
+     * @returns {Array<Object>} An array of Fire Codes based on the CGL of the selected Industry Code for the application
+     */
+    async getAppFireCodes(applicationId) {
+        const industryCodeBO = new IndustryCodeBO();
+        const fireCodeBO = new FireCodeBO();
+        const errorPrefix = 'Application-BO <getAppFireCodes>: ';
+        let fireCodeRecords = [];
+
+        let applicationJSON = null;
+        try {
+            applicationJSON = await this.getById(applicationId);
+        }
+        catch (e) {
+            log.error(`${errorPrefix}Error getting application doc: ${e}. ` + __location);
+            return fireCodeRecords;
+        }
+
+        if (!applicationJSON) {
+            log.error(`${errorPrefix}Application doc not found. ` + __location);
+            return fireCodeRecords;
+        }
+
+        let industryCodeRecord = null;
+        try {
+            industryCodeRecord = await industryCodeBO.getById(applicationJSON.industryCode);
+        }
+        catch (e) {
+            log.error(`${errorPrefix}Error getting Talage Industry Code ${applicationJSON.industryCode}: ${e}. ` + __location);
+            return fireCodeRecords;
+        }
+
+        if (!industryCodeRecord) {
+            log.error(`${errorPrefix}Talage Industry Code with ID ${applicationJSON.industryCode} not found. ` + __location);
+            return fireCodeRecords;
+        }
+
+        // TODO: Update this if we start using NAICS and/or SIC
+        if (!industryCodeRecord.cgl) {
+            log.error(`${errorPrefix}No CGL code exists on the application's selected Industry Code. ` + __location);
+            return fireCodeRecords;
+        }
+
+        try {
+            fireCodeRecords = await fireCodeBO.getByCGL(industryCodeRecord.cgl);
+        }
+        catch (e) {
+            log.error(`${errorPrefix}Error retrieving Fire Codes with provided CGL ${industryCodeRecord.cgl}: ${e}. ` + __location);
+        }
+
+        return fireCodeRecords;
     }
 
     async getAppBopCodes(applicationId){
@@ -2785,6 +2853,146 @@ module.exports = class ApplicationModel {
         }
         log.debug(`appBO getHint post Hook  hintJson: ${JSON.stringify(hintJson)}` + __location)
         return hintJson
+    }
+
+    async checkAppetite(applicationId, optionParams){
+
+
+        const appetiteCheckSvc = global.requireShared('./services/appetitechecksvc.js');
+        let ptAppetiteList = [];
+        if(!optionParams){
+            optionParams = {};
+        }
+        try{
+            const appDoc = await this.getById(applicationId)
+            if(!appDoc){
+                throw new Error(`checkAppetite bad appId ${applicationId}`)
+            }
+            let needActivityCodeIdList = false;
+            //determine policy list.
+            let bopIndustryCodeId = null;
+            let policyTypeArray = [];
+            if(appDoc.policies && appDoc.policies.length > 0){
+                for(let i = 0; i < appDoc.policies.length; i++){
+                    if(!optionParams.policytype || optionParams.policytype === appDoc.policies[i].policyType){
+                        policyTypeArray.push({
+                            type: appDoc.policies[i].policyType,
+                            effectiveDate: appDoc.policies[i].effectiveDate
+                        });
+                        if(appDoc.policies[i].policyType === "WC"){
+                            needActivityCodeIdList = true;
+                        }
+                        if(appDoc.policies[i].policyType === "BOP" && appDoc.policies[i].bopIndustryCodeId){
+                            bopIndustryCodeId = appDoc.policies[i].bopIndustryCodeId
+                        }
+                    }
+                }
+            }
+            let activityCodeIdList = [];
+
+            if(needActivityCodeIdList){
+                if(optionParams.activitycodeidlist && optionParams.activitycodeidlist.length > 0){
+                    let activitycodeidlistStr = null;
+                    if(!Array.isArray(optionParams.activitycodeidlist)){
+                        activitycodeidlistStr = optionParams.activitycodeidlist.split(',')
+                    }
+                    else {
+                        activitycodeidlistStr = optionParams.activitycodeidlist
+                    }
+                    activityCodeIdList = activitycodeidlistStr.map(activityCode => parseInt(activityCode, 10));
+                }
+                else {
+                    //get applications activityCodeId's
+                    appDoc.locations.forEach(function(location) {
+                        location.activityPayrollList.forEach(function(activtyCodePayroll) {
+                            if(!activityCodeIdList.includes(activtyCodePayroll.activityCodeId)){
+                                activityCodeIdList.push(activtyCodePayroll.activityCodeId)
+                            }
+                        });
+                    });
+                }
+            }
+            let stateList = []
+            appDoc.locations.forEach(function(location) {
+                //state/territory list.
+                if(!stateList.includes(location.state)){
+                    stateList.push(location.state)
+                }
+            });
+
+
+            if(optionParams.statelist && optionParams.statelist.length > 0){
+                if(!Array.isArray(optionParams.statelist)){
+                    optionParams.statelist = optionParams.statelist.split(',')
+                }
+                stateList = optionParams.statelist
+            }
+            let industryCodeIdList = [];
+            if(optionParams.industrycodeidlist && optionParams.industrycodeidlist.length > 0){
+                if(!Array.isArray(optionParams.industrycodeidlist)){
+                    optionParams.industrycodeidlist = optionParams.industrycodeidlist.split(',')
+                }
+                industryCodeIdList = optionParams.industrycodeidlist.map(ic => parseInt(ic, 10));
+            }
+            else {
+                industryCodeIdList.push(parseInt(appDoc.industryCode))
+                if(bopIndustryCodeId){
+                    industryCodeIdList.push(bopIndustryCodeId);
+                }
+
+            }
+
+            //Get agencyLocation
+            //get agencyLocationJSON
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = false;
+            const addAgencyPrimaryLocation = true;
+            let agencylocationJSON = await agencyLocationBO.getById(appDoc.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+                log.error(`Error checkAppetite call error ${err}` + __location);
+            });
+
+            if(!agencylocationJSON){
+                throw new Error(`checkAppetite appId ${applicationId} bad agencyLocationid ${appDoc.agencyLocationId} `)
+            }
+
+            for(const policyType of policyTypeArray){
+                const insurerIdList = [];
+                for(const locInsurer of agencylocationJSON.insurers){
+                    try{
+                        if(Object.hasOwnProperty.call(locInsurer.policyTypeInfo, policyType.type)){
+                            const policyTypeInfo = locInsurer.policyTypeInfo[policyType.type]
+                            if(policyTypeInfo.enabled === true){
+                                insurerIdList.push(locInsurer.insurerId)
+                            }
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error checkAppetite call error ${err}` + __location);
+                    }
+
+                }
+
+                //get effective date for policy
+                let effectiveDate = moment();
+                if(policyType.effectiveDate){
+                    effectiveDate = policyType.effectiveDate;
+                }
+
+                const appetiteCheckResponse = await appetiteCheckSvc.checkAppetite(policyType.type, effectiveDate, activityCodeIdList, industryCodeIdList, insurerIdList, stateList)
+                if(appetiteCheckResponse){
+                    const policyAppetite = {
+                        policyTypeCd: policyType.type,
+                        appetiteStatus: appetiteCheckResponse
+                    }
+                    ptAppetiteList.push(policyAppetite);
+                }
+
+            }
+        }
+        catch(err){
+            log.error(`Error checkAppetite call error ${err}` + __location);
+        }
+        return ptAppetiteList;
     }
 
 }

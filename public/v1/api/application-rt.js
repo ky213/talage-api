@@ -21,10 +21,16 @@ const LimitsBO = global.requireShared('models/Limits-BO.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const clonedeep = require('lodash.clonedeep');
 const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+const requiredFieldSvc = global.requireShared('./services/required-app-fields-svc.js');
 
 const moment = require('moment');
 
 async function isAuthForApplication(req, applicationId){
+
+    if(!applicationId){
+        log.error(`request processing error isAuthForApplication no applicationId ` + __location)
+        return false;
+    }
     let canAccessApp = false;
     if(!req.userTokenData){
         log.error(`request processing error no userTokenData ` + __location)
@@ -53,10 +59,12 @@ async function isAuthForApplication(req, applicationId){
                 // if the user is part of an agency network, get the list of agencies
                 else if(apUser.isAgencyNetworkUser){
                     canAccessApp = applicationDB.agencyNetworkId === apUser.agencyNetworkId;
+                    //log.debug(`isAuthForApplication AgencyNetwork user ${apUser.agencyNetworkId} canAccessApp ${canAccessApp} `)
                 }
                 // if not part of a network, just look at the single agency
                 else if(apUser.agencyId) {
                     canAccessApp = applicationDB.agencyId === apUser.agencyId;
+                    //log.debug(`isAuthForApplication Agencyk user ${apUser.agencyId} canAccessApp ${canAccessApp} `)
                 }
                 else {
                     log.warn(`user ${JSON.stringify(apUser)} attempted to access app ${applicationId}`)
@@ -90,6 +98,7 @@ async function isAuthForAgency(req, agencyId, agencyJSON = null){
     }
     //handle quote app adding an application
     if(req.userTokenData && req.userTokenData.quoteApp && !req.userTokenData.applicationId){
+        log.debug(`isAuthForAgency passed for Quote App Post  ` + __location)
         return true;
     }
 
@@ -120,12 +129,15 @@ async function isAuthForAgency(req, agencyId, agencyJSON = null){
             if(apUser){
                 //Is talage super user......
                 if(apUser.agencyNetworkId === 1 && apUser.isAgencyNetworkUser === true && apUser.agencyPortalUserGroupId === 6){
+                    log.debug(`isAuthForAgency passed for Talage Super User ` + __location)
                     canAccessAgency = true
                 }
-                else if(apUser.isAgencyNetworkUser === true && apUser.agencyNetworkId === agencyJSON.agencyNetworkId){
+                else if(apUser.isAgencyNetworkUser === true && apUser.agencyNetworkId === agencyJSON.agencyNetworkId && apUser.agencyNetworkId > 0){
+                    log.debug(`isAuthForAgency passed for Agency Network Check ` + __location)
                     canAccessAgency = true
                 }
                 if(apUser.agencyId === agencyId){
+                    log.debug(`isAuthForAgency passed for Agency Check ` + __location)
                     canAccessAgency = true
                 }
 
@@ -200,13 +212,13 @@ async function applicationSave(req, res, next) {
         }
 
         //Get AgencyNetworkID
+        let hasAccessToAgency = false;
         try {
             //check rights to agency.
             const agencyBO = new AgencyBO();
             const agencyDB = await agencyBO.getById(req.body.agencyId);
-            let hasAccessToAgency = false;
             if(agencyDB){
-                hasAccessToAgency = isAuthForAgency(req,req.body.agencyId, agencyDB)
+                hasAccessToAgency = await isAuthForAgency(req,req.body.agencyId, agencyDB)
             }
             else {
                 log.warn("Application Save agencyId not found in db " +
@@ -219,14 +231,13 @@ async function applicationSave(req, res, next) {
                     req.body.agencyNetworkId = agencyDB.agencyNetworkId;
                 }
                 else if(req.body.agencyNetworkId !== agencyDB.agencyNetworkId){
-                    return next(serverHelper.requestError(`Bad Request: agency network`));
+                    hasAccessToAgency = false;
                 }
             }
             else {
-                log.warn("Application Save agencyId access deniedb " +
+                log.warn("Application Save agencyId access denied " +
                         req.body.agencyId +
                         __location);
-                return next(serverHelper.requestError("Not Found Agency"));
             }
         }
         catch (err) {
@@ -234,6 +245,10 @@ async function applicationSave(req, res, next) {
                     err +
                     __location);
             return next(serverHelper.internalError("error checking agency"));
+        }
+        if(!hasAccessToAgency){
+            res.send(400, "Bad Agency information");
+            return next();
         }
 
         //if agencyLocationId is not sent for insert get primary
@@ -1686,6 +1701,31 @@ async function bindQuote(req, res, next) {
     return next();
 }
 
+async function getFireCodes(req, res, next) {
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId);
+    if (!rightsToApp) {
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    let fireCodes = null;
+    try {
+        const applicationBO = new ApplicationBO();
+        fireCodes = await applicationBO.getAppFireCodes(appId);
+    }
+    catch (e) {
+        log.error(`Error getting Fire Codes for appId ${appId}: ${e}. ` + __location);
+        return next(serverHelper.requestError(`An error occured while retrieving Fire Codes: ${e}. `));
+    }
+
+    if (!fireCodes) {
+        log.error(`No Fire Codes were returned for appId ${appId}. ` + __location);
+        return next(serverHelper.requestError(`An error occurred while retrieving Fire Codes.`));
+    }
+
+    res.send(200, fireCodes);
+}
 
 async function getBopCodes(req, res, next){
 
@@ -1708,12 +1748,12 @@ async function getBopCodes(req, res, next){
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
         log.info(`Error getting BOP codes for appId ${appId} ` + err + __location);
-        return next(serverHelper.requestError('An error occured while retrieving BOP codes questions. ' + err));
+        return next(serverHelper.requestError(`An error occured while retrieving BOP codes: ${err}.`));
     }
 
     if(!bopIcList){
-        log.error(`No response from BOP codes:  appId ${appId} ${JSON.stringify(bopIcList)}` + __location);
-        return next(serverHelper.requestError('An error occured while retrieving BOP codes questions.'));
+        log.error(`No BOP codes were returned: appId ${appId} ${JSON.stringify(bopIcList)}` + __location);
+        return next(serverHelper.requestError('An error occured while retrieving BOP codes.'));
     }
 
     res.send(200, bopIcList);
@@ -1803,6 +1843,63 @@ async function getPricing(req, res, next){
 
 }
 
+/**
+ * GET returns required field structure
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetRequiredFields(req, res, next){
+    let requireFieldJSON = {}
+    //
+    const appId = req.params.id;
+    log.debug(`GetRequiredFields appId: ${appId}` + __location)
+    const rightsToApp = await isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //call requiredField svc to get a required field structure.
+    requireFieldJSON = await requiredFieldSvc.requiredFields(appId);
+
+    res.send(200, requireFieldJSON);
+    return next();
+
+}
+
+async function CheckAppetite(req, res, next){
+    let appetitePolicyTypeList = null;
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    try{
+        const applicationBO = new ApplicationBO();
+        appetitePolicyTypeList = await applicationBO.checkAppetite(appId, req.query);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!appetitePolicyTypeList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, appetitePolicyTypeList);
+    return next();
+}
+
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
@@ -1812,8 +1909,11 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`, getApplication);
     server.addGetAuthAppApi("GET Application List",`${basePath}/application`, getApplicationList);
     server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
-    server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/bopcodes`, getBopCodes);
+    server.addGetAuthAppApi('GET Application Fire Codes', `${basePath}/application/:id/firecodes`, getFireCodes);
+    server.addGetAuthAppApi('GET Application BOP Codes', `${basePath}/application/:id/bopcodes`, getBopCodes);
     server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
+    server.addGetAuthAppApi('GET Required Fields', `${basePath}/application/:id/getrequiredfields`, GetRequiredFields);
+    server.addGetAuthAppApi('CheckAppetite for  Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);

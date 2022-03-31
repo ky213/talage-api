@@ -623,7 +623,7 @@ module.exports = class PieWC extends Integration {
                             for (const ownerJson of appDoc.owners) {
                                 const officer = {};
                                 officer.name = ownerJson.fname + " " + ownerJson.lname;
-                                officer.ownershipPercentage = ownerJson.ownership / 100;
+                                officer.ownershipPercentage = ownerJson.ownership;
                                 const officeBirthDate = moment(ownerJson.birthdate)
                                 officer.birthDate = officeBirthDate.format("YYYY-MM-DD")
                                 // Append this officer to the location

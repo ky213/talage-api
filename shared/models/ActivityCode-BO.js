@@ -269,6 +269,8 @@ module.exports = class ActivityCodeBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
+                    //so we have easier tracing in history table.
+                    newObjectJSON.activityCodeId = activityCodeId;
 
                     await ActivityCode.updateOne(query, newObjectJSON);
                     const newActivityCode = await ActivityCode.findOne(query);

@@ -113,7 +113,9 @@ module.exports = class Application {
 
         //Fix all ZipCode to 5 digits before anything is loaded from the data
         try{
-            this.applicationDocData.mailingZipcode = this.applicationDocData.mailingZipcode.slice(0,5);
+            if(this.applicationDocData?.mailingZipcode){
+                this.applicationDocData.mailingZipcode = this.applicationDocData.mailingZipcode.slice(0,5);
+            }
             for(const location of this.applicationDocData.locations){
                 if(location.zipcode){
                     location.zipcode = location.zipcode.slice(0,5)
@@ -903,7 +905,9 @@ module.exports = class Application {
             }}
         }
         quoteList.forEach((quoteDoc) => {
-            if (quoteDoc.quoteStatusId === quoteStatus.quoted.id || quoteDoc.quoteStatusId === quoteStatus.quoted_referred.id) {
+            if (quoteDoc.quoteStatusId === quoteStatus.quoted.id
+                || quoteDoc.quoteStatusId === quoteStatus.quoted_referred.id
+                || quoteDoc.quoteStatusId === quoteStatus.priceIndication.id) {
                 some_quotes = true;
             }
             //quote Docs are marked with handledByTalage
@@ -1260,6 +1264,15 @@ module.exports = class Application {
                     }).
                     join(' and ')}`
             };
+            if(some_quotes && this.applicationDocData.metrics?.appValue > 0){
+                const amountStr = this.applicationDocData.metrics.appValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                const appValue = {
+                    'short': true,
+                    'title': 'AppValue',
+                    'value': `$${amountStr}`
+                }
+                attachment.fields.push(appValue)
+            }
 
             // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack

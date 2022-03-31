@@ -57,7 +57,7 @@ module.exports = class Location {
             if (locationDocJson[property] && typeof locationDocJson[property] !== 'object') {
                 switch (property) {
                     case "identification_number":
-                        this[property] = locationDocJson.ein;
+                        this[property] = locationDocJson?.ein;
                         break;
 
                     case 'full_time_employees':
