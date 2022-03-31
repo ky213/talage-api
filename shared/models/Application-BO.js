@@ -16,6 +16,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const FireCodeBO = global.requireShared('./models/FireCode-BO.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -2578,6 +2579,64 @@ module.exports = class ApplicationModel {
 
         return errorMessage ? errorMessage : true;
 
+    }
+
+    /**
+     * Gets the applicable Fire Codes for the application based on the selected industry
+     * NOTE: Currently, this function only uses the CGL of the selected Industry Code
+     * TODO: As required, update this logic to potentially use NAICS or SIC for lookup
+     *
+     * @param {String} applicationId the application ID for application lookup
+     * @returns {Array<Object>} An array of Fire Codes based on the CGL of the selected Industry Code for the application
+     */
+    async getAppFireCodes(applicationId) {
+        const industryCodeBO = new IndustryCodeBO();
+        const fireCodeBO = new FireCodeBO();
+        const errorPrefix = 'Application-BO <getAppFireCodes>: ';
+        let fireCodeRecords = [];
+
+        let applicationJSON = null;
+        try {
+            applicationJSON = await this.getById(applicationId);
+        }
+        catch (e) {
+            log.error(`${errorPrefix}Error getting application doc: ${e}. ` + __location);
+            return fireCodeRecords;
+        }
+
+        if (!applicationJSON) {
+            log.error(`${errorPrefix}Application doc not found. ` + __location);
+            return fireCodeRecords;
+        }
+
+        let industryCodeRecord = null;
+        try {
+            industryCodeRecord = await industryCodeBO.getById(applicationJSON.industryCode);
+        }
+        catch (e) {
+            log.error(`${errorPrefix}Error getting Talage Industry Code ${applicationJSON.industryCode}: ${e}. ` + __location);
+            return fireCodeRecords;
+        }
+
+        if (!industryCodeRecord) {
+            log.error(`${errorPrefix}Talage Industry Code with ID ${applicationJSON.industryCode} not found. ` + __location);
+            return fireCodeRecords;
+        }
+
+        // TODO: Update this if we start using NAICS and/or SIC
+        if (!industryCodeRecord.cgl) {
+            log.error(`${errorPrefix}No CGL code exists on the application's selected Industry Code. ` + __location);
+            return fireCodeRecords;
+        }
+
+        try {
+            fireCodeRecords = await fireCodeBO.getByCGL(industryCodeRecord.cgl);
+        }
+        catch (e) {
+            log.error(`${errorPrefix}Error retrieving Fire Codes with provided CGL ${industryCodeRecord.cgl}: ${e}. ` + __location);
+        }
+
+        return fireCodeRecords;
     }
 
     async getAppBopCodes(applicationId){
