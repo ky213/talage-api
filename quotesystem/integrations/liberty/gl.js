@@ -10,6 +10,7 @@
 
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
+const {get} = require("lodash")
 const Integration = require('../Integration.js');
 const paymentPlanSVC = global.requireShared('./services/paymentplansvc');
 global.requireShared('./helpers/tracker.js');
@@ -719,13 +720,11 @@ module.exports = class LibertyGL extends Integration{
         }
 
         //find payment plans
-        const insurerPaymentPlans =
-          res.Policy[0]?.QuoteInfo[0]?.QuoteInfoExt[0]?.PaymentOption?.map(
-            ({$, ...rest}) => ({
+        const paymentOptions = get(res, "Policy[0].QuoteInfo[0].QuoteInfoExt[0].PaymentOption") || []
+        const insurerPaymentPlans = paymentOptions.map(({$, ...rest}) => ({
               PaymentRule: $['com.libertymutual.ci_PaymentRuleInfoRefs'],
               ...rest
-            })
-          )
+            }))
 
         if (insurerPaymentPlans?.length > 0) {
           const [
