@@ -2915,7 +2915,7 @@ module.exports = class ApplicationModel {
             let stateList = []
             appDoc.locations.forEach(function(location) {
                 //state/territory list.
-                if(!stateList.includes(location.state)){
+                if(!stateList.includes(location.state) && location.state !== '--'){
                     stateList.push(location.state)
                 }
             });
