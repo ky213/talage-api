@@ -45,7 +45,7 @@ async function main() {
             insurerId: 9, // NCCI insurer (fake)
             talageActivityCodeIdList: {$ne:null},
             active: true
-        });
+        }, {__v: 0});
 
 
         const existingNCCIActivityCodes = existingNCCIActivityCodeDocList.map(({code}) => code);
