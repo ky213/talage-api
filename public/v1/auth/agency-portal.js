@@ -73,7 +73,7 @@ async function createTokenEndpoint(req, res, next){
 
     // Check the password
     if (!crypt.verifyPassword(agencyPortalUserDBJson.password, req.body.password)) {
-        log.info('Authentication failed');
+        log.info('Authentication failed ' + req.body.email);
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
 
