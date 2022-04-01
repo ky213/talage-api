@@ -89,9 +89,16 @@ async function put_account(req, res, next){
 
     // If a password was provided, validate it and hash
     if(Object.prototype.hasOwnProperty.call(req.body, 'password')){
-        if(validator.password(req.body.password)){
-            // Hash the password
-            password = await crypt.hashPassword(req.body.password);
+        if(validator.validatePasswordRequirements(req.body.password)){
+            if (!validator.password.checkBannedList(req.body.password)){
+                // Hash the password
+                password = await crypt.hashPassword(req.body.password);
+            }
+            else {
+                log.warn('Password is too weak. The password meet the requirements, but is on the banned-passwords list.' + __location);
+                return next(serverHelper.requestError(`The password you are trying to save is too weak.`));
+            }
+
         }
         else{
             log.warn('Password does not meet requirements');

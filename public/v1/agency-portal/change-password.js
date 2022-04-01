@@ -39,9 +39,16 @@ async function putChangePassword(req, res, next){
 
     // Check if the request has each datatype, and if so, validate and save it locally
     if(Object.prototype.hasOwnProperty.call(req.body, 'password')){
-        if(validator.password(req.body.password)){
-            // Hash the password
-            password = await crypt.hashPassword(req.body.password);
+        if(validator.password.validatePasswordRequirements(req.body.password)){
+            if (!validator.password.checkBannedList(req.body.password)){
+                // Hash the password
+                password = await crypt.hashPassword(req.body.password);
+            }
+            else {
+                log.warn('Password is too weak. The password meet the requirements, but is on the banned-passwords list.' + __location);
+                return next(serverHelper.requestError(`The password you are trying to save is too weak.`));
+            }
+
         }
         else{
             log.warn('Password does not meet requirements' + __location);
