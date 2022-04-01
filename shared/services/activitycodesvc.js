@@ -294,7 +294,8 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
 
 }
 
-async function getActivityCodesByNCCICode(ncciCode, territory) {
+async function getActivityCodesByNCCICode(ncciCode, territory, insurerId = 9) {
+    // NCCI insurer (fake) is 9
     log.info(`Finding activity code for NCCI code : ${ncciCode} ${__location}`);
 
     try {
@@ -304,7 +305,7 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
 
         const insurerActivityCodes = await InsurerActivityCode.aggregate([
             {$match: {
-                insurerId: 9, // NCCI insurer (fake)
+                insurerId: insurerId,
                 active: true,
                 talageActivityCodeIdList: {$ne:null},
                 territoryList: territory,
@@ -316,15 +317,15 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
         ]);
 
         const codeList = [];
-        const alreadyProcessedCodeIDs = new Set();
+        //const alreadyProcessedCodeIDs = new Set();
 
         for (const insurerActivityCode of insurerActivityCodes) {
-            if (alreadyProcessedCodeIDs.has(insurerActivityCode.talageActivityCodeId)) {
-                continue;
-            }
+            // if (alreadyProcessedCodeIDs.has(insurerActivityCode.talageActivityCodeId)) {
+            //     continue;
+            // }
 
-            alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeId);
-
+            // alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeId);
+            insurerActivityCode.description = insurerActivityCode.description === "n/a" ? '' : insurerActivityCode.description;
             const code = await ActivityCode.findOne({
                 activityCodeId: insurerActivityCode.talageActivityCodeId,
                 active: true
@@ -345,6 +346,9 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
                 code.id = code.activityCodeId;
                 code.ncciCode = insurerActivityCode.code;
                 code.ncciSubCode = insurerActivityCode.sub;
+                if(insurerId !== 9){
+                    code.ncciDesc = insurerActivityCode.description ? insurerActivityCode.description : null;
+                }
                 codeList.push(code);
             }
         }
