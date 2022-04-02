@@ -2889,6 +2889,47 @@ module.exports = class ApplicationModel {
                 }
             }
             let activityCodeIdList = [];
+            let primaryLocationZip = null
+            let primaryRatingState = null
+            let stateList = []
+            if(optionParams.statelist && optionParams.statelist.length > 0){
+                if(!Array.isArray(optionParams.statelist)){
+                    optionParams.statelist = optionParams.statelist.split(',')
+                }
+                optionParams.statelist.forEach((argState) => {
+                    if(argState.length === 2 ** argState !== '--'){
+                        stateList.push(argState)
+                        if(!primaryRatingState){
+                            primaryRatingState = argState;
+                        }
+                    }
+                });
+            }
+            if(stateList.length === 0){
+                appDoc.locations.forEach(function(location) {
+                    if(location.primary){
+                        primaryLocationZip = location.zipcode
+                    }
+                    //state/territory list.
+                    if(!stateList.includes(location.state) && location.state !== '--'){
+                        stateList.push(location.state)
+                    }
+                });
+                if(stateList.length === 0 && (appDoc.mailingZipcode || primaryLocationZip)){
+                    const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
+                    const zipCodeBO = new ZipCodeBO();
+                    try{
+                        const zipCodeData = await zipCodeBO.loadByZipCode(primaryLocationZip);
+                        if(zipCodeData?.state){
+                            stateList.push(zipCodeData?.state)
+                            primaryRatingState = zipCodeData?.state;
+                        }
+                    }
+                    catch(err){
+                        log.error("Error getting zipCodeData " + err + __location);
+                    }
+                }
+            }
 
             if(needActivityCodeIdList){
                 if(optionParams.activitycodeidlist && optionParams.activitycodeidlist.length > 0){
@@ -2911,22 +2952,25 @@ module.exports = class ApplicationModel {
                         });
                     });
                 }
-            }
-            let stateList = []
-            appDoc.locations.forEach(function(location) {
-                //state/territory list.
-                if(!stateList.includes(location.state) && location.state !== '--'){
-                    stateList.push(location.state)
+                if(activityCodeIdList.length === 0 && appDoc.industryCode){
+                    try{
+                        //lookup indusryCode and get default ActivityCodes
+                        const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
+                        const FORCE_CACHE_UPDATE_NO = false;
+                        const ONLY_GET_SUGGESTED = true;
+                        const acList = await ActivityCodeSvc.GetActivityCodes(primaryRatingState,appDoc.industryCode, FORCE_CACHE_UPDATE_NO, ONLY_GET_SUGGESTED).catch((err) => {
+                            log.error(`ActivityCodeSvc.GetActivityCodes error ${err}` + __location);
+                        });
+                        acList.forEach((ac) => {
+                            activityCodeIdList.push(ac.activityCodeId);
+                        });
+                    }
+                    catch(err){
+                        log.error(`Error checkAppetite call error ${err}` + __location);
+                    }
                 }
-            });
-
-
-            if(optionParams.statelist && optionParams.statelist.length > 0){
-                if(!Array.isArray(optionParams.statelist)){
-                    optionParams.statelist = optionParams.statelist.split(',')
-                }
-                stateList = optionParams.statelist
             }
+
             let industryCodeIdList = [];
             if(optionParams.industrycodeidlist && optionParams.industrycodeidlist.length > 0){
                 if(!Array.isArray(optionParams.industrycodeidlist)){
