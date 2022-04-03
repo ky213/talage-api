@@ -63,7 +63,7 @@ const featureSchema = new Schema({
     showAgencyTierFields: {type: Boolean, required: true, default: false},
     requestToBindButtonText: {type: String, required: true, default: 'Submit to UW'},
     requestToBindProcessedText: {type: String, required: true, default: 'Submitted to UW'},
-    requireMFA: {type: Boolean, required: true, default: false},
+    requireMFA: {type: Boolean, required: true, default: true},
     showTalageUniversityLink: {type: Boolean, required: true, default: true},
     ncciInsurerId: {type: Number, required: true, default: 9},
     policyEffectiveDateThresholds:
