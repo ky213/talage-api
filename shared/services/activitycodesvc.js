@@ -306,8 +306,11 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
 
 async function getActivityCodesByNCCICode(ncciCode, territory, insurerId = 9) {
     // NCCI insurer (fake) is 9
-    log.info(`Finding activity code for NCCI code : ${ncciCode} ${__location}`);
-
+    log.info(`Finding activity code for NCCI code : ${ncciCode} ${territory} ${insurerId} ${__location}`);
+    if(!insurerId){
+        // in case null is passed or zero.
+        insurerId = 9;
+    }
     try {
         const {
             ActivityCode, InsurerActivityCode
@@ -355,8 +358,8 @@ async function getActivityCodesByNCCICode(ncciCode, territory, insurerId = 9) {
             if (code) {
                 code.id = code.activityCodeId;
                 code.ncciCode = insurerActivityCode.code;
-                code.ncciSubCode = insurerActivityCode.sub;
                 if(insurerId !== 9){
+                    code.ncciSubCode = insurerActivityCode.sub;
                     code.ncciDesc = insurerActivityCode.description ? insurerActivityCode.description : null;
                 }
                 codeList.push(code);
