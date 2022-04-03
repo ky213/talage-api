@@ -10,7 +10,7 @@ var FastJsonParse = require('fast-json-parse')
 
 
 //, codeGroupList = []
-async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = false){
+async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = false, onlySuggested = false){
     let addCode2Redis = false;
     let activityIdList = [];
     const redisKey = "activity-code-industrycode-" + territory + "-" + industryCodeId.toString();
@@ -37,7 +37,12 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
             }
             log.info(`REDIS IndustryCode Activity Code Cache request ${redisKey} count: ${activityCodeCount}  duration: ${diffRedis} milliseconds`);
             if(redisCacheCodes){
-                return redisCacheCodes;
+                if(onlySuggested){
+                    return redisCacheCodes.filter((ac) => ac.suggested === 1)
+                }
+                else {
+                    return redisCacheCodes;
+                }
             }
         }
         else {
@@ -67,7 +72,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
         icActivityCodeList = IndustryCodeDoc.activityCodeIdList;
     }
     catch(err){
-        log.warn(`industryCodeId: ${industryCodeId} Error ActivityCodeSvc.GetActivityCodes ` + __location);
+        log.warn(`industryCodeId: ${industryCodeId} territory ${territory} Error ActivityCodeSvc.GetActivityCodes ` + __location);
     }
 
     let endMongo = moment();
@@ -160,7 +165,12 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
                 }
 
             }
-            return codes;
+            if(onlySuggested){
+                return codes.filter((ac) => ac.suggested === 1)
+            }
+            else {
+                return codes;
+            }
         }
         else {
             return [];
