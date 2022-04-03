@@ -40,8 +40,8 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
                 if(onlySuggested){
                     return redisCacheCodes.filter((ac) => ac.suggested === 1)
                 }
-                else { 
-                    return redisCacheCodes; 
+                else {
+                    return redisCacheCodes;
                 }
             }
         }
@@ -166,10 +166,10 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
 
             }
             if(onlySuggested){
-                return codes.filter((ac) => ac.suggested === 1 )
+                return codes.filter((ac) => ac.suggested === 1)
             }
-            else { 
-                return codes; 
+            else {
+                return codes;
             }
         }
         else {
