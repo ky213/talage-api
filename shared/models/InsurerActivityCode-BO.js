@@ -291,6 +291,9 @@ module.exports = class InsurerActivityCodeBO{
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
+                    //so we have easier tracing in history table.
+                    newObjectJSON.insurerActivityCodeId = docId;
+
                     await InsurerActivityCode.updateOne(query, newObjectJSON);
 
                     const newinsurerActivityCode = await InsurerActivityCode.findOne(query);

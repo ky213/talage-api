@@ -122,7 +122,6 @@ allConnections.init = function init() {
         process.exit(1);
     });
 
-
     require('./shared/models/mongoose/message.model');
     require('./shared/models/mongoose/ApiKey.model');
     require('./shared/models/mongoose/Application.model');
@@ -147,6 +146,7 @@ allConnections.init = function init() {
     require('./shared/models/mongoose/ColorScheme.model');
 
     //Insurer, Code and Questions DB
+    require('./shared/models/mongoose/FireCode.model');
     require('./shared/models/mongoose/Insurer.model');
     require('./shared/models/mongoose/InsurerPolicyType.model');
     require('./shared/models/mongoose/InsurerIndustryCode.model');
@@ -191,6 +191,7 @@ allConnections.init = function init() {
         ZipCode: global.mongodb.model('ZipCode'),
 
         //InsurerDB
+        FireCode: global.insurerMongodb.model('FireCode'),
         ActivityCode: global.insurerMongodb.model('ActivityCode'),
         CodeGroup: global.insurerMongodb.model('CodeGroup'),
         Insurer: global.insurerMongodb.model('Insurer'),

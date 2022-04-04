@@ -219,13 +219,13 @@ var quoteReportTask = async function(messageBody){
                 if(lastAppDoc){
                     newRow.territory = lastAppDoc.mailingState;
                 }
-                if(lastAppDoc.industryCode && industryCodeDocs && industryCodeDocs.length > 0){
-                    const appIndustryCode = lastAppDoc.industryCode;
+                if(lastAppDoc?.industryCode && industryCodeDocs && industryCodeDocs.length > 0){
+                    const appIndustryCode = lastAppDoc?.industryCode;
                     const industryCode = industryCodeDocs.find(icDoc => icDoc.industryCodeId === parseInt(appIndustryCode,10));
                     newRow.industry_code_desc = industryCode?.description ? industryCode?.description : "";
 
                 }
-                newRow.industryCodeId = lastAppDoc.industryCode;
+                newRow.industryCodeId = lastAppDoc?.industryCode;
                 newRow.api_result = quoteDoc.apiResult;
                 newRow.reasons = quoteDoc.reasons;
                 newRow.seconds = quoteDoc.quoteTimeSeconds;

@@ -37,6 +37,9 @@ const quoteAppPageOptionsSchema = new Schema({
 const featureSchema = new Schema({
     applicationOptOut: {type: Boolean, required: true, default: false},
     enablePrimeAgency: {type: Boolean, required: true, default: false},
+    agencyPrimePerInsurer: {type: Boolean, required: true, default: false},
+    agencyPrimeDefaultUse: {type: Boolean, required: true, default: true},
+    agencyPrimeUseAppointmentText: {type: String, required: true, default: 'Use Agency Prime Appointment'},
     donotShowEmailAddress: {type: Boolean, required: true, default: false},
     notifyTalage: {type: Boolean, required: true, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
@@ -60,7 +63,10 @@ const featureSchema = new Schema({
     showAgencyTierFields: {type: Boolean, required: true, default: false},
     requestToBindButtonText: {type: String, required: true, default: 'Submit to UW'},
     requestToBindProcessedText: {type: String, required: true, default: 'Submitted to UW'},
-    requireMFA: {type: Boolean, required: true, default: false},
+    requireMFA: {type: Boolean, required: true, default: true},
+    showTalageUniversityLink: {type: Boolean, required: true, default: true},
+    enableApiKeys: {type: Boolean, required: true, default: false},
+    ncciInsurerId: {type: Number, required: true, default: 9},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,

@@ -447,14 +447,12 @@ async function setupReturnedApplicationJSON(applicationJSON){
                     try{
                         // eslint-disable-next-line prefer-const
                         let activityPayroll = location.activityPayrollList[j];
-                        let activtyCodeJSON = {};
                         if(activityPayroll.activityCodeId){
-                            activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
+                            const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.activityCodeId);
+                            activityPayroll.description = activtyCodeJSON?.description;
                         }
-                        else {
-                            activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
-                        }
-                        activityPayroll.description = activtyCodeJSON.description;
+                       
+                       
                         //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
@@ -1977,12 +1975,54 @@ async function markQuoteAsDead(req, res, next){
     return next();
 }
 
+async function GetFireCodes(req, res, next) {
+    let hasAccess = false;
+    try {
+        hasAccess = await accesscheck(req.params.id, req);
+    }
+    catch (e) {
+        log.error(`application <GetFireCodes>: Error getting application hasAccess rights: ${e}. ` + __location);
+        return next(serverHelper.requestError(`Bad Request: ${e}`));
+    }
+
+    if (!hasAccess) {
+        log.error(`application <GetFireCodes>: Caller does not have access to this application. ` + __location);
+        return next(serverHelper.requestError(`Forbidden: Caller doesn't have the rights to access this application.`));
+    }
+
+    let fireCodes = null;
+    try {
+        const applicationBO = new ApplicationBO();
+        fireCodes = await applicationBO.getAppFireCodes(req.params.id);
+    }
+    catch (e) {
+        log.error(`application <GetFireCodes>: Error retrieving Fire Codes: ${e}. ` + __location);
+        // return next(serverHelper.requestError(`Server Error: ${e}`));
+        res.send(200, {});
+        return next();
+    }
+
+    if (!fireCodes) {
+        log.error(`application <GetFireCodes>: No Fire Codes returned. ` + __location);
+        res.send(200, {});
+        return next();
+    }
+
+    res.send(200, fireCodes);
+    return next();
+}
 
 async function GetBopCodes(req, res, next){
     let bopIcList = null;
     try{
-        const applicationBO = new ApplicationBO();
-        bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            bopIcList = await applicationBO.getAppBopCodes(req.params.id);
+        }
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -2287,6 +2327,35 @@ async function getHints(req, res, next){
    
 }
 
+async function CheckAppetite(req, res, next){
+    let appetitePolicyTypeList = null;
+    try{
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            appetitePolicyTypeList = await applicationBO.checkAppetite(req.params.id, req.query);
+        }
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error CheckAppetite " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!appetitePolicyTypeList){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, appetitePolicyTypeList);
+    return next();
+}
+
 // eslint-disable-next-line no-unused-vars
 async function accesscheckEmail(email, applicationJSON){
     let hasAccess = false;
@@ -2311,6 +2380,91 @@ async function accesscheckEmail(email, applicationJSON){
     return hasAccess;
 }
 
+
+/**
+ * Responds to post requests for all activity codes related to a given NCCI activity code
+ *
+ * @param {object} req - Expects {territory: 'NV', industry_code: 2880, code:005, sub:01}
+ * @param {object} res - Response object: list of activity codes
+ * @param {function} next - The next function to execute
+ *
+ * @returns {object} res - Returns an array of objects containing activity codes [{"id": 2866}]
+ */
+async function GetActivityCodesByNCCICode(req, res, next){
+
+    let hasAccess = false
+    try{
+        hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error GetActivityCodesByNCCICode " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+    if(hasAccess === false){
+        log.info(`GetActivityCodesByNCCICode appId  ${req.params.id} no Access` + __location); 
+        res.send(200, []);
+        return next();
+    }
+
+    if (!req.query?.territory) {
+        log.info('GetActivityCodesByNCCICode Bad Request: You must supply a territory' + __location);
+        res.send(400, {
+            message: 'You must supply a territory',
+            status: 'error'
+        });
+        return next();
+    }
+
+    if (!req.query?.ncci_code) {
+        log.info('GetActivityCodesByNCCICode Bad Request: You must supply an NCCI code' + __location);
+        res.send(400, {
+            message: 'You must supply an NCCI code',
+            status: 'error'
+        });
+        return next();
+    }
+
+    const {
+        ncci_code, territory
+    } = req.query
+
+    // Get activity codes by ncci codes, filtered by territory
+    try {
+        //Call Application BO to determine what insurerId should be used.
+        log.info('GetActivityCodesByNCCICode calling applicationBO.NcciActivityCodeLookup ' + __location); 
+        // const activityCodes = await ActivityCodeSvc.getActivityCodesByNCCICode(ncci_code, territory)
+        const applicationBO = new ApplicationBO();
+        const activityCodes = await applicationBO.NcciActivityCodeLookup(req.params.id, ncci_code, territory);
+        
+        // log.info('GetActivityCodesByNCCICode calling ActivityCodeSvc.getActivityCodesByNCCICode ' + __location); 
+        // const activityCodes = await ActivityCodeSvc.getActivityCodesByNCCICode(ncci_code, territory)
+        if (activityCodes?.length) {
+            res.send(200, activityCodes);
+            return next();
+        }
+        else{
+            log.info('No Codes Available' + __location);
+            res.send(404, {
+                message: 'No Codes Available',
+                status: 'error'
+            });
+            return next(false);
+        }
+    }
+    catch (error) {
+        log.error(`GetActivityCodesByNCCICode appId ${req.params.id} ${error}` + __location);
+        res.send(500, {
+            message: 'Internal Server Error',
+            status: 'error'
+        });
+        return next(false);
+    }
+}
 
 // eslint-disable-next-line no-unused-vars
 async function accesscheck(appId, req, retObject){
@@ -2360,11 +2514,15 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage');
+    server.addGetAuth('GetFireCodes for AP Application', `${basePath}/application/:id/firecodes`, GetFireCodes, 'applications', 'manage');
     server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
+    server.addGetAuth('CheckAppetite for AP Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
+    server.addGetAuth('Get Activity Codes by NCCI code', `${basePath}/application/:id/ncci-activity-codes`, GetActivityCodesByNCCICode);
+
     server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations);
-    server.addGetAuth('GetAssociations', `${basePath}/application/getrequiredfields`, GetRequiredFields);
+    server.addGetAuth('Get Required Fields', `${basePath}/application/getrequiredfields`, GetRequiredFields);
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip);
     server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);

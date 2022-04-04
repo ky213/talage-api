@@ -18,10 +18,42 @@ const tracker = global.requireShared('./helpers/tracker.js');
 // MONGO
 async function findAll(req, res, next) {
     let error = null;
+    //a little validation on req.query
+
+    if(req.query.insurerId){
+        const testInteger = Number(req.query.insurerId);
+        if(!Number.isInteger(testInteger)){
+            res.send(400,`Bad InsurerId`);
+            return next(serverHelper.requestError('Bad InsurerId'));
+
+        }
+
+    }
+    if(req.query.talageActivityCodeIdList){
+        if(Array.isArray(req.query.talageActivityCodeIdList)){
+            for(const talageActivityCodeId of req.query.talageActivityCodeIdList){
+                const testInteger = Number(talageActivityCodeId);
+                if(!Number.isInteger(testInteger)){
+                    res.send(400,`Bad talageActivityCodeIdList`);
+                    return next(serverHelper.requestError('Bad talageActivityCodeIdList'));
+                }
+            }
+        }
+        else {
+            const testInteger = Number(req.query.talageActivityCodeIdList);
+            if(!Number.isInteger(testInteger)){
+                res.send(400,`Bad talageActivityCodeIdList`);
+                return next(serverHelper.requestError('Bad talageActivityCodeIdList'));
+
+            }
+        }
+    }
+
+
     const insurerActivityCodeBO = new InsurerActivityCodeBO();
 
     const rows = await insurerActivityCodeBO.getList(req.query).catch(function(err) {
-        log.error("admin agencynetwork error: " + err + __location);
+        log.error("admin insurerActivityCode error: " + err + __location);
         error = err;
     });
     if (error) {
@@ -30,7 +62,7 @@ async function findAll(req, res, next) {
 
     const countQuery = {...req.query, count: true};
     const count = await insurerActivityCodeBO.getList(countQuery).catch(function(err) {
-        log.error("admin agencynetwork error: " + err + __location);
+        log.error("admin insurerActivityCode error: " + err + __location);
         error = err;
     });
     if (error) {

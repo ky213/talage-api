@@ -109,6 +109,9 @@ module.exports = class ZipCodeBO{
                 newObjectJSON.updatedAt = new Date();
 
                 const query = {zipCodeId: zipCodeId};
+
+                //so we have easier tracing in history table.
+                newObjectJSON.zipCodeId = zipCodeId;
                 let newZipCodeJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.

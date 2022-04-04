@@ -40,7 +40,8 @@ const AgencyLocationInsurersSchema = new Schema({
     agentId: {type: String, required: false},
     agencyCred3: {type: String, required: false},
     policyTypeInfo: PolicyTypeInfoSchema,
-    talageWholesale: {type: Boolean, required: true, default: false}
+    talageWholesale: {type: Boolean, required: true, default: false},
+    useAgencyPrime: {type: Boolean, required: true, default: false}
 },{_id : false})
 
 const opts = {toJSON: {virtuals: true}};

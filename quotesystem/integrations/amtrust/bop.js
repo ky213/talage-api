@@ -151,7 +151,7 @@ module.exports = class AMTrustBOP extends Integration {
     async _insurer_quote() {
 
         const appDoc = this.applicationDocData
-        const applicationDocData = this.app.applicationDocData
+        const applicationDocData = this.applicationDocData
         //User Amtrust quick quote?
         const logPrefix = `Appid: ${this.app.id} AmTrust BOP Quoting `
 
@@ -177,6 +177,12 @@ module.exports = class AMTrustBOP extends Integration {
         if(appDoc.locations.length > 1){
             log.warn(`${logPrefix} autodeclined do to multiple locations` + __location)
             return this.client_autodeclined(`Amtrust BOP only supports one location `, __location);
+        }
+
+        //Multiple Location Error - Stop quoting.
+        if(!appDoc.founded){
+            log.warn(`${logPrefix} autodeclined do lack of founded date` + __location)
+            return this.client_autodeclined(`Amtrust BOP required a founded date.`, __location);
         }
 
 
@@ -310,8 +316,88 @@ module.exports = class AMTrustBOP extends Integration {
             },
             "hasCentralStationFireAlarm": hasCentralStationFireAlarm,
             "hasCentralStationBurglarAlarm": true, //TODO Need Question
-            "isSprinkleredBuilding": primaryLocation.bop.sprinklerEquipped
+            "isSprinkleredBuilding": primaryLocation.bop.sprinklerEquipped,
+            "lossHistory": {
+                "hasPriorCarrier": BOPPolicy.currentInsuranceCarrier?.length > 1,
+                "hasZeroClaimsInLastThreeYears": true
+            },
+            "underwritingQuestions": [
+                {
+                    "questionId": "BopGeneral7",
+                    "answer": this.get_years_in_business().toString()
+                }
+            ]
         }
+
+        // •	1 = Single loss, less than $5,000
+        // •	2 = Single non-weather loss, $5,000 - $10,000
+        // •	3 = Single non-weather loss, over $10,000
+        // •	4 = Single weather loss, $5,000 - $25,000
+        // •	5 – Single weather loss, over $25,000
+        // •	6 = Two or more losses
+
+        //get BOP claims only.
+        //this.policy.claims.length ? 'Yes' : 'No'
+        if(applicationDocData.claims.find(claim => claim.policyType === "BOP")){
+            let totalLosses = 0;
+            let weatherLosses = 0;
+            let claimCount = 0;
+            let lossApplicationNumber = 0
+            const bopClaims = applicationDocData.claims.filter(claim => claim.policyType === "BOP")
+
+            const claimCutOffDate = this.policy.effective_date.clone().subtract(3, 'years')
+            bopClaims.forEach(claim => {
+                const claimDate = moment(claim.eventDate)
+                if (claimDate.isAfter(claimCutOffDate)) {
+                    requestJSON.lossHistory.hasZeroClaimsInLastThreeYears = false;
+                    claimCount++;
+                    let amount = 0;
+                    amount += claim.amountPaid ? claim.amountPaid : 0;
+                    amount += claim.amountReserved ? claim.amountReserved : 0;
+                    totalLosses += amount
+                    //If weather related
+                    if(claim.questions.length > 0){
+                        const weatherRelatedQuestion = claim.questions.find(question => question.insurerQuestionIdentifier === 'amtrust.claim.weatherRelated');
+                        log.debug(`${logPrefix} weatherRelatedQuestion ${JSON.stringify(weatherRelatedQuestion)}` + __location)
+                        if(weatherRelatedQuestion?.answerValue === "Yes"){
+                            weatherLosses += amount
+                        }
+                        else if (!weatherRelatedQuestion){
+                            log.error(`${logPrefix} Amtrust claim missing weather question ${JSON.stringify(claim.questions)} ` + __location)
+                        }
+                    }
+                    else {
+                        log.error(`${logPrefix} Amtrust claim missing questions - no weather question ` + __location)
+                    }
+                }
+            });
+
+            if(claimCount > 1){
+                lossApplicationNumber = 6
+            }
+            else if(weatherLosses > 25000){
+                lossApplicationNumber = 5
+            }
+            else if(weatherLosses >= 5000){
+                lossApplicationNumber = 4
+            }
+            else if(totalLosses > 10000){
+                lossApplicationNumber = 3
+            }
+            else if(totalLosses >= 5000){
+                lossApplicationNumber = 2
+            }
+            else {
+                lossApplicationNumber = 1
+            }
+            if(claimCount > 0){
+                //if lost information was entered assume they had a carrier.
+                requestJSON.lossHistory.hasPriorCarrier = true;
+                requestJSON.lossHistory.lossApplication = lossApplicationNumber;
+            }
+
+        }
+
         if(applicationDocData.website){
             requestJSON.companyWebsite = applicationDocData.website
         }
@@ -327,84 +413,100 @@ module.exports = class AMTrustBOP extends Integration {
 
         if(quoteResponse?.data){
             quoteId = quoteResponse.data.accountInformation?.quoteId;
-            // TO BE MOVE to after questions snet - No question sent..  we do not have question list from Amtrust yet 2/5/2022.
-            if(quoteResponse.data.premiumDetails){
-                // "premiumDetails": {
-                //     "priceIndication": 500.0,
-                //     "generalLiabilityLimits": "1,000/2,000/2,000,000",
-                //     "medicalPayments": "5,000",
-                //     "damagesToPremisesLiabilityLimit": "50,000",
-                //     "businessPersonalProperty": "17",
-                //     "propertyDeductible": "None",
-                //     "expansionEndorsement": "Basic"
-                // },
-                const quotePremium = quoteResponse.data.premiumDetails.priceIndication
-
-                if(quoteResponse.data.isOK && quoteResponse.data.messages?.length > 0){
-                    for(const message of quoteResponse.data.messages){
-                        if(message.messageCode === 'Deeplink'){
-                            this.quoteLink = message.title;
-                            break;
-                        }
-                    }
+            if (quoteResponse.data.eligibility === "Decline") {
+                //eligibilityReasons
+                //declined
+                let declineMessage = "The insurer has declined to offer you coverage at this time";
+                if(quoteResponse.data.eligibilityReasons){
+                    declineMessage = quoteResponse.data.eligibilityReasons
                 }
+                return this.client_declined(declineMessage);
 
-                const quoteLimits = {}
-                quoteLimits[6] = quoteResponse.data.premiumDetails.medicalPayments;
-                let coverageSort = 0;
-
-                const glCoverage = {
-                    description: 'General Liability Limits',
-                    value: quoteResponse.data.premiumDetails.generalLiabilityLimits,
-                    sort: coverageSort++,
-                    category: 'General Limits',
-                    insurerIdentifier: "generalLiabilityLimits"
-                };
-                this.quoteCoverages.push(glCoverage);
-
-                const premiseCoverage = {
-                    description: 'Damages To Premises Liability Limit',
-                    value: quoteResponse.data.premiumDetails.damagesToPremisesLiabilityLimit,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "damagesToPremisesLiabilityLimit"
-                };
-                this.quoteCoverages.push(premiseCoverage);
-
-                const bppCoverage = {
-                    description: 'Business Personal Property Liability Limit',
-                    value: quoteResponse.data.premiumDetails.businessPersonalProperty,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "bppCoverage"
-                };
-                this.quoteCoverages.push(bppCoverage);
-
-                const medicalCoverage = {
-                    description: 'Medical Payments',
-                    value: quoteResponse.data.premiumDetails.medicalPayments,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "medicalPayments"
-                };
-                this.quoteCoverages.push(medicalCoverage);
-
-                const deductibleCoverage = {
-                    description: 'Property Deductible',
-                    value: quoteResponse.data.premiumDetails.propertyDeductible,
-                    sort: coverageSort++,
-                    category: 'Liability Coverages',
-                    insurerIdentifier: "propertyDeductible"
-                };
-                this.quoteCoverages.push(deductibleCoverage);
-
-                //Per AMTRUST referred Only until Amtrust implements Questions in the API.
-                return this.client_referred(quoteId, quoteLimits, quotePremium);
+                //if Refer look at Messages.
 
             }
             else {
-                //declined
-                return this.client_declined("The insurer has declined to offer you coverage at this time");
+                // TO BE MOVE to after questions snet - No question sent..  we do not have question list from Amtrust yet 2/5/2022.
+                // eslint-disable-next-line no-lonely-if
+                if(quoteResponse.data.premiumDetails){
+                    // "premiumDetails": {
+                    //     "priceIndication": 500.0,
+                    //     "generalLiabilityLimits": "1,000/2,000/2,000,000",
+                    //     "medicalPayments": "5,000",
+                    //     "damagesToPremisesLiabilityLimit": "50,000",
+                    //     "businessPersonalProperty": "17",
+                    //     "propertyDeductible": "None",
+                    //     "expansionEndorsement": "Basic"
+                    // },
+                    const quotePremium = quoteResponse.data.premiumDetails.priceIndication
+
+                    if(quoteResponse.messages?.length > 0){
+                        for(const message of quoteResponse.messages){
+                            if(message.messageCode === 'Deeplink'){
+                                //log.debug(`QUOTE LINK ${message.title}` + __location)
+                                this.quoteLink = message.title;
+                                break;
+                            }
+                        }
+                    }
+
+                    const quoteLimits = {}
+                    quoteLimits[6] = quoteResponse.data.premiumDetails.medicalPayments;
+                    let coverageSort = 0;
+
+                    const glCoverage = {
+                        description: 'General Liability Limits',
+                        value: quoteResponse.data.premiumDetails.generalLiabilityLimits,
+                        sort: coverageSort++,
+                        category: 'General Limits',
+                        insurerIdentifier: "generalLiabilityLimits"
+                    };
+                    this.quoteCoverages.push(glCoverage);
+
+                    const premiseCoverage = {
+                        description: 'Damages To Premises Liability Limit',
+                        value: quoteResponse.data.premiumDetails.damagesToPremisesLiabilityLimit,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "damagesToPremisesLiabilityLimit"
+                    };
+                    this.quoteCoverages.push(premiseCoverage);
+
+                    const bppCoverage = {
+                        description: 'Business Personal Property Liability Limit',
+                        value: quoteResponse.data.premiumDetails.businessPersonalProperty,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "bppCoverage"
+                    };
+                    this.quoteCoverages.push(bppCoverage);
+
+                    const medicalCoverage = {
+                        description: 'Medical Payments',
+                        value: quoteResponse.data.premiumDetails.medicalPayments,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "medicalPayments"
+                    };
+                    this.quoteCoverages.push(medicalCoverage);
+
+                    const deductibleCoverage = {
+                        description: 'Property Deductible',
+                        value: quoteResponse.data.premiumDetails.propertyDeductible,
+                        sort: coverageSort++,
+                        category: 'Liability Coverages',
+                        insurerIdentifier: "propertyDeductible"
+                    };
+                    this.quoteCoverages.push(deductibleCoverage);
+
+                    //Per AMTRUST referred Only until Amtrust implements Questions in the API.
+                    return this.client_price_indication(quoteId, quoteLimits, quotePremium);
+
+                }
+                else {
+                    //declined
+                    return this.client_declined("The insurer has declined to offer you coverage at this time");
+                }
             }
 
         }

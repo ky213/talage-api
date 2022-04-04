@@ -112,7 +112,8 @@ module.exports = class EmployersWC extends Integration {
                 'Limited Liability Company': 'LL',
                 'Limited Partnership': 'LP',
                 Partnership: 'PT',
-                'Sole Proprietorship': 'IN'
+                'Sole Proprietorship': 'IN',
+                'Other': 'OT'
             };
 
             // Define how owner titles are mapped for Employers
@@ -179,10 +180,10 @@ module.exports = class EmployersWC extends Integration {
 
                 const applicantContact = {"email": primaryContact.email};
                 const billingContact = {"email": primaryContact.email};
-                const proposalContact = {"email": agency.agencyEmail};
+                const proposalContact = {"email": this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agency.agencyEmail};
 
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
-                const formattedAgencyPhone = this.formatPhoneForEmployers(agency.agencyPhone);
+                const formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
 
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
@@ -197,9 +198,8 @@ module.exports = class EmployersWC extends Integration {
                 else {
                     applicantContact.name = applicantName;
                     billingContact.name = applicantName;
-                    proposalContact.name = `${agency.first_name} ${agency.last_name}`;
                 }
-
+                proposalContact.name = `${this.quotingAgencyLocationDB?.firstName ? this.quotingAgencyLocationDB?.firstName : agency.first_name} ${this.quotingAgencyLocationDB.lastName ? this.quotingAgencyLocationDB.lastName : agency.last_name}`;
                 const address = {
                     "streetAddress1": appDoc.mailingAddress,
                     "streetAddress2": appDoc.mailingAddress2 ? appDoc.mailingAddress2 : "",
@@ -208,13 +208,17 @@ module.exports = class EmployersWC extends Integration {
                     "zipCode": this.formatZipCodeForEmployers(appDoc.mailingZipcode)
                 };
 
+                //TODO this need to determine if this is TalageWhole Sale or using AgencyPrime for Employers
+                //if another insurer is using TalageWholesale, but Employer's is not.   this would be wrong.
+                //if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
                 const agencyAddress = {
-                    "streetAddress1": agency.quotingAgencyLocationDB.address,
+                    "streetAddress1": this.quotingAgencyLocationDB.address,
                     "streetAddress2": "",
-                    "city": agency.quotingAgencyLocationDB.city,
-                    "state": agency.quotingAgencyLocationDB.state,
-                    "zipCode": this.formatZipCodeForEmployers(agency.quotingAgencyLocationDB.zip)
+                    "city": this.quotingAgencyLocationDB.city,
+                    "state": this.quotingAgencyLocationDB.state,
+                    "zipCode": this.formatZipCodeForEmployers(this.quotingAgencyLocationDB.zip)
                 };
+                proposalContact.address = agencyAddress;
 
                 if (!appDoc.mailingAddress || !appDoc.mailingCity || !appDoc.mailingState || !address.zipCode) {
                     log.warn(`${logPrefix}Cannot fully construct address information. Some fields missing:` + __location);
@@ -223,7 +227,7 @@ module.exports = class EmployersWC extends Integration {
                 else {
                     applicantContact.address = address;
                     billingContact.address = address;
-                    proposalContact.address = agencyAddress;
+
                 }
 
                 requestJSON.applicantContact = applicantContact;
@@ -251,7 +255,7 @@ module.exports = class EmployersWC extends Integration {
 
             // Ensure this entity type is in the entity matrix above
             if (!(appDoc.entityType in entityMatrix)) {
-                log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
+                log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${appDoc.entityType} ` + __location)
             }
 
 
@@ -383,6 +387,35 @@ module.exports = class EmployersWC extends Integration {
 
                     locations.push(locationJSON);
               }
+            }
+
+            // California Req: If there is atleast one CA location, and it is a Partnerhsip entity, all owners must be listed
+            if (appDoc.entityType === 'Partnership' || appDoc.entityType === 'Limited Partnership' || appDoc.entityType === 'Limited Liability Partnership') {
+                if (appDoc.locations.find(location => location.state === 'CA')) {
+                    if (appDoc.owners.length < 2) {
+                        log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Only one partner was listed.`);
+                        this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application if insuring a location in the state of California. However, only one partner was listed. - Stopped before submission to insurer`);
+                        fulfill(this.return_result('autodeclined'));
+                        return;
+                    }
+                    let countOwnershipRate = 0;
+                    appDoc.owners.map(ownershipPercentage => countOwnershipRate += ownershipPercentage.ownership);
+                    if (countOwnershipRate !== 100) {
+                        log.error(`A ${appDoc.entityType} with at least one location in California is required to have all partners listed on the application - Current ownership percentage listed is ${countOwnershipRate}%.`);
+                        this.reasons.push(`Insurer: All partners must be listed on a ${appDoc.entityType} application if insuring a location in the state of California. Current ownership allocation is listed at ${countOwnershipRate}% - Stopped before submission to insurer`);
+                        fulfill(this.return_result('autodeclined'));
+                        return;
+                    }
+                    // Add partnerNames to our requestJSON submission
+                    const arrOfPartners = [];
+                    for (const partner of appDoc.owners) {
+                        const temp = {};
+                        temp.firstName = partner.fname;
+                        temp.lastName = partner.lname;
+                        arrOfPartners.push(temp);
+                      }
+                    requestJSON.partnerNames = arrOfPartners;
+                }
             }
 
             requestJSON.namedInsureds = [{}];
@@ -537,11 +570,21 @@ module.exports = class EmployersWC extends Integration {
             }
             catch (err) {
                 log.error(`Employers API: Appid: ${this.app.id} API call error: ${err}  ` + __location);
-                this.reasons.push(`Employers API Error: ${err}`);
                 this.log += `--------======= Employers Request Error =======--------<br><br>`;
                 this.log += err;
                 this.log += `--------======= End =======--------<br><br>`;
-                fulfill(this.return_result('error'));
+                if(err.toString().includes('Application is not available')){
+                    this.reasons.push(`Employers API: Application is not available'`);
+                    fulfill(this.return_result('outage'));
+                }
+                else if (err.toString().includes('Request unsuccessful')){
+                    this.reasons.push(`Employers API: Request unsuccessful'`);
+                    fulfill(this.return_result('outage'));
+                }
+                else {
+                    this.reasons.push(`Employers API Error: ${err}`);
+                    fulfill(this.return_result('error'));
+                }
                 return;
             }
 

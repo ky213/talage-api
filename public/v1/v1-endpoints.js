@@ -113,7 +113,7 @@ exports.registerEndpoints = (server) => {
     // Administration
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
-    registerEndpoint(server, 'administration', 'ein-lookup');
+    registerEndpoint(server, 'administration', 'business-data-lookup');
     registerEndpoint(server, 'administration', 'insurer');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
@@ -124,6 +124,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'territory-rt');
     registerEndpoint(server, 'administration', 'question-rt');
     registerEndpoint(server, 'administration', 'question-categories-rt');
+    registerEndpoint(server, 'administration', 'question-preview-rt');
     registerEndpoint(server, 'administration', 'activity-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-association-rt');

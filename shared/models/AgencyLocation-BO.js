@@ -97,6 +97,9 @@ module.exports = class AgencyLocationBO{
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
 
+                    //so we have easier tracing in history table.
+                    newObjectJSON.agencyLocationId = docId;
+
                     await AgencyLocationMongooseModel.updateOne(query, newObjectJSON);
                     const newAgencyLocationDoc = await AgencyLocationMongooseModel.findOne(query);
 

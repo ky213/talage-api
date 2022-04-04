@@ -231,9 +231,11 @@ module.exports = class ChubbBOP extends Integration {
         });
         // <Communications>
         Communications = GeneralPartyInfo.ele('Communications');
-        const phone = this.app.business.phone.toString();
-        Communications.ele('PhoneInfo').ele('PhoneNumber', `${phone.substring(0, 3)}-${phone.substring(3, 6)}-${phone.substring(phone.length - 4)}`);
-        Communications.ele('EmailInfo').ele('EmailAddr', this.app.business.contacts[0].email);
+        const phone = this.app.business?.phone?.toString();
+        if(phone){
+            Communications.ele('PhoneInfo').ele('PhoneNumber', `${phone.substring(0, 3)}-${phone.substring(3, 6)}-${phone.substring(phone.length - 4)}`);
+            Communications.ele('EmailInfo').ele('EmailAddr', this.app.business.contacts[0].email);
+        }
         // </Communications>
 
         // </GeneralPartyInfo>
