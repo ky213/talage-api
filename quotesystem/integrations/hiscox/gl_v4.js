@@ -469,12 +469,16 @@ module.exports = class HiscoxGL extends Integration {
         }
         else {
             // not setup assign to Talage as the partner
-            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'Talage';
+            reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.ProducerClient = 'Talage API';
         }
+
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo.EmailInfo = {EmailAddr: this.agencyEmail};
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo = {AgencyName: this.agency};
+        if(this.app.agencyLocation.insurers[this.insurer.id].agencyId){
+            reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.AgentID = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim()
+        }
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person = {Name: {}};
 
@@ -486,8 +490,8 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.AgentInfo.Person.CommunicationsInfo = {
-            PhoneInfo: {},
-            EmailInfo: {}
+            PhoneInfo: {PhoneNumber: this.agencyPhone},
+            EmailInfo: {EmailAddr: this.agencyEmail}
         };
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
