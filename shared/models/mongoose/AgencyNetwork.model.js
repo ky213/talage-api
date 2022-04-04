@@ -65,6 +65,7 @@ const featureSchema = new Schema({
     requestToBindProcessedText: {type: String, required: true, default: 'Submitted to UW'},
     requireMFA: {type: Boolean, required: true, default: false},
     showTalageUniversityLink: {type: Boolean, required: true, default: true},
+    enableApiKeys: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
