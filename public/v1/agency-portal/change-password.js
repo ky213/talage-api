@@ -45,8 +45,8 @@ async function putChangePassword(req, res, next){
                 password = await crypt.hashPassword(req.body.password);
             }
             else {
-                log.warn('Password is too weak. The password meet the requirements, but is on the banned-passwords list.' + __location);
-                return next(serverHelper.requestError(`The password you are trying to save is too weak.`));
+                log.error('The password contains a word or pattern that is blocked for security reasons. For more information please refer to banned-passwords.json file or contact the administrator.' + __location);
+                return next(serverHelper.requestError(`Unfortunately, your password contains a word, phrase or pattern that makes it easily guessable. Please try again with a different password.`));
             }
 
         }
