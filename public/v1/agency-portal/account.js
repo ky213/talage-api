@@ -89,8 +89,8 @@ async function put_account(req, res, next){
 
     // If a password was provided, validate it and hash
     if(Object.prototype.hasOwnProperty.call(req.body, 'password')){
-        if(validator.password.validatePasswordRequirements(req.body.password)){
-            if (!validator.password.checkBannedList(req.body.password)){
+        if(validator.password.isPasswordValid(req.body.password)){
+            if (!validator.password.isPasswordBanned(req.body.password)){
                 // Hash the password
                 password = await crypt.hashPassword(req.body.password);
             }
