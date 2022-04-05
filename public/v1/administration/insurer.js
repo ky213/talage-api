@@ -196,7 +196,7 @@ async function activityReport(req, res, next) {
     var QuoteModel = global.mongoose.Quote;
     try{
         activityReportJSON = await QuoteModel.aggregate([
-            {$match: {insurerId: insurerId, quoteStatusId: {$gte: 20}, createdAt: {$gte: reportBeginDtm.toDate()}}},
+            {$match: {insurerId: insurerId, quoteStatusId: {$gte: 20, $ne: 25}, createdAt: {$gte: reportBeginDtm.toDate()}}},
             {$project: {
                 creationMonth: {$month: {
                     date: '$createdAt', timezone: "America/Los_Angeles"
