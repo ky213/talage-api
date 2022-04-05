@@ -24,7 +24,7 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
      */
     try {
         if (applicationDocData.bureauNumber) {
-            if (applicationDocData.bureauNumber.length > 9) {
+            if (applicationDocData.bureauNumber?.length > 9) {
                 log.warn(`Bureau Number max length is 9 applicationId: ${applicationDocData.applicationId}` + __location);
             }
             if (applicationDocData.primary_territory.toString().toUpperCase() === 'CA') {
@@ -151,7 +151,7 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
         //let 9 digit zipcodes process. log an error
         if (!validator.isZip(applicationDocData.mailingZipcode)) {
             log.warn(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
-            if(applicationDocData.mailingZipcode.length > 5){
+            if(applicationDocData.mailingZipcode?.length > 5){
                 applicationDocData.mailingZipcode = applicationDocData.mailingZipcode.slice(0,5);
             }
         }
@@ -759,7 +759,7 @@ const validateQuestion = async(applicationDocData, question, logValidationErrors
     }
 
     // If the question is a checkbox, make sure we have an answer (answer must have an array value with one or more integer )
-    if (question.type === 'Checkboxes' && question.answer && typeof question.answer === 'object' && question.answer.length > 0) {
+    if (question.type === 'Checkboxes' && question.answer && typeof question.answer === 'object' && question?.answer?.length > 0) {
         // Check each answer within the array to make sure they are all valid possible answers
         for(const answer of question.answer){
             // Check that the answer ID is one of those available for this question
@@ -855,7 +855,7 @@ const validateAgencyLocation = async(applicationDocData, agencyLocationModel) =>
 
     // Check that the agencylocation supplied is covers territory for applications.
     if(applicationDocData.locations){
-        if(agencyLocationModel.territories && agencyLocationModel.territories.length > 0){
+        if(agencyLocationModel.territories && agencyLocationModel.territories?.length > 0){
             applicationDocData.locations.forEach((location) => {
                 if(agencyLocationModel.territories.indexOf(location.state) === -1){
                     throw new Error(`Application's Agency Location does not cover -  ${location.state}  `)
@@ -871,7 +871,7 @@ const validateAgencyLocation = async(applicationDocData, agencyLocationModel) =>
     }
 
     //Valid PolicyTypes.
-    if(applicationDocData.policies.length > 0){
+    if(applicationDocData.policies?.length > 0){
         applicationDocData.policies.forEach((policy) => {
             let gotHit = false;
             for(const insurer of agencyLocationModel.insurerList){
