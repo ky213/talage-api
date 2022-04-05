@@ -89,9 +89,16 @@ async function put_account(req, res, next){
 
     // If a password was provided, validate it and hash
     if(Object.prototype.hasOwnProperty.call(req.body, 'password')){
-        if(validator.password(req.body.password)){
-            // Hash the password
-            password = await crypt.hashPassword(req.body.password);
+        if(validator.password.isPasswordValid(req.body.password)){
+            if (!validator.password.isPasswordBanned(req.body.password)){
+                // Hash the password
+                password = await crypt.hashPassword(req.body.password);
+            }
+            else {
+                log.error('The password contains a word or pattern that is blocked for security reasons. For more information please refer to banned-passwords.json file or contact the administrator.' + __location);
+                return next(serverHelper.requestError(`Unfortunately, your password contains a word, phrase or pattern that makes it easily guessable. Please try again with a different password`));
+            }
+
         }
         else{
             log.warn('Password does not meet requirements');
