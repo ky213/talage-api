@@ -154,7 +154,7 @@ const claimSchema = new Schema({
 });
 
 const cyberPolicySchema = new Schema({
-    aggregateLimit: {type: Number, required: true},
+    aggregateLimit: {type: Number, required: true, default: 50000},
     businessIncomeCoverage: {type: Number, required: false},
     hardwareReplCostEndorsement: {type: Boolean, default: false},
     hardwareReplCostLimit: {type: Number, required: false},
@@ -176,8 +176,8 @@ const cyberPolicySchema = new Schema({
 });
 
 const professionalLiabilityPolicySchema = new Schema({
-    aggregateLimit: {type: Number, required: true},
-    occurrenceLimit: {type: Number, required: true},
+    aggregateLimit: {type: Number, required: true, default: 50000},
+    occurrenceLimit: {type: Number, required: true, default: 25000},
     certificationsRequired: {type: Boolean, default: false},
     certificationsMaintained: {type: Boolean, default: false},
     yearsOfPriorActs: {type: Number, required: false}, //previous years covered
