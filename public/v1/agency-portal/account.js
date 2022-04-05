@@ -95,7 +95,7 @@ async function put_account(req, res, next){
                 password = await crypt.hashPassword(req.body.password);
             }
             else {
-                log.error('The password contains a word or pattern that is blocked for security reasons. For more information please refer to banned-passwords.json file or contact the administrator.' + __location);
+                log.info('The password contains a word or pattern that is blocked for security reasons. For more information please refer to banned-passwords.json.' + __location);
                 return next(serverHelper.requestError(`Unfortunately, your password contains a word, phrase or pattern that makes it easily guessable. Please try again with a different password`));
             }
 
