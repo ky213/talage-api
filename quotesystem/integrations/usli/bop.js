@@ -36,7 +36,18 @@ const ignoredQuestionIds = [
     "usli.building.fireProtectionClassCd",
     "usli.building.requestedValuationTypeCd",
     "usli.building.yearOccupiedLocation",
-    "usli.general.operationsDesc"
+    "usli.general.operationsDesc",
+    "usli.location.exposure.totalGallonsOfFuel",
+    "usli.location.exposure.numAcres",
+    "usli.location.exposure.totalAdmissions",
+    "usli.location.exposure.numStudents",
+    "usli.location.exposure.numKennels",
+    "usli.location.exposure.totalEvents",
+    "usli.location.exposure.yearlyExhibitions",
+    "usli.location.exposure.numTeachersInstructors",
+    "usli.location.exposure.numPoolsTubs",
+    "usli.location.exposure.grossSales",
+    "usli.location.exposure.annualSubcontractedCost"
 ];
 
 // EAOCC/GENAG/PRDCO
@@ -188,8 +199,6 @@ module.exports = class USLIBOP extends Integration {
         }
 
         const UUID = this.generate_uuid();
-
-        console.log(applicationDocData);
 
         // ------------- CREATE XML REQUEST ---------------
 
@@ -805,44 +814,28 @@ module.exports = class USLIBOP extends Integration {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "C1").att('LocationRef', index + 1);
             const PREMCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PREMCommlCoverage.ele('CoverageCd', "PREM");
-            PREMCommlCoverage.ele('ClassCd', "10113");
-            // TODO: Hardcoding to barber shop
-            // PREMCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
+            PREMCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
             PREMCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PREMCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PREMCommlCoverage.ele('usli:FireCode', "0921").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            // TODO: Hardcoding to barber shop
-            // PREMCommlCoverage.ele('usli:FireCode', 0).att('xmlns', BOPPolicy.fireCode.fireCode ? BOPPolicy.fireCode.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PREMCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PREMCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             const PRODCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PRODCommlCoverage.ele('CoverageCd', "PROD");
-            PRODCommlCoverage.ele('ClassCd', "10113");
-            // TODO: Hardcoding to barber shop
-            // PRODCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
+            PRODCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
             PRODCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PRODCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PRODCommlCoverage.ele('usli:FireCode', "0921").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            // TODO: Hardcoding to barber shop
-            // PRODCommlCoverage.ele('usli:FireCode', 0).att('xmlns', BOPPolicy.fireCode.fireCode ? BOPPolicy.fireCode.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PRODCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PRODCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            GeneralLiabilityClassification.ele('ClassCd', "10113");
-            // TODO: Hardcoding to barber shop
-            // PREMGeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
-            GeneralLiabilityClassification.ele('ClassCdDesc', "Barber Shops - Full-time employee");
-            // TODO: Hardcoding to barber shop
-            // PREMGeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
-            const exposure = getExposure();
+            GeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
+            GeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
+            const exposure = this.getExposure(location);
             if (exposure) {
-                // GeneralLiabilityClassification.ele('Exposure', exposure);
-                // TODO: Hardcoding this exposure for barber shop, which requires FTE as exposure
-                GeneralLiabilityClassification.ele('Exposure', this.get_total_location_full_time_employees(location));
+                GeneralLiabilityClassification.ele('Exposure', exposure);
             }
             GeneralLiabilityClassification.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
             GeneralLiabilityClassification.ele('IfAnyRatingBasisInd', false);
             GeneralLiabilityClassification.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            GeneralLiabilityClassification.ele('usli:CoverageTypeId', "173");
-            // TODO: Hardcoding to barber shop
-            // GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             if (terrorismCoverageIncluded && index + 1 === 1) {
                 const TIAGeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', 1).att('id', "TRIA1");
                 TIAGeneralLiabilityClassification.ele('ClassCd', "08811");
@@ -868,12 +861,13 @@ module.exports = class USLIBOP extends Integration {
         const xml = ACORD.end({'pretty': true});
 
         console.log(xml);
-        process.exit(-1);
 
-        const host = ''; // TODO: base API path here
-        const quotePath = ``; // TODO: API Route path here
-        const additionalHeaders = {};
-
+        const host = "services.uslistage.com";
+        const quotePath = `/API/Quote`;
+        const additionalHeaders = {
+          "Content-Type": "application/xml"
+        };
+    
         let result = null;
         try {
             result = await this.send_xml_request(host, quotePath, xml, additionalHeaders);        
@@ -884,7 +878,8 @@ module.exports = class USLIBOP extends Integration {
             return this.client_error(errorMessage, __location);
         }
 
-        log.info(result);
+        console.log(JSON.parse(JSON.stringify(result, null, 4)));
+        return this.client_error(`Testing - forced error`, __location);
 
         // -------------- PARSE XML RESPONSE ----------------
 
@@ -915,6 +910,145 @@ module.exports = class USLIBOP extends Integration {
         //      log.error(logPrefix + errorMessage + __location);
         //      return this.client_error(errorMessage, __location);
         //  }
+    }
+
+    getExposure(location) {
+        let exposure = null;
+        let exposureNotSupported = false;
+        let exposureEncountered = true;
+        let errorMessage = null;
+        switch (industryCode.attributes.premiumExposureBasis) {
+            case "1,000 Gallons":
+                const gallonsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalGallonsOfFuel");
+                if (gallonsQuestion) {
+                    const numGallons = parseInt(gallonsQuestion.answerValue, 10);
+                    if (!isNaN(numGallons)) {
+                        exposure = Math.round(numGallons / 1000);
+                    }
+                    else {
+                        errorMessage = `${logPrefix}Invalid number of gallons, unable to convert ${numGallons} into an integer. `;
+                    }
+                }
+                break;
+            case "100 Payroll":
+                const locationPayroll = parseInt(this.get_location_payroll(location), 10);
+                if (!isNaN(locationPayroll)) {
+                    exposure = Math.round(locationPayroll / 100);
+                }
+                else {
+                    errorMessage = `${logPrefix}Invalid number for payroll, unable to convert ${locationPayroll} into an integer. `;
+                }
+                break;
+            case "Acre":
+                const acreQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numAcres");
+                if (acreQuestion) {
+                    exposure = acreQuestion.answerValue;
+                }
+                break;
+            case "Admissions":
+                const admissionsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalAdmissions");
+                if (admissionsQuestion) {
+                    exposure = admissionsQuestion.answerValue;
+                }
+                break;
+            case "Student":
+                const studentQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numStudents");
+                if (studentQuestion) {
+                    exposure = studentQuestion.answerValue;
+                }
+                break;
+            case "Kennel":
+                const kennelQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numKennels");
+                if (kennelQuestion) {
+                    exposure = kennelQuestion.answerValue;
+                }
+                break;
+            case "Event":
+                const eventsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalEvents");
+                if (eventsQuestion) {
+                    exposure = eventsQuestion.answerValue;
+                }
+                break;
+            case "Exhibition":
+                const exhibitionsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.yearlyExhibitions");
+                if (exhibitionsQuestion) {
+                    exposure = exhibitionsQuestion.answerValue;
+                }
+                break;
+
+            case "Payroll":
+                exposure = this.get_location_payroll(location);
+                break;
+            case "Per Instructor":
+                const teacherQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numTeachersInstructors");
+                if (teacherQuestion) {
+                    exposure = teacherQuestion.answerValue;
+                }
+                break;
+            case "Pool":
+                const poolQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numPoolsTubs");
+                if (poolQuestion) {
+                    exposure = poolQuestion.answerValue;
+                }
+                break;
+            case "Sales":
+                const salesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.grossSales");
+                if (salesQuestion) {
+                    exposure = salesQuestion.answerValue;
+                }
+                break;
+            case "Total Area":
+                exposure = location.square_footage;
+                break;
+            case "Total Cost":
+                const totalCostQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.annualSubcontractedCost");
+                if (totalCostQuestion) {
+                    exposure = totalCostQuestion.answerValue;
+                }
+                break;
+            case "Flat":
+            case "Dwelling":
+                exposure = 1;
+                break;
+            case "Per Assistant":
+            case "Beautician/Barber":
+            case "Washer":
+            case "Worker":
+                exposure = this.get_total_location_employees(location);
+                break;
+            case "Number of Units":
+            case "Fitness Center":
+            case "Additional Insured":
+                exposureNotSupported = true;
+                break;
+            case "Full-Time Janitor":
+            case "Part-Time Janitor":
+            case "Full-time employee":
+            case "Part-time employee":
+                // TODO: these are special cases where we may need to send additional classifications
+                break;
+            case "":
+                log.warn(`${logPrefix}Classification has blank exposure. This classification should be disabled. ` + __location);
+                return null;
+            default:
+                exposureEncountered = false;
+                break;
+        }
+
+        if (exposureNotSupported) {
+            log.warn(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
+        }
+        else if (errorMessage) {
+            log.warn(errorMessage + __location);
+        }
+        else if (!exposureEncountered) {
+            log.warn(`${logPrefix}No case found for ${industryCode.attributes.premiumExposureBasis} exposure. ` + __location);
+        }
+        else if (exposure === null) {
+            log.warn(`${logPrefix}Encountered ${industryCode.attributes.premiumExposureBasis} exposure, but found no exposure question - This could be a question mapping error. ` + __location);
+        }
+
+        return exposure;
     }
  
     async getUSLIIndustryCode() {
@@ -1027,35 +1161,3 @@ const getEntityType = () => {
             return {abbr: "OT", id: "OTHER"};
     }
 }
-
-// TODO: Once we create the exposure questions and assign them properly, fill in the question value returns below
-const getExposure = () => {
-    switch (industryCode.attributes.premiumExposureBasis) {
-        case "1,000 Gallons":
-        case "100 Payroll":
-        case "Acre":
-        case "Additional Insured":
-        case "Admissions":
-        case "Beautician/Barber":
-        case "Dwelling":
-        case "Event":
-        case "Exhibition":
-        case "Fitness Center":
-        case "Flat":
-        case "Full-Time Janitor":
-        case "Full-time employee":
-        case "Payroll":
-        case "Per Assistant":
-        case "Per Instructor":
-        case "Pool":
-        case "Sales":
-        case "Total Area":
-        case "Total Cost":
-        case "Washer":
-        case "Worker":
-        default:
-            // in cases where there is no premiumExposureBasis, return null
-            return null;
-    }
-}
- 
