@@ -53,18 +53,14 @@ async function getAcordStatus(req, res, next) {
 async function performOcrOnAccodPdfFile(req, res, next) {
     // Check for data
     const applicationUploadBO = new ApplicationUploadBO();
-    const agency = {
+    const agencyMetadata = {
+        agencyLocationId: req.body.agencyLocationId,
         agencyNetworkId: req.authentication.agencyNetwork,
-        agencyId: 1 // pick primary or they could tell us. If agency user, then take it from the user. Needs to work just like the application does.
-        // Add a agency location selection. Work just like the application.
-        // single line tag. just like application. under 30 characters
-        // action: Price, Quote, Create
-        // If we advance 12 months, Application Upload table
-        // Otherwise goes to Application table.
+        agencyId: req.body.agencyId
     };
 
     // console.log('DA FILE', fs.readFileSync(req.files['0'].path));
-    if (_.isEmpty(req.files)) {
+    if (_.isEmpty(req.files)) { 
         log.info("Bad Request: No data received" + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
     }
@@ -75,28 +71,37 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         return next(serverHelper.requestError("Bad Request: Max number of files is 10"));
     }
 
-    const initFiles = [];
+    try {
+        const initFiles = [];
 
-    for (const file of Object.values(req.files)) {
-        // eslint-disable-next-line init-declarations
-        let initData;
+        for (const file of Object.values(req.files)) {
+            // eslint-disable-next-line init-declarations
+            let initData;
 
-        try {
-            initFiles.push(applicationUploadBO.submitFile(agency, req.body.type, file));
+            try {
+                initFiles.push(applicationUploadBO.submitFile(agencyMetadata, req.body.type, file));
+            }
+            catch (error) {
+                initData.error = "Error processing acord application file";
+                log.info(`Error processing acord application file: ${file.name} ${error.message} ${__location}`);
+            }
         }
-        catch (error) {
-            initData.error = "Error processing acord application file";
-            log.info(`Error processing acord application file: ${file.name} ${error.message} ${__location}`);
-        }
-    }
-    const results = await Promise.all(initFiles);
 
-    for (const requestId of results) {
-        const result = await applicationUploadBO.getOcrResult(requestId);
-        console.log('got da result!', result);
-        await applicationUploadBO.saveOcrResult(requestId, result);
+        // THIS IS THE TASK CODE
+        const results = await Promise.all(initFiles);
+
+        for (const requestId of results) {
+            const result = await applicationUploadBO.getOcrResult(requestId);
+            console.log('got da result!', result);
+            await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata);
+        }
+        res.send(await Promise.all(initFiles));
+    } catch (ex) {
+        log.info("Bad Request: exceeded number of files (10)" + __location);
+        console.log(ex);
+        return next(serverHelper.requestError("Error during OCR upload"));
     }
-    res.send(await Promise.all(initFiles));
+    // END TASK CODE
     next();
 }
 

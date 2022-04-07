@@ -179,7 +179,6 @@ allConnections.init = function init() {
         AgencyPortalUser: global.mongodb.model('AgencyPortalUser'),
         AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
         Application: global.mongodb.model('Application'),
-        ApplicationUpload: global.mongodb.model('ApplicationUpload'),
         ApplicationNotes: global.mongodb.model('ApplicationNotes'),
         ApplicationUpload: global.mongodb.model('ApplicationUpload'),
         ApplicationUploadStatus: global.mongodb.model('ApplicationUploadStatus'),
