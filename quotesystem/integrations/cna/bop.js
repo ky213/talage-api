@@ -1116,11 +1116,51 @@ module.exports = class CnaBOP extends Integration {
                     // }
                 },
                 BldgFeatures: {},
-                "com.cna_QuestionAnswer": [], // No location questions here, all are hydrated in the request for specific properties
+                "com.cna_QuestionAnswer": [],
                 "com.cna_CommonAreasMaintenanceCd": {},
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
             };
+
+            // restaurant appetite expansion
+            const alcoholSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_AlcoholSales");
+            if (alcoholSalesQuestion) {
+                buildingObj['com.cna_AlcoholSales'] = {
+                    Amt: {
+                        value: parseInt(alcoholSalesQuestion.answerValue, 10)
+                    }
+                };
+            }
+
+            // restaurant appetite expansion
+            const byobQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_byobPremisesQuestion");
+            if (byobQuestion) {
+                const questionObj = {
+                    "com.cna_QuestionCd": {
+                        value: "com.cna_byobPremisesQuestion"
+                    },
+                    YesNoCd: {
+                        value: byobQuestion.answerValue.toUpperCase()
+                    }
+                };
+
+                buildingObj["com.cna_QuestionAnswer"].push(questionObj);
+            }
+    
+            // restaurant appetite expansion
+            const residentialExposureQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_ResidentialExposure");
+            if (residentialExposureQuestion) {
+                const questionObj = {
+                    "com.cna_QuestionCd": {
+                        value: "com.cna_ResidentialExposure"
+                    },
+                    YesNoCd: {
+                        value: residentialExposureQuestion.answerValue.toUpperCase()
+                    }
+                };
+
+                buildingObj["com.cna_QuestionAnswer"].push(questionObj);
+            }
 
             const commonAreasMaintenanceQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.commaintenance");
             if (commonAreasMaintenanceQuestion) {
@@ -1472,6 +1512,7 @@ module.exports = class CnaBOP extends Integration {
             return questionObj;
         });
     }
+
 
     // Basic Auth shoud be calculated basic on Insurer's
     // Admin Settings.  All assoicated logic (Sandbox vs production should be here)
