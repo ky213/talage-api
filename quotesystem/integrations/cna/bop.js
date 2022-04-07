@@ -1125,7 +1125,11 @@ module.exports = class CnaBOP extends Integration {
             // restaurant appetite expansion
             const alcoholSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_AlcoholSales");
             if (alcoholSalesQuestion) {
-                buildingObj['com.cna_AlcoholSales'] = {Amt: parseInt(alcoholSalesQuestion.answerValue, 10)};
+                buildingObj['com.cna_AlcoholSales'] = {
+                    Amt: {
+                        value: parseInt(alcoholSalesQuestion.answerValue, 10)
+                    }
+                };
             }
 
             // restaurant appetite expansion
