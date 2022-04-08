@@ -1008,19 +1008,25 @@ module.exports = class CnaBOP extends Integration {
                                 log.error(`${logPrefix}The request to retrieve the quote proposal letter failed: ${e}.` + __location);
                             }
 
-                            try {
-                                quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                            if (!quoteLetter) {
+                                log.warn(`${logPrefix}Unable to obtain quote letter from CNA.`);
                             }
-                            catch (e) {
-                                log.error(`${logPrefix}There was an error parsing the quote letter: ${e}.` + __location);
+                            else {
+                                try {
+                                    quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                                }
+                                catch (e) {
+                                    log.error(`${logPrefix}There was an error parsing the quote letter: ${e}.` + __location);
+                                }
+    
+                                try {
+                                    quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
+                                }
+                                catch (e) {
+                                    log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
+                                }
                             }
 
-                            try {
-                                quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
-                            }
-                            catch (e) {
-                                log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
-                            }
                         }
                         else {
                             log.error(`${logPrefix}Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
