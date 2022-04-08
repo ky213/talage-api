@@ -604,7 +604,6 @@ module.exports = class ACORD{
                     log.error('Failed getting Insurer Activity Code list' + err + __location);
                 }
 
-                log.debug(`Hey! ${!insurerActivityCodeList?.length}`);
                 if(!insurerActivityCodeList?.length) {
                     log.info('No Insurer Activity Codes were found' + __location);
                 }
