@@ -131,7 +131,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 },
                 instype: supportedEntityTypes.includes(applicationDocData.entityType) ? applicationDocData.entityType : "Other",
                 companyName: applicationDocData.businessName,
-                wphone: `${primaryContact.phone.substring(0, 3)}-${primaryContact.phone.substring(3,6)}-${primaryContact.phone.substring(6)}`,
+                wphone: `${primaryContact.phone.toString().substring(0, 3)}-${primaryContact.phone.toString().substring(3,6)}-${primaryContact.phone.toString().substring(6)}`,
                 email: primaryContact.email
             },
             controlSet: {
@@ -145,7 +145,7 @@ module.exports = class ArrowheadBOP extends Integration {
                 company: applicationDocData.businessName,
                 agentid: this.app.agencyLocation.insurers[this.insurer.id].agent_id, //Check if this is different than sub producer. 
                 effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
-                expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
+                expiration: moment(BOPPolicy.effectiveDate).add(1, "year").subtract(1, 'days').format("YYYYMMDD"), 
                 commonSet: {
                     stateOfDomicile: applicationDocData.mailingState,
                     classCode: this.insurerIndustryCode.code,
@@ -154,7 +154,7 @@ module.exports = class ArrowheadBOP extends Integration {
                     sicCode: arrowheadSIC, 
                     state: applicationDocData.mailingState,
                     effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"), 
-                    expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"), 
+                    expiration: moment(BOPPolicy.effectiveDate).add(1, "year").subtract(1, 'days').format("YYYYMMDD"), 
                     quoteType: "NB"
                 },
                 bbopSet: {
