@@ -124,6 +124,7 @@ async function update(req, res, next) {
 
     const agencyBO = new AgencyBO();
     let error = null;
+    log.debug(`admin agency save ${JSON.stringify(req.body)}` + __location)
     const agencyJSON = await agencyBO.saveModel(req.body).catch(function(err) {
         log.error("agencyBO save error " + err + __location);
         error = err;

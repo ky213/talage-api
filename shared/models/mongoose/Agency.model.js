@@ -14,6 +14,7 @@ var mongooseHistory = require('mongoose-history');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const opts = {toJSON: {virtuals: true}};
+const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 const SocialMediaSchema = new Schema({
     socialMediaTag: {type: String, required: false}, //doc in production database without this.
@@ -29,6 +30,11 @@ const faqSchema = new Schema({
 const agencySiteContentSchema = new Schema({
     faq: [faqSchema]
 }, opts);
+
+
+const featureSchema = new Schema({
+    enableAgencyCodeField: {type: Boolean, required: true, default: false}
+}, optsNoId);
 
 const AgencySchema = new Schema({
     agencyId: {type: String, required: [true, 'agencyId required'], unique: true},
@@ -66,7 +72,8 @@ const AgencySchema = new Schema({
     active: {type: Boolean, default: true},
     tierId: {type: Number},
     tierName: {type: String},
-    appCount: {type: Number, default: 0}
+    appCount: {type: Number, default: 0},
+    featureJson: {type: featureSchema, required: true, default: {enableAgencyCodeField: false}}
 }, opts);
 
 
