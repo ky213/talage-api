@@ -392,10 +392,10 @@ module.exports = class CnaBOP extends Integration {
 
         if (typeof industryCode.attributes === "string") {
             try {
-                industryCode.attributes = JSON.parse(industryCode.attributes);
+                industryCode.attributes = JSON.parse(JSON.stringify(industryCode.attributes));
             }
             catch (e) {
-                log.error(`${logPrefix}Unable to parse attributes of Industry Code, which are required. ${e}. attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
+                log.error(`${logPrefix}Unable to parse required attributes of Industry Code: ${e}. Attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
                 return this.client_error(`Could not parse required information from industry code.`);
             }
         }
