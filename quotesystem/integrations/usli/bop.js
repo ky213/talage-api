@@ -47,7 +47,13 @@ const ignoredQuestionIds = [
     "usli.location.exposure.numTeachersInstructors",
     "usli.location.exposure.numPoolsTubs",
     "usli.location.exposure.grossSales",
-    "usli.location.exposure.annualSubcontractedCost"
+    "usli.location.exposure.annualSubcontractedCost",
+    "usli.location.exposure.numApartments",
+    "usli.location.exposure.numDentists",
+    "usli.location.exposure.numMobileHomePads",
+    "usli.location.exposure.numCondos",
+    "usli.location.exposure.numPowerUnits",
+    "usli.location.exposure.numTanningBeds"
 ];
 
 // EAOCC/GENAG/PRDCO
@@ -914,9 +920,7 @@ module.exports = class USLIBOP extends Integration {
 
     getExposure(location) {
         let exposure = null;
-        let exposureNotSupported = false;
         let exposureEncountered = true;
-        let errorMessage = null;
         switch (industryCode.attributes.premiumExposureBasis) {
             case "1,000 Gallons":
                 const gallonsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalGallonsOfFuel");
@@ -926,7 +930,8 @@ module.exports = class USLIBOP extends Integration {
                         exposure = Math.round(numGallons / 1000);
                     }
                     else {
-                        errorMessage = `${logPrefix}Invalid number of gallons, unable to convert ${numGallons} into an integer. `;
+                        log.warn(`${logPrefix}Invalid number of gallons, unable to convert ${numGallons} into an integer. ` + __location);
+                        return null;
                     }
                 }
                 break;
@@ -936,7 +941,8 @@ module.exports = class USLIBOP extends Integration {
                     exposure = Math.round(locationPayroll / 100);
                 }
                 else {
-                    errorMessage = `${logPrefix}Invalid number for payroll, unable to convert ${locationPayroll} into an integer. `;
+                    log.warn(`${logPrefix}Invalid number for payroll, unable to convert ${locationPayroll} into an integer. ` + __location);
+                    return null;
                 }
                 break;
             case "Acre":
@@ -1017,10 +1023,50 @@ module.exports = class USLIBOP extends Integration {
                 exposure = this.get_total_location_employees(location);
                 break;
             case "Number of Units":
+                let questionIdentifier = null;
+                switch (industryCode.code) {
+                    case "5337":
+                        questionIdentifier = "usli.location.exposure.numApartments";
+                        break;
+                    case "7119":
+                        questionIdentifier = "usli.location.exposure.numDentists";
+                        break;
+                    case "5852": 
+                    case "7100":
+                        questionIdentifier = "usli.location.exposure.numMobileHomePads";
+                        break;
+                    case "5013":
+                    case "5014":
+                    case "5858":
+                    case "1681":
+                        questionIdentifier = "usli.location.exposure.numCondos";
+                        break;
+                    case "652":
+                    case "1693":
+                        questionIdentifier = "usli.location.exposure.numPowerUnits";
+                        break;
+                    case "5378":
+                        questionIdentifier = "usli.location.exposure.numTanningBeds";
+                        break;
+                    default:
+                        log.warn(`${logPrefix}Class code ${industryCode.code} is not a valid classification for the "Number of Units" exposure type, therefor no exposure can be provided. ` + __location);
+                        return null;
+                }
+
+                if (!questionIdentifier) {
+                    log.warn(`${logPrefix}No question identifier was found for Class code ${industryCode.code}, therefor no exposure can be provided. ` + __location);
+                    return null;
+                }
+
+                const numUnitsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === questionIdentifier);
+                if (numUnitsQuestion) {
+                    exposure = numUnitsQuestion.answerValue;
+                }
+                break;
             case "Fitness Center":
             case "Additional Insured":
-                exposureNotSupported = true;
-                break;
+                log.warn(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
+                return null;
             case "Full-Time Janitor":
             case "Part-Time Janitor":
             case "Full-time employee":
@@ -1035,13 +1081,7 @@ module.exports = class USLIBOP extends Integration {
                 break;
         }
 
-        if (exposureNotSupported) {
-            log.warn(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
-        }
-        else if (errorMessage) {
-            log.warn(errorMessage + __location);
-        }
-        else if (!exposureEncountered) {
+        if (!exposureEncountered) {
             log.warn(`${logPrefix}No case found for ${industryCode.attributes.premiumExposureBasis} exposure. ` + __location);
         }
         else if (exposure === null) {
