@@ -1633,8 +1633,23 @@ async function GetResources(req, res, next){
         'RI',
         'UT'
     ];
-    //TODO Software Hook
 
+    //get agency featureJson.
+    if(agencyId){
+        const agencyBO = new AgencyBO();
+        try{
+            const returnDoc = false;
+            const returnDeleted = true
+            const agencyJSON = await agencyBO.getById(agencyId, returnDoc, returnDeleted)
+            responseObj.featureJson = agencyJSON.featureJson;
+        }
+        catch(err){
+            log.error("Error getting agencyBO " + err + __location);
+        }
+    }
+
+
+    //TODO Software Hook
 
     res.send(200, responseObj);
     return next();
