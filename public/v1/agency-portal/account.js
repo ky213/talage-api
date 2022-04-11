@@ -31,7 +31,11 @@ async function get_account(req, res, next){
     // const account_sql = `SELECT \`a\`.\`email\`
 
     // There will only ever be one result only gets email
-    const account_data = {email: agencyPortalUserJSON.email}
+    const account_data = {
+        firstName: agencyPortalUserJSON.firstName,
+        lastName: agencyPortalUserJSON.lastName,
+        email: agencyPortalUserJSON.email
+    }
 
     const timezoneList = timezonesvc.getList();
     const timezones = [];
@@ -155,6 +159,12 @@ async function put_account(req, res, next){
         }
         if(timezoneName){
             newJson.timezoneName = timezoneName
+        }
+        if(req.body.firstName && typeof req.body.firstName === 'string'){
+            newJson.firstName = req.body.firstName;
+        }
+        if(req.body.lastName && typeof req.body.lastName === 'string'){
+            newJson.lastName = req.body.lastName;
         }
 
         const agencyPortalUserBO = new AgencyPortalUserBO();
