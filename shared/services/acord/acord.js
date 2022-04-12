@@ -604,7 +604,7 @@ module.exports = class ACORD{
                     log.error('Failed getting Insurer Activity Code list' + err + __location);
                 }
 
-                if(!insurerActivityCodeList.length) {
+                if(!insurerActivityCodeList?.length) {
                     log.info('No Insurer Activity Codes were found' + __location);
                 }
 
@@ -612,7 +612,7 @@ module.exports = class ACORD{
                     if(!activity.activityCodeId){
                         activity.activityCodeId = activity.ncciCode
                     }
-                    if(insurerActivityCodeList.length){
+                    if(insurerActivityCodeList?.length){
                         for(const insurerActivityCodeObj of insurerActivityCodeList){
                             const currentLetter = String.fromCharCode(pdfKey);
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
