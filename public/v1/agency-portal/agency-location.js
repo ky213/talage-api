@@ -478,7 +478,7 @@ async function updateAgencyLocation(req, res, next) {
     const agencyNetworkBO = new AgencyNetworkBO();
     const agencyNetworkDB = await agencyNetworkBO.getById(agencyDB.agencyNetworkId);
     if(!agencyNetworkDB){
-        log.error(`Get agencyNetworkDB by ID error: not found id ${agencyDB.agencyNetworkId}` +  __location)
+        log.error(`Get agencyNetworkDB by ID error: not found id ${agencyDB.agencyNetworkId}` + __location)
     }
 
     let useTalageWholesale = false;
