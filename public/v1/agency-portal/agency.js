@@ -380,27 +380,30 @@ async function postAgency(req, res, next) {
 
     let insurers = [];
     let useTalageWholesale = false;
+    let agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+        log.error("agencyNetworkBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if(agencyNetworkJSON?.featureJson?.talageWholesale === true){
+        useTalageWholesale = true;
+    }
+    log.debug(`useTalageWholesale ${useTalageWholesale}` + __location)
+    let wholesaleJson = req.body.useAgencyPrimeInsurer;
+    log.debug(`wholesaleJson reset` + __location)
+
     //useAgencyPrime means All the AgencyPrime's appointments, not be insurer.
     //TODO  - Client use TalageWhole, back must flip to useAgencyPrime if agency network does not use talageWholesale.
     if(useAgencyPrime === false){
-        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.talageWholesale).length < 1){
-            log.warn('agencyId or Talage Wholesale are required');
-            return next(serverHelper.requestError('You must enter at least one Agency ID or Talage Wholesale'));
+        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1 && Object.keys(req.body.useAgencyPrimeInsurer).length < 1){
+            log.warn('agencyIds or Talage Wholesale are required' + __location);
+            return next(serverHelper.requestError('You must enter at least one Agency ID or Talage Wholesale or AgencyPrime'));
         }
-
+        log.debug(`agencyNetworkJSON.insurerIds ` + __location)
         try{
-            let agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
-                log.error("agencyNetworkBO load error " + err + __location);
-                error = err;
-            });
-            if (error) {
-                return next(error);
-            }
-            if(agencyNetworkJSON?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkJSON?.featureJson?.talageWholesale === true){
-                useTalageWholesale = true;
-            }
-
             // eslint-disable-next-line prefer-const
             let insurerIdArray = agencyNetworkJSON.insurerIds;
 
@@ -445,40 +448,44 @@ async function postAgency(req, res, next) {
             return next(error);
         }
 
+        try{
+            for (let insurerID in req.body.agencyIds) {
+                if (Object.prototype.hasOwnProperty.call(req.body.agencyIds, insurerID)) {
+                // Convert the insurer ID into a number
+                    insurerID = parseInt(insurerID, 10);
 
-        for (let insurerID in req.body.agencyIds) {
-            if (Object.prototype.hasOwnProperty.call(req.body.agencyIds, insurerID)) {
-            // Convert the insurer ID into a number
-                insurerID = parseInt(insurerID, 10);
+                    // Make sure the insurer ID is permitted
+                    if (!insurerIDs.includes(insurerID)) {
+                        return next(serverHelper.requestError('Invalid insurer ID in request. Please contact us.'));
+                    }
 
-                // Make sure the insurer ID is permitted
-                if (!insurerIDs.includes(insurerID)) {
-                    return next(serverHelper.requestError('Invalid insurer ID in request. Please contact us.'));
-                }
+                    // Make sure the field wasn't left blank
+                    if (!req.body.agencyIds[insurerID]) {
+                        return next(serverHelper.requestError('An agency ID is required for each insurer.'));
+                    }
 
-                // Make sure the field wasn't left blank
-                if (!req.body.agencyIds[insurerID]) {
-                    return next(serverHelper.requestError('An agency ID is required for each insurer.'));
-                }
-
-                // Make sure the agentId field wasn't left blank for insurers that require agent id
-                const maybeInsurer = insurers.filter((ins) => ins.insurerId === insurerID);
-                const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
-                // if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
-                if (insurer !== null) {
-                    if (insurer.enable_agent_id === 1 && !req.body.agentIds[insurerID]) {
-                        return next(serverHelper.requestError('An Agent ID is required for each insurer.'));
+                    // Make sure the agentId field wasn't left blank for insurers that require agent id
+                    const maybeInsurer = insurers.filter((ins) => ins.insurerId === insurerID);
+                    const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
+                    // if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
+                    if (insurer !== null) {
+                        if (insurer.enable_agent_id === 1 && !req.body.agentIds[insurerID]) {
+                            return next(serverHelper.requestError('An Agent ID is required for each insurer.'));
+                        }
+                    }
+                    else {
+                        log.error('We have in insurer info being sent to the backend with an insurer id that does not exist in the db. Error at ' + __location)
                     }
                 }
-                else {
-                    log.error('We have in insurer info being sent to the backend with an insurer id that does not exist in the db. Error at ' + __location)
-                }
             }
+        }
+        catch(err){
+            log.error(`Error processing agencyIdsInsurer List ` + err + __location);
         }
 
     }
 
-
+    log.debug(`agency setup ` + __location)
     // Localize data variables
     const email = req.body.email.toLowerCase();
     const firstName = req.body.firstName;
@@ -488,10 +495,7 @@ async function postAgency(req, res, next) {
     const agencyIds = req.body.agencyIds;
     const agentIds = req.body.agentIds;
     const cred3s = req.body.cred3s;
-    let wholesaleJson = req.body.talageWholesale;
-    if(!useTalageWholesale){
-        wholesaleJson = req.body.useAgencyPrimeInsurer;
-    }
+
 
     const tierId = req.body.tierId || null;
     const tierName = req.body.tierName || null;
@@ -597,6 +601,7 @@ async function postAgency(req, res, next) {
     const agencyId = agencyBO.id;
 
     // Create Insurers array:
+    log.debug(`Create Insurers array:` + __location)
     const insurerArray = [];
     if(useAgencyPrime === false){
         //regular
@@ -645,6 +650,8 @@ async function postAgency(req, res, next) {
                 log.error(`Create Agency add agency location insurer ` + err + __location)
             }
         }
+
+
         //talage wholesale
         for (const insurerID in wholesaleJson) {
             // only add insurer if the the talageWholeSale setting is equal to true;
