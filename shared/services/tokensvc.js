@@ -17,7 +17,22 @@ const refreshThresholdSeconds = 1300;
  * @returns {object} userJwt - Returns the raw jwt
  */
 exports.createNewToken = async function(payload, additionalPayload) {
-    const jwtPayload = JSON.parse(JSON.stringify(payload));
+    let jwtPayload = null;
+
+    try{
+        if(typeof payload === 'object'){
+            jwtPayload = JSON.parse(JSON.stringify(payload));
+        }
+        else if(typeof payload === 'string'){
+            jwtPayload = JSON.parse(payload);
+        }
+    }
+    catch(err){
+        log.error(`createNewToken error copying payload ${err}` + __location);
+    }
+    if(!jwtPayload){
+        jwtPayload = {};
+    }
 
     jwtPayload.ranValue1 = uuidv4().toString();
     jwtPayload.createdAt = moment();
@@ -26,15 +41,27 @@ exports.createNewToken = async function(payload, additionalPayload) {
     const jwt = require('jsonwebtoken');
     const userJwt = jwt.sign(jwtPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'});
 
-    let redisPayload = JSON.parse(JSON.stringify(jwtPayload));
-    //For Refreshing token. Next to know exactly what was the JWT payload.
-    redisPayload.jwtPayload = jwtPayload;
+    let redisPayload = null;
+
+    try{
+        redisPayload = JSON.parse(JSON.stringify(jwtPayload));
+    }
+    catch(err){
+        log.error(`createNewToken error copying jwtPayload ${err}` + __location);
+    }
+    if(!redisPayload){
+        redisPayload = jwtPayload
+    }
+    else{
+        //For Refreshing token. Next to know exactly what was the JWT payload.
+        redisPayload.jwtPayload = jwtPayload;
+    }
     // add the additional payload after generating the token
     try{
         if(additionalPayload){
-            redisPayload = Object.assign(additionalPayload, jwtPayload);
+            redisPayload = Object.assign(additionalPayload, redisPayload);
             if(!redisPayload.jwtPayload){
-                log.error("Error Missing  redisPayload.jwtPayload " + __location);
+                log.error(`Error Missing  redisPayload.jwtPayload ${JSON.stringify(redisPayload)}` + __location);
                 //redisPayload.jwtPayload = jwtPayload;
             }
         }
@@ -142,7 +169,16 @@ exports.refreshToken = async function(req) {
     const redisResponse = await global.redisSvc.getKeyValue(req.jwtToken);
     if(redisResponse && redisResponse.found && redisResponse.value){
         //TODO  Leaks info into JWT.
-        const redisData = JSON.parse(redisResponse.value);
+        let redisData = null
+        try{
+            redisData = JSON.parse(redisResponse.value);
+        }
+        catch(err){
+            log.error(`refreshToken error parseing redis jwt ${err}` + __location);
+        }
+        if(!redisData){
+            return null;
+        }
         const userTokenData = redisData.jwtPayload
         if(userTokenData){
             const duration = moment.duration(moment().diff(moment(userTokenData.createdAt)));
