@@ -109,12 +109,6 @@ module.exports = class LibertyGL extends Integration{
             return this.return_result('autodeclined');
         }
 
-        // for EIN
-        if (!appDoc.ein) {
-            log.warn(`${logPrefix}Insurer requires FEIN for GL. ${__location}`)
-            this.reasons.push(`Insurer requires FEIN for GL.`);
-        }
-
         // Liberty has us define our own Request ID
         this.request_id = this.generate_uuid();
 
@@ -197,10 +191,12 @@ module.exports = class LibertyGL extends Integration{
                                 NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
 
                                 // <TaxIdentity>
-                                const TaxIdentity = NameInfo.ele('TaxIdentity');
+                                if(appDoc.ein){
+                                    const TaxIdentity = NameInfo.ele('TaxIdentity');
                                     TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
                                     TaxIdentity.ele('TaxId', appDoc.ein);
-                                // </TaxIdentity>
+                                }
+                                //</TaxIdentity>
                             // </NameInfo>
 
                             // <Addr>
