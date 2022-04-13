@@ -108,7 +108,7 @@ const convertInsurerIndustryCodeToTalageIndustryCode = async (insurerId, insurer
 
 const convertInsurerActivityCodeToTalageActivityCode = async (insurerId, insurerActivityCode, territory) => {
     const insurerIndustryCodeObj = await InsurerActivityCode.findOne({
-        insurerId,
+        insurerId: insurerId,
         territoryList: territory,
         code: insurerActivityCode.toString()
     });
@@ -117,7 +117,8 @@ const convertInsurerActivityCodeToTalageActivityCode = async (insurerId, insurer
         return '';
     }
 
-    return insurerIndustryCodeObj.talageIndustryCodeIdList[0];
+    // Just pick the first Talage Activity Code mapping.
+    return _.get(insurerIndustryCodeObj, 'talageActivityCodeIdList[0]');
 }
 
 
@@ -231,7 +232,7 @@ module.exports = class ApplicationUploadBO {
         data.Rating = data.Rating.filter(r => r.Class_Code !== '' && r.Categories !== '');
 
         // XXX: Auto-generate this later.
-        const insurerId = 12; //9;
+        const insurerId = agencyMetadata.insurerId || 9;
 
         // -> Compwest Ins
         const applicationUploadObj = {

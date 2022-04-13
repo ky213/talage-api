@@ -1,5 +1,6 @@
 const axios = require("axios");
 const _ = require('lodash');
+const InsurerBO = require("../../../shared/models/Insurer-BO");
 
 const serverHelper = global.requireRootPath("server.js");
 const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.js');
@@ -54,9 +55,10 @@ async function performOcrOnAccodPdfFile(req, res, next) {
     // Check for data
     const applicationUploadBO = new ApplicationUploadBO();
     const agencyMetadata = {
-        agencyLocationId: req.body.agencyLocationId,
-        agencyNetworkId: req.authentication.agencyNetwork,
-        agencyId: req.body.agencyId
+        agencyLocationId: parseInt(req.body.agencyLocationId, 10),
+        agencyNetworkId: parseInt(req.authentication.agencyNetwork, 10),
+        agencyId: parseInt(req.body.agencyId, 10),
+        insurerId: parseInt(req.body.insurerId, 10)
     };
 
     // console.log('DA FILE', fs.readFileSync(req.files['0'].path));
@@ -97,7 +99,7 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         }
         res.send(await Promise.all(initFiles));
     } catch (ex) {
-        log.info("Bad Request: exceeded number of files (10)" + __location);
+        log.error("Bad Request: error when reading file " + ex.message + __location);
         console.log(ex);
         return next(serverHelper.requestError("Error during OCR upload"));
     }
@@ -105,7 +107,25 @@ async function performOcrOnAccodPdfFile(req, res, next) {
     next();
 }
 
+/**
+ * 
+ */
+async function getInsurerList(req, res, next) {
+    try {
+        const insurerBO = new InsurerBO();
+        const insurers = await insurerBO.getList();
+        res.send(insurers.map(i => _.pick(i, ['insurerId', 'name'])));
+        return next();
+    }
+    catch (ex) {
+        log.error(ex.message + __location);
+        res.send({error: true});
+        return next();
+    }
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth("POST acord files for OCR", `${basePath}/acord-ocr`, performOcrOnAccodPdfFile);
     server.addPostAuth("GET acord files status", `${basePath}/acord-ocr/status`, getAcordStatus);
+    server.addGetAuth("GET insurer list", `${basePath}/insurer-list`, getInsurerList);
 };
