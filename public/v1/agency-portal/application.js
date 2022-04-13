@@ -1633,8 +1633,23 @@ async function GetResources(req, res, next){
         'RI',
         'UT'
     ];
-    //TODO Software Hook
 
+    //get agency featureJson.
+    if(agencyId){
+        const agencyBO = new AgencyBO();
+        try{
+            const returnDoc = false;
+            const returnDeleted = true
+            const agencyJSON = await agencyBO.getById(agencyId, returnDoc, returnDeleted)
+            responseObj.featureJson = agencyJSON.featureJson;
+        }
+        catch(err){
+            log.error("Error getting agencyBO " + err + __location);
+        }
+    }
+
+
+    //TODO Software Hook
 
     res.send(200, responseObj);
     return next();
@@ -2341,7 +2356,7 @@ async function CheckAppetite(req, res, next){
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
-        log.info("Error getting questions " + err + __location);
+        log.info("Error CheckAppetite " + err + __location);
         res.send(200, {});
         //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
     }
@@ -2380,6 +2395,91 @@ async function accesscheckEmail(email, applicationJSON){
     return hasAccess;
 }
 
+
+/**
+ * Responds to post requests for all activity codes related to a given NCCI activity code
+ *
+ * @param {object} req - Expects {territory: 'NV', industry_code: 2880, code:005, sub:01}
+ * @param {object} res - Response object: list of activity codes
+ * @param {function} next - The next function to execute
+ *
+ * @returns {object} res - Returns an array of objects containing activity codes [{"id": 2866}]
+ */
+async function GetActivityCodesByNCCICode(req, res, next){
+
+    let hasAccess = false
+    try{
+        hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error GetActivityCodesByNCCICode " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+    if(hasAccess === false){
+        log.info(`GetActivityCodesByNCCICode appId  ${req.params.id} no Access` + __location); 
+        res.send(200, []);
+        return next();
+    }
+
+    if (!req.query?.territory) {
+        log.info('GetActivityCodesByNCCICode Bad Request: You must supply a territory' + __location);
+        res.send(400, {
+            message: 'You must supply a territory',
+            status: 'error'
+        });
+        return next();
+    }
+
+    if (!req.query?.ncci_code) {
+        log.info('GetActivityCodesByNCCICode Bad Request: You must supply an NCCI code' + __location);
+        res.send(400, {
+            message: 'You must supply an NCCI code',
+            status: 'error'
+        });
+        return next();
+    }
+
+    const {
+        ncci_code, territory
+    } = req.query
+
+    // Get activity codes by ncci codes, filtered by territory
+    try {
+        //Call Application BO to determine what insurerId should be used.
+        log.info('GetActivityCodesByNCCICode calling applicationBO.NcciActivityCodeLookup ' + __location); 
+        // const activityCodes = await ActivityCodeSvc.getActivityCodesByNCCICode(ncci_code, territory)
+        const applicationBO = new ApplicationBO();
+        const activityCodes = await applicationBO.NcciActivityCodeLookup(req.params.id, ncci_code, territory);
+        
+        // log.info('GetActivityCodesByNCCICode calling ActivityCodeSvc.getActivityCodesByNCCICode ' + __location); 
+        // const activityCodes = await ActivityCodeSvc.getActivityCodesByNCCICode(ncci_code, territory)
+        if (activityCodes?.length) {
+            res.send(200, activityCodes);
+            return next();
+        }
+        else{
+            log.info('No Codes Available' + __location);
+            res.send(404, {
+                message: 'No Codes Available',
+                status: 'error'
+            });
+            return next(false);
+        }
+    }
+    catch (error) {
+        log.error(`GetActivityCodesByNCCICode appId ${req.params.id} ${error}` + __location);
+        res.send(500, {
+            message: 'Internal Server Error',
+            status: 'error'
+        });
+        return next(false);
+    }
+}
 
 // eslint-disable-next-line no-unused-vars
 async function accesscheck(appId, req, retObject){
@@ -2432,6 +2532,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('GetFireCodes for AP Application', `${basePath}/application/:id/firecodes`, GetFireCodes, 'applications', 'manage');
     server.addGetAuth('GetBopCodes for AP Application', `${basePath}/application/:id/bopcodes`, GetBopCodes, 'applications', 'manage');
     server.addGetAuth('CheckAppetite for AP Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
+    server.addGetAuth('Get Activity Codes by NCCI code', `${basePath}/application/:id/ncci-activity-codes`, GetActivityCodesByNCCICode);
 
     server.addGetAuth('GetOfficerEmployeeTypes', `${basePath}/application/officer-employee-types`, getOfficerEmployeeTypes);
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources);

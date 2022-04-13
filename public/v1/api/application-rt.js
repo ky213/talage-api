@@ -432,7 +432,7 @@ async function applicationSave(req, res, next) {
                     }
                 }
                 catch(err){
-                    log.error(`Error Create JWT with ApplicationId ${err}` + __location);
+                    log.error(`Error Create JWT with ApplicationId ${responseAppDoc.applicationId} ${err}` + __location);
                 }
 
             }
@@ -446,7 +446,7 @@ async function applicationSave(req, res, next) {
                     }
                 }
                 catch(err){
-                    log.error(`Error Create JWT with ApplicationId ${err}` + __location);
+                    log.error(`Error Create JWT with ApplicationId ${responseAppDoc.applicationId} ${err}` + __location);
                 }
             }
         }
@@ -460,11 +460,19 @@ async function applicationSave(req, res, next) {
 
     // if they ask for a new token (refreshToken: "please") or... true
     // set up and attach a refreshed token.
-    if(refreshToken){
-        const newToken = await tokenSvc.refreshToken(req);
-        if(newToken){
-            responseAppDoc.token = newToken;
+    try{
+        if(refreshToken){
+            const newToken = await tokenSvc.refreshToken(req);
+            if(newToken){
+                responseAppDoc.token = newToken;
+            }
+            else {
+                log.debug(`No RefreshToken was created for with ApplicationId ${responseAppDoc.applicationId} NULL returned` + __location);
+            }
         }
+    }
+    catch(err){
+        log.error(`Error Creating RefreshToken with ApplicationId ${responseAppDoc.applicationId} ${err}` + __location);
     }
 
     if (responseAppDoc) {

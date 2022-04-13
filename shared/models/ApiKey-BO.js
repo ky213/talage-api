@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const moment = require('moment');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const jwt = require('jsonwebtoken');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
 
 module.exports = class ApiKeyBO{
 
@@ -93,4 +95,32 @@ module.exports = class ApiKeyBO{
             isSuccess: true
         };
     }
+
+    async isApiKeysEnabled(agencyPortalUserId, keyId = null) {
+        // If Agency Portal User ID is not provided
+        if(!agencyPortalUserId && keyId){
+            const curApiKey = await ApiKey.findOne({keyId: keyId});
+            agencyPortalUserId = curApiKey.agencyPortalUser;
+        }
+
+        // Get Agency Portal User Doc based on Agency Portal User Id from API Key Doc
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        const agencyPortalUserDoc = await agencyPortalUserBO.getById(agencyPortalUserId);
+
+        // Get Agency Network Doc based on Agency Portal User Doc
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetworkDoc = await agencyNetworkBO.getById(agencyPortalUserDoc.agencyNetworkId);
+
+        // Determine if API Keys are enabled in Agency Network's feature_json
+        return agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.enableApiKeys === true;
+    }
+
+    getActiveKeysCount(userId){
+        const query = {
+            agencyPortalUser: userId,
+            expirationDate: {$gte: moment()}
+        }
+        return ApiKey.countDocuments(query);
+    }
+
 }

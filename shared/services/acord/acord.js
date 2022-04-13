@@ -474,6 +474,9 @@ module.exports = class ACORD{
             return pdf;
         }
 
+        const firstName = this.primaryContactObj?.firstName ? this.primaryContactObj.firstName : '';
+        const lastName = this.primaryContactObj?.lastName ? this.primaryContactObj.lastName : '';
+        const fullName = firstName.length > 0 && lastName.length > 0 ? `${firstName} ${lastName}` : '';
         const page1Obj = {
             "Form_CompletionDate_A": moment().format('L'),
             "Producer_FullName_A": this.agencyDoc.name,
@@ -498,13 +501,13 @@ module.exports = class ACORD{
             "NamedInsured_Primary_PhoneNumber_A": this.applicationDoc.phone,
             "NamedInsured_Primary_WebsiteAddress_A": this.applicationDoc.website,
             "NamedInsured_LegalEntity_OtherDescription": this.getEntityString === 'Other' ? this.applicationDoc.entityType : '',
-            "NamedInsured_Primary_EmailAddress_A": this.primaryContactObj.email,
+            "NamedInsured_Primary_EmailAddress_A": this.primaryContactObj?.email ? this.primaryContactObj.email : '',
             "NamedInsured_InBusinessYearCount_A": moment().diff(this.applicationDoc.founded, 'years'),
             "Policy_Status_QuoteIndicator_A": 1,
             "Policy_Payment_DirectBillIndicator_A": 1,
-            "NamedInsured_InspectionContact_FullName_A": this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName,
-            "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj.phone,
-            "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email
+            "NamedInsured_InspectionContact_FullName_A": fullName,
+            "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj?.phone ? this.primaryContactObj.phone : '',
+            "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj?.email ? this.primaryContactObj.email : ''
         }
         let pdfKey = 65;
         const uniqueStateList = [...new Set(this.applicationDoc.locations.map(location => location.state))]
@@ -601,7 +604,7 @@ module.exports = class ACORD{
                     log.error('Failed getting Insurer Activity Code list' + err + __location);
                 }
 
-                if(!insurerActivityCodeList.length) {
+                if(!insurerActivityCodeList?.length) {
                     log.info('No Insurer Activity Codes were found' + __location);
                 }
 
@@ -609,7 +612,7 @@ module.exports = class ACORD{
                     if(!activity.activityCodeId){
                         activity.activityCodeId = activity.ncciCode
                     }
-                    if(insurerActivityCodeList.length){
+                    if(insurerActivityCodeList?.length){
                         for(const insurerActivityCodeObj of insurerActivityCodeList){
                             const currentLetter = String.fromCharCode(pdfKey);
                             statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;

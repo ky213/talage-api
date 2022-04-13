@@ -46,8 +46,30 @@ const specialCaseQuestions = [
     "cna.general.medex",
     "cna.general.mfgProductDesc",
     "cna.general.mfgProductIntendedUse",
-    "cna.general.mfgProductSelfInsured"
+    "cna.general.mfgProductSelfInsured",
+    "com.cna_byobPremisesQuestion",
+    "com.cna_ResidentialExposure",
+    "com.cna_AlcoholSales",
+    "cna.building.commaintenance",
+    "cna.building.rackStorageAbove12Feet",
+    "cna.location.numgaspumps",
+    "cna.location.carwash",
+    "cna.location.propanetanks",
+    "cna.location.numgarageemployees",
+    "cna.location.eligibilityCNAconnect",
+    "cna.location.certificateofinsurance",
+    "cna.location.vacantarea",
+    "cna.location.occupiedautogarage",
+    "cna.location.occupiednonfranchise",
+    "cna.location.MTELimit",
+    "cna.location.MTEDeductible",
+    "cna.location.MTETheftExclusion"
 ];
+
+const commonAreasMap = {
+    "occupant maintains common areas": "A",
+    "occupant does not maintain common areas": "B"
+};
 
 const lossTypes = {
     "Fire": "Fire",
@@ -67,6 +89,14 @@ const lossTypes = {
     "Weather/Winter": "Weather/Winter",
     "Other": "Other-Property"
 };
+
+// TODO: Eventually we should update existing CNA BOP Industry Code attributes with their Industry Group, and then look at the attributes on the industry code
+//       in this integration to determine whether it is GR. This way it would be dynamic, rather than hard coding this list, which is brittle if changes occur
+const grIndustryCodes = [
+    "75380G",
+    "75492B",
+    "75492C"
+];
 
 const limitIneligibility = [
     "89990_50",
@@ -362,10 +392,10 @@ module.exports = class CnaBOP extends Integration {
 
         if (typeof industryCode.attributes === "string") {
             try {
-                industryCode.attributes = JSON.parse(industryCode.attributes);
+                industryCode.attributes = JSON.parse(JSON.stringify(industryCode.attributes));
             }
             catch (e) {
-                log.error(`${logPrefix}Unable to parse attributes of Industry Code, which are required. ${e}. attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
+                log.error(`${logPrefix}Unable to parse required attributes of Industry Code: ${e}. Attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
                 return this.client_error(`Could not parse required information from industry code.`);
             }
         }
@@ -401,7 +431,7 @@ module.exports = class CnaBOP extends Integration {
         let primaryContact = applicationDocData.contacts.find(c => c.primary);
         let phone = null;
 
-        if (primaryContact?.phone && primaryContact.phone.length > 0) {
+        if (primaryContact?.phone && primaryContact.phone.toString().length > 0) {
             phone = primaryContact.phone.toString().replace(/[()-]/g, '');
         }
         else if (applicationDocData.phone && applicationDocData.phone.length > 0) {
@@ -412,7 +442,7 @@ module.exports = class CnaBOP extends Integration {
             phone = "";
         }
 
-        let formattedPhone = phone.length > 0 ? `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}` : "";
+        const formattedPhone = phone.length > 0 ? `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}` : "";
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -778,13 +808,20 @@ module.exports = class CnaBOP extends Integration {
             }
 
             if (!errorJSON?.InsuranceSvcRs[0]?.BOPPolicyQuoteInqRs[0]?.MsgStatus) {
-                const errorMessage = `There was an error parsing the response object: ${errorJSON}. The result structure may have changed.`;
+                const errorMessage = `${logPrefix}There was an error parsing the response object: ${errorJSON}. The result structure may have changed.`;
                 log.error(errorMessage + __location);
                 return this.client_error(errorMessage, __location);
             }
             else {
                 result = errorJSON;
             }
+        }
+
+        if (result.InsuranceSvcRs[0]?.StatusCd === "500") {
+            const cnaErrorMessage = result.InsuranceSvcRq[0]?.StatusDesc;
+            const errorMessage = `${logPrefix}CNA encountered an error and did not return a quote${cnaErrorMessage ? `: ${cnaErrorMessage}` : '.'}`;
+            log.error(errorMessage + __location);
+            return this.client_error(errorMessage, __location);
         }
 
         let quoteNumber = null;
@@ -795,6 +832,13 @@ module.exports = class CnaBOP extends Integration {
         let policyStatus = null;
 
         const response = result.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0];
+
+        if (!response) {
+            const errorMessage = `${logPrefix}Unable to parse CNA's response, missing core elements.`;
+            log.error(errorMessage + __location);
+            return this.client_error(errorMessage, __location);
+        }
+
         policyStatus = response.MsgStatus.MsgStatusCd.value.toLowerCase();
         switch (policyStatus) {                
             case "dataerror":
@@ -804,7 +848,7 @@ module.exports = class CnaBOP extends Integration {
             case "general failure":
                 const error = response.MsgStatus;
                 log.error(`${logPrefix}response ${error.MsgStatusDesc.value} ` + __location);
-                if (error.MsgErrorCd && error.MsgErrorCd.value === "NotAvailable") {
+                if (error.MsgStatusCd && error.MsgStatusCd.value === "NotAvailable") {
                     return this.client_error(`${error.MsgStatusDesc.value}`, __location);
                 }
 
@@ -964,19 +1008,25 @@ module.exports = class CnaBOP extends Integration {
                                 log.error(`${logPrefix}The request to retrieve the quote proposal letter failed: ${e}.` + __location);
                             }
 
-                            try {
-                                quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                            if (!quoteLetter) {
+                                log.warn(`${logPrefix}Unable to obtain quote letter from CNA.`);
                             }
-                            catch (e) {
-                                log.error(`${logPrefix}There was an error parsing the quote letter: ${e}.` + __location);
+                            else {
+                                try {
+                                    quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                                }
+                                catch (e) {
+                                    log.error(`${logPrefix}There was an error parsing the quote letter: ${e}.` + __location);
+                                }
+    
+                                try {
+                                    quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
+                                }
+                                catch (e) {
+                                    log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
+                                }
                             }
 
-                            try {
-                                quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
-                            }
-                            catch (e) {
-                                log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
-                            }
                         }
                         else {
                             log.error(`${logPrefix}Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}` + __location);
@@ -1029,7 +1079,7 @@ module.exports = class CnaBOP extends Integration {
 
                     // sub location information
                     locationObj.SubLocation = [{...locationObj}];
-                    locationObj.SubLocation[0].id += `S${i}`;
+                    locationObj.SubLocation[0].id += `S${i + 1}`;
 
                     // location name - left blank for now
                     locationObj.locationName = {};
@@ -1097,11 +1147,67 @@ module.exports = class CnaBOP extends Integration {
                     // }
                 },
                 BldgFeatures: {},
-                "com.cna_QuestionAnswer": [], // No location questions here, all are hydrated in the request for specific properties
+                "com.cna_QuestionAnswer": [],
                 "com.cna_CommonAreasMaintenanceCd": {},
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
             };
+
+            // GR Industry Group
+            const gasPumpsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.numgaspumps");
+            if (gasPumpsQuestion) {
+                buildingObj.BldgFeatures["com.cna_NumGasPumps"] = {
+                    Amt: {
+                        value: gasPumpsQuestion.answerValue
+                    }
+                };
+            }
+
+            // restaurant appetite expansion
+            const alcoholSalesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_AlcoholSales");
+            if (alcoholSalesQuestion) {
+                buildingObj['com.cna_AlcoholSales'] = {
+                    Amt: {
+                        value: parseInt(alcoholSalesQuestion.answerValue, 10)
+                    }
+                };
+            }
+
+            // restaurant appetite expansion
+            const byobQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_byobPremisesQuestion");
+            if (byobQuestion) {
+                const questionObj = {
+                    "com.cna_QuestionCd": {
+                        value: "com.cna_byobPremisesQuestion"
+                    },
+                    YesNoCd: {
+                        value: byobQuestion.answerValue.toUpperCase()
+                    }
+                };
+
+                buildingObj["com.cna_QuestionAnswer"].push(questionObj);
+            }
+    
+            // restaurant appetite expansion
+            const residentialExposureQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "com.cna_ResidentialExposure");
+            if (residentialExposureQuestion) {
+                const questionObj = {
+                    "com.cna_QuestionCd": {
+                        value: "com.cna_ResidentialExposure"
+                    },
+                    YesNoCd: {
+                        value: residentialExposureQuestion.answerValue.toUpperCase()
+                    }
+                };
+
+                buildingObj["com.cna_QuestionAnswer"].push(questionObj);
+            }
+
+            const commonAreasMaintenanceQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.building.commaintenance");
+            if (commonAreasMaintenanceQuestion) {
+                const commonAreasAnswer = commonAreasMap[commonAreasMaintenanceQuestion.answerValue.toLowerCase()];
+                buildingObj["com.cna_CommonAreasMaintenanceCd"].value = commonAreasAnswer ? commonAreasAnswer : "A";
+            }
 
             // if BLDG limit > 250k, add defaulted OccupancyCd to BldgOccupancy[0]
             if (location.buildingLimit !== null && location.buildingLimit > 250000) {
@@ -1448,6 +1554,7 @@ module.exports = class CnaBOP extends Integration {
         });
     }
 
+
     // Basic Auth shoud be calculated basic on Insurer's
     // Admin Settings.  All assoicated logic (Sandbox vs production should be here)
     async auth() {
@@ -1656,6 +1763,68 @@ module.exports = class CnaBOP extends Integration {
                 }
 
                 coveragesObj.CommlCoverage.push(bppCoverage);
+            }
+
+            // Mechanical Tools and Equipment required for GR Industry Group when BPP > 0 
+            if (grIndustryCodes.includes(industryCode.code) && location.businessPersonalPropertyLimit > 0) {
+                const MTELimitQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.MTELimit");
+                const MTEDeductibleQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.MTEDeductible");
+                const theftExcQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.MTETheftExclusion");
+
+                // 100 deductible option not allowed when Theft included
+                let MTEDeductible = 250;
+                if (MTEDeductibleQuestion && theftExcQuestion) {
+                    if (!(MTEDeductibleQuestion.answerValue === "100" && theftExcQuestion.answerValue.toLowerCase() === "yes")) {
+                        MTEDeductible = parseInt(MTEDeductibleQuestion.answerValue, 10);
+                    }
+                }
+
+                const coverageObj = {
+                    CoverageCd: {
+                        value: "TOOLS"
+                    },
+                    Limit: [{
+                        FormatInteger: {
+                            value: MTELimitQuestion ? parseInt(MTELimitQuestion.answerValue, 10) : 250000 // 250,000 is their highest supported limit
+                        }
+                    }],
+                    Deductible: [{
+                        FormatInteger: {
+                            value: MTEDeductible
+                        }
+                    }],
+                    Option: [{
+                        OptionCd: {
+                            value: theftExcQuestion && theftExcQuestion.answerValue.toLowerCase() === "yes" ? "Incl" : "Excl"
+                        }
+                    }]
+                }
+
+                coveragesObj.CommlCoverage.push(coverageObj);
+            }
+
+            // GR Industry Group
+            const propaneTankExposureQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.propanetanks");
+            if (propaneTankExposureQuestion && propaneTankExposureQuestion.answerValue.toLowerCase() === "yes") {
+                const coverageObj = {
+                    CoverageCd: {
+                        value: "PRPNE"
+                    }
+                };
+
+                coveragesObj.CommlCoverage.push(coverageObj);
+            }
+
+            // GR Industry Group
+            const carwashExposureQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.carwash");
+            if (carwashExposureQuestion && carwashExposureQuestion.answerValue.toLowerCase() === "yes") {
+                const coverageObj = {
+                    CoverageCd: {
+                        value: "com.cna_CWE"
+                    }
+                };
+
+                coveragesObj.CommlCoverage.push(coverageObj);
             }
 
             const glassCoverage = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.glassCoverage");
@@ -1945,6 +2114,20 @@ module.exports = class CnaBOP extends Integration {
                 LocationRef: `L${i + 1}`,
                 SubLocationRef: `L${i + 1}S1`
             };
+
+            // GR Industry Group - must include this classification
+            // numGarageEmployees cannot be greater than total location employees, but CNA will error if numGarageEmployees = 0, so employee count is required
+            if (grIndustryCodes.includes(industryCode.code)) {
+                const garageEmployeesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "cna.location.numgarageemployees");
+                let numGarageEmployees = garageEmployeesQuestion ? parseInt(garageEmployeesQuestion.answerValue, 10) : 0;
+                const numEmployees = this.get_total_location_employees(location);
+                if (numEmployees < numGarageEmployees) {
+                    numGarageEmployees = numEmployees;
+                }
+
+                glClassificationObj.Exposure = {value: numGarageEmployees};
+                glClassificationObj.PremiumBasisCd = {value : "E"};
+            }
 
             const additionalExposures = [];
 

@@ -10,7 +10,7 @@ var FastJsonParse = require('fast-json-parse')
 
 
 //, codeGroupList = []
-async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = false){
+async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = false, onlySuggested = false){
     let addCode2Redis = false;
     let activityIdList = [];
     const redisKey = "activity-code-industrycode-" + territory + "-" + industryCodeId.toString();
@@ -37,7 +37,12 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
             }
             log.info(`REDIS IndustryCode Activity Code Cache request ${redisKey} count: ${activityCodeCount}  duration: ${diffRedis} milliseconds`);
             if(redisCacheCodes){
-                return redisCacheCodes;
+                if(onlySuggested){
+                    return redisCacheCodes.filter((ac) => ac.suggested === 1)
+                }
+                else {
+                    return redisCacheCodes;
+                }
             }
         }
         else {
@@ -67,7 +72,7 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
         icActivityCodeList = IndustryCodeDoc.activityCodeIdList;
     }
     catch(err){
-        log.warn(`industryCodeId: ${industryCodeId} Error ActivityCodeSvc.GetActivityCodes ` + __location);
+        log.warn(`industryCodeId: ${industryCodeId} territory ${territory} Error ActivityCodeSvc.GetActivityCodes ` + __location);
     }
 
     let endMongo = moment();
@@ -160,7 +165,12 @@ async function GetActivityCodes(territory,industryCodeId, forceCacheUpdate = fal
                 }
 
             }
-            return codes;
+            if(onlySuggested){
+                return codes.filter((ac) => ac.suggested === 1)
+            }
+            else {
+                return codes;
+            }
         }
         else {
             return [];
@@ -294,9 +304,13 @@ async function updateActivityCodeCacheByActivityCodeTerritoryList(activityCodeLi
 
 }
 
-async function getActivityCodesByNCCICode(ncciCode, territory) {
-    log.info(`Finding activity code for NCCI code : ${ncciCode} ${__location}`);
-
+async function getActivityCodesByNCCICode(ncciCode, territory, insurerId = 9) {
+    // NCCI insurer (fake) is 9
+    log.info(`Finding activity code for NCCI code : ${ncciCode} ${territory} ${insurerId} ${__location}`);
+    if(!insurerId){
+        // in case null is passed or zero.
+        insurerId = 9;
+    }
     try {
         const {
             ActivityCode, InsurerActivityCode
@@ -304,7 +318,7 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
 
         const insurerActivityCodes = await InsurerActivityCode.aggregate([
             {$match: {
-                insurerId: 9, // NCCI insurer (fake)
+                insurerId: insurerId,
                 active: true,
                 talageActivityCodeIdList: {$ne:null},
                 territoryList: territory,
@@ -316,15 +330,15 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
         ]);
 
         const codeList = [];
-        const alreadyProcessedCodeIDs = new Set();
+        //const alreadyProcessedCodeIDs = new Set();
 
         for (const insurerActivityCode of insurerActivityCodes) {
-            if (alreadyProcessedCodeIDs.has(insurerActivityCode.talageActivityCodeId)) {
-                continue;
-            }
+            // if (alreadyProcessedCodeIDs.has(insurerActivityCode.talageActivityCodeId)) {
+            //     continue;
+            // }
 
-            alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeId);
-
+            // alreadyProcessedCodeIDs.add(insurerActivityCode.talageActivityCodeId);
+            insurerActivityCode.description = insurerActivityCode.description === "n/a" ? '' : insurerActivityCode.description;
             const code = await ActivityCode.findOne({
                 activityCodeId: insurerActivityCode.talageActivityCodeId,
                 active: true
@@ -342,8 +356,12 @@ async function getActivityCodesByNCCICode(ncciCode, territory) {
             }).lean();
 
             if (code) {
+                code.id = code.activityCodeId;
                 code.ncciCode = insurerActivityCode.code;
-                code.ncciSubCode = insurerActivityCode.sub;
+                if(insurerId !== 9){
+                    code.ncciSubCode = insurerActivityCode.sub;
+                    code.ncciDesc = insurerActivityCode.description ? insurerActivityCode.description : null;
+                }
                 codeList.push(code);
             }
         }
