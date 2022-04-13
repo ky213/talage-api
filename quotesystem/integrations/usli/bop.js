@@ -155,6 +155,28 @@ const roofingMaterials = {
     "Other": "OT"
 };
 
+const plumbingCodes = {
+    "PVC": "PVC",
+    "COPPER": "COPPER",
+    "LEAD": "LEAD",
+    "IRON": "IRON",
+    "GALVANIZED": "GALV",
+    "OTHER": "OT",
+    "UNKNOWN": "UNK"
+};
+
+// usli class code to usli gl code map
+// These class codes require a child classification be sent w/ the provided gl code
+// additionally, if a child classification is required, all classification questions should be provided for this child classification (denoted as ID S1 instead of C1)
+const childClassificationMap = {
+    "173": "5864",
+    "191": "5862",
+    "1082": "5863",
+    "6547": "6548",
+    "6549": "6550",
+    "5884": "5885"
+}
+
 let terrorismCoverageIncluded = false;
 
 // quote response properties
@@ -197,6 +219,8 @@ module.exports = class USLIBOP extends Integration {
             return this.client_autodeclined_out_of_appetite();
         }
 
+        const childClassificationRequired = Object.keys(childClassificationMap).includes(industryCode.code);
+
         // if there's no BOP policy, error out
         if (!BOPPolicy) {
             const errorMessage = `Could not find a policy with type BOP.`;
@@ -209,6 +233,10 @@ module.exports = class USLIBOP extends Integration {
         // ------------- CREATE XML REQUEST ---------------
 
         const ACORD = builder.create('ACORD', {'encoding': 'UTF-8'});
+        ACORD.att('xmlns:xsi', "http://www.w3.org/2001/XMLSchema-instance")
+            .att('xmlns:xsd', "http://www.w3.org/2001/XMLSchema")
+            .att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/")
+            .att('xmlns:usli', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
 
         // <ACORD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/" xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">
         //     <SignonRq>
@@ -238,7 +266,7 @@ module.exports = class USLIBOP extends Integration {
         const CustPswd = SignonPswd.ele('CustPswd');
         CustPswd.ele('EncryptionTypeCd', 'NONE');
         CustPswd.ele('Pswd', this.password);
-        SignonRq.ele('GenSessKey', false);
+        SignonPswd.ele('GenSessKey', false);
         // SignonRq.ele('ClientDt', moment().local().format());
         SignonRq.ele('CustLangPref', 'en').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
         const ClientApp = SignonRq.ele('ClientApp').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
@@ -293,20 +321,21 @@ module.exports = class USLIBOP extends Integration {
         //                 </ProducerInfo>
         //             </Producer>
 
-        // TODO: Look into this, I think this is agent information, so we may not include most of this...
+        const agencyInfo = await this.getAgencyInfo();
         const Producer = CommlPkgPolicyQuoteInqRq.ele('Producer').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        Producer.ele('ItemIdInfo', '1065');
+        const ItemIdInfo = Producer.ele('ItemIdInfo');
+        ItemIdInfo.ele('InsurerId', agencyInfo.id); 
         const PGeneralPartyInfo = Producer.ele('GeneralPartyInfo');
         const NameInfo1 = PGeneralPartyInfo.ele('NameInfo');
         const CommlName = NameInfo1.ele('CommlName');
-        CommlName.ele('CommercialName', applicationDocData.businessName);
+        CommlName.ele('CommercialName', agencyInfo.name);
         const NameInfo2 = PGeneralPartyInfo.ele('NameInfo');
         const PersonName = NameInfo2.ele('PersonName');
         // PersonName.ele('Surname')
-        PersonName.ele('GivenName', `${applicationDocData.firstName} ${applicationDocData.lastName}`);
+        PersonName.ele('GivenName', `${agencyInfo.firstName} ${agencyInfo.lastName}`);
         const Communications = PGeneralPartyInfo.ele('Communications');
         const EmailInfo = Communications.ele('EmailInfo');
-        EmailInfo.ele('EmailAddr', applicationDocData.emailAddress); // TODO: See if this is ok if no email is provided
+        EmailInfo.ele('EmailAddr', agencyInfo.email);
         EmailInfo.ele('DoNotContactInd', false);
         const ProducerInfo = Producer.ele('ProducerInfo');
         ProducerInfo.ele('ProducerRoleCd', 'Agency');
@@ -401,7 +430,7 @@ module.exports = class USLIBOP extends Integration {
         LengthTimeCurrentAddr.ele('EndTime', "00:00:00.0000000-04:00"); // NOTE: not asking and defaulting to 0, not required by USLI
         LengthTimeCurrentAddr.ele('LocalStandardTimeInd', false);
         const LTCADurationPeriod = LengthTimeCurrentAddr.ele('DurationPeriod');
-        LTCADurationPeriod.ele('NumUnits', 0);
+        LTCADurationPeriod.ele('NumUnits', 12);
         LengthTimeCurrentAddr.ele('ContinuousInd', false);
         LengthTimeCurrentAddr.ele('GB.BothDaysInclusiveInd', false);
         const IPIBusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
@@ -508,7 +537,7 @@ module.exports = class USLIBOP extends Integration {
             if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
                 const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
                 usliDynamicQuestion.ele('usli:QuestionId', question.insurerQuestionIdentifier);
-                usliDynamicQuestion.ele('usli:QuestionType', "Applicant");
+                usliDynamicQuestion.ele('usli:QuestionType', question?.insurerQuestionAttributes?.questionType);
                 usliDynamicQuestion.ele('usli:Answer', question.answerValue);
             }
         });
@@ -518,13 +547,23 @@ module.exports = class USLIBOP extends Integration {
             const locRef = index + 1;
             location.questions.forEach(question => {
                 if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
+                    const isClassificationQuestion = question?.insurerQuestionAttributes?.questionType === "Classification";
                     const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                    if (question?.insurerQuestionAttributes?.questionType === "Classification") {
+                    if (isClassificationQuestion) {
                         usliDynamicQuestion.att('ClassificationRef', "C1");
                     }
                     usliDynamicQuestion.ele('usli:QuestionId', question.insurerQuestionIdentifier);
-                    usliDynamicQuestion.ele('usli:QuestionType', "Applicant");
+                    usliDynamicQuestion.ele('usli:QuestionType', question?.insurerQuestionAttributes?.questionType);
                     usliDynamicQuestion.ele('usli:Answer', question.answerValue); 
+
+                    // if the industry code requires a child classification and this is a classification question, resend it w/ the child classification ID S1
+                    if (isClassificationQuestion && childClassificationRequired) {
+                        const usliDynamicQuestionS1 = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                        usliDynamicQuestionS1.att('ClassificationRef', "S1");
+                        usliDynamicQuestionS1.ele('usli:QuestionId', question.insurerQuestionIdentifier);
+                        usliDynamicQuestionS1.ele('usli:QuestionType', question?.insurerQuestionAttributes?.questionType);
+                        usliDynamicQuestionS1.ele('usli:Answer', question.answerValue); 
+                    }
                 }
             });
         });
@@ -601,6 +640,9 @@ module.exports = class USLIBOP extends Integration {
             const roofingMaterialQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.building.roofingMaterial");
             const roofingMaterial = roofingMaterialQuestion && roofingMaterials[roofingMaterialQuestion.answerValue] ? roofingMaterials[roofingMaterialQuestion.answerValue] : "OT"; 
             RoofingMaterial.ele('RoofMaterialCd', roofingMaterial);
+            const plumbingCodeQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.building.plumbingCode");
+            const plumbingCode = plumbingCodeQuestion && plumbingCodes[plumbingCodeQuestion.answerValue] ? plumbingCodes[plumbingCodeQuestion.answerValue] : "OT";
+            Construction.ele('usli:PlumbingCd', plumbingCode).att('xmlns:usli', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             const BldgImprovements = CommlSubLocation.ele('BldgImprovements');
             BldgImprovements.ele('RoofingImprovementYear', location.bop.roofingImprovementYear);
             const BldgProtection = CommlSubLocation.ele('BldgProtection');
@@ -614,8 +656,8 @@ module.exports = class USLIBOP extends Integration {
             BldgProtection.ele('FireProtectionClassCd', fireProtectionClassCd);
             BldgProtection.ele('ProtectionDeviceBurglarCd', "Unknown");
             BldgProtection.ele('ProtectionDeviceSmokeCd', 0);
-            BldgProtection.ele('ProtectionDeviceSprinkler', location.bop.sprinklerEquipped ? "FullSprinkler" : "Unknown");
-            BldgProtection.ele('SprinklerPct', 0) // NOTE: Defaulting to 0% for now, we may need to add a question for this
+            BldgProtection.ele('ProtectionDeviceSprinklerCd', location.bop.sprinklerEquipped ? "FullSprinkler" : "Unknown");
+            BldgProtection.ele('SprinkleredPct', 0) // NOTE: Defaulting to 0% for now, we may need to add a question for this
             const BldgOccupancy = CommlSubLocation.ele('BldgOccupancy');
             const yearOccupiedLocationQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.building.yearOccupiedLocation");
             let yearOccupied = 0;
@@ -816,7 +858,7 @@ module.exports = class USLIBOP extends Integration {
             //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">5337</usli:CoverageTypeId>
             //                     </GeneralLiabilityClassification>
 
-            // NOTE: We include both PREM and PROD GL Classifications
+            // NOTE: We include both PREM and PRDCO GL Classifications
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "C1").att('LocationRef', index + 1);
             const PREMCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PREMCommlCoverage.ele('CoverageCd', "PREM");
@@ -825,13 +867,13 @@ module.exports = class USLIBOP extends Integration {
             PREMCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
             PREMCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             PREMCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            const PRODCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
-            PRODCommlCoverage.ele('CoverageCd', "PROD");
-            PRODCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
-            PRODCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            PRODCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PRODCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            PRODCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            const PRDCOCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
+            PRDCOCommlCoverage.ele('CoverageCd', "PRDCO");
+            PRDCOCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
+            PRDCOCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PRDCOCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
+            PRDCOCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PRDCOCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             GeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
             GeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
             const exposure = this.getExposure(location);
@@ -842,6 +884,30 @@ module.exports = class USLIBOP extends Integration {
             GeneralLiabilityClassification.ele('IfAnyRatingBasisInd', false);
             GeneralLiabilityClassification.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
             GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            if (childClassificationRequired) { // TODO: need to send FTE above, and PTE for child, or vice versa, depending on mapping
+                const GeneralLiabilityClassificationS1 = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "S1").att('LocationRef', index + 1);
+                const PREMCommlCoverageS1 = GeneralLiabilityClassificationS1.ele('CommlCoverage');
+                PREMCommlCoverageS1.ele('CoverageCd', "PREM");
+                PREMCommlCoverageS1.ele('ClassCd', childClassificationMap[industryCode.code]); // use the specific child GL code
+                PREMCommlCoverageS1.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                PREMCommlCoverageS1.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
+                PREMCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                PREMCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                const PRDCOCommlCoverageS1 = GeneralLiabilityClassificationS1.ele('CommlCoverage');
+                PRDCOCommlCoverageS1.ele('CoverageCd', "PRDCO");
+                PRDCOCommlCoverageS1.ele('ClassCd', childClassificationMap[industryCode.code]); // use the specific child GL code
+                PRDCOCommlCoverageS1.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                PRDCOCommlCoverageS1.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
+                PRDCOCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                PRDCOCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                GeneralLiabilityClassificationS1.ele('ClassCd', industryCode.attributes.GLCode); 
+                GeneralLiabilityClassificationS1.ele('ClassCdDesc', industryCode.description);
+                GeneralLiabilityClassificationS1.ele('Exposure', this.get_total_location_part_time_employees(location)); // for this special case, we're always looking for part time
+                GeneralLiabilityClassificationS1.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
+                GeneralLiabilityClassificationS1.ele('IfAnyRatingBasisInd', false);
+                GeneralLiabilityClassificationS1.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                GeneralLiabilityClassificationS1.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            }
             if (terrorismCoverageIncluded && index + 1 === 1) {
                 const TIAGeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', 1).att('id', "TRIA1");
                 TIAGeneralLiabilityClassification.ele('ClassCd', "08811");
@@ -859,14 +925,14 @@ module.exports = class USLIBOP extends Integration {
         // </ACORD>
 
         LiabilityInfo.ele('usli:EarnedPremiumPct', 0).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment().local().format()).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/"); // TODO: Ensure proper date format here
+        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment().local().format()).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
 
         // -------------- SEND XML REQUEST ----------------
 
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        console.log(xml);
+        console.log(JSON.stringify(xml, null, 4));
 
         const host = "services.uslistage.com";
         const quotePath = `/API/Quote`;
@@ -1065,13 +1131,13 @@ module.exports = class USLIBOP extends Integration {
                 break;
             case "Fitness Center":
             case "Additional Insured":
+            case "Part-Time Janitor":
+            case "Part-time employee":
                 log.warn(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
                 return null;
             case "Full-Time Janitor":
-            case "Part-Time Janitor":
             case "Full-time employee":
-            case "Part-time employee":
-                // TODO: these are special cases where we may need to send additional classifications
+                exposure = this.get_total_location_full_time_employees(location);
                 break;
             case "":
                 log.warn(`${logPrefix}Classification has blank exposure. This classification should be disabled. ` + __location);
@@ -1091,6 +1157,41 @@ module.exports = class USLIBOP extends Integration {
         return exposure;
     }
  
+    async getAgencyInfo() {
+        let id = this.app.agencyLocation.agencyId;
+        let name = this.app.agencyLocation.agency;
+        let phone = this.app.agencyLocation.agencyPhone;
+        let email = this.app.agencyLocation.agencyEmail;
+        let firstName = this.app.agencyLocation.first_name;
+        let lastName = this.app.agencyLocation.last_name;
+
+        // If talageWholeSale
+        if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale) {
+            //Use Talage Agency.
+            id = 1;
+            const AgencyBO = global.requireShared('./models/Agency-BO.js');
+            const agencyBO = new AgencyBO();
+            const agencyInfo = await agencyBO.getById(this.agencyId);
+            name = agencyInfo.name;
+            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+            const agencyLocationBO = new AgencyLocationBO();
+            const agencyLocationInfo = await agencyLocationBO.getById(1);
+            email = agencyLocationInfo.email;
+            phone = agencyLocationInfo.phone;
+            firstName = agencyLocationInfo.firstName
+            lastName = agencyLocationInfo.lastName
+        }
+
+        return {
+            id: id || "NA",
+            name,
+            phone,
+            email,
+            firstName,
+            lastName
+        };
+    }
+
     async getUSLIIndustryCode() {
         const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
         const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
