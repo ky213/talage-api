@@ -367,7 +367,7 @@ module.exports = class USLIBOP extends Integration {
         const IPGeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
         const GPINameInfo = IPGeneralPartyInfo.ele('NameInfo');
         const GPICommlName = GPINameInfo.ele('CommlName');
-        GPICommlName.ele('CommercialName', applicationDocData.bussinessName);
+        GPICommlName.ele('CommercialName', applicationDocData.businessName);
         const entityType = getEntityType();
         GPINameInfo.ele('LegalEntityCd', entityType.abbr).att('id', entityType.id);
         const GPIAddr = IPGeneralPartyInfo.ele('Addr');
@@ -900,7 +900,7 @@ module.exports = class USLIBOP extends Integration {
                 PRDCOCommlCoverageS1.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
                 PRDCOCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
                 PRDCOCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                GeneralLiabilityClassificationS1.ele('ClassCd', industryCode.attributes.GLCode); 
+                GeneralLiabilityClassificationS1.ele('ClassCd', childClassificationMap[industryCode.code]); // use the specific child GL code
                 GeneralLiabilityClassificationS1.ele('ClassCdDesc', industryCode.description);
                 GeneralLiabilityClassificationS1.ele('Exposure', this.get_total_location_part_time_employees(location)); // for this special case, we're always looking for part time
                 GeneralLiabilityClassificationS1.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
