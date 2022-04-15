@@ -6,6 +6,7 @@
 const serverHelper = require("../../../server.js");
 const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO');
+const AgencyBO = global.requireShared('models/Agency-BO');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 const ZipCodeBO = global.requireShared("models/ZipCode-BO.js");
 
@@ -36,7 +37,7 @@ async function getResources(req, res, next){
         case "_am-basic-created":
             entityTypes(resources);
             if(req.query.agencyNetworkId){
-                await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId);
+                await agencyNetworkFeatures(resources, null, req.query.agencyNetworkId, req.query.agencyId);
             }
             break;
         case "_policies":
@@ -101,18 +102,24 @@ const officerEmployeeTypes = async(resources, appId) => {
     resources.officerEmployeeTypes = activityCodes;
 }
 
-const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
+const agencyNetworkFeatures = async(resources, appId, agencyNetworkId, agencyId) => {
     let agencyNetworkDB = null;
+    let agencyDB = null;
     const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyBO = new AgencyBO();
     if(appId){
         const applicationBO = new ApplicationBO();
         const applicationDB = await applicationBO.getById(appId);
         if(applicationDB){
             agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
+            agencyDB = await agencyBO.getById(applicationDB.agencyNetworkId);
         }
     }
     else {
         agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId);
+        if(agencyId){
+            agencyDB = await agencyBO.getById(agencyId);
+        }
     }
 
     // be very explicit so any accidental set to something like "not the right value" in the admin does not enable this feature.
@@ -125,6 +132,10 @@ const agencyNetworkFeatures = async(resources, appId, agencyNetworkId) => {
         appSingleQuotePath: appSingleQuotePath,
         agencyCodeField: agencyCodeField
     };
+    if(agencyDB?.featureJson?.enableAgencyCodeField === true){
+        resources.agencyNetworkFeatures.agencyCodeField = true;
+    }
+
 }
 
 const membershipTypes = resources => {

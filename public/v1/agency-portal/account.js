@@ -31,7 +31,11 @@ async function get_account(req, res, next){
     // const account_sql = `SELECT \`a\`.\`email\`
 
     // There will only ever be one result only gets email
-    const account_data = {email: agencyPortalUserJSON.email}
+    const account_data = {
+        firstName: agencyPortalUserJSON.firstName,
+        lastName: agencyPortalUserJSON.lastName,
+        email: agencyPortalUserJSON.email
+    }
 
     const timezoneList = timezonesvc.getList();
     const timezones = [];
@@ -89,9 +93,16 @@ async function put_account(req, res, next){
 
     // If a password was provided, validate it and hash
     if(Object.prototype.hasOwnProperty.call(req.body, 'password')){
-        if(validator.password(req.body.password)){
-            // Hash the password
-            password = await crypt.hashPassword(req.body.password);
+        if(validator.password.isPasswordValid(req.body.password)){
+            if (!validator.password.isPasswordBanned(req.body.password)){
+                // Hash the password
+                password = await crypt.hashPassword(req.body.password);
+            }
+            else {
+                log.info('The password contains a word or pattern that is blocked for security reasons. For more information please refer to banned-passwords.json.' + __location);
+                return next(serverHelper.requestError(`Unfortunately, your password contains a word, phrase or pattern that makes it easily guessable. Please try again with a different password`));
+            }
+
         }
         else{
             log.warn('Password does not meet requirements');
@@ -148,6 +159,12 @@ async function put_account(req, res, next){
         }
         if(timezoneName){
             newJson.timezoneName = timezoneName
+        }
+        if(req.body.firstName && typeof req.body.firstName === 'string'){
+            newJson.firstName = req.body.firstName;
+        }
+        if(req.body.lastName && typeof req.body.lastName === 'string'){
+            newJson.lastName = req.body.lastName;
         }
 
         const agencyPortalUserBO = new AgencyPortalUserBO();

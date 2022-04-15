@@ -287,7 +287,7 @@ module.exports = class AgencyBO {
                     }
                 }
                 const query = {
-                    "mysqlId": mysqlId,
+                    "systemId": mysqlId,
                     active: true
                 };
                 if(returnDeleted){

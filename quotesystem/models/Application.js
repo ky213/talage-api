@@ -122,7 +122,7 @@ module.exports = class Application {
                 }
             }
             for(const policy of this.applicationDocData.policies){
-                if(policy.waiverSubrogationList.length > 0){
+                if(policy.waiverSubrogationList?.length > 0){
                     for(const waiverSub of policy.waiverSubrogationList){
                         if(waiverSub.zipcode){
                             waiverSub.zipcode = waiverSub.zipcode.slice(0,5)
@@ -177,7 +177,7 @@ module.exports = class Application {
 
         // Load the policy information
         try {
-            for (let i = 0; i < this.applicationDocData.policies.length; i++) {
+            for (let i = 0; i < this.applicationDocData.policies?.length; i++) {
                 const policyJSON = this.applicationDocData.policies[i];
                 const p = new Policy();
                 await p.load(policyJSON, this.business, this.applicationDocData);
@@ -206,7 +206,7 @@ module.exports = class Application {
         }
 
         // TODO Refactor Integration to use full Questions list.
-        if(this.applicationDocData.questions && this.applicationDocData.questions.length > 0){
+        if(this.applicationDocData.questions && this.applicationDocData.questions?.length > 0){
             let questionJSON = {};
             for(const question of this.applicationDocData.questions){
                 if (question.questionType && (question.questionType.toLowerCase().startsWith('text')
@@ -265,11 +265,11 @@ module.exports = class Application {
         }
 
         // Mailing Address check, check for maximum length
-        if (this.business.mailing_address && this.business.mailing_address.length > 100) {
+        if (this.business.mailing_address && this.business.mailing_address?.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
             this.applicationDocData.mailingAddress = this.applicationDocData.mailingAddress.substring(0, 100);
         }
-        if(!this.applicationDocData.numOwners && this.applicationDocData.owners.length > 0){
+        if(!this.applicationDocData.numOwners && this.applicationDocData.owners?.length > 0){
             this.applicationDocData.numOwners = this.applicationDocData.owners.length
             this.applicationDocData.owners.forEach((owner) => {
                 // do not auto set percent ownership.
@@ -291,7 +291,7 @@ module.exports = class Application {
         }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
-        if(this.business.contacts && this.business.contacts.length > 0){
+        if(this.business.contacts && this.business.contacts?.length > 0){
             for(let contact of this.business.contacts){
                 if(typeof contact.phone === 'string'){
                     contact.phone = contact.phone.replace(/[^0-9]/ig, '');
@@ -314,7 +314,7 @@ module.exports = class Application {
             }
 
             // Check length if too long eliminate from qoute app
-            if (this.business.website.length > 100) {
+            if (this.business.website?.length > 100) {
                 log.info(`Translate Warning: Invalid value for property: website. over 100 characters for ${this.id}`)
                 this.business.website = '';
             }
@@ -377,7 +377,7 @@ module.exports = class Application {
             // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
             if (policyTypesWithLimits.includes(policy.policyType)) {
                 let indexes = [];
-                for (let i = 1; i < policy.limits.length; i++) {
+                for (let i = 1; i < policy.limits?.length; i++) {
                     if (policy.limits[i] !== "0") {
                         indexes.push(i);
                     }
@@ -509,7 +509,7 @@ module.exports = class Application {
         try {
             const zipCodeArray = [];
             const stateList = [];
-            for (let i = 0; i < this.applicationDocData.locations.length; i++) {
+            for (let i = 0; i < this.applicationDocData.locations?.length; i++) {
                 zipCodeArray.push(this.applicationDocData.locations[i].zipcode);
                 if (stateList.indexOf(this.applicationDocData.locations[i].state) === -1) {
                     stateList.push(this.applicationDocData.locations[i].state)
@@ -814,7 +814,7 @@ module.exports = class Application {
         //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
 
         // Check for no quotes
-        if (pricingIds.length < 1) {
+        if (pricingIds?.length < 1) {
             log.warn(`No quotes returned for application ${this.id}` + __location);
             return;
         }

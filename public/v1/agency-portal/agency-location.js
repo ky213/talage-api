@@ -467,6 +467,9 @@ async function updateAgencyLocation(req, res, next) {
     try {
         const agencyBO = new AgencyBO();
         agencyDB = await agencyBO.getById(req.body.agency);
+        if(!agencyDB){
+            throw new Error(`Error finding agency ${req.body.agency}`)
+        }
     }
     catch (err) {
         log.error("Get Agency by ID error: " + err + __location)
@@ -474,9 +477,12 @@ async function updateAgencyLocation(req, res, next) {
     }
     const agencyNetworkBO = new AgencyNetworkBO();
     const agencyNetworkDB = await agencyNetworkBO.getById(agencyDB.agencyNetworkId);
+    if(!agencyNetworkDB){
+        log.error(`Get agencyNetworkDB by ID error: not found id ${agencyDB.agencyNetworkId}` + __location)
+    }
 
     let useTalageWholesale = false;
-    if(agencyNetworkDB?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkDB?.featureJson?.talageWholesale === true){
+    if(agencyNetworkDB?.featureJson?.talageWholesale === true){
         useTalageWholesale = true;
     }
 
@@ -512,8 +518,9 @@ async function updateAgencyLocation(req, res, next) {
             if(insurer.cred3){
                 insurer.agencyCred3 = insurer.cred3
             }
-            if(useTalageWholesale && Object.prototype.hasOwnProperty.call(insurer, 'talageWholesale') === false){
+            if(useTalageWholesale){
                 insurer.talageWholesale = insurer.useAgencyPrime
+                insurer.useAgencyPrime = false;
             }
         }
     }
