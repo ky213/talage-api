@@ -2241,7 +2241,7 @@ module.exports = class CnaBOP extends Integration {
         }
         
         if (!insurerIndustryCodes) {
-            log.error(`Unable to find any insurer industry codes with the provided BOPPolicy and Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            log.error(`${logPrefix}Unable to find any insurer industry codes with the provided BOPPolicy and Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
@@ -2267,17 +2267,17 @@ module.exports = class CnaBOP extends Integration {
             bopCodeRecords = await industryCodeBO.getList(bopCodeQuery);
         }
         catch (e) {
-            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}: ${e}. ` + __location);
+            log.error(`${logPrefix}There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}: ${e}. ` + __location);
             return null;
         }
 
         if (!bopCodeRecords) {
-            log.error(`There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            log.error(`${logPrefix}There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
         if (bopCodeRecords.length === 0) {
-            log.warn(`There were no BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            log.warn(`${logPrefix}There were no BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
@@ -2300,17 +2300,17 @@ module.exports = class CnaBOP extends Integration {
             insurerIndustryCodes = await insurerIndustryCodeBO.getList(insurerIndustryCodeQuery);
         }
         catch (e) {
-            log.error(`There was an error grabbing Insurer Industry Codes for CNA: ${e}. ` + __location);
+            log.error(`${logPrefix}There was an error grabbing Insurer Industry Codes for CNA: ${e}. ` + __location);
             return null;
         }
 
         if (!insurerIndustryCodes) {
-            log.error(`There was an error grabbing Insurer Industry Codes for CNA. ` + __location);
+            log.error(`${logPrefix}There was an error grabbing Insurer Industry Codes for CNA. ` + __location);
             return null;
         }
 
         if (insurerIndustryCodes.length === 0) {
-            log.warn(`There were no matching Insurer Industry Codes for the selected industry. ` + __location);
+            log.warn(`${logPrefix}There were no matching Insurer Industry Codes for the selected industry. ` + __location);
             return null;
         }
 
