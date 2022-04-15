@@ -362,7 +362,7 @@ module.exports = class CnaBOP extends Integration {
     async _insurer_quote() {
         // swap host and creds based off whether this is sandbox or prod
         let agentId = null;
-        let branchProdCd = null;
+        let client_branchProdCd = null;
         const applicationDocData = this.applicationDocData;
         logPrefix = `CNA BOP (App ID: ${this.app.id}): `;
 
@@ -372,12 +372,12 @@ module.exports = class CnaBOP extends Integration {
         if (this.insurer && this.insurer.useSandbox) {
             agentId = "TALAGAPI";
             host = "drt-apis.cna.com";
-            branchProdCd = "010018297"
+            client_branchProdCd = "010018297"
         }
         else {
             agentId = "TLAGEAPI";
             host = "apis.cna.com";
-            branchProdCd = "540085091";
+            client_branchProdCd = "540085091";
         }
 
         const business = this.app.business;
@@ -396,8 +396,13 @@ module.exports = class CnaBOP extends Integration {
             }
             catch (e) {
                 log.error(`${logPrefix}Unable to parse required attributes of Industry Code: ${e}. Attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
-                return this.client_error(`Could not parse required information from industry code.`);
+                return this.client_error(`Could not parse required information from industry code.`, __location);
             }
+        }
+
+        if (!industryCode?.attributes?.SICCd) {
+            log.error(`${logPrefix}Industry Code does not have SICCd on the attributes, this is required. Attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
+            return this.client_error(`Selected Industry Code does not contain enough information to quote - Missing SIC code.`, __location);
         }
 
         let agencyId = null;
@@ -413,7 +418,7 @@ module.exports = class CnaBOP extends Integration {
             return this.client_error(`Could not generate branch code and contract number from Agency ID ${this.app.agencyLocation.agencyId}.`);
         }
 
-        const branchCode = agencyId[0];
+        const appointment_branchCode = agencyId[0];
         const contractNumber = agencyId[1];
         const requestUUID = this.generate_uuid();
 
@@ -541,7 +546,7 @@ module.exports = class CnaBOP extends Integration {
                                         },
                                         "com.cna_branchCode": [
                                             {
-                                                "value": branchCode
+                                                "value": appointment_branchCode
                                             }
                                         ],
                                         "com.cna_branchLabel": [
@@ -556,7 +561,7 @@ module.exports = class CnaBOP extends Integration {
                                 {
                                     ItemIdInfo: {
                                         AgencyId: {
-                                            value: `${branchCode}-${contractNumber}`
+                                            value: `${appointment_branchCode}-${contractNumber}`
                                         }
                                     },
                                     GeneralPartyInfo: {
@@ -772,7 +777,7 @@ module.exports = class CnaBOP extends Integration {
         // create request headers using auth access token (jwt)
         const headers = {
             'authorization': `Bearer ${jwt.trim()}`,
-            'branch-producer-cd': branchProdCd,
+            'branch-producer-cd': client_branchProdCd,
             'agentid': agentId,
             'content-type': 'application/json'
         };
@@ -2291,6 +2296,7 @@ module.exports = class CnaBOP extends Integration {
 
         const insurerIndustryCodeQuery = {
             insurerId: insurer.id,
+            policyTypeList: "BOP",
             talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopIndustryCodeIds}}}
         };
 
