@@ -21,6 +21,7 @@
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const Integration = require('../Integration.js');
+const {get} = require("lodash");
 
 global.requireShared('./helpers/tracker.js');
 
@@ -169,13 +170,13 @@ const plumbingCodes = {
 // These class codes require a child classification be sent w/ the provided gl code
 // additionally, if a child classification is required, all classification questions should be provided for this child classification (denoted as ID S1 instead of C1)
 const childClassificationMap = {
-    "173": "5864",
-    "191": "5862",
-    "1082": "5863",
-    "6547": "6548",
-    "6549": "6550",
-    "5884": "5885"
-}
+    "173": {id: "5864", description: "Barber Shops - Part-time employee"},
+    "191": {id: "5862", description: "Beauty Parlors and Hair Styling Salons - Part-time employee"},
+    "1082": {id: "5863", description: "Nail Salons - Part-time employee"},
+    "6547": {id: "6548", description: "Janitorial Services - Cleaning of only Residential or Office Locations (part-time worker)"},
+    "6549": {id: "6550", description: "Janitorial Services - Cleaning of only Residential, Office or Mercantile Locations (part-time worker)"},
+    "5884": {id: "5885", description: "Janitorial Services - Cleaning of only Residential Locations (part-time worker)"}
+};
 
 let terrorismCoverageIncluded = false;
 
@@ -188,6 +189,8 @@ let terrorismCoverageIncluded = false;
 // const quoteMIMEType = "BASE64";
 // let policyStatus = null;
 // const quoteCoverages = [];
+
+// TODO: Add claims information to request
 
 module.exports = class USLIBOP extends Integration {
 
@@ -259,7 +262,7 @@ module.exports = class USLIBOP extends Integration {
         //     </SignonRq>
 
         const SignonRq = ACORD.ele('SignonRq');
-        const SignonPswd = SignonRq.ele('SignonPswd').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        const SignonPswd = SignonRq.ele('SignonPswd');
         const CustId = SignonPswd.ele('CustId');
         CustId.ele('SPName', 'com.usli');
         CustId.ele('CustLoginId', this.username);
@@ -268,10 +271,10 @@ module.exports = class USLIBOP extends Integration {
         CustPswd.ele('Pswd', this.password);
         SignonPswd.ele('GenSessKey', false);
         // SignonRq.ele('ClientDt', moment().local().format());
-        SignonRq.ele('CustLangPref', 'en').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        const ClientApp = SignonRq.ele('ClientApp').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        SignonRq.ele('CustLangPref', 'en');
+        const ClientApp = SignonRq.ele('ClientApp');
         ClientApp.ele('Version', "2.0");
-        SignonRq.ele('SuppressEcho', false).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        SignonRq.ele('SuppressEcho', false);
 
         //     <InsuranceSvcRq>
 
@@ -280,8 +283,8 @@ module.exports = class USLIBOP extends Integration {
         //         <RqUID xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">3d792504-9f1d-49e7-82e5-7a7ac8327b6b</RqUID>
         //         <SPName xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">com.usli</SPName>
 
-        InsuranceSvcRq.ele('RqUID', UUID).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        InsuranceSvcRq.ele('SPName', "com.usli").att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        InsuranceSvcRq.ele('RqUID', UUID);
+        InsuranceSvcRq.ele('SPName', "com.usli");
 
         //         <CommlPkgPolicyQuoteInqRq>
 
@@ -290,8 +293,8 @@ module.exports = class USLIBOP extends Integration {
         //             <RqUID xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">3d792504-9f1d-49e7-82e5-7a7ac8327b6b</RqUID>
         //             <CurCd xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">USD</CurCd>
 
-        CommlPkgPolicyQuoteInqRq.ele('RqUID', UUID).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        CommlPkgPolicyQuoteInqRq.ele('CurCd', "USD").att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        CommlPkgPolicyQuoteInqRq.ele('RqUID', UUID);
+        CommlPkgPolicyQuoteInqRq.ele('CurCd', "USD");
 
         //             <Producer xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
         //                 <ItemIdInfo>
@@ -322,7 +325,7 @@ module.exports = class USLIBOP extends Integration {
         //             </Producer>
 
         const agencyInfo = await this.getAgencyInfo();
-        const Producer = CommlPkgPolicyQuoteInqRq.ele('Producer').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        const Producer = CommlPkgPolicyQuoteInqRq.ele('Producer');
         const ItemIdInfo = Producer.ele('ItemIdInfo');
         ItemIdInfo.ele('InsurerId', agencyInfo.id); 
         const PGeneralPartyInfo = Producer.ele('GeneralPartyInfo');
@@ -363,7 +366,7 @@ module.exports = class USLIBOP extends Integration {
         //                     </Communications>
         //                 </GeneralPartyInfo>
 
-        const InsuredOrPrincipal = CommlPkgPolicyQuoteInqRq.ele('InsuredOrPrincipal').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        const InsuredOrPrincipal = CommlPkgPolicyQuoteInqRq.ele('InsuredOrPrincipal');
         const IPGeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
         const GPINameInfo = IPGeneralPartyInfo.ele('NameInfo');
         const GPICommlName = GPINameInfo.ele('CommlName');
@@ -492,7 +495,7 @@ module.exports = class USLIBOP extends Integration {
         //                 <usli:IsUnsolicited xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">0</usli:IsUnsolicited>
         //             </CommlPolicy>
 
-        const CommlPolicy = CommlPkgPolicyQuoteInqRq.ele('CommlPolicy').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        const CommlPolicy = CommlPkgPolicyQuoteInqRq.ele('CommlPolicy');
         CommlPolicy.ele('CompanyProductCd', "050070"); // Hard coded per Combined Group's advice
         CommlPolicy.ele('LOBCd', "CPKGE");
         const NAICSCd = await getNAICSCode();
@@ -519,23 +522,23 @@ module.exports = class USLIBOP extends Integration {
         const STMPFCommlCoverage = CommlPolicy.ele('CommlCoverage');
         STMPFCommlCoverage.ele('CoverageCd', "STMPF");
         STMPFCommlCoverage.ele('CoverageDesc', "Stamping Fee");
-        STMPFCommlCoverage.ele('usli:CoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        STMPFCommlCoverage.ele('usli:FireCoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        STMPFCommlCoverage.ele('usli:IsLeasedOccupancy', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        STMPFCommlCoverage.ele('usli:CoverageTypeId', "0");
+        STMPFCommlCoverage.ele('usli:FireCoverageTypeId', "0");
+        STMPFCommlCoverage.ele('usli:IsLeasedOccupancy', "0");
         // NOTE: Defaulting Surplus Lines Tax, this is not required and returned by USLI
         const SPLTXCommlCoverage = CommlPolicy.ele('CommlCoverage');
         SPLTXCommlCoverage.ele('CoverageCd', "SPLTX");
         SPLTXCommlCoverage.ele('CoverageDesc', "Surplus Lines Tax");
-        SPLTXCommlCoverage.ele('usli:CoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        SPLTXCommlCoverage.ele('usli.FireCoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        SPLTXCommlCoverage.ele('usli.IsLeasedOccupancy', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        SPLTXCommlCoverage.ele('usli:CoverageTypeId', "0");
+        SPLTXCommlCoverage.ele('usli.FireCoverageTypeId', "0");
+        SPLTXCommlCoverage.ele('usli.IsLeasedOccupancy', "0");
 
         CommlPolicy.ele('AnyLossesAccidentsConvictions', applicationDocData.claims.length > 0);
         // general questions go here...
         // TODO: Check if we need to add a check if these questions can have type Classification, if so, they will need the ClassificationRef attribute
         applicationDocData.questions.forEach(question => {
             if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
-                const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion');
                 usliDynamicQuestion.ele('usli:QuestionId', question.insurerQuestionIdentifier);
                 usliDynamicQuestion.ele('usli:QuestionType', question?.insurerQuestionAttributes?.questionType);
                 usliDynamicQuestion.ele('usli:Answer', question.answerValue);
@@ -548,7 +551,7 @@ module.exports = class USLIBOP extends Integration {
             location.questions.forEach(question => {
                 if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
                     const isClassificationQuestion = question?.insurerQuestionAttributes?.questionType === "Classification";
-                    const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                    const usliDynamicQuestion = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef);
                     if (isClassificationQuestion) {
                         usliDynamicQuestion.att('ClassificationRef', "C1");
                     }
@@ -558,7 +561,7 @@ module.exports = class USLIBOP extends Integration {
 
                     // if the industry code requires a child classification and this is a classification question, resend it w/ the child classification ID S1
                     if (isClassificationQuestion && childClassificationRequired) {
-                        const usliDynamicQuestionS1 = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                        const usliDynamicQuestionS1 = CommlPolicy.ele('usli:DynamicQuestion').att('LocationRef', locRef);
                         usliDynamicQuestionS1.att('ClassificationRef', "S1");
                         usliDynamicQuestionS1.ele('usli:QuestionId', question.insurerQuestionIdentifier);
                         usliDynamicQuestionS1.ele('usli:QuestionType', question?.insurerQuestionAttributes?.questionType);
@@ -568,10 +571,10 @@ module.exports = class USLIBOP extends Integration {
             });
         });
         
-        CommlPolicy.ele('usli:Status', "Quote").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        CommlPolicy.ele('usli:Carrier', "MTV").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        CommlPolicy.ele('usli:FilingId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-        CommlPolicy.ele('usli:IsUnsolicted', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+        CommlPolicy.ele('usli:Status', "Quote");
+        CommlPolicy.ele('usli:Carrier', "MTV");
+        CommlPolicy.ele('usli:FilingId', "0");
+        CommlPolicy.ele('usli:IsUnsolicted', "0");
 
         applicationDocData.locations.forEach((location, index) => {
             //             <Location id="1" xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
@@ -586,7 +589,7 @@ module.exports = class USLIBOP extends Integration {
             //                 </Addr>
             //             </Location>
 
-            const Location = CommlPkgPolicyQuoteInqRq.ele('Location').att('id', index + 1).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+            const Location = CommlPkgPolicyQuoteInqRq.ele('Location').att('id', index + 1);
             const Addr = Location.ele('Addr');
             Addr.ele('AddrTypeCd', "PhysicalRisk");
             Addr.ele('Addr1', location.address);
@@ -628,7 +631,7 @@ module.exports = class USLIBOP extends Integration {
             //                 <usli:RequestedCauseOfLossCd xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">SPC</usli:RequestedCauseOfLossCd>
             //             </CommlSubLocation>
 
-            const CommlSubLocation = CommlPkgPolicyQuoteInqRq.ele('CommlSubLocation').att('LocationRef', index + 1).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            const CommlSubLocation = CommlPkgPolicyQuoteInqRq.ele('CommlSubLocation').att('LocationRef', index + 1);
             const Construction = CommlSubLocation.ele('Construction');
             const constructionType = constructionCodes[location.constructionType] ? constructionCodes[location.constructionType] : {desc: "Other", code: "OT"};
             Construction.ele('ConstructionCd', constructionType.code);
@@ -671,8 +674,8 @@ module.exports = class USLIBOP extends Integration {
                     yearOccupied = 0;
                 }
             }
-            BldgOccupancy.ele('usli:YearsAtCurrentLocation', yearAtLocation).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            BldgOccupancy.ele('usli:YearOccupiedCurrentLocation', yearOccupied).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            BldgOccupancy.ele('usli:YearsAtCurrentLocation', yearAtLocation);
+            BldgOccupancy.ele('usli:YearOccupiedCurrentLocation', yearOccupied);
             const requestedValuationTypeQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.building.requestedValuationTypeCd");
             let requestedValuationTypeCd = "RC";
             if (requestedValuationTypeQuestion) {
@@ -681,15 +684,15 @@ module.exports = class USLIBOP extends Integration {
                 }
             }
             CommlSubLocation.ele('RequestedValuationTypeCd', requestedValuationTypeCd);
-            CommlSubLocation.ele('usli:Perils', "Special Excluding Wind And Hail").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            CommlSubLocation.ele('usli:RequestedCauseOfLoss', "SPC").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            CommlSubLocation.ele('usli:Perils', "Special Excluding Wind And Hail");
+            CommlSubLocation.ele('usli:RequestedCauseOfLossCd', "SPC");
 
             //             <CommlPropertyLineBusiness xmlns="http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/">
             //                 <LOBCd>CPKGE</LOBCd>
             //                 <MinPremInd>false</MinPremInd>
             //                 <PropertyInfo>
 
-            const CommlPropertyLineBusiness = CommlPkgPolicyQuoteInqRq.ele('CommlPropertyLineBusiness').att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            const CommlPropertyLineBusiness = CommlPkgPolicyQuoteInqRq.ele('CommlPropertyLineBusiness');
             CommlPropertyLineBusiness.ele('LOBCd', "CPKGE");
             CommlPropertyLineBusiness.ele('MinPremInd', false);
             const PropertyInfo = CommlPropertyLineBusiness.ele('PropertyInfo');
@@ -750,9 +753,9 @@ module.exports = class USLIBOP extends Integration {
                 CommlCoverage.ele('PremiumBasisCd', "Unit");
                 const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
                 CommlCoverageSupplement.ele('CoinsurancePct', 80); // NOTE: Defaulting to industry standard 80%
-                CommlCoverage.ele('usli:CoverageTypeId', "10000").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                CommlCoverage.ele('usli:FireCoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                CommlCoverage.ele('usli:IsLeasedOccupancy', location.own ? 1 : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                CommlCoverage.ele('usli:CoverageTypeId', "10000");
+                CommlCoverage.ele('usli:FireCoverageTypeId', "0");
+                CommlCoverage.ele('usli:IsLeasedOccupancy', location.own ? 1 : 0);
                 CommlPropertyInfo.ele('BlanketNumber', 0);
                 CommlPropertyInfo.ele('ValueReportingInd', false);
                 const GroundFloorArea = CommlPropertyInfo.ele('GroundFloorArea');
@@ -782,9 +785,9 @@ module.exports = class USLIBOP extends Integration {
                 CommlCoverage.ele('PremiumBasisCd', "Unit");
                 const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
                 CommlCoverageSupplement.ele('CoinsurancePct', 80); // NOTE: Defaulting to industry standard 80%
-                CommlCoverage.ele('usli:CoverageTypeId', "10001").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                CommlCoverage.ele('usli:FireCoverageTypeId', "0").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                CommlCoverage.ele('usli:IsLeasedOccupancy', location.own ? 1 : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                CommlCoverage.ele('usli:CoverageTypeId', "10001");
+                CommlCoverage.ele('usli:FireCoverageTypeId', "0");
+                CommlCoverage.ele('usli:IsLeasedOccupancy', location.own ? 1 : 0);
                 CommlPropertyInfo.ele('BlanketNumber', 0);
                 CommlPropertyInfo.ele('ValueReportingInd', false);
                 const GroundFloorArea = CommlPropertyInfo.ele('GroundFloorArea');
@@ -812,7 +815,7 @@ module.exports = class USLIBOP extends Integration {
         //                 <MinPremInd>false</MinPremInd>
         //                 <LiabilityInfo>
 
-        const GeneralLiabilityLineBusiness = CommlPkgPolicyQuoteInqRq.ele('GeneralLiabilityLineBusiness').att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        const GeneralLiabilityLineBusiness = CommlPkgPolicyQuoteInqRq.ele('GeneralLiabilityLineBusiness');
         GeneralLiabilityLineBusiness.ele('LOBCd', "CPKGE");
         GeneralLiabilityLineBusiness.ele('MinPremInd', false);
         const LiabilityInfo = GeneralLiabilityLineBusiness.ele('LiabilityInfo');
@@ -863,17 +866,17 @@ module.exports = class USLIBOP extends Integration {
             const PREMCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PREMCommlCoverage.ele('CoverageCd', "PREM");
             PREMCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
-            PREMCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            PREMCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PREMCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            PREMCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PREMCommlCoverage.ele('usli:CoverageTypeId', 0);
+            PREMCommlCoverage.ele('usli:FireCoverageTypeId', 0); 
+            PREMCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0);
+            PREMCommlCoverage.ele('usli:IsLeasedOccupancy', 0);
             const PRDCOCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
             PRDCOCommlCoverage.ele('CoverageCd', "PRDCO");
             PRDCOCommlCoverage.ele('ClassCd', industryCode.attributes.GLCode); 
-            PRDCOCommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            PRDCOCommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-            PRDCOCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            PRDCOCommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+            PRDCOCommlCoverage.ele('usli:CoverageTypeId', 0);
+            PRDCOCommlCoverage.ele('usli:FireCoverageTypeId', 0); 
+            PRDCOCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0);
+            PRDCOCommlCoverage.ele('usli:IsLeasedOccupancy', 0);
             GeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
             GeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
             const exposure = this.getExposure(location);
@@ -882,37 +885,38 @@ module.exports = class USLIBOP extends Integration {
             }
             GeneralLiabilityClassification.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
             GeneralLiabilityClassification.ele('IfAnyRatingBasisInd', false);
-            GeneralLiabilityClassification.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-            if (childClassificationRequired) { // TODO: need to send FTE above, and PTE for child, or vice versa, depending on mapping
+            GeneralLiabilityClassification.ele('usli:ClassId', 0);
+            GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code);
+            if (childClassificationRequired) {
                 const GeneralLiabilityClassificationS1 = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "S1").att('LocationRef', index + 1);
                 const PREMCommlCoverageS1 = GeneralLiabilityClassificationS1.ele('CommlCoverage');
                 PREMCommlCoverageS1.ele('CoverageCd', "PREM");
-                PREMCommlCoverageS1.ele('ClassCd', childClassificationMap[industryCode.code]); // use the specific child GL code
-                PREMCommlCoverageS1.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                PREMCommlCoverageS1.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-                PREMCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                PREMCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                PREMCommlCoverageS1.ele('ClassCd', industryCode.attributes.GLCode);
+                PREMCommlCoverageS1.ele('usli:CoverageTypeId', 0);
+                PREMCommlCoverageS1.ele('usli:FireCoverageTypeId', 0); 
+                PREMCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0);
+                PREMCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0);
                 const PRDCOCommlCoverageS1 = GeneralLiabilityClassificationS1.ele('CommlCoverage');
                 PRDCOCommlCoverageS1.ele('CoverageCd', "PRDCO");
-                PRDCOCommlCoverageS1.ele('ClassCd', childClassificationMap[industryCode.code]); // use the specific child GL code
-                PRDCOCommlCoverageS1.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                PRDCOCommlCoverageS1.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/"); 
-                PRDCOCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                PRDCOCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                GeneralLiabilityClassificationS1.ele('ClassCd', childClassificationMap[industryCode.code]); // use the specific child GL code
-                GeneralLiabilityClassificationS1.ele('ClassCdDesc', industryCode.description);
+                PRDCOCommlCoverageS1.ele('ClassCd', industryCode.attributes.GLCode);
+                PRDCOCommlCoverageS1.ele('usli:CoverageTypeId', 0);
+                PRDCOCommlCoverageS1.ele('usli:FireCoverageTypeId', 0); 
+                PRDCOCommlCoverageS1.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0);
+                PRDCOCommlCoverageS1.ele('usli:IsLeasedOccupancy', 0);
+                GeneralLiabilityClassificationS1.ele('ClassCd', industryCode.attributes.GLCode); 
+                GeneralLiabilityClassificationS1.ele('ClassCdDesc', childClassificationMap[industryCode.code].description);
                 GeneralLiabilityClassificationS1.ele('Exposure', this.get_total_location_part_time_employees(location)); // for this special case, we're always looking for part time
                 GeneralLiabilityClassificationS1.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
                 GeneralLiabilityClassificationS1.ele('IfAnyRatingBasisInd', false);
-                GeneralLiabilityClassificationS1.ele('usli:ClassId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-                GeneralLiabilityClassificationS1.ele('usli:CoverageTypeId', industryCode.code).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                GeneralLiabilityClassificationS1.ele('usli:ClassId', 0);
+                GeneralLiabilityClassificationS1.ele('usli:CoverageTypeId',childClassificationMap[industryCode.code].id); // use the specific child GL code
             }
+
             if (terrorismCoverageIncluded && index + 1 === 1) {
                 const TIAGeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', 1).att('id', "TRIA1");
                 TIAGeneralLiabilityClassification.ele('ClassCd', "08811");
                 TIAGeneralLiabilityClassification.ele('ClassCdDesc', "Terrorism Coverage");
-                TIAGeneralLiabilityClassification.ele('usli:CoverageTypeId', "6197").att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+                TIAGeneralLiabilityClassification.ele('usli:CoverageTypeId', "6197");
             }
         });
         
@@ -924,15 +928,13 @@ module.exports = class USLIBOP extends Integration {
         //     </InsuranceSvcRq>
         // </ACORD>
 
-        LiabilityInfo.ele('usli:EarnedPremiumPct', 0).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
-        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment().local().format()).att('xmlns', "http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/");
+        LiabilityInfo.ele('usli:EarnedPremiumPct', 0);
+        CommlPkgPolicyQuoteInqRq.ele('TransactionRequestDt', moment().local().format());
 
         // -------------- SEND XML REQUEST ----------------
 
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
-
-        console.log(JSON.stringify(xml, null, 4));
 
         const host = "services.uslistage.com";
         const quotePath = `/API/Quote`;
@@ -945,43 +947,83 @@ module.exports = class USLIBOP extends Integration {
             result = await this.send_xml_request(host, quotePath, xml, additionalHeaders);        
         }
         catch (e) {
-            const errorMessage = `An error occurred while trying to hit the USLI Quote API endpoint: ${e}. `;
+            const errorMessage = `${logPrefix}An error occurred while trying to hit the USLI Quote API endpoint: ${e}. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
-        console.log(JSON.parse(JSON.stringify(result, null, 4)));
-        return this.client_error(`Testing - forced error`, __location);
-
         // -------------- PARSE XML RESPONSE ----------------
-
-        // TODO: Check result structure
-
-
-        // TODO: Perform necessary response parsing to determine fail/success and get appropriate quote information
-
  
-        // TODO: Call the appropriate return function 
-        // NOTE: This will likely be determined by some policyStatus in the quote response
-        // EXAMPLE BELOW
-        // return result based on policy status
-        //  if (policyStatus) {
-        //      switch (policyStatus.toLowerCase()) {
-        //          case "accept":
-        //              return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
-        //          case "refer":
-        //              return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
-        //          default:
-        //              const errorMessage = `USLI response error: unknown policyStatus - ${policyStatus} `;
-        //              log.error(logPrefix + errorMessage + __location);
-        //              return this.client_error(errorMessage, __location);
-        //      }
-        //  }
-        //  else {
-        //      const errorMessage = `USLI response error: missing policyStatus. `;
-        //      log.error(logPrefix + errorMessage + __location);
-        //      return this.client_error(errorMessage, __location);
-        //  }
+        const response = get(result, "ACORD.InsuranceSvcRs[0]");
+        const statusCd = get(response, "Status[0].StatusCd[0]");
+        const statusDesc = get(response, "Status[0].StatusDesc[0]");
+        const msgStatusCd = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
+        // NOTE: These are likely unnecessary
+        // const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
+        // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
+
+        console.log("=========================================")
+        console.log("1 " + statusDesc);
+        const errorCd = statusDesc.split(" ")[1];
+        console.log("2 " + errorCd);
+        let errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n");
+        console.log("3 " + errorReasons);
+        let mainReason = errorReasons.shift();
+        errorReasons = errorReasons.filter(reason => reason !== "");
+        console.log("4 " + errorReasons);
+        console.log("5 " + mainReason);
+        mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
+        console.log("6 " + mainReason);
+        console.log("=========================================")
+        if (errorCd === "433") {
+            const declineMessage = `USLI declined the quote: ${mainReason} `;
+            log.info(logPrefix + declineMessage + errorReasons.length > 0 ? `Other reasons: ${errorReasons}. ` : "" + __location);
+            return this.client_declined(declineMessage, errorReasons);
+        }
+
+        // TODO: Find out if 627 is a decline, or a referral
+
+        if (errorCd !== "434" || errorCd !== "436" || msgStatusCd !== "Success") {
+            const errorMessage = `USLI returned an error: ${mainReason} `;
+            log.error(logPrefix + errorMessage + errorReasons.length > 0 ? `Other reasons: ${errorReasons}. ` : "" + __location);
+            return this.client_error(errorMessage, __location, errorReasons);
+        }
+
+        const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
+        const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
+        const rates = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage");
+        const premium = rates?.reduce((t, {Rate}) => t + Number(Rate[0] || 0), 0);
+
+        const quoteCoverages = commlCoverage.map((coverage, index) => {
+            const code = coverage.CoverageCd[0];
+            const description = coverage.CoverageDesc[0];
+            const limit = coverage.Limit[0]?.FormatText[0];
+
+            return {
+                description: description,
+                value: convertToDollarFormat(limit, true),
+                sort: index,
+                category: "General Limits",
+                insurerIdentifier: code
+            };
+        });
+
+        if (statusCd === "0" && msgStatusCd === "Success") {
+            return this.client_quoted(quoteNumber, [], premium, quoteLetter, "base64", quoteCoverages);
+        }
+        else if (statusCd === "0" && errorCd === "434" || errorCd === "436") {
+            return this.client_referred(quoteNumber, [], premium, quoteLetter, "base64", quoteCoverages);
+        }
+        // a generic catch. If we have premium, we do not want to return an error
+        else if (premium) {
+            return this.client_referred(quoteNumber, [], premium, quoteLetter, "base64", quoteCoverages);
+        }
+        // base error catch-all
+        else {
+            const errorMessage = `USLI quote was unsuccessful: ${mainReason}. `;
+            log.error(logPrefix + errorMessage + __location);
+            return this.client_error(errorMessage, __location, errorReasons);
+        }
     }
 
     getExposure(location) {
@@ -1248,9 +1290,9 @@ const createLiabilityInfoCoverage = (LiabilityInfoElement, limitAbbreviation, li
     Limit.ele('FormatText', limitValue);
     Limit.ele('LimitAppliesToCd', limitType);
     // default these to 0, as they are set elsewhere
-    CommlCoverage.ele('usli:CoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-    CommlCoverage.ele('usli:FireCoverageTypeId', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
-    CommlCoverage.ele('usli:IsLeasedOccupancy', 0).att('xmlns', "http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/");
+    CommlCoverage.ele('usli:CoverageTypeId', 0);
+    CommlCoverage.ele('usli:FireCoverageTypeId', 0);
+    CommlCoverage.ele('usli:IsLeasedOccupancy', 0);
 }
 
 const getNAICSCode = async () => {
