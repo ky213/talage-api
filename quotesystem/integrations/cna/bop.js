@@ -395,13 +395,13 @@ module.exports = class CnaBOP extends Integration {
                 industryCode.attributes = JSON.parse(JSON.stringify(industryCode.attributes));
             }
             catch (e) {
-                log.error(`${logPrefix}Unable to parse required attributes of Industry Code: ${e}. Attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
+                log.error(`${logPrefix}Unable to parse required attributes of Industry Code: ${e}. Industry Code: ${JSON.stringify(industryCode, null, 4)}. ` + __location);
                 return this.client_error(`Could not parse required information from industry code.`, __location);
             }
         }
 
         if (!industryCode?.attributes?.SICCd) {
-            log.error(`${logPrefix}Industry Code does not have SICCd on the attributes, this is required. Attributes: ${JSON.stringify(industryCode.attributes, null, 4)}. ` + __location);
+            log.error(`${logPrefix}Industry Code does not have SICCd on the attributes, this is required. Industry Code: ${JSON.stringify(industryCode, null, 4)}. ` + __location);
             return this.client_error(`Selected Industry Code does not contain enough information to quote - Missing SIC code.`, __location);
         }
 
