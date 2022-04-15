@@ -2284,6 +2284,7 @@ module.exports = class CnaBOP extends Integration {
             active: true
         };
 
+        // first, get a list of all CNA insurer industry code records
         let insurerIndustryCodeRecords = null;
         try {
             insurerIndustryCodeRecords = await global.mongoose.InsurerIndustryCode.find(insurerIndustryCodeQuery);
@@ -2298,6 +2299,7 @@ module.exports = class CnaBOP extends Integration {
             return [];
         }
 
+        // then, get a list of all BOP codes using the provided parent Talage Industry Code
         const bopCodeQuery = {
             parentIndustryCodeId: talageIndustryCodeId
         };
@@ -2331,6 +2333,7 @@ module.exports = class CnaBOP extends Integration {
         const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
         let cnaIndustryCodes = [];
 
+        // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
         for (const bopIndustryCodeId of bopIndustryCodeIds) {
             // NOTE: Applicant's selected policy effective date should be within the code's effective and expiration date
             const insurerIndustryCodeQuery = {
@@ -2342,7 +2345,6 @@ module.exports = class CnaBOP extends Integration {
                 talageIndustryCodeIdList: bopIndustryCodeId
             };
     
-            // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
             let insurerIndustryCodes = null;
             try {
                 insurerIndustryCodes = await insurerIndustryCodeBO.getList(insurerIndustryCodeQuery);
