@@ -1,3 +1,4 @@
+/* eslint-disable dot-location */
 /* eslint-disable object-shorthand */
 /* eslint-disable no-shadow */
 /* eslint-disable object-curly-newline */
@@ -382,6 +383,19 @@ module.exports = class CnaBOP extends Integration {
 
         const business = this.app.business;
         BOPPolicy = applicationDocData.policies.find(policy => policy.policyType === 'BOP');
+
+        if (!BOPPolicy) {
+            const errorMessage = `The application does not have a BOP policy. `;
+            log.error(logPrefix + errorMessage + __location);
+            return this.client_error(errorMessage, __location);
+        }
+
+        if (!BOPPolicy.bopIndustryCodeId) {
+            const errorMessage = `CNA BOP requires a BOP code is selected on the BOP policy - Missing policy.bopIndustryCodeId. `;
+            log.error(logPrefix + errorMessage + __location);
+            this.reasons.push(errorMessage);
+            return this.client_autodeclined_out_of_appetite();
+        }
 
         industryCode = await this.getIndustryCode();
 
@@ -2211,46 +2225,47 @@ module.exports = class CnaBOP extends Integration {
     }
 
     async getIndustryCode() {
-        let bopIndustryCodeIds = null;
-        let bopCodeSupplied = false;
+        const insurer = this.app.insurers.find(ins => ins.name === "CNA");
 
-        // if no BOP code was selected, try to find the best one by ranking
-        if (!BOPPolicy.bopIndustryCodeId) {
-            // find all bop codes for this parent talage industry code
-            bopIndustryCodeIds = await this.getBopCodes(this.applicationDocData.industryCode);
+        // first, check if the supplied bopCode is a CNA BOP code
+        const checkCNABOPCodeQuery = {
+            insurerId: insurer.insurerId,
+            active: true,
+            talageIndustryCodeIdList: BOPPolicy.bopIndustryCodeId
+        };
 
-            if (!bopIndustryCodeIds) {
-                return null;
-            }
+        let isCNABOPCodeResult = null;
+        try {
+            isCNABOPCodeResult = await global.mongoose.InsurerIndustryCode.find(checkCNABOPCodeQuery);
+        }
+        catch (e) {
+            log.warn(`${logPrefix}An error occurred checking if the selected BOP code is CNA's: ${e}. ` + __location);
+        }
+
+        let bopIndustryCodeIds = [];
+        if (!isCNABOPCodeResult || isCNABOPCodeResult.length === 0) {
+            // if the selected BOP code is not CNA's, or we were unable to verify that it is, get the BOP codes for the parent Industry Code
+            bopIndustryCodeIds = await this.getBopCodes(insurer, this.applicationDocData.industryCode);
         }
         else {
-            // otherwise use the selected one
-            bopCodeSupplied = true;
-            bopIndustryCodeIds = [BOPPolicy.bopIndustryCodeId];
+            // else the app selected BOP code IS a CNA BOP code, use it
+            bopIndustryCodeIds.push(BOPPolicy.bopIndustryCodeId);
         }
 
-        // get insurer industry codes for the bop code(s)
-        let insurerIndustryCodes = await this.getCNAIndustryCodes(bopIndustryCodeIds);
-
-        // if no insurer industry codes found
-        if (!insurerIndustryCodes && bopCodeSupplied) {
-            // could be a bop code for a different insurer, find bop codes for talage industry code
-            bopIndustryCodeIds = await this.getBopCodes(this.applicationDocData.industryCode);
-
-            if (!bopIndustryCodeIds) {
-                return null;
-            }
-
-            // get the insurer industry codes for the bop code(s)
-            insurerIndustryCodes = await this.getCNAIndustryCodes(bopIndustryCodeIds);
-        }
-        
-        if (!insurerIndustryCodes) {
-            log.error(`${logPrefix}Unable to find any insurer industry codes with the provided BOPPolicy and Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+        if (bopIndustryCodeIds.length === 0) {
+            log.error(`${logPrefix}Unable to find any CNA BOP codes for the selected Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
             return null;
         }
 
-        // Return the highest ranking code
+        // use the CNA BOP Code(s) to get the CNA Insurer Industry Code(s)
+        const insurerIndustryCodes = await this.getCNAIndustryCodes(insurer, bopIndustryCodeIds);
+        
+        if (!insurerIndustryCodes || insurerIndustryCodes.length === 0) {
+            log.error(`${logPrefix}Unable to find any insurer industry codes with the provided BOPPolicy, BOP codes ${bopIndustryCodeIds}, and Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
+            return null;
+        }
+
+        // Return the highest ranking code if there are more than one
         let industryCode = null;
         insurerIndustryCodes.forEach(ic => {
             if (!industryCode || ic.ranking < industryCode.ranking) {
@@ -2261,10 +2276,30 @@ module.exports = class CnaBOP extends Integration {
         return industryCode;
     }
 
-    async getBopCodes(talageIndustryCode) {
+    async getBopCodes(insurer, talageIndustryCodeId) {
         const industryCodeBO = new IndustryCodeBO();
+        
+        const insurerIndustryCodeQuery = {
+            insurerId: insurer.insurerId,
+            active: true
+        };
+
+        let insurerIndustryCodeRecords = null;
+        try {
+            insurerIndustryCodeRecords = await global.mongoose.InsurerIndustryCode.find(insurerIndustryCodeQuery);
+        }
+        catch (e) {
+            log.error(`${logPrefix}There was an error getting the list of CNA industry codes in getBopCodes: ${e}. ` + __location);
+            return [];
+        }
+
+        if (!insurerIndustryCodeRecords || insurerIndustryCodeRecords.length === 0) {
+            log.error(`${logPrefix}Could not find any CNA industry codes - Check that the CNA importers have been run. ` + __location);
+            return [];
+        }
+
         const bopCodeQuery = {
-            parentIndustryCodeId: talageIndustryCode
+            parentIndustryCodeId: talageIndustryCodeId
         };
 
         let bopCodeRecords = null;
@@ -2273,53 +2308,55 @@ module.exports = class CnaBOP extends Integration {
         }
         catch (e) {
             log.error(`${logPrefix}There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}: ${e}. ` + __location);
-            return null;
+            return [];
         }
 
         if (!bopCodeRecords) {
             log.error(`${logPrefix}There was an error grabbing BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
-            return null;
+            return [];
         }
 
         if (bopCodeRecords.length === 0) {
             log.warn(`${logPrefix}There were no BOP codes for Talage Industry Code ${this.applicationDocData.industryCode}. ` + __location);
-            return null;
+            return [];
         }
 
-        // reduce array to code ids
-        return bopCodeRecords.map(code => code.industryCodeId);
+        // filter down to only BOP codes tied to a CNA insurer industry code and reduce array to code ids only
+        return bopCodeRecords
+            .filter(code => insurerIndustryCodeRecords.find(record => record.talageIndustryCodeIdList?.includes(code.industryCodeId)))
+            .map(code => code.industryCodeId);
     }
 
-    async getCNAIndustryCodes(bopIndustryCodeIds) {
-        const insurer = this.app.insurers.find(ins => ins.name === "CNA");
+    async getCNAIndustryCodes(insurer, bopIndustryCodeIds) {
         const insurerIndustryCodeBO = new InsurerIndustryCodeBO();
+        let cnaIndustryCodes = [];
 
-        const insurerIndustryCodeQuery = {
-            insurerId: insurer.id,
-            policyTypeList: "BOP",
-            talageIndustryCodeIdList: {$not: {$elemMatch: {$nin: bopIndustryCodeIds}}}
-        };
+        for (const bopIndustryCodeId of bopIndustryCodeIds) {
+            // NOTE: Applicant's selected policy effective date should be within the code's effective and expiration date
+            const insurerIndustryCodeQuery = {
+                insurerId: insurer.id,
+                policyTypeList: "BOP",
+                active: true,
+                effectiveDate: {"$lte": new Date(BOPPolicy.effectiveDate)},
+                expirationDate: {"$gt": new Date(BOPPolicy.effectiveDate)},
+                talageIndustryCodeIdList: bopIndustryCodeId
+            };
+    
+            // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
+            let insurerIndustryCodes = null;
+            try {
+                insurerIndustryCodes = await insurerIndustryCodeBO.getList(insurerIndustryCodeQuery);
+            }
+            catch (e) {
+                log.warn(`${logPrefix}There was an error grabbing Insurer Industry Codes for CNA: ${e}. ` + __location);
+            }
 
-        // find all insurer industry codes whos talageIndustryCodeIdList elements contain one of the BOP codes
-        let insurerIndustryCodes = null;
-        try {
-            insurerIndustryCodes = await insurerIndustryCodeBO.getList(insurerIndustryCodeQuery);
+            // concat the codes to the existing list if any were found
+            if (insurerIndustryCodes && insurerIndustryCodes.length > 0) {
+                cnaIndustryCodes = cnaIndustryCodes.concat(insurerIndustryCodes);
+            }
         }
-        catch (e) {
-            log.error(`${logPrefix}There was an error grabbing Insurer Industry Codes for CNA: ${e}. ` + __location);
-            return null;
-        }
 
-        if (!insurerIndustryCodes) {
-            log.error(`${logPrefix}There was an error grabbing Insurer Industry Codes for CNA. ` + __location);
-            return null;
-        }
-
-        if (insurerIndustryCodes.length === 0) {
-            log.warn(`${logPrefix}There were no matching Insurer Industry Codes for the selected industry. ` + __location);
-            return null;
-        }
-
-        return insurerIndustryCodes;
+        return cnaIndustryCodes;
     }
 };
