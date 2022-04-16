@@ -22,6 +22,7 @@ const builder = require('xmlbuilder');
 const moment = require('moment');
 const Integration = require('../Integration.js');
 const {get} = require("lodash");
+const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
 
 global.requireShared('./helpers/tracker.js');
 
@@ -179,16 +180,6 @@ const childClassificationMap = {
 };
 
 let terrorismCoverageIncluded = false;
-
-// quote response properties
-// let quoteNumber = null;
-// let quoteProposalId = null;
-// let premium = null;
-// const quoteLimits = {};
-// let quoteLetter = null;
-// const quoteMIMEType = "BASE64";
-// let policyStatus = null;
-// const quoteCoverages = [];
 
 // TODO: Add claims information to request
 
@@ -953,7 +944,7 @@ module.exports = class USLIBOP extends Integration {
         }
 
         // -------------- PARSE XML RESPONSE ----------------
- 
+
         const response = get(result, "ACORD.InsuranceSvcRs[0]");
         const statusCd = get(response, "Status[0].StatusCd[0]");
         const statusDesc = get(response, "Status[0].StatusDesc[0]");
@@ -962,67 +953,76 @@ module.exports = class USLIBOP extends Integration {
         // const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
         // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
-        console.log("=========================================")
-        console.log("1 " + statusDesc);
         const errorCd = statusDesc.split(" ")[1];
-        console.log("2 " + errorCd);
-        let errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n");
-        console.log("3 " + errorReasons);
+        const errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n").filter(reason => reason !== "");
         let mainReason = errorReasons.shift();
-        errorReasons = errorReasons.filter(reason => reason !== "");
-        console.log("4 " + errorReasons);
-        console.log("5 " + mainReason);
         mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
-        console.log("6 " + mainReason);
-        console.log("=========================================")
-        if (errorCd === "433") {
+
+        // TODO: Find out if 627 is a decline, or a referral
+        if (errorCd === "433" || errorCd === "627") {
             const declineMessage = `USLI declined the quote: ${mainReason} `;
-            log.info(logPrefix + declineMessage + errorReasons.length > 0 ? `Other reasons: ${errorReasons}. ` : "" + __location);
+            const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
+            log.info(logPrefix + declineMessage + additionalReasons + __location);
             return this.client_declined(declineMessage, errorReasons);
         }
 
-        // TODO: Find out if 627 is a decline, or a referral
+        if (errorCd !== "434" && errorCd !== "436" && msgStatusCd !== "Success") {
+            if (mainReason.includes("class code with Commercial Property")) {
+                mainReason = 'A property classification was not provided with the Commercial Property submission.';
+            }
+            else {
+                this.reasons = errorReasons;
+            }
 
-        if (errorCd !== "434" || errorCd !== "436" || msgStatusCd !== "Success") {
             const errorMessage = `USLI returned an error: ${mainReason} `;
-            log.error(logPrefix + errorMessage + errorReasons.length > 0 ? `Other reasons: ${errorReasons}. ` : "" + __location);
-            return this.client_error(errorMessage, __location, errorReasons);
+            const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
+            log.error(logPrefix + errorMessage + additionalReasons + __location);
+            return this.client_error(errorMessage, __location);
         }
 
-        const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
+        // quote response properties
+        let quoteNumber = null;
+        // let quoteProposalId = null;
+        let premium = null;
+        const quoteLimits = {};
+        let quoteLetter = null;
+        const quoteMIMEType = "BASE64";
+        let quoteCoverages = [];
+
+        quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
         const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
-        const rates = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage");
-        const premium = rates?.reduce((t, {Rate}) => t + Number(Rate[0] || 0), 0);
+        const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0]");
 
-        const quoteCoverages = commlCoverage.map((coverage, index) => {
-            const code = coverage.CoverageCd[0];
-            const description = coverage.CoverageDesc[0];
-            const limit = coverage.Limit[0]?.FormatText[0];
-
-            return {
-                description: description,
-                value: convertToDollarFormat(limit, true),
-                sort: index,
-                category: "General Limits",
-                insurerIdentifier: code
-            };
-        });
+        if (commlCoverage) {
+            quoteCoverages = commlCoverage?.map((coverage, index) => {
+                const code = coverage.CoverageCd[0];
+                const description = coverage.CoverageDesc[0];
+                const limit = coverage.Limit[0]?.FormatText[0];
+    
+                return {
+                    description: description,
+                    value: convertToDollarFormat(limit, true),
+                    sort: index,
+                    category: "General Limits",
+                    insurerIdentifier: code
+                };
+            });
+        }
 
         if (statusCd === "0" && msgStatusCd === "Success") {
-            return this.client_quoted(quoteNumber, [], premium, quoteLetter, "base64", quoteCoverages);
+            return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
-        else if (statusCd === "0" && errorCd === "434" || errorCd === "436") {
-            return this.client_referred(quoteNumber, [], premium, quoteLetter, "base64", quoteCoverages);
-        }
-        // a generic catch. If we have premium, we do not want to return an error
-        else if (premium) {
-            return this.client_referred(quoteNumber, [], premium, quoteLetter, "base64", quoteCoverages);
+        else if (statusCd === "0" && errorCd === "434" || errorCd === "436" || premium) {
+            errorReasons.unshift([mainReason]);
+            this.reasons = errorReasons;
+            return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
         // base error catch-all
         else {
             const errorMessage = `USLI quote was unsuccessful: ${mainReason}. `;
+            this.reasons = errorReasons;
             log.error(logPrefix + errorMessage + __location);
-            return this.client_error(errorMessage, __location, errorReasons);
+            return this.client_error(errorMessage, __location);
         }
     }
 
