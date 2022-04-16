@@ -426,7 +426,7 @@ module.exports = class SoleProWC extends Integration {
             if(result?.decision?.status === "Quoted"){
                 return this.return_result('quoted');
             }
-            else if(result?.decision?.status === "Referral" && this.amount > 0 ){
+            else if(result?.decision?.status === "Referral" && this.amount > 0){
                 return this.return_result('referred_with_price');
             }
             else {
