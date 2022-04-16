@@ -76,6 +76,7 @@ id: "LIMITED LIABILITY COMPANY"}
     };
 
     const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
+    const agencyInfo = await this.getAgencyInfo();
 
     logPrefix = `USLI Monoline GL (Appid: ${applicationDocData.applicationId}): `;
 
@@ -124,24 +125,23 @@ id: "LIMITED LIABILITY COMPANY"}
             CurCd: "USD",
             Producer: {
               ItemIdInfo: {
-                InsurerId: "1065"
+                InsurerId: agencyInfo.id
               },
               GeneralPartyInfo: {
                 NameInfo: [
                   {
                     CommlName: {
-                      CommercialName: this.app?.agencyLocation?.agency
+                      CommercialName: agencyInfo.name
                     }
                   }, {
                     PersonName: {
-                      Surname: this.app?.agencyLocation?.first_name,
-                      GivenName: this.app?.agencyLocation?.last_name
+                      GivenName: `${agencyInfo.firstName} ${agencyInfo.lastName}`,
                     }
                   }
                 ],
                 Communications: {
                   EmailInfo: {
-                    EmailAddr: this.app?.agencyLocation?.agencyEmail,
+                    EmailAddr: agencyInfo.email,
                     DoNotContactInd: false
                   }
                 }
@@ -401,8 +401,7 @@ id: "LIMITED LIABILITY COMPANY"}
     // Get the XML structure as a string
     const xml = builder.create(acord).end();
 
-    // TODO: Send the XML request object to USLI's quote API
-
+    // Send the XML request object to USLI's quote API
     const host = "services.uslistage.com"; // TODO: base API path here
     const quotePath = `/API/Quote`; // TODO: API Route path here
     const additionalHeaders = {
@@ -480,4 +479,39 @@ id: "LIMITED LIABILITY COMPANY"}
       return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
     }
   }
+
+  async getAgencyInfo() {
+    let id = this.app.agencyLocation.agencyId;
+    let name = this.app.agencyLocation.agency;
+    let phone = this.app.agencyLocation.agencyPhone;
+    let email = this.app.agencyLocation.agencyEmail;
+    let firstName = this.app.agencyLocation.first_name;
+    let lastName = this.app.agencyLocation.last_name;
+
+    // If talageWholeSale
+    if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale) {
+        //Use Talage Agency.
+        id = 1;
+        const AgencyBO = global.requireShared('./models/Agency-BO.js');
+        const agencyBO = new AgencyBO();
+        const agencyInfo = await agencyBO.getById(this.agencyId);
+        name = agencyInfo.name;
+        const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+        const agencyLocationBO = new AgencyLocationBO();
+        const agencyLocationInfo = await agencyLocationBO.getById(1);
+        email = agencyLocationInfo.email;
+        phone = agencyLocationInfo.phone;
+        firstName = agencyLocationInfo.firstName
+        lastName = agencyLocationInfo.lastName
+    }
+
+    return {
+        id: id || "NA",
+        name,
+        phone,
+        email,
+        firstName,
+        lastName
+    };
+}
 };
