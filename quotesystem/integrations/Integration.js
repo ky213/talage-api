@@ -79,7 +79,7 @@ module.exports = class Integration {
         this.insurerIndustryCode = {};
 
         this.insurer = insurer;
-        this.insurerDoc = null;//mongo document for insurer.
+        this.insurerDoc = null; //mongo document for insurer.
         //Wholesale and AgencyPrime use.
         this.usingAgencyPrimeAgencyLocation = false;
         this.quotingAgencyLocationDB = {};
@@ -2392,7 +2392,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
     send_request(host, path, data, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}` + __location);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${host + path}` + __location);
         const start_time = process.hrtime();
 
         return new Promise((fulfill, reject) => {
