@@ -31,6 +31,7 @@ const PolicyTypeInfoSchema = new Schema({
     GL: PolicyTypeInfoDetailsSchema,
     CYBER: PolicyTypeInfoDetailsSchema,
     PL: PolicyTypeInfoDetailsSchema,
+    EVENT: PolicyTypeInfoDetailsSchema,
     notifyTalage: {type: Boolean, required: true, default: false}
 },{_id : false})
 
