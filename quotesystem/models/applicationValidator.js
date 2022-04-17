@@ -7,6 +7,7 @@
 const validator = global.requireShared('./helpers/validator');
 const moment = require('moment');
 
+
 /**
  * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
  *  since rules vary by insurer and policy type.
@@ -102,6 +103,13 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
         }
     }
 
+    let needFounded = false
+    if(Boolean(applicationDocData.policies.filter(policy => policy === "BOP").length)
+        || Boolean(applicationDocData.policies.filter(policy => policy === "GL").length)
+        || Boolean(applicationDocData.policies.filter(policy => policy === "WC").length)){
+        needFounded = true
+    }
+
     /**
      * Founded (required)
      * - Must be a valid date formatted mm-yyyy
@@ -131,14 +139,23 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
             }
         }
     }
-    else {
+    else if(needFounded){
         throw new Error('Missing property: founded');
+    }
+
+    let needMailingAddress = false
+    if(Boolean(applicationDocData.policies.filter(policy => policy === "BOP").length)
+       || Boolean(applicationDocData.policies.filter(policy => policy === "GL").length)
+       || Boolean(applicationDocData.policies.filter(policy => policy === "PL").length)
+       || Boolean(applicationDocData.policies.filter(policy => policy === "CYBER").length)
+       || Boolean(applicationDocData.policies.filter(policy => policy === "WC").length)){
+        needMailingAddress = true
     }
 
     /**
      * Mailing Address (required)
      */
-    if (!applicationDocData.mailingAddress) {
+    if (!applicationDocData.mailingAddress && needMailingAddress) {
         throw new Error('Missing required field: mailingAddress');
     }
 
@@ -146,7 +163,7 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
      * Mailing Zip (required)
      * - Must be a 5 digit string
      */
-    if (applicationDocData.mailingZipcode) {
+    if (applicationDocData.mailingZipcode && needMailingAddress) {
         applicationDocData.mailingZipcode = applicationDocData.mailingZipcode.slice(0,5);
         //let 9 digit zipcodes process. log an error
         if (!validator.isZip(applicationDocData.mailingZipcode)) {
@@ -157,7 +174,7 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
         }
 
     }
-    else {
+    else if(needMailingAddress) {
         log.error('Missing required field: business mailingZipcode' + __location);
         throw new Error('Missing required field:  business mailingZipcode');
     }
@@ -236,19 +253,22 @@ const validateBusiness = (applicationDocData, logValidationErrors = true) => {
     }
     else {
         //throw new Error('Missing required field: phone');
-        log.warn(`Application ${applicationDocData.applicationId} missing phone number.`)
+        log.warn(`Application ${applicationDocData.applicationId} missing contact phone number.`)
     }
 
-    // Years of Experience (conditionally required)
-    // - Only required if founded less than 3 years ago
-    // - Must be a number between 0 and 99
-    const foundedMoment = moment(applicationDocData.founded);
-    if (foundedMoment.isAfter(moment().subtract(3, 'years'))) {
-        if (applicationDocData.yearsOfExp < 0 || applicationDocData.yearsOfExp > 99) {
-            //let it quote and the insurer reject it.
-            log.info(`Invalid value for property: yearsOfExp. Value must be between 0 and 100 (not inclusive) for ${applicationDocData.applicationId}`)
+    if(needFounded){
+        // Years of Experience (conditionally required)
+        // - Only required if founded less than 3 years ago
+        // - Must be a number between 0 and 99
+        const foundedMoment = moment(applicationDocData.founded);
+        if (foundedMoment.isAfter(moment().subtract(3, 'years'))) {
+            if (applicationDocData.yearsOfExp < 0 || applicationDocData.yearsOfExp > 99) {
+                //let it quote and the insurer reject it.
+                log.info(`Invalid value for property: yearsOfExp. Value must be between 0 and 100 (not inclusive) for ${applicationDocData.applicationId}`)
+            }
         }
     }
+
     //EIN - Only require for WC. Most GL and BOP submissions do not require it.
     const requiresEIN = Boolean(applicationDocData.policies.filter(policy => policy === "WC").length);
     if (requiresEIN && !applicationDocData.ein) {
@@ -551,7 +571,9 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
                 'GL',
                 'WC',
                 "CYBER",
-                "PL"
+                "PL",
+                "EVENT",
+                "OTHER"
             ];
             if (!validTypes.includes(policy.policyType)) {
                 throw new Error('Invalid policy type');
