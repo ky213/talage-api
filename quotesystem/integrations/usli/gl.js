@@ -105,19 +105,19 @@ id: "LIMITED LIABILITY COMPANY"}
           SignonPswd: {
             CustId: {
               SPName: "com.usli",
-              CustLoginId: this.username
+              CustLoginId: this.username,
             },
             CustPswd: {
               EncryptionTypeCd: "NONE",
-              Pswd: this.password
+              Pswd: this.password,
             },
-            GenSessKey: false
+            GenSessKey: false,
           },
           CustLangPref: "en",
           ClientApp: {
-            Version: "2.0"
+            Version: "2.0",
           },
-          SuppressEcho: false
+          SuppressEcho: false,
         },
         InsuranceSvcRq: {
           RqUID: uuid(),
@@ -125,41 +125,42 @@ id: "LIMITED LIABILITY COMPANY"}
             CurCd: "USD",
             Producer: {
               ItemIdInfo: {
-                InsurerId: agencyInfo.id
+                InsurerId: agencyInfo.id,
               },
               GeneralPartyInfo: {
                 NameInfo: [
                   {
                     CommlName: {
-                      CommercialName: agencyInfo.name
-                    }
-                  }, {
+                      CommercialName: agencyInfo.name,
+                    },
+                  },
+                  {
                     PersonName: {
                       GivenName: `${agencyInfo.firstName} ${agencyInfo.lastName}`,
-                    }
-                  }
+                    },
+                  },
                 ],
                 Communications: {
                   EmailInfo: {
                     EmailAddr: agencyInfo.email,
-                    DoNotContactInd: false
-                  }
-                }
+                    DoNotContactInd: false,
+                  },
+                },
               },
               ProducerInfo: {
-                ProducerRoleCd: "Agency"
-              }
+                ProducerRoleCd: "Agency",
+              },
             },
             InsuredOrPrincipal: {
               GeneralPartyInfo: {
                 NameInfo: {
                   CommlName: {
-                    CommercialName: applicationDocData?.businessName
+                    CommercialName: applicationDocData?.businessName,
                   },
                   LegalEntityCd: {
                     "@id": entityTypes[applicationDocData?.entityType]?.id || "OTHER",
-                    "#text": entityTypes[applicationDocData?.entityType]?.abbr || "OT"
-                  }
+                    "#text": entityTypes[applicationDocData?.entityType]?.abbr || "OT",
+                  },
                 },
                 Addr: {
                   AddrTypeCd: "InsuredsAddress",
@@ -167,48 +168,48 @@ id: "LIMITED LIABILITY COMPANY"}
                   City: applicationDocData?.mailingCity,
                   StateProvCd: applicationDocData?.mailingState,
                   PostalCode: applicationDocData?.mailingZipcode?.substring(0, 5),
-                  CountryCd: "USA"
+                  CountryCd: "USA",
                 },
                 Communications: {
                   PhoneInfo: {
-                    DoNotContactInd: false
-                  }
-                }
+                    DoNotContactInd: false,
+                  },
+                },
               },
               InsuredOrPrincipalInfo: {
                 InsuredOrPrincipalRoleCd: "Insured",
                 PersonInfo: {
                   LengthTimeEmployed: {
-                    NumUnits: 0
+                    NumUnits: 0,
                   },
                   LengthTimeCurrentOccupation: {
-                    NumUnits: 0
+                    NumUnits: 0,
                   },
                   LengthTimeWithPreviousEmployer: {
-                    NumUnits: 0
+                    NumUnits: 0,
                   },
                   LengthTimeCurrentAddr: {
                     StartTime: "00:00:00.0000000-04:00",
                     EndTime: "00:00:00.0000000-04:00",
                     LocalStandardTimeInd: false,
                     DurationPeriod: {
-                      NumUnits: 0
+                      NumUnits: 0,
                     },
                     ContinuousInd: false,
-                    "GB.BothDaysInclusiveInd": false
+                    "GB.BothDaysInclusiveInd": false,
                   },
                   DoNotSolicitInd: false,
                   NumDependents: 0,
-                  CoInsuredSameAddressInsuredInd: false
+                  CoInsuredSameAddressInsuredInd: false,
                 },
                 BusinessInfo: {
                   BusinessStartDt: moment(applicationDocData.founded).year(),
                   OperationsDesc:
                     applicationDocData?.questions?.find(
-                      ({insurerQuestionIdentifier}) => insurerQuestionIdentifier === "usli.general.operationsDesc"
-                    )?.answerValue || "Not Provided"
-                }
-              }
+                      ({ insurerQuestionIdentifier }) => insurerQuestionIdentifier === "usli.general.operationsDesc"
+                    )?.answerValue || "Not Provided",
+                },
+              },
             },
             CommlPolicy: {
               CompanyProductCd: "050070",
@@ -220,12 +221,12 @@ id: "LIMITED LIABILITY COMPANY"}
                 ExpirationDt: this.policy?.expiration_date?.format("YYYY-MM-DD"),
                 DurationPeriod: {
                   NumUnits: this.policy?.expiration_date?.diff(this.policy?.effective_date, "months"),
-                  UnitMeasurementCd: "month"
-                }
+                  UnitMeasurementCd: "month",
+                },
               },
               PrintedDocumentsRequestedInd: false,
               TotalPaidLossAmt: {
-                Amt: applicationDocData.claims?.reduce((total, {amountPaid}) => total + (amountPaid || 0), 0)
+                Amt: applicationDocData.claims?.reduce((total, { amountPaid }) => total + (amountPaid || 0), 0),
               },
               NumLosses: applicationDocData.claims?.length,
               NumLossesYrs: 0,
@@ -233,7 +234,7 @@ id: "LIMITED LIABILITY COMPANY"}
               FutureEffDateNumDays: 0,
               InsuredRequestsPrintedDocumentsInd: false,
               CommlPolicySupplement: {
-                PolicyTypeCd: "OCCUR"
+                PolicyTypeCd: "OCCUR",
               },
               WrapUpInd: false,
               CommlCoverage: [
@@ -242,14 +243,15 @@ id: "LIMITED LIABILITY COMPANY"}
                   CoverageDesc: "Stamping Fee",
                   "usli:CoverageTypeId": 0,
                   "usli:FireCoverageTypeId": 0,
-                  usliIsLeasedOccupancy: 0
-                }, {
+                  usliIsLeasedOccupancy: 0,
+                },
+                {
                   CoverageCd: "SPLTX",
                   CoverageDesc: "Surplus Lines Tax",
                   "usli:CoverageTypeId": 0,
                   "usli:FireCoverageTypeId": 0,
-                  "usli:IsLeasedOccupancy": 0
-                }
+                  "usli:IsLeasedOccupancy": 0,
+                },
               ],
               AnyLossesAccidentsConvictionsInd: applicationDocData.claims?.length > 0,
               "usli:DynamicQuestion": applicationDocData.questions
@@ -258,7 +260,7 @@ id: "LIMITED LIABILITY COMPANY"}
                     return {
                       "usli:QuestionId": question.insurerQuestionIdentifier, // Question ID instead
                       "usli:QuestionType": "Applicant",
-                      "usli:Answer": question.answerValue || "Unknown"
+                      "usli:Answer": question.answerValue || "Unknown",
                     };
                   }
                 })
@@ -270,7 +272,7 @@ id: "LIMITED LIABILITY COMPANY"}
                           "@LocationRef": `${i + 1}`,
                           "usli:QuestionId": q.insurerQuestionIdentifier, // Question ID instead
                           "usli:QuestionType": "Location",
-                          "usli:Answer": q.answerValue || "Unknown"
+                          "usli:Answer": q.answerValue || "Unknown",
                         };
                       }
                     })
@@ -280,29 +282,26 @@ id: "LIMITED LIABILITY COMPANY"}
               "usli:Status": "Quote",
               "usli:Carrier": "MTV",
               "usli:FilingId": 0,
-              "usli:IsUnsolicited": 0
+              "usli:IsUnsolicited": 0,
             },
             Location: applicationDocData.locations
-            // eslint-disable-next-line array-callback-return
+              // eslint-disable-next-line array-callback-return
               .map((location, index) => {
-                if (location.primary) {
-                  return {
-                    "@id": `${index + 1}`,
-                    Addr: {
-                      AddrTypeCd: "PhysicalRisk",
-                      Addr1: location?.address,
-                      City: location?.city,
-                      StateProvCd: location?.state,
-                      PostalCode: location?.zipcode,
-                      CountryCd: "USA"
-                    }
-                  };
-                }
-              })
-              .filter((l) => l),
+                return {
+                  "@id": `${index + 1}`,
+                  Addr: {
+                    AddrTypeCd: "PhysicalRisk",
+                    Addr1: location?.address,
+                    City: location?.city,
+                    StateProvCd: location?.state,
+                    PostalCode: location?.zipcode?.substring(0, 5),
+                    CountryCd: "USA",
+                  },
+                };
+              }),
             CommlPropertyLineBusiness: {
               LOBCd: "CGL",
-              MinPremInd: false
+              MinPremInd: false,
             },
             GeneralLiabilityLineBusiness: {
               LOBCd: "CGL",
@@ -314,86 +313,93 @@ id: "LIMITED LIABILITY COMPANY"}
                     CoverageDesc: "Each Occurrence Limit",
                     Limit: {
                       FormatText: supportedLimits[0] || "2000000",
-                      LimitAppliesToCd: "PerOcc"
+                      LimitAppliesToCd: "PerOcc",
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "GENAG",
                     CoverageDesc: "General Aggregate Limit",
                     Limit: {
                       FormatText: supportedLimits[1] || "4000000",
-                      LimitAppliesToCd: "Aggregate"
+                      LimitAppliesToCd: "Aggregate",
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "PRDCO",
                     CoverageDesc: "Products/Completed Operations Aggregate Limit",
                     Limit: {
                       FormatText: supportedLimits[2] || "4000000",
-                      LimitAppliesToCd: "Aggregate"
+                      LimitAppliesToCd: "Aggregate",
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "PIADV",
                     CoverageDesc: "Personal &amp; Advertising Injury Limit",
                     Limit: {
                       FormatText: supportedLimits[2] || "4000000",
-                      LimitAppliesToCd: "PerPers"
+                      LimitAppliesToCd: "PerPers",
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "MEDEX",
                     CoverageDesc: "Medical Expense Limit",
                     Limit: {
                       FormatText: 5000,
-                      LimitAppliesToCd: "PerPers"
+                      LimitAppliesToCd: "PerPers",
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0
+                    "usli:IsLeasedOccupancy": 0,
                   },
                   {
                     CoverageCd: "FIRDM",
                     CoverageDesc: "Damages To Premises Rented To You",
                     Limit: {
                       FormatText: 100000,
-                      LimitAppliesToCd: "PropDam"
+                      LimitAppliesToCd: "PropDam",
                     },
                     "usli:CoverageTypeId": 0,
                     "usli:FireCoverageTypeId": 0,
-                    "usli:IsLeasedOccupancy": 0
-                  }
+                    "usli:IsLeasedOccupancy": 0,
+                  },
                 ],
-                GeneralLiabilityClassification: applicationDocData.locations.map((location, index) => ({
+                GeneralLiabilityClassification: applicationDocData.locations.flatMap((location, index) => {
+                  const classification = {
                     "@id": "C1",
                     "@LocationRef": `${index + 1}`,
-                    ClassCd: this.industry_code?.attributes?.GLCode,
-                    ClassCdDesc: this.industry_code?.attributes?.product,
-                    Exposure: 12, // to be refactored
+                    ClassCd: this.insurerIndustryCode?.attributes?.GLCode,
+                    ClassCdDesc: this.insurerIndustryCode?.description,
+                    Exposure: this.getExposure(location),
                     PremiumBasisCd: this.industry_code?.attributes?.ACORDPremiumBasisCode,
                     IfAnyRatingBasisInd: false,
                     ClassId: 0,
-                    "usli:CoverageTypeId": this.industry_code?.code
-                  })),
-                EarnedPremiumPct: 0
-              }
+                    "usli:CoverageTypeId": 0,
+                  };
+
+                  const premiseClassification = { ...classification, CoverageCd: "PREM" };
+                  const productClassification = { ...classification, CoverageCd: "PRDCO" };
+
+                  return [premiseClassification, productClassification];
+                }),
+                EarnedPremiumPct: 0,
+              },
             },
-            TransactionRequestDt: moment().format()
-          }
-        }
-      }
+            TransactionRequestDt: moment().format(),
+          },
+        },
+      },
     };
 
     // -------------- SEND XML REQUEST ----------------
@@ -513,5 +519,178 @@ id: "LIMITED LIABILITY COMPANY"}
         firstName,
         lastName
     };
+}
+
+getExposure(location) {
+  let exposure = null;
+  let exposureEncountered = true;
+  switch (this.insurerIndustryCode.premiumExposureBasis) {
+      case "1,000 Gallons":
+          const gallonsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalGallonsOfFuel");
+          if (gallonsQuestion) {
+              const numGallons = parseInt(gallonsQuestion.answerValue, 10);
+              if (!isNaN(numGallons)) {
+                  exposure = Math.round(numGallons / 1000);
+              }
+              else {
+                  log.warn(`${logPrefix}Invalid number of gallons, unable to convert ${numGallons} into an integer. ` + __location);
+                  return null;
+              }
+          }
+          break;
+      case "100 Payroll":
+          const locationPayroll = parseInt(this.get_location_payroll(location), 10);
+          if (!isNaN(locationPayroll)) {
+              exposure = Math.round(locationPayroll / 100);
+          }
+          else {
+              log.warn(`${logPrefix}Invalid number for payroll, unable to convert ${locationPayroll} into an integer. ` + __location);
+              return null;
+          }
+          break;
+      case "Acre":
+          const acreQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numAcres");
+          if (acreQuestion) {
+              exposure = acreQuestion.answerValue;
+          }
+          break;
+      case "Admissions":
+          const admissionsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalAdmissions");
+          if (admissionsQuestion) {
+              exposure = admissionsQuestion.answerValue;
+          }
+          break;
+      case "Student":
+          const studentQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numStudents");
+          if (studentQuestion) {
+              exposure = studentQuestion.answerValue;
+          }
+          break;
+      case "Kennel":
+          const kennelQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numKennels");
+          if (kennelQuestion) {
+              exposure = kennelQuestion.answerValue;
+          }
+          break;
+      case "Event":
+          const eventsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalEvents");
+          if (eventsQuestion) {
+              exposure = eventsQuestion.answerValue;
+          }
+          break;
+      case "Exhibition":
+          const exhibitionsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.yearlyExhibitions");
+          if (exhibitionsQuestion) {
+              exposure = exhibitionsQuestion.answerValue;
+          }
+          break;
+
+      case "Payroll":
+          exposure = this.get_location_payroll(location);
+          break;
+      case "Per Instructor":
+          const teacherQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numTeachersInstructors");
+          if (teacherQuestion) {
+              exposure = teacherQuestion.answerValue;
+          }
+          break;
+      case "Pool":
+          const poolQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.numPoolsTubs");
+          if (poolQuestion) {
+              exposure = poolQuestion.answerValue;
+          }
+          break;
+      case "Sales":
+          const salesQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.grossSales");
+          if (salesQuestion) {
+              exposure = salesQuestion.answerValue;
+          }
+          break;
+      case "Total Area":
+          exposure = location.square_footage;
+          break;
+      case "Total Cost":
+          const totalCostQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.annualSubcontractedCost");
+          if (totalCostQuestion) {
+              exposure = totalCostQuestion.answerValue;
+          }
+          break;
+      case "Flat":
+      case "Dwelling":
+          exposure = 1;
+          break;
+      case "Per Assistant":
+      case "Beautician/Barber":
+      case "Washer":
+      case "Worker":
+          exposure = this.get_total_location_employees(location);
+          break;
+      case "Number of Units":
+          let questionIdentifier = null;
+          switch (this.insurerIndustryCode.code) {
+              case "5337":
+                  questionIdentifier = "usli.location.exposure.numApartments";
+                  break;
+              case "7119":
+                  questionIdentifier = "usli.location.exposure.numDentists";
+                  break;
+              case "5852": 
+              case "7100":
+                  questionIdentifier = "usli.location.exposure.numMobileHomePads";
+                  break;
+              case "5013":
+              case "5014":
+              case "5858":
+              case "1681":
+                  questionIdentifier = "usli.location.exposure.numCondos";
+                  break;
+              case "652":
+              case "1693":
+                  questionIdentifier = "usli.location.exposure.numPowerUnits";
+                  break;
+              case "5378":
+                  questionIdentifier = "usli.location.exposure.numTanningBeds";
+                  break;
+              default:
+                  log.warn(`${logPrefix}Class code ${industryCode.code} is not a valid classification for the "Number of Units" exposure type, therefor no exposure can be provided. ` + __location);
+                  return null;
+          }
+
+          if (!questionIdentifier) {
+              log.warn(`${logPrefix}No question identifier was found for Class code ${industryCode.code}, therefor no exposure can be provided. ` + __location);
+              return null;
+          }
+
+          const numUnitsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === questionIdentifier);
+          if (numUnitsQuestion) {
+              exposure = numUnitsQuestion.answerValue;
+          }
+          break;
+      case "Fitness Center":
+      case "Additional Insured":
+      case "Part-Time Janitor":
+      case "Part-time employee":
+          log.warn(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
+          return null;
+      case "Full-Time Janitor":
+      case "Full-time employee":
+          exposure = this.get_total_location_full_time_employees(location);
+          break;
+      case "":
+          log.warn(`${logPrefix}Classification has blank exposure. This classification should be disabled. ` + __location);
+          return null;
+      default:
+          exposureEncountered = false;
+          break;
+  }
+
+  if (!exposureEncountered) {
+      log.warn(`${logPrefix}No case found for ${industryCode.attributes.premiumExposureBasis} exposure. ` + __location);
+  }
+  else if (exposure === null) {
+      log.warn(`${logPrefix}Encountered ${industryCode.attributes.premiumExposureBasis} exposure, but found no exposure question - This could be a question mapping error. ` + __location);
+  }
+
+  return exposure;
 }
 };
