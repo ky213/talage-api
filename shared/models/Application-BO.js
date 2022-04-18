@@ -2789,12 +2789,6 @@ module.exports = class ApplicationModel {
             }
         }
         if(hasGL){
-            //Libery an insurer
-            if(insurerArray.includes(14)){
-                //fein not that is FEIN is required.
-                feinRequiredNote = true;
-                glCarriers.push("Liberty")
-            }
             //acuity Needs FEIN.
             if(insurerArray.includes(10)){
                 //fein not that is FEIN is required.
