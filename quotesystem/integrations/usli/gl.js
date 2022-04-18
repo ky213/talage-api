@@ -78,7 +78,7 @@ id: "LIMITED LIABILITY COMPANY"}
     const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
     const agencyInfo = await this.getAgencyInfo();
 
-    logPrefix = `USLI Monoline GL (Appid: ${applicationDocData.applicationId}): `;
+    logPrefix = `USLI GL (Appid: ${applicationDocData.applicationId}): `;
 
     if (!this.industry_code?.insurerIndustryCodeId) {
       const errorMessage = `No Industry Code was found for GL. `;
@@ -382,16 +382,16 @@ id: "LIMITED LIABILITY COMPANY"}
                     ClassCd: this.insurerIndustryCode?.attributes?.GLCode,
                     ClassCdDesc: this.insurerIndustryCode?.description,
                     Exposure: this.getExposure(location),
-                    PremiumBasisCd: this.industry_code?.attributes?.ACORDPremiumBasisCode,
+                    PremiumBasisCd: this.insurerIndustryCode?.attributes?.ACORDPremiumBasisCode,
                     IfAnyRatingBasisInd: false,
                     ClassId: 0,
-                    "usli:CoverageTypeId": 0,
+                    "usli:CoverageTypeId": this.insurerIndustryCode.code,
                   };
 
                   const premiseClassification = { ...classification, CoverageCd: "PREM" };
                   const productClassification = { ...classification, CoverageCd: "PRDCO" };
 
-                  return [premiseClassification, productClassification];
+                  return [classification];
                 }),
                 EarnedPremiumPct: 0,
               },
@@ -456,11 +456,7 @@ id: "LIMITED LIABILITY COMPANY"}
       response,
       "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage"
     );
-    const rates = get(
-      response,
-      "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage"
-    );
-    const premium = rates?.reduce((t, {Rate}) => t + Number(Rate[0] || 0), 0);
+    const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
     const quoteLimits = {};
 
     const coverages = commlCoverage.map((coverage, index) => {
@@ -481,7 +477,7 @@ id: "LIMITED LIABILITY COMPANY"}
       return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
     }
 
-    if (statusCode === "434") {
+    if (["434", "436"].includes(statusCode)) {
       return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
     }
   }
@@ -524,7 +520,10 @@ id: "LIMITED LIABILITY COMPANY"}
 getExposure(location) {
   let exposure = null;
   let exposureEncountered = true;
-  switch (this.insurerIndustryCode.premiumExposureBasis) {
+  const logPrefix = `USLI GL (Appid: ${this.applicationDocData.applicationId}): `;
+  const industryCode = this.insurerIndustryCode
+  
+  switch (this.insurerIndustryCode.attributes.premiumExposureBasis) {
       case "1,000 Gallons":
           const gallonsQuestion = location.questions.find(question => question.insurerQuestionIdentifier === "usli.location.exposure.totalGallonsOfFuel");
           if (gallonsQuestion) {
