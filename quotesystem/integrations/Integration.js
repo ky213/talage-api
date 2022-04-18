@@ -110,6 +110,7 @@ module.exports = class Integration {
         this.deductible = null;
         this.amount = 0;
         this.quote_letter = {};
+        this.quoteAdditionalInfo = {};
         this.reasons = [];
         this.quoteId = null;
         this.isBindable = false;
@@ -1741,7 +1742,7 @@ module.exports = class Integration {
             agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
-            policyType: this.policy.type,
+            policyType: policyType,
             quoteTimeSeconds: this.seconds
         }
         // if this is a new quote, set its quotingStartedDate to now
@@ -1751,6 +1752,13 @@ module.exports = class Integration {
 
         if(this.quoteResponseJSON){
             quoteJSON.quoteResponseJSON = this.quoteResponseJSON;
+        }
+
+        if (typeof this.quoteAdditionalInfo === "object") {
+            quoteJSON.additionalInfo = this.quoteAdditionalInfo;
+        }
+        else {
+            log.warn(`App ID: ${this.applicationDocData.applicationId}, Insurer: ${insurerName}, Policy: ${policyType}: (record_quote) Tried to store a non-object on quote's additional info property. ` + __location);
         }
 
         try{
