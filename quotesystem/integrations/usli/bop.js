@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable array-element-newline */
 /* eslint-disable space-before-function-paren */
 /* eslint-disable object-property-newline */
@@ -22,7 +23,7 @@ const builder = require('xmlbuilder');
 const moment = require('moment');
 const Integration = require('../Integration.js');
 const {get} = require("lodash");
-const { convertToDollarFormat } = global.requireShared('./helpers/stringFunctions.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 
 global.requireShared('./helpers/tracker.js');
 
@@ -985,13 +986,18 @@ module.exports = class USLIBOP extends Integration {
         // let quoteProposalId = null;
         let premium = null;
         const quoteLimits = {};
-        let quoteLetter = null;
+        const quoteLetter = null;
         const quoteMIMEType = "BASE64";
         let quoteCoverages = [];
 
         quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
         const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
-        const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0]");
+        // TODO: Find if admitted status - if YES, need to find and subtract taxes from premium
+        premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
+        const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].RemarkText");
+
+        console.log(remarkText);
+        // TODO: Parse remarkText to see if id View Quote Letter exists, if so, use for Quote Letter
 
         if (commlCoverage) {
             quoteCoverages = commlCoverage?.map((coverage, index) => {
@@ -1009,7 +1015,8 @@ module.exports = class USLIBOP extends Integration {
             });
         }
 
-        if (statusCd === "0" && msgStatusCd === "Success") {
+        // Even if quoted, any classification with GLElig of PP (Premises Preferred) must be submitted as "SUBMIT" (our referred)
+        if (statusCd === "0" && msgStatusCd === "Success" && industryCode.attributes?.GLElig !== "PP") {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
         else if (statusCd === "0" && errorCd === "434" || errorCd === "436" || premium) {
