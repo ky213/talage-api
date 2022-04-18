@@ -6,9 +6,9 @@ global.requireShared('./helpers/tracker.js');
 //http://internal-DevSimpleRater-1161216847.us-east-1.elb.amazonaws.com/api/SimpleRaterApi
 //const DevHost = "internal-DevSimpleRater-1161216847.us-east-1.elb.amazonaws.com";
 const StagingHost = "internal-DevSimpleRater-1161216847.us-east-1.elb.amazonaws.com";
-const StagingBasePath = "/api/SimpleRaterApi";
+const StagingBasePath = "/api/SimpleRaterApi/spreadsheet";
 const ProductionHost = "internal-DevSimpleRater-1161216847.us-east-1.elb.amazonaws.com";
-const ProductionBasePath = "/api/SimpleRaterApi";
+const ProductionBasePath = "/api/SimpleRaterApi/spreadsheet";
 
 
 module.exports = class AcuityWC extends Integration {
@@ -89,8 +89,31 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Send the request
-        const host = this.insurer.useSandbox ? StagingHost : ProductionHost;
-        const basePath = this.insurer.useSandbox ? StagingBasePath : ProductionBasePath;
+        let host = '';
+        const basePath = '/api/SimpleRaterApi/spreadsheet';
+        switch(global.settings.ENV){
+            case "development":
+                host = "internal-DevSimpleRater-1161216847.us-east-1.elb.amazonaws.com"
+                break;
+            case "awsdev":
+                host = "internal-DevSimpleRater-1161216847.us-east-1.elb.amazonaws.com"
+                break;
+            case "staging":
+                host = "internal-StageSimpleRater-1161216847.us-east-1.elb.amazonaws.com"
+                break;
+            case "demo":
+                host = "internal-ProdSimpleRater-1161216847.us-east-1.elb.amazonaws.com"
+                break;
+            case "production":
+                host = "internal-ProdSimpleRater-1161216847.us-east-1.elb.amazonaws.com"
+                break;
+            default:
+                // dont send the email
+                log.error(`Failed to generating application link, invalid environment. ${__location}`);
+                return;
+        }
+
+
         const internalCall = true;
         let response = null;
         try {
