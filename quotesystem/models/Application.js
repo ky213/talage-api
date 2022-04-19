@@ -720,6 +720,16 @@ module.exports = class Application {
         return rtn;
     }
 
+    has_any_of_policy_types(policyTypeList) {
+        let rtn = false;
+        for(let i = 0; i < policyTypeList.length; i++){
+            if(this.has_policy_type(policyTypeList[i])){
+                rtn = true;
+                break;
+            }
+        }
+        return rtn;
+    }
 
     /**
 	 * Begins the process of getting and returning price_indications from insurers
@@ -1385,10 +1395,11 @@ module.exports = class Application {
                 //     throw new Error('The industry code ID you provided is not valid');
                 // }
             }
-            else {
+            // eslint-disable-next-line array-element-newline
+            else if (this.has_any_of_policy_types(["WC","GL","BOP","CYBER","PL"])) {
                 return reject(new Error('Missing property: industryCode'));
-            }
 
+            }
 
             // Business (required)
             try {

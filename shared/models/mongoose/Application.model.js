@@ -185,6 +185,14 @@ const professionalLiabilityPolicySchema = new Schema({
     yearsOfProfessionalExperience: {type: Number, required: false}
 });
 
+const eventBasedInsurancePolicySchema = new Schema({
+    eventName: {type: String, required: false},
+    productName: {type: String, required: false},
+    numberofAttendees: {type: Number, required: true, default: 0},
+    numberofRacers: {type: Number, required: false},
+    eventDate:{type: Date, required: false}
+});
+
 const WaiverSubrogationSchema = new Schema({
     entityName: {type: String, required: true},
     address: {type: String, required: false},
@@ -198,9 +206,13 @@ const WaiverSubrogationSchema = new Schema({
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
+    productName: {type: String, required: false}, //Insurers ProductName for OTHER policy types
     effectiveDate: {type: Date, required: false},
     expirationDate: {type: Date, required: false},
     limits: {type: String, required: false},
+    aggregateLimit: {type: Number, required: false},
+    occurrenceLimit: {type: Number, required: false},
+    personLimit: {type: Number, required: false},
     deductible: {type: Number, required: false}, //1500,
     addTerrorismCoverage: {type: Boolean, required: false},
     coverage: {type: Number, required: false}, // BOP field
@@ -214,8 +226,10 @@ const PolicySchema = new Schema({
     yearsWithCurrentInsurance: {type: Number, required: false},
     cyber: cyberPolicySchema,
     profLiability: professionalLiabilityPolicySchema,
+    eventInsurance: eventBasedInsurancePolicySchema,
     bopIndustryCodeId: {type: Number, required: false},
-    fireCode: {type: String, required: false}
+    fireCode: {type: String, required: false},
+    additionalInfo: {type: Object}
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
@@ -223,7 +237,8 @@ const ApplicationMetricsPremiumSchema = new Schema({
     GL: {type: Number, required: false},
     BOP: {type: Number, required: false},
     CYBER: {type: Number, required: false},
-    PL: {type: Number, required: false}
+    PL: {type: Number, required: false},
+    EVENT: {type: Number, required: false}
 });
 
 const ApplicationMetricsSchema = new Schema({
