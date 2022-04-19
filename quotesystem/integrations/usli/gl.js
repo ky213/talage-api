@@ -47,6 +47,7 @@ module.exports = class USLIGL extends Integration {
     const quoteLetter = null;
     const applicationDocData = this.applicationDocData;
     const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
+    // To do check policy
     const entityTypes = {
       Corporation: {abbr: "CP",
 id: "CORPORATION"},
@@ -375,7 +376,16 @@ id: "LIMITED LIABILITY COMPANY"}
                     "usli:IsLeasedOccupancy": 0,
                   },
                 ],
-                GeneralLiabilityClassification: applicationDocData.locations.flatMap((location, index) => {
+                GeneralLiabilityClassification: applicationDocData.locations.map((location, index) => {
+                  const premiseCoverage = {
+                    CoverageCd: "PREM",
+                    ClassCd: this.insurerIndustryCode.attributes.GLCode,
+                  };
+                  const productCoverage = {
+                    CoverageCd: "PRDCO",
+                    ClassCd: this.insurerIndustryCode.attributes.GLCode,
+                  };
+
                   const classification = {
                     "@id": "C1",
                     "@LocationRef": `${index + 1}`,
@@ -386,12 +396,14 @@ id: "LIMITED LIABILITY COMPANY"}
                     IfAnyRatingBasisInd: false,
                     ClassId: 0,
                     "usli:CoverageTypeId": this.insurerIndustryCode.code,
+                    CommlCoverage:[
+                      premiseCoverage,
+                      productCoverage
+                    ]
                   };
 
-                  const premiseClassification = { ...classification, CoverageCd: "PREM" };
-                  const productClassification = { ...classification, CoverageCd: "PRDCO" };
 
-                  return [classification];
+                  return classification;
                 }),
                 EarnedPremiumPct: 0,
               },
@@ -480,6 +492,8 @@ id: "LIMITED LIABILITY COMPANY"}
     if (["434", "436"].includes(statusCode)) {
       return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
     }
+
+    // check for PP
   }
 
   async getAgencyInfo() {
