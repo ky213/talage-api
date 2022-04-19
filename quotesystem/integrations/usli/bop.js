@@ -507,8 +507,8 @@ module.exports = class USLIBOP extends Integration {
         CommlPolicy.ele('FutureEffDateInd', false);
         CommlPolicy.ele('FutureEffDateNumDays', 0);
         CommlPolicy.ele('InsuredRequestsPrintedDocumentsInd', false);
-        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement'); // TODO: IS THIS NEEDED, WHAT IS THIS?
-        CommlPolicySupplement.ele('PolicyTypeCd', "SPC"); // TODO: IS THIS NEEDED, WHAT IS THIS?
+        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
+        CommlPolicySupplement.ele('PolicyTypeCd', "SPC");
         CommlPolicy.ele('WrapUpInd', false);
         // NOTE: Defaulting Stamping Fee, this is not required and returned by USLI
         const STMPFCommlCoverage = CommlPolicy.ele('CommlCoverage');
@@ -955,7 +955,14 @@ module.exports = class USLIBOP extends Integration {
         // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
         const errorCd = statusDesc.split(" ")[1];
-        const errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n").filter(reason => reason !== "");
+        let errorReasons = null;
+        if (statusDesc.indexOf("Script Errors:") !== -1) {
+            errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n").filter(reason => reason !== "");
+        }
+        else {
+            errorReasons = statusDesc.split("\n").filter(reason => reason !== "");
+        }
+
         let mainReason = errorReasons.shift();
         mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
 
@@ -969,7 +976,7 @@ module.exports = class USLIBOP extends Integration {
 
         if (errorCd !== "434" && errorCd !== "436" && msgStatusCd !== "Success") {
             if (mainReason.includes("class code with Commercial Property")) {
-                mainReason = 'A property classification was not provided with the Commercial Property submission.';
+                mainReason = 'A property classification was not provided with the Commercial Property submission. This could be due to a missing fire code in the submission.';
             }
             else {
                 this.reasons = errorReasons;
@@ -989,14 +996,59 @@ module.exports = class USLIBOP extends Integration {
         const quoteLetter = null;
         const quoteMIMEType = "BASE64";
         let quoteCoverages = [];
+        let admitted = false;
 
         quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
         const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
-        // TODO: Find if admitted status - if YES, need to find and subtract taxes from premium
         premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
-        const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].RemarkText");
+        const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
+        
+        if (Array.isArray(remarkText) && remarkText.length > 0) {
+            const admittedRemark = remarkText.find(remark => remark?.$?.id === "Admitted Status");
+            admitted = admittedRemark && admittedRemark?._ === "This quote is admitted";
 
-        console.log(remarkText);
+            this.quoteAdditionalInfo.remarkText = remarkText;
+        }
+
+        // remove taxes from premium if quote is not admitted and taxes exist
+        if (!admitted) {
+            const taxesAdditionalInfo = [];
+            premium = parseFloat(premium);
+            const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
+
+            if (Array.isArray(taxCoverages)) {
+                taxCoverages.forEach(tax => {
+                    let taxAmount = tax.CurrentTermAmt[0].Amt[0];
+                    const taxCode = tax.CoverageCd[0];
+                    const taxDescription = tax.CoverageDesc[0];
+
+                    if (taxAmount) {
+                        taxAmount = parseFloat(taxAmount);
+
+                        if (!isNaN(premium) && !isNaN(taxAmount)) {
+                            premium -= taxAmount;
+                        }
+                        else {
+                            log.warn(`${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` + __location);
+                        }
+                    }
+
+                    taxesAdditionalInfo.push({
+                        taxCode,
+                        taxDescription,
+                        taxAmount
+                    });
+
+                    if (premium < 0) {
+                        log.warn(`${logPrefix}Tax deductions resulted in a premium value below 0. ` + __location);
+                        premium = 0;
+                    }
+                });
+            }
+
+            this.quoteAdditionalInfo.taxInfo = taxesAdditionalInfo;
+        }
+        
         // TODO: Parse remarkText to see if id View Quote Letter exists, if so, use for Quote Letter
 
         if (commlCoverage) {
@@ -1004,10 +1056,31 @@ module.exports = class USLIBOP extends Integration {
                 const code = coverage.CoverageCd[0];
                 const description = coverage.CoverageDesc[0];
                 const limit = coverage.Limit[0]?.FormatText[0];
-    
+                let included = null;
+                included = coverage.Option[0]?.OptionCd[0];
+                if (included) {
+                    if (included === "Incl") {
+                        included = "Included"
+                    }
+                    else if (included === "Excl") {
+                        included = "Excluded"
+                    }
+                    else {
+                        included = "N/A";
+                    }
+                }
+
+                let value = "N/A";
+                if (limit) {
+                    value = convertToDollarFormat(limit, true);
+                }
+                else if (included) {
+                    value = included;
+                }
+
                 return {
                     description: description,
-                    value: convertToDollarFormat(limit, true),
+                    value,
                     sort: index,
                     category: "General Limits",
                     insurerIdentifier: code
@@ -1020,8 +1093,14 @@ module.exports = class USLIBOP extends Integration {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
         else if (statusCd === "0" && errorCd === "434" || errorCd === "436" || premium) {
-            errorReasons.unshift([mainReason]);
-            this.reasons = errorReasons;
+            errorReasons.unshift(mainReason);
+            if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
+                this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
+            }
+            else {
+                this.reasons = errorReasons;
+            }
+            
             return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
         // base error catch-all
