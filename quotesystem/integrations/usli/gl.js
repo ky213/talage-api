@@ -49,35 +49,47 @@ module.exports = class USLIGL extends Integration {
     const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
     // To do check policy
     const entityTypes = {
-      Corporation: {abbr: "CP",
-id: "CORPORATION"},
-      Partnership: {abbr: "PT",
-id: "PARTNERSHIP"},
-      "Non Profit Corporation": {abbr: "NP",
-id: "NON PROFIT CORPORATION"},
-      "Limited Liability Company": {abbr: "LL",
-id: "LIMITED LIABILITY COMPANY"}
+      Corporation: { abbr: "CP", id: "CORPORATION" },
+      Partnership: { abbr: "PT", id: "PARTNERSHIP" },
+      "Non Profit Corporation": { abbr: "NP", id: "NON PROFIT CORPORATION" },
+      "Limited Liability Company": { abbr: "LL", id: "LIMITED LIABILITY COMPANY" },
     };
 
     const ignoredQuestionIds = ["usli.general.terrorismCoverage"];
 
     const supportedLimitsMap = {
-      "1000000/1000000/1000000": ["1000000",
-"2000000",
-"2000000"],
-      "1000000/2000000/1000000": ["1000000",
-"2000000",
-"2000000"],
-      "1000000/2000000/2000000": ["1000000",
-"2000000",
-"2000000"],
-      "2000000/4000000/4000000": ["2000000",
-"4000000",
-"4000000"]
+      "1000000/1000000/1000000": ["1000000", "2000000", "2000000"],
+      "1000000/2000000/1000000": ["1000000", "2000000", "2000000"],
+      "1000000/2000000/2000000": ["1000000", "2000000", "2000000"],
+      "2000000/4000000/4000000": ["2000000", "4000000", "4000000"],
+    };
+
+    // usli class code to usli gl code map
+    // These class codes require a child classification be sent w/ the provided gl code
+    // additionally, if a child classification is required, all classification questions should be provided for this child classification (denoted as ID S1 instead of C1)
+    const childClassificationMap = {
+      173: { id: "5864", description: "Barber Shops - Part-time employee" },
+      191: { id: "5862", description: "Beauty Parlors and Hair Styling Salons - Part-time employee" },
+      1082: { id: "5863", description: "Nail Salons - Part-time employee" },
+      6547: {
+        id: "6548",
+        description: "Janitorial Services - Cleaning of only Residential or Office Locations (part-time worker)",
+      },
+      6549: {
+        id: "6550",
+        description:
+          "Janitorial Services - Cleaning of only Residential, Office or Mercantile Locations (part-time worker)",
+      },
+      5884: {
+        id: "5885",
+        description: "Janitorial Services - Cleaning of only Residential Locations (part-time worker)",
+      },
     };
 
     const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
     const agencyInfo = await this.getAgencyInfo();
+    const childClassificationRequired = Object.keys(childClassificationMap).includes(this.insurerIndustryCode.code);
+
 
     logPrefix = `USLI GL (Appid: ${applicationDocData.applicationId}): `;
 
@@ -376,14 +388,16 @@ id: "LIMITED LIABILITY COMPANY"}
                     "usli:IsLeasedOccupancy": 0,
                   },
                 ],
-                GeneralLiabilityClassification: applicationDocData.locations.map((location, index) => {
+                GeneralLiabilityClassification: applicationDocData.locations.flatMap((location, index) => {
                   const premiseCoverage = {
                     CoverageCd: "PREM",
                     ClassCd: this.insurerIndustryCode.attributes.GLCode,
+                    "usli:CoverageTypeId":0
                   };
                   const productCoverage = {
                     CoverageCd: "PRDCO",
                     ClassCd: this.insurerIndustryCode.attributes.GLCode,
+                    "usli:CoverageTypeId":0
                   };
 
                   const classification = {
@@ -402,8 +416,19 @@ id: "LIMITED LIABILITY COMPANY"}
                     ]
                   };
 
+                  let childClassification = null
 
-                  return classification;
+                  if (childClassificationRequired) {
+                    childClassification = {
+                      ...classification,
+                      "@id": "S1",
+                      ClassCdDesc: childClassificationMap[this.insurerIndustryCode.code].description,
+                      Exposure: this.get_total_location_part_time_employees(location),
+                      "usli:CoverageTypeId": childClassificationMap[this.insurerIndustryCode.code].id,
+                    };
+                  }
+
+                  return [classification, childClassification].filter(c => c);
                 }),
                 EarnedPremiumPct: 0,
               },
