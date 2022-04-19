@@ -315,7 +315,7 @@ module.exports = class ApplicationModel {
         if(newObjectJSON.policies && newObjectJSON.policies.length > 0){
             for(let policy of newObjectJSON.policies){
                 log.debug("policy " + JSON.stringify(policy))
-                if(policy.effectiveDate && !policy.expirationDate){
+                if(policy.effectiveDate && !policy.expirationDate && policy.policyType !== "EVENT" && policy.policyType !== "OTHER"){
                     try{
                         const startDateMomemt = moment(policy.effectiveDate);
                         policy.expirationDate = startDateMomemt.clone().add(1,"y");
