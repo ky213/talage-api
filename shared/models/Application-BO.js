@@ -315,7 +315,7 @@ module.exports = class ApplicationModel {
         if(newObjectJSON.policies && newObjectJSON.policies.length > 0){
             for(let policy of newObjectJSON.policies){
                 log.debug("policy " + JSON.stringify(policy))
-                if(policy.effectiveDate && !policy.expirationDate){
+                if(policy.effectiveDate && !policy.expirationDate && policy.policyType !== "EVENT" && policy.policyType !== "OTHER"){
                     try{
                         const startDateMomemt = moment(policy.effectiveDate);
                         policy.expirationDate = startDateMomemt.clone().add(1,"y");
@@ -2628,7 +2628,8 @@ module.exports = class ApplicationModel {
 
         // TODO: Update this if we start using NAICS and/or SIC
         if (!industryCodeRecord.cgl) {
-            log.error(`${errorPrefix}No CGL code exists on the application's selected Industry Code. ` + __location);
+            // not necessary an error
+            log.warn(`${errorPrefix}No CGL code exists on the application's selected Industry Code. ` + __location);
             return fireCodeRecords;
         }
 
@@ -2789,12 +2790,6 @@ module.exports = class ApplicationModel {
             }
         }
         if(hasGL){
-            //Libery an insurer
-            if(insurerArray.includes(14)){
-                //fein not that is FEIN is required.
-                feinRequiredNote = true;
-                glCarriers.push("Liberty")
-            }
             //acuity Needs FEIN.
             if(insurerArray.includes(10)){
                 //fein not that is FEIN is required.

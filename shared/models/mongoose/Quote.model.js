@@ -107,7 +107,7 @@ const QuoteSchema = new Schema({
     quoteCoverages: [QuoteCoveragesSchema],
     quoteLink: {type: String},
     purchaseLink: {type: String},
-    additionalInfo: {type: Schema.Types.Mixed},
+    additionalInfo: {type: Object},
     handledByTalage: {type: Boolean, default: false},
     talageWholesale: {type: Boolean, required: true, default: false},
     insurerPaymentPlans: {type: Schema.Types.Mixed},

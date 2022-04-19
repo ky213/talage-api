@@ -10,6 +10,7 @@
 const fileSvc = global.requireShared('./services/filesvc.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
+const http = require('http');
 const moment = require('moment');
 const util = require('util');
 const {v4: uuidv4} = require('uuid');
@@ -79,7 +80,7 @@ module.exports = class Integration {
         this.insurerIndustryCode = {};
 
         this.insurer = insurer;
-        this.insurerDoc = null;//mongo document for insurer.
+        this.insurerDoc = null; //mongo document for insurer.
         //Wholesale and AgencyPrime use.
         this.usingAgencyPrimeAgencyLocation = false;
         this.quotingAgencyLocationDB = {};
@@ -109,6 +110,7 @@ module.exports = class Integration {
         this.deductible = null;
         this.amount = 0;
         this.quote_letter = {};
+        this.quoteAdditionalInfo = {};
         this.reasons = [];
         this.quoteId = null;
         this.isBindable = false;
@@ -1773,7 +1775,7 @@ module.exports = class Integration {
             agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
-            policyType: this.policy.type,
+            policyType: policyType,
             quoteTimeSeconds: this.seconds
         }
         // if this is a new quote, set its quotingStartedDate to now
@@ -1783,6 +1785,13 @@ module.exports = class Integration {
 
         if(this.quoteResponseJSON){
             quoteJSON.quoteResponseJSON = this.quoteResponseJSON;
+        }
+
+        if (typeof this.quoteAdditionalInfo === "object") {
+            quoteJSON.additionalInfo = this.quoteAdditionalInfo;
+        }
+        else {
+            log.warn(`App ID: ${this.applicationDocData.applicationId}, Insurer: ${insurerName}, Policy: ${policyType}: (record_quote) Tried to store a non-object on quote's additional info property. ` + __location);
         }
 
         try{
@@ -2425,7 +2434,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
     send_request(host, path, data, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}` + __location);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${host + path}` + __location);
         const start_time = process.hrtime();
 
         return new Promise((fulfill, reject) => {
@@ -2588,6 +2597,183 @@ module.exports = class Integration {
         });
     }
 
+
+    /**
+	 * Sends a request to an insurer over HTTP
+	 *
+	 * @param {string} host - The host name we are sending to (minus the protocol)
+	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
+	 * @param {string} data - The data to be sent
+	 * @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
+	 * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
+     * @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
+     * @param {boolean} returnResponseOnAllStatusCodes - True if response should be returned (fulfilled) on all HTTP status codes, false if it should reject (default)
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
+	 */
+    send_request_http(host, path, data, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${host + path}` + __location);
+        const start_time = process.hrtime();
+
+        return new Promise((fulfill, reject) => {
+            // Determine which method to use
+            if (!method) {
+                method = data ? 'POST' : 'GET';
+            }
+
+            // Check that we have a valid method
+            if (![
+                'GET',
+                'POST',
+                'PUT'
+            ].includes(method)) {
+                const error = new Error(`Appid: ${this.app.id} calling ${this.insurer.name} Invalid method provided to send_request()`);
+                log.error(error.message + __location);
+                reject(error);
+                return;
+            }
+
+            // Add a timestamp to the request log
+            this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
+
+            // Build the headers
+            const headers = {};
+            let content_type_found = false;
+            if (additional_headers) {
+                for (const key in additional_headers) {
+                    if (Object.prototype.hasOwnProperty.call(additional_headers, key)) {
+                        if (key === 'Content-Type') {
+                            content_type_found = true;
+                            if (additional_headers[key] === 'application/x-www-form-urlencoded') {
+                                // Encode the data
+                                const querystring = require('querystring');
+                                data = querystring.stringify(data);
+                            }
+                            let formattedString = data;
+                            // Attempt to format it if it is a XML string
+                            const formattedXMLString = this.get_formatted_xml_string(data);
+                            if (formattedXMLString) {
+                                formattedString = formattedXMLString;
+                            }
+                            else {
+                                // Attempt to format it if it is a JSON string
+                                try{
+                                    const formattedJSONString = this.get_formatted_json_string(data);
+                                    if (formattedJSONString) {
+                                        formattedString = formattedJSONString;
+                                    }
+                                }
+                                catch(err){
+                                    log.error(`Appid: ${this.app.id} calling ${this.insurer.name} send_request() error JSON parsing ${err}` + __location);
+                                }
+                            }
+                            // Log the request
+                            this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>`;
+                            this.log += `URL: ${host}${path} - ${method}<br><br>`;
+                            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
+                        }
+                        headers[key] = additional_headers[key];
+                    }
+                }
+            }
+            if (!content_type_found) {
+                const error = new Error(`Appid: ${this.app.id} calling ${this.insurer.name} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
+                log.error(error.message + __location);
+                reject(error);
+                return;
+            }
+
+            // Set the length parameter
+            headers['Content-Length'] = data && data.length ? Buffer.byteLength(data) : 0;
+
+            // Set the request options
+            const options = {
+                agent: false,
+                headers: headers,
+                hostname: host,
+                method: method,
+                path: path,
+                rejectUnauthorized: false,
+                requestCert: true,
+                timeout: 180000
+            };
+
+            const req = http.request(options, (res) => {
+                let rawData = '';
+                // Grab each chunk of data
+                res.on('data', (d) => {
+                    rawData += d;
+                });
+
+                res.on('end', () => {
+                    // Calculate how long this took
+                    this.seconds = process.hrtime(start_time)[0];
+
+                    // Attempt to format the returned data
+                    //log.debug(` Appid: ${this.app.id} calling ${this.insurer.name} rawData ${rawData}`)
+                    let formattedData = rawData;
+                    if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
+                        // Format XML to be readable
+                        const formattedXMLData = this.get_formatted_xml_string(rawData);
+                        if (formattedXMLData) {
+                            formattedData = formattedXMLData;
+                        }
+                    }
+                    else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
+                        // Format JSON to be readable
+                        try{
+                            const formattedJSONData = this.get_formatted_json_string(rawData);
+                            if (formattedJSONData) {
+                                formattedData = formattedJSONData;
+                            }
+                        }
+                        catch(err){
+                            log.error(`Appid: ${this.app.id} calling ${this.insurer.name} send_request() error JSON parsing ${err}` + __location);
+                        }
+                    }
+                    if (res.statusCode >= 200 && res.statusCode <= 299 || returnResponseOnAllStatusCodes) {
+                        // Strip AF Group's Quote Letter out of the log
+                        formattedData = formattedData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
+
+                        // Strip Employer's Quote Letter out of the log
+                        formattedData = formattedData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
+
+                        // Strip Acuity's Quote Letter out of the log
+                        formattedData = formattedData.replace(/<!\[CDATA.*>/, '<![CDATA[...]]>');
+
+                        this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br>`;
+                        this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
+                        fulfill(rawData);
+                    }
+                    else{
+                        const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
+                        // Added check - do not log errors if there is a special response case for the client to handle
+                        if(log_errors){
+                            log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} ` + __location);
+                            log.verbose(rawData);
+                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>`;
+                            this.log += `Status Code: ${res.statusCode} <br>`;
+                            this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
+                        }
+                        error.httpStatusCode = res.statusCode;
+                        error.response = rawData;
+                        reject(error);
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                log.error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout. error ${err}` + __location);
+                this.log += `Connection to ${this.insurer.name} timedout. error ${err} `;
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timeout. Reason: ${err.code}`));
+            });
+
+            if (data) {
+                req.write(data);
+            }
+            req.end();
+        });
+    }
+
     /**
 	 * Sends an JSON request to this insurer
 	 *
@@ -2601,7 +2787,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
 
-    send_json_request(host, path, json, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
+    send_json_request(host, path, json, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false, internalCall = false) {
         return new Promise(async(fulfill, reject) => {
             // If we don't have additional headers, start an object to append
             if (!additional_headers) {
@@ -2613,31 +2799,58 @@ module.exports = class Integration {
                 additional_headers['Content-Type'] = 'application/json';
             }
             additional_headers.accept = 'application/json';
-
-            // Send the request
-            await this.send_request(host, path, json, additional_headers, method, log_errors, returnResponseOnAllStatusCodes).
-                then((result) => {
-                    let jsonResponse = null
-                    let error = null
-                    try{
-                        jsonResponse = JSON.parse(result);
-                    }
-                    catch(err){
-                        error = err;
-                        log.error(`Appid: ${this.app.id} send_json_request ${host}${path} error processing JSON  Response "${result}" Error: ${err} ` + __location)
-                    }
-                    if(error){
-                        const throwError = new Error(`${error} response  ${result}`)
-                        reject(throwError);
-                    }
-                    else {
-                        fulfill(jsonResponse);
-                    }
-                    
-                }).
-                catch((error) => {
-                    reject(error);
-                });
+            if(internalCall === false){
+                // Send the request
+                await this.send_request(host, path, json, additional_headers, method, log_errors, returnResponseOnAllStatusCodes).
+                    then((result) => {
+                        let jsonResponse = null
+                        let error = null
+                        try{
+                            jsonResponse = JSON.parse(result);
+                        }
+                        catch(err){
+                            error = err;
+                            log.error(`Appid: ${this.app.id} send_json_request ${host}${path} error processing JSON  Response "${result}" Error: ${err} ` + __location)
+                        }
+                        if(error){
+                            const throwError = new Error(`${error} response  ${result}`)
+                            reject(throwError);
+                        }
+                        else {
+                            fulfill(jsonResponse);
+                        }
+                        
+                    }).
+                    catch((error) => {
+                        reject(error);
+                    });
+            }
+            else {
+                // Send the request
+                await this.send_request_http(host, path, json, additional_headers, method, log_errors, returnResponseOnAllStatusCodes).
+                    then((result) => {
+                        let jsonResponse = null
+                        let error = null
+                        try{
+                            jsonResponse = JSON.parse(result);
+                        }
+                        catch(err){
+                            error = err;
+                            log.error(`Appid: ${this.app.id} send_json_request ${host}${path} error processing JSON  Response "${result}" Error: ${err} ` + __location)
+                        }
+                        if(error){
+                            const throwError = new Error(`${error} response  ${result}`)
+                            reject(throwError);
+                        }
+                        else {
+                            fulfill(jsonResponse);
+                        }
+                        
+                    }).
+                    catch((error) => {
+                        reject(error);
+                    });
+            }
         });
     }
 
@@ -2791,6 +3004,10 @@ module.exports = class Integration {
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             
             let industryCodeId = parseInt(this.applicationDocData.industryCode,10);
+            if(!industryCodeId && !this.requiresInsurerIndustryCodes){
+                // handle policyTypes that do not have industry codes.
+                fulfill(true);
+            }
 
             
             if(this.policy.type === 'BOP' && this.usePolciyBOPindustryCode){
