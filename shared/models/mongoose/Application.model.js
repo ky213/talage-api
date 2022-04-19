@@ -206,6 +206,7 @@ const WaiverSubrogationSchema = new Schema({
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
+    productName: {type: String, required: false}, //Insurers ProductName for OTHER policy types
     effectiveDate: {type: Date, required: false},
     expirationDate: {type: Date, required: false},
     limits: {type: String, required: false},
@@ -227,7 +228,8 @@ const PolicySchema = new Schema({
     profLiability: professionalLiabilityPolicySchema,
     eventInsurance: eventBasedInsurancePolicySchema,
     bopIndustryCodeId: {type: Number, required: false},
-    fireCode: {type: String, required: false}
+    fireCode: {type: String, required: false},
+    additionalInfo: {type: Object}
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
