@@ -161,17 +161,18 @@ module.exports = class FireCodeBO{
             active
         };
 
-        let fireCodeRecords = null;
+        let fireCodeRecords = [];
         try {
             fireCodeRecords = await FireCodeModel.find(query);
         }
         catch (e) {
             log.error(`FireCode BO <getByCGL>: Error getting Fire Code records with CGL ${cgl}: ${e}. ` + __location);
-            throw e;
+            // do not just throw errors.
+            //throw e;
         }
 
         if (!fireCodeRecords || fireCodeRecords.length === 0) {
-            log.error(`FireCode BO <getByCGL>: No Fire Code records were found with CGL ${cgl}.` + __location);
+            log.warn(`FireCode BO <getByCGL>: No Fire Code records were found with CGL ${cgl}.` + __location);
             // in case fireCodeRecords came back not defined
             fireCodeRecords = [];
         }

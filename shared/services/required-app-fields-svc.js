@@ -574,11 +574,18 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
                 object2[key] = {};
             }
 
+            // if(!object1[key].hasOwnProperty("requirement")){
+            //     object1[key].requirement = optional;
+            // }
+            // if(!object2[key].hasOwnProperty("requirement")){
+            //     object2[key].requirement = optional;
+            // }
+            //not present equal hidden. only need ot define required or optional
             if(!object1[key].hasOwnProperty("requirement")){
-                object1[key].requirement = optional;
+                object1[key].requirement = hidden;
             }
             if(!object2[key].hasOwnProperty("requirement")){
-                object2[key].requirement = optional;
+                object2[key].requirement = hidden;
             }
 
             // if the property is provided:
@@ -603,7 +610,8 @@ const populateSingleRequiredObject = (obj, newObj) => {
                 newObj[key].requirement = obj[key].requirement;
             }
             else{
-                newObj[key].requirement = optional;
+                //not present equal hidden. only need ot define required or optional
+                newObj[key].requirement = hidden;
             }
 
             populateSingleRequiredObject(obj[key], newObj[key]);

@@ -2628,7 +2628,8 @@ module.exports = class ApplicationModel {
 
         // TODO: Update this if we start using NAICS and/or SIC
         if (!industryCodeRecord.cgl) {
-            log.error(`${errorPrefix}No CGL code exists on the application's selected Industry Code. ` + __location);
+            // not necessary an error
+            log.warn(`${errorPrefix}No CGL code exists on the application's selected Industry Code. ` + __location);
             return fireCodeRecords;
         }
 
