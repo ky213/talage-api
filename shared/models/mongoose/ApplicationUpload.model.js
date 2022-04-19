@@ -1,21 +1,9 @@
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
-const timestamps = require('mongoose-timestamp');
+const mongoose = global.mongodb;
 
-const QuestionSchema = new Schema({
-    question: {type: String, required: false},
-    questionTag: {type: String, required: false},
-    answer: {type: String, required: false},
-    page: {type: Number, required: false},
-});
+const Application = require("./Application.model");
+const ApplicationUploadSchema = Application.ApplicationSchema.clone();
 
-const ApplicationUpload = new Schema({
-    requestId: {type: String, required: [true, 'requestId required'], unique: true},
-    questions: [QuestionSchema]
-});
-
-ApplicationUpload.plugin(timestamps);
-
-mongoose.model("ApplicationUpload", ApplicationUpload);
+mongoose.model("ApplicationUpload", ApplicationUploadSchema);
 
 // PendingApplication
 //    -> add status fields

@@ -100,7 +100,8 @@ const convertInsurerIndustryCodeToTalageIndustryCode = async (insurerId, insurer
         code: insurerIndustryCode.toString()
     });
     if (!insurerIndustryCodeObj) {
-        throw new Error(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
+        log.error(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
+        return undefined;
     }
 
     return insurerIndustryCodeObj.talageIndustryCodeIdList[0];
@@ -121,8 +122,31 @@ const convertInsurerActivityCodeToTalageActivityCode = async (insurerId, insurer
     return _.get(insurerIndustryCodeObj, 'talageActivityCodeIdList[0]');
 }
 
+/**
+ * Try to format the specifield fieldValue with the specified function formatter. If the
+ * formatterFunc fails (i.e., throws an error or returned a rejected promise), then this method
+ * will return undefined and log the issue.
+ * @param {*} fieldValue 
+ * @param {*} formatterFunc 
+ * @returns 
+ */
+const tryToFormat = async (fieldValue, formatterFunc) => {
+    try {
+        return await formatterFunc(fieldValue);
+    } catch (ex) {
+        // Retrieve the name of the method and line number that called this function.
+        const err = new Error();
+        const stack = err.stack.split('\n');
+        const prevMethod = stack[2].trim().replace('at ', '');
 
-const cleanLimit = (limit) => limit.replace(',', '').replace('.', '');
+        // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
+        log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
+        console.log(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
+        return undefined;
+    }
+}
+
+const cleanLimit = (limit) => limit.replaceAll(',', '').replaceAll('.', '');
 
 module.exports = class ApplicationUploadBO {
     async submitFile(agency, fileType, acordFile) {
@@ -200,10 +224,17 @@ module.exports = class ApplicationUploadBO {
                 // Go to sleep for 5 seconds
                 await new Promise(r => setTimeout(r, 5000));
 
-                status = await axios.request({
-                    method: 'GET',
-                    url: `https://ck2c645j29.execute-api.us-west-1.amazonaws.com/develop2/ocr/status/${requestId}`
-                });
+                try {
+                    status = await axios.request({
+                        method: 'GET',
+                        url: `https://ck2c645j29.execute-api.us-west-1.amazonaws.com/develop2/ocr/status/${requestId}`
+                    });
+                } catch (ex) {
+                    //timeouts might be fluke
+                    if (!ex.message.contains('TIMEOUT')) {
+                        throw ex;
+                    }
+                }
                 console.log('Still queued... waiting...');
             } while (status.data.status === 'QUEUED');
         } catch (error) {
@@ -218,7 +249,14 @@ module.exports = class ApplicationUploadBO {
         return status.data;
     }
 
-    async saveOcrResult(requestId, ocrResult, agencyMetadata) {
+    /**
+     * 
+     * @param {*} requestId 
+     * @param {*} ocrResult 
+     * @param {*} agencyMetadata 
+     * @param {*} doCreateInApplicationUpload Whether or not to save this application in ApplicationUpload or Application collection.
+     */
+    async saveOcrResult(requestId, ocrResult, agencyMetadata, doCreateInApplicationUpload = true) {
         await ApplicationUploadStatus.updateOne({ requestId: requestId }, { status: 'SUCCESS'});
 
         let data = {};
@@ -234,8 +272,14 @@ module.exports = class ApplicationUploadBO {
         // XXX: Auto-generate this later.
         const insurerId = agencyMetadata.insurerId || 9;
 
+        const additionalInfo = [];
+
         // -> Compwest Ins
-        const applicationUploadObj = {
+        let applicationUploadObj = {
+            additionalInfo: {
+                validationErrors: additionalInfo,
+                ocrRequestId: requestId
+            },
             appStatusId: 0, // Mark awspplication as incomplete by default
             agencyId: agencyMetadata.agencyId,
             agencyLocationId: agencyMetadata.agencyLocationId,
@@ -243,64 +287,68 @@ module.exports = class ApplicationUploadBO {
 
             email: data.Email,
             phone: data.Applicant_Office_Phone,
-            mailingAddress: getAddressLine1(data.Applicant_Mailing_Address),
-            mailingAddress2: getAddressLine2(data.Applicant_Mailing_Address),
-            mailingCity: getCity(data.Applicant_Mailing_Address),
-            mailingState: getState(data.Applicant_Mailing_Address),
-            mailingZipcode: getZip(data.Applicant_Mailing_Address),
+            mailingAddress: await tryToFormat(data.Applicant_Mailing_Address, async (v) => getAddressLine1(v)),
+            mailingAddress2: await tryToFormat(data.Applicant_Mailing_Address, async (v) => getAddressLine2(v)),
+            mailingCity: await tryToFormat(data.Applicant_Mailing_Address, async (v) => getCity(v)),
+            mailingState: await tryToFormat(data.Applicant_Mailing_Address, async (v) => getState(v)),
+            mailingZipcode: await tryToFormat(data.Applicant_Mailing_Address, async (v) => getZip(v)),
             website: data.Website,
             ein: data.FEIN,
-            founded: data.Years_In_Business ? moment().subtract(parseInt(data.Years_In_Business, 10), 'years') : undefined,
+            founded: await tryToFormat(data.Years_In_Business, async (v) => moment().subtract(parseInt(v, 10), 'years')),
             businessName: data.Applicant_Name,
 
             locations: await Promise.all(data.Location.map(async (l) => ({
-                address: getAddressLine1(l.Address),
-                address2: getAddressLine2(l.Address),
-                city: getCity(l.Address),
-                state: getState(l.Address),
-                zipcode: getZip(l.Address),
+                address: await tryToFormat(l.Address, async (v) => getAddressLine1(v)),
+                address2: await tryToFormat(l.Address, async (v) => getAddressLine2(v)),
+                city: await tryToFormat(l.Address, async (v) => getCity(v)),
+                state: await tryToFormat(l.Address, async (v) => getState(v)),
+                zipcode: await tryToFormat(l.Address, async (v) => getZip(v)),
                 activityPayrollList: await Promise.all(data.Rating.map(async (r) => ({
-                    ncciCode: parseInt(r.Class_Code, 10), // Convert to talage NCCI
-                    payroll: parseInt(r.Annual_Remuneration.replace(',', ''), 10),
-                    activityCodeId: await convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address)), // Convert to talage NCCI
+                    ncciCode: await tryToFormat(r.Class_Code, async (v) => parseInt(v, 10)), // Convert to talage NCCI
+                    payroll: await tryToFormat(r.Annual_Remuneration, async (v) => parseInt(v.replace(',', ''), 10)),
+                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address))), // Convert to talage NCCI
                 })))
             }))),
 
             contacts: [{
-                firstName: getFirstName(data.Contact_Accounting_Name),
-                lastName: getLastName(data.Contact_Accounting_Name),
+                firstName: await tryToFormat(data.Contact_Accounting_Name, async (v) => getFirstName(v)),
+                lastName: await tryToFormat(data.Contact_Accounting_Name, async (v) => getLastName(v)),
                 email: data.Contact_Accounting_Email,
                 phone: data.Contact_Accounting_Office_Phone,
                 primary: true, // XXX: change me
-            }, {
-                firstName: getFirstName(data.Contact_Claims_Name),
-                lastName: getLastName(data.Contact_Claims_Name),
+            },
+            {
+                firstName: await tryToFormat(data.Contact_Claims_Name, async (v) => getFirstName(v)),
+                lastName: await tryToFormat(data.Contact_Claims_Name, async (v) => getLastName(v)),
                 email: data.Contact_Claims_Email,
                 phone: data.Contact_Claims_Office_Phone,
                 primary: false, // XXX: change me
-            }, {
-                firstName: getFirstName(data.Contact_Inspection_Name),
-                lastName: getLastName(data.Contact_Inspection_Name),
+            },
+            {
+                firstName: await tryToFormat(data.Contact_Inspection_Name, async (v) => getFirstName(v)),
+                lastName: await tryToFormat(data.Contact_Inspection_Name, async (v) => getLastName(v)),
                 email: data.Contact_Inspection_Email,
                 phone: data.Contact_Inspection_Office_Phone,
                 primary: false, // XXX: change me
             }],
 
-            owners: data.Individual.map(i => ({
+            owners: await Promise.all(data.Individual.map(async (i) => ({
                 fname: getFirstName(i.Name),
                 lname: getLastName(i.Name),
                 ownership: i.Ownership,
                 officerTitle: i.Title.replace('\n', ' '),
-                birthdate: i.DOB ? moment(i.DOB) : undefined,
+                birthdate: await tryToFormat(i.DOB, async (v) => i.DOB ? moment(i.DOB) : ''),
                 include: i.Inc_Exc === 'INC',
                 activityCodeId: i.Class_Code
-            })),
+            }))),
 
             policies: [{
                 policyType: 'WC',
                 effectiveDate: moment().format('MM/DD/YYYY'),
-                expirationDate: moment(data.Proposed_Exp_Date, 'MM/DD/YYYY'),
-                limits: cleanLimit(data.Liability_Disease_Employee) + cleanLimit(data.Liability_Disease_Limit) + cleanLimit(data.Liability_Each_Accident)
+                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async (v) => moment(v, 'MM/DD/YYYY')),
+                limits: await tryToFormat(data.Liability_Disease_Employee, async (v) => cleanLimit(v)) +
+                    await tryToFormat(data.Liability_Disease_Limit, async (v) => cleanLimit(v)) +
+                    await tryToFormat(data.Liability_Each_Accident, async (v) => cleanLimit(v))
             }],
 
             // yearsOfExp: data['Years In Business'],
@@ -324,7 +372,11 @@ module.exports = class ApplicationUploadBO {
         try {
             console.log('FINAL hitz', applicationUploadObj);
             // await ApplicationUpload.create(applicationUploadObj)
-            await Application.create(applicationUploadObj);
+            if (doCreateInApplicationUpload) {
+                await ApplicationUpload.create(applicationUploadObj);
+            } else {
+                await Application.create(applicationUploadObj);
+            }
         } catch (ex) {
             console.log(ex);
         }
@@ -346,6 +398,7 @@ module.exports = class ApplicationUploadBO {
         }
         catch (error) {
             log.error(`Database Error getting OCR list  ${error.message} ${__location}`);
+            return [];
         }
     }
 }
