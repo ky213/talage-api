@@ -1007,7 +1007,11 @@ module.exports = class USLIBOP extends Integration {
             const admittedRemark = remarkText.find(remark => remark?.$?.id === "Admitted Status");
             admitted = admittedRemark && admittedRemark?._ === "This quote is admitted";
 
-            this.quoteAdditionalInfo.remarkText = remarkText;
+            // add remarkText to quote additionalInfo
+            this.quoteAdditionalInfo.remarkText = remarkText.map(remark => ({
+                id: remark?.$?.id,
+                description: remark?._ 
+            }));
         }
 
         // remove taxes from premium if quote is not admitted and taxes exist
@@ -1038,15 +1042,19 @@ module.exports = class USLIBOP extends Integration {
                         taxDescription,
                         taxAmount
                     });
-
-                    if (premium < 0) {
-                        log.warn(`${logPrefix}Tax deductions resulted in a premium value below 0. ` + __location);
-                        premium = 0;
-                    }
                 });
+
+                if (premium < 0) {
+                    log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
+                    premium = 0;
+                }
+                else {
+                    premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
+                }
             }
 
-            this.quoteAdditionalInfo.taxInfo = taxesAdditionalInfo;
+            // add tax and fees to quote additional info
+            this.quoteAdditionalInfo.taxAndFeeInfo = taxesAdditionalInfo;
         }
         
         // TODO: Parse remarkText to see if id View Quote Letter exists, if so, use for Quote Letter
@@ -1056,8 +1064,7 @@ module.exports = class USLIBOP extends Integration {
                 const code = coverage.CoverageCd[0];
                 const description = coverage.CoverageDesc[0];
                 const limit = coverage.Limit[0]?.FormatText[0];
-                let included = null;
-                included = coverage.Option[0]?.OptionCd[0];
+                let included = get(coverage, "Option[0].OptionCd[0]");
                 if (included) {
                     if (included === "Incl") {
                         included = "Included"
