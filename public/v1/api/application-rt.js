@@ -1717,20 +1717,23 @@ async function getFireCodes(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
-    let fireCodes = null;
+    let fireCodes = [];
     try {
         const applicationBO = new ApplicationBO();
         fireCodes = await applicationBO.getAppFireCodes(appId);
     }
     catch (e) {
         log.error(`Error getting Fire Codes for appId ${appId}: ${e}. ` + __location);
-        return next(serverHelper.requestError(`An error occured while retrieving Fire Codes: ${e}. `));
+        // do not return error to client
+        //return next(serverHelper.requestError(`An error occured while retrieving Fire Codes: ${e}. `));
     }
 
-    if (!fireCodes) {
-        log.error(`No Fire Codes were returned for appId ${appId}. ` + __location);
-        return next(serverHelper.requestError(`An error occurred while retrieving Fire Codes.`));
-    }
+    // most insurers do not have fire codes this is no an error.  Client cannot be expect
+    // to only call for firecode with there should be firecodes
+    // if (!fireCodes) {
+    //     log.error(`No Fire Codes were returned for appId ${appId}. ` + __location);
+    //     //return next(serverHelper.requestError(`An error occurred while retrieving Fire Codes.`));
+    // }
 
     res.send(200, fireCodes);
 }
