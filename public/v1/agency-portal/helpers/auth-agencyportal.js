@@ -42,7 +42,9 @@ async function getAgents(req) {
     if (error) {
         return error;
     }
-
+    if(!agencyResult){
+        return [];
+    }
     // Everything appears to be okay, return the requested agents
     return agencyResult.map(function(agency) {
         return agency.systemId;
