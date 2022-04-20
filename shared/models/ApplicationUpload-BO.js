@@ -236,7 +236,8 @@ module.exports = class ApplicationUploadBO {
                     });
                 } catch (ex) {
                     //timeouts might be fluke
-                    if (!ex.message.contains('TIMEOUT')) {
+                    if (!_.get(ex, 'message', '').contains('TIMEOUT')) {
+                        console.log(ex);
                         throw ex;
                     }
                 }
