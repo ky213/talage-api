@@ -234,8 +234,8 @@ module.exports = class USLIGL extends Integration {
               NAICCd: this.insurerIndustryCode?.naic || "26522",
               ControllingStateProvCd: this.policy?.primary_territory,
               ContractTerm: {
-                EffectiveDt: this.policy?.effective_date?.format("YYYY-MM-DD"),
-                ExpirationDt: this.policy?.expiration_date?.format("YYYY-MM-DD"),
+                EffectiveDt: this.policy?.effective_date?.format("YYYY-DD-MM"),
+                ExpirationDt: this.policy?.expiration_date?.format("YYYY-DD-MM"),
                 DurationPeriod: {
                   NumUnits: this.policy?.expiration_date?.diff(this.policy?.effective_date, "months"),
                   UnitMeasurementCd: "month",
@@ -493,14 +493,8 @@ module.exports = class USLIGL extends Integration {
     }
     
     if (statusCode === "0") {
-      const quoteNumber = get(
-        response,
-        "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]"
-      );
-      const commlCoverage = get(
-        response,
-        "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage"
-      );
+      const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
+      const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
       const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
       const quoteLimits = {};
 
@@ -529,7 +523,7 @@ module.exports = class USLIGL extends Integration {
         return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
       }
       
-      if(msgStatusCode === "SuccessWithInfo"){
+      if(msgStatusCode === "SuccessWithInfo" && premium == 0){
         const errorMessage = `USLI error: ${extendedStatusDesc || 'Unknown error'} `;
         log.error(logPrefix + errorMessage + __location);
         return this.client_error(errorMessage, __location);
