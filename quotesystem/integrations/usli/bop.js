@@ -949,21 +949,20 @@ module.exports = class USLIBOP extends Integration {
         const response = get(result, "ACORD.InsuranceSvcRs[0]");
         const statusCd = get(response, "Status[0].StatusCd[0]");
         const statusDesc = get(response, "Status[0].StatusDesc[0]");
-        const msgStatusCd = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
+        const msgStatusCd = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]"); // not required
         const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
         // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
         let missingRespObj = false;
-        const responseObjects = {
+        const requiredResponseObjects = {
             "ACORD.InsuranceSvcRs[0]": response,
             "Status[0].StatusCd[0]": statusCd,
             "Status[0].StatusDesc[0]": statusDesc,
-            "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]": msgStatusCd,
             "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]": msgStatusDesc
         };
         
         // check each part of the response we parse and ensure it exists. If it doesn't, report the error, as the response object USLI returns may have changed
-        for (const [path, obj] of Object.entries(responseObjects)) {
+        for (const [path, obj] of Object.entries(requiredResponseObjects)) {
             if (!obj) {
                 missingRespObj = true;
                 log.error(`${logPrefix}Response is missing path: ${path}. ` + __location);
