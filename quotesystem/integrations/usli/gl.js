@@ -479,6 +479,7 @@ module.exports = class USLIGL extends Integration {
     const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
     const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
     const extendedStatusDesc = get(response,"CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]")
+    const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
 
     if (msgStatusCode === "Rejected") {
       const errorMessage = `USLI decline error: ${msgStatusDescription} `;
@@ -493,10 +494,23 @@ module.exports = class USLIGL extends Integration {
     }
     
     if (statusCode === "0") {
-      const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
-      const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
+      const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]" );
+      const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage" );
       const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
+      const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
+      const { _: admittedRemark } = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
+      const admitted = admittedRemark === "This quote is admitted";
+
       const quoteLimits = {};
+
+      // add remarkText to quote additionalInfo
+      this.quoteAdditionalInfo = {
+        ...this.quoteAdditionalInfo,
+        remarkText: remarkText.map((remark) => ({
+          id: remark?.$?.id,
+          description: remark?._,
+        })),
+      };
 
       const coverages = commlCoverage?.map((coverage, index) => {
         const code = get(coverage, "CoverageCd[0]");
@@ -513,18 +527,18 @@ module.exports = class USLIGL extends Integration {
       });
 
       const responseMessage = `USLI ${msgStatusDescription} `;
-      log.info(logPrefix + responseMessage  + __location);
+      log.info(logPrefix + responseMessage + __location);
 
-      if(msgStatusCode === "Success"){
+      if (msgStatusCode === "Success") {
         return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
       }
-      
+
       if (msgStatusDescription?.startsWith("Referral")) {
         return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
       }
-      
-      if(msgStatusCode === "SuccessWithInfo" && premium == 0){
-        const errorMessage = `USLI error: ${extendedStatusDesc || 'Unknown error'} `;
+
+      if (msgStatusCode === "SuccessWithInfo" && premium == 0) {
+        const errorMessage = `USLI error: ${extendedStatusDesc || "Unknown error"} `;
         log.error(logPrefix + errorMessage + __location);
         return this.client_error(errorMessage, __location);
       }
