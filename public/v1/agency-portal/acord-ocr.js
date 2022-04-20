@@ -62,7 +62,7 @@ async function performOcrOnAccodPdfFile(req, res, next) {
     };
 
     // console.log('DA FILE', fs.readFileSync(req.files['0'].path));
-    if (_.isEmpty(req.files)) { 
+    if (_.isEmpty(req.files)) {
         log.info("Bad Request: No data received" + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
     }
@@ -72,6 +72,8 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         log.info("Bad Request: exceeded number of files (10)" + __location);
         return next(serverHelper.requestError("Bad Request: Max number of files is 10"));
     }
+
+    const markAsPending = req.body?.markAsPending === 'true';
 
     try {
         const initFiles = [];
@@ -100,7 +102,7 @@ async function performOcrOnAccodPdfFile(req, res, next) {
                 console.log(`OCR microservice error: ${result.message}`)
                 continue;
             }
-            await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata, req.body.markAsPending);
+            await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata, markAsPending);
         }
         res.send(await Promise.all(initFiles));
     } catch (ex) {
