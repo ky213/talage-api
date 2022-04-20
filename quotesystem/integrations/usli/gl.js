@@ -43,10 +43,17 @@ module.exports = class USLIGL extends Integration {
    * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
    */
   async _insurer_quote() {
-    let logPrefix = "";
     const quoteLetter = null;
     const applicationDocData = this.applicationDocData;
+    const logPrefix = `USLI GL (Appid: ${applicationDocData.applicationId}): `;
     const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
+
+    if (!GLPolicy) {
+      const errorMessage = `Could not find a policy with type GL.`;
+      log.error(`${logPrefix}${errorMessage} ${__location}`);
+      return this.client_error(errorMessage, __location);
+    }
+
     // To do check policy
     const entityTypes = {
       Corporation: { abbr: "CP", id: "CORPORATION" },
@@ -89,9 +96,6 @@ module.exports = class USLIGL extends Integration {
     const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
     const agencyInfo = await this.getAgencyInfo();
     const childClassificationRequired = Object.keys(childClassificationMap).includes(this.insurerIndustryCode.code);
-
- 
-    logPrefix = `USLI GL (Appid: ${applicationDocData.applicationId}): `;
 
     if (!this.industry_code?.insurerIndustryCodeId) {
       const errorMessage = `No Industry Code was found for GL. `;
@@ -455,14 +459,13 @@ module.exports = class USLIGL extends Integration {
     const host = "services.uslistage.com"; // TODO: base API path here
     const quotePath = `/API/Quote`; // TODO: API Route path here
     const additionalHeaders = {
-      "Content-Type": "application/xml"
+      "Content-Type": "application/xml",
     };
 
     let result = null;
     try {
       result = await this.send_xml_request(host, quotePath, xml, additionalHeaders);
-    }
- catch (e) {
+    } catch (e) {
       const errorMessage = `An error occurred while trying to hit the USLI Quote API endpoint: ${e}. `;
       log.error(logPrefix + errorMessage + __location);
       return this.client_error(errorMessage, __location);
@@ -476,7 +479,6 @@ module.exports = class USLIGL extends Integration {
     const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
     const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
-    // Check that there was success at the root level
     if (msgStatusCode === "Rejected") {
       const errorMessage = `USLI decline error: ${msgStatusDescription} `;
       log.error(logPrefix + errorMessage + __location);
@@ -488,44 +490,52 @@ module.exports = class USLIGL extends Integration {
       log.error(logPrefix + errorMessage + __location);
       return this.client_error(errorMessage, __location);
     }
+    
+    if (statusCode === "0") {
+      const quoteNumber = get(
+        response,
+        "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]"
+      );
+      const commlCoverage = get(
+        response,
+        "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage"
+      );
+      const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
+      const quoteLimits = {};
 
-    if (msgErrorCode === "Error") {
-      const errorMessage = `USLI error: ${msgStatusDescription} `;
-      log.error(logPrefix + errorMessage + __location);
-      return this.client_error(errorMessage, __location);
-    }
+      const coverages = commlCoverage?.map((coverage, index) => {
+        const code = get(coverage, "CoverageCd[0]");
+        const description = get(coverage, "CoverageDesc[0]");
+        const limit = get(coverage, "Limit[0].FormatText[0]");
 
-    const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
-    const commlCoverage = get(
-      response,
-      "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage"
-    );
-    const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
-    const quoteLimits = {};
+        return {
+          value: convertToDollarFormat(limit, true),
+          description: description,
+          sort: index,
+          category: "General Limits",
+          insurerIdentifier: code,
+        };
+      });
 
-    const coverages = commlCoverage.map((coverage, index) => {
-      const code = coverage.CoverageCd[0];
-      const description = coverage.CoverageDesc[0];
-      const limit = coverage.Limit[0]?.FormatText[0];
+      const responseMessage = `USLI ${msgStatusDescription} `;
+      log.info(logPrefix + responseMessage  + __location);
 
-      return {
-        description: description,
-        value: convertToDollarFormat(limit, true),
-        sort: index,
-        category: "General Limits",
-        insurerIdentifier: code
-      };
-    });
+      if(msgStatusCode === "Success"){
+        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
+      }
 
-    if (statusCode === "0" && msgStatusCode === "Success") {
-      return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
-    }
+      if (msgStatusDescription?.startsWith("Referral")) {
+        return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
+      }
 
-    if (["434", "436"].includes(statusCode)) {
-      return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
     }
 
     // check for PP
+
+    const errorMessage = `USLI error: ${msgStatusDescription || 'Unknown error'} `;
+    log.error(logPrefix + errorMessage + __location);
+    return this.client_error(errorMessage, __location);
+
   }
 
   async getAgencyInfo() {
