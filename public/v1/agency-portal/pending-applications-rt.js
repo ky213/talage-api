@@ -4,56 +4,11 @@
 /* eslint-disable no-extra-parens */
 'use strict';
 const auth = require('./helpers/auth-agencyportal.js');
-const csvStringify = require('csv-stringify');
-const formatPhone = global.requireShared('./helpers/formatPhone.js');
-const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
-const moment = require('moment');
 const serverHelper = global.requireRootPath('server.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const ApplicationBO = global.requireShared('models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
-const InsurerBO = global.requireShared('./models/Insurer-BO.js');
-const Quote = global.mongoose.Quote;
-const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
-const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
-const AgencyLocationBO = global.requireShared("models/AgencyLocation-BO.js");
-const AgencyPortalUserBO = global.requireShared("./models/AgencyPortalUser-BO.js");
-const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
-const TerritoryBO = global.requireShared('./models/Territory-BO.js');
 const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.js');
-
-/**
- * Validates the parameters for the applications call
- * @param {Array} parent - The list of parameters to validate
- * @param {Array} expectedParameters - The list of expected parameters
- * @return {boolean} true or false for if the parameters are valid
- */
-function validateParameters(parent, expectedParameters){
-
-    if (!parent){
-        log.error('Bad Request: Missing all parameters' + __location);
-        return false;
-    }
-    for (let i = 0; i < expectedParameters.length; i++){
-        const expectedParameter = expectedParameters[i];
-        if ((!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type) && expectedParameters[i].optional !== true){
-            log.error(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})` + __location);
-            return false;
-        }
-        const parameterValue = parent[expectedParameter.name];
-        if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue) && expectedParameter.optional !== true){
-            log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
-            return false;
-        }
-        if (expectedParameters[i].verifyDate && parameterValue && !moment(parameterValue).isValid()){
-            log.error(`Bad Request: Invalid date value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
-            return false;
-        }
-    }
-    return true;
-}
 
 /**
  * Responds to get requests for the applications endpoint
@@ -66,7 +21,8 @@ function validateParameters(parent, expectedParameters){
  */
 async function getPendingApplications(req, res, next){
     try{
-        log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
+        log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location);
+        let isGlobalViewMode = false;
         const query = {active: true};
         const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
         const orClauseArray = [];
@@ -123,6 +79,7 @@ async function getPendingApplications(req, res, next){
             if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                 && req.authentication.permissions.talageStaff === true
                 && req.authentication.enableGlobalView === true){
+                isGlobalViewMode = true;
                 if(req.body.agencyNetworkId){
                     query.agencyNetworkId = !isNaN(req.params.agencyNetworkId) ? parseInt(`${req.params.agencyNetworkId}`,10) : -1;
                 }
@@ -182,7 +139,7 @@ async function getPendingApplications(req, res, next){
         const requestParams = JSON.parse(JSON.stringify(req.params));
         const applicationUploadBO = new ApplicationUploadBO();
         const applicationsSearchCount = await applicationUploadBO.getList(query, orClauseArray, {count: 1});
-        const applicationList = await applicationUploadBO.getList(query, orClauseArray, requestParams);
+        const applicationList = await applicationUploadBO.getList(query, orClauseArray, requestParams, isGlobalViewMode);
         if(applicationList?.length > 0) {
             res.send({
                 "applications": applicationList,
@@ -218,7 +175,9 @@ async function moveToApplication(req, res, next){
             return next(serverHelper.requestError('Bad Request: missing pending application id'));
         }
         const pendingApplicationId = req.params.id;
-        await ApplicationUploadBO.moveToApplication(pendingApplicationId);
+        const applicationUploadBO = new ApplicationUploadBO();
+        await applicationUploadBO.moveToApplication(pendingApplicationId);
+        res.send(200, "Move successful");
     }
     catch(error) {
         log.error("API server error: " + error + __location);
@@ -241,7 +200,9 @@ async function deletePendingApplication(req, res, next){
             return next(serverHelper.requestError('Bad Request: missing pending application id'));
         }
         const pendingApplicationId = req.params.id;
-        await ApplicationUploadBO.deleteOne(pendingApplicationId);
+        const applicationUploadBO = new ApplicationUploadBO();
+        await applicationUploadBO.deleteSoftById(pendingApplicationId);
+        res.send(200, "Delete successful");
     }
     catch(error) {
         log.error("API server error: " + error + __location);
